@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.cache/
+.turbo/
+*.tsbuildinfo
+.code-analyzer/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.local
+.DS_Store
+coverage/
+benchmark-results/
+reports/

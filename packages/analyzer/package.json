@@ -1,0 +1,31 @@
+{
+  "name": "@code-analyzer/analyzer",
+  "version": "0.1.0",
+  "description": "Code analysis engine for Code Analyzer",
+  "author": "Lambertyan",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@code-analyzer/shared": "workspace:*",
+    "@code-analyzer/core": "workspace:*",
+    "@code-analyzer/infra": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@code-analyzer/cli",
+  "version": "0.1.0",
+  "description": "CLI for Code Analyzer",
+  "author": "Lambertyan",
+  "license": "MIT",
+  "bin": {
+    "code-analyzer": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@code-analyzer/shared": "workspace:*",
+    "@code-analyzer/core": "workspace:*",
+    "@code-analyzer/infra": "workspace:*",
+    "@code-analyzer/analyzer": "workspace:*",
+    "@code-analyzer/intelligence": "workspace:*",
+    "@code-analyzer/mcp": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

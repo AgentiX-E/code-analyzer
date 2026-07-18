@@ -1,0 +1,6 @@
+packages:
+  - 'packages/*'
+
+hoistPattern:
+  - '*eslint*'
+  - '*prettier*'
