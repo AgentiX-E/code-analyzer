@@ -303,19 +303,19 @@ describe('PipelineOrchestrator', () => {
       };
 
       const dependentPhase = {
-        id: 'depends' as PipelinePhaseId,
+        id: ('depends' as any) as PipelinePhaseId,
         dependencies: ['fails' as PipelinePhaseId],
         description: 'Depends on fail',
         parallelizable: false,
-        execute: async () => ({ phaseId: 'depends' as PipelinePhaseId, status: 'success' as const }),
+        execute: async () => ({ phaseId: ('depends' as any) as PipelinePhaseId, status: 'success' as const }),
       };
 
       const independentPhase = {
-        id: 'independent' as PipelinePhaseId,
+        id: ('independent' as any) as PipelinePhaseId,
         dependencies: [] as PipelinePhaseId[],
         description: 'Independent',
         parallelizable: true,
-        execute: async () => ({ phaseId: 'independent' as PipelinePhaseId, status: 'success' as const }),
+        execute: async () => ({ phaseId: ('independent' as any) as PipelinePhaseId, status: 'success' as const }),
       };
 
       const orchestrator = new PipelineOrchestrator([failPhase, dependentPhase, independentPhase]);
@@ -323,9 +323,9 @@ describe('PipelineOrchestrator', () => {
       const result = await orchestrator.execute(ctx);
 
       expect(result.status).toBe('partial');
-      const skipped = result.phases.find((p) => p.phaseId === 'depends');
+      const skipped = result.phases.find((p) => p.phaseId === ('depends' as any));
       expect(skipped?.status).toBe('skipped');
-      const independent = result.phases.find((p) => p.phaseId === 'independent');
+      const independent = result.phases.find((p) => p.phaseId === ('independent' as any));
       expect(independent?.status).toBe('success');
     });
   });

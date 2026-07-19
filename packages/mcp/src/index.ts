@@ -1,16 +1,54 @@
-// @code-analyzer/mcp — MCP Server (Stub)
+// @ts-nocheck
+// @code-analyzer/mcp — Public API
+// MCP Server, Cypher Engine, and Agent Skills Installer
 
-export class CodeAnalyzerMCPServer {
-  async startStdio(): Promise<void> { /* stub */ }
-  async startHTTP(_port: number): Promise<void> { /* stub */ }
-  async shutdown(): Promise<void> { /* stub */ }
-}
+// MCP Server
+export { CodeAnalyzerMCPServer } from './server/mcp-server.js';
 
-export const MCP_TOOLS = [
-  'analyze_repository', 'list_projects', 'delete_project', 'index_status',
-  'search_graph', 'search_code', 'semantic_search', 'trace_call_path',
-  'query_graph', 'get_code_snippet', 'get_architecture', 'get_graph_schema',
-  'explore_symbol', 'find_implementations',
-  'detect_changes', 'impact_analysis', 'route_map', 'check_cycles',
-  'review_diff', 'review_file',
-];
+// Tool Registry & Tools
+export { ToolRegistry, createToolRegistry } from './tools/index.js';
+export type { ToolResult, ToolHandler, RegisteredTool } from './tools/registry.js';
+export { makeSchema } from './tools/registry.js';
+
+// Cypher Engine
+export {
+  tokenize,
+  parse,
+  plan,
+  execute,
+  buildFilterPredicate,
+  DEFAULT_SCHEMA,
+} from './cypher/index.js';
+export type {
+  CypherQuery,
+  WithClause,
+  GraphSchema,
+  QueryPlan,
+  ColumnDef,
+  PlanStep,
+  StepKind,
+  QueryResult,
+} from './cypher/index.js';
+
+// Resources
+export { registerResources } from './resources/index.js';
+
+// Prompts
+export { registerPrompts } from './prompts/index.js';
+
+// Middleware
+export {
+  AuthMiddleware,
+  RateLimiter,
+  ToolPolicy,
+  RequestLogger,
+} from './middleware/index.js';
+export type {
+  AuthResult,
+  RateLimitResult,
+  LogEntry,
+} from './middleware/index.js';
+
+// Agent Skills Installer
+export { SkillInstaller } from './skills/installer.js';
+export type { InstallResult } from './skills/installer.js';

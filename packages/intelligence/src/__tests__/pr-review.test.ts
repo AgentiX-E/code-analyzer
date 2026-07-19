@@ -525,7 +525,7 @@ describe('PR Review Engine', () => {
         qualifiedName: 'pkg.test.spec',
         filePath: '/src/module.spec.ts',
         name: 'test_spec',
-        label: 'Spec',
+        label: 'Module',
       });
       createEdge(store, sourceId, testId, { type: 'TESTS' });
 

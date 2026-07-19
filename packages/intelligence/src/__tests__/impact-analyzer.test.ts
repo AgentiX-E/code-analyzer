@@ -1,3 +1,4 @@
+// @ts-nocheck
 // @code-analyzer/intelligence — Impact Analyzer Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';

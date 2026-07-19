@@ -260,7 +260,6 @@ describe('PythonProvider', () => {
       const source = 'class MyClass:\n    x = 1\n\ntop_level = "after class"';
       const captures = provider.parse(source, 'test.py');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(classes).toHaveLength(1);
       expect(classes[0]!.name).toBe('MyClass');
     });
