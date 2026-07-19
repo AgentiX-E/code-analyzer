@@ -217,6 +217,114 @@ export interface ProjectMetadata {
   config: Record<string, unknown>;
 }
 
+/** Shared context object threaded through pipeline phases */
+export interface PipelineContext {
+  projectId: string;
+  rootPath: string;
+  phaseData: Map<string, unknown>;
+  config: CodeAnalyzerConfig;
+  graph?: KnowledgeGraph;
+  metadata?: ProjectMetadata;
+}
+
+// ---------------------------------------------------------------------------
+// File Discovery & Parsing Types
+// ---------------------------------------------------------------------------
+
+/** A file discovered during the scan phase */
+export interface DiscoveredFile {
+  filePath: string;
+  language: SupportedLanguage | null;
+  content: string;
+  hash: string;
+  size: number;
+}
+
+/** A file after parsing — holds extracted symbols and scopes */
+export interface ParsedFile {
+  filePath: string;
+  language: SupportedLanguage;
+  symbols: SymbolDefinition[];
+  references: ReferenceSite[];
+  scopeTree: ScopeTree;
+  ast: unknown;
+}
+
+/** A symbol definition extracted during parsing */
+export interface SymbolDefinition {
+  name: string;
+  kind: NodeLabel;
+  qualifiedName: string;
+  startLine: number;
+  endLine: number;
+  signature?: string;
+  returnType?: string;
+  docstring?: string;
+  containerName?: string;
+  isExported: boolean;
+  visibility?: 'public' | 'private' | 'protected';
+  properties: Record<string, unknown>;
+}
+
+/** A reference site — where a symbol is referenced in source code */
+export interface ReferenceSite {
+  sourceFile: string;
+  sourceLine: number;
+  sourceColumn: number;
+  targetName: string;
+  targetQname?: string;
+  referenceKind: 'call' | 'import' | 'access' | 'type' | 'inherit';
+}
+
+/** A hierarchical scope tree for a parsed file */
+export interface ScopeTree {
+  name: string;
+  kind: NodeLabel;
+  startLine: number;
+  endLine: number;
+  parent?: ScopeTree;
+  children: ScopeTree[];
+  symbols: string[];
+}
+
+/** The full semantic model for a project */
+export interface SemanticModel {
+  projectId: string;
+  files: Map<string, ParsedFile>;
+  symbolTable: Map<string, GraphNode>;
+  symbolToDefinitions: Map<string, SymbolDefinition[]>;
+  unresolvedReferences: ReferenceSite[];
+}
+
+/** A resolved cross-file reference */
+export interface ResolvedReference {
+  reference: ReferenceSite;
+  targetNodeId: number;
+  targetLabel: NodeLabel;
+  targetQname: string;
+  confidence: number;
+}
+
+/** A resolved function or method call */
+export interface ResolvedCall {
+  callerQname: string;
+  calleeQname: string;
+  calleeNodeId: number;
+  lineNumber: number;
+  isAsync: boolean;
+  args: string[];
+  confidence: number;
+}
+
+/** A resolved import statement */
+export interface ResolvedImport {
+  sourceFile: string;
+  importPath: string;
+  importedSymbols: string[];
+  resolvedFiles: string[];
+  semantics: ImportSemantics;
+}
+
 // ---------------------------------------------------------------------------
 // Language Types
 // ---------------------------------------------------------------------------
@@ -346,6 +454,151 @@ export interface PromptDefinition {
 }
 
 // ---------------------------------------------------------------------------
+// Search Types
+// ---------------------------------------------------------------------------
+
+/** Options for searching the knowledge graph */
+export interface SearchOptions {
+  query: string;
+  labels?: NodeLabel[];
+  projectId?: string;
+  filePath?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** A single search result from the knowledge graph */
+export interface SearchResult {
+  node: GraphNode;
+  score: number;
+  matchedField: string;
+  matchedValue: string;
+}
+
+// ---------------------------------------------------------------------------
+// Impact Analysis Types
+// ---------------------------------------------------------------------------
+
+/** Result of an impact analysis over a set of changes */
+export interface ImpactResult {
+  changedFiles: string[];
+  changedSymbols: ChangedSymbol[];
+  impactTree: ImpactNode[];
+  riskLevel: RiskLevel;
+  processesAffected: ProcessImpact[];
+  estimatedEffort: 'low' | 'medium' | 'high';
+}
+
+/** A symbol that has changed between revisions */
+export interface ChangedSymbol {
+  symbolQname: string;
+  filePath: string;
+  changeType: 'added' | 'modified' | 'deleted' | 'renamed';
+  oldSignature?: string;
+  newSignature?: string;
+  startLine: number;
+  endLine: number;
+}
+
+/** A node in the impact analysis dependency tree */
+export interface ImpactNode {
+  symbolQname: string;
+  label: NodeLabel;
+  filePath: string;
+  impactType: 'direct' | 'indirect' | 'transitive';
+  depth: number;
+  children: ImpactNode[];
+}
+
+/** The impact of a code change on a business process */
+export interface ProcessImpact {
+  processName: string;
+  processId: number;
+  severity: RiskLevel;
+  affectedSteps: number[];
+  description: string;
+}
+
+// ---------------------------------------------------------------------------
+// Git Integration Types
+// ---------------------------------------------------------------------------
+
+/** A git diff for a single file */
+export interface GitDiff {
+  filePath: string;
+  oldHash: string;
+  newHash: string;
+  ranges: DiffRange[];
+  changeType: 'added' | 'modified' | 'deleted' | 'renamed';
+  oldPath?: string;
+}
+
+/** Result of checking whether a graph node is stale */
+export interface StalenessResult {
+  nodeId: number;
+  nodeQname: string;
+  isStale: boolean;
+  reason?: string;
+  diff?: GitDiff;
+}
+
+/** A line range in a git diff */
+export interface DiffRange {
+  oldStart: number;
+  oldEnd: number;
+  newStart: number;
+  newEnd: number;
+  changeType: 'added' | 'removed' | 'modified';
+}
+
+// ---------------------------------------------------------------------------
+// Configuration Types
+// ---------------------------------------------------------------------------
+
+/** Configuration for the MCP server instance */
+export interface MCPServerConfig {
+  name: string;
+  version: string;
+  toolProfile: ToolProfile;
+  maxResults: number;
+  enableStreaming: boolean;
+  enableResources: boolean;
+  enablePrompts: boolean;
+}
+
+/** Full configuration schema for Code Analyzer */
+export interface CodeAnalyzerConfig {
+  projectId: string;
+  rootPath: string;
+  language?: SupportedLanguage;
+  excludePatterns: string[];
+  includePatterns: string[];
+  maxFileSize: number;
+  maxFiles: number;
+  parseWorkers: number;
+  cacheDir?: string;
+  ignorePaths: string[];
+  mcp?: MCPServerConfig;
+  review?: {
+    enabled: boolean;
+    maxComments: number;
+    severityFilter: Severity[];
+    categoryFilter: ReviewCategory[];
+  };
+  embed?: {
+    enabled: boolean;
+    model: string;
+    batchSize: number;
+    dimensions: number;
+  };
+  pruner?: {
+    enabled: boolean;
+    keepTests: boolean;
+    keepInternal: boolean;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Utility Helpers
 // ---------------------------------------------------------------------------
 
@@ -357,6 +610,60 @@ export function isNodeLabel(value: string): value is NodeLabel {
 /** Validate that a string is a valid RelationshipType */
 export function isRelationshipType(value: string): value is RelationshipType {
   return (RELATIONSHIP_TYPES as readonly string[]).includes(value);
+}
+
+/** Map a file extension or filename to a SupportedLanguage */
+export function getLanguageFromFilename(filePath: string): SupportedLanguage | null {
+  const base = filePath.split('/').pop() ?? filePath;
+  const dotIndex = base.lastIndexOf('.');
+  if (dotIndex === -1) return null;
+
+  const ext = base.slice(dotIndex).toLowerCase();
+
+  // Special: dot-notated prefixes like .d.ts
+  if (ext === '.d.ts') return 'typescript';
+  if (ext === '.tsx') return 'typescript';
+  if (ext === '.jsx') return 'javascript';
+
+  const secondaryExt = base.slice(0, dotIndex).lastIndexOf('.');
+  if (secondaryExt >= 0) {
+    const secondPart = base.slice(secondaryExt).toLowerCase();
+    if (secondPart === '.d.ts') return 'typescript';
+  }
+
+  const EXT_MAP: Record<string, SupportedLanguage> = {
+    '.ts': 'typescript',
+    '.js': 'javascript',
+    '.mjs': 'javascript',
+    '.cjs': 'javascript',
+    '.py': 'python',
+    '.pyi': 'python',
+    '.go': 'go',
+    '.java': 'java',
+    '.kt': 'kotlin',
+    '.kts': 'kotlin',
+    '.cs': 'csharp',
+    '.rs': 'rust',
+    '.c': 'c',
+    '.h': 'c',
+    '.cpp': 'cpp',
+    '.cc': 'cpp',
+    '.cxx': 'cpp',
+    '.hpp': 'cpp',
+    '.hh': 'cpp',
+    '.php': 'php',
+    '.phtml': 'php',
+    '.rb': 'ruby',
+    '.swift': 'swift',
+    '.dart': 'dart',
+    '.lua': 'lua',
+    '.scala': 'scala',
+    '.zig': 'zig',
+    '.ex': 'elixir',
+    '.exs': 'elixir',
+  };
+
+  return EXT_MAP[ext] ?? null;
 }
 
 /** Paginated result wrapper */

@@ -1,5 +1,5 @@
 // @code-analyzer/analyzer — Stubs
-import type { PipelinePhaseId } from '@code-analyzer/shared';
+// Full implementation: Iteration 1
 
 export class PipelineOrchestrator {
   async run(_config: Record<string, unknown>): Promise<void> {}

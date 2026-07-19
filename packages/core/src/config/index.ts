@@ -1,43 +1,8 @@
-// @code-analyzer/core — Configuration System (Stub)
-// Full implementation in Iteration 0
+// @code-analyzer/core — Configuration System
+// Full implementation with layered config loading and validation
 
-export interface CodeAnalyzerConfig {
-  version: string;
-  indexing: {
-    maxFileSize: number;
-    parseTimeout: number;
-    workerCount: number;
-    allowedRoots: string[];
-    excludePatterns: string[];
-    indexMode: 'full' | 'moderate' | 'fast';
-    incrementalEnabled: boolean;
-  };
-  storage: {
-    cacheDir: string;
-    dbPath: string;
-    mmapSize: number;
-    walEnabled: boolean;
-  };
-}
-
-export async function loadConfig(rootPath: string): Promise<CodeAnalyzerConfig> {
-  // Stub: returns default configuration
-  return {
-    version: '0.1.0',
-    indexing: {
-      maxFileSize: 10 * 1024 * 1024,
-      parseTimeout: 30000,
-      workerCount: 4,
-      allowedRoots: [rootPath],
-      excludePatterns: ['node_modules/**', '.git/**', 'dist/**', 'build/**'],
-      indexMode: 'full',
-      incrementalEnabled: true,
-    },
-    storage: {
-      cacheDir: '.code-analyzer',
-      dbPath: '.code-analyzer/graph.db',
-      mmapSize: 1024 * 1024 * 1024,
-      walEnabled: true,
-    },
-  };
-}
+export type { CodeAnalyzerConfig } from '@code-analyzer/shared';
+export { getDefaultConfig } from './defaults.js';
+export { loadConfig, deepMerge } from './loader.js';
+export { validateConfig } from './validator.js';
+export type { ValidationError } from './validator.js';

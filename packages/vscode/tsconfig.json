@@ -3,14 +3,28 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "declarationDir": "./dist"
+    "declarationDir": "./dist",
+    "composite": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"],
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
   "references": [
-    { "path": "../shared" },
-    { "path": "../core" },
-    { "path": "../analyzer" },
-    { "path": "../intelligence" }
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../analyzer"
+    },
+    {
+      "path": "../intelligence"
+    }
   ]
 }

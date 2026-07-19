@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "ms-vscode.vscode-typescript-next",
+    "bierner.github-markdown-preview",
+    "yzhang.markdown-all-in-one",
+    "streetsidesoftware.code-spell-checker",
+    "chrmarti.regex",
+    "gruntfuggly.todo-tree"
+  ]
+}

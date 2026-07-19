@@ -1,12 +1,15 @@
-// @code-analyzer/core — Error Hierarchy (Stub)
+// @code-analyzer/core — Error Hierarchy
+// Typed error classes with JSON serialization for MCP transport
 
-export abstract class CodeAnalyzerError extends Error {
-  abstract readonly code: string;
-  abstract readonly category: string;
-  readonly timestamp: Date = new Date();
-  
-  constructor(message: string, public readonly context?: Record<string, unknown>) {
-    super(message);
-    this.name = this.constructor.name;
-  }
-}
+export {
+  CodeAnalyzerError,
+  ConfigError,
+  IOError,
+  ParseError,
+  ResolutionError,
+  GraphIntegrityError,
+  EmbeddingError,
+  LLMProviderError,
+  MCPProtocolError,
+  RateLimitError,
+} from './hierarchy.js';
