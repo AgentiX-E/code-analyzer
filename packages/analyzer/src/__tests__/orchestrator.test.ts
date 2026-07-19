@@ -64,6 +64,27 @@ describe('PipelineOrchestrator', () => {
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
+
+    it('should detect cycles in the pipeline DAG', () => {
+      const phaseA = {
+        id: 'a' as PipelinePhaseId,
+        dependencies: ['b' as PipelinePhaseId],
+        description: 'Phase A',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'a' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const phaseB = {
+        id: 'b' as PipelinePhaseId,
+        dependencies: ['a' as PipelinePhaseId],
+        description: 'Phase B',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'b' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([phaseA, phaseB]);
+      const result = orchestrator.validatePipeline();
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.type === 'cycle')).toBe(true);
+    });
   });
 
   describe('execute', () => {
@@ -216,6 +237,145 @@ describe('PipelineOrchestrator', () => {
       expect(['2', '3']).toContain(executionOrder[1]);
       expect(['2', '3']).toContain(executionOrder[2]);
       expect(executionOrder[3]).toBe('4');
+    });
+  });
+
+  describe('Error handling — edge cases', () => {
+    it('should handle phase throwing non-Error objects', async () => {
+      const throwingPhase = {
+        id: 'bad-throw' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Throws non-Error',
+        parallelizable: false,
+        execute: async () => { throw 'string error'; },
+      };
+
+      const orchestrator = new PipelineOrchestrator([throwingPhase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+
+      expect(result.status).toBe('failed');
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]!.message).toContain('string error');
+    });
+
+    it('should handle phase throwing number', async () => {
+      const throwingPhase = {
+        id: 'bad-throw' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Throws number',
+        parallelizable: false,
+        execute: async () => { throw 42; },
+      };
+
+      const orchestrator = new PipelineOrchestrator([throwingPhase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+
+      expect(result.status).toBe('failed');
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it('should handle single phase pipeline', async () => {
+      const singlePhase = {
+        id: 'only' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Single phase',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'only' as PipelinePhaseId, status: 'success' as const }),
+      };
+
+      const orchestrator = new PipelineOrchestrator([singlePhase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+
+      expect(result.status).toBe('complete');
+      expect(result.phases.length).toBe(1);
+    });
+
+    it('should skip dependents when dependency fails and continue independent phases', async () => {
+      const failPhase = {
+        id: 'fails' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Will fail',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'fails' as PipelinePhaseId, status: 'failed' as const, error: 'failed on purpose' }),
+      };
+
+      const dependentPhase = {
+        id: 'depends' as PipelinePhaseId,
+        dependencies: ['fails' as PipelinePhaseId],
+        description: 'Depends on fail',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'depends' as PipelinePhaseId, status: 'success' as const }),
+      };
+
+      const independentPhase = {
+        id: 'independent' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Independent',
+        parallelizable: true,
+        execute: async () => ({ phaseId: 'independent' as PipelinePhaseId, status: 'success' as const }),
+      };
+
+      const orchestrator = new PipelineOrchestrator([failPhase, dependentPhase, independentPhase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+
+      expect(result.status).toBe('partial');
+      const skipped = result.phases.find((p) => p.phaseId === 'depends');
+      expect(skipped?.status).toBe('skipped');
+      const independent = result.phases.find((p) => p.phaseId === 'independent');
+      expect(independent?.status).toBe('success');
+    });
+  });
+
+  describe('Custom phase ordering', () => {
+    it('should handle chain dependency: A -> B -> C -> D', async () => {
+      const order: string[] = [];
+      const mkPhase = (id: string, deps: string[]) => ({
+        id: id as PipelinePhaseId,
+        dependencies: deps as PipelinePhaseId[],
+        description: id,
+        parallelizable: false,
+        execute: async () => { order.push(id); return { phaseId: id as PipelinePhaseId, status: 'success' as const }; },
+      });
+
+      const orchestrator = new PipelineOrchestrator([
+        mkPhase('a', []),
+        mkPhase('b', ['a']),
+        mkPhase('c', ['b']),
+        mkPhase('d', ['c']),
+      ]);
+
+      const ctx = createMockContext();
+      await orchestrator.execute(ctx);
+
+      expect(order).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('should handle diamond dependency: A -> {B,C} -> D', async () => {
+      const order: string[] = [];
+      const mkPhase = (id: string, deps: string[]) => ({
+        id: id as PipelinePhaseId,
+        dependencies: deps as PipelinePhaseId[],
+        description: id,
+        parallelizable: false,
+        execute: async () => { order.push(id); return { phaseId: id as PipelinePhaseId, status: 'success' as const }; },
+      });
+
+      const orchestrator = new PipelineOrchestrator([
+        mkPhase('x', []),
+        mkPhase('y', ['x']),
+        mkPhase('z', ['x']),
+        mkPhase('w', ['y', 'z']),
+      ]);
+
+      const ctx = createMockContext();
+      await orchestrator.execute(ctx);
+
+      expect(order[0]).toBe('x');
+      expect(order[3]).toBe('w');
     });
   });
 });

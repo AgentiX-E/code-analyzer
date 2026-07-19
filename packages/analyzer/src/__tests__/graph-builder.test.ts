@@ -136,6 +136,30 @@ describe('GraphBuilder', () => {
       expect(report.issues.length).toBeGreaterThan(0);
     });
 
+    it('should detect orphan edge with missing source node', () => {
+      const store = new SqliteStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      // Add an edge referencing a non-existent source node
+      graph.edges.set(777, {
+        id: 777,
+        projectId: 'test-project',
+        sourceId: 8888, // Non-existent source
+        targetId: 2, // Valid target (root folder)
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: new Date().toISOString(),
+      });
+
+      const report = builder.validate(graph);
+      expect(report.valid).toBe(false);
+      expect(report.orphanEdges).toBeGreaterThan(0);
+      expect(report.issues.some((i) => i.includes('missing source node'))).toBe(true);
+    });
+
     it('should detect duplicate qualified names', () => {
       const store = new SqliteStore();
       const builder = new GraphBuilder(store);

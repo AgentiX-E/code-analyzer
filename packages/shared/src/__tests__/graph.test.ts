@@ -351,6 +351,34 @@ describe('getLanguageFromFilename', () => {
   it('handles empty string gracefully', () => {
     expect(getLanguageFromFilename('')).toBe(null);
   });
+
+  it('detects .cxx as cpp', () => {
+    expect(getLanguageFromFilename('main.cxx')).toBe('cpp');
+  });
+
+  it('detects .hh as cpp', () => {
+    expect(getLanguageFromFilename('header.hh')).toBe('cpp');
+  });
+
+  it('detects .phtml as php', () => {
+    expect(getLanguageFromFilename('template.phtml')).toBe('php');
+  });
+
+  it('detects .ts with long path', () => {
+    expect(getLanguageFromFilename('/very/long/path/to/src/components/deep/utils/helper.ts')).toBe('typescript');
+  });
+
+  it('detects .d.ts from path containing nested dots', () => {
+    expect(getLanguageFromFilename('my.types.d.ts')).toBe('typescript');
+  });
+
+  it('returns null for file with no extension', () => {
+    expect(getLanguageFromFilename('just_a_file')).toBe(null);
+  });
+
+  it('returns null for hidden file with no extension', () => {
+    expect(getLanguageFromFilename('.gitignore')).toBe(null);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -367,3 +395,17 @@ describe('type re-exports', () => {
     expect(PIPELINE_PHASE_IDS.includes('scan')).toBe(true);
   });
 });
+
+  // Additional edge cases for getLanguageFromFilename
+  it('handles file with secondary extension', () => {
+    expect(getLanguageFromFilename('test.spec.ts')).toBe('typescript');
+  });
+  it('handles double extension for TSX', () => {
+    expect(getLanguageFromFilename('Component.test.tsx')).toBe('typescript');
+  });
+  it('handles double extension for JSX', () => {
+    expect(getLanguageFromFilename('Component.spec.jsx')).toBe('javascript');
+  });
+  it('handles unknown secondary extension', () => {
+    expect(getLanguageFromFilename('config.local.yml')).toBeNull();
+  });

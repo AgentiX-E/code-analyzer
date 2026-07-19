@@ -546,6 +546,52 @@ describe('SqliteStore', () => {
       expect(result.limit).toBe(20);
       expect(result.offset).toBe(0);
     });
+
+    it('sorts by line_count ascending', () => {
+      const result = store.queryNodes({
+        projectId: 'p1',
+        sortBy: 'line_count',
+        sortDirection: 'asc',
+      });
+      // Line counts: FunctionA=49, FunctionB=49, ClassA=99
+      const lineCounts = result.items.map(
+        (n) => (n.endLine ?? 0) - (n.startLine ?? 0),
+      );
+      expect(lineCounts).toEqual([49, 49, 99]);
+    });
+
+    it('sorts by line_count descending', () => {
+      const result = store.queryNodes({
+        projectId: 'p1',
+        sortBy: 'line_count',
+        sortDirection: 'desc',
+      });
+      const lineCounts = result.items.map(
+        (n) => (n.endLine ?? 0) - (n.startLine ?? 0),
+      );
+      expect(lineCounts).toEqual([99, 49, 49]);
+    });
+
+    it('returns empty items with offset beyond total', () => {
+      const result = store.queryNodes({ projectId: 'p1', offset: 10, limit: 5 });
+      expect(result.items.length).toBe(0);
+      expect(result.total).toBe(3);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('returns all items when limit exceeds total', () => {
+      const result = store.queryNodes({ projectId: 'p1', limit: 100 });
+      expect(result.items.length).toBe(3);
+      expect(result.total).toBe(3);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('filters nodes where filePath is null on filePattern', () => {
+      // FunctionC has no filePath set (undefined/null defaults)
+      // Test that filePattern doesn't crash on null filePath
+      const result = store.queryNodes({ projectId: 'p1', filePattern: 'src*' });
+      expect(result.total).toBeGreaterThanOrEqual(1);
+    });
   });
 
   // ==========================================================================
@@ -691,6 +737,33 @@ describe('SqliteStore', () => {
       expect(result.items.length).toBe(2);
       expect(result.hasMore).toBe(true);
     });
+
+    it('returns empty items with offset beyond total', () => {
+      const result = store.queryEdges({
+        projectId: 'test-project',
+        offset: 10,
+        limit: 5,
+      });
+      expect(result.items.length).toBe(0);
+      expect(result.total).toBe(3);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('returns all items when limit exceeds total', () => {
+      const result = store.queryEdges({
+        projectId: 'test-project',
+        limit: 100,
+      });
+      expect(result.items.length).toBe(3);
+      expect(result.hasMore).toBe(false);
+    });
+
+    it('handles query with no filters (all undefined)', () => {
+      const result = store.queryEdges({
+        projectId: 'test-project',
+      });
+      expect(result.total).toBe(3);
+    });
   });
 
   describe('getEdgesForNode', () => {
@@ -726,6 +799,13 @@ describe('SqliteStore', () => {
     it('returns empty array for node with no edges', () => {
       const isolated = store.insertNode(createTestNode({ qualifiedName: 'isolated' }));
       expect(store.getEdgesForNode(isolated)).toEqual([]);
+    });
+
+    it('filters by type and direction combined', () => {
+      // n2 -> n1 is EXTENDS, so filtering incoming by EXTENDS should return 1
+      const edges = store.getEdgesForNode(n1, 'EXTENDS', 'in');
+      expect(edges.length).toBe(1);
+      expect(edges[0]!.type).toBe('EXTENDS');
     });
   });
 
@@ -859,6 +939,21 @@ describe('SqliteStore', () => {
     it('includes snippet in results', () => {
       const results = store.searchFts('payment');
       expect(results[0]!.snippet).toContain('<<');
+    });
+
+    it('handles empty labels array filter', () => {
+      const results = store.searchFts('service', {
+        labels: [],
+      });
+      // Empty labels should not filter anything out
+      expect(results.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles null labels filter', () => {
+      const results = store.searchFts('service', {
+        labels: undefined,
+      });
+      expect(results.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -1018,6 +1113,33 @@ describe('SqliteStore', () => {
       const report = store.validateIntegrity('p1');
       expect(report.nodeCount).toBe(1);
     });
+
+    it('detects missing qualified names', () => {
+      // Insert a node with empty qualified name
+      store.insertNode(createTestNode({ qualifiedName: '', projectId: 'missing-qname' }));
+      const report = store.validateIntegrity('missing-qname');
+      expect(report.valid).toBe(false);
+      expect(report.issues.some((i) => i.type === 'missing_qname')).toBe(true);
+    });
+
+    it('reports correct counts when projectId differs from edges', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'projA.1', projectId: 'projectA' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'projA.2', projectId: 'projectA' }));
+      // This edge will use default projectId 'test-project'
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      const report = store.validateIntegrity('projectA');
+      expect(report.nodeCount).toBe(2);
+      expect(report.edgeCount).toBe(0); // edge has different projectId
+    });
+
+    it('detects issues in a non-matching project (skip branch)', () => {
+      store.insertNode(createTestNode({ qualifiedName: 'valid.node' }));
+      const report = store.validateIntegrity('other-project');
+      // No issues for 'other-project' since no nodes belong to it
+      expect(report.nodeCount).toBe(0);
+      expect(report.edgeCount).toBe(0);
+      expect(report.valid).toBe(true);
+    });
   });
 
   // ==========================================================================
@@ -1095,6 +1217,30 @@ describe('SqliteStore', () => {
       });
       expect(result).toBe('inner');
       expect(store.getNodeByQualifiedName('txn.nested')).not.toBeNull();
+    });
+
+    it('rolls back edge cascade deletions on error', () => {
+      // Insert a node with edges, then in a failing transaction, delete the node
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'txn.cascade.n1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'txn.cascade.n2' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'txn.cascade.n3' }));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      store.insertEdge(createTestEdge({ sourceId: n2, targetId: n3 }));
+
+      expect(() => {
+        store.transaction(() => {
+          store.deleteNode(n1);
+          store.deleteNode(n2);
+          throw new Error('cascade rollback');
+        });
+      }).toThrow('cascade rollback');
+
+      // All nodes and edges should be intact
+      expect(store.getNodeCount()).toBe(3);
+      expect(store.getEdgeCount()).toBe(2);
+      expect(store.getNode(n1)).not.toBeNull();
+      expect(store.getNode(n2)).not.toBeNull();
+      expect(store.getNode(n3)).not.toBeNull();
     });
   });
 
@@ -1192,6 +1338,25 @@ describe('SqliteStore', () => {
       retrieved.complexity = 999;
       // Since toGraphNode creates a shallow copy with spread, the stored value is unchanged
       expect(store.getNode(id)!.complexity).toBe(42);
+    });
+
+    it('handles pattern matching with regex special chars in names', () => {
+      store.insertNode(createTestNode({ qualifiedName: 'special.chars.node', name: 'node.with.dots' }));
+      const results = store.queryNodes({ projectId: 'test-project', namePattern: 'node.*' });
+      expect(results.total).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles interleaved reads and writes', () => {
+      const id1 = store.insertNode(createTestNode({ qualifiedName: 'rw.1' }));
+      expect(store.getNode(id1)).not.toBeNull();
+
+      const id2 = store.insertNode(createTestNode({ qualifiedName: 'rw.2' }));
+      expect(store.getNode(id1)).not.toBeNull();
+      expect(store.getNode(id2)).not.toBeNull();
+
+      store.deleteNode(id1);
+      expect(store.getNode(id1)).toBeNull();
+      expect(store.getNode(id2)).not.toBeNull();
     });
   });
 });

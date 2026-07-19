@@ -126,5 +126,151 @@ describe('PythonProvider', () => {
       expect(provider.isExported(source, 'foo')).toBe(true);
       expect(provider.isExported(source, 'baz')).toBe(false);
     });
+
+    it('should return true for dunder methods (__ prefix)', () => {
+      expect(provider.isExported('def __init__(self): pass', '__init__')).toBe(true);
+    });
+
+    it('should return true when __all__ is not present', () => {
+      expect(provider.isExported('def normal_func(): pass', 'normal_func')).toBe(true);
+    });
+  });
+
+  describe('_lineNumberAt', () => {
+    it('should return line number for offset', () => {
+      const source = 'line1\nline2\nline3';
+      expect(provider._lineNumberAt(source, 0)).toBe(1);
+      expect(provider._lineNumberAt(source, 6)).toBe(2);
+      expect(provider._lineNumberAt(source, 12)).toBe(3);
+    });
+  });
+
+  describe('extractImports edge cases', () => {
+    it('should parse from import with alias', () => {
+      const source = 'from os import path as p';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('os');
+      expect(imports[0]!.names).toContain('path');
+    });
+
+    it('should parse import with inline comment', () => {
+      const source = 'import os  # system module';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('os');
+    });
+
+    it('should parse import with multiple comma-separated modules', () => {
+      const source = 'import os, sys, json';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(3);
+      expect(imports[0]!.source).toBe('os');
+      expect(imports[1]!.source).toBe('sys');
+      expect(imports[2]!.source).toBe('json');
+    });
+  });
+
+  describe('decorator parsing', () => {
+    it('should detect decorator with arguments', () => {
+      const source = '@app.route("/path")\ndef handler():\n    pass';
+      const captures = provider.parse(source, 'test.py');
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators).toHaveLength(1);
+      expect(decorators[0]!.properties?.['decorator']).toBe('app.route');
+    });
+
+    it('should detect multiple decorators', () => {
+      const source = '@staticmethod\n@classmethod\ndef foo():\n    pass';
+      const captures = provider.parse(source, 'test.py');
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators).toHaveLength(2);
+    });
+
+    it('should detect dotted decorator', () => {
+      const source = '@module.decorator\ndef func():\n    pass';
+      const captures = provider.parse(source, 'test.py');
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators).toHaveLength(1);
+      expect(decorators[0]!.properties?.['decorator']).toBe('module.decorator');
+    });
+  });
+
+  describe('docstring edge cases', () => {
+    it('should handle single-quoted docstrings', () => {
+      const source = "'''Module docstring'''\ndef foo():\n    pass";
+      const captures = provider.parse(source, 'test.py');
+      const docs = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('function edge cases', () => {
+    it('should handle function with string parameters', () => {
+      const source = 'def greet(name="world"):\n    print(f"Hello {name}")';
+      const captures = provider.parse(source, 'test.py');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.name).toBe('greet');
+    });
+
+    it('should handle function with complex default args', () => {
+      const source = 'def process(data, options=None, format="json"):\n    pass';
+      const captures = provider.parse(source, 'test.py');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.name).toBe('process');
+    });
+
+    it('should handle function with annotations and return type', () => {
+      const source = 'def add(a: int, b: int) -> int:\n    return a + b';
+      const captures = provider.parse(source, 'test.py');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.name).toBe('add');
+    });
+
+    it('should handle class with no explicit methods', () => {
+      const source = 'class EmptyClass:\n    """Just an empty class"""\n    pass';
+      const captures = provider.parse(source, 'test.py');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes).toHaveLength(1);
+      expect(classes[0]!.name).toBe('EmptyClass');
+    });
+  });
+
+  describe('block indent edge cases', () => {
+    it('should handle nested function', () => {
+      const source = 'def outer():\n    def inner():\n        return 1\n    return inner()';
+      const captures = provider.parse(source, 'test.py');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs).toHaveLength(2);
+      expect(funcs.some((f) => f.name === 'outer')).toBe(true);
+      expect(funcs.some((f) => f.name === 'inner')).toBe(true);
+    });
+
+    it('should handle top-level function ending at EOF', () => {
+      const source = 'def last_func():\n    return 42';
+      const captures = provider.parse(source, 'test.py');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'last_func');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle class followed by top-level code', () => {
+      const source = 'class MyClass:\n    x = 1\n\ntop_level = "after class"';
+      const captures = provider.parse(source, 'test.py');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(classes).toHaveLength(1);
+      expect(classes[0]!.name).toBe('MyClass');
+    });
+
+    it('should handle empty-bodied class/function followed by top-level code', () => {
+      const source = 'class Empty:\n\nnext_func = "after empty class"';
+      const captures = provider.parse(source, 'test.py');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes).toHaveLength(1);
+      expect(classes[0]!.name).toBe('Empty');
+    });
   });
 });

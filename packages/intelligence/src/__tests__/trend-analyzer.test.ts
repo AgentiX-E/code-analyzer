@@ -276,4 +276,151 @@ describe('TrendAnalyzer — edge cases', () => {
     expect(trend.direction).toBe('stable');
     expect(trend.changeRate).toBe(0);
   });
+
+  it('should handle first value being 0 for direction computation', () => {
+    const reports = [
+      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, totalFindings: 0 } }),
+      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, totalFindings: 5 } }),
+    ];
+    const trend = analyzer.trackMetric(reports, 'summary.totalFindings');
+    // When first value is 0 and last > 0, direction should be improving
+    expect(trend.direction).toBe('improving');
+    expect(trend.changeRate).toBe(0);
+  });
+
+  it('should handle first value being 0 and last value being 0', () => {
+    const reports = [
+      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, criticalFindings: 0 } }),
+      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, criticalFindings: 0 } }),
+    ];
+    const trend = analyzer.trackMetric(reports, 'summary.criticalFindings');
+    expect(trend.direction).toBe('stable');
+  });
+
+  it('should track metrics.complexityDelta', () => {
+    const reports = [
+      makeReport({ createdAt: '2025-01-10T00:00:00Z', metrics: { ...makeReport().metrics, complexityDelta: 5 } }),
+      makeReport({ createdAt: '2025-01-11T00:00:00Z', metrics: { ...makeReport().metrics, complexityDelta: 2 } }),
+    ];
+    const trend = analyzer.trackMetric(reports, 'metrics.complexityDelta');
+    expect(trend.values).toEqual([5, 2]);
+    expect(trend.direction).toBe('degrading');
+  });
+
+  it('should track metrics.coverageDelta', () => {
+    const reports = [
+      makeReport({ createdAt: '2025-01-10T00:00:00Z', metrics: { ...makeReport().metrics, coverageDelta: 2 } }),
+      makeReport({ createdAt: '2025-01-11T00:00:00Z', metrics: { ...makeReport().metrics, coverageDelta: 5 } }),
+    ];
+    const trend = analyzer.trackMetric(reports, 'metrics.coverageDelta');
+    expect(trend.direction).toBe('improving');
+  });
+
+  it('should compare reports and detect high severity finding changes', () => {
+    const reportA = makeReport({
+      id: 'a',
+      createdAt: '2025-01-10T00:00:00Z',
+      findings: [
+        makeFinding({ id: 'f-high', severity: 'high' }),
+        makeFinding({ id: 'f-low', severity: 'low' }),
+      ],
+    });
+    const reportB = makeReport({
+      id: 'b',
+      createdAt: '2025-01-12T00:00:00Z',
+      findings: [makeFinding({ id: 'f-low', severity: 'low' })],
+    });
+    const comparison = analyzer.compareReports(reportA, reportB);
+    // Removed high finding = improved
+    expect(comparison.overallChange).toBe('improved');
+  });
+
+  it('should compare reports with overallScore delta', () => {
+    const reportA = makeReport({
+      id: 'a',
+      createdAt: '2025-01-10T00:00:00Z',
+      summary: { ...makeReport().summary, overallScore: 80 },
+      findings: [],
+    });
+    const reportB = makeReport({
+      id: 'b',
+      createdAt: '2025-01-12T00:00:00Z',
+      summary: { ...makeReport().summary, overallScore: 90 },
+      findings: [],
+    });
+    const comparison = analyzer.compareReports(reportA, reportB);
+    // Score improved > 1 = improved
+    expect(comparison.overallChange).toBe('improved');
+  });
+
+  it('should compare reports with complianceScore delta', () => {
+    const reportA = makeReport({
+      id: 'a',
+      createdAt: '2025-01-10T00:00:00Z',
+      metrics: { ...makeReport().metrics, complianceScore: 70 },
+      findings: [],
+    });
+    const reportB = makeReport({
+      id: 'b',
+      createdAt: '2025-01-12T00:00:00Z',
+      metrics: { ...makeReport().metrics, complianceScore: 90 },
+      findings: [],
+    });
+    const comparison = analyzer.compareReports(reportA, reportB);
+    expect(comparison.overallChange).toBe('improved');
+  });
+
+  it('should detect degradation with overallScore delta', () => {
+    const reportA = makeReport({
+      id: 'a',
+      createdAt: '2025-01-10T00:00:00Z',
+      summary: { ...makeReport().summary, overallScore: 90 },
+    });
+    const reportB = makeReport({
+      id: 'b',
+      createdAt: '2025-01-12T00:00:00Z',
+      summary: { ...makeReport().summary, overallScore: 80 },
+    });
+    const comparison = analyzer.compareReports(reportA, reportB);
+    expect(comparison.overallChange).toBe('degraded');
+  });
+
+  it('should detect degradation with complianceScore delta', () => {
+    const reportA = makeReport({
+      id: 'a',
+      createdAt: '2025-01-10T00:00:00Z',
+      metrics: { ...makeReport().metrics, complianceScore: 90 },
+    });
+    const reportB = makeReport({
+      id: 'b',
+      createdAt: '2025-01-12T00:00:00Z',
+      metrics: { ...makeReport().metrics, complianceScore: 70 },
+    });
+    const comparison = analyzer.compareReports(reportA, reportB);
+    expect(comparison.overallChange).toBe('degraded');
+  });
+
+  it('should handle getValueAtPath with null intermediate', () => {
+    // scope.projectId exists but then hitting non-object
+    const reports = [makeReport({ scope: { type: 'pr', prNumber: null } })];
+    const trend = analyzer.trackMetric(reports, 'scope.prNumber.x');
+    expect(trend.values).toHaveLength(0);
+  });
+
+  it('should compare reports with reversed chronological order', () => {
+    const reportA = makeReport({
+      id: 'a',
+      createdAt: '2025-01-12T00:00:00Z', // newer
+      findings: [makeFinding({ id: 'new' })],
+    });
+    const reportB = makeReport({
+      id: 'b',
+      createdAt: '2025-01-10T00:00:00Z', // older
+      findings: [makeFinding({ id: 'old' })],
+    });
+    const comparison = analyzer.compareReports(reportA, reportB);
+    // Should handle reversed order correctly
+    expect(comparison.addedFindings).toHaveLength(1);
+    expect(comparison.addedFindings[0].id).toBe('new');
+  });
 });

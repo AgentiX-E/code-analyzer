@@ -144,4 +144,185 @@ describe('GitOperations', () => {
     const diffWithContext = await git.getDiff(head + '~1', head, 5);
     expect(diffWithContext.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('handles diff between same commit (empty diff)', async () => {
+    const head = await git.getLastCommit();
+    const diffs = await git.getDiff(head, head);
+    expect(diffs).toEqual([]);
+  });
+
+  it('detects new file in diff', async () => {
+    // Create a new file and commit it
+    fs.writeFileSync(path.join(repoPath, 'newfile.ts'), 'export const z = 1;\n', 'utf-8');
+    execSync('git add newfile.ts', { cwd: repoPath });
+    execSync('git commit -m "add new file"', { cwd: repoPath });
+
+    const head = await git.getLastCommit();
+    const diffs = await git.getCommitDiff(head);
+
+    const newFile = diffs.find((d) => d.changeType === 'added');
+    expect(newFile).toBeDefined();
+    expect(newFile!.filePath).toBe('newfile.ts');
+  });
+
+  it('detects deleted file in diff', async () => {
+    // Create and then delete a file
+    fs.writeFileSync(path.join(repoPath, 'todelete.ts'), 'export const w = 1;\n', 'utf-8');
+    execSync('git add todelete.ts', { cwd: repoPath });
+    execSync('git commit -m "add file to delete"', { cwd: repoPath });
+
+    fs.unlinkSync(path.join(repoPath, 'todelete.ts'));
+    execSync('git add -A', { cwd: repoPath });
+    execSync('git commit -m "delete file"', { cwd: repoPath });
+
+    const head = await git.getLastCommit();
+    const diffs = await git.getCommitDiff(head);
+
+    const deleted = diffs.find((d) => d.changeType === 'deleted');
+    expect(deleted).toBeDefined();
+    expect(deleted!.filePath).toBe('todelete.ts');
+  });
+
+  it('detects renamed file in diff', async () => {
+    // Create a file, then rename it
+    fs.writeFileSync(path.join(repoPath, 'oldname.ts'), 'export const v = 1;\n', 'utf-8');
+    execSync('git add oldname.ts', { cwd: repoPath });
+    execSync('git commit -m "add file to rename"', { cwd: repoPath });
+
+    execSync('git mv oldname.ts newname.ts', { cwd: repoPath });
+    execSync('git commit -m "rename file"', { cwd: repoPath });
+
+    const head = await git.getLastCommit();
+    const diffs = await git.getCommitDiff(head);
+
+    const renamed = diffs.find((d) => d.changeType === 'renamed');
+    expect(renamed).toBeDefined();
+    expect(renamed!.filePath).toBe('newname.ts');
+  });
+
+  it('handles diff with single-line changes (compact hunk format)', async () => {
+    // Create a file at the very top with one line and change it
+    fs.writeFileSync(path.join(repoPath, 'singleline.ts'), 'line 1\n', 'utf-8');
+    execSync('git add singleline.ts', { cwd: repoPath });
+    execSync('git commit -m "add single line file"', { cwd: repoPath });
+
+    fs.writeFileSync(path.join(repoPath, 'singleline.ts'), 'modified line 1\n', 'utf-8');
+    execSync('git add singleline.ts', { cwd: repoPath });
+    execSync('git commit -m "modify single line"', { cwd: repoPath });
+
+    const head = await git.getLastCommit();
+    const diffs = await git.getCommitDiff(head);
+    expect(diffs.length).toBeGreaterThanOrEqual(1);
+    expect(diffs[0]!.ranges.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles empty workspace (no diff)', async () => {
+    // Repo is clean, so workspace diff should find nothing meaningful
+    // (HEAD diff of a clean workspace produces no output)
+    const diffs = await git.getWorkspaceDiff();
+    // In a clean workspace, git diff HEAD produces empty output => empty array
+    expect(diffs).toEqual([]);
+  });
+
+  it('returns empty array for changed files between same commit', async () => {
+    const head = await git.getLastCommit();
+    const files = await git.getChangedFiles(head, head);
+    expect(files).toEqual([]);
+  });
+});
+
+describe('GitOperations — Error Handling', () => {
+  let invalidPath: string;
+
+  beforeAll(() => {
+    invalidPath = path.join(os.tmpdir(), 'non-existent-repo-' + Date.now());
+  });
+
+  it('throws for git operations on non-existent directory', async () => {
+    const gitOps = createGitOperations(invalidPath);
+
+    await expect(gitOps.getLastCommit()).rejects.toThrow('Git command failed');
+  });
+
+  it('throws for getDiff on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getDiff('main', 'HEAD')).rejects.toThrow('Git command failed');
+  });
+
+  it('throws for getWorkspaceDiff on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getWorkspaceDiff()).rejects.toThrow('Git command failed');
+  });
+
+  it('throws for getCommitDiff on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getCommitDiff('HEAD')).rejects.toThrow('Git command failed');
+  });
+
+  it('throws for getMergeBase on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getMergeBase('main', 'HEAD')).rejects.toThrow(
+      'Git command failed',
+    );
+  });
+
+  it('throws for getChangedFiles on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getChangedFiles('main', 'HEAD')).rejects.toThrow(
+      'Git command failed',
+    );
+  });
+
+  it('throws for isDirty on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.isDirty()).rejects.toThrow('Git command failed');
+  });
+
+  it('returns stale on invalid repo for getStaleness', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    const result = await gitOps.getStaleness('abc123');
+    expect(result.isStale).toBe(true);
+    expect(result.reason).toBe('Unable to determine staleness');
+  });
+
+  it('throws for getFileContent on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getFileContent('HEAD', 'file.ts')).rejects.toThrow(
+      'File not found',
+    );
+  });
+
+  it('throws for getFileHash on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getFileHash('HEAD', 'file.ts')).rejects.toThrow(
+      'Git command failed',
+    );
+  });
+
+  it('throws for listBranches on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.listBranches()).rejects.toThrow('Git command failed');
+  });
+
+  it('throws for getCurrentBranch on non-existent repo', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    await expect(gitOps.getCurrentBranch()).rejects.toThrow('Git command failed');
+  });
+
+  it('lists branches in empty repo (no commits)', () => {
+    const emptyRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'empty-git-'));
+    execSync('git init', { cwd: emptyRepo });
+    const gitOps = createGitOperations(emptyRepo);
+    // Since git log may return empty if there are no commits, listBranches
+    // should return an empty array or throw depending on git version
+    return gitOps.listBranches().then(
+      (branches) => {
+        expect(Array.isArray(branches)).toBe(true);
+        fs.rmSync(emptyRepo, { recursive: true, force: true });
+      },
+      () => {
+        fs.rmSync(emptyRepo, { recursive: true, force: true });
+      },
+    );
+  });
 });

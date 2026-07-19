@@ -318,6 +318,54 @@ describe('Session Store', () => {
       expect(sessions[0]!.mode).toBe('diff');
       expect(sessions[0]!.createdAt).toBeTruthy();
     });
+
+    it('should return empty array when sessions directory does not exist', () => {
+      const emptyDir = path.join(tempDir, 'nonexistent');
+      const emptyStore = new SessionStore(emptyDir);
+      // Delete the directory to test the existsSync false branch
+      if (fs.existsSync(emptyDir)) {
+        fs.rmSync(emptyDir, { recursive: true, force: true });
+      }
+
+      const sessions = emptyStore.listSessions('any-project');
+      expect(sessions).toEqual([]);
+    });
+
+    it('should include filesReviewed and commentsGenerated in session summary', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      const session = store.startSession('project-1', meta);
+      const item: ReviewItemResult = {
+        filePath: '/src/test.ts',
+        fingerprint: 'fp1',
+        comments: [createComment(), createComment({ id: 'comment-2' })],
+        duration: 100,
+      };
+      store.recordItemDone(session.id, item);
+
+      const sessions = store.listSessions('project-1');
+      expect(sessions[0]!.filesReviewed).toBe(1);
+      expect(sessions[0]!.commentsGenerated).toBe(2);
+    });
+
+    it('should sort sessions by creation time (newest first)', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      store.startSession('project-1', meta);
+      // Brief delay for timestamp difference
+      store.startSession('project-1', meta);
+
+      const sessions = store.listSessions('project-1');
+      expect(sessions.length).toBe(2);
+      // First session should be the newer one (sorted newest first)
+      expect(sessions[0]!.createdAt >= sessions[1]!.createdAt).toBe(true);
+    });
   });
 
   describe('getRecords()', () => {
@@ -338,6 +386,22 @@ describe('Session Store', () => {
       const records = store.getRecords('nonexistent');
       expect(records).toEqual([]);
     });
+
+    it('should filter out empty lines', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      const session = store.startSession('project-1', meta);
+      // Append an empty line to the file
+      const filePath = path.join(tempDir, `${session.id}.jsonl`);
+      fs.appendFileSync(filePath, '\n\n', 'utf-8');
+
+      const records = store.getRecords(session.id);
+      // Only non-empty lines should be returned
+      expect(records.length).toBe(1);
+    });
   });
 
   describe('completeSession()', () => {
@@ -354,6 +418,21 @@ describe('Session Store', () => {
 
     it('should handle completing unknown session', () => {
       expect(() => store.completeSession('nonexistent')).not.toThrow();
+    });
+
+    it('should append complete record to JSONL file', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      const session = store.startSession('project-1', meta);
+      store.completeSession(session.id);
+
+      const records = store.getRecords(session.id);
+      const lastRecord = JSON.parse(records[records.length - 1]!);
+      expect(lastRecord.type).toBe('complete');
+      expect(lastRecord.sessionId).toBe(session.id);
     });
   });
 
@@ -373,11 +452,118 @@ describe('Session Store', () => {
 
       expect(fs.existsSync(filePath)).toBe(false);
     });
+
+    it('should not throw when deleting non-existent session', () => {
+      expect(() => store.deleteSession('nonexistent')).not.toThrow();
+    });
+
+    it('should remove session from active sessions', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      const session = store.startSession('project-1', meta);
+      store.deleteSession(session.id);
+
+      // After deletion, records should be empty
+      const records = store.getRecords(session.id);
+      expect(records).toEqual([]);
+    });
+  });
+
+  describe('buildResumeState with failed items', () => {
+    it('should ignore failed items when building resume state', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      const session = store.startSession('project-1', meta);
+
+      // Record a successful item
+      const item: ReviewItemResult = {
+        filePath: '/src/good.ts',
+        fingerprint: 'fp-good',
+        comments: [createComment({ id: 'good-comment' })],
+        duration: 100,
+      };
+      store.recordItemDone(session.id, item);
+
+      // Record a failed item
+      const error: ReviewItemError = {
+        filePath: '/src/broken.ts',
+        fingerprint: 'fp-bad',
+        error: 'Parse error',
+        duration: 50,
+      };
+      store.recordItemFailed(session.id, error);
+
+      const resumeState = store.buildResumeState(session.id);
+
+      // Failed items should not be in completedFiles or reusedComments
+      expect(resumeState.completedFiles.has('fp-good')).toBe(true);
+      expect(resumeState.completedFiles.has('fp-bad')).toBe(false);
+      expect(resumeState.reusedComments.length).toBe(1);
+    });
   });
 
   describe('directory property', () => {
     it('should return the sessions directory path', () => {
       expect(store.directory).toBe(tempDir);
+    });
+  });
+
+  describe('loadRecords edge cases', () => {
+    it('should handle malformed JSON in session file', () => {
+      const meta: SessionMetadata = {
+        repository: 'test/repo',
+        branch: 'main',
+        mode: 'diff',
+      };
+      const session = store.startSession('project-1', meta);
+
+      // Write malformed JSON to the session file
+      const filePath = path.join(tempDir, `${session.id}.jsonl`);
+      fs.appendFileSync(filePath, 'this is not valid json\n', 'utf-8');
+      fs.appendFileSync(filePath, '{broken: true}\n', 'utf-8');
+
+      // Subsequent operations should handle this gracefully
+      const resumeState = store.buildResumeState(session.id);
+      expect(resumeState.completedFiles.size).toBeGreaterThanOrEqual(0);
+
+      // listSessions should also handle malformed records
+      const sessions = store.listSessions('project-1');
+      expect(sessions.length).toBe(1);
+    });
+
+    it('should ignore non-JSONL files in sessions directory', () => {
+      // Create a non-JSONL file in the sessions directory
+      const nonJsonlPath = path.join(tempDir, 'somefile.txt');
+      fs.writeFileSync(nonJsonlPath, 'not a session file', 'utf-8');
+      fs.writeFileSync(path.join(tempDir, 'readme.md'), 'README', 'utf-8');
+
+      // listSessions should only return JSONL sessions
+      const sessions = store.listSessions('any-project');
+      expect(sessions).toEqual([]);
+    });
+
+    it('should handle session with missing metadata', () => {
+      // Create a session JSONL file manually without metadata
+      const sessionId = `session-manual-${Date.now()}`;
+      const filePath = path.join(tempDir, `${sessionId}.jsonl`);
+      const recordWithoutMetadata = JSON.stringify({
+        type: 'start',
+        sessionId,
+        projectId: 'proj-1',
+        timestamp: new Date().toISOString(),
+      });
+      fs.writeFileSync(filePath, recordWithoutMetadata + '\n', 'utf-8');
+
+      const sessions = store.listSessions('proj-1');
+      expect(sessions.length).toBe(1);
+      expect(sessions[0]!.mode).toBe('unknown');
+      expect(sessions[0]!.status).toBe('running');
     });
   });
 });

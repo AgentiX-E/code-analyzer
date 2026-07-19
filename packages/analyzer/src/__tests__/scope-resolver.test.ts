@@ -315,5 +315,83 @@ describe('ScopeResolver', () => {
       expect(resolved).toHaveLength(1);
       expect(resolved[0]!.isResolved).toBe(false);
     });
+
+    it('should resolve import by full file path', () => {
+      const symbolsB: SymbolDefinition[] = [
+        createSymbol('helper', 'Function', 'src/utils/helper.ts'),
+      ];
+
+      const referencesA: ReferenceSite[] = [
+        createReference('src/index.ts', 1, 'src/utils/helper', { referenceKind: 'import' }),
+      ];
+
+      const fileA: ParsedFile = {
+        filePath: 'src/index.ts',
+        language: 'typescript',
+        symbols: [],
+        references: referencesA,
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const fileB: ParsedFile = {
+        filePath: 'src/utils/helper.ts',
+        language: 'typescript',
+        symbols: symbolsB,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const model = createSemanticModel();
+      const resolved = resolver.resolveImports([fileA, fileB], model);
+
+      const resolvedImport = resolved.find((r) => r.importPath === 'src/utils/helper');
+      expect(resolvedImport).toBeDefined();
+      expect(resolvedImport!.isResolved).toBe(true);
+    });
+  });
+
+  describe('resolveReferences edge cases', () => {
+    it('should handle cross-file resolution via import', () => {
+      const symbolsA: SymbolDefinition[] = [
+        createSymbol('myFunc', 'Function', 'a.ts', { qualifiedName: 'a.ts::myFunc' }),
+      ];
+
+      const symbolsB: SymbolDefinition[] = [
+        createSymbol('myFunc', 'Function', 'b.ts', { qualifiedName: 'b.ts::myFunc' }),
+      ];
+
+      const referencesB: ReferenceSite[] = [
+        createReference('b.ts', 10, 'myFunc', { referenceKind: 'call' }),
+      ];
+
+      const fileA: ParsedFile = {
+        filePath: 'a.ts',
+        language: 'typescript',
+        symbols: symbolsA,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const fileB: ParsedFile = {
+        filePath: 'b.ts',
+        language: 'typescript',
+        symbols: symbolsB,
+        references: referencesB,
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const trees = resolver.buildScopeTrees([fileA, fileB]);
+      const model = createSemanticModel();
+      const resolved = resolver.resolveReferences([fileA, fileB], trees, model);
+
+      // reference from b.ts to myFunc should resolve to b.ts (same-file)
+      const bRef = resolved.find((r) => r.sourceFile === 'b.ts' && r.sourceSymbol === 'myFunc');
+      expect(bRef).toBeDefined();
+      expect(bRef!.isResolved).toBe(true);
+    });
   });
 });

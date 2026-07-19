@@ -50,6 +50,20 @@ describe('getDefaultConfig', () => {
     const config = getDefaultConfig();
     expect(config.projectId).toBe('');
   });
+
+  it('should handle parseWorkers when availableParallelism is not available', () => {
+    const original = os.availableParallelism;
+    // @ts-expect-error testing fallback
+    delete os.availableParallelism;
+    try {
+      const config = getDefaultConfig();
+      expect(config.parseWorkers).toBeGreaterThan(0);
+    } finally {
+      if (original) {
+        os.availableParallelism = original;
+      }
+    }
+  });
 });
 
 describe('deepMerge', () => {
@@ -100,6 +114,21 @@ describe('deepMerge', () => {
     const source = { nested: { value: 42 } };
     const result = deepMerge(target, source);
     expect(result).toEqual({ nested: { value: 42 } });
+  });
+
+  it('should handle Date objects as non-plain', () => {
+    const target = { date: 'old' };
+    const source = { date: new Date() };
+    const result = deepMerge(target, source);
+    // Date is not a plain object, so it replaces
+    expect(result.date).toBeInstanceOf(Date);
+  });
+
+  it('should handle mixed deep and shallow merges', () => {
+    const target = { a: { x: 1 }, b: 'str' };
+    const source = { a: { y: 2 }, b: { nested: true } };
+    const result = deepMerge(target, source);
+    expect(result).toEqual({ a: { x: 1, y: 2 }, b: { nested: true } });
   });
 });
 
@@ -208,6 +237,125 @@ describe('loadConfig', () => {
     const config = await loadConfig(testDir);
     expect(config.rootPath).toBe('/custom/path');
   });
+
+  it('should coerce empty env value to empty string', async () => {
+    process.env['CODE_ANALYZER_PROJECT_ID'] = '';
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.projectId).toBe('');
+    } finally {
+      delete process.env['CODE_ANALYZER_PROJECT_ID'];
+    }
+  });
+
+  it('should handle comma-separated include patterns', async () => {
+    process.env['CODE_ANALYZER_INCLUDE_PATTERNS'] = 'src/**,lib/**';
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.includePatterns).toEqual(['src/**', 'lib/**']);
+    } finally {
+      delete process.env['CODE_ANALYZER_INCLUDE_PATTERNS'];
+    }
+  });
+
+  it('should handle comma-separated ignore paths', async () => {
+    process.env['CODE_ANALYZER_IGNORE_PATHS'] = 'vendor,tmp';
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.ignorePaths).toEqual(['vendor', 'tmp']);
+    } finally {
+      delete process.env['CODE_ANALYZER_IGNORE_PATHS'];
+    }
+  });
+
+  it('should handle unknown env variables gracefully', async () => {
+    process.env['CODE_ANALYZER_UNKNOWN_FIELD'] = 'should-be-ignored';
+
+    try {
+      const config = await loadConfig(testDir);
+      // Unknown env vars are ignored, defaults preserved
+      const defaults = getDefaultConfig();
+      expect(config.maxFiles).toBe(defaults.maxFiles);
+    } finally {
+      delete process.env['CODE_ANALYZER_UNKNOWN_FIELD'];
+    }
+  });
+
+  it('should merge global config if it exists', async () => {
+    const globalConfigPath = path.join(globalConfigDir, 'config.json');
+    await fs.mkdir(globalConfigDir, { recursive: true });
+    await fs.writeFile(
+      globalConfigPath,
+      JSON.stringify({ maxFileSize: 9999 })
+    );
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.maxFileSize).toBe(9999);
+    } finally {
+      await fs.unlink(globalConfigPath).catch(() => {});
+      await fs.rmdir(globalConfigDir).catch(() => {});
+    }
+  });
+
+  it('should coerce "false" as boolean env var', async () => {
+    process.env['CODE_ANALYZER_REVIEW_ENABLED'] = 'false';
+
+    try {
+      const config = await loadConfig(testDir);
+      const review = config.review;
+      expect(review).toBeDefined();
+      expect(review!.enabled).toBe(false);
+    } finally {
+      delete process.env['CODE_ANALYZER_REVIEW_ENABLED'];
+    }
+  });
+
+  it('should throw on malformed JSON project config', async () => {
+    const projectConfigPath = path.join(testDir, '.code-analyzer.json');
+    await fs.writeFile(projectConfigPath, '{invalid json!!!}');
+
+    await expect(loadConfig(testDir)).rejects.toThrow();
+  });
+
+  it('should handle MCP env vars creating nested config', async () => {
+    process.env['CODE_ANALYZER_MCP_NAME'] = 'test-mcp';
+    process.env['CODE_ANALYZER_MCP_VERSION'] = '2.0.0';
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.mcp).toBeDefined();
+      expect(config.mcp!.name).toBe('test-mcp');
+      expect(config.mcp!.version).toBe('2.0.0');
+    } finally {
+      delete process.env['CODE_ANALYZER_MCP_NAME'];
+      delete process.env['CODE_ANALYZER_MCP_VERSION'];
+    }
+  });
+
+  it('should merge MCP env var with existing config', async () => {
+    // First create project config with mcp settings
+    const projectConfigPath = path.join(testDir, '.code-analyzer.json');
+    await fs.writeFile(
+      projectConfigPath,
+      JSON.stringify({ mcp: { maxResults: 100 } })
+    );
+
+    // Then override one field via env var
+    process.env['CODE_ANALYZER_MCP_NAME'] = 'from-env';
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.mcp).toBeDefined();
+      expect(config.mcp!.name).toBe('from-env');
+      expect(config.mcp!.maxResults).toBe(100);
+    } finally {
+      delete process.env['CODE_ANALYZER_MCP_NAME'];
+    }
+  });
 });
 
 describe('validateConfig', () => {
@@ -251,5 +399,23 @@ describe('validateConfig', () => {
       expect(typeof err.message).toBe('string');
       expect(err.message.length).toBeGreaterThan(0);
     }
+  });
+
+  it('should handle error messages without config. prefix', () => {
+    // All errors from shared validator have "config." prefix per the code
+    // But test what happens with a valid config object
+    const config: CodeAnalyzerConfig = {
+      projectId: 'test',
+      rootPath: '/tmp',
+      maxFileSize: 1024,
+      maxFiles: 1000,
+      parseWorkers: 4,
+      excludePatterns: [],
+      includePatterns: [],
+      ignorePaths: [],
+    };
+    const errors = validateConfig(config);
+    // Valid config should have no errors
+    expect(errors).toHaveLength(0);
   });
 });

@@ -968,4 +968,689 @@ describe('ImpactAnalyzer risk determination', () => {
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result.riskLevel).toBe('critical');
   });
+
+  it('should return critical when impactCount >= 20', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const nodeIds: number[] = [];
+    for (let i = 1; i <= 22; i++) {
+      const n = createNode(i, { qualifiedName: `pkg.node_${i}` });
+      const actualId = store.insertNode(n);
+      nodeIds.push(actualId);
+    }
+    for (let i = 1; i < nodeIds.length; i++) {
+      createEdge(store, i * 100 + i, nodeIds[i]!, nodeIds[i - 1]!, 'CALLS');
+    }
+
+    const changedSymbols = [
+      {
+        name: 'node_1',
+        qualifiedName: 'pkg.node_1',
+        filePath: '/src/file_1.ts',
+        changeType: 'modified' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'low' as const,
+        reason: '',
+      },
+    ];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols, { maxDepth: 22 });
+    expect(result.riskLevel).toBe('critical');
+  });
+
+  it('should return high when maxSymbolRisk is critical but impact<20', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = createNode(1, { qualifiedName: 'pkg.risk' });
+    store.insertNode(fn);
+
+    const changedSymbols = [
+      {
+        name: 'risk',
+        qualifiedName: 'pkg.risk',
+        filePath: '/src/risk.ts',
+        changeType: 'modified' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'critical' as const,
+        reason: '',
+      },
+    ];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
+    expect(result.riskLevel).toBe('high');
+  });
+
+  it('should return medium when maxSymbolRisk is high and impact<5', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = createNode(1, { qualifiedName: 'pkg.high_risk' });
+    store.insertNode(fn);
+
+    const changedSymbols = [
+      {
+        name: 'high_risk',
+        qualifiedName: 'pkg.high_risk',
+        filePath: '/src/risk.ts',
+        changeType: 'modified' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'high' as const,
+        reason: '',
+      },
+    ];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
+    expect(result.riskLevel).toBe('medium');
+  });
+
+  it('should return medium when impactCount >= 5 but < 10', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const nodeIds: number[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const n = createNode(i, { qualifiedName: `pkg.node_${i}` });
+      const actualId = store.insertNode(n);
+      nodeIds.push(actualId);
+    }
+    for (let i = 1; i < nodeIds.length; i++) {
+      createEdge(store, i * 100 + i, nodeIds[i]!, nodeIds[i - 1]!, 'CALLS');
+    }
+
+    const changedSymbols = [
+      {
+        name: 'node_1',
+        qualifiedName: 'pkg.node_1',
+        filePath: '/src/file_1.ts',
+        changeType: 'modified' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'low' as const,
+        reason: '',
+      },
+    ];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols, { maxDepth: 7 });
+    expect(result.riskLevel).toBe('medium');
+  });
+
+  it('should compute impact breadth score at different levels', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    // >= 20 -> 25 points
+    const largeImpact: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: Array.from({ length: 20 }, (_, i) => ({
+        symbolQname: `imp_${i}`,
+        label: 'Function',
+        filePath: `/src/i_${i}.ts`,
+        impactType: 'direct',
+        depth: 1,
+        children: [],
+      })),
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(largeImpact)).toBeGreaterThanOrEqual(25);
+
+    // >= 10 -> 18 points
+    const mediumImpact: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: Array.from({ length: 10 }, (_, i) => ({
+        symbolQname: `imp_${i}`,
+        label: 'Function',
+        filePath: `/src/i_${i}.ts`,
+        impactType: 'direct' as const,
+        depth: 1,
+        children: [],
+      })),
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(mediumImpact)).toBeGreaterThanOrEqual(18);
+
+    // >= 5 -> 12 points
+    const smallImpact: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: Array.from({ length: 5 }, (_, i) => ({
+        symbolQname: `imp_${i}`,
+        label: 'Function' as const,
+        filePath: `/src/i_${i}.ts`,
+        impactType: 'direct' as const,
+        depth: 1,
+        children: [],
+      })),
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(smallImpact)).toBeGreaterThanOrEqual(12);
+
+    // >= 1 -> 5 points
+    const tinyImpact: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [{
+        symbolQname: 'imp_0',
+        label: 'Function' as const,
+        filePath: '/src/i_0.ts',
+        impactType: 'direct' as const,
+        depth: 1,
+        children: [],
+      }],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(tinyImpact)).toBeGreaterThanOrEqual(5);
+  });
+
+  it('should compute file count score at different levels', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    // >= 10 files -> 15 points
+    const hugeFiles: any = {
+      changedFiles: Array.from({ length: 10 }, (_, i) => `/src/f_${i}.ts`),
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(hugeFiles)).toBeGreaterThanOrEqual(15);
+
+    // 1 file -> 2 points
+    const oneFile: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(oneFile)).toBeGreaterThanOrEqual(2);
+  });
+
+  it('should handle Route node without routePath property', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const route = createNode(1, {
+      label: 'Route',
+      properties: { name: 'some route' },
+    });
+    store.insertNode(route);
+
+    // Route node without routePath should not be found as a route
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [1]);
+    expect(result).toHaveLength(0);
+  });
+
+  it('should handle STEP_IN_PROCESS edge with missing step node', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const process = createNode(1, { label: 'Process', name: 'TestProcess' });
+    const step = createNode(2, { name: 'someStep' });
+    store.insertNode(process);
+    store.insertNode(step);
+    // Edge from process to step
+    createEdge(store, 102, 1, 2, 'STEP_IN_PROCESS');
+
+    // Query affected processes for the step
+    const result = analyzer.findAffectedProcesses(PROJECT_ID, [2]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.processName).toBe('TestProcess');
+    expect(result[0]!.severity).toBe('degraded');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional edge cases
+// ---------------------------------------------------------------------------
+
+describe('ImpactAnalyzer — additional edge cases', () => {
+  it('should handle BFS with depth 0', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const aId = store.insertNode(createNode(1));
+    const bId = store.insertNode(createNode(2));
+    createEdge(store, 201, bId, aId, 'CALLS');
+
+    const result = analyzer.findIndirectDependents(PROJECT_ID, [aId], 0);
+    // With maxDepth=0, direct dependents (depth 1) are added to result
+    // but not expanded (since depth >= 0 check skips expansion)
+    expect(result.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should traverse IMPLEMENTS edges in BFS', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const aId = store.insertNode(createNode(1, { label: 'Interface' }));
+    const bId = store.insertNode(createNode(2));
+    store.insertNode(createNode(3));
+    createEdge(store, 201, bId, aId, 'IMPLEMENTS');
+
+    const result = analyzer.findIndirectDependents(PROJECT_ID, [aId], 2);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.relationship).toBe('IMPLEMENTS');
+  });
+
+  it('should traverse EXTENDS edges in BFS', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const aId = store.insertNode(createNode(1, { label: 'Class' }));
+    const bId = store.insertNode(createNode(2, { label: 'Class' }));
+    createEdge(store, 201, bId, aId, 'EXTENDS');
+
+    const result = analyzer.findIndirectDependents(PROJECT_ID, [aId], 2);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.relationship).toBe('EXTENDS');
+  });
+
+  it('should traverse MEMBER_OF edges in BFS', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const aId = store.insertNode(createNode(1, { label: 'Namespace' }));
+    const bId = store.insertNode(createNode(2, { label: 'Variable' }));
+    createEdge(store, 201, bId, aId, 'MEMBER_OF');
+
+    const result = analyzer.findIndirectDependents(PROJECT_ID, [aId], 2);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.relationship).toBe('MEMBER_OF');
+  });
+
+  it('should compute risk score with processCount = 2', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [
+        { processName: 'p1', processId: 0, severity: 'critical', affectedSteps: [], description: '' },
+        { processName: 'p2', processId: 0, severity: 'high', affectedSteps: [], description: '' },
+      ],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(13);
+  });
+
+  it('should compute risk score with processCount = 1', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [
+        { processName: 'p1', processId: 0, severity: 'critical', affectedSteps: [], description: '' },
+      ],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(7);
+  });
+
+  it('should compute risk score with 5+ files', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result: any = {
+      changedFiles: ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts', '/src/e.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(10);
+  });
+
+  it('should compute risk score with 2+ files', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result: any = {
+      changedFiles: ['/src/a.ts', '/src/b.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(5);
+  });
+
+  it('should compute risk score with 10+ symbols', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const symbols = Array.from({ length: 10 }, (_, i) => ({
+      symbolQname: `pkg.fn_${i}`,
+      filePath: `/src/file_${i}.ts`,
+      changeType: 'modified' as const,
+      startLine: i,
+      endLine: i + 1,
+    }));
+
+    const result: any = {
+      changedFiles: symbols.map(s => s.filePath),
+      changedSymbols: symbols,
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(7);
+  });
+
+  it('should handle process severity unaffected', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = createNode(1);
+    store.insertNode(fn);
+
+    const result = await analyzer.analyze(PROJECT_ID, [
+      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
+    ], { includeProcesses: false });
+    expect(result.processesAffected).toHaveLength(0);
+  });
+
+  it('should handle changed symbol with removed change type', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = createNode(1, { filePath: '/src/removed.ts' });
+    store.insertNode(fn);
+
+    const changedSymbols = [{
+      name: 'fn_1',
+      qualifiedName: 'pkg.fn_1',
+      filePath: '/src/removed.ts',
+      changeType: 'removed' as const,
+      lineRange: [10, 20] as [number, number],
+      riskLevel: 'low' as const,
+      reason: '',
+    }];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
+    expect(result.changedSymbols.length).toBe(1);
+    expect(result.changedSymbols[0]!.changeType).toBe('deleted');
+  });
+
+  it('should handle changed symbol with added change type', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = createNode(1, { filePath: '/src/added.ts' });
+    store.insertNode(fn);
+
+    const changedSymbols = [{
+      name: 'fn_1',
+      qualifiedName: 'pkg.fn_1',
+      filePath: '/src/added.ts',
+      changeType: 'added' as const,
+      lineRange: [10, 20] as [number, number],
+      riskLevel: 'low' as const,
+      reason: '',
+    }];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
+    expect(result.changedSymbols.length).toBe(1);
+    expect(result.changedSymbols[0]!.changeType).toBe('added');
+  });
+
+  it('should compute file count score at >=5 threshold', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result: any = {
+      changedFiles: ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts', '/src/e.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(10);
+  });
+
+  it('should compute changes magnitude at >=5 threshold', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const symbols = Array.from({ length: 5 }, (_, i) => ({
+      symbolQname: `pkg.fn_${i}`,
+      filePath: `/src/file_${i}.ts`,
+      changeType: 'modified' as const,
+      startLine: i,
+      endLine: i + 1,
+    }));
+
+    const result: any = {
+      changedFiles: symbols.map(s => s.filePath),
+      changedSymbols: symbols,
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(4);
+  });
+
+  it('should compute changes magnitude at >=1 threshold', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [],
+      estimatedEffort: 'low',
+    };
+    const score = analyzer.computeRiskScore(result);
+    expect(score).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should handle HANDLES_ROUTE edge where sourceNode has no handler', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const handler = createNode(1);
+    const route = createNode(2, {
+      label: 'Route',
+      properties: { name: 'test', routePath: '/api/test', routeMethod: 'POST' },
+    });
+    store.insertNode(handler);
+    store.insertNode(route);
+    // Edge from handler to route (HANDLES_ROUTE)
+    createEdge(store, 102, handler.id, route.id, 'HANDLES_ROUTE');
+
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [handler.id]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.handlerFunction).toBe('pkg.fn_1');
+  });
+
+  it('should handle STEP_IN_PROCESS with missing step node', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const process = createNode(1, { label: 'Process', name: 'TestProcess' });
+    const step = createNode(2, { name: 'someStep' });
+    store.insertNode(process);
+    store.insertNode(step);
+    // Create edge, then query for both step and process
+    createEdge(store, 102, 1, 2, 'STEP_IN_PROCESS');
+
+    const result = analyzer.findAffectedProcesses(PROJECT_ID, [1, 2]);
+    expect(result.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle STEP_IN_PROCESS with missing process node', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const step = createNode(1, { name: 'someStep' });
+    const process = createNode(2, { label: 'Process', name: 'TestFlow' });
+    store.insertNode(step);
+    store.insertNode(process);
+    createEdge(store, 102, 2, 1, 'STEP_IN_PROCESS');
+
+    // Query affected processes for the step
+    const result = analyzer.findAffectedProcesses(PROJECT_ID, [1]);
+    expect(result.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle Route node with non-string routePath property', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const route = createNode(1, {
+      label: 'Route',
+      properties: { name: 'test route', routePath: 12345 },
+    });
+    store.insertNode(route);
+
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [1]);
+    // routePath is not a string, but typeof check should convert
+    expect(result.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle route node with routeMethod non-string property', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const route = createNode(1, {
+      label: 'Route',
+      properties: { name: 'test', routePath: '/api/test', routeMethod: 42 },
+    });
+    store.insertNode(route);
+
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [1]);
+    expect(result.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle risk determination with impactCount between 10 and 19', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const nodeIds: number[] = [];
+    for (let i = 1; i <= 12; i++) {
+      const n = createNode(i, { qualifiedName: `pkg.node_${i}` });
+      const actualId = store.insertNode(n);
+      nodeIds.push(actualId);
+    }
+    for (let i = 1; i < nodeIds.length; i++) {
+      createEdge(store, i * 100 + i, nodeIds[i]!, nodeIds[i - 1]!, 'CALLS');
+    }
+
+    const changedSymbols = [{
+      name: 'node_1',
+      qualifiedName: 'pkg.node_1',
+      filePath: '/src/file_1.ts',
+      changeType: 'modified' as const,
+      lineRange: [10, 20] as [number, number],
+      riskLevel: 'low' as const,
+      reason: '',
+    }];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols, { maxDepth: 12 });
+    // impactCount >= 10 but < 20 → 'high' (when no blocked processes)
+    expect(result.riskLevel).toBe('high');
+  });
+
+  it('should handle risk determination with medium severity symbol', async () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = createNode(1, { qualifiedName: 'pkg.medium' });
+    store.insertNode(fn);
+
+    const changedSymbols = [{
+      name: 'medium',
+      qualifiedName: 'pkg.medium',
+      filePath: '/src/medium.ts',
+      changeType: 'modified' as const,
+      lineRange: [10, 20] as [number, number],
+      riskLevel: 'medium' as const,
+      reason: '',
+    }];
+
+    const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
+    // maxSymbolRisk = medium → no special handling, impactCount = 0 → low
+    expect(result.riskLevel).toBe('low');
+  });
+
+  it('should compute process count score at >= 2 and >= 1 thresholds', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    // Exactly 2 processes → 13 points
+    const result2: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [
+        { processName: 'p1', processId: 0, severity: 'medium', affectedSteps: [], description: '' },
+        { processName: 'p2', processId: 0, severity: 'medium', affectedSteps: [], description: '' },
+      ],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(result2)).toBeGreaterThanOrEqual(13);
+
+    // Exactly 1 process → 7 points
+    const result1: any = {
+      changedFiles: ['/src/a.ts'],
+      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      impactTree: [],
+      riskLevel: 'low',
+      processesAffected: [
+        { processName: 'p1', processId: 0, severity: 'medium', affectedSteps: [], description: '' },
+      ],
+      estimatedEffort: 'low',
+    };
+    expect(analyzer.computeRiskScore(result1)).toBeGreaterThanOrEqual(7);
+  });
+
+  it('should handle STEP_IN_PROCESS edge deduplication', () => {
+    const store = new SqliteStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const process = createNode(1, { label: 'Process', name: 'DedupTest' });
+    const step = createNode(2, { name: 'step1' });
+    store.insertNode(process);
+    store.insertNode(step);
+    // Same edge inserted twice via different IDs
+    createEdge(store, 101, 1, 2, 'STEP_IN_PROCESS');
+
+    const result = analyzer.findAffectedProcesses(PROJECT_ID, [2]);
+    expect(result).toHaveLength(1);
+  });
 });

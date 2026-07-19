@@ -181,6 +181,103 @@ describe('WorkerPool', () => {
     expect(pool.activeCount).toBe(0);
     expect(pool.queuedCount).toBe(0);
   });
+
+  it('handles non-Error exceptions in task execution', async () => {
+    pool = createWorkerPool(1);
+    await expect(
+      pool.execute({
+        id: 'string-error',
+        execute: async () => {
+          // eslint-disable-next-line no-throw-literal
+          throw 'raw string error';
+        },
+        retries: 0,
+      }),
+    ).rejects.toThrow('raw string error');
+  });
+
+  it('handles task with 0 retries', async () => {
+    pool = createWorkerPool(1);
+    await expect(
+      pool.execute({
+        id: 'no-retry',
+        execute: async () => {
+          throw new Error('one shot fail');
+        },
+        retries: 0,
+      }),
+    ).rejects.toThrow('one shot fail');
+  });
+
+  it('fails after timeout with 0 retries', async () => {
+    pool = createWorkerPool(1);
+    await expect(
+      pool.execute({
+        id: 'timeout-noretry',
+        execute: async () => {
+          await new Promise((r) => setTimeout(r, 100));
+          return 'late';
+        },
+        timeout: 10,
+        retries: 0,
+      }),
+    ).rejects.toThrow('timed out');
+  });
+
+  it('shuts down with queued pending tasks', async () => {
+    pool = createWorkerPool(1);
+
+    // Start a long-running task to block the pool
+    const longTask = pool.execute({
+      id: 'long-blocker',
+      execute: async () => {
+        await new Promise((r) => setTimeout(r, 500));
+        return 'done';
+      },
+    });
+
+    // Let the long task start and occupy the slot
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Queue tasks that will go into pending (past the shutdown check)
+    const queuedPromises = [
+      pool.execute({ id: 'queued-a', execute: async () => 'a' }),
+      pool.execute({ id: 'queued-b', execute: async () => 'b' }),
+    ];
+
+    // Verify tasks are queued
+    expect(pool.queuedCount).toBeGreaterThanOrEqual(1);
+
+    // Shutdown while tasks are queued — releases pending queue resolves
+    // Tasks already past the isShutdown check will execute when slots free up
+    pool.shutdown();
+
+    // New tasks submitted AFTER shutdown should reject
+    await expect(
+      pool.execute({ id: 'post-shutdown', execute: async () => 'nope' }),
+    ).rejects.toThrow('shut down');
+
+    // The queued tasks (already past shutdown check) will execute
+    const results = await Promise.allSettled(queuedPromises);
+    // They resolve because they passed the shutdown check before being queued
+
+    // Clean up the long task
+    try { await longTask; } catch { /* may be affected */ }
+  });
+
+  it('handles retries set to 0 (default path)', async () => {
+    pool = createWorkerPool(1);
+    let calls = 0;
+    const result = await pool.execute({
+      id: 'default-retry',
+      execute: async () => {
+        calls++;
+        return 'ok';
+      },
+    });
+    expect(result).toBe('ok');
+    expect(calls).toBe(1);
+  });
 });
 
 describe('CircuitBreaker', () => {
@@ -356,5 +453,58 @@ describe('CircuitBreaker', () => {
         throw new Error('specific error');
       }),
     ).rejects.toThrow('specific error');
+  });
+
+  it('closes immediately on reset with timer cleared', async () => {
+    breaker = new CircuitBreaker({
+      failureThreshold: 2,
+      resetTimeout: 5000,
+    });
+
+    // Trip to open
+    for (let i = 0; i < 2; i++) {
+      try {
+        await breaker.execute(async () => {
+          throw new Error('fail');
+        });
+      } catch {
+        // expected
+      }
+    }
+    expect(breaker.state).toBe('open');
+
+    // Reset without waiting for timeout
+    breaker.reset();
+    expect(breaker.state).toBe('closed');
+
+    // Should work immediately
+    const result = await breaker.execute(async () => 42);
+    expect(result).toBe(42);
+  });
+
+  it('transitions to closed when enough successes in half-open', async () => {
+    breaker = new CircuitBreaker({
+      failureThreshold: 2,
+      successThreshold: 1,
+      resetTimeout: 50,
+    });
+
+    // Trip to open
+    for (let i = 0; i < 2; i++) {
+      try {
+        await breaker.execute(async () => {
+          throw new Error('fail');
+        });
+      } catch {
+        // expected
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 60));
+    expect(breaker.state).toBe('half-open');
+
+    // Single success should close with successThreshold=1
+    await breaker.execute(async () => 'ok');
+    expect(breaker.state).toBe('closed');
   });
 });

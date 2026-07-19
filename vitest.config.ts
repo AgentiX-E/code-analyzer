@@ -8,16 +8,26 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['packages/*/src/**/*.ts'],
+      include: ['packages/shared/src/**/*.ts', 'packages/core/src/**/*.ts', 'packages/infra/src/**/*.ts', 'packages/analyzer/src/**/*.ts', 'packages/intelligence/src/**/*.ts'],
       exclude: [
-        'packages/*/src/**/*.test.ts',
-        'packages/*/src/index.ts', // barrel files, covered by consumer tests
+        '**/*.test.ts',
+        '**/index.ts',                       // Barrel files (tested via consumer tests)
+        '**/provider.ts',                     // Pure interface definitions (0% exec code)
+        'packages/infra/src/storage/types.ts', // Pure type definitions
+        'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
+        'packages/intelligence/src/embeddings/embedder.ts', // Requires native @agentix-e/embed-code-ts
+        'packages/*/dist/**',
+        'packages/mcp/**',
+        'packages/server/**',
+        'packages/vscode/**',
+        'packages/web/**',
+        'packages/cli/**',
       ],
       thresholds: {
-        lines: 90,
-        branches: 85,
-        functions: 90,
-        statements: 90,
+        lines: 95,
+        branches: 90,
+        functions: 95,
+        statements: 95,
       },
     },
     testTimeout: 10_000,

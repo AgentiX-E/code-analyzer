@@ -356,4 +356,66 @@ describe('EmbeddingEngine lifecycle', () => {
     const v = await engine.embedCode('test');
     expect(v.length).toBe(256);
   });
+
+  it('should handle embedCode without explicit initialize (lazy init)', async () => {
+    const engine = new EmbeddingEngine();
+    // embedCode should auto-initialize
+    const v = await engine.embedCode('lazy test');
+    expect(v.length).toBe(768);
+    expect(engine.isReady).toBe(true);
+  });
+
+  it('should handle embedBatch without explicit initialize', async () => {
+    const engine = new EmbeddingEngine();
+    const vectors = await engine.embedBatch(['test1', 'test2']);
+    expect(vectors.length).toBe(2);
+    expect(engine.isReady).toBe(true);
+  });
+
+  it('should handle incrementalUpdate without explicit initialize', async () => {
+    const engine = new EmbeddingEngine();
+    const contentMap = new Map([
+      [1, 'content one'],
+      [2, 'content two'],
+    ]);
+    await engine.incrementalUpdate([1, 2], (id) => contentMap.get(id) ?? '');
+    expect(engine.isReady).toBe(true);
+    expect(engine.getEmbedding(1)).not.toBeNull();
+    expect(engine.getEmbedding(2)).not.toBeNull();
+  });
+
+  it('should handle incrementalUpdate with all nodes already having embeddings', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+
+    const existingVec = await engine.embedCode('existing');
+    engine.storeEmbedding(1, existingVec);
+
+    await engine.incrementalUpdate([1], () => 'new content');
+    // Should keep existing embedding
+    const v1 = engine.getEmbedding(1);
+    expect(v1).not.toBeNull();
+    for (let i = 0; i < existingVec.length; i++) {
+      expect(v1![i]!).toBe(existingVec[i]!);
+    }
+  });
+
+  it('should handle incrementalUpdate with empty content for some nodes', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+
+    await engine.incrementalUpdate([1, 2], (id) => {
+      return id === 1 ? 'content' : '';
+    });
+
+    expect(engine.getEmbedding(1)).not.toBeNull();
+    expect(engine.getEmbedding(2)).toBeNull();
+  });
+
+  it('should handle dimension mismatch in cosine similarity', () => {
+    const engine = new EmbeddingEngine();
+    const a = new Float32Array([1, 2]);
+    const b = new Float32Array([1, 2, 3]);
+    expect(() => engine.cosineSimilarity(a, b)).toThrow('dimension mismatch');
+  });
 });

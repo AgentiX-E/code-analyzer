@@ -322,4 +322,105 @@ describe('FileDiscoverer', () => {
     expect(discoverer.detectLanguage('app.ex')).toBe('elixir');
     expect(discoverer.detectLanguage('script.exs')).toBe('elixir');
   });
+
+  it('handles .gitignore with empty content', async () => {
+    rootPath = setup([], {
+      '.gitignore': '',
+      'src/app.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('src/app.ts');
+  });
+
+  it('handles .gitignore with only comments and blanks', async () => {
+    rootPath = setup([], {
+      '.gitignore': '# this is a comment\n\n# another comment\n',
+      'src/app.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    // Both .gitignore and src/app.ts are discovered (./gitignore is a text file)
+    // The key assertion: the source file is discovered and gitignore is parsed without errors
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    expect(files.some((f) => f.filePath === 'src/app.ts')).toBe(true);
+  });
+
+  it('matches glob with directory suffix pattern (trailing /)', async () => {
+    rootPath = setup(['build'], {
+      '.gitignore': 'build/',
+      'build/output.js': 'bundled',
+      'src/main.ts': 'code',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'build/output.js'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/main.ts'))).toBe(false);
+  });
+
+  it('matches glob with ** wildcard', async () => {
+    rootPath = setup(['deep', 'deep/nested'], {
+      '.gitignore': '**/*.gen.ts',
+      'src/app.ts': 'code',
+      'deep/nested/auto.gen.ts': 'generated',
+      'src/other.gen.ts': 'generated',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/other.gen.ts'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'deep/nested/auto.gen.ts'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts'))).toBe(false);
+  });
+
+  it('matches glob with * wildcard', async () => {
+    rootPath = setup([], {
+      '.gitignore': '*.log',
+      'debug.log': 'log data',
+      'app.ts': 'code',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'debug.log'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'app.ts'))).toBe(false);
+  });
+
+  it('matches glob with ? wildcard (single char)', async () => {
+    rootPath = setup([], {
+      '.gitignore': '???.tmp',
+      'abc.tmp': 'temp',
+      'ab.tmp': 'temp',
+      'app.ts': 'code',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'abc.tmp'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'ab.tmp'))).toBe(false);
+  });
+
+  it('skips files exactly at maxFileSize threshold', async () => {
+    const content = 'x'.repeat(1024); // 1KB
+    rootPath = setup([], {
+      'borderline.ts': content,
+      'small.ts': 'tiny',
+    });
+
+    const files = await discoverer.discover(rootPath, { maxFileSize: 1024 });
+    // maxFileSize > stat.size means file is included; if stat.size > maxFileSize it's skipped
+    // 1024 bytes > 1024? No, 1024 == 1024. So included.
+    expect(files.length).toBe(2);
+  });
+
+  it('skips files just over maxFileSize threshold', async () => {
+    const content = 'x'.repeat(1025);
+    rootPath = setup([], {
+      'large.ts': content,
+      'small.ts': 'tiny',
+    });
+
+    const files = await discoverer.discover(rootPath, { maxFileSize: 1024 });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('small.ts');
+  });
+
+  it('handles no .gitignore gracefully', async () => {
+    rootPath = setup([], {
+      'src/app.ts': 'const x = 1;',
+    });
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('src/app.ts');
+  });
 });

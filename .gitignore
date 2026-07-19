@@ -13,3 +13,4 @@ dist/
 coverage/
 benchmark-results/
 reports/
+logs/

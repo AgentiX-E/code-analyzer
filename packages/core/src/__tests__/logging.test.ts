@@ -159,6 +159,82 @@ describe('Logger', () => {
     expect(transport.entries).toHaveLength(1);
     expect(transport.entries[0]?.message).toBe('public message');
   });
+
+  it('should handle transport write errors gracefully', () => {
+    const badTransport: LogTransport = {
+      write(_formatted: string, _entry: LogEntry): void {
+        throw new Error('write failure');
+      },
+    };
+
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [badTransport],
+    });
+
+    // Should not throw
+    expect(() => logger.info('should not crash')).not.toThrow();
+  });
+
+  it('should flush transports on flush call', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.info('test');
+    expect(() => logger.flush()).not.toThrow();
+  });
+
+  it('should call transport close on logger close', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    expect(() => logger.close()).not.toThrow();
+  });
+
+  it('should support JSON format option', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+      format: 'json',
+    });
+
+    logger.info('json test');
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.message).toBe('json test');
+  });
+
+  it('should handle error with Error object', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    const err = new Error('test error');
+    logger.fatal('fatal error', err, { severity: 'critical' });
+
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.error).toBeDefined();
+    expect(transport.entries[0]?.data).toEqual({ severity: 'critical' });
+  });
+
+  it('should write error and fatal levels to stderr via console transport', () => {
+    // Create logger with default console transport (no custom transports)
+    const logger = createLogger('test-stderr', { minLevel: 'error' });
+
+    // Just verify it doesn't crash — default transport writes to stderr
+    logger.error('error to stderr', new Error('test'));
+    logger.fatal('fatal to stderr', new Error('critical'));
+    expect(logger.isLevelEnabled('error')).toBe(true);
+    expect(logger.isLevelEnabled('fatal')).toBe(true);
+  });
 });
 
 describe('createNoopLogger', () => {
@@ -170,6 +246,12 @@ describe('createNoopLogger', () => {
     logger.error('also not logged', new Error('test'));
     // All should be silent — no crash
     expect(transport.entries).toHaveLength(0);
+  });
+
+  it('should support isLevelEnabled on noop logger', () => {
+    const logger = createNoopLogger('noop');
+    expect(logger.isLevelEnabled('fatal')).toBe(true);
+    expect(logger.isLevelEnabled('error')).toBe(false);
   });
 });
 
@@ -245,6 +327,41 @@ describe('formatPretty', () => {
     expect(output).toContain('Data:');
     expect(output).toContain('"key": "value"');
   });
+
+  it('should handle circular data gracefully', () => {
+    const circData: Record<string, unknown> = { key: 'value' };
+    circData['self'] = circData;
+
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'info',
+      component: 'test',
+      message: 'with circular data',
+      data: circData,
+    };
+    const output = formatPretty(entry);
+    // Should not crash on circular data
+    expect(output).toContain('with circular data');
+    expect(output).toContain('[unserializable]');
+  });
+
+  it('should include error stack in pretty format', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'error',
+      component: 'test',
+      message: 'fail',
+      error: {
+        name: 'Error',
+        message: 'boom',
+        stack: 'Error: boom\n  at Test (test.ts:1:1)',
+      },
+    };
+    const output = formatPretty(entry);
+    expect(output).toContain('Error:');
+    expect(output).toContain('boom');
+    expect(output).toContain('test.ts');
+  });
 });
 
 describe('createLevelFilter', () => {
@@ -263,5 +380,58 @@ describe('createLevelFilter', () => {
     expect(filter(makeEntry('warn'))).toBe(true);
     expect(filter(makeEntry('error'))).toBe(true);
     expect(filter(makeEntry('fatal'))).toBe(true);
+  });
+});
+
+describe('FileTransport', () => {
+  it('should create logger with file transport option', () => {
+    const logger = createLogger('test-file', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs',
+    });
+
+    expect(logger.component).toBe('test-file');
+    logger.info('file log test');
+    logger.flush();
+    logger.close();
+  });
+
+  it('should use default logDir when not specified', () => {
+    const logger = createLogger('test-default', {
+      minLevel: 'trace',
+      enableFile: true,
+    });
+
+    logger.info('default dir test');
+    logger.flush();
+    logger.close();
+  });
+
+  it('should reuse existing stream on second write', () => {
+    const logger = createLogger('test-reuse', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs-reuse',
+    });
+
+    logger.info('first write');
+    logger.info('second write — should reuse stream');
+    logger.flush();
+    logger.close();
+  });
+});
+
+describe('formatPretty unknown level', () => {
+  it('should handle invalid log level gracefully', () => {
+    const entry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'unknown_level' as LogLevel,
+      component: 'test',
+      message: 'test message',
+    };
+    const output = formatPretty(entry);
+    // Should not crash, fallback to empty color
+    expect(output).toContain('test message');
   });
 });
