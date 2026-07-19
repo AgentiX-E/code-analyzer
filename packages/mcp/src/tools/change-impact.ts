@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Change & Impact Analysis Tools
 
 import { SqliteStore } from '@code-analyzer/infra';
@@ -7,6 +6,13 @@ import type { ToolResult } from './registry.js';
 // ---------------------------------------------------------------------------
 // detect_changes
 // ---------------------------------------------------------------------------
+
+interface DetectChangesParams {
+  projectId: string;
+  fromRef?: string;
+  toRef?: string;
+  includeFiles?: boolean;
+}
 
 export const detectChangesSchema = {
   type: 'object',
@@ -20,10 +26,11 @@ export const detectChangesSchema = {
 };
 
 export async function detectChanges(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const fromRef = (args.fromRef as string) ?? 'HEAD~1';
-  const toRef = (args.toRef as string) ?? 'HEAD';
-  const includeFiles = Boolean(args.includeFiles);
+  const params = args as unknown as DetectChangesParams;
+  const projectId = params.projectId;
+  const fromRef = params.fromRef ?? 'HEAD~1';
+  const toRef = params.toRef ?? 'HEAD';
+  const includeFiles = Boolean(params.includeFiles);
 
   return {
     content: [{
@@ -47,6 +54,14 @@ export async function detectChanges(args: Record<string, unknown>): Promise<Tool
 // impact_analysis
 // ---------------------------------------------------------------------------
 
+interface ImpactAnalysisParams {
+  projectId: string;
+  targetSymbol?: string;
+  fromRef: string;
+  toRef: string;
+  depth?: number;
+}
+
 export const impactAnalysisSchema = {
   type: 'object',
   properties: {
@@ -60,11 +75,11 @@ export const impactAnalysisSchema = {
 };
 
 export async function impactAnalysis(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const targetSymbol = args.targetSymbol as string | undefined;
-  const fromRef = args.fromRef as string;
-  const toRef = args.toRef as string;
-  const depth = (args.depth as number) ?? 3;
+  const params = args as unknown as ImpactAnalysisParams;
+  const targetSymbol = params.targetSymbol;
+  const fromRef = params.fromRef;
+  const toRef = params.toRef;
+  const depth = params.depth ?? 3;
 
   const result: {
     range: { from: string; to: string };
@@ -111,6 +126,11 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
 // route_map
 // ---------------------------------------------------------------------------
 
+interface RouteMapParams {
+  projectId: string;
+  includeHandlers?: boolean;
+}
+
 export const routeMapSchema = {
   type: 'object',
   properties: {
@@ -121,8 +141,9 @@ export const routeMapSchema = {
 };
 
 export async function routeMap(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const includeHandlers = Boolean(args.includeHandlers);
+  const params = args as unknown as RouteMapParams;
+  const projectId = params.projectId;
+  const includeHandlers = Boolean(params.includeHandlers);
 
   const routes: Array<{
     method: string;
@@ -160,6 +181,12 @@ export async function routeMap(args: Record<string, unknown>, store?: unknown): 
 // check_cycles
 // ---------------------------------------------------------------------------
 
+interface CheckCyclesParams {
+  projectId: string;
+  module?: string;
+  maxDepth?: number;
+}
+
 export const checkCyclesSchema = {
   type: 'object',
   properties: {
@@ -171,9 +198,9 @@ export const checkCyclesSchema = {
 };
 
 export async function checkCycles(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const module = args.module as string | undefined;
-  const maxDepth = (args.maxDepth as number) ?? 10;
+  const params = args as unknown as CheckCyclesParams;
+  const projectId = params.projectId;
+  const module = params.module;
 
   const result: {
     cyclesFound: number;

@@ -1,12 +1,17 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cross-Repo Tools
 
-import { SqliteStore } from '@code-analyzer/infra';
 import type { ToolResult } from './registry.js';
 
 // ---------------------------------------------------------------------------
 // cross_repo_search
 // ---------------------------------------------------------------------------
+
+interface CrossRepoSearchParams {
+  query: string;
+  groupId?: string;
+  repos?: string[];
+  limit?: number;
+}
 
 export const crossRepoSearchSchema = {
   type: 'object',
@@ -20,10 +25,10 @@ export const crossRepoSearchSchema = {
 };
 
 export async function crossRepoSearch(args: Record<string, unknown>): Promise<ToolResult> {
-  const query = args.query as string;
-  const groupId = args.groupId as string | undefined;
-  const repos = args.repos as string[] | undefined;
-  const limit = Math.min((args.limit as number) ?? 20, 50);
+  const params = args as unknown as CrossRepoSearchParams;
+  const query = params.query;
+  const groupId = params.groupId;
+  const repos = params.repos;
 
   return {
     content: [{
@@ -46,6 +51,13 @@ export async function crossRepoSearch(args: Record<string, unknown>): Promise<To
 // cross_repo_trace
 // ---------------------------------------------------------------------------
 
+interface CrossRepoTraceParams {
+  sourceSymbol: string;
+  groupId: string;
+  targetRepo?: string;
+  depth?: number;
+}
+
 export const crossRepoTraceSchema = {
   type: 'object',
   properties: {
@@ -58,9 +70,10 @@ export const crossRepoTraceSchema = {
 };
 
 export async function crossRepoTrace(args: Record<string, unknown>): Promise<ToolResult> {
-  const sourceSymbol = args.sourceSymbol as string;
-  const groupId = args.groupId as string;
-  const depth = (args.depth as number) ?? 5;
+  const params = args as unknown as CrossRepoTraceParams;
+  const sourceSymbol = params.sourceSymbol;
+  const groupId = params.groupId;
+  const depth = params.depth ?? 5;
 
   return {
     content: [{
@@ -81,6 +94,12 @@ export async function crossRepoTrace(args: Record<string, unknown>): Promise<Too
 // cross_repo_impact
 // ---------------------------------------------------------------------------
 
+interface CrossRepoImpactParams {
+  symbol: string;
+  groupId: string;
+  includeConsumers?: boolean;
+}
+
 export const crossRepoImpactSchema = {
   type: 'object',
   properties: {
@@ -92,9 +111,9 @@ export const crossRepoImpactSchema = {
 };
 
 export async function crossRepoImpact(args: Record<string, unknown>): Promise<ToolResult> {
-  const symbol = args.symbol as string;
-  const groupId = args.groupId as string;
-  const includeConsumers = Boolean(args.includeConsumers);
+  const params = args as unknown as CrossRepoImpactParams;
+  const symbol = params.symbol;
+  const groupId = params.groupId;
 
   return {
     content: [{
@@ -114,6 +133,14 @@ export async function crossRepoImpact(args: Record<string, unknown>): Promise<To
 // manage_repo_group
 // ---------------------------------------------------------------------------
 
+interface ManageRepoGroupParams {
+  action: string;
+  groupId?: string;
+  name?: string;
+  description?: string;
+  repos?: string[];
+}
+
 export const manageRepoGroupSchema = {
   type: 'object',
   properties: {
@@ -127,11 +154,12 @@ export const manageRepoGroupSchema = {
 };
 
 export async function manageRepoGroup(args: Record<string, unknown>): Promise<ToolResult> {
-  const action = args.action as string;
-  const groupId = args.groupId as string | undefined;
-  const name = args.name as string | undefined;
-  const description = args.description as string | undefined;
-  const repos = args.repos as string[] | undefined;
+  const params = args as unknown as ManageRepoGroupParams;
+  const action = params.action;
+  const groupId = params.groupId;
+  const name = params.name;
+  const description = params.description;
+  const repos = params.repos;
 
   let result: Record<string, unknown> = { action };
 
@@ -166,6 +194,12 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
 // sync_contracts
 // ---------------------------------------------------------------------------
 
+interface SyncContractsParams {
+  groupId: string;
+  direction?: string;
+  contracts?: string[];
+}
+
 export const syncContractsSchema = {
   type: 'object',
   properties: {
@@ -177,9 +211,10 @@ export const syncContractsSchema = {
 };
 
 export async function syncContracts(args: Record<string, unknown>): Promise<ToolResult> {
-  const groupId = args.groupId as string;
-  const direction = (args.direction as string) ?? 'verify';
-  const contracts = args.contracts as string[] | undefined;
+  const params = args as unknown as SyncContractsParams;
+  const groupId = params.groupId;
+  const direction = params.direction ?? 'verify';
+  const contracts = params.contracts;
 
   return {
     content: [{
@@ -201,6 +236,11 @@ export async function syncContracts(args: Record<string, unknown>): Promise<Tool
 // discover_related_repos
 // ---------------------------------------------------------------------------
 
+interface DiscoverRelatedReposParams {
+  projectId: string;
+  maxResults?: number;
+}
+
 export const discoverRelatedReposSchema = {
   type: 'object',
   properties: {
@@ -211,8 +251,8 @@ export const discoverRelatedReposSchema = {
 };
 
 export async function discoverRelatedRepos(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const maxResults = Math.min((args.maxResults as number) ?? 10, 50);
+  const params = args as unknown as DiscoverRelatedReposParams;
+  const projectId = params.projectId;
 
   return {
     content: [{

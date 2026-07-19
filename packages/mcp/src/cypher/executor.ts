@@ -1,12 +1,10 @@
-// @ts-nocheck — Cypher AST types use index signatures for Step unions
 // @code-analyzer/mcp — Cypher Executor
 // Executes a query plan against an SqliteStore and formats results.
 
 import { SqliteStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, NodeLabel, RelationshipType, CypherExpression } from '@code-analyzer/shared';
 import type { QueryPlan, ColumnDef, PlanStep } from './planner.js';
 import { buildFilterPredicate } from './planner.js';
-import type { MatchClause } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Query Result
@@ -97,7 +95,7 @@ function executeStep(step: PlanStep, ctx: ExecContext): void {
       // Projection is handled during row building — no-op here
       break;
     case 'sort':
-      executeSort(step, ctx);
+      executeSort(ctx);
       break;
     case 'limit':
     case 'skip':
@@ -108,7 +106,7 @@ function executeStep(step: PlanStep, ctx: ExecContext): void {
 
 function executeScan(step: PlanStep, ctx: ExecContext): void {
   const details = step.details;
-  const pattern = details.pattern as { variable: string; labels: string[]; properties: Record<string, unknown> };
+  const pattern = details['pattern'] as { variable: string; labels: string[]; properties: Record<string, unknown> };
   const varName = pattern.variable;
 
   // Get all matching nodes from the store
@@ -141,8 +139,9 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
   const details = step.details;
 
   // Handle expression-based filters
-  if (details.expression) {
-    const predicate = details.expression;
+  const rawExpression = details['expression'] as CypherExpression | undefined;
+  if (rawExpression) {
+    const predicate = rawExpression;
     const nodeVars = ctx.nodeVars;
 
     // For each bound variable, apply the filter
@@ -170,11 +169,13 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
   }
 
   // Handle label-based filters (already applied during scan)
-  if (details.label) {
-    const nodes = ctx.nodes.get(details.label);
+  const rawLabel = details['label'] as string | undefined;
+  if (rawLabel) {
+    const nodes = ctx.nodes.get(rawLabel);
     if (nodes) {
-      ctx.nodes.set(details.label, nodes.filter((n) =>
-        details.value ? (Array.isArray(details.value) && (details.value as string[]).includes(n.label)) : true,
+      const rawValue = details['value'] as string[] | undefined;
+      ctx.nodes.set(rawLabel, nodes.filter((n) =>
+        rawValue ? (Array.isArray(rawValue) && rawValue.includes(n.label)) : true,
       ));
     }
   }
@@ -182,15 +183,15 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
 
 function executeTraverse(step: PlanStep, ctx: ExecContext): void {
   const details = step.details;
-  const sourceVar = details.source as string;
-  const rel = details.relationship as {
+  const sourceVar = details['source'] as string;
+  const rel = details['relationship'] as {
     variable?: string;
     types: string[];
     direction: 'left' | 'right' | 'both';
     minHops?: number;
     maxHops?: number;
   };
-  const targetVar = details.target as string;
+  const targetVar = details['target'] as string;
 
   const sourceNodes = ctx.nodes.get(sourceVar);
   if (!sourceNodes || sourceNodes.length === 0) return;
@@ -242,15 +243,15 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
   }
 
   // Update node vars for found nodes
-  if (sourceNodes.length > 0) {
-    ctx.nodeVars.set(sourceVar, sourceNodes[0]);
+  if (sourceNodes.length > 0 && sourceNodes[0]) {
+    ctx.nodeVars.set(sourceVar, sourceNodes[0]!);
   }
-  if (targetNodes.length > 0 && targetVar) {
-    ctx.nodeVars.set(targetVar, targetNodes[0]);
+  if (targetNodes.length > 0 && targetVar && targetNodes[0]) {
+    ctx.nodeVars.set(targetVar, targetNodes[0]!);
   }
 }
 
-function executeSort(step: PlanStep, _ctx: ExecContext): void {
+function executeSort(_ctx: ExecContext): void {
   // Sort will be applied after row building
   // This would require extracting sort columns from the step details
 }
@@ -278,6 +279,7 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
   // For a single MATCH, return one row per node
   const varNames = Array.from(allVarNames);
   const primaryVar = varNames[0];
+  if (!primaryVar) return [];
   const primaryNodes = ctx.nodes.get(primaryVar) ?? [];
   const primaryEdges = ctx.edges.get(primaryVar) ?? [];
 
@@ -285,7 +287,7 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
     return [];
   }
 
-  if (columns[0].expression === '*') {
+  if (columns[0] && columns[0].expression === '*') {
     // Return all node data
     return [
       ...primaryNodes.map((n) => ({ node: n })),
@@ -321,7 +323,9 @@ function resolveColumnValue(
 
   // Property access: n.propertyName
   if (expr.includes('.')) {
-    const [obj, prop] = expr.split('.');
+    const parts = expr.split('.');
+    const prop = parts[1];
+    if (!prop) return null;
     const node = 'id' in item ? (item as GraphNode) : null;
 
     if (node) {
@@ -333,7 +337,7 @@ function resolveColumnValue(
   if (expr.includes('(') && expr.includes(')')) {
     const match = expr.match(/^(\w+)\(/);
     if (match) {
-      const funcName = match[1].toUpperCase();
+      const funcName = match[1]!.toUpperCase();
       const allNodes = Array.from(ctx.nodes.values()).flat();
       const allEdges = Array.from(ctx.edges.values()).flat();
 

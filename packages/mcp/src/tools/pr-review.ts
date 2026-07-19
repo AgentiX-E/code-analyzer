@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — PR Review Tools
 
 import type { ToolResult } from './registry.js';
@@ -6,6 +5,14 @@ import type { ToolResult } from './registry.js';
 // ---------------------------------------------------------------------------
 // review_pr
 // ---------------------------------------------------------------------------
+
+interface ReviewPRParams {
+  projectId: string;
+  prNumber?: number;
+  baseRef?: string;
+  headRef?: string;
+  includeAiReview?: boolean;
+}
 
 export const reviewPRSchema = {
   type: 'object',
@@ -20,11 +27,12 @@ export const reviewPRSchema = {
 };
 
 export async function reviewPR(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const prNumber = args.prNumber as number | undefined;
-  const baseRef = (args.baseRef as string) ?? 'main';
-  const headRef = (args.headRef as string) ?? 'HEAD';
-  const includeAiReview = Boolean(args.includeAiReview);
+  const params = args as unknown as ReviewPRParams;
+  const projectId = params.projectId;
+  const prNumber = params.prNumber;
+  const baseRef = params.baseRef ?? 'main';
+  const headRef = params.headRef ?? 'HEAD';
+  const includeAiReview = Boolean(params.includeAiReview);
 
   return {
     content: [{
@@ -63,6 +71,13 @@ export async function reviewPR(args: Record<string, unknown>): Promise<ToolResul
 // check_standards
 // ---------------------------------------------------------------------------
 
+interface CheckStandardsParams {
+  projectId: string;
+  standardIds?: string[];
+  filePath?: string;
+  autoFix?: boolean;
+}
+
 export const checkStandardsSchema = {
   type: 'object',
   properties: {
@@ -75,10 +90,11 @@ export const checkStandardsSchema = {
 };
 
 export async function checkStandards(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const standardIds = args.standardIds as string[] | undefined;
-  const filePath = args.filePath as string | undefined;
-  const autoFix = Boolean(args.autoFix);
+  const params = args as unknown as CheckStandardsParams;
+  const projectId = params.projectId;
+  const standardIds = params.standardIds;
+  const filePath = params.filePath;
+  const autoFix = Boolean(params.autoFix);
 
   return {
     content: [{

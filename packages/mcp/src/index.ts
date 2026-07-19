@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Public API
 // MCP Server, Cypher Engine, and Agent Skills Installer
 

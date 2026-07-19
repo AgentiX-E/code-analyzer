@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Standards, ADR, and Agent Tools
 
 import type { ToolResult } from './registry.js';
@@ -6,6 +5,11 @@ import type { ToolResult } from './registry.js';
 // ---------------------------------------------------------------------------
 // list_standards
 // ---------------------------------------------------------------------------
+
+interface ListStandardsParams {
+  projectId: string;
+  category?: string;
+}
 
 export const listStandardsSchema = {
   type: 'object',
@@ -17,8 +21,9 @@ export const listStandardsSchema = {
 };
 
 export async function listStandards(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const category = args.category as string | undefined;
+  const params = args as unknown as ListStandardsParams;
+  const projectId = params.projectId;
+  const category = params.category;
 
   return {
     content: [{
@@ -38,6 +43,14 @@ export async function listStandards(args: Record<string, unknown>): Promise<Tool
 // create_standard
 // ---------------------------------------------------------------------------
 
+interface CreateStandardParams {
+  projectId: string;
+  name: string;
+  category: string;
+  rules?: Record<string, unknown>[];
+  description?: string;
+}
+
 export const createStandardSchema = {
   type: 'object',
   properties: {
@@ -51,11 +64,12 @@ export const createStandardSchema = {
 };
 
 export async function createStandard(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const name = args.name as string;
-  const category = args.category as string;
-  const rules = args.rules as Record<string, unknown>[] | undefined;
-  const description = (args.description as string) ?? '';
+  const params = args as unknown as CreateStandardParams;
+  const projectId = params.projectId;
+  const name = params.name;
+  const category = params.category;
+  const rules = params.rules;
+  const description = params.description ?? '';
 
   return {
     content: [{
@@ -79,6 +93,15 @@ export async function createStandard(args: Record<string, unknown>): Promise<Too
 // manage_adr
 // ---------------------------------------------------------------------------
 
+interface ManageADRParams {
+  projectId: string;
+  action: string;
+  title?: string;
+  content?: string;
+  adrId?: string;
+  query?: string;
+}
+
 export const manageADRSchema = {
   type: 'object',
   properties: {
@@ -93,38 +116,38 @@ export const manageADRSchema = {
 };
 
 export async function manageADR(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const action = args.action as string;
-  const title = args.title as string | undefined;
-  const content = args.content as string | undefined;
-  const adrId = args.adrId as string | undefined;
+  const params = args as unknown as ManageADRParams;
+  const projectId = params.projectId;
+  const action = params.action;
+  const title = params.title;
+  const adrId = params.adrId;
 
   const result: Record<string, unknown> = { projectId, action };
 
   switch (action) {
     case 'create':
-      result.adrId = `adr_${Date.now()}`;
-      result.title = title;
-      result.created = true;
-      result.message = 'ADR created successfully';
+      result['adrId'] = `adr_${Date.now()}`;
+      result['title'] = title;
+      result['created'] = true;
+      result['message'] = 'ADR created successfully';
       break;
     case 'list':
-      result.adrs = [];
-      result.total = 0;
+      result['adrs'] = [];
+      result['total'] = 0;
       break;
     case 'get':
-      result.adrId = adrId;
-      result.title = 'N/A';
-      result.content = '';
-      result.found = false;
+      result['adrId'] = adrId;
+      result['title'] = 'N/A';
+      result['content'] = '';
+      result['found'] = false;
       break;
     case 'update':
-      result.adrId = adrId;
-      result.updated = true;
+      result['adrId'] = adrId;
+      result['updated'] = true;
       break;
     case 'search':
-      result.results = [];
-      result.total = 0;
+      result['results'] = [];
+      result['total'] = 0;
       break;
   }
 
@@ -136,6 +159,13 @@ export async function manageADR(args: Record<string, unknown>): Promise<ToolResu
 // ---------------------------------------------------------------------------
 // install_skills
 // ---------------------------------------------------------------------------
+
+interface InstallSkillsParams {
+  agents: string[];
+  projectId?: string;
+  skills?: string[];
+  dryRun?: boolean;
+}
 
 export const installSkillsSchema = {
   type: 'object',
@@ -149,10 +179,11 @@ export const installSkillsSchema = {
 };
 
 export async function installSkills(args: Record<string, unknown>): Promise<ToolResult> {
-  const agents = args.agents as string[];
-  const projectId = args.projectId as string | undefined;
-  const skills = (args.skills as string[]) ?? ['all'];
-  const dryRun = Boolean(args.dryRun);
+  const params = args as unknown as InstallSkillsParams;
+  const agents = params.agents;
+  const projectId = params.projectId;
+  const skills = params.skills ?? ['all'];
+  const dryRun = Boolean(params.dryRun);
 
   return {
     content: [{

@@ -1,5 +1,3 @@
-// @ts-nocheck
-// @ts-nocheck
 // @code-analyzer/mcp — Tool Registry
 // Central registry for MCP tools with profile-based filtering and execution.
 
@@ -129,8 +127,8 @@ export class ToolRegistry {
 
 function validateArgs(args: Record<string, unknown>, schema: Record<string, unknown>): string | null {
   // Get required fields from the schema
-  const schemaProperties = schema.properties as Record<string, { type?: string; description?: string }> | undefined;
-  const requiredFields = (schema.required as string[]) ?? [];
+  const schemaProperties = schema['properties'] as Record<string, { type?: string; description?: string }> | undefined;
+  const requiredFields = (schema['required'] as string[]) ?? [];
 
   if (!schemaProperties) return null;
 
@@ -160,7 +158,7 @@ export function makeSchema(
       type: def.type,
       description: def.description,
     };
-    if (def.enum) prop.enum = def.enum;
+    if (def.enum) prop['enum'] = def.enum;
     schemaProps[key] = prop;
   }
 

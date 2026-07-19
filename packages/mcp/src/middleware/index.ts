@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — MCP Middleware
 // Auth, rate limiting, tool policies, and request logging.
 
@@ -27,7 +26,7 @@ export class AuthMiddleware {
       return { allowed: true };
     }
 
-    const headers = request.headers as Record<string, string> | undefined;
+    const headers = request['headers'] as Record<string, string> | undefined;
     const apiKey = headers?.['x-api-key'] ?? headers?.['authorization']?.replace('Bearer ', '');
 
     if (!apiKey) {
@@ -125,7 +124,7 @@ export class ToolPolicy {
   }
 
   /** Check if a tool is allowed under the current profile. */
-  isAllowed(toolName: string, toolProfile: ToolProfile): boolean {
+  isAllowed(_toolName: string, toolProfile: ToolProfile): boolean {
     if (this.profile === 'all') return true;
     if (toolProfile === 'all') return true;
     return this.profile === toolProfile;

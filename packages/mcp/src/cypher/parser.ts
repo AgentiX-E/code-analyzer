@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cypher Parser
 // Recursive-descent parser that builds an AST from a token stream.
 
@@ -281,7 +280,6 @@ function parseRelationship(state: ParserState): RelationshipPattern {
   // Parse relationship details inside [...]
   let types: string[] = [];
   let variable: string | undefined;
-  let props: Record<string, unknown> = {};
   let minHops: number | undefined;
   let maxHops: number | undefined;
 
@@ -326,7 +324,7 @@ function parseRelationship(state: ParserState): RelationshipPattern {
 
   // Properties inside relationship
   if (state.current()?.value === '{') {
-    props = parsePropertyBlock(state);
+    parsePropertyBlock(state);
   }
 
   state.expect('PUNCTUATION', ']');
@@ -561,7 +559,7 @@ function parseExpression(state: ParserState, minPrecedence = 0): CypherExpressio
       }
       if (state.isKeyword('NULL')) {
         state.advance();
-        left = { type: 'binary', operator: not ? 'IS NOT' : 'IS', left, right: { type: 'literal', value: null } };
+        left = { type: 'binary', operator: not ? 'IS NOT' : 'IS', left, right: { type: 'literal' as const, value: null as unknown as string | number | boolean } as CypherExpression };
       } else {
         const right = parsePrimary(state);
         left = { type: 'binary', operator: 'IS', left, right };
@@ -619,7 +617,7 @@ function parsePrimary(state: ParserState): CypherExpression {
   }
   if (state.isKeyword('NULL')) {
     state.advance();
-    return { type: 'literal', value: null };
+    return { type: 'literal', value: null as unknown as string | number | boolean } as CypherExpression;
   }
 
   // Function calls: COUNT(expr), SUM(expr), etc.
@@ -682,7 +680,7 @@ function parsePrimary(state: ParserState): CypherExpression {
       if (state.current()?.value === ',') state.advance();
     }
     state.expect('PUNCTUATION', ']');
-    return { type: 'literal', value: items };
+    return { type: 'literal', value: items as unknown as string | number | boolean } as CypherExpression;
   }
 
   // Nested expression with dot access on function result

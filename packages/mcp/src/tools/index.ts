@@ -1,10 +1,10 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Tools Index
 // Registers all 38 MCP tools into the ToolRegistry.
 
 import { ToolRegistry } from './registry.js';
 
-// Indexing & Lifecycle
+export { ToolRegistry };
+export type { ToolHandler, RegisteredTool } from './registry.js';// Indexing & Lifecycle
 import {
   analyzeRepository, analyzeRepositorySchema,
   listProjects, listProjectsSchema,

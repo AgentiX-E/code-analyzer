@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — MCP Server
 // Core MCP server class supporting stdio and HTTP (SSE) transports.
 
@@ -12,12 +11,12 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { MCPServerConfig, ToolProfile, ToolDefinition, ResourceDefinition, PromptDefinition } from '@code-analyzer/shared';
+import type { MCPServerConfig, ToolDefinition, ResourceDefinition, PromptDefinition } from '@code-analyzer/shared';
 import { SqliteStore } from '@code-analyzer/infra';
-import { ToolRegistry, createToolRegistry } from '../tools/index.js';
+import { createToolRegistry, ToolRegistry } from '../tools/index.js';
 import { registerResources } from '../resources/index.js';
 import { registerPrompts } from '../prompts/index.js';
-import { AuthMiddleware, RateLimiter, ToolPolicy, RequestLogger } from '../middleware/index.js';
+import { AuthMiddleware, RateLimiter, RequestLogger } from '../middleware/index.js';
 
 // ---------------------------------------------------------------------------
 // Default Configuration
@@ -44,7 +43,6 @@ export class CodeAnalyzerMCPServer {
   private store: SqliteStore;
   private auth: AuthMiddleware;
   private rateLimiter: RateLimiter;
-  private policy: ToolPolicy;
   private logger: RequestLogger;
   private transport?: StdioServerTransport;
   private httpServer?: unknown;
@@ -55,7 +53,6 @@ export class CodeAnalyzerMCPServer {
     this.registry = createToolRegistry();
     this.auth = new AuthMiddleware();
     this.rateLimiter = new RateLimiter();
-    this.policy = new ToolPolicy(this.config.toolProfile);
     this.logger = new RequestLogger();
 
     this.server = new Server(
@@ -90,7 +87,8 @@ export class CodeAnalyzerMCPServer {
     });
 
     // Call tool
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<any> => {
       const start = Date.now();
       const { name, arguments: args } = request.params;
       const argsObj = (args ?? {}) as Record<string, unknown>;

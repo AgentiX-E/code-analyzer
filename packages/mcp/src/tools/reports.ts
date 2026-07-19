@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Report Tools
 
 import type { ToolResult } from './registry.js';
@@ -6,6 +5,13 @@ import type { ToolResult } from './registry.js';
 // ---------------------------------------------------------------------------
 // generate_report
 // ---------------------------------------------------------------------------
+
+interface GenerateReportParams {
+  projectId: string;
+  type: string;
+  format?: string;
+  scope?: string;
+}
 
 export const generateReportSchema = {
   type: 'object',
@@ -19,9 +25,10 @@ export const generateReportSchema = {
 };
 
 export async function generateReport(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const type = args.type as string;
-  const format = (args.format as string) ?? 'markdown';
+  const params = args as unknown as GenerateReportParams;
+  const projectId = params.projectId;
+  const type = params.type;
+  const format = params.format ?? 'markdown';
 
   const report = {
     id: `report_${Date.now()}`,
@@ -77,6 +84,12 @@ export async function generateReport(args: Record<string, unknown>): Promise<Too
 // export_report
 // ---------------------------------------------------------------------------
 
+interface ExportReportParams {
+  reportId: string;
+  format: string;
+  outputPath?: string;
+}
+
 export const exportReportSchema = {
   type: 'object',
   properties: {
@@ -88,9 +101,10 @@ export const exportReportSchema = {
 };
 
 export async function exportReport(args: Record<string, unknown>): Promise<ToolResult> {
-  const reportId = args.reportId as string;
-  const format = args.format as string;
-  const outputPath = (args.outputPath as string) ?? `report_${reportId}.${format}`;
+  const params = args as unknown as ExportReportParams;
+  const reportId = params.reportId;
+  const format = params.format;
+  const outputPath = params.outputPath ?? `report_${reportId}.${format}`;
 
   return {
     content: [{
@@ -110,6 +124,12 @@ export async function exportReport(args: Record<string, unknown>): Promise<ToolR
 // get_recommendations
 // ---------------------------------------------------------------------------
 
+interface GetRecommendationsParams {
+  projectId: string;
+  category?: string;
+  limit?: number;
+}
+
 export const getRecommendationsSchema = {
   type: 'object',
   properties: {
@@ -121,9 +141,9 @@ export const getRecommendationsSchema = {
 };
 
 export async function getRecommendations(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const category = args.category as string | undefined;
-  const limit = Math.min((args.limit as number) ?? 10, 50);
+  const params = args as unknown as GetRecommendationsParams;
+  const projectId = params.projectId;
+  const category = params.category;
 
   return {
     content: [{

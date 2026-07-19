@@ -1,14 +1,21 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Querying & Exploration Tools
 
 import { SqliteStore } from '@code-analyzer/infra';
 import { tokenize, parse, plan, execute } from '../cypher/index.js';
-import type { NodeLabel, GraphNode, SearchOptions, SearchResult } from '@code-analyzer/shared';
+import type { NodeLabel } from '@code-analyzer/shared';
 import type { ToolResult } from './registry.js';
 
 // ---------------------------------------------------------------------------
 // search_graph
 // ---------------------------------------------------------------------------
+
+interface SearchGraphParams {
+  query: string;
+  projectId?: string;
+  labels?: string[];
+  limit?: number;
+  offset?: number;
+}
 
 export const searchGraphSchema = {
   type: 'object',
@@ -23,12 +30,12 @@ export const searchGraphSchema = {
 };
 
 export async function searchGraph(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const query = args.query as string;
-  const projectId = args.projectId as string | undefined;
-  const labels = args.labels as string[] | undefined;
+  const params = args as unknown as SearchGraphParams;
+  const query = params.query;
+  const labels = params.labels;
   const maxLimit = 100;
-  const limit = Math.min((args.limit as number) ?? 20, maxLimit);
-  const offset = (args.offset as number) ?? 0;
+  const limit = Math.min(params.limit ?? 20, maxLimit);
+  const offset = params.offset ?? 0;
 
   if (store instanceof SqliteStore) {
     const results = store.searchFts(query, {
@@ -76,6 +83,14 @@ export async function searchGraph(args: Record<string, unknown>, store?: unknown
 // search_code
 // ---------------------------------------------------------------------------
 
+interface SearchCodeParams {
+  query: string;
+  projectId?: string;
+  filePath?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export const searchCodeSchema = {
   type: 'object',
   properties: {
@@ -89,10 +104,11 @@ export const searchCodeSchema = {
 };
 
 export async function searchCode(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const query = args.query as string;
+  const params = args as unknown as SearchCodeParams;
+  const query = params.query;
   const maxLimit = 100;
-  const limit = Math.min((args.limit as number) ?? 20, maxLimit);
-  const offset = (args.offset as number) ?? 0;
+  const limit = Math.min(params.limit ?? 20, maxLimit);
+  const offset = params.offset ?? 0;
 
   if (store instanceof SqliteStore) {
     const results = store.searchFts(query, { limit, offset });
@@ -129,6 +145,13 @@ export async function searchCode(args: Record<string, unknown>, store?: unknown)
 // semantic_search
 // ---------------------------------------------------------------------------
 
+interface SemanticSearchParams {
+  query: string;
+  projectId?: string;
+  threshold?: number;
+  limit?: number;
+}
+
 export const semanticSearchSchema = {
   type: 'object',
   properties: {
@@ -141,9 +164,9 @@ export const semanticSearchSchema = {
 };
 
 export async function semanticSearch(args: Record<string, unknown>): Promise<ToolResult> {
-  const query = args.query as string;
-  const threshold = (args.threshold as number) ?? 0.7;
-  const limit = Math.min((args.limit as number) ?? 10, 50);
+  const params = args as unknown as SemanticSearchParams;
+  const query = params.query;
+  const threshold = params.threshold ?? 0.7;
 
   return {
     content: [{
@@ -165,6 +188,13 @@ export async function semanticSearch(args: Record<string, unknown>): Promise<Too
 // trace_call_path
 // ---------------------------------------------------------------------------
 
+interface TraceCallPathParams {
+  sourceSymbol: string;
+  targetSymbol?: string;
+  projectId: string;
+  maxDepth?: number;
+}
+
 export const traceCallPathSchema = {
   type: 'object',
   properties: {
@@ -177,10 +207,10 @@ export const traceCallPathSchema = {
 };
 
 export async function traceCallPath(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const sourceSymbol = args.sourceSymbol as string;
-  const targetSymbol = args.targetSymbol as string | undefined;
-  const projectId = args.projectId as string;
-  const maxDepth = (args.maxDepth as number) ?? 10;
+  const params = args as unknown as TraceCallPathParams;
+  const sourceSymbol = params.sourceSymbol;
+  const targetSymbol = params.targetSymbol;
+  const maxDepth = params.maxDepth ?? 10;
 
   const result: {
     path: Array<{ symbol: string; depth: number; relationship: string }>;
@@ -218,6 +248,12 @@ export async function traceCallPath(args: Record<string, unknown>, store?: unkno
 // query_graph
 // ---------------------------------------------------------------------------
 
+interface QueryGraphParams {
+  cypher: string;
+  projectId?: string;
+  limit?: number;
+}
+
 export const queryGraphSchema = {
   type: 'object',
   properties: {
@@ -229,9 +265,10 @@ export const queryGraphSchema = {
 };
 
 export async function queryGraph(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const cypher = args.cypher as string;
-  const projectId = args.projectId as string | undefined;
-  const limitH = (args.limit as number) ?? 20;
+  const params = args as unknown as QueryGraphParams;
+  const cypher = params.cypher;
+  const projectId = params.projectId;
+  const limitH = params.limit ?? 20;
 
   if (store instanceof SqliteStore) {
     try {
@@ -276,6 +313,14 @@ export async function queryGraph(args: Record<string, unknown>, store?: unknown)
 // get_code_snippet
 // ---------------------------------------------------------------------------
 
+interface GetCodeSnippetParams {
+  filePath: string;
+  startLine?: number;
+  endLine?: number;
+  projectId: string;
+  contextLines?: number;
+}
+
 export const getCodeSnippetSchema = {
   type: 'object',
   properties: {
@@ -289,10 +334,11 @@ export const getCodeSnippetSchema = {
 };
 
 export async function getCodeSnippet(args: Record<string, unknown>): Promise<ToolResult> {
-  const filePath = args.filePath as string;
-  const startLine = (args.startLine as number) ?? 1;
-  const endLine = (args.endLine as number) ?? startLine;
-  const contextLines = (args.contextLines as number) ?? 5;
+  const params = args as unknown as GetCodeSnippetParams;
+  const filePath = params.filePath;
+  const startLine = params.startLine ?? 1;
+  const endLine = params.endLine ?? startLine;
+  const contextLines = params.contextLines ?? 5;
 
   return {
     content: [{
@@ -313,6 +359,11 @@ export async function getCodeSnippet(args: Record<string, unknown>): Promise<Too
 // get_architecture
 // ---------------------------------------------------------------------------
 
+interface GetArchitectureParams {
+  projectId: string;
+  detail?: string;
+}
+
 export const getArchitectureSchema = {
   type: 'object',
   properties: {
@@ -323,8 +374,9 @@ export const getArchitectureSchema = {
 };
 
 export async function getArchitecture(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const detail = (args.detail as string) ?? 'overview';
+  const params = args as unknown as GetArchitectureParams;
+  const projectId = params.projectId;
+  const detail = params.detail ?? 'overview';
 
   const architecture: {
     layers: Array<{ name: string; components: string[] }>;
@@ -380,6 +432,10 @@ export async function getArchitecture(args: Record<string, unknown>, store?: unk
 // get_graph_schema
 // ---------------------------------------------------------------------------
 
+interface GetGraphSchemaParams {
+  projectId: string;
+}
+
 export const getGraphSchemaSchema = {
   type: 'object',
   properties: {
@@ -389,7 +445,8 @@ export const getGraphSchemaSchema = {
 };
 
 export async function getGraphSchema(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const projectId = args.projectId as string;
+  const params = args as unknown as GetGraphSchemaParams;
+  const projectId = params.projectId;
 
   const schema: {
     nodeLabels: Array<{ label: string; count: number }>;
@@ -431,6 +488,12 @@ export async function getGraphSchema(args: Record<string, unknown>, store?: unkn
 // explore_symbol
 // ---------------------------------------------------------------------------
 
+interface ExploreSymbolParams {
+  symbolName: string;
+  projectId: string;
+  includeRelationships?: boolean;
+}
+
 export const exploreSymbolSchema = {
   type: 'object',
   properties: {
@@ -442,9 +505,9 @@ export const exploreSymbolSchema = {
 };
 
 export async function exploreSymbol(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const symbolName = args.symbolName as string;
-  const projectId = args.projectId as string;
-  const includeRelationships = Boolean(args.includeRelationships);
+  const params = args as unknown as ExploreSymbolParams;
+  const symbolName = params.symbolName;
+  const includeRelationships = Boolean(params.includeRelationships);
 
   const result: {
     symbol: Record<string, unknown> | null;
@@ -463,8 +526,9 @@ export async function exploreSymbol(args: Record<string, unknown>, store?: unkno
     let node = store.getNodeByQualifiedName(symbolName);
     if (!node) {
       const searchResults = store.searchFts(symbolName, { limit: 1 });
-      if (searchResults.length > 0) {
-        node = searchResults[0].node;
+      const firstResult = searchResults[0];
+      if (firstResult) {
+        node = firstResult.node;
       }
     }
 
@@ -511,6 +575,12 @@ export async function exploreSymbol(args: Record<string, unknown>, store?: unkno
 // find_implementations
 // ---------------------------------------------------------------------------
 
+interface FindImplementationsParams {
+  interfaceName: string;
+  projectId: string;
+  includeExternal?: boolean;
+}
+
 export const findImplementationsSchema = {
   type: 'object',
   properties: {
@@ -522,9 +592,8 @@ export const findImplementationsSchema = {
 };
 
 export async function findImplementations(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const interfaceName = args.interfaceName as string;
-  const projectId = args.projectId as string;
-  const includeExternal = Boolean(args.includeExternal);
+  const params = args as unknown as FindImplementationsParams;
+  const interfaceName = params.interfaceName;
 
   const result: {
     interface: Record<string, unknown> | null;
@@ -540,7 +609,8 @@ export async function findImplementations(args: Record<string, unknown>, store?:
     let ifaceNode = store.getNodeByQualifiedName(interfaceName);
     if (!ifaceNode) {
       const searchResults = store.searchFts(interfaceName, { limit: 1, labels: ['Interface'] });
-      if (searchResults.length > 0) ifaceNode = searchResults[0].node;
+      const firstResult = searchResults[0];
+      if (firstResult) ifaceNode = firstResult.node;
     }
 
     if (ifaceNode) {

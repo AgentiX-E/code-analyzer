@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — PDG (Program Dependence Graph) Tools
 
 import type { ToolResult } from './registry.js';
@@ -6,6 +5,12 @@ import type { ToolResult } from './registry.js';
 // ---------------------------------------------------------------------------
 // pdg_query
 // ---------------------------------------------------------------------------
+
+interface PdgQueryParams {
+  functionId: number;
+  projectId: string;
+  edgeType?: string;
+}
 
 export const pdgQuerySchema = {
   type: 'object',
@@ -18,9 +23,10 @@ export const pdgQuerySchema = {
 };
 
 export async function pdgQuery(args: Record<string, unknown>): Promise<ToolResult> {
-  const functionId = args.functionId as number;
-  const projectId = args.projectId as string;
-  const edgeType = args.edgeType as string | undefined;
+  const params = args as unknown as PdgQueryParams;
+  const functionId = params.functionId;
+  const projectId = params.projectId;
+  const edgeType = params.edgeType;
 
   return {
     content: [{
@@ -41,6 +47,13 @@ export async function pdgQuery(args: Record<string, unknown>): Promise<ToolResul
 // taint_analysis
 // ---------------------------------------------------------------------------
 
+interface TaintAnalysisParams {
+  projectId: string;
+  sourceKind?: string;
+  sinkKind?: string;
+  filePath?: string;
+}
+
 export const taintAnalysisSchema = {
   type: 'object',
   properties: {
@@ -53,9 +66,10 @@ export const taintAnalysisSchema = {
 };
 
 export async function taintAnalysis(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const sourceKind = args.sourceKind as string | undefined;
-  const sinkKind = args.sinkKind as string | undefined;
+  const params = args as unknown as TaintAnalysisParams;
+  const projectId = params.projectId;
+  const sourceKind = params.sourceKind;
+  const sinkKind = params.sinkKind;
 
   return {
     content: [{
@@ -78,6 +92,11 @@ export async function taintAnalysis(args: Record<string, unknown>): Promise<Tool
 // explain_taint
 // ---------------------------------------------------------------------------
 
+interface ExplainTaintParams {
+  taintPathId: string;
+  projectId: string;
+}
+
 export const explainTaintSchema = {
   type: 'object',
   properties: {
@@ -88,8 +107,9 @@ export const explainTaintSchema = {
 };
 
 export async function explainTaint(args: Record<string, unknown>): Promise<ToolResult> {
-  const taintPathId = args.taintPathId as string;
-  const projectId = args.projectId as string;
+  const params = args as unknown as ExplainTaintParams;
+  const taintPathId = params.taintPathId;
+  const projectId = params.projectId;
 
   return {
     content: [{

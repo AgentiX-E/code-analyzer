@@ -1,12 +1,17 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Indexing & Lifecycle Tools
 
-import { SqliteStore } from '@code-analyzer/infra';
 import type { ToolResult } from './registry.js';
 
 // ---------------------------------------------------------------------------
 // analyze_repository
 // ---------------------------------------------------------------------------
+
+interface AnalyzeRepositoryParams {
+  path: string;
+  projectId?: string;
+  language?: string;
+  force?: boolean;
+}
 
 export const analyzeRepositorySchema = {
   type: 'object',
@@ -19,11 +24,12 @@ export const analyzeRepositorySchema = {
   required: ['path'],
 };
 
-export async function analyzeRepository(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
-  const path = args.path as string;
-  const projectId = (args.projectId as string) ?? `project_${Date.now()}`;
-  const language = args.language as string | undefined;
-  const force = Boolean(args.force);
+export async function analyzeRepository(args: Record<string, unknown>, _store?: unknown): Promise<ToolResult> {
+  const params = args as unknown as AnalyzeRepositoryParams;
+  const path = params.path;
+  const projectId = params.projectId ?? `project_${Date.now()}`;
+  const language = params.language;
+  const force = Boolean(params.force);
 
   const result = {
     projectId,
@@ -52,11 +58,7 @@ export const listProjectsSchema = {
   },
 };
 
-export async function listProjects(args: Record<string, unknown>): Promise<ToolResult> {
-  const maxLimit = 50;
-  const limit = Math.min((args.limit as number) ?? 20, maxLimit);
-  const offset = (args.offset as number) ?? 0;
-
+export async function listProjects(_args: Record<string, unknown>): Promise<ToolResult> {
   const result = {
     items: [] as string[],
     total: 0,
@@ -73,6 +75,11 @@ export async function listProjects(args: Record<string, unknown>): Promise<ToolR
 // delete_project
 // ---------------------------------------------------------------------------
 
+interface DeleteProjectParams {
+  projectId: string;
+  force?: boolean;
+}
+
 export const deleteProjectSchema = {
   type: 'object',
   properties: {
@@ -83,8 +90,9 @@ export const deleteProjectSchema = {
 };
 
 export async function deleteProject(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const force = Boolean(args.force);
+  const params = args as unknown as DeleteProjectParams;
+  const projectId = params.projectId;
+  const force = Boolean(params.force);
 
   const result = {
     projectId,
@@ -102,6 +110,10 @@ export async function deleteProject(args: Record<string, unknown>): Promise<Tool
 // index_status
 // ---------------------------------------------------------------------------
 
+interface IndexStatusParams {
+  projectId: string;
+}
+
 export const indexStatusSchema = {
   type: 'object',
   properties: {
@@ -111,7 +123,8 @@ export const indexStatusSchema = {
 };
 
 export async function indexStatus(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
+  const params = args as unknown as IndexStatusParams;
+  const projectId = params.projectId;
 
   const result = {
     projectId,

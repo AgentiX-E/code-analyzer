@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cypher Lexer
 // Tokenizes a Cypher-like query string into a stream of tokens.
 
@@ -25,7 +24,7 @@ export function tokenize(query: string): CypherToken[] {
   const len = query.length;
 
   while (pos < len) {
-    const ch = query[pos];
+    const ch = query[pos]!;
 
     // Whitespace
     if (/\s/.test(ch)) {
@@ -35,14 +34,14 @@ export function tokenize(query: string): CypherToken[] {
 
     // Single-line comment
     if (ch === '/' && pos + 1 < len && query[pos + 1] === '/') {
-      while (pos < len && query[pos] !== '\n') pos++;
+      while (pos < len && query[pos]! !== '\n') pos++;
       continue;
     }
 
     // Block comment
     if (ch === '/' && pos + 1 < len && query[pos + 1] === '*') {
       pos += 2;
-      while (pos + 1 < len && !(query[pos] === '*' && query[pos + 1] === '/')) pos++;
+      while (pos + 1 < len && !(query[pos]! === '*' && query[pos + 1]! === '/')) pos++;
       if (pos + 1 < len) pos += 2;
       continue;
     }
@@ -52,12 +51,12 @@ export function tokenize(query: string): CypherToken[] {
       const quote = ch;
       let value = '';
       pos++;
-      while (pos < len && query[pos] !== quote) {
-        if (query[pos] === '\\' && pos + 1 < len) {
+      while (pos < len && query[pos]! !== quote) {
+        if (query[pos]! === '\\' && pos + 1 < len) {
           pos++;
-          value += query[pos];
+          value += query[pos]!;
         } else {
-          value += query[pos];
+          value += query[pos]!;
         }
         pos++;
       }
@@ -67,10 +66,10 @@ export function tokenize(query: string): CypherToken[] {
     }
 
     // Numbers
-    if (/[0-9]/.test(ch) || (ch === '.' && pos + 1 < len && /[0-9]/.test(query[pos + 1]))) {
+    if (/[0-9]/.test(ch) || (ch === '.' && pos + 1 < len && /[0-9]/.test(query[pos + 1]!))) {
       let value = '';
-      while (pos < len && /[0-9.]/.test(query[pos])) {
-        value += query[pos];
+      while (pos < len && /[0-9.]/.test(query[pos]!)) {
+        value += query[pos]!;
         pos++;
       }
       tokens.push({ type: 'NUMBER', value, position: pos - value.length });
@@ -82,8 +81,8 @@ export function tokenize(query: string): CypherToken[] {
       const isBacktick = ch === '`';
       let value = '';
       if (isBacktick) pos++;
-      while (pos < len && (isBacktick ? query[pos] !== '`' : /[a-zA-Z0-9_]/.test(query[pos]))) {
-        value += query[pos];
+      while (pos < len && (isBacktick ? query[pos]! !== '`' : /[a-zA-Z0-9_]/.test(query[pos]!))) {
+        value += query[pos]!;
         pos++;
       }
       if (isBacktick && pos < len) pos++; // skip closing backtick
@@ -98,7 +97,7 @@ export function tokenize(query: string): CypherToken[] {
     }
 
     // Wildcard asterisk (tokenize as KEYWORD for RETURN * etc.)
-    if (ch === '*' && (pos + 1 >= len || /\s/.test(query[pos + 1]) || query[pos + 1] === ',')) {
+    if (ch === '*' && (pos + 1 >= len || /\s/.test(query[pos + 1]!) || query[pos + 1] === ',')) {
       tokens.push({ type: 'KEYWORD', value: '*', position: pos });
       pos++;
       continue;
@@ -106,15 +105,15 @@ export function tokenize(query: string): CypherToken[] {
 
     // Operators and punctuation
     if ('=<>!+-*/%|&'.includes(ch)) {
-      let op = ch;
+      let op: string = ch;
       pos++;
       // Two-character operators
-      if (pos < len && '=>'.includes(query[pos]) && ch === '<') {
-        op += query[pos];
+      if (pos < len && '=>'.includes(query[pos]!) && ch === '<') {
+        op += query[pos]!;
         pos++;
       }
-      if (pos < len && query[pos] === '=' && '=!<>'.includes(ch)) {
-        op += query[pos];
+      if (pos < len && query[pos]! === '=' && '=!<>'.includes(ch)) {
+        op += query[pos]!;
         pos++;
       }
       tokens.push({ type: 'OPERATOR', value: op, position: pos - op.length });

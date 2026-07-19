@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Code Review Tools
 
 import type { ToolResult } from './registry.js';
@@ -6,6 +5,15 @@ import type { ToolResult } from './registry.js';
 // ---------------------------------------------------------------------------
 // review_diff
 // ---------------------------------------------------------------------------
+
+interface ReviewDiffParams {
+  projectId: string;
+  diff?: string;
+  fromRef?: string;
+  toRef?: string;
+  severity?: string;
+  categories?: string[];
+}
 
 export const reviewDiffSchema = {
   type: 'object',
@@ -21,12 +29,13 @@ export const reviewDiffSchema = {
 };
 
 export async function reviewDiff(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const diff = args.diff as string | undefined;
-  const fromRef = (args.fromRef as string) ?? 'HEAD~1';
-  const toRef = (args.toRef as string) ?? 'HEAD';
-  const severity = (args.severity as string) ?? 'medium';
-  const categories = args.categories as string[] | undefined;
+  const params = args as unknown as ReviewDiffParams;
+  const projectId = params.projectId;
+  const diff = params.diff;
+  const fromRef = params.fromRef ?? 'HEAD~1';
+  const toRef = params.toRef ?? 'HEAD';
+  const severity = params.severity ?? 'medium';
+  const categories = params.categories;
 
   return {
     content: [{
@@ -56,6 +65,13 @@ export async function reviewDiff(args: Record<string, unknown>): Promise<ToolRes
 // review_file
 // ---------------------------------------------------------------------------
 
+interface ReviewFileParams {
+  projectId: string;
+  filePath: string;
+  content?: string;
+  severity?: string;
+}
+
 export const reviewFileSchema = {
   type: 'object',
   properties: {
@@ -68,10 +84,11 @@ export const reviewFileSchema = {
 };
 
 export async function reviewFile(args: Record<string, unknown>): Promise<ToolResult> {
-  const projectId = args.projectId as string;
-  const filePath = args.filePath as string;
-  const content = args.content as string | undefined;
-  const severity = (args.severity as string) ?? 'medium';
+  const params = args as unknown as ReviewFileParams;
+  const projectId = params.projectId;
+  const filePath = params.filePath;
+  const content = params.content;
+  const severity = params.severity ?? 'medium';
 
   return {
     content: [{

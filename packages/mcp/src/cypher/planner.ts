@@ -1,18 +1,11 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cypher Planner
 // Translates a Cypher AST into a SQL-compatible query plan.
 
 import type {
   CypherExpression,
-  MatchClause,
-  ReturnItem,
-  NodePattern,
-  RelationshipPattern,
-  NodeLabel,
   GraphNode,
-  GraphEdge,
 } from '@code-analyzer/shared';
-import type { CypherQuery, WithClause } from './parser.js';
+import type { CypherQuery } from './parser.js';
 import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -65,7 +58,7 @@ export interface QueryPlan {
 // ---------------------------------------------------------------------------
 
 /** Translate a Cypher AST into a SQL-like query plan. */
-export function plan(ast: CypherQuery, schema: GraphSchema = DEFAULT_SCHEMA): QueryPlan {
+export function plan(ast: CypherQuery, _schema: GraphSchema = DEFAULT_SCHEMA): QueryPlan {
   const steps: PlanStep[] = [];
   const params: Record<string, unknown> = {};
   let paramCounter = 0;
@@ -199,7 +192,6 @@ export function plan(ast: CypherQuery, schema: GraphSchema = DEFAULT_SCHEMA): Qu
   });
 
   // ORDER BY / LIMIT / SKIP
-  const orderBy = ast.orderBy;
   const limit = ast.limit;
   const skip = ast.skip;
   const distinct = ast.returnClause.distinct;
@@ -372,7 +364,7 @@ function evaluateBinaryOperand(
       if (!node) return null;
       // Map property name to node fields
       const propMap: Record<string, unknown> = {
-        name: node.name,
+        ...node.properties,
         qualifiedName: node.qualifiedName,
         filePath: node.filePath,
         startLine: node.startLine,
