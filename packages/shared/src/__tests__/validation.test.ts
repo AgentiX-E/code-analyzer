@@ -9,9 +9,11 @@ import {
   validateEdgeCompatibility,
   validateConfig,
   validateReviewComment,
+  validateStandard,
+  validateReport,
 } from '../index.js';
 
-import type { CodeAnalyzerConfig, NodeLabel, RelationshipType, ReviewComment } from '../index.js';
+import type { CodeAnalyzerConfig, NodeLabel, RelationshipType, ReviewComment, ProjectStandard, AnalysisReport, ReviewCategory, Severity } from '../index.js';
 
 // ---------------------------------------------------------------------------
 // validateNodeProperties
@@ -244,7 +246,7 @@ describe('validateEdgeCompatibility', () => {
         validateEdgeCompatibility(
           src as NodeLabel,
           tgt as NodeLabel,
-          type
+          type as RelationshipType
         )
       ).toBe(true);
     });
@@ -476,6 +478,15 @@ describe('validateConfig', () => {
     });
   });
 
+  describe('invalid cacheDir', () => {
+    it('rejects non-string cacheDir', () => {
+      const errors = validateConfig(
+        makeValidConfig({ cacheDir: 42 as unknown as string })
+      );
+      expect(errors).toContain('config.cacheDir must be a string if provided');
+    });
+  });
+
   describe('invalid sub-configs', () => {
     it('rejects mcp with missing name', () => {
       const config = makeValidConfig({
@@ -493,6 +504,30 @@ describe('validateConfig', () => {
       expect(errors).toContain('config.mcp.name must be a non-empty string');
     });
 
+    it('rejects mcp with missing version', () => {
+      const config = makeValidConfig({
+        mcp: {
+          name: 'test',
+          version: '',
+          toolProfile: 'all',
+          maxResults: 50,
+          enableStreaming: true,
+          enableResources: true,
+          enablePrompts: true,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.mcp.version must be a non-empty string');
+    });
+
+    it('rejects mcp with non-object value', () => {
+      const config = makeValidConfig({
+        mcp: 'bad' as unknown as any,
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.mcp must be an object if provided');
+    });
+
     it('rejects mcp with invalid toolProfile', () => {
       const config = makeValidConfig({
         mcp: {
@@ -507,6 +542,70 @@ describe('validateConfig', () => {
       });
       const errors = validateConfig(config);
       expect(errors.some((e) => e.includes('toolProfile'))).toBe(true);
+    });
+
+    it('rejects mcp with non-boolean enableResources', () => {
+      const config = makeValidConfig({
+        mcp: {
+          name: 'test',
+          version: '1.0.0',
+          toolProfile: 'all',
+          maxResults: 50,
+          enableStreaming: true,
+          enableResources: 'yes' as unknown as boolean,
+          enablePrompts: true,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.mcp.enableResources must be a boolean');
+    });
+
+    it('rejects mcp with non-boolean enablePrompts', () => {
+      const config = makeValidConfig({
+        mcp: {
+          name: 'test',
+          version: '1.0.0',
+          toolProfile: 'all',
+          maxResults: 50,
+          enableStreaming: true,
+          enableResources: true,
+          enablePrompts: 'yes' as unknown as boolean,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.mcp.enablePrompts must be a boolean');
+    });
+
+    it('rejects mcp with non-boolean enableStreaming', () => {
+      const config = makeValidConfig({
+        mcp: {
+          name: 'test',
+          version: '1.0.0',
+          toolProfile: 'all',
+          maxResults: 50,
+          enableStreaming: 'yes' as unknown as boolean,
+          enableResources: true,
+          enablePrompts: true,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.mcp.enableStreaming must be a boolean');
+    });
+
+    it('rejects mcp with non-positive maxResults', () => {
+      const config = makeValidConfig({
+        mcp: {
+          name: 'test',
+          version: '1.0.0',
+          toolProfile: 'all',
+          maxResults: 0,
+          enableStreaming: true,
+          enableResources: true,
+          enablePrompts: true,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.mcp.maxResults must be a positive integer');
     });
 
     it('rejects embed with missing model', () => {
@@ -535,6 +634,19 @@ describe('validateConfig', () => {
       expect(errors.some((e) => e.includes('batchSize'))).toBe(true);
     });
 
+    it('rejects embed with zero dimensions', () => {
+      const config = makeValidConfig({
+        embed: {
+          enabled: true,
+          model: 'text-embedding',
+          batchSize: 32,
+          dimensions: 0,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.embed.dimensions must be a positive integer');
+    });
+
     it('rejects pruner with non-boolean keepTests', () => {
       const config = makeValidConfig({
         pruner: {
@@ -545,6 +657,123 @@ describe('validateConfig', () => {
       });
       const errors = validateConfig(config);
       expect(errors).toContain('config.pruner.keepTests must be a boolean');
+    });
+
+    it('rejects pruner with non-boolean keepInternal', () => {
+      const config = makeValidConfig({
+        pruner: {
+          enabled: true,
+          keepTests: true,
+          keepInternal: 'no' as unknown as boolean,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.pruner.keepInternal must be a boolean');
+    });
+
+    it('rejects pruner with non-object value', () => {
+      const config = makeValidConfig({
+        pruner: 'enabled' as unknown as any,
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.pruner must be an object if provided');
+    });
+
+    it('rejects pruner with non-boolean enabled', () => {
+      const config = makeValidConfig({
+        pruner: {
+          enabled: 'yes' as unknown as boolean,
+          keepTests: true,
+          keepInternal: false,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.pruner.enabled must be a boolean');
+    });
+  });
+
+  describe('invalid review sub-config', () => {
+    it('rejects review as non-object', () => {
+      const config = makeValidConfig({
+        review: 'bad' as unknown as any,
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.review must be an object if provided');
+    });
+
+    it('rejects review.categoryFilter as non-array', () => {
+      const config = makeValidConfig({
+        review: {
+          enabled: true,
+          maxComments: 10,
+          severityFilter: [],
+          categoryFilter: 'bad' as unknown as ReviewCategory[],
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.review.categoryFilter must be an array');
+    });
+
+    it('rejects review.severityFilter as non-array', () => {
+      const config = makeValidConfig({
+        review: {
+          enabled: true,
+          maxComments: 10,
+          severityFilter: 'bad' as unknown as Severity[],
+          categoryFilter: [],
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.review.severityFilter must be an array');
+    });
+
+    it('rejects review.maxComments as non-integer', () => {
+      const config = makeValidConfig({
+        review: {
+          enabled: true,
+          maxComments: -1,
+          severityFilter: [],
+          categoryFilter: [],
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.review.maxComments must be a non-negative integer');
+    });
+
+    it('rejects review with non-boolean enabled', () => {
+      const config = makeValidConfig({
+        review: {
+          enabled: 'yes' as unknown as boolean,
+          maxComments: 10,
+          severityFilter: [],
+          categoryFilter: [],
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.review.enabled must be a boolean');
+    });
+  });
+
+  describe('invalid embed sub-config', () => {
+    it('rejects embed as non-object', () => {
+      const config = makeValidConfig({
+        embed: 'bad' as unknown as any,
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.embed must be an object if provided');
+    });
+
+    it('rejects embed with non-boolean enabled', () => {
+      const config = makeValidConfig({
+        embed: {
+          enabled: 'yes' as unknown as boolean,
+          model: 'embed',
+          batchSize: 32,
+          dimensions: 1536,
+        },
+      });
+      const errors = validateConfig(config);
+      expect(errors).toContain('config.embed.enabled must be a boolean');
     });
   });
 
@@ -744,5 +973,553 @@ describe('validateReviewComment', () => {
         expect(errors).toEqual([]);
       }
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateStandard
+// ---------------------------------------------------------------------------
+
+function makeValidStandard(overrides: Partial<ProjectStandard> = {}): ProjectStandard {
+  return {
+    id: 'test-standard',
+    name: 'Test Standard',
+    version: '1.0.0',
+    category: 'code-style',
+    description: 'A test standard for validation',
+    rules: [
+      {
+        id: 'rule-1',
+        description: 'Use const over let',
+        checkType: 'ast-pattern',
+        checkConfig: {},
+        severity: 'medium',
+        autoFixable: true,
+      },
+    ],
+    examples: [
+      {
+        description: 'Good const usage',
+        compliant: true,
+        code: 'const x = 1;',
+      },
+    ],
+    ...overrides,
+  };
+}
+
+describe('validateStandard', () => {
+  describe('valid standard', () => {
+    it('passes with all required fields', () => {
+      const errors = validateStandard(makeValidStandard());
+      expect(errors).toEqual([]);
+    });
+
+    it('passes with multiple rules', () => {
+      const standard = makeValidStandard({
+        rules: [
+          { id: 'r1', description: 'Rule 1', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: false },
+          { id: 'r2', description: 'Rule 2', checkType: 'graph-query', checkConfig: {}, severity: 'high', autoFixable: true },
+        ],
+      });
+      const errors = validateStandard(standard);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes with multiple examples', () => {
+      const standard = makeValidStandard({
+        examples: [
+          { description: 'Good', compliant: true, code: 'good code' },
+          { description: 'Bad', compliant: false, code: 'bad code', explanation: 'This is wrong' },
+        ],
+      });
+      const errors = validateStandard(standard);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes with optional config', () => {
+      const standard = makeValidStandard({
+        config: {
+          includePaths: ['src/'],
+          excludePaths: ['test/'],
+          severityOverrides: { 'rule-1': 'critical' },
+          disabledRules: [],
+          ruleParams: {},
+        },
+      });
+      const errors = validateStandard(standard);
+      expect(errors).toEqual([]);
+    });
+  });
+
+  describe('invalid id', () => {
+    it('rejects empty id', () => {
+      const errors = validateStandard(makeValidStandard({ id: '' }));
+      expect(errors).toContain('standard.id must be a non-empty string');
+    });
+  });
+
+  describe('invalid name', () => {
+    it('rejects empty name', () => {
+      const errors = validateStandard(makeValidStandard({ name: '' }));
+      expect(errors).toContain('standard.name must be a non-empty string');
+    });
+  });
+
+  describe('invalid version', () => {
+    it('rejects empty version', () => {
+      const errors = validateStandard(makeValidStandard({ version: '' }));
+      expect(errors).toContain('standard.version must be a non-empty string');
+    });
+  });
+
+  describe('invalid category', () => {
+    it('rejects unknown category', () => {
+      const errors = validateStandard(makeValidStandard({ category: 'invalid' as 'code-style' }));
+      expect(errors.some((e) => e.includes('category'))).toBe(true);
+    });
+  });
+
+  describe('invalid description', () => {
+    it('rejects empty description', () => {
+      const errors = validateStandard(makeValidStandard({ description: '' }));
+      expect(errors).toContain('standard.description must be a non-empty string');
+    });
+  });
+
+  describe('invalid rules', () => {
+    it('rejects rules as non-array', () => {
+      const errors = validateStandard(makeValidStandard({ rules: null as unknown as [] }));
+      expect(errors).toContain('standard.rules must be an array');
+    });
+
+    it('rejects rule with empty id', () => {
+      const standard = makeValidStandard({
+        rules: [{ id: '', description: 'bad', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: false }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('.id'))).toBe(true);
+    });
+
+    it('rejects rule with empty description', () => {
+      const standard = makeValidStandard({
+        rules: [{ id: 'r1', description: '', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: false }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('.description'))).toBe(true);
+    });
+
+    it('rejects rule with invalid checkType', () => {
+      const standard = makeValidStandard({
+        rules: [{ id: 'r1', description: 'bad', checkType: 'unknown' as 'regex', checkConfig: {}, severity: 'low', autoFixable: false }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('checkType'))).toBe(true);
+    });
+
+    it('rejects rule with invalid severity', () => {
+      const standard = makeValidStandard({
+        rules: [{ id: 'r1', description: 'bad', checkType: 'regex', checkConfig: {}, severity: 'extreme' as 'low', autoFixable: false }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('severity'))).toBe(true);
+    });
+
+    it('rejects rule with non-boolean autoFixable', () => {
+      const standard = makeValidStandard({
+        rules: [{ id: 'r1', description: 'bad', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: 'yes' as unknown as boolean }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('autoFixable'))).toBe(true);
+    });
+
+    it('rejects null rule entry', () => {
+      const standard = makeValidStandard({
+        rules: [null as unknown as any],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('must be a non-null object'))).toBe(true);
+    });
+  });
+
+  describe('invalid examples', () => {
+    it('rejects examples as non-array', () => {
+      const errors = validateStandard(makeValidStandard({ examples: null as unknown as [] }));
+      expect(errors).toContain('standard.examples must be an array');
+    });
+
+    it('rejects example with empty description', () => {
+      const standard = makeValidStandard({
+        examples: [{ description: '', compliant: true, code: 'code' }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('.description'))).toBe(true);
+    });
+
+    it('rejects example with non-boolean compliant', () => {
+      const standard = makeValidStandard({
+        examples: [{ description: 'test', compliant: 'yes' as unknown as boolean, code: 'code' }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('compliant'))).toBe(true);
+    });
+
+    it('rejects example with empty code', () => {
+      const standard = makeValidStandard({
+        examples: [{ description: 'test', compliant: true, code: '' }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('.code'))).toBe(true);
+    });
+
+    it('rejects null example entry', () => {
+      const standard = makeValidStandard({
+        examples: [null as unknown as any],
+      });
+      const errors = validateStandard(standard);
+      expect(errors.some((e) => e.includes('must be a non-null object'))).toBe(true);
+    });
+  });
+
+  describe('null/undefined edge cases', () => {
+    it('rejects null standard', () => {
+      const errors = validateStandard(null as unknown as ProjectStandard);
+      expect(errors).toContain('Standard must be a non-null object');
+    });
+
+    it('rejects undefined standard', () => {
+      const errors = validateStandard(undefined as unknown as ProjectStandard);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('all categories are valid', () => {
+    const categories = ['code-style', 'architecture', 'security', 'performance', 'testing', 'api-design', 'error-handling', 'documentation', 'dependency', 'custom'] as const;
+    it.each(categories)('accepts category "%s"', (cat) => {
+      const errors = validateStandard(makeValidStandard({ category: cat }));
+      expect(errors).toEqual([]);
+    });
+  });
+
+  describe('all check types are valid', () => {
+    const checkTypes = ['ast-pattern', 'regex', 'graph-query', 'llm-check', 'metric'] as const;
+    it.each(checkTypes)('accepts checkType "%s"', (ct) => {
+      const standard = makeValidStandard({
+        rules: [{ id: 'r1', description: 'test', checkType: ct, checkConfig: {}, severity: 'low', autoFixable: false }],
+      });
+      const errors = validateStandard(standard);
+      expect(errors).toEqual([]);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateReport
+// ---------------------------------------------------------------------------
+
+function makeValidReport(overrides: Partial<AnalysisReport> = {}): AnalysisReport {
+  return {
+    id: 'report-001',
+    type: 'pr-review',
+    title: 'Test Report',
+    createdAt: '2024-01-01T00:00:00Z',
+    scope: { type: 'project', projectId: 'proj-1' },
+    summary: {
+      overallScore: 85,
+      riskLevel: 'low',
+      totalFindings: 5,
+      criticalFindings: 0,
+      highFindings: 1,
+      mediumFindings: 2,
+      lowFindings: 2,
+      keyTakeaways: ['No critical issues'],
+      mergeRecommendation: 'approve',
+      mergeRationale: 'All checks passed',
+    },
+    findings: [
+      {
+        id: 'f-1',
+        category: 'bug',
+        severity: 'high',
+        title: 'Null pointer',
+        description: 'Potential null pointer dereference',
+        filePath: 'src/index.ts',
+        lineRange: [10, 15],
+        evidence: 'Line 12: obj.method()',
+        relatedFindings: [],
+      },
+    ],
+    recommendations: [
+      {
+        id: 'rec-1',
+        priority: 1,
+        title: 'Add null check',
+        description: 'Add null check before calling method',
+        estimatedEffort: 'small',
+        affectedFiles: ['src/index.ts'],
+        actionItems: [{ description: 'Add null check', file: 'src/index.ts' }],
+        risksAddressed: ['Null safety'],
+        references: [{ type: 'url', label: 'Docs', value: 'https://example.com' }],
+      },
+    ],
+    metrics: {
+      linesChanged: 100,
+      filesChanged: 5,
+      symbolsAffected: 10,
+      routesAffected: 0,
+      testsImpacted: 2,
+      complexityDelta: 0.5,
+      coverageDelta: 0.1,
+      complianceScore: 90,
+      reviewDuration: 3000,
+      tokenUsage: 5000,
+    },
+    metadata: {
+      repository: 'org/repo',
+      branch: 'main',
+      baseBranch: 'main',
+      commitSha: 'abc123',
+      author: 'dev',
+      reviewer: 'reviewer',
+      standardsApplied: [],
+      rulesApplied: [],
+      generatorVersion: '1.0.0',
+    },
+    ...overrides,
+  };
+}
+
+describe('validateReport', () => {
+  describe('valid report', () => {
+    it('passes with all required fields', () => {
+      const errors = validateReport(makeValidReport());
+      expect(errors).toEqual([]);
+    });
+  });
+
+  describe('invalid id', () => {
+    it('rejects empty id', () => {
+      const errors = validateReport(makeValidReport({ id: '' }));
+      expect(errors).toContain('report.id must be a non-empty string');
+    });
+  });
+
+  describe('invalid type', () => {
+    it('rejects unknown type', () => {
+      const errors = validateReport(makeValidReport({ type: 'unknown' as 'pr-review' }));
+      expect(errors.some((e) => e.includes('type'))).toBe(true);
+    });
+  });
+
+  describe('invalid title', () => {
+    it('rejects empty title', () => {
+      const errors = validateReport(makeValidReport({ title: '' }));
+      expect(errors).toContain('report.title must be a non-empty string');
+    });
+  });
+
+  describe('invalid createdAt', () => {
+    it('rejects empty createdAt', () => {
+      const errors = validateReport(makeValidReport({ createdAt: '' }));
+      expect(errors).toContain('report.createdAt must be a non-empty string');
+    });
+  });
+
+  describe('invalid scope', () => {
+    it('rejects null scope', () => {
+      const errors = validateReport(makeValidReport({ scope: null as unknown as any }));
+      expect(errors).toContain('report.scope must be a non-null object');
+    });
+
+    it('rejects invalid scope type', () => {
+      const errors = validateReport(makeValidReport({
+        scope: { type: 'unknown' as 'project' },
+      }));
+      expect(errors.some((e) => e.includes('scope.type'))).toBe(true);
+    });
+  });
+
+  describe('invalid summary', () => {
+    it('rejects null summary', () => {
+      const errors = validateReport(makeValidReport({ summary: null as unknown as any }));
+      expect(errors).toContain('report.summary must be a non-null object');
+    });
+
+    it('rejects non-number overallScore', () => {
+      const report = makeValidReport();
+      (report.summary as any).overallScore = 'high';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.summary.overallScore must be a number');
+    });
+
+    it('rejects negative totalFindings', () => {
+      const report = makeValidReport();
+      report.summary.totalFindings = -1;
+      const errors = validateReport(report);
+      expect(errors).toContain('report.summary.totalFindings must be a non-negative integer');
+    });
+
+    it('rejects non-array keyTakeaways', () => {
+      const report = makeValidReport();
+      (report.summary as any).keyTakeaways = 'bad';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.summary.keyTakeaways must be an array');
+    });
+
+    it('rejects invalid mergeRecommendation', () => {
+      const report = makeValidReport();
+      (report.summary as any).mergeRecommendation = 'reject';
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('mergeRecommendation'))).toBe(true);
+    });
+
+    it('rejects empty mergeRationale', () => {
+      const report = makeValidReport();
+      report.summary.mergeRationale = '';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.summary.mergeRationale must be a non-empty string');
+    });
+  });
+
+  describe('invalid findings', () => {
+    it('rejects findings as non-array', () => {
+      const errors = validateReport(makeValidReport({ findings: null as unknown as [] }));
+      expect(errors).toContain('report.findings must be an array');
+    });
+
+    it('rejects finding with empty id', () => {
+      const report = makeValidReport({
+        findings: [{ id: '', category: 'bug', severity: 'high', title: 'test', description: 'd', filePath: 'f.ts', lineRange: [1, 2], evidence: 'e', relatedFindings: [] }],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('.id'))).toBe(true);
+    });
+
+    it('rejects finding with empty title', () => {
+      const report = makeValidReport({
+        findings: [{ id: 'f1', category: 'bug', severity: 'high', title: '', description: 'd', filePath: 'f.ts', lineRange: [1, 2], evidence: 'e', relatedFindings: [] }],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('.title'))).toBe(true);
+    });
+
+    it('rejects null finding entry', () => {
+      const report = makeValidReport({
+        findings: [null as unknown as any],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('must be a non-null object'))).toBe(true);
+    });
+  });
+
+  describe('invalid recommendations', () => {
+    it('rejects recommendations as non-array', () => {
+      const errors = validateReport(makeValidReport({ recommendations: null as unknown as [] }));
+      expect(errors).toContain('report.recommendations must be an array');
+    });
+
+    it('rejects recommendation with empty id', () => {
+      const report = makeValidReport({
+        recommendations: [{ id: '', priority: 1, title: 'test', description: 'd', estimatedEffort: 'small', affectedFiles: [], actionItems: [], risksAddressed: [], references: [] }],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('.id'))).toBe(true);
+    });
+
+    it('rejects recommendation with invalid priority', () => {
+      const report = makeValidReport({
+        recommendations: [{ id: 'r1', priority: 5 as 1, title: 'test', description: 'd', estimatedEffort: 'small', affectedFiles: [], actionItems: [], risksAddressed: [], references: [] }],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('priority'))).toBe(true);
+    });
+
+    it('rejects recommendation with empty title', () => {
+      const report = makeValidReport({
+        recommendations: [{ id: 'r1', priority: 1, title: '', description: 'd', estimatedEffort: 'small', affectedFiles: [], actionItems: [], risksAddressed: [], references: [] }],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('.title'))).toBe(true);
+    });
+
+    it('rejects null recommendation entry', () => {
+      const report = makeValidReport({
+        recommendations: [null as unknown as any],
+      });
+      const errors = validateReport(report);
+      expect(errors.some((e) => e.includes('must be a non-null object'))).toBe(true);
+    });
+  });
+
+  describe('invalid metrics', () => {
+    it('rejects null metrics', () => {
+      const errors = validateReport(makeValidReport({ metrics: null as unknown as any }));
+      expect(errors).toContain('report.metrics must be a non-null object');
+    });
+
+    it('rejects non-number linesChanged', () => {
+      const report = makeValidReport();
+      (report.metrics as any).linesChanged = 'many';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.metrics.linesChanged must be a number');
+    });
+
+    it('rejects non-number filesChanged', () => {
+      const report = makeValidReport();
+      (report.metrics as any).filesChanged = 'many';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.metrics.filesChanged must be a number');
+    });
+  });
+
+  describe('invalid metadata', () => {
+    it('rejects null metadata', () => {
+      const errors = validateReport(makeValidReport({ metadata: null as unknown as any }));
+      expect(errors).toContain('report.metadata must be a non-null object');
+    });
+
+    it('rejects empty repository', () => {
+      const report = makeValidReport();
+      report.metadata.repository = '';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.metadata.repository must be a non-empty string');
+    });
+
+    it('rejects empty commitSha', () => {
+      const report = makeValidReport();
+      report.metadata.commitSha = '';
+      const errors = validateReport(report);
+      expect(errors).toContain('report.metadata.commitSha must be a non-empty string');
+    });
+  });
+
+  describe('null/undefined edge cases', () => {
+    it('rejects null report', () => {
+      const errors = validateReport(null as unknown as AnalysisReport);
+      expect(errors).toContain('Report must be a non-null object');
+    });
+
+    it('rejects undefined report', () => {
+      const errors = validateReport(undefined as unknown as AnalysisReport);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('all report types are valid', () => {
+    const types = ['pr-review', 'codebase-audit', 'impact-analysis', 'architecture-review', 'standards-compliance'] as const;
+    it.each(types)('accepts report type "%s"', (type) => {
+      const errors = validateReport(makeValidReport({ type }));
+      expect(errors).toEqual([]);
+    });
+  });
+
+  describe('all merge recommendations are valid', () => {
+    const recs = ['approve', 'approve-with-comments', 'request-changes', 'block'] as const;
+    it.each(recs)('accepts merge recommendation "%s"', (rec) => {
+      const report = makeValidReport();
+      report.summary.mergeRecommendation = rec;
+      const errors = validateReport(report);
+      expect(errors).toEqual([]);
+    });
   });
 });

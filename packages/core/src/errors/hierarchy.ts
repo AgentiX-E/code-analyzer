@@ -70,7 +70,7 @@ export class CodeAnalyzerError extends Error {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const err: CodeAnalyzerError = Object.create(ctor.prototype) as CodeAnalyzerError;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+     
     const mutable = err as unknown as {
       code: string;
       category: ErrorCategory;

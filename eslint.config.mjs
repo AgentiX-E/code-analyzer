@@ -15,7 +15,9 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['*.test.ts', '*.spec.ts', '**/__tests__/**'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -63,6 +65,15 @@ export default tseslint.config(
         { allowNumber: true, allowBoolean: true, allowNullish: true },
       ],
       '@typescript-eslint/no-base-to-string': 'warn',
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
+
+  // Stub/pipeline phase files: async methods may not await (placeholder implementations)
+  {
+    files: ['**/pipeline/phases.ts', '**/phases.ts'],
+    rules: {
+      '@typescript-eslint/require-await': 'off',
     },
   },
 

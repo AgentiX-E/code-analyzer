@@ -36,6 +36,14 @@ export const NODE_LABELS = [
   'Config',
   'ADR',
   'BasicBlock',
+  'InfraResource',
+  'CrossRepoFunction',
+  'CrossRepoInterface',
+  'CrossRepoModule',
+  'Contract',
+  'Event',
+  'DataSource',
+  'Sink',
 ] as const;
 
 /** A node label — determines the type of code entity */
@@ -76,6 +84,24 @@ export const RELATIONSHIP_TYPES = [
   'CHANGES_WITH',
   'DATA_FLOWS',
   'STEP_IN_PROCESS',
+  // PDG
+  'CFG',
+  'REACHING_DEF',
+  'TAINTED',
+  'SANITIZES',
+  'TAINT_PATH',
+  // Event
+  'EMITS',
+  'LISTENS_ON',
+  // Config
+  'CONFIGURES',
+  // Cross-Repo
+  'CROSS_REPO_DEPENDS',
+  'CROSS_REPO_CALLS',
+  'CROSS_REPO_IMPLEMENTS',
+  'CROSS_REPO_IMPORTS',
+  'CROSS_REPO_EXPOSES',
+  'CROSS_REPO_CONTRACT',
 ] as const;
 
 /** A relationship type — defines the semantic meaning of an edge in the graph */
@@ -673,4 +699,463 @@ export interface PaginatedResult<T> {
   offset: number;
   limit: number;
   hasMore: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// PDG Types — Program Dependence Graph
+// ---------------------------------------------------------------------------
+
+export interface BasicBlockNode {
+  functionId: number;
+  blockIndex: number;
+  instructions: string[];
+  isEntry: boolean;
+  isExit: boolean;
+}
+
+export interface TaintSource {
+  kind: 'user_input' | 'network' | 'file_system' | 'database' | 'environment';
+  location: { filePath: string; lineNumber: number };
+  variable: string;
+}
+
+export interface TaintSink {
+  kind: 'sql_query' | 'command_exec' | 'file_write' | 'network_send' | 'eval' | 'dom_write';
+  location: { filePath: string; lineNumber: number };
+  function: string;
+}
+
+export interface TaintSanitizer {
+  kind: 'validation' | 'escaping' | 'encoding' | 'authentication' | 'authorization';
+  location: { filePath: string; lineNumber: number };
+  function: string;
+}
+
+export interface TaintPath {
+  source: TaintSource;
+  sinks: TaintSink[];
+  sanitizers: TaintSanitizer[];
+  path: Array<{ filePath: string; lineNumber: number }>;
+  isVulnerable: boolean;
+  severity: Severity;
+  cweId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Standards Types
+// ---------------------------------------------------------------------------
+
+export type StandardCategory =
+  | 'code-style'
+  | 'architecture'
+  | 'security'
+  | 'performance'
+  | 'testing'
+  | 'api-design'
+  | 'error-handling'
+  | 'documentation'
+  | 'dependency'
+  | 'custom';
+
+export interface ProjectStandard {
+  id: string;
+  name: string;
+  version: string;
+  category: StandardCategory;
+  description: string;
+  rules: StandardRule[];
+  examples: StandardExample[];
+  config?: StandardConfig;
+}
+
+export interface StandardRule {
+  id: string;
+  description: string;
+  checkType: 'ast-pattern' | 'regex' | 'graph-query' | 'llm-check' | 'metric';
+  checkConfig: Record<string, unknown>;
+  severity: Severity;
+  autoFixable: boolean;
+  fixSuggestion?: string;
+}
+
+export interface StandardConfig {
+  includePaths: string[];
+  excludePaths: string[];
+  severityOverrides: Record<string, Severity>;
+  disabledRules: string[];
+  ruleParams: Record<string, Record<string, unknown>>;
+}
+
+export interface StandardExample {
+  description: string;
+  compliant: boolean;
+  code: string;
+  explanation?: string;
+}
+
+export interface ComplianceResult {
+  standardId: string;
+  ruleId: string;
+  filePath: string;
+  lineNumber?: number;
+  compliant: boolean;
+  severity: Severity;
+  message: string;
+  suggestion?: string;
+  autoFix?: string;
+}
+
+export interface StandardsCheckResult {
+  standardId: string;
+  ruleResults: RuleCheckResult[];
+  complianceScore: number;
+  filesChecked: number;
+  summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+    passed: number;
+  };
+  duration: number;
+}
+
+export interface RuleCheckResult {
+  ruleId: string;
+  ruleDescription: string;
+  passed: boolean;
+  severity: Severity;
+  violations: Violation[];
+  autoFixable: boolean;
+}
+
+export interface Violation {
+  filePath: string;
+  lineNumber: number;
+  columnNumber?: number;
+  message: string;
+  codeSnippet: string;
+  suggestion?: string;
+  autoFix?: string;
+  standardRef: string;
+}
+
+// ---------------------------------------------------------------------------
+// Report Types
+// ---------------------------------------------------------------------------
+
+export interface AnalysisReport {
+  id: string;
+  type: 'pr-review' | 'codebase-audit' | 'impact-analysis' | 'architecture-review' | 'standards-compliance';
+  title: string;
+  createdAt: string;
+  scope: ReportScope;
+  summary: ReportSummary;
+  findings: Finding[];
+  recommendations: Recommendation[];
+  metrics: ReportMetrics;
+  metadata: ReportMetadata;
+}
+
+export interface ReportScope {
+  type: 'project' | 'repo-group' | 'pr';
+  projectId?: string;
+  groupId?: string;
+  prNumber?: number;
+  baseRef?: string;
+  headRef?: string;
+}
+
+export interface ReportSummary {
+  overallScore: number;
+  riskLevel: RiskLevel;
+  totalFindings: number;
+  criticalFindings: number;
+  highFindings: number;
+  mediumFindings: number;
+  lowFindings: number;
+  keyTakeaways: string[];
+  mergeRecommendation: 'approve' | 'approve-with-comments' | 'request-changes' | 'block';
+  mergeRationale: string;
+}
+
+export interface Finding {
+  id: string;
+  category: ReviewCategory;
+  severity: Severity;
+  title: string;
+  description: string;
+  filePath: string;
+  lineRange: [number, number] | null;
+  standardRef?: string;
+  ruleRef?: string;
+  evidence: string;
+  relatedFindings: string[];
+}
+
+export interface Recommendation {
+  id: string;
+  priority: 1 | 2 | 3;
+  title: string;
+  description: string;
+  estimatedEffort: 'trivial' | 'small' | 'medium' | 'large' | 'xlarge';
+  affectedFiles: string[];
+  actionItems: ActionItem[];
+  risksAddressed: string[];
+  references: Reference[];
+  beforeCode?: string;
+  afterCode?: string;
+}
+
+export interface ActionItem {
+  description: string;
+  file?: string;
+  lineRange?: [number, number];
+  command?: string;
+  verifiedBy?: string;
+}
+
+export interface Reference {
+  type: 'url' | 'file' | 'symbol' | 'standard';
+  label: string;
+  value: string;
+}
+
+export interface ReportMetrics {
+  linesChanged: number;
+  filesChanged: number;
+  symbolsAffected: number;
+  routesAffected: number;
+  testsImpacted: number;
+  complexityDelta: number;
+  coverageDelta: number;
+  complianceScore: number;
+  reviewDuration: number;
+  tokenUsage: number;
+}
+
+export interface ReportMetadata {
+  repository: string;
+  branch: string;
+  baseBranch: string;
+  commitSha: string;
+  author: string;
+  reviewer: string;
+  standardsApplied: string[];
+  rulesApplied: string[];
+  generatorVersion: string;
+}
+
+// ---------------------------------------------------------------------------
+// Cross-Repo Types
+// ---------------------------------------------------------------------------
+
+export interface CrossRepoCallEdge {
+  sourceRepo: string;
+  sourceSymbol: string;
+  targetRepo: string;
+  targetSymbol: string;
+  resolutionType: 'function_call' | 'interface_impl' | 'module_import' | 'api_consumer';
+  confidence: number;
+}
+
+export interface Contract {
+  id: string;
+  name: string;
+  description: string;
+  uri: string;
+  version: string;
+  definition: Record<string, unknown>;
+  dependencies: string[];
+}
+
+export interface RepoGroup {
+  id: string;
+  name: string;
+  description: string;
+  repos: GroupRepo[];
+  contracts: Contract[];
+  indexedAt: string | null;
+}
+
+export interface GroupRepo {
+  owner: string;
+  repo: string;
+  fullName: string;
+  localPath: string;
+  projectId: string | null;
+  role: 'primary' | 'dependency' | 'consumer';
+  autoIndex: boolean;
+}
+
+export interface GitHubRepo {
+  id: number;
+  owner: string;
+  name: string;
+  fullName: string;
+  defaultBranch: string;
+  cloneUrl: string;
+  language: string | null;
+  topics: string[];
+  isPrivate: boolean;
+  description: string | null;
+}
+
+export interface PullRequest {
+  number: number;
+  title: string;
+  body: string | null;
+  state: 'open' | 'closed' | 'merged';
+  base: { ref: string; sha: string; repo: GitHubRepo };
+  head: { ref: string; sha: string; repo: GitHubRepo };
+  user: { login: string };
+  labels: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Cypher Types
+// ---------------------------------------------------------------------------
+
+export interface CypherToken {
+  type: 'KEYWORD' | 'IDENTIFIER' | 'STRING' | 'NUMBER' | 'OPERATOR' | 'PUNCTUATION';
+  value: string;
+  position: number;
+}
+
+export type CypherAST = MatchClause | ReturnClause | WhereClause;
+
+export interface MatchClause {
+  type: 'match';
+  patterns: NodePattern[];
+}
+
+export interface NodePattern {
+  variable: string;
+  labels: string[];
+  properties: Record<string, unknown>;
+  relationships?: RelationshipPattern[];
+}
+
+export interface RelationshipPattern {
+  variable?: string;
+  types: string[];
+  direction: 'left' | 'right' | 'both';
+  minHops?: number;
+  maxHops?: number;
+  target: NodePattern;
+}
+
+export interface WhereClause {
+  type: 'where';
+  condition: CypherExpression;
+}
+
+export interface ReturnClause {
+  type: 'return';
+  items: ReturnItem[];
+  distinct: boolean;
+  orderBy?: OrderByItem[];
+  limit?: number;
+  skip?: number;
+}
+
+export interface ReturnItem {
+  expression: CypherExpression;
+  alias?: string;
+}
+
+export interface OrderByItem {
+  expression: CypherExpression;
+  direction: 'asc' | 'desc';
+}
+
+export type CypherExpression =
+  | { type: 'property'; object: string; property: string }
+  | { type: 'variable'; name: string }
+  | { type: 'literal'; value: string | number | boolean }
+  | { type: 'function'; name: string; args: CypherExpression[] }
+  | { type: 'binary'; operator: string; left: CypherExpression; right: CypherExpression }
+  | { type: 'unary'; operator: string; operand: CypherExpression };
+
+// ---------------------------------------------------------------------------
+// Session Types
+// ---------------------------------------------------------------------------
+
+export interface ReviewSession {
+  id: string;
+  projectId: string;
+  mode: 'diff' | 'scan';
+  fromRef?: string;
+  toRef?: string;
+  status: 'running' | 'completed' | 'failed';
+  createdAt: string;
+  completedAt?: string;
+  filesReviewed: number;
+  commentsGenerated: number;
+}
+
+// ---------------------------------------------------------------------------
+// Agent Skill Types
+// ---------------------------------------------------------------------------
+
+export interface AgentSkill {
+  name: string;
+  description: string;
+  category:
+    | 'exploration'
+    | 'debugging'
+    | 'review'
+    | 'refactoring'
+    | 'impact'
+    | 'architecture'
+    | 'security'
+    | 'reference';
+  content: string;
+  tools: string[];
+}
+
+export interface DetectedAgent {
+  name: string;
+  type:
+    | 'claude-code'
+    | 'cursor'
+    | 'codex'
+    | 'windsurf'
+    | 'codebuddy'
+    | 'aider'
+    | 'continue'
+    | 'custom';
+  installPath: string;
+  skillFormat: 'markdown' | 'yaml';
+}
+
+// ---------------------------------------------------------------------------
+// Supervisor Types
+// ---------------------------------------------------------------------------
+
+export interface SupervisorResult {
+  status: 'complete' | 'partial' | 'crashed' | 'timeout';
+  filesProcessed: number;
+  filesFailed: number;
+  quarantinedFiles: QuarantinedFile[];
+  crashReports: CrashReport[];
+  duration: number;
+  peakMemory: number;
+}
+
+export interface QuarantinedFile {
+  filePath: string;
+  error: string;
+  quarantinedAt: string;
+}
+
+export interface CrashReport {
+  filePath: string;
+  error: string;
+  signal?: string;
+  stackTrace?: string;
+  attemptNumber: number;
 }

@@ -22,7 +22,7 @@ import {
 
 describe('NodeLabel', () => {
   it('has exactly the expected number of labels', () => {
-    expect(NODE_LABELS).toHaveLength(25);
+    expect(NODE_LABELS).toHaveLength(33);
   });
 
   it.each(NODE_LABELS)('isNodeLabel("%s") returns true', (label) => {
@@ -45,7 +45,7 @@ describe('NodeLabel', () => {
 
 describe('RelationshipType', () => {
   it('has exactly the expected number of types', () => {
-    expect(RELATIONSHIP_TYPES).toHaveLength(25);
+    expect(RELATIONSHIP_TYPES).toHaveLength(39);
   });
 
   it.each(RELATIONSHIP_TYPES)('isRelationshipType("%s") returns true', (type) => {

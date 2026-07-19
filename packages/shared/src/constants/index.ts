@@ -37,6 +37,14 @@ export const NODE_TABLES: Map<NodeLabel, string> = new Map([
   ['Config', 'configs'],
   ['ADR', 'adrs'],
   ['BasicBlock', 'basic_blocks'],
+  ['InfraResource', 'infra_resources'],
+  ['CrossRepoFunction', 'cross_repo_functions'],
+  ['CrossRepoInterface', 'cross_repo_interfaces'],
+  ['CrossRepoModule', 'cross_repo_modules'],
+  ['Contract', 'contracts'],
+  ['Event', 'events'],
+  ['DataSource', 'data_sources'],
+  ['Sink', 'sinks'],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -78,6 +86,28 @@ export const REL_INVERSES: Map<RelationshipType, RelationshipType> = new Map([
   ['CHANGES_WITH', 'CHANGES_WITH'],
   ['DATA_FLOWS', 'DATA_FLOWS'],
   ['STEP_IN_PROCESS', 'STEP_IN_PROCESS'],
+
+  // PDG — same type, direction reversed
+  ['CFG', 'CFG'],
+  ['REACHING_DEF', 'REACHING_DEF'],
+  ['TAINTED', 'TAINTED'],
+  ['SANITIZES', 'SANITIZES'],
+  ['TAINT_PATH', 'TAINT_PATH'],
+
+  // Event — directional inverses
+  ['EMITS', 'LISTENS_ON'],
+  ['LISTENS_ON', 'EMITS'],
+
+  // Config — same type, direction reversed
+  ['CONFIGURES', 'CONFIGURES'],
+
+  // Cross-Repo — directional inverses
+  ['CROSS_REPO_DEPENDS', 'CROSS_REPO_DEPENDS'],
+  ['CROSS_REPO_CALLS', 'CROSS_REPO_CALLS'],
+  ['CROSS_REPO_IMPLEMENTS', 'CROSS_REPO_IMPLEMENTS'],
+  ['CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES'],
+  ['CROSS_REPO_EXPOSES', 'CROSS_REPO_IMPORTS'],
+  ['CROSS_REPO_CONTRACT', 'CROSS_REPO_CONTRACT'],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -354,4 +384,95 @@ COMPATIBLE_EDGES.set('STEP_IN_PROCESS', [
   ['Method', 'Process'],
   ['Class', 'Process'],
   ['File', 'Process'],
+]);
+
+// PDG
+COMPATIBLE_EDGES.set('CFG', [
+  ['BasicBlock', 'BasicBlock'],
+]);
+
+COMPATIBLE_EDGES.set('REACHING_DEF', [
+  ['Function', 'Variable'],
+  ['Method', 'Variable'],
+]);
+
+COMPATIBLE_EDGES.set('TAINTED', [
+  ['Function', 'Variable'],
+  ['Function', 'Function'],
+  ['Method', 'Variable'],
+  ['Variable', 'Variable'],
+]);
+
+COMPATIBLE_EDGES.set('SANITIZES', [
+  ['Function', 'Function'],
+  ['Method', 'Function'],
+  ['Variable', 'Function'],
+]);
+
+COMPATIBLE_EDGES.set('TAINT_PATH', [
+  ['Function', 'Function'],
+  ['Method', 'Method'],
+  ['Function', 'Sink'],
+  ['Variable', 'Sink'],
+]);
+
+// Event
+COMPATIBLE_EDGES.set('EMITS', [
+  ['Function', 'Event'],
+  ['Class', 'Event'],
+  ['Module', 'Event'],
+  ['Method', 'Event'],
+]);
+
+COMPATIBLE_EDGES.set('LISTENS_ON', [
+  ['Function', 'Event'],
+  ['Class', 'Event'],
+  ['Method', 'Event'],
+]);
+
+// Config
+COMPATIBLE_EDGES.set('CONFIGURES', [
+  ['Config', 'File'],
+  ['Config', 'Module'],
+  ['Config', 'Class'],
+  ['Config', 'Function'],
+  ['Config', 'InfraResource'],
+]);
+
+// Cross-Repo
+COMPATIBLE_EDGES.set('CROSS_REPO_DEPENDS', [
+  ['CrossRepoModule', 'CrossRepoModule'],
+  ['CrossRepoFunction', 'CrossRepoFunction'],
+  ['Module', 'CrossRepoModule'],
+  ['Function', 'CrossRepoFunction'],
+]);
+
+COMPATIBLE_EDGES.set('CROSS_REPO_CALLS', [
+  ['CrossRepoFunction', 'CrossRepoFunction'],
+  ['CrossRepoFunction', 'Function'],
+  ['Function', 'CrossRepoFunction'],
+]);
+
+COMPATIBLE_EDGES.set('CROSS_REPO_IMPLEMENTS', [
+  ['CrossRepoInterface', 'Interface'],
+  ['Class', 'CrossRepoInterface'],
+]);
+
+COMPATIBLE_EDGES.set('CROSS_REPO_IMPORTS', [
+  ['CrossRepoModule', 'Module'],
+  ['CrossRepoFunction', 'Function'],
+  ['CrossRepoModule', 'File'],
+  ['File', 'CrossRepoModule'],
+]);
+
+COMPATIBLE_EDGES.set('CROSS_REPO_EXPOSES', [
+  ['Module', 'CrossRepoModule'],
+  ['Function', 'CrossRepoFunction'],
+  ['Interface', 'CrossRepoInterface'],
+]);
+
+COMPATIBLE_EDGES.set('CROSS_REPO_CONTRACT', [
+  ['Contract', 'Contract'],
+  ['Contract', 'CrossRepoInterface'],
+  ['Contract', 'File'],
 ]);

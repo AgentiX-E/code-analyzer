@@ -5,8 +5,10 @@ import { COMPATIBLE_EDGES } from '../constants/index.js';
 import { NODE_LABELS, RELATIONSHIP_TYPES } from '../types/graph.js';
 
 import type {
+  AnalysisReport,
   CodeAnalyzerConfig,
   NodeLabel,
+  ProjectStandard,
   RelationshipType,
   ReviewCategory,
   ReviewComment,
@@ -59,6 +61,14 @@ const REQUIRED_PROPS_BY_LABEL: Partial<Record<NodeLabel, string[]>> = {
   Config: ['name'],
   ADR: ['name'],
   BasicBlock: ['name'],
+  InfraResource: ['name'],
+  CrossRepoFunction: ['name'],
+  CrossRepoInterface: ['name'],
+  CrossRepoModule: ['name'],
+  Contract: ['name'],
+  Event: ['name'],
+  DataSource: ['name'],
+  Sink: ['name'],
 };
 
 /**
@@ -426,6 +436,271 @@ export function validateReviewComment(comment: ReviewComment): string[] {
     typeof comment.thinking !== 'string'
   ) {
     errors.push('reviewComment.thinking must be a string if provided');
+  }
+
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
+// validateStandard
+// ---------------------------------------------------------------------------
+
+const VALID_STANDARD_CATEGORIES = new Set([
+  'code-style',
+  'architecture',
+  'security',
+  'performance',
+  'testing',
+  'api-design',
+  'error-handling',
+  'documentation',
+  'dependency',
+  'custom',
+]);
+
+const VALID_CHECK_TYPES = new Set([
+  'ast-pattern',
+  'regex',
+  'graph-query',
+  'llm-check',
+  'metric',
+]);
+
+const VALID_SEVERITIES_SET = new Set([
+  'critical',
+  'high',
+  'medium',
+  'low',
+  'info',
+]);
+
+/**
+ * Validates a ProjectStandard object. Returns an array of error messages.
+ * An empty array means the standard definition is valid.
+ */
+export function validateStandard(standard: ProjectStandard): string[] {
+  const errors: string[] = [];
+
+  if (!standard || typeof standard !== 'object') {
+    errors.push('Standard must be a non-null object');
+    return errors;
+  }
+
+  if (!isNonEmptyString(standard.id)) {
+    errors.push('standard.id must be a non-empty string');
+  }
+
+  if (!isNonEmptyString(standard.name)) {
+    errors.push('standard.name must be a non-empty string');
+  }
+
+  if (!isNonEmptyString(standard.version)) {
+    errors.push('standard.version must be a non-empty string');
+  }
+
+  if (!VALID_STANDARD_CATEGORIES.has(standard.category)) {
+    errors.push(
+      `Invalid standard.category "${standard.category}" — must be one of: ${[...VALID_STANDARD_CATEGORIES].join(', ')}`
+    );
+  }
+
+  if (!isNonEmptyString(standard.description)) {
+    errors.push('standard.description must be a non-empty string');
+  }
+
+  if (!Array.isArray(standard.rules)) {
+    errors.push('standard.rules must be an array');
+  } else {
+    for (let i = 0; i < standard.rules.length; i++) {
+      const rule = standard.rules[i];
+      if (!rule || typeof rule !== 'object') {
+        errors.push(`standard.rules[${i}] must be a non-null object`);
+        continue;
+      }
+      if (!isNonEmptyString(rule.id)) {
+        errors.push(`standard.rules[${i}].id must be a non-empty string`);
+      }
+      if (!isNonEmptyString(rule.description)) {
+        errors.push(`standard.rules[${i}].description must be a non-empty string`);
+      }
+      if (!VALID_CHECK_TYPES.has(rule.checkType)) {
+        errors.push(`standard.rules[${i}].checkType "${rule.checkType}" is invalid`);
+      }
+      if (!VALID_SEVERITIES_SET.has(rule.severity)) {
+        errors.push(`standard.rules[${i}].severity "${rule.severity}" is invalid`);
+      }
+      if (typeof rule.autoFixable !== 'boolean') {
+        errors.push(`standard.rules[${i}].autoFixable must be a boolean`);
+      }
+    }
+  }
+
+  if (!Array.isArray(standard.examples)) {
+    errors.push('standard.examples must be an array');
+  } else {
+    for (let i = 0; i < standard.examples.length; i++) {
+      const ex = standard.examples[i];
+      if (!ex || typeof ex !== 'object') {
+        errors.push(`standard.examples[${i}] must be a non-null object`);
+        continue;
+      }
+      if (!isNonEmptyString(ex.description)) {
+        errors.push(`standard.examples[${i}].description must be a non-empty string`);
+      }
+      if (typeof ex.compliant !== 'boolean') {
+        errors.push(`standard.examples[${i}].compliant must be a boolean`);
+      }
+      if (!isNonEmptyString(ex.code)) {
+        errors.push(`standard.examples[${i}].code must be a non-empty string`);
+      }
+    }
+  }
+
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
+// validateReport
+// ---------------------------------------------------------------------------
+
+const VALID_REPORT_TYPES = new Set([
+  'pr-review',
+  'codebase-audit',
+  'impact-analysis',
+  'architecture-review',
+  'standards-compliance',
+]);
+
+const VALID_SCOPE_TYPES = new Set(['project', 'repo-group', 'pr']);
+
+const VALID_MERGE_RECS = new Set([
+  'approve',
+  'approve-with-comments',
+  'request-changes',
+  'block',
+]);
+
+/**
+ * Validates an AnalysisReport object. Returns an array of error messages.
+ * An empty array means the report is valid.
+ */
+export function validateReport(report: AnalysisReport): string[] {
+  const errors: string[] = [];
+
+  if (!report || typeof report !== 'object') {
+    errors.push('Report must be a non-null object');
+    return errors;
+  }
+
+  if (!isNonEmptyString(report.id)) {
+    errors.push('report.id must be a non-empty string');
+  }
+
+  if (!VALID_REPORT_TYPES.has(report.type)) {
+    errors.push(`Invalid report.type "${report.type}"`);
+  }
+
+  if (!isNonEmptyString(report.title)) {
+    errors.push('report.title must be a non-empty string');
+  }
+
+  if (!isNonEmptyString(report.createdAt)) {
+    errors.push('report.createdAt must be a non-empty string');
+  }
+
+  // Validate scope
+  if (!report.scope || typeof report.scope !== 'object') {
+    errors.push('report.scope must be a non-null object');
+  } else {
+    if (!VALID_SCOPE_TYPES.has(report.scope.type)) {
+      errors.push(`Invalid report.scope.type "${report.scope.type}"`);
+    }
+  }
+
+  // Validate summary
+  if (!report.summary || typeof report.summary !== 'object') {
+    errors.push('report.summary must be a non-null object');
+  } else {
+    if (typeof report.summary.overallScore !== 'number') {
+      errors.push('report.summary.overallScore must be a number');
+    }
+    if (!isNonNegativeInteger(report.summary.totalFindings)) {
+      errors.push('report.summary.totalFindings must be a non-negative integer');
+    }
+    if (!Array.isArray(report.summary.keyTakeaways)) {
+      errors.push('report.summary.keyTakeaways must be an array');
+    }
+    if (!VALID_MERGE_RECS.has(report.summary.mergeRecommendation)) {
+      errors.push(`Invalid report.summary.mergeRecommendation "${report.summary.mergeRecommendation}"`);
+    }
+    if (!isNonEmptyString(report.summary.mergeRationale)) {
+      errors.push('report.summary.mergeRationale must be a non-empty string');
+    }
+  }
+
+  // Validate findings
+  if (!Array.isArray(report.findings)) {
+    errors.push('report.findings must be an array');
+  } else {
+    for (let i = 0; i < report.findings.length; i++) {
+      const finding = report.findings[i];
+      if (!finding || typeof finding !== 'object') {
+        errors.push(`report.findings[${i}] must be a non-null object`);
+        continue;
+      }
+      if (!isNonEmptyString(finding.id)) {
+        errors.push(`report.findings[${i}].id must be a non-empty string`);
+      }
+      if (!isNonEmptyString(finding.title)) {
+        errors.push(`report.findings[${i}].title must be a non-empty string`);
+      }
+    }
+  }
+
+  // Validate recommendations
+  if (!Array.isArray(report.recommendations)) {
+    errors.push('report.recommendations must be an array');
+  } else {
+    for (let i = 0; i < report.recommendations.length; i++) {
+      const rec = report.recommendations[i];
+      if (!rec || typeof rec !== 'object') {
+        errors.push(`report.recommendations[${i}] must be a non-null object`);
+        continue;
+      }
+      if (!isNonEmptyString(rec.id)) {
+        errors.push(`report.recommendations[${i}].id must be a non-empty string`);
+      }
+      if (!isNonEmptyString(rec.title)) {
+        errors.push(`report.recommendations[${i}].title must be a non-empty string`);
+      }
+      if (![1, 2, 3].includes(rec.priority)) {
+        errors.push(`report.recommendations[${i}].priority must be 1, 2, or 3`);
+      }
+    }
+  }
+
+  // Validate metrics
+  if (!report.metrics || typeof report.metrics !== 'object') {
+    errors.push('report.metrics must be a non-null object');
+  } else {
+    if (typeof report.metrics.linesChanged !== 'number') {
+      errors.push('report.metrics.linesChanged must be a number');
+    }
+    if (typeof report.metrics.filesChanged !== 'number') {
+      errors.push('report.metrics.filesChanged must be a number');
+    }
+  }
+
+  // Validate metadata
+  if (!report.metadata || typeof report.metadata !== 'object') {
+    errors.push('report.metadata must be a non-null object');
+  } else {
+    if (!isNonEmptyString(report.metadata.repository)) {
+      errors.push('report.metadata.repository must be a non-empty string');
+    }
+    if (!isNonEmptyString(report.metadata.commitSha)) {
+      errors.push('report.metadata.commitSha must be a non-empty string');
+    }
   }
 
   return errors;
