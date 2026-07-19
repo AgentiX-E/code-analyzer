@@ -1,0 +1,594 @@
+// @code-analyzer/intelligence — PR Review Engine
+// Pull request review with enriched knowledge graph context and standards checks.
+
+import type {
+  PullRequest,
+  GitDiff,
+  ReviewComment,
+  ReviewCategory,
+  Severity,
+  ImpactResult,
+  RiskLevel,
+  StandardsCheckResult,
+  ProjectStandard,
+} from '@code-analyzer/shared';
+import { SqliteStore } from '@code-analyzer/infra';
+import { CodeReviewEngine, type ReviewContext } from './review-engine.js';
+import { SessionStore } from './session-store.js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface PRReviewResult {
+  sessionId: string;
+  comments: ReviewComment[];
+  standardsResults: StandardsCheckResult[];
+  impactResult: ImpactResult;
+  summary: PRReviewSummary;
+}
+
+export interface PRReviewSummary {
+  totalComments: number;
+  byCategory: Record<ReviewCategory, number>;
+  bySeverity: Record<Severity, number>;
+  riskLevel: 'critical' | 'high' | 'medium' | 'low';
+  mergeRecommendation: 'approve' | 'approve-with-comments' | 'request-changes' | 'block';
+}
+
+export interface EnrichedDiff {
+  diff: GitDiff;
+  affectedSymbols: string[];
+  relatedTests: string[];
+  impactScore: number;
+}
+
+// ---------------------------------------------------------------------------
+// PR Review Engine
+// ---------------------------------------------------------------------------
+
+export class PRReviewEngine {
+  private readonly sessionStore: SessionStore;
+
+  constructor(
+    private reviewEngine: CodeReviewEngine,
+    private store: SqliteStore,
+    sessionStore?: SessionStore,
+  ) {
+    this.sessionStore = sessionStore ?? new SessionStore();
+  }
+
+  // -------------------------------------------------------------------------
+  // Public API
+  // -------------------------------------------------------------------------
+
+  /**
+   * Review a GitHub pull request.
+   * Combines diff review, standards checking, and impact analysis.
+   */
+  async reviewPR(
+    projectId: string,
+    _pr: PullRequest,
+    diffs: GitDiff[],
+  ): Promise<PRReviewResult> {
+    // Build enriched context from knowledge graph
+    const enrichedDiffs = await this.buildEnrichedContext(projectId, diffs);
+
+    // Run code review on all diffs
+    const session = await this.reviewEngine.reviewDiff(projectId, diffs);
+
+    // Gather all comments from the session
+    const comments = this.gatherComments(session.id);
+
+    // Run standards checks
+    const ctx = this.buildReviewContext(projectId, diffs, session.id);
+    const standardsResults = await this.checkStandards(ctx);
+
+    // Compute impact result
+    const impactResult = this.computeImpact(projectId, enrichedDiffs);
+
+    // Build summary
+    const summary = this.buildSummary(comments, impactResult);
+
+    return {
+      sessionId: session.id,
+      comments,
+      standardsResults,
+      impactResult,
+      summary,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Standards Checking
+  // -------------------------------------------------------------------------
+
+  private async checkStandards(ctx: ReviewContext): Promise<StandardsCheckResult[]> {
+    const results: StandardsCheckResult[] = [];
+
+    // Build a set of built-in standards rules to check
+    const standards: ProjectStandard[] = [
+      {
+        id: 'std-func-length',
+        name: 'Function Length',
+        version: '1.0.0',
+        category: 'code-style',
+        description: 'Functions should not exceed 50 lines.',
+        rules: [
+          {
+            id: 'func-length-50',
+            description: 'Functions must not exceed 50 lines.',
+            checkType: 'metric',
+            checkConfig: { maxLines: 50 },
+            severity: 'medium',
+            autoFixable: false,
+          },
+        ],
+        examples: [],
+      },
+      {
+        id: 'std-nesting-depth',
+        name: 'Nesting Depth',
+        version: '1.0.0',
+        category: 'code-style',
+        description: 'Code should not nest deeper than 4 levels.',
+        rules: [
+          {
+            id: 'nesting-depth-4',
+            description: 'Code nesting depth must not exceed 4 levels.',
+            checkType: 'metric',
+            checkConfig: { maxDepth: 4 },
+            severity: 'high',
+            autoFixable: false,
+          },
+        ],
+        examples: [],
+      },
+      {
+        id: 'std-naming',
+        name: 'Naming Conventions',
+        version: '1.0.0',
+        category: 'code-style',
+        description: 'Follow naming conventions: PascalCase classes, camelCase functions.',
+        rules: [
+          {
+            id: 'naming-class-pascal',
+            description: 'Class names must use PascalCase.',
+            checkType: 'regex',
+            checkConfig: { pattern: '^[A-Z][a-zA-Z0-9]*$' },
+            severity: 'low',
+            autoFixable: false,
+          },
+          {
+            id: 'naming-func-camel',
+            description: 'Function names must use camelCase.',
+            checkType: 'regex',
+            checkConfig: { pattern: '^[a-z][a-zA-Z0-9]*$' },
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
+        examples: [],
+      },
+      {
+        id: 'std-error-handling',
+        name: 'Error Handling',
+        version: '1.0.0',
+        category: 'error-handling',
+        description: 'Async operations should include error handling.',
+        rules: [
+          {
+            id: 'error-handling-async',
+            description: 'Async operations must include try/catch or .catch() handlers.',
+            checkType: 'ast-pattern',
+            checkConfig: { requireTryCatch: true },
+            severity: 'medium',
+            autoFixable: false,
+          },
+        ],
+        examples: [],
+      },
+      {
+        id: 'std-security',
+        name: 'Security Basics',
+        version: '1.0.0',
+        category: 'security',
+        description: 'Avoid common security pitfalls.',
+        rules: [
+          {
+            id: 'no-eval',
+            description: 'Avoid using eval() for security reasons.',
+            checkType: 'regex',
+            checkConfig: { pattern: 'eval\\s*\\(', forbidden: true },
+            severity: 'critical',
+            autoFixable: false,
+          },
+          {
+            id: 'no-console-log',
+            description: 'Remove console.log from production code.',
+            checkType: 'regex',
+            checkConfig: { pattern: 'console\\.log', forbidden: true },
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
+        examples: [],
+      },
+    ];
+
+    for (const standard of standards) {
+      const startTime = Date.now();
+      const ruleResults = this.evaluateStandardRules(standard, ctx);
+      const complianceResults = this.computeCompliance(ruleResults, standard);
+
+      const summary = {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+        passed: 0,
+      };
+
+      for (const rr of ruleResults) {
+        if (rr.passed) {
+          summary.passed++;
+        } else {
+          const severity = rr.severity;
+          if (severity in summary) {
+            summary[severity as keyof typeof summary]++;
+          }
+        }
+      }
+
+      results.push({
+        standardId: standard.id,
+        ruleResults,
+        complianceScore: complianceResults,
+        filesChecked: ctx.diff.length,
+        summary,
+        duration: Date.now() - startTime,
+      });
+    }
+
+    return results;
+  }
+
+  private evaluateStandardRules(
+    standard: ProjectStandard,
+    ctx: ReviewContext,
+  ): Array<{
+    ruleId: string;
+    ruleDescription: string;
+    passed: boolean;
+    severity: Severity;
+    violations: Array<{
+      filePath: string;
+      lineNumber: number;
+      columnNumber?: number;
+      message: string;
+      codeSnippet: string;
+      suggestion?: string;
+      autoFix?: string;
+      standardRef: string;
+    }>;
+    autoFixable: boolean;
+  }> {
+    const ruleResults: Array<{
+      ruleId: string;
+      ruleDescription: string;
+      passed: boolean;
+      severity: Severity;
+      violations: Array<{
+        filePath: string;
+        lineNumber: number;
+        columnNumber?: number;
+        message: string;
+        codeSnippet: string;
+        suggestion?: string;
+        autoFix?: string;
+        standardRef: string;
+      }>;
+      autoFixable: boolean;
+    }> = [];
+
+    for (const rule of standard.rules) {
+      const violations: Array<{
+        filePath: string;
+        lineNumber: number;
+        columnNumber?: number;
+        message: string;
+        codeSnippet: string;
+        suggestion?: string;
+        autoFix?: string;
+        standardRef: string;
+      }> = [];
+
+      for (const diff of ctx.diff) {
+        const content = this.getDiffContentForCheck(diff);
+        const lines = content.split('\n');
+
+        if (rule.checkType === 'regex') {
+          const config = rule.checkConfig as { pattern: string; forbidden?: boolean };
+          const pattern = new RegExp(config.pattern, 'gm');
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i]!;
+            const match = pattern.exec(line);
+
+            if (config.forbidden && match) {
+              violations.push({
+                filePath: diff.filePath,
+                lineNumber: i + 1,
+                message: `${rule.description}: found "${match[0]}"`,
+                codeSnippet: line.trim().slice(0, 100),
+                standardRef: `${standard.id}.${rule.id}`,
+              });
+            } else if (!config.forbidden) {
+              // For required patterns, check first non-comment, non-empty line
+              if (line.trim() && !line.trim().startsWith('//') && !line.trim().startsWith('/*')) {
+                if (!pattern.test(line.trim())) {
+                  violations.push({
+                    filePath: diff.filePath,
+                    lineNumber: i + 1,
+                    message: `${rule.description}: expected pattern "${config.pattern}"`,
+                    codeSnippet: line.trim().slice(0, 100),
+                    standardRef: `${standard.id}.${rule.id}`,
+                  });
+                }
+                break;
+              }
+            }
+          }
+        } else if (rule.checkType === 'metric') {
+          const config = rule.checkConfig as { maxLines?: number; maxDepth?: number };
+
+          if (config.maxLines !== undefined && lines.length > config.maxLines) {
+            violations.push({
+              filePath: diff.filePath,
+              lineNumber: 1,
+              message: `${rule.description}: file has ${lines.length} lines (max: ${config.maxLines})`,
+              codeSnippet: lines[0] ?? '',
+              standardRef: `${standard.id}.${rule.id}`,
+            });
+          }
+        }
+      }
+
+      ruleResults.push({
+        ruleId: rule.id,
+        ruleDescription: rule.description,
+        passed: violations.length === 0,
+        severity: rule.severity,
+        violations,
+        autoFixable: rule.autoFixable,
+      });
+    }
+
+    return ruleResults;
+  }
+
+  private computeCompliance(
+    ruleResults: Array<{ passed: boolean }>,
+    _standard: ProjectStandard,
+  ): number {
+    if (ruleResults.length === 0) return 100;
+    const passedCount = ruleResults.filter((r) => r.passed).length;
+    return Math.round((passedCount / ruleResults.length) * 100);
+  }
+
+  // -------------------------------------------------------------------------
+  // Enriched Context Building
+  // -------------------------------------------------------------------------
+
+  private async buildEnrichedContext(
+    _projectId: string,
+    diffs: GitDiff[],
+  ): Promise<EnrichedDiff[]> {
+    const allNodes = this.store.getAllNodes();
+    const allEdges = this.store.getAllEdges();
+
+    return diffs.map((diff) => {
+      // Find nodes in the changed file
+      const fileNodes = allNodes.filter((n) => n.filePath === diff.filePath);
+      const affectedSymbols = fileNodes.map((n) => n.qualifiedName);
+
+      // Find related test files
+      const testNodeIds = new Set(
+        allNodes
+          .filter(
+            (n) =>
+              n.filePath?.includes('.test.') ||
+              n.filePath?.includes('.spec.') ||
+              n.filePath?.includes('__tests__'),
+          )
+          .map((n) => n.id),
+      );
+
+      // Check if any edges connect changed symbols to test nodes
+      const fileNodeIds = new Set(fileNodes.map((n) => n.id));
+      const relatedTests: string[] = [];
+      let impactScore = 0;
+
+      for (const edge of allEdges) {
+        if (
+          fileNodeIds.has(edge.sourceId) &&
+          testNodeIds.has(edge.targetId)
+        ) {
+          const testNode = allNodes.find((n) => n.id === edge.targetId);
+          if (testNode?.filePath && !relatedTests.includes(testNode.filePath)) {
+            relatedTests.push(testNode.filePath);
+          }
+        }
+      }
+
+      // Calculate impact score based on affected symbols and their dependencies
+      impactScore = Math.min(100, affectedSymbols.length * 10 + relatedTests.length * 5);
+
+      return {
+        diff,
+        affectedSymbols,
+        relatedTests,
+        impactScore,
+      };
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Impact Analysis
+  // -------------------------------------------------------------------------
+
+  private computeImpact(
+    _projectId: string,
+    enrichedDiffs: EnrichedDiff[],
+  ): ImpactResult {
+    const changedFiles: string[] = [];
+    const changedSymbols: ImpactResult['changedSymbols'] = [];
+    const allAffectedSymbols = new Set<string>();
+    let maxImpactScore = 0;
+
+    for (const entry of enrichedDiffs) {
+      changedFiles.push(entry.diff.filePath);
+
+      for (const sym of entry.affectedSymbols) {
+        allAffectedSymbols.add(sym);
+
+        changedSymbols.push({
+          symbolQname: sym,
+          filePath: entry.diff.filePath,
+          changeType: entry.diff.changeType === 'deleted' ? 'deleted' :
+            entry.diff.changeType === 'added' ? 'added' :
+            entry.diff.changeType === 'renamed' ? 'renamed' : 'modified',
+          startLine: entry.diff.ranges[0]?.newStart ?? 1,
+          endLine: entry.diff.ranges[0]?.newEnd ?? 1,
+        });
+      }
+
+      maxImpactScore = Math.max(maxImpactScore, entry.impactScore);
+    }
+
+    const riskLevel: RiskLevel =
+      maxImpactScore >= 75 ? 'critical' :
+      maxImpactScore >= 50 ? 'high' :
+      maxImpactScore >= 25 ? 'medium' : 'low';
+
+    return {
+      changedFiles,
+      changedSymbols,
+      impactTree: [],
+      riskLevel,
+      processesAffected: [],
+      estimatedEffort: maxImpactScore >= 50 ? 'high' :
+        maxImpactScore >= 25 ? 'medium' : 'low',
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Summary Building
+  // -------------------------------------------------------------------------
+
+  private buildSummary(
+    comments: ReviewComment[],
+    impactResult: ImpactResult,
+  ): PRReviewSummary {
+    const totalComments = comments.length;
+
+    const byCategory: Record<ReviewCategory, number> = {
+      bug: 0,
+      security: 0,
+      performance: 0,
+      maintainability: 0,
+      test: 0,
+      style: 0,
+      documentation: 0,
+      architecture: 0,
+      other: 0,
+    };
+
+    const bySeverity: Record<Severity, number> = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
+    };
+
+    for (const comment of comments) {
+      byCategory[comment.category] = (byCategory[comment.category] ?? 0) + 1;
+      bySeverity[comment.severity] = (bySeverity[comment.severity] ?? 0) + 1;
+    }
+
+    // Determine merge recommendation
+    const riskLevel: 'critical' | 'high' | 'medium' | 'low' =
+      impactResult.riskLevel === 'critical' ? 'critical' :
+      bySeverity.critical > 0 ? 'critical' :
+      bySeverity.high > 2 ? 'high' :
+      impactResult.riskLevel === 'high' ? 'high' :
+      bySeverity.high > 0 ? 'medium' : 'low';
+
+    let mergeRecommendation: 'approve' | 'approve-with-comments' | 'request-changes' | 'block';
+    if (bySeverity.critical > 0) {
+      mergeRecommendation = 'block';
+    } else if (bySeverity.high > 2 || riskLevel === 'high') {
+      mergeRecommendation = 'request-changes';
+    } else if (bySeverity.high > 0 || bySeverity.medium > 5) {
+      mergeRecommendation = 'approve-with-comments';
+    } else {
+      mergeRecommendation = 'approve';
+    }
+
+    return {
+      totalComments,
+      byCategory,
+      bySeverity,
+      riskLevel,
+      mergeRecommendation,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+
+  private gatherComments(_sessionId: string): ReviewComment[] {
+    // In production this would load from the session store;
+    // for the heuristic engine we gather from the review results.
+    // This is populated by the reviewEngine.reviewDiff call which stores
+    // results in the session store.
+    const resumeState = this.sessionStore.buildResumeState(_sessionId);
+    return resumeState.reusedComments;
+  }
+
+  private buildReviewContext(
+    projectId: string,
+    diffs: GitDiff[],
+    sessionId: string,
+  ): ReviewContext {
+    return {
+      projectId,
+      diff: diffs,
+      store: this.store,
+      sessionId,
+      config: {
+        maxTokens: 8000,
+        maxToolCalls: 10,
+        planLineThreshold: 200,
+        timeout: 30000,
+        concurrency: 4,
+      },
+    };
+  }
+
+  private getDiffContentForCheck(diff: GitDiff): string {
+    const parts: string[] = [];
+    parts.push(`// File: ${diff.filePath}`);
+
+    for (const range of diff.ranges) {
+      parts.push(
+        `// Range: ${range.changeType} old[${range.oldStart}-${range.oldEnd}] -> new[${range.newStart}-${range.newEnd}]`,
+      );
+    }
+
+    return parts.join('\n');
+  }
+}

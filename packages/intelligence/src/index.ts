@@ -1,25 +1,121 @@
-// @code-analyzer/intelligence — Stubs
+// @code-analyzer/intelligence — Public API
+// Search, Embeddings, Similarity, Review, and Impact Analysis
 
-export class HybridSearchEngine {
-  async search(_options: Record<string, unknown>): Promise<unknown[]> { return []; }
-}
-export class EmbeddingEngine {
-  async embedCode(_code: string): Promise<Float32Array> { return new Float32Array(768); }
-  async embedBatch(_codes: string[]): Promise<Float32Array[]> { return []; }
-}
-export class CodeReviewEngine {
-  async reviewDiff(_projectId: string, _diffRange: unknown): Promise<unknown> { return {}; }
-  async reviewFile(_projectId: string, _filePaths: string[]): Promise<unknown> { return {}; }
-}
-export class ChangeDetector {
-  async detectChanges(_projectId: string, _diff: unknown[]): Promise<unknown[]> { return []; }
-}
-export class ImpactAnalyzer {
-  async analyze(_projectId: string, _changes: unknown[]): Promise<unknown> { return {}; }
-}
-export class MinHashSimilarity {
-  computeFingerprint(_node: unknown): string { return ''; }
-}
-export class MemoryCompressor {
-  async compress(_messages: unknown[], _config: unknown): Promise<unknown[]> { return _messages; }
-}
+// Search
+export {
+  HybridSearchEngine,
+  tokenize,
+  cosineSimilarity,
+} from './search/hybrid-search.js';
+export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
+
+// Embeddings
+export { EmbeddingEngine } from './embeddings/embedder.js';
+export type { EmbeddingConfig, EmbeddingBackend } from './embeddings/embedder.js';
+
+// Similarity
+export { MinHashSimilarity } from './similarity/minhash.js';
+export { LSHSearcher } from './similarity/lsh.js';
+export type { SimilarityEdge } from './similarity/lsh.js';
+
+// Review Engine
+export { CodeReviewEngine } from './review/review-engine.js';
+export type {
+  ReviewConfig,
+  ReviewContext,
+  ReviewPlan,
+} from './review/review-engine.js';
+
+// PR Review
+export { PRReviewEngine } from './review/pr-review.js';
+export type {
+  PRReviewResult,
+  PRReviewSummary,
+  EnrichedDiff,
+} from './review/pr-review.js';
+
+// Session Store
+export {
+  SessionStore,
+  computeFileFingerprint,
+  generateSessionId,
+} from './review/session-store.js';
+export type {
+  SessionMetadata,
+  ReviewItemResult,
+  ReviewItemError,
+  ResumeState,
+  SessionSummary,
+} from './review/session-store.js';
+
+// Heuristics
+export {
+  analyzeFileHeuristics,
+  toReviewComment,
+} from './review/heuristics.js';
+export type {
+  HeuristicRuleResult,
+  HeuristicResult,
+  GraphAnalysisData,
+} from './review/heuristics.js';
+
+// Memory Compression
+export { MemoryCompressor, countTokens } from './compression/memory-compressor.js';
+export type { CompressionConfig } from './compression/memory-compressor.js';
+
+// Standards Engine
+export { StandardsEngine } from './standards/engine.js';
+export type { AutoFix } from './standards/engine.js';
+export {
+  STANDARD_TEMPLATES,
+  getTemplate,
+  listTemplates,
+} from './standards/templates.js';
+export type { StandardTemplate } from './standards/templates.js';
+
+// Report Generator
+export { ReportGenerator } from './report/generator.js';
+export type {
+  PRReportOptions,
+  AuditReportOptions,
+  StandardsReportOptions,
+  ArchitectureReportOptions,
+} from './report/generator.js';
+
+// Recommendation Engine
+export { RecommendationEngine } from './report/recommend.js';
+export type { RecommendationOptions } from './report/recommend.js';
+
+// Report Formatters
+export {
+  MarkdownFormatter,
+  JsonFormatter,
+  HtmlFormatter,
+} from './report/formatters.js';
+export type { ReportFormatter } from './report/formatters.js';
+
+// Trend Analyzer
+export { TrendAnalyzer } from './report/trends.js';
+export type { TrendData, ReportComparison } from './report/trends.js';
+
+// Change Detection
+export { ChangeDetector } from './impact/change-detector.js';
+export type {
+  ChangeDetectionResult,
+  ChangedSymbol,
+  SymbolWithChanges,
+} from './impact/change-detector.js';
+
+// Impact Analysis
+export { ImpactAnalyzer } from './impact/impact-analyzer.js';
+export type {
+  ImpactAnalysisOptions,
+  ImpactNode,
+  TestImpact,
+  RouteImpact,
+  ProcessImpact,
+} from './impact/impact-analyzer.js';
+
+// IoU Overlap Detection
+export { IoUOverlapDetector } from './impact/iou-overlap.js';
+export type { CommentRegion } from './impact/iou-overlap.js';

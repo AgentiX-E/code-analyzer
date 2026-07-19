@@ -5,7 +5,6 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
-type CaptureTag = (typeof CAPTURE_TAGS)[keyof typeof CAPTURE_TAGS];
 
 const jsExtensions = ['.js', '.jsx', '.mjs', '.cjs'];
 const jsGlobs = ['**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs'];

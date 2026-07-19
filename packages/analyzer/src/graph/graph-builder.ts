@@ -9,7 +9,6 @@ import type {
   NodeLabel,
   RelationshipType,
   NodeProperties,
-  EdgeProperties,
 } from '@code-analyzer/shared';
 
 export interface IntegrityReport {

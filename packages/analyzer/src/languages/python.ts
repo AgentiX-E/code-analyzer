@@ -5,7 +5,6 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
-type CaptureTag = (typeof CAPTURE_TAGS)[keyof typeof CAPTURE_TAGS];
 
 function lineNumberAt(source: string, offset: number): number {
   return source.slice(0, offset).split('\n').length;
