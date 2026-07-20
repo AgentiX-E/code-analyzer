@@ -1,0 +1,702 @@
+/**
+ * Tests for extended language providers: Java, Kotlin, C#, Rust.
+ * Each provider is tested for:
+ * - Function/method extraction
+ * - Class/struct/interface extraction
+ * - Import detection
+ * - Export detection
+ * - Annotation/decorator extraction
+ * - Edge cases and error handling
+ */
+
+import { describe, it, expect } from 'vitest';
+import { JavaProvider } from '../languages/java.js';
+import { KotlinProvider } from '../languages/kotlin.js';
+import { CSharpProvider } from '../languages/csharp.js';
+import { RustProvider } from '../languages/rust.js';
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
+
+// ============================================================================
+// Java Provider Tests
+// ============================================================================
+
+describe('JavaProvider', () => {
+  const provider = new JavaProvider();
+
+  describe('metadata', () => {
+    it('has correct language name', () => {
+      expect(provider.language).toBe('java');
+      expect(provider.displayName).toBe('Java');
+    });
+
+    it('has correct extensions', () => {
+      expect(provider.extensions).toContain('.java');
+    });
+
+    it('has named import semantics', () => {
+      expect(provider.importSemantics).toBe('named');
+    });
+  });
+
+  describe('class extraction', () => {
+    it('detects public class', () => {
+      const source = 'public class MyClass {\n  void foo() {}\n}';
+      const captures = provider.parse(source, 'MyClass.java');
+      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.length).toBeGreaterThanOrEqual(1);
+      expect(classes.some(c => c.name === 'MyClass')).toBe(true);
+    });
+
+    it('detects class with extends', () => {
+      const source = 'public class Dog extends Animal {\n}';
+      const captures = provider.parse(source, 'Dog.java');
+      const dog = captures.find(c => c.name === 'Dog');
+      expect(dog).toBeDefined();
+      expect(dog!.properties.baseClasses).toBe('Animal');
+    });
+
+    it('detects class with implements', () => {
+      const source = 'public class Service implements Runnable, Serializable {\n}';
+      const captures = provider.parse(source, 'Service.java');
+      const svc = captures.find(c => c.name === 'Service');
+      expect(svc).toBeDefined();
+      expect(svc!.properties.interfaces).toContain('Runnable');
+    });
+  });
+
+  describe('interface extraction', () => {
+    it('detects interface', () => {
+      const source = 'public interface Repository<T> {\n  T findById(long id);\n}';
+      const captures = provider.parse(source, 'Repository.java');
+      const ifaces = captures.filter(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(ifaces.length).toBeGreaterThanOrEqual(1);
+      expect(ifaces.some(c => c.name === 'Repository')).toBe(true);
+    });
+  });
+
+  describe('enum extraction', () => {
+    it('detects enum', () => {
+      const source = 'public enum Color { RED, GREEN, BLUE }';
+      const captures = provider.parse(source, 'Color.java');
+      const enums = captures.filter(c => c.tag === CAPTURE_TAGS.ENUM_DEF);
+      expect(enums.some(c => c.name === 'Color')).toBe(true);
+    });
+  });
+
+  describe('method extraction', () => {
+    it('detects public method', () => {
+      const source = 'public class Service {\n  public String getName() {\n    return "test";\n  }\n}';
+      const captures = provider.parse(source, 'Service.java');
+      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some(c => c.name === 'getName')).toBe(true);
+    });
+
+    it('detects static method', () => {
+      const source = 'public class Utils {\n  public static int add(int a, int b) {\n    return a + b;\n  }\n}';
+      const captures = provider.parse(source, 'Utils.java');
+      const addMethod = captures.find(c => c.name === 'add');
+      expect(addMethod).toBeDefined();
+      expect(addMethod!.properties.static).toBe('true');
+    });
+
+    it('detects constructor', () => {
+      const source = 'public class Person {\n  public Person(String name) {\n    this.name = name;\n  }\n}';
+      const captures = provider.parse(source, 'Person.java');
+      const ctors = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+      expect(ctors.some(c => c.name === 'Person')).toBe(true);
+    });
+  });
+
+  describe('field extraction', () => {
+    it('detects private fields', () => {
+      const source = 'public class User {\n  private String name;\n  private int age;\n}';
+      const captures = provider.parse(source, 'User.java');
+      const fields = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(fields.some(f => f.name === 'name')).toBe(true);
+      expect(fields.some(f => f.name === 'age')).toBe(true);
+    });
+  });
+
+  describe('import extraction', () => {
+    it('extracts single imports', () => {
+      const source = 'import java.util.List;\nimport java.util.Map;\n\npublic class Test {}';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBeGreaterThanOrEqual(2);
+      expect(imports.some(i => i.source === 'java.util.List')).toBe(true);
+      expect(imports.some(i => i.source === 'java.util.Map')).toBe(true);
+    });
+
+    it('extracts wildcard imports', () => {
+      const source = 'import java.util.*;\npublic class Test {}';
+      const imports = provider.extractImports(source);
+      const wildcard = imports.find(i => i.source === 'java.util');
+      expect(wildcard).toBeDefined();
+      expect(wildcard!.type).toBe('wildcard');
+    });
+
+    it('extracts static imports', () => {
+      const source = 'import static org.junit.Assert.*;\npublic class Test {}';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('isExported', () => {
+    it('detects public class as exported', () => {
+      expect(provider.isExported('public class MyClass {}', 'MyClass')).toBe(true);
+    });
+
+    it('detects package-private class as not exported', () => {
+      expect(provider.isExported('class MyClass {}', 'MyClass')).toBe(false);
+    });
+
+    it('detects public method as exported', () => {
+      expect(provider.isExported('public void doSomething() {}', 'doSomething')).toBe(true);
+    });
+  });
+
+  describe('annotation extraction', () => {
+    it('detects @Override annotation', () => {
+      const source = '@Override\npublic String toString() { return ""; }';
+      const captures = provider.parse(source, 'Test.java');
+      const annotations = captures.filter(c => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(annotations.some(a => a.name === 'Override')).toBe(true);
+    });
+  });
+
+  describe('record extraction', () => {
+    it('detects Java record', () => {
+      const source = 'public record Point(int x, int y) {}';
+      const captures = provider.parse(source, 'Point.java');
+      const records = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties.isRecord === 'true');
+      expect(records.some(r => r.name === 'Point')).toBe(true);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles empty source', () => {
+      const captures = provider.parse('', 'Empty.java');
+      expect(captures).toEqual([]);
+    });
+
+    it('handles source with only comments', () => {
+      const source = '// This is a comment\n/* Block comment */\n// Another comment';
+      const captures = provider.parse(source, 'Comments.java');
+      // Should not crash, may return some doc comment captures
+      expect(Array.isArray(captures)).toBe(true);
+    });
+
+    it('does not detect keywords as function names', () => {
+      const source = 'if (true) { return; }';
+      const captures = provider.parse(source, 'Test.java');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs).toEqual([]);
+    });
+
+    it('detects record correctly', () => {
+      const source = 'public record User(String name, int age) {}';
+      const captures = provider.parse(source, 'User.java');
+      expect(captures.some(c => c.name === 'User' && c.tag === CAPTURE_TAGS.CLASS_DEF)).toBe(true);
+    });
+  });
+});
+
+// ============================================================================
+// Kotlin Provider Tests
+// ============================================================================
+
+describe('KotlinProvider', () => {
+  const provider = new KotlinProvider();
+
+  describe('metadata', () => {
+    it('has correct language name', () => {
+      expect(provider.language).toBe('kotlin');
+      expect(provider.displayName).toBe('Kotlin');
+    });
+
+    it('has correct extensions', () => {
+      expect(provider.extensions).toContain('.kt');
+      expect(provider.extensions).toContain('.kts');
+    });
+  });
+
+  describe('class extraction', () => {
+    it('detects class', () => {
+      const source = 'class MyClass {\n  fun greet() = "hello"\n}';
+      const captures = provider.parse(source, 'MyClass.kt');
+      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some(c => c.name === 'MyClass')).toBe(true);
+    });
+
+    it('detects data class', () => {
+      const source = 'data class User(val name: String, val age: Int)';
+      const captures = provider.parse(source, 'User.kt');
+      const user = captures.find(c => c.name === 'User');
+      expect(user).toBeDefined();
+      expect(user!.text).toContain('class');
+    });
+
+    it('detects sealed class', () => {
+      const source = 'sealed class Result<T> {\n  data class Success(val data: T) : Result<T>()\n  data class Error(val message: String) : Result<T>()\n}';
+      const captures = provider.parse(source, 'Result.kt');
+      const sealed = captures.find(c => c.name === 'Result');
+      expect(sealed).toBeDefined();
+    });
+  });
+
+  describe('function extraction', () => {
+    it('detects top-level function', () => {
+      const source = 'fun greet(name: String): String {\n  return "Hello, $name"\n}';
+      const captures = provider.parse(source, 'main.kt');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some(f => f.name === 'greet')).toBe(true);
+    });
+
+    it('detects suspend function', () => {
+      const source = 'suspend fun fetchData(): String {\n  return "data"\n}';
+      const captures = provider.parse(source, 'api.kt');
+      const fetch = captures.find(c => c.name === 'fetchData');
+      expect(fetch).toBeDefined();
+      expect(fetch!.properties.suspend).toBe('true');
+    });
+
+    it('detects extension function', () => {
+      const source = 'fun String.isEmail(): Boolean {\n  return contains("@")\n}';
+      const captures = provider.parse(source, 'extensions.kt');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some(f => f.name === 'isEmail')).toBe(true);
+    });
+  });
+
+  describe('property extraction', () => {
+    it('detects val properties', () => {
+      const source = 'val name: String = "test"\nval age: Int = 25';
+      const captures = provider.parse(source, 'props.kt');
+      const props = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(props.some(p => p.name === 'name')).toBe(true);
+      expect(props.some(p => p.name === 'age')).toBe(true);
+    });
+
+    it('detects var properties', () => {
+      const source = 'var count: Int = 0';
+      const captures = provider.parse(source, 'counter.kt');
+      const vars = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.some(v => v.name === 'count')).toBe(true);
+    });
+  });
+
+  describe('object extraction', () => {
+    it('detects singleton object', () => {
+      const source = 'object DatabaseConfig {\n  val url = "localhost"\n}';
+      const captures = provider.parse(source, 'Config.kt');
+      const objs = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties.isObject === 'true');
+      expect(objs.some(o => o.name === 'DatabaseConfig')).toBe(true);
+    });
+
+    it('detects companion object', () => {
+      const source = 'class MyClass {\n  companion object Factory {\n    fun create() = MyClass()\n  }\n}';
+      const captures = provider.parse(source, 'MyClass.kt');
+      const companion = captures.find(c => c.properties.isCompanion === 'true');
+      expect(companion).toBeDefined();
+    });
+  });
+
+  describe('import extraction', () => {
+    it('extracts single imports', () => {
+      const source = 'import kotlin.collections.List\nimport kotlin.collections.Map';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBeGreaterThanOrEqual(2);
+      expect(imports.some(i => i.source === 'kotlin.collections.List')).toBe(true);
+    });
+
+    it('extracts wildcard imports', () => {
+      const source = 'import kotlin.collections.*';
+      const imports = provider.extractImports(source);
+      const wildcard = imports.find(i => i.source === 'kotlin.collections');
+      expect(wildcard).toBeDefined();
+      expect(wildcard!.type).toBe('wildcard');
+    });
+  });
+
+  describe('isExported', () => {
+    it('detects top-level function as exported', () => {
+      expect(provider.isExported('fun greet() {}', 'greet')).toBe(true);
+    });
+
+    it('detects class as exported', () => {
+      expect(provider.isExported('class MyClass', 'MyClass')).toBe(true);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles empty source', () => {
+      const captures = provider.parse('', 'Empty.kt');
+      expect(captures).toEqual([]);
+    });
+
+    it('does not detect keyword as function name', () => {
+      const source = 'when (value) { 1 -> "one" }';
+      const captures = provider.parse(source, 'test.kt');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'when');
+      expect(funcs).toEqual([]);
+    });
+  });
+});
+
+// ============================================================================
+// C# Provider Tests
+// ============================================================================
+
+describe('CSharpProvider', () => {
+  const provider = new CSharpProvider();
+
+  describe('metadata', () => {
+    it('has correct language name', () => {
+      expect(provider.language).toBe('csharp');
+      expect(provider.displayName).toBe('C#');
+    });
+
+    it('has correct extensions', () => {
+      expect(provider.extensions).toContain('.cs');
+    });
+  });
+
+  describe('class extraction', () => {
+    it('detects public class', () => {
+      const source = 'public class MyClass {\n  public void DoSomething() {}\n}';
+      const captures = provider.parse(source, 'MyClass.cs');
+      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some(c => c.name === 'MyClass')).toBe(true);
+    });
+
+    it('detects sealed class', () => {
+      const source = 'public sealed class FinalClass {}';
+      const captures = provider.parse(source, 'FinalClass.cs');
+      expect(captures.some(c => c.name === 'FinalClass')).toBe(true);
+    });
+
+    it('detects abstract class', () => {
+      const source = 'public abstract class BaseController {\n  public abstract void Handle();\n}';
+      const captures = provider.parse(source, 'BaseController.cs');
+      const baseCtrl = captures.find(c => c.name === 'BaseController');
+      expect(baseCtrl).toBeDefined();
+      expect(baseCtrl!.properties.abstract).toBe('true');
+    });
+  });
+
+  describe('struct extraction', () => {
+    it('detects struct', () => {
+      const source = 'public struct Point {\n  public int X;\n  public int Y;\n}';
+      const captures = provider.parse(source, 'Point.cs');
+      const structs = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.text.includes('struct'));
+      expect(structs.some(s => s.name === 'Point')).toBe(true);
+    });
+  });
+
+  describe('interface extraction', () => {
+    it('detects interface', () => {
+      const source = 'public interface IRepository<T> {\n  T GetById(int id);\n}';
+      const captures = provider.parse(source, 'IRepository.cs');
+      const ifaces = captures.filter(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(ifaces.some(i => i.name === 'IRepository')).toBe(true);
+    });
+  });
+
+  describe('method extraction', () => {
+    it('detects public method', () => {
+      const source = 'public class Service {\n  public string GetName() {\n    return "test";\n  }\n}';
+      const captures = provider.parse(source, 'Service.cs');
+      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some(m => m.name === 'GetName')).toBe(true);
+    });
+
+    it('detects async method', () => {
+      const source = 'public async Task<string> FetchAsync() {\n  return await httpClient.GetStringAsync("url");\n}';
+      const captures = provider.parse(source, 'Api.cs');
+      const fetch = captures.find(c => c.name === 'FetchAsync');
+      expect(fetch).toBeDefined();
+      expect(fetch!.properties.async).toBe('true');
+    });
+
+    it('detects static method', () => {
+      const source = 'public static class Helper {\n  public static int Add(int a, int b) => a + b;\n}';
+      const captures = provider.parse(source, 'Helper.cs');
+      const add = captures.find(c => c.name === 'Add');
+      expect(add).toBeDefined();
+      expect(add!.properties.static).toBe('true');
+    });
+
+    it('detects constructor', () => {
+      const source = 'public class Person {\n  public Person(string name) {\n    Name = name;\n  }\n  public string Name { get; }\n}';
+      const captures = provider.parse(source, 'Person.cs');
+      const ctors = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+      expect(ctors.some(c => c.name === 'Person')).toBe(true);
+    });
+  });
+
+  describe('property extraction', () => {
+    it('detects auto-property', () => {
+      const source = 'public class User {\n  public string Name { get; set; }\n  public int Age { get; set; }\n}';
+      const captures = provider.parse(source, 'User.cs');
+      const props = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(props.some(p => p.name === 'Name')).toBe(true);
+      expect(props.some(p => p.name === 'Age')).toBe(true);
+    });
+  });
+
+  describe('record extraction', () => {
+    it('detects record class', () => {
+      const source = 'public record Person(string Name, int Age);';
+      const captures = provider.parse(source, 'Person.cs');
+      const records = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties.isRecord === 'true');
+      expect(records.some(r => r.name === 'Person')).toBe(true);
+    });
+  });
+
+  describe('using directive extraction', () => {
+    it('extracts using directives', () => {
+      const source = 'using System;\nusing System.Collections.Generic;\n\nnamespace App {}';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBeGreaterThanOrEqual(2);
+      expect(imports.some(i => i.source === 'System')).toBe(true);
+    });
+  });
+
+  describe('attribute extraction', () => {
+    it('detects attributes', () => {
+      const source = '[HttpGet]\n[Authorize]\npublic IActionResult Index() { return View(); }';
+      const captures = provider.parse(source, 'Controller.cs');
+      const attrs = captures.filter(c => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(attrs.some(a => a.name === 'HttpGet')).toBe(true);
+      expect(attrs.some(a => a.name === 'Authorize')).toBe(true);
+    });
+  });
+
+  describe('isExported', () => {
+    it('detects public class as exported', () => {
+      expect(provider.isExported('public class MyClass {}', 'MyClass')).toBe(true);
+    });
+
+    it('detects internal class as not exported', () => {
+      expect(provider.isExported('internal class MyClass {}', 'MyClass')).toBe(false);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles empty source', () => {
+      const captures = provider.parse('', 'Empty.cs');
+      expect(captures).toEqual([]);
+    });
+
+    it('does not detect keywords as method names', () => {
+      const source = 'if (true) { return; }';
+      const captures = provider.parse(source, 'Test.cs');
+      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods).toEqual([]);
+    });
+  });
+});
+
+// ============================================================================
+// Rust Provider Tests
+// ============================================================================
+
+describe('RustProvider', () => {
+  const provider = new RustProvider();
+
+  describe('metadata', () => {
+    it('has correct language name', () => {
+      expect(provider.language).toBe('rust');
+      expect(provider.displayName).toBe('Rust');
+    });
+
+    it('has correct extensions', () => {
+      expect(provider.extensions).toContain('.rs');
+    });
+  });
+
+  describe('struct extraction', () => {
+    it('detects named struct', () => {
+      const source = 'pub struct User {\n  name: String,\n  age: u32,\n}';
+      const captures = provider.parse(source, 'user.rs');
+      const structs = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.text.includes('struct'));
+      expect(structs.some(s => s.name === 'User')).toBe(true);
+    });
+
+    it('detects tuple struct', () => {
+      const source = 'pub struct Point(f64, f64);';
+      const captures = provider.parse(source, 'point.rs');
+      expect(captures.some(c => c.name === 'Point')).toBe(true);
+    });
+
+    it('detects unit struct', () => {
+      const source = 'pub struct Unit;';
+      const captures = provider.parse(source, 'unit.rs');
+      expect(captures.some(c => c.name === 'Unit')).toBe(true);
+    });
+  });
+
+  describe('enum extraction', () => {
+    it('detects enum', () => {
+      const source = 'pub enum Color {\n  Red,\n  Green,\n  Blue,\n}';
+      const captures = provider.parse(source, 'color.rs');
+      const enums = captures.filter(c => c.tag === CAPTURE_TAGS.ENUM_DEF);
+      expect(enums.some(e => e.name === 'Color')).toBe(true);
+    });
+
+    it('detects enum with data', () => {
+      const source = 'pub enum Result<T, E> {\n  Ok(T),\n  Err(E),\n}';
+      const captures = provider.parse(source, 'result.rs');
+      expect(captures.some(c => c.name === 'Result')).toBe(true);
+    });
+  });
+
+  describe('trait extraction', () => {
+    it('detects trait', () => {
+      const source = 'pub trait Display {\n  fn fmt(&self) -> String;\n}';
+      const captures = provider.parse(source, 'display.rs');
+      const traits = captures.filter(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(traits.some(t => t.name === 'Display')).toBe(true);
+    });
+  });
+
+  describe('function extraction', () => {
+    it('detects public function', () => {
+      const source = 'pub fn greet(name: &str) -> String {\n  format!("Hello, {}", name)\n}';
+      const captures = provider.parse(source, 'greet.rs');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some(f => f.name === 'greet')).toBe(true);
+    });
+
+    it('detects private function', () => {
+      const source = 'fn helper() -> u32 {\n  42\n}';
+      const captures = provider.parse(source, 'helper.rs');
+      const helper = captures.find(c => c.name === 'helper');
+      expect(helper).toBeDefined();
+      expect(helper!.properties.isPublic).toBe('false');
+    });
+
+    it('detects async function', () => {
+      const source = 'pub async fn fetch_data() -> String {\n  "data".to_string()\n}';
+      const captures = provider.parse(source, 'fetch.rs');
+      const fetch = captures.find(c => c.name === 'fetch_data');
+      expect(fetch).toBeDefined();
+      expect(fetch!.properties.isAsync).toBe('true');
+    });
+
+    it('detects unsafe function', () => {
+      const source = 'pub unsafe fn raw_pointer() -> *const u8 {\n  std::ptr::null()\n}';
+      const captures = provider.parse(source, 'raw.rs');
+      const raw = captures.find(c => c.name === 'raw_pointer');
+      expect(raw).toBeDefined();
+      expect(raw!.properties.isUnsafe).toBe('true');
+    });
+  });
+
+  describe('impl extraction', () => {
+    it('detects impl block', () => {
+      const source = 'pub struct Counter { value: i32 }\nimpl Counter {\n  pub fn new() -> Self { Counter { value: 0 } }\n}';
+      const captures = provider.parse(source, 'counter.rs');
+      const impls = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties.isImpl === 'true');
+      expect(impls.some(i => i.name === 'Counter')).toBe(true);
+    });
+
+    it('detects trait impl', () => {
+      const source = 'impl Display for Counter {\n  fn fmt(&self, f: &mut Formatter) -> fmt::Result {\n    write!(f, "{}", self.value)\n  }\n}';
+      const captures = provider.parse(source, 'display_impl.rs');
+      const traitImpls = captures.filter(c => c.properties.traitName === 'Display');
+      expect(traitImpls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('constant extraction', () => {
+    it('detects const', () => {
+      const source = 'const MAX_SIZE: usize = 1024;';
+      const captures = provider.parse(source, 'constants.rs');
+      const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(consts.some(c => c.name === 'MAX_SIZE')).toBe(true);
+    });
+
+    it('detects static', () => {
+      const source = 'static GLOBAL_CONFIG: &str = "production";';
+      const captures = provider.parse(source, 'config.rs');
+      const statics = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(statics.some(s => s.name === 'GLOBAL_CONFIG')).toBe(true);
+    });
+  });
+
+  describe('use extraction', () => {
+    it('extracts single use', () => {
+      const source = 'use std::collections::HashMap;';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBe(1);
+      expect(imports[0]!.source).toBe('std::collections::HashMap');
+    });
+
+    it('extracts multi-item use', () => {
+      const source = 'use std::collections::{HashMap, HashSet};';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBe(2);
+      expect(imports.some(i => i.names.includes('HashMap'))).toBe(true);
+      expect(imports.some(i => i.names.includes('HashSet'))).toBe(true);
+    });
+
+    it('extracts wildcard use', () => {
+      const source = 'use std::collections::*;';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBe(1);
+      expect(imports[0]!.type).toBe('wildcard');
+    });
+
+    it('extracts extern crate', () => {
+      const source = 'extern crate serde;';
+      const imports = provider.extractImports(source);
+      expect(imports.some(i => i.source === 'serde')).toBe(true);
+    });
+  });
+
+  describe('attribute extraction', () => {
+    it('detects derive attribute', () => {
+      const source = '#[derive(Debug, Clone)]\npub struct MyStruct {\n  field: i32,\n}';
+      const captures = provider.parse(source, 'mystruct.rs');
+      const attrs = captures.filter(c => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(attrs.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('isExported', () => {
+    it('detects pub struct as exported', () => {
+      expect(provider.isExported('pub struct MyStruct {}', 'MyStruct')).toBe(true);
+    });
+
+    it('detects non-pub struct as not exported', () => {
+      expect(provider.isExported('struct MyStruct {}', 'MyStruct')).toBe(false);
+    });
+
+    it('detects pub fn as exported', () => {
+      expect(provider.isExported('pub fn my_func() {}', 'my_func')).toBe(true);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles empty source', () => {
+      const captures = provider.parse('', 'Empty.rs');
+      expect(captures).toEqual([]);
+    });
+
+    it('does not detect keyword as function name', () => {
+      const source = 'fn if() {} // invalid but should not crash';
+      const captures = provider.parse(source, 'test.rs');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'if');
+      expect(funcs).toEqual([]);
+    });
+
+    it('handles complex generics', () => {
+      const source = 'pub fn process<T: Display + Clone, U>(input: T, extra: U) -> Result<T, Error> {\n  Ok(input)\n}';
+      const captures = provider.parse(source, 'complex.rs');
+      const func = captures.find(c => c.name === 'process');
+      expect(func).toBeDefined();
+      expect(func!.properties.returnType).toBe('Result<T, Error>');
+    });
+  });
+});

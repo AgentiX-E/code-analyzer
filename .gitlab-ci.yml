@@ -1,0 +1,128 @@
+# GitLab CI/CD Pipeline for Code Analyzer
+# Place this in the root of the repository being analyzed
+
+stages:
+  - install
+  - analyze
+  - report
+
+variables:
+  NODE_VERSION: '22'
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .pnpm-store
+    - node_modules/
+
+# ── Install ──────────────────────────────────────────────────────────────────
+
+install:
+  stage: install
+  image: node:${NODE_VERSION}
+  script:
+    - corepack enable
+    - corepack prepare pnpm@9 --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+    - pnpm add -g @code-analyzer/cli
+  artifacts:
+    paths:
+      - node_modules/
+      - .pnpm-store/
+
+# ── Code Analysis ────────────────────────────────────────────────────────────
+
+code-analysis:
+  stage: analyze
+  image: node:${NODE_VERSION}
+  needs: [install]
+  script:
+    # Full codebase analysis
+    - npx code-analyzer analyze --repo . --output analysis.json
+    # Knowledge graph generation
+    - npx code-analyzer graph build --repo . --output graph.db
+  artifacts:
+    paths:
+      - analysis.json
+      - graph.db
+    expire_in: 30 days
+
+# ── PR Review (only on merge requests) ───────────────────────────────────────
+
+pr-review:
+  stage: analyze
+  image: node:${NODE_VERSION}
+  needs: [install]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    # Automated PR review against project standards
+    - npx code-analyzer review pr \
+        --repo . \
+        --target-branch $CI_MERGE_REQUEST_TARGET_BRANCH_NAME \
+        --source-branch $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME \
+        --format markdown \
+        --output review-report.md
+  artifacts:
+    paths:
+      - review-report.md
+    expire_in: 7 days
+
+# ── Standards Check ──────────────────────────────────────────────────────────
+
+standards-check:
+  stage: analyze
+  image: node:${NODE_VERSION}
+  needs: [install]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    # Check against project coding standards
+    - npx code-analyzer standards check \
+        --repo . \
+        --standard .code-analyzer-standards.yml \
+        --format markdown \
+        --output standards-report.md
+  artifacts:
+    paths:
+      - standards-report.md
+    expire_in: 7 days
+
+# ── Report Generation ────────────────────────────────────────────────────────
+
+generate-report:
+  stage: report
+  image: node:${NODE_VERSION}
+  needs: [code-analysis]
+  script:
+    # Generate HTML report with trends
+    - npx code-analyzer report generate \
+        --input analysis.json \
+        --format html \
+        --output codebase-report.html
+    # Generate actionable recommendations
+    - npx code-analyzer report recommend \
+        --input analysis.json \
+        --format markdown \
+        --output recommendations.md
+  artifacts:
+    paths:
+      - codebase-report.html
+      - recommendations.md
+    expire_in: 30 days
+
+# ── Security ─────────────────────────────────────────────────────────────────
+
+security-audit:
+  stage: analyze
+  image: node:${NODE_VERSION}
+  needs: [install]
+  allow_failure: true
+  script:
+    - npm audit --audit-level=high
+    - npx @cyclonedx/cyclonedx-npm --output-file sbom.json
+  artifacts:
+    paths:
+      - sbom.json
+    expire_in: 90 days

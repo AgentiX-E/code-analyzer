@@ -55,15 +55,23 @@ export class SqliteStore {
   private nodes: Map<number, StoredNode>;
   private edges: Map<number, StoredEdge>;
   private qnameIndex: Map<string, number>;
+  /** Adjacency index: sourceNodeId → set of edge IDs */
+  private sourceEdgeIndex: Map<number, Set<number>>;
+  /** Reverse adjacency: targetNodeId → set of edge IDs */
+  private targetEdgeIndex: Map<number, Set<number>>;
   private nextNodeId: number;
   private nextEdgeId: number;
   private closed: boolean;
+  /** Regex pattern cache for glob→RegExp conversions */
+  private patternCache: Map<string, RegExp>;
 
   // Transaction support
   private transactionStack: Array<{
     nodesSnapshot: Map<number, StoredNode>;
     edgesSnapshot: Map<number, StoredEdge>;
     qnameSnapshot: Map<string, number>;
+    sourceEdgeSnapshot: Map<number, Set<number>>;
+    targetEdgeSnapshot: Map<number, Set<number>>;
     nextNodeIdSnapshot: number;
     nextEdgeIdSnapshot: number;
   }>;
@@ -72,10 +80,13 @@ export class SqliteStore {
     this.nodes = new Map();
     this.edges = new Map();
     this.qnameIndex = new Map();
+    this.sourceEdgeIndex = new Map();
+    this.targetEdgeIndex = new Map();
     this.nextNodeId = 1;
     this.nextEdgeId = 1;
     this.closed = false;
     this.transactionStack = [];
+    this.patternCache = new Map();
   }
 
   // -------------------------------------------------------------------------
@@ -100,8 +111,44 @@ export class SqliteStore {
     return id;
   }
 
+  /**
+   * Batch insert nodes — optimized for bulk operations.
+   * Validates all qualified names before any insertion to avoid partial state.
+   */
   insertNodes(nodes: GraphNode[]): number[] {
-    return nodes.map((n) => this.insertNode(n));
+    this.ensureOpen();
+    const ids: number[] = [];
+
+    // Pre-validate: check for duplicate qualified names in batch + existing
+    const seenQnames = new Set<string>();
+    for (const node of nodes) {
+      if (node.qualifiedName) {
+        if (this.qnameIndex.has(node.qualifiedName)) {
+          throw new Error(
+            `Node insert failed: node "${node.qualifiedName}" already exists (id: ${this.qnameIndex.get(node.qualifiedName)})`,
+          );
+        }
+        if (seenQnames.has(node.qualifiedName)) {
+          throw new Error(
+            `Node insert failed: duplicate qualifiedName "${node.qualifiedName}" in batch`,
+          );
+        }
+        seenQnames.add(node.qualifiedName);
+      }
+    }
+
+    // Bulk insert — allocate contiguous IDs
+    for (const node of nodes) {
+      const id = this.nextNodeId++;
+      const stored: StoredNode = { ...node, id };
+      this.nodes.set(id, stored);
+      if (node.qualifiedName) {
+        this.qnameIndex.set(node.qualifiedName, id);
+      }
+      ids.push(id);
+    }
+
+    return ids;
   }
 
   updateNode(id: number, props: Partial<NodeProperties>): void {
@@ -160,11 +207,28 @@ export class SqliteStore {
       }
       this.nodes.delete(id);
 
-      // Also delete all edges connected to this node
-      for (const [edgeId, edge] of this.edges) {
-        if (edge.sourceId === id || edge.targetId === id) {
+      // Delete all edges connected to this node via adjacency indices
+      const sourceEdges = this.sourceEdgeIndex.get(id);
+      if (sourceEdges) {
+        for (const edgeId of sourceEdges) {
+          const edge = this.edges.get(edgeId);
+          if (edge) {
+            this.removeFromIndex(this.targetEdgeIndex, edge.targetId, edgeId);
+          }
           this.edges.delete(edgeId);
         }
+        this.sourceEdgeIndex.delete(id);
+      }
+      const targetEdges = this.targetEdgeIndex.get(id);
+      if (targetEdges) {
+        for (const edgeId of targetEdges) {
+          const edge = this.edges.get(edgeId);
+          if (edge) {
+            this.removeFromIndex(this.sourceEdgeIndex, edge.sourceId, edgeId);
+          }
+          this.edges.delete(edgeId);
+        }
+        this.targetEdgeIndex.delete(id);
       }
     }
   }
@@ -291,15 +355,71 @@ export class SqliteStore {
     const id = this.nextEdgeId++;
     const stored: StoredEdge = { ...edge, id };
     this.edges.set(id, stored);
+
+    // Update adjacency indices
+    this.addToIndex(this.sourceEdgeIndex, edge.sourceId, id);
+    this.addToIndex(this.targetEdgeIndex, edge.targetId, id);
+
     return id;
   }
 
+  /**
+   * Batch insert edges — optimized for bulk operations.
+   * Validates all source/target nodes before any insertion.
+   */
   insertEdges(edges: GraphEdge[]): number[] {
-    return edges.map((e) => this.insertEdge(e));
+    this.ensureOpen();
+    const ids: number[] = [];
+
+    // Pre-validate all nodes exist
+    for (const edge of edges) {
+      if (!this.nodes.has(edge.sourceId)) {
+        throw new Error(`Edge insert failed: source node id=${edge.sourceId} not found`);
+      }
+      if (!this.nodes.has(edge.targetId)) {
+        throw new Error(`Edge insert failed: target node id=${edge.targetId} not found`);
+      }
+    }
+
+    // Bulk insert
+    for (const edge of edges) {
+      const id = this.nextEdgeId++;
+      const stored: StoredEdge = { ...edge, id };
+      this.edges.set(id, stored);
+      this.addToIndex(this.sourceEdgeIndex, edge.sourceId, id);
+      this.addToIndex(this.targetEdgeIndex, edge.targetId, id);
+      ids.push(id);
+    }
+
+    return ids;
+  }
+
+  private addToIndex(index: Map<number, Set<number>>, nodeId: number, edgeId: number): void {
+    let edgeSet = index.get(nodeId);
+    if (!edgeSet) {
+      edgeSet = new Set();
+      index.set(nodeId, edgeSet);
+    }
+    edgeSet.add(edgeId);
+  }
+
+  private removeFromIndex(index: Map<number, Set<number>>, nodeId: number, edgeId: number): void {
+    const edgeSet = index.get(nodeId);
+    if (edgeSet) {
+      edgeSet.delete(edgeId);
+      if (edgeSet.size === 0) {
+        index.delete(nodeId);
+      }
+    }
   }
 
   deleteEdge(id: number): void {
     this.ensureOpen();
+    const edge = this.edges.get(id);
+    if (edge) {
+      this.removeFromIndex(this.sourceEdgeIndex, edge.sourceId, id);
+      this.removeFromIndex(this.targetEdgeIndex, edge.targetId, id);
+    }
     this.edges.delete(id);
   }
 
@@ -342,16 +462,15 @@ export class SqliteStore {
     direction: 'in' | 'out' = 'out',
   ): GraphEdge[] {
     this.ensureOpen();
+    const index = direction === 'out' ? this.sourceEdgeIndex : this.targetEdgeIndex;
+    const edgeIds = index.get(nodeId);
+    if (!edgeIds || edgeIds.size === 0) return [];
+
     const results: GraphEdge[] = [];
-
-    for (const edge of this.edges.values()) {
-      const matchesDirection =
-        (direction === 'out' && edge.sourceId === nodeId) ||
-        (direction === 'in' && edge.targetId === nodeId);
-
-      if (!matchesDirection) continue;
+    for (const edgeId of edgeIds) {
+      const edge = this.edges.get(edgeId);
+      if (!edge) continue;
       if (type && edge.type !== type) continue;
-
       results.push(this.toGraphEdge(edge));
     }
 
@@ -528,18 +647,22 @@ export class SqliteStore {
 
       if (current.depth >= maxDepth) continue;
 
-      // Find outgoing edges from current node
-      for (const edge of this.edges.values()) {
-        if (edge.sourceId !== current.nodeId) continue;
-        if (edgeTypes && edgeTypes.length > 0 && !edgeTypes.includes(edge.type)) continue;
+      // Find outgoing edges from current node via adjacency index
+      const outgoingEdgeIds = this.sourceEdgeIndex.get(current.nodeId);
+      if (outgoingEdgeIds) {
+        for (const edgeId of outgoingEdgeIds) {
+          const edge = this.edges.get(edgeId);
+          if (!edge) continue;
+          if (edgeTypes && edgeTypes.length > 0 && !edgeTypes.includes(edge.type)) continue;
 
-        const neighborId = edge.targetId;
-        if (visited.has(neighborId)) continue;
+          const neighborId = edge.targetId;
+          if (visited.has(neighborId)) continue;
 
-        visited.add(neighborId);
-        visitedEdges.set(edge.id, edge);
-        pathLengths.set(neighborId, current.depth + 1);
-        queue.push({ nodeId: neighborId, depth: current.depth + 1 });
+          visited.add(neighborId);
+          visitedEdges.set(edge.id, edge);
+          pathLengths.set(neighborId, current.depth + 1);
+          queue.push({ nodeId: neighborId, depth: current.depth + 1 });
+        }
       }
     }
 
@@ -567,13 +690,9 @@ export class SqliteStore {
 
   getDegree(nodeId: number): number {
     this.ensureOpen();
-    let count = 0;
-    for (const edge of this.edges.values()) {
-      if (edge.sourceId === nodeId || edge.targetId === nodeId) {
-        count++;
-      }
-    }
-    return count;
+    const sourceCount = this.sourceEdgeIndex.get(nodeId)?.size ?? 0;
+    const targetCount = this.targetEdgeIndex.get(nodeId)?.size ?? 0;
+    return sourceCount + targetCount;
   }
 
   // -------------------------------------------------------------------------
@@ -587,9 +706,14 @@ export class SqliteStore {
     let duplicateQnames = 0;
 
     // Check for orphan edges (edges referencing non-existent nodes)
+    // Use sourceEdgeIndex to efficiently find all edges connected to known nodes
+    const allReferencedNodes = new Set<number>();
+    for (const nodeId of this.nodes.keys()) {
+      allReferencedNodes.add(nodeId);
+    }
     for (const edge of this.edges.values()) {
       if (edge.projectId !== projectId) continue;
-      if (!this.nodes.has(edge.sourceId)) {
+      if (!allReferencedNodes.has(edge.sourceId)) {
         issues.push({
           type: 'orphan_edge',
           description: `Edge id=${edge.id} references missing source node id=${edge.sourceId}`,
@@ -598,7 +722,7 @@ export class SqliteStore {
         });
         orphanEdges++;
       }
-      if (!this.nodes.has(edge.targetId)) {
+      if (!allReferencedNodes.has(edge.targetId)) {
         issues.push({
           type: 'orphan_edge',
           description: `Edge id=${edge.id} references missing target node id=${edge.targetId}`,
@@ -681,6 +805,12 @@ export class SqliteStore {
       nodesSnapshot: new Map(this.nodes),
       edgesSnapshot: new Map(this.edges),
       qnameSnapshot: new Map(this.qnameIndex),
+      sourceEdgeSnapshot: new Map(
+        Array.from(this.sourceEdgeIndex.entries()).map(([k, v]) => [k, new Set(v)]),
+      ),
+      targetEdgeSnapshot: new Map(
+        Array.from(this.targetEdgeIndex.entries()).map(([k, v]) => [k, new Set(v)]),
+      ),
       nextNodeIdSnapshot: this.nextNodeId,
       nextEdgeIdSnapshot: this.nextEdgeId,
     };
@@ -697,6 +827,8 @@ export class SqliteStore {
       this.nodes = snapshot.nodesSnapshot;
       this.edges = snapshot.edgesSnapshot;
       this.qnameIndex = snapshot.qnameSnapshot;
+      this.sourceEdgeIndex = snapshot.sourceEdgeSnapshot;
+      this.targetEdgeIndex = snapshot.targetEdgeSnapshot;
       this.nextNodeId = snapshot.nextNodeIdSnapshot;
       this.nextEdgeId = snapshot.nextEdgeIdSnapshot;
       this.transactionStack.pop();
@@ -713,10 +845,16 @@ export class SqliteStore {
     // In-memory store: rebuild indexes for efficiency
     // Rebuild qname index
     this.qnameIndex.clear();
+    this.sourceEdgeIndex.clear();
+    this.targetEdgeIndex.clear();
     for (const node of this.nodes.values()) {
       if (node.qualifiedName) {
         this.qnameIndex.set(node.qualifiedName, node.id);
       }
+    }
+    for (const edge of this.edges.values()) {
+      this.addToIndex(this.sourceEdgeIndex, edge.sourceId, edge.id);
+      this.addToIndex(this.targetEdgeIndex, edge.targetId, edge.id);
     }
   }
 
@@ -742,6 +880,9 @@ export class SqliteStore {
     this.nodes.clear();
     this.edges.clear();
     this.qnameIndex.clear();
+    this.sourceEdgeIndex.clear();
+    this.targetEdgeIndex.clear();
+    this.patternCache.clear();
     this.closed = true;
   }
 
@@ -791,12 +932,17 @@ export class SqliteStore {
   }
 
   private patternToRegex(pattern: string): RegExp {
+    const cached = this.patternCache.get(pattern);
+    if (cached) return cached;
+
     // Support * wildcard (converted to regex .*)
     // Step 1: escape all regex special characters (including *)
     const escaped = pattern.replace(/[.*+^${}()|[\]\\]/g, '\\$&');
     // Step 2: convert escaped * back to regex wildcard
     const regexStr = escaped.replace(/\\\*/g, '.*');
-    return new RegExp(`^${regexStr}$`, 'i');
+    const regex = new RegExp(`^${regexStr}$`, 'i');
+    this.patternCache.set(pattern, regex);
+    return regex;
   }
 
   private highlightTerm(text: string, term: string): string {

@@ -20,7 +20,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['packages/*/src/**/*.test.ts', 'tests/integration/**/*.test.ts'],
+    include: ['packages/*/src/**/*.test.ts', 'tests/integration/**/*.test.ts', 'tests/performance/**/*.bench.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

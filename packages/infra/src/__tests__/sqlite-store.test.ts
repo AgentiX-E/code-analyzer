@@ -1359,4 +1359,155 @@ describe('SqliteStore', () => {
       expect(store.getNode(id2)).not.toBeNull();
     });
   });
+
+  // ==========================================================================
+  // Adjacency Index Performance Features
+  // ==========================================================================
+
+  describe('adjacency index', () => {
+    it('maintains source index on edge insert', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'adj.src' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'adj.tgt' }));
+      const e1 = store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+
+      const edges = store.getEdgesForNode(n1, undefined, 'out');
+      expect(edges.length).toBe(1);
+      expect(edges[0]!.id).toBe(e1);
+    });
+
+    it('maintains target index on edge insert', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'tgt.src' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'tgt.dst' }));
+      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+
+      const edges = store.getEdgesForNode(n2, undefined, 'in');
+      expect(edges.length).toBe(1);
+    });
+
+    it('removes from index on edge delete', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'del.idx.src' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'del.idx.tgt' }));
+      const e1 = store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+
+      store.deleteEdge(e1);
+      const edges = store.getEdgesForNode(n1, undefined, 'out');
+      expect(edges.length).toBe(0);
+    });
+
+    it('removes from both indices on node delete', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'casc.idx.src' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'casc.idx.tgt' }));
+      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+      store.insertEdge(createTestEdge(n2, n1, 'IMPORTS'));
+
+      store.deleteNode(n1);
+
+      // All edges connected to n1 should be gone
+      const n2Edges = store.getEdgesForNode(n2, undefined, 'out');
+      expect(n2Edges.length).toBe(0);
+
+      const n2InEdges = store.getEdgesForNode(n2, undefined, 'in');
+      expect(n2InEdges.length).toBe(0);
+    });
+
+    it('optimize rebuilds indices correctly', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'opt.src' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'opt.tgt' }));
+      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+
+      store.optimize();
+
+      const edges = store.getEdgesForNode(n1, undefined, 'out');
+      expect(edges.length).toBe(1);
+    });
+
+    it('getDegree uses adjacency indices', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'deg.src' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'deg.tgt1' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'deg.tgt2' }));
+      store.insertEdge(createTestEdge(n1, n2, 'CALLS'));
+      store.insertEdge(createTestEdge(n1, n3, 'CALLS'));
+      store.insertEdge(createTestEdge(n3, n1, 'IMPORTS'));
+
+      expect(store.getDegree(n1)).toBe(3);
+    });
+  });
+
+  // ==========================================================================
+  // Batch Insert Optimization
+  // ==========================================================================
+
+  describe('batch insert', () => {
+    it('inserts multiple nodes efficiently', () => {
+      const nodes = [
+        createTestNode({ qualifiedName: 'batch.n1' }),
+        createTestNode({ qualifiedName: 'batch.n2' }),
+        createTestNode({ qualifiedName: 'batch.n3' }),
+      ];
+      const ids = store.insertNodes(nodes);
+      expect(ids.length).toBe(3);
+      expect(store.getNodeCount()).toBe(3);
+    });
+
+    it('rejects batch with duplicate qualified names', () => {
+      const nodes = [
+        createTestNode({ qualifiedName: 'batch.dup' }),
+        createTestNode({ qualifiedName: 'batch.dup' }),
+      ];
+      expect(() => store.insertNodes(nodes)).toThrow('duplicate qualifiedName');
+      expect(store.getNodeCount()).toBe(0);
+    });
+
+    it('rejects batch when qname already exists in store', () => {
+      store.insertNode(createTestNode({ qualifiedName: 'batch.existing' }));
+      const nodes = [createTestNode({ qualifiedName: 'batch.existing' })];
+      expect(() => store.insertNodes(nodes)).toThrow('already exists');
+    });
+
+    it('inserts multiple edges efficiently', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.n1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'be.n2' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'be.n3' }));
+
+      const edges = [
+        createTestEdge(n1, n2, 'CALLS'),
+        createTestEdge(n2, n3, 'CALLS'),
+        createTestEdge(n3, n1, 'IMPORTS'),
+      ];
+      const ids = store.insertEdges(edges);
+      expect(ids.length).toBe(3);
+      expect(store.getEdgeCount()).toBe(3);
+    });
+
+    it('rejects batch edges with missing source', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.valid' }));
+      const edges = [
+        createTestEdge(n1, 99999, 'CALLS'), // target doesn't exist
+      ];
+      expect(() => store.insertEdges(edges)).toThrow('not found');
+      expect(store.getEdgeCount()).toBe(0);
+    });
+  });
+
+  // ==========================================================================
+  // Pattern Cache
+  // ==========================================================================
+
+  describe('pattern cache', () => {
+    it('caches regex patterns for repeated queries', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'cache.test', name: 'cachedName' }));
+
+      // First query — should build and cache regex
+      const r1 = store.queryNodes({ projectId: 'test-project', namePattern: 'cached*' });
+      expect(r1.total).toBeGreaterThanOrEqual(1);
+
+      // Second query with same pattern — should use cache
+      const r2 = store.queryNodes({ projectId: 'test-project', namePattern: 'cached*' });
+      expect(r2.total).toBeGreaterThanOrEqual(1);
+
+      // Different pattern — should build new regex
+      const r3 = store.queryNodes({ projectId: 'test-project', namePattern: 'other*' });
+      expect(r3.total).toBe(0);
+    });
+  });
 });
