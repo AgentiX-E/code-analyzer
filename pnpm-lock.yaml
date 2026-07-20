@@ -222,9 +222,9 @@ importers:
       '@code-analyzer/analyzer':
         specifier: workspace:*
         version: link:../analyzer
-      '@code-analyzer/core':
+      '@code-analyzer/infra':
         specifier: workspace:*
-        version: link:../core
+        version: link:../infra
       '@code-analyzer/intelligence':
         specifier: workspace:*
         version: link:../intelligence

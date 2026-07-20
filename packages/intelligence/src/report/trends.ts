@@ -55,7 +55,7 @@ export class TrendAnalyzer {
       }
     }
 
-    const { direction, changeRate } = this.computeDirection(values);
+    const { direction, changeRate } = this.computeDirection(values, metricPath);
 
     return { values, timestamps, direction, changeRate };
   }
@@ -108,7 +108,7 @@ export class TrendAnalyzer {
     return null;
   }
 
-  private computeDirection(values: number[]): { direction: TrendData['direction']; changeRate: number } {
+  private computeDirection(values: number[], metricPath: string): { direction: TrendData['direction']; changeRate: number } {
     if (values.length < 2) {
       return { direction: 'stable', changeRate: 0 };
     }
@@ -127,11 +127,28 @@ export class TrendAnalyzer {
       return { direction: 'stable', changeRate: Math.round(changeRate * 100) / 100 };
     }
 
-    // For "totalFindings" and "criticalFindings", decreasing is "improving"
-    // For "overallScore" and "complianceScore", increasing is "improving"
-    // We default to: positive change = improving
+    // Metrics where lower values are better (decreasing = improving)
+    const LOWER_IS_BETTER = new Set([
+      'metrics.linesChanged',
+      'metrics.filesChanged',
+      'metrics.symbolsAffected',
+      'metrics.routesAffected',
+      'metrics.testsImpacted',
+      'metrics.complexityDelta',
+      'metrics.reviewDuration',
+      'metrics.tokenUsage',
+      'summary.totalFindings',
+      'summary.criticalFindings',
+      'summary.highFindings',
+      'summary.mediumFindings',
+      'summary.lowFindings',
+    ]);
+
+    const lowerBetter = LOWER_IS_BETTER.has(metricPath);
+    const improving = lowerBetter ? changeRate < 0 : changeRate > 0;
+
     return {
-      direction: changeRate > 0 ? 'improving' : 'degrading',
+      direction: improving ? 'improving' : 'degrading',
       changeRate: Math.round(changeRate * 100) / 100,
     };
   }

@@ -304,7 +304,7 @@ describe('TrendAnalyzer — edge cases', () => {
     ];
     const trend = analyzer.trackMetric(reports, 'metrics.complexityDelta');
     expect(trend.values).toEqual([5, 2]);
-    expect(trend.direction).toBe('degrading');
+    expect(trend.direction).toBe('improving');
   });
 
   it('should track metrics.coverageDelta', () => {
