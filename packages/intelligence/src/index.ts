@@ -34,6 +34,35 @@ export type {
   EnrichedDiff,
 } from './review/pr-review.js';
 
+// Review Swarm (8-Lens Multi-Agent Review)
+export { ReviewSwarm } from './review/review-swarm.js';
+export type {
+  SwarmConfig,
+  SwarmResult,
+  SwarmSummary,
+  SwarmDecision,
+  ActionItem,
+} from './review/review-swarm.js';
+
+// Review Lenses
+export {
+  LENS_PROFILES,
+  getLensProfiles,
+  getLensProfile,
+  SECURITY_PATTERNS,
+  PERFORMANCE_PATTERNS,
+  TESTING_PATTERNS,
+  createLensFinding,
+  lensFindingToReviewComment,
+} from './review/review-lenses.js';
+export type {
+  LensId,
+  LensProfile,
+  LensFinding,
+  LensReport,
+  EvidenceAnchor,
+} from './review/review-lenses.js';
+
 // Session Store
 export {
   SessionStore,

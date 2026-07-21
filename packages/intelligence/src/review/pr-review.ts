@@ -16,6 +16,7 @@ import { SqliteStore } from '@code-analyzer/infra';
 import { CodeReviewEngine, type ReviewContext } from './review-engine.js';
 import { SessionStore } from './session-store.js';
 import { DEFAULT_STANDARDS } from './standards-defaults.js';
+import { ReviewSwarm, type SwarmResult } from './review-swarm.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -97,6 +98,59 @@ export class PRReviewEngine {
       standardsResults,
       impactResult,
       summary,
+    };
+  }
+
+  /**
+   * Review a GitHub pull request using the 8-Lens Review Swarm.
+   * Runs all 8 specialized lenses in parallel, then synthesizes findings
+   * through a hard-gate quality check with evidence validation and IoU dedup.
+   *
+   * This provides deeper, multi-dimensional analysis compared to the
+   * standard single-pipeline review.
+   */
+  async reviewPRSwarm(
+    projectId: string,
+    _pr: PullRequest,
+    diffs: GitDiff[],
+  ): Promise<PRReviewResult & { swarmResult: SwarmResult }> {
+    const swarm = new ReviewSwarm(this.store, {
+      parallel: true,
+      minSeverity: 'info',
+    });
+
+    const swarmResult = await swarm.review(projectId, diffs);
+
+    // Build summary compatible with existing PRReviewResult
+    const byCategory = { ...swarmResult.summary.byCategory } as Record<ReviewCategory, number>;
+    const bySeverity = { ...swarmResult.summary.bySeverity };
+
+    const summary: PRReviewSummary = {
+      totalComments: swarmResult.comments.length,
+      byCategory,
+      bySeverity,
+      riskLevel: swarmResult.summary.bySeverity.critical > 0
+        ? 'critical'
+        : swarmResult.summary.bySeverity.high > 3
+          ? 'high'
+          : swarmResult.summary.bySeverity.medium > 5
+            ? 'medium'
+            : 'low',
+      mergeRecommendation: swarmResult.decision.recommendation,
+    };
+
+    return {
+      sessionId: `swarm-${Date.now().toString(36)}`,
+      comments: swarmResult.comments,
+      standardsResults: [], // Swarm uses its own lens-based analysis
+      impactResult: {
+        riskLevel: summary.riskLevel,
+        affectedFiles: swarmResult.actionPlan.map(a => a.files).flat(),
+        affectedSymbols: [],
+        estimatedImpact: swarmResult.summary.totalFindings,
+      } as ImpactResult,
+      summary,
+      swarmResult,
     };
   }
 
