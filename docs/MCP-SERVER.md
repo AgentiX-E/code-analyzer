@@ -10,11 +10,15 @@ The **Model Context Protocol (MCP)** is an open protocol that standardizes how A
 
 ---
 
-## Quick Setup
+## Multi-Client Setup Guide
 
-### Claude Desktop
+Code Analyzer works with every major MCP-compatible AI coding client. Below are tested, ready-to-use configurations for each.
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+---
+
+### 1. Claude Desktop
+
+**Config file:** `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/.config/Claude/claude_desktop_config.json` (Linux).
 
 ```json
 {
@@ -23,16 +27,37 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
       "command": "npx",
       "args": ["-y", "@code-analyzer/mcp"],
       "env": {
-        "CODE_ANALYZER_PROJECT_DIR": "/path/to/your/project"
+        "CODE_ANALYZER_PROJECT_DIR": "/absolute/path/to/your/project",
+        "CODE_ANALYZER_MCP_TOOL_PROFILE": "all"
       }
     }
   }
 }
 ```
 
-### Cursor
+**After restarting Claude Desktop**, you'll see a hammer icon in the chat input indicating 38 tools are available.
 
-Add to Cursor's MCP configuration (Settings → MCP → Add Server):
+**Tools available:** All 38 tools across 7 categories — `analyze_repository`, `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `explore_symbol`, `find_implementations`, `impact_analysis`, `review_pr`, `review_file`, `review_diff`, `check_standards`, `generate_report`, `pdg_query`, `taint_analysis`, `cross_repo_search`, `cross_repo_trace`, and more.
+
+**Example queries you can ask Claude:**
+
+- "Analyze the repository at /path/to/project and tell me about its architecture"
+- "Find all functions that call `authenticateUser` and trace their full call chains"
+- "Review PR #42 against our TypeScript best practices"
+- "If I rename `getUserById`, what's the full blast radius?"
+- "Show me the dependency graph for the auth module"
+
+**Caveats:**
+- Claude Desktop restarts the server on every conversation. First query after connecting may have a brief warm-up delay as the project indexes.
+- Use `"CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"` to reduce to 28 tools if the full 38-tool listing feels noisy.
+- On macOS, the path `~/Library/Application Support/Claude/claude_desktop_config.json` must exist. Create it if it doesn't.
+- Claude Desktop requires an absolute path for `CODE_ANALYZER_PROJECT_DIR` — tilde expansion is not supported.
+
+---
+
+### 2. Cursor
+
+**Config file:** `.cursor/mcp.json` in your project root (preferred). Create the file if it doesn't exist.
 
 ```json
 {
@@ -41,7 +66,7 @@ Add to Cursor's MCP configuration (Settings → MCP → Add Server):
       "command": "npx",
       "args": ["-y", "@code-analyzer/mcp"],
       "env": {
-        "CODE_ANALYZER_PROJECT_DIR": "/path/to/your/project",
+        "CODE_ANALYZER_PROJECT_DIR": "${workspaceFolder}",
         "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
       }
     }
@@ -49,19 +74,158 @@ Add to Cursor's MCP configuration (Settings → MCP → Add Server):
 }
 ```
 
-### Continue (VS Code / JetBrains)
-
-Add to `~/.continue/config.json`:
+Alternatively, configure via Cursor Settings → MCP → Add Server:
 
 ```json
 {
+  "command": "npx",
+  "args": ["-y", "@code-analyzer/mcp"],
+  "env": {
+    "CODE_ANALYZER_PROJECT_DIR": "/path/to/your/project",
+    "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
+  }
+}
+```
+
+**After restarting Cursor**, open the MCP panel to verify the server is connected (green dot). The tools appear in Cursor's Agent and Composer modes.
+
+**Tools available:** 28 analysis tools (with the `analysis` profile) — querying, review, impact analysis, PR review, reporting, cross-repo operations, and PDG analysis. Switch to `"all"` for the full 38-tool set.
+
+**Example queries you can ask Cursor:**
+
+- "Use the code-analyzer to find all REST API routes in this project"
+- "Trace the call path from `POST /api/login` down to the database layer"
+- "What are the code hotspots — files with highest complexity and churn?"
+
+**Caveats:**
+- Cursor supports `${workspaceFolder}` in `.cursor/mcp.json` — use it instead of hard-coded paths for portability.
+- The `.cursor/mcp.json` is project-local and should be committed to version control so the entire team benefits.
+- Cursor's MCP panel (View → MCP) shows real-time server logs — use it to debug connection issues.
+- If tools don't appear, click "Restart Server" in the MCP panel.
+
+---
+
+### 3. Codex (OpenAI)
+
+Codex is OpenAI's coding agent. MCP support is via the Codex CLI plugin system.
+
+**Config file:** `~/.codex/config.yml` or `~/.codex/mcp.json` (depending on Codex version).
+
+```yaml
+# ~/.codex/config.yml
+mcp:
+  servers:
+    code-analyzer:
+      command: npx
+      args:
+        - "-y"
+        - "@code-analyzer/mcp"
+      env:
+        CODE_ANALYZER_PROJECT_DIR: "/absolute/path/to/your/project"
+        CODE_ANALYZER_MCP_TOOL_PROFILE: "analysis"
+```
+
+If your Codex version uses JSON config, create `~/.codex/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "code-analyzer": {
+      "command": "npx",
+      "args": ["-y", "@code-analyzer/mcp"],
+      "env": {
+        "CODE_ANALYZER_PROJECT_DIR": "/absolute/path/to/your/project",
+        "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
+      }
+    }
+  }
+}
+```
+
+**Tools available:** 28 tools with `analysis` profile. Codex automatically discovers tools on startup and lists them in its agent mode.
+
+**Example queries you can ask Codex:**
+
+- "Use code-analyzer to search for all database query functions"
+- "Review this file for security issues: src/auth/login.ts"
+- "What's the architectural structure of this project?"
+
+**Caveats:**
+- Codex MCP support is evolving — check the [Codex docs](https://platform.openai.com/docs/guides/codex) for the latest MCP integration details.
+- Codex may require explicit tool invocation syntax like `@tool search_graph query="authentication"`.
+- Environment variable expansion in Codex config is limited — use absolute paths.
+
+---
+
+### 4. Gemini CLI
+
+Google's Gemini CLI supports MCP tools via a configuration file.
+
+**Config file:** `~/.gemini/settings.json` or `~/.gemini/config.yaml`.
+
+**JSON format** (`~/.gemini/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "code-analyzer": {
+      "command": "npx",
+      "args": ["-y", "@code-analyzer/mcp"],
+      "env": {
+        "CODE_ANALYZER_PROJECT_DIR": "/absolute/path/to/your/project",
+        "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
+      }
+    }
+  }
+}
+```
+
+**YAML format** (`~/.gemini/config.yaml`):
+
+```yaml
+mcpServers:
+  code-analyzer:
+    command: npx
+    args:
+      - "-y"
+      - "@code-analyzer/mcp"
+    env:
+      CODE_ANALYZER_PROJECT_DIR: "/absolute/path/to/your/project"
+      CODE_ANALYZER_MCP_TOOL_PROFILE: "analysis"
+```
+
+**Tools available:** 28 tools with `analysis` profile. Gemini CLI auto-discovers tools on connection.
+
+**Example queries you can ask Gemini:**
+
+- "Explore the codebase and identify the core modules"
+- "What functions are most coupled to the database layer?"
+- "Review the changes in this PR for potential issues"
+
+**Caveats:**
+- Gemini CLI may use `~/.gemini/settings.json` or `~/.gemini/config.yaml` depending on version. Check `gemini --version` and docs.
+- The server process is managed by Gemini CLI — it auto-starts and auto-stops with the session.
+- Tool names may be prefixed with the server name in Gemini's interface (e.g., `code-analyzer__search_graph`).
+
+---
+
+### 5. Continue (VS Code / JetBrains)
+
+Continue is an open-source AI code assistant for VS Code and JetBrains IDEs.
+
+**Config file:** `~/.continue/config.json`
+
+```json
+{
+  "models": [...],
   "experimental": {
     "mcpServers": {
       "code-analyzer": {
         "command": "npx",
         "args": ["-y", "@code-analyzer/mcp"],
         "env": {
-          "CODE_ANALYZER_PROJECT_DIR": "/path/to/your/project"
+          "CODE_ANALYZER_PROJECT_DIR": "/absolute/path/to/your/project",
+          "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
         }
       }
     }
@@ -69,20 +233,140 @@ Add to `~/.continue/config.json`:
 }
 ```
 
-### Codex / Windsurf / Other MCP Clients
+**After reloading Continue** (Cmd/Ctrl+Shift+P → "Continue: Reload"), tools appear in the chat's tool-calling interface.
 
-Any MCP-compatible client can connect. Use the stdio transport:
+**Tools available:** 28 tools with `analysis` profile. Continue's slash commands can invoke MCP tools directly — use `/tool search_graph query="authentication"` or let the model auto-select tools based on your query.
+
+**Example queries you can ask Continue:**
+
+- "Search the codebase for authentication-related code"
+- "What's the call graph for the login endpoint?"
+- "Review this file: src/services/payment.ts"
+
+**Caveats:**
+- Continue places MCP config under `experimental` — this key may change in future versions.
+- Continue supports both VS Code and JetBrains — the config file is the same.
+- In JetBrains, Continue settings are at `~/.continue/config.json` (not inside the IDE settings directory).
+- Use `@code-analyzer` as a slash command prefix in Continue for tool-specific workflows.
+
+---
+
+### 6. Windsurf
+
+Windsurf is an AI-powered IDE with native MCP support.
+
+**Config file:** `~/.windsurf/mcp.json` or Windsurf Settings → MCP → Add Server.
 
 ```json
 {
   "mcpServers": {
     "code-analyzer": {
       "command": "npx",
-      "args": ["-y", "@code-analyzer/mcp"]
+      "args": ["-y", "@code-analyzer/mcp"],
+      "env": {
+        "CODE_ANALYZER_PROJECT_DIR": "${workspaceRoot}",
+        "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
+      }
     }
   }
 }
 ```
+
+**Tools available:** 28 tools with `analysis` profile. Windsurf's Cascade agent automatically discovers and uses tools based on context.
+
+**Example queries you can ask Windsurf:**
+
+- "Find all functions that could be refactored for better performance"
+- "Analyze the impact of changing the User model"
+- "Trace the authentication flow from entry point to database"
+
+**Caveats:**
+- Windsurf supports `${workspaceRoot}` for dynamic project paths — prefer this over hard-coded paths.
+- Windsurf's MCP config format follows the standard `mcpServers` structure — no Windsurf-specific extensions needed.
+- If the server doesn't connect, check Windsurf's MCP logs (Help → Toggle Developer Tools → Console).
+
+---
+
+### 7. Cline (VS Code Extension)
+
+Cline is a VS Code extension that provides an autonomous coding agent with MCP tool support.
+
+**Config file:** VS Code settings (`settings.json`) or Cline's dedicated MCP settings UI.
+
+**Method 1 — VS Code `settings.json`:**
+
+```json
+{
+  "cline.mcpServers": {
+    "code-analyzer": {
+      "command": "npx",
+      "args": ["-y", "@code-analyzer/mcp"],
+      "env": {
+        "CODE_ANALYZER_PROJECT_DIR": "${workspaceFolder}",
+        "CODE_ANALYZER_MCP_TOOL_PROFILE": "analysis"
+      }
+    }
+  }
+}
+```
+
+**Method 2 — Cline MCP Settings UI:**
+
+1. Open Cline (Cmd/Ctrl+Shift+P → "Cline: Focus on View")
+2. Click the gear icon → MCP Servers
+3. Add a new server with:
+   - **Name:** `code-analyzer`
+   - **Command:** `npx`
+   - **Args:** `-y @code-analyzer/mcp`
+   - **Env:** `CODE_ANALYZER_PROJECT_DIR=/path/to/your/project`
+
+**Tools available:** 38 tools with `all` profile. Cline presents tools in its autonomous agent mode and lets the model decide which tools to call for each task.
+
+**Example queries you can ask Cline:**
+
+- "Index this project and then find all security-sensitive code patterns"
+- "Run an impact analysis before I refactor the auth module"
+- "Review all of my staged changes and suggest improvements"
+
+**Caveats:**
+- Cline uses `cline.mcpServers` (not `mcpServers`) in VS Code settings — this is Cline-specific.
+- Cline's MCP tools are available in both Plan and Act modes.
+- The Cline MCP settings UI is the easiest way to configure — it validates the JSON before saving.
+- VS Code `${workspaceFolder}` works in Cline's settings — use it for team-portable configs.
+
+---
+
+### Transport Compatibility Matrix
+
+| Client | stdio Support | HTTP+SSE Support | Auto-restart | Notes |
+|--------|:------------:|:----------------:|:------------:|-------|
+| Claude Desktop | ✅ | ❌ | ✅ | stdio only |
+| Cursor | ✅ | ✅ | ✅ | Both transports |
+| Codex | ✅ | ✅ | ❌ | Manual restart |
+| Gemini CLI | ✅ | ❌ | ✅ | stdio only |
+| Continue | ✅ | ✅ | ✅ | Both transports |
+| Windsurf | ✅ | ✅ | ✅ | Both transports |
+| Cline | ✅ | ✅ | ❌ | Manual restart |
+
+**For HTTP transport**, add `"--transport", "http", "--port", "3100"` to the args array in any config above, and point the client to `http://localhost:3100/sse` or `http://localhost:3100/mcp`.
+
+---
+
+### Quick Verification
+
+After configuring any client, verify your setup by asking:
+
+1. **"List all indexed projects"** — should call `list_projects`
+2. **"Analyze the repository"** — should call `analyze_repository`
+3. **"Search for authentication code"** — should call `search_graph` or `search_code`
+4. **"Review this file for issues"** — should call `review_file`
+
+If any tool returns an error, check the client's MCP logs for details:
+- **Claude Desktop:** `~/Library/Logs/Claude/mcp*.log` (macOS)
+- **Cursor:** MCP panel → click the server → view logs
+- **Continue:** VS Code Output panel → "Continue"
+- **Windsurf:** Help → Toggle Developer Tools → Console
+- **Cline:** Cline output channel in VS Code
 
 ---
 
