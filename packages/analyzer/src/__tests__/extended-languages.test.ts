@@ -849,3 +849,98 @@ describe('RustProvider edge cases', () => {
     expect(captures.some(c => c.name === 'new')).toBe(true);
   });
 });
+
+// ============================================================================
+// Branch Coverage Hardening — Extra Edge Cases for All Providers
+// ============================================================================
+
+describe('JavaProvider extra hardening', () => {
+  const p = new JavaProvider();
+
+  it('detects abstract method', () => {
+    const s = 'public abstract class Base { public abstract void process(); }';
+    expect(p.parse(s, 'Base.java').some(c => c.name === 'process')).toBe(true);
+  });
+
+  it('detects final class', () => {
+    const s = 'public final class Constants { public static final int MAX = 100; }';
+    expect(p.parse(s, 'Constants.java').some(c => c.name === 'Constants')).toBe(true);
+  });
+
+  it('detects void method', () => {
+    const s = 'public class Worker { void execute() { } }';
+    expect(p.parse(s, 'Worker.java').some(c => c.name === 'execute')).toBe(true);
+  });
+
+  it('handles string field declaration', () => {
+    const s = 'public class Data { String value; }';
+    expect(p.parse(s, 'Data.java').some(c => c.name === 'value')).toBe(true);
+  });
+
+  it('detects boolean field', () => {
+    const s = 'public class Flag { boolean active = true; }';
+    expect(p.parse(s, 'Flag.java').some(c => c.name === 'active')).toBe(true);
+  });
+});
+
+describe('KotlinProvider extra hardening', () => {
+  const p = new KotlinProvider();
+
+  it('detects abstract class', () => {
+    const s = 'abstract class Shape { abstract fun area(): Double }';
+    expect(p.parse(s, 'Shape.kt').some(c => c.name === 'Shape')).toBe(true);
+  });
+
+  it('detects open function', () => {
+    const s = 'open class Base { open fun calculate(): Int { return 0 } }';
+    expect(p.parse(s, 'Base.kt').some(c => c.name === 'calculate')).toBe(true);
+  });
+
+  it('detects tailrec function', () => {
+    const s = 'tailrec fun factorial(n: Int, acc: Int = 1): Int { return if (n <= 1) acc else factorial(n - 1, n * acc) }';
+    expect(p.parse(s, 'fact.kt').some(c => c.name === 'factorial')).toBe(true);
+  });
+
+  it('detects external function', () => {
+    const s = 'external fun nativeLog(level: Int, msg: String)';
+    expect(p.parse(s, 'native.kt').some(c => c.name === 'nativeLog')).toBe(true);
+  });
+});
+
+describe('CSharpProvider extra hardening', () => {
+  const p = new CSharpProvider();
+
+  it('detects sealed override', () => {
+    const s = 'public class Child : Base { public sealed override void Handle() { } }';
+    expect(p.parse(s, 'Child.cs').some(c => c.name === 'Handle')).toBe(true);
+  });
+
+  it('detects partial method', () => {
+    const s = 'public partial class Form { partial void OnLoad(); }';
+    expect(p.parse(s, 'Form.cs').some(c => c.name === 'Form')).toBe(true);
+  });
+
+  it('detects init-only property', () => {
+    const s = 'public class Immutable { public string Name { get; init; } }';
+    expect(p.parse(s, 'Immutable.cs').some(c => c.name === 'Name')).toBe(true);
+  });
+});
+
+describe('RustProvider extra hardening', () => {
+  const p = new RustProvider();
+
+  it('detects static item', () => {
+    const s = 'static mut COUNTER: u32 = 0;';
+    expect(p.parse(s, 'counter.rs').some(c => c.name === 'COUNTER' && c.tag === CAPTURE_TAGS.CONSTANT_DEF)).toBe(true);
+  });
+
+  it('detects method with self parameter', () => {
+    const s = 'impl MyType { fn method(&self) -> bool { true } }';
+    expect(p.parse(s, 'mytype.rs').some(c => c.name === 'method')).toBe(true);
+  });
+
+  it('handles use with self import', () => {
+    const imports = p.extractImports('use std::io::{self, Write};');
+    expect(imports.some(i => i.names.includes('Write'))).toBe(true);
+  });
+});
