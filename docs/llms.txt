@@ -1,0 +1,75 @@
+# Code Analyzer
+> World-class layered code intelligence platform. Understand, search, and review code at unprecedented depth. MCP server for AI agents, VS Code extension, and CLI. TypeScript/Node.js monorepo, 10 packages under @code-analyzer scope. MIT license.
+
+## Quick Facts
+- Language: TypeScript 5.6+ (strict mode)
+- Runtime: Node.js >= 20
+- Architecture: 7-layer strict separation
+- Knowledge Graph: 33 entity types, 39 relationship types
+- Pipeline: 18-phase DAG with Kahn's topological sort
+- Languages: 8 fully supported (TS, JS, Python, Go, Java, Kotlin, C#, Rust) + 10 basic
+- Search: Hybrid BM25 + vector with Reciprocal Rank Fusion
+- Review: Plan → Analyze → Filter → Relocate pipeline
+- MCP: 38 tools, 15 resources, 5 prompts
+- Standards: 10 built-in templates + custom
+- Packages: shared, core, infra, analyzer, intelligence, mcp, server, cli, vscode, web
+- License: MIT
+
+## Install
+```bash
+npm install -g @code-analyzer/cli
+code-analyzer analyze ./my-project
+code-analyzer search "authentication" --repo ./my-project
+```
+
+## MCP Setup
+```json
+{
+  "mcpServers": {
+    "code-analyzer": {
+      "command": "npx",
+      "args": ["-y", "@code-analyzer/mcp"],
+      "env": { "CODE_ANALYZER_PROJECT_DIR": "/path/to/project" }
+    }
+  }
+}
+```
+
+## Programmatic Usage
+```typescript
+import { createAnalyzer } from '@code-analyzer/analyzer';
+const analyzer = createAnalyzer({ projectDir: './my-project' });
+await analyzer.index();
+const results = await analyzer.search({ query: 'auth middleware', semantic: true });
+const impact = await analyzer.analyzeImpact({ file: 'src/auth/login.ts', symbol: 'authenticateUser' });
+```
+
+## Key Features
+- Multi-language unified knowledge graph (33 entity types × 39 relationship types)
+- Call graph tracing with configurable depth
+- Hybrid BM25 + vector semantic search
+- Automated code review with Plan/Analyze/Filter/Relocate pipeline
+- Impact analysis with BFS-based blast radius computation
+- 10 built-in coding standards + custom standards engine
+- Cypher graph query language support
+- Cross-repository federation with contracts
+- MCP server with 38 tools for AI agents
+- VS Code extension with Copilot Chat integration
+- CLI for scripting and CI/CD
+- Worker pool with circuit breaker and retry
+- Incremental indexing (<500ms per file change)
+- Transaction support with snapshot-based rollback
+- 95%+ test coverage
+
+## Documentation
+- Architecture: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/ARCHITECTURE.md
+- Configuration: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/CONFIGURATION.md
+- MCP Server: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/MCP-SERVER.md
+- Code Review: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/CODE-REVIEW.md
+- Language Support: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/language-support.md
+- Getting Started: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/getting-started.md
+- Contributing: https://github.com/AgentiX-E/code-analyzer/blob/main/CONTRIBUTING.md
+
+## Source
+- GitHub: https://github.com/AgentiX-E/code-analyzer
+- npm: https://www.npmjs.com/search?q=%40code-analyzer

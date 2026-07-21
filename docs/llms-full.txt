@@ -1,0 +1,280 @@
+# Code Analyzer — Full Project Context for AI Models
+
+## Project Identity
+- **Name**: code-analyzer
+- **Organization**: AgentiX-E (https://github.com/AgentiX-E)
+- **Repository**: https://github.com/AgentiX-E/code-analyzer
+- **npm scope**: @code-analyzer
+- **License**: MIT
+- **Version**: 0.1.0
+- **TypeScript**: 5.6+
+- **Node.js**: >= 20
+- **Package Manager**: pnpm >= 9
+
+## What is Code Analyzer?
+Code Analyzer is a world-class layered code intelligence platform that transforms raw source code into a structured knowledge graph with 33 entity types and 39 relationship types. It enables deep semantic queries, call-graph tracing, architecture analysis, and AI-assisted code review — all running entirely locally.
+
+## Architecture Overview
+
+```
+Source Files → [Language Providers] → [Unified Parser] → [Graph Builder] → Knowledge Graph
+                                                                                  │
+                         ┌────────────────────────────────────────────────────────┘
+                         ▼
+              ┌──────────────────────┐
+              │   Hybrid Search      │  BM25 + Vector + RRF
+              │   Code Review        │  Plan → Analyze → Filter → Relocate
+              │   Impact Analysis    │  BFS over CALLS/IMPLEMENTS/EXTENDS
+              │   Standards Engine   │  10 templates + custom
+              └──────────┬───────────┘
+                         ▼
+              ┌──────────────────────┐
+              │   MCP Server         │  38 tools · 15 resources · 5 prompts
+              │   REST API           │  HTTP endpoints
+              │   CLI                │  Commander-based
+              │   VS Code Extension  │  Copilot Chat integration
+              └──────────────────────┘
+```
+
+The project follows a strict seven-layer architecture:
+
+| Layer | Package | Responsibility |
+|-------|---------|---------------|
+| 1. Foundation | `core`, `shared` | Config, logging, errors, i18n, types |
+| 2. Infrastructure | `infra` | Storage, workers, cache, git, filesystem |
+| 3. Analysis Engine | `analyzer` | Pipeline, parsing, resolution, graph building |
+| 4. Intelligence | `intelligence` | Search, review, impact, standards, embeddings |
+| 5. Service | `mcp`, `server` | MCP protocol, Cypher queries, REST API |
+| 6. Integration | External | GitHub Actions, CI/CD adapters |
+| 7. Presentation | `cli`, `vscode`, `web` | User interfaces |
+
+## Monorepo Structure (pnpm workspace)
+
+```
+code-analyzer/
+├── packages/
+│   ├── shared/          # Shared types, constants, validation
+│   │   └── src/types/   # Graph, pipeline, review, search, MCP types
+│   ├── core/            # Foundation: config, logging, errors, i18n, metrics
+│   ├── infra/           # Infrastructure: SqliteStore, worker pool, git, cache
+│   ├── analyzer/        # Analysis: 8 language providers, pipeline, graph builder
+│   ├── intelligence/    # Intelligence: search, review, impact, standards, embeddings
+│   ├── mcp/             # MCP server: 38 tools, Cypher, resources, prompts
+│   ├── server/          # HTTP REST API
+│   ├── cli/             # CLI entry point
+│   ├── vscode/          # VS Code extension with Copilot Chat
+│   └── web/             # Web UI
+├── docs/                # Documentation
+├── tests/               # Integration and E2E tests
+├── grammars/            # Tree-sitter grammars
+└── scripts/             # CI/CD scripts
+```
+
+## Package Descriptions
+
+| Package | Description | Source Files |
+|---------|-------------|-------------|
+| `@code-analyzer/shared` | TypeScript type definitions for the entire platform. Defines 33 node labels, 39 relationship types, 18 pipeline phases, graph primitives, review types, search types, MCP types, and more. Zero runtime code — types only. | 4 files |
+| `@code-analyzer/core` | Foundation layer. Config loading with 4-layer merge (defaults → global → project → env), structured logging with formatters, typed error hierarchy (10 categories), i18n engine, metrics collector, lifecycle hooks. | 12 files |
+| `@code-analyzer/infra` | Infrastructure layer. In-memory SqliteStore with adjacency indices and FTS, worker pool with concurrency control and retry, circuit breaker, file discoverer, file watcher, parse cache, git diff/history operations. | 9 files |
+| `@code-analyzer/analyzer` | Analysis engine. 8 language providers implementing LanguageProvider interface, unified parser normalizing ASTs to UnifiedCapture, 18-phase DAG pipeline with Kahn's topological sort, knowledge graph builder, scope-aware symbol resolution. | 15 files |
+| `@code-analyzer/intelligence` | Intelligence layer. Hybrid BM25+vector search with RRF fusion, code review engine with Plan/Analyze/Filter/Relocate pipeline, PR review with standards integration, BFS-based impact analysis, change detector with IoU overlap, standards engine with 10 templates, report generation, embedding generation, MinHash+LSH deduplication, memory compression. | 19 files |
+| `@code-analyzer/mcp` | MCP server. Implements MCP protocol with stdio and HTTP transports. 38 tools across 7 categories, 15 resources, 5 prompts. Cypher query engine (lexer/parser/planner/executor). Auth middleware, token-bucket rate limiter, request logger. Skill installer for agent integration. | 19 files |
+| `@code-analyzer/cli` | CLI entry point. Commander-based CLI with analyze, search, trace, review, standards, report, graph commands. | 1 file |
+| `@code-analyzer/vscode` | VS Code extension. Sidebar provider, comment provider, config provider, Copilot Chat participant, status bar, engine bridge, git service. | 12 files |
+| `@code-analyzer/web` | Web UI entry point. | 1 file |
+
+## Key API Signatures
+
+### Analyzer API
+```typescript
+import { createAnalyzer, AnalyzerConfig } from '@code-analyzer/analyzer';
+
+const analyzer = createAnalyzer({
+  projectDir: './my-project',
+  languages: ['typescript', 'python'],
+  incremental: true,
+});
+
+await analyzer.index();
+const results = await analyzer.search({ query: 'auth', semantic: true, limit: 20 });
+const callPath = await analyzer.traceCallPath({ source: 'login', target: 'db.query', maxDepth: 10 });
+const impact = await analyzer.analyzeImpact({ file: 'src/auth.ts', symbol: 'authenticateUser' });
+const report = await analyzer.generateReport({ type: 'health', format: 'markdown' });
+```
+
+### Graph Store API
+```typescript
+import { SqliteStore } from '@code-analyzer/infra';
+
+const store = new SqliteStore();
+store.insertNode(node);           // Insert a graph node
+store.insertEdge(edge);           // Insert a graph edge
+store.getNode(id);                // Get node by ID
+store.getNodeByQualifiedName(qn); // Get node by qualified name
+store.queryNodes(query);          // Query nodes with filters
+store.queryEdges(query);          // Query edges with filters
+store.searchFts(query);           // Full-text search
+store.bfs(sourceId, maxDepth);    // BFS traversal
+store.transaction(() => { ... }); // Atomic transaction
+store.validateIntegrity(pid);     // Check graph integrity
+```
+
+### MCP Server API
+```typescript
+import { CodeAnalyzerMCPServer } from '@code-analyzer/mcp';
+
+const server = new CodeAnalyzerMCPServer({
+  toolProfile: 'all',
+  maxResults: 100,
+  enableResources: true,
+  enablePrompts: true,
+});
+
+await server.startStdio();      // stdio transport
+await server.startHTTP(3100);   // HTTP transport
+await server.shutdown();        // Graceful shutdown
+```
+
+### Code Review API
+```typescript
+import { CodeReviewEngine, PRReviewEngine } from '@code-analyzer/intelligence';
+
+const reviewEngine = new CodeReviewEngine(store);
+const session = await reviewEngine.reviewDiff(projectId, diffs);
+const comments = await reviewEngine.reviewFile(projectId, filePath, content);
+
+const prEngine = new PRReviewEngine(reviewEngine, store);
+const result = await prEngine.reviewPR(projectId, pullRequest, diffs);
+// result: { sessionId, comments, standardsResults, impactResult, summary }
+```
+
+### Standards API
+```typescript
+import { StandardsEngine } from '@code-analyzer/intelligence';
+
+const engine = new StandardsEngine();
+const result = engine.checkFiles(files, 'typescript-coding');
+console.log(`Compliance: ${result.complianceScore}%`);
+
+engine.registerStandard(customStandard);
+```
+
+### Search API
+```typescript
+import { HybridSearchEngine } from '@code-analyzer/intelligence';
+
+const search = new HybridSearchEngine(store);
+search.initialize();
+search.registerEmbeddings(lookupFn, embedFn);
+
+const results = await search.search({
+  query: 'authentication',
+  labels: ['Function', 'Method'],
+  limit: 20,
+});
+// Each result: { node, bm25Score, vectorScore, combinedScore }
+```
+
+## Configuration Essentials
+
+```json
+{
+  "projectId": "my-project",
+  "rootPath": ".",
+  "excludePatterns": ["node_modules/**", ".git/**", "dist/**"],
+  "parseWorkers": 4,
+  "mcp": { "toolProfile": "all", "maxResults": 100 },
+  "review": { "enabled": true, "maxComments": 50 },
+  "embed": { "enabled": true, "dimensions": 768 }
+}
+```
+
+Environment variables: `CODE_ANALYZER_*` prefix. Config merge order: defaults → `~/.code-analyzer/config.json` → `.code-analyzer.json` → env vars.
+
+## Language Support Matrix
+
+| Language | Definitions | Imports | Type Resolution | Call Graph | Routes | Accuracy |
+|----------|:----------:|:-------:|:---------------:|:----------:|:------:|:--------:|
+| TypeScript | ✅ | ✅ | ✅ | ✅ | ✅ | 99%+ |
+| JavaScript | ✅ | ✅ | ✅ | ✅ | ✅ | 99%+ |
+| Python | ✅ | ✅ | ✅ | ✅ | ✅ | 97%+ |
+| Go | ✅ | ✅ | ✅ | ✅ | ✅ | 98%+ |
+| Java | ✅ | ✅ | ✅ | ✅ | ✅ | 97%+ |
+| Kotlin | ✅ | ✅ | ✅ | ✅ | ✅ | 95%+ |
+| C# | ✅ | ✅ | ✅ | ✅ | ✅ | 97%+ |
+| Rust | ✅ | ✅ | ✅ | ✅ | ✅ | 96%+ |
+
+10 additional languages (C, C++, PHP, Ruby, Swift, Dart, Lua, Scala, Zig, Elixir) have basic file detection support.
+
+## Knowledge Graph Schema
+
+**33 Node Types**: Project, Package, Folder, File, Module, Class, Interface, Function, Method, Constructor, Property, Enum, TypeAlias, Struct, Trait, Variable, Route, Tool, Component, Test, Community, Process, Config, ADR, BasicBlock, InfraResource, CrossRepoFunction, CrossRepoInterface, CrossRepoModule, Contract, Event, DataSource, Sink
+
+**39 Relationship Types**: CONTAINS, DEFINES, HAS_METHOD, HAS_PROPERTY, MEMBER_OF, BELONGS_TO, EXTENDS, IMPLEMENTS, METHOD_OVERRIDES, METHOD_IMPLEMENTS, CALLS, IMPORTS, ACCESSES, INSTANTIATES, USES_TYPE, HANDLES_ROUTE, HANDLES_TOOL, EXPOSES, INJECTS, SIMILAR_TO, SEMANTICALLY_RELATED, TESTS, CHANGES_WITH, DATA_FLOWS, STEP_IN_PROCESS, CFG, REACHING_DEF, TAINTED, SANITIZES, TAINT_PATH, EMITS, LISTENS_ON, CONFIGURES, CROSS_REPO_DEPENDS, CROSS_REPO_CALLS, CROSS_REPO_IMPLEMENTS, CROSS_REPO_IMPORTS, CROSS_REPO_EXPOSES, CROSS_REPO_CONTRACT
+
+## 18-Phase DAG Pipeline
+
+scan → structure, markdown, config
+structure → parse
+parse → crossFile, scopeResolution, routes, tools, di
+scopeResolution → pruneLocalSymbols, processes, tests, dump
+crossFile → communities → dump
+routes → processes → dump
+dump → similarity, semantic, embed
+
+Execution uses Kahn's algorithm for topological sort. Failed phases cause dependents to be skipped.
+
+## MCP Tools (38 Total)
+
+**Indexing & Lifecycle (4)**: analyze_repository, list_projects, delete_project, index_status
+**Querying & Exploration (10)**: search_graph, search_code, semantic_search, trace_call_path, query_graph, get_code_snippet, get_architecture, get_graph_schema, explore_symbol, find_implementations
+**Change & Impact (4)**: detect_changes, impact_analysis, route_map, check_cycles
+**Code Review (2)**: review_diff, review_file
+**PR Review (2)**: review_pr, check_standards
+**Reports (3)**: generate_report, export_report, get_recommendations
+**Cross-Repo (6)**: cross_repo_search, cross_repo_trace, cross_repo_impact, manage_repo_group, sync_contracts, discover_related_repos
+**PDG (3)**: pdg_query, taint_analysis, explain_taint
+**Standards/ADR/Agent (4)**: list_standards, create_standard, manage_adr, install_skills
+
+## 10 Built-in Standards
+
+| ID | Category | Rules |
+|----|----------|-------|
+| `typescript-coding` | code-style | 7 rules (func lines, nesting, no-any, naming, return types, no-console) |
+| `python-pep8` | code-style | 5 rules (func lines, nesting, snake_case, PascalCase, docstrings) |
+| `go-idiomatic` | code-style | 4 rules (func lines, unused imports, comments, error handling) |
+| `security-baseline` | security | 5 rules (no eval, no innerHTML, parameterized SQL, no secrets, input validation) |
+| `api-design` | api-design | 4 rules (RESTful routes, HTTP methods, versioning, error responses) |
+| `testing-standards` | testing | 3 rules (naming, AAA pattern, independence) |
+| `error-handling` | error-handling | 3 rules (try/catch, propagation, logging) |
+| `documentation` | documentation | 3 rules (JSDoc, README, changelog) |
+| `architecture-layered` | architecture | 3 rules (no upward imports, no circular deps, module boundaries) |
+| `dependency-management` | dependency | 3 rules (no unused deps, version pinning, license compliance) |
+
+## Performance Benchmarks
+
+| Metric | Target |
+|--------|--------|
+| Indexing speed | 1M LOC in <60s |
+| Incremental update | <500ms per file |
+| Graph queries (BFS) | <10ms |
+| BM25 search | <50ms |
+| Vector search | <100ms |
+| Memory per 1K LOC | 3-5MB |
+
+## Key URLs
+- GitHub: https://github.com/AgentiX-E/code-analyzer
+- npm CLI: https://www.npmjs.com/package/@code-analyzer/cli
+- npm MCP: https://www.npmjs.com/package/@code-analyzer/mcp
+- npm Core: https://www.npmjs.com/package/@code-analyzer/core
+- npm Analyzer: https://www.npmjs.com/package/@code-analyzer/analyzer
+
+## Design Principles
+1. Strict 7-layer isolation — no upward dependencies
+2. Shared type system — `@code-analyzer/shared` is the single source of truth
+3. Interface-based abstraction — LanguageProvider, IInferenceEngine, etc.
+4. DAG-based execution — Kahn's algorithm for deterministic ordering
+5. Functional core, imperative shell — pure functions for computation, classes for coordination
+6. Zero external API calls — all processing is local
+7. Progressive disclosure — high-level conveniences + low-level primitives
