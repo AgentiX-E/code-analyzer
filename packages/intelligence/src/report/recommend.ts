@@ -131,7 +131,9 @@ export class RecommendationEngine {
     return groups;
   }
 
-  // ---- Private helpers ----
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
   private areRelated(a: Finding, b: Finding): boolean {
     // Same file path and category

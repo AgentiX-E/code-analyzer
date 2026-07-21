@@ -393,5 +393,42 @@ describe('ScopeResolver', () => {
       expect(bRef).toBeDefined();
       expect(bRef!.isResolved).toBe(true);
     });
+
+    it('should mark as unresolved when multiple candidate files exist', () => {
+      const symbolsA: SymbolDefinition[] = [
+        createSymbol('sharedFunc', 'Function', 'a.ts'),
+      ];
+      const symbolsB: SymbolDefinition[] = [
+        createSymbol('sharedFunc', 'Function', 'b.ts'),
+      ];
+      const symbolsC: SymbolDefinition[] = [];
+
+      const referencesC: ReferenceSite[] = [
+        createReference('c.ts', 5, 'sharedFunc', { referenceKind: 'call' }),
+      ];
+
+      const fileA: ParsedFile = {
+        filePath: 'a.ts', language: 'typescript', symbols: symbolsA,
+        references: [], scopeTree: {} as ScopeTree, ast: null,
+      };
+      const fileB: ParsedFile = {
+        filePath: 'b.ts', language: 'typescript', symbols: symbolsB,
+        references: [], scopeTree: {} as ScopeTree, ast: null,
+      };
+      const fileC: ParsedFile = {
+        filePath: 'c.ts', language: 'typescript', symbols: symbolsC,
+        references: referencesC, scopeTree: {} as ScopeTree, ast: null,
+      };
+
+      const trees = resolver.buildScopeTrees([fileA, fileB, fileC]);
+      const model = createSemanticModel();
+      const resolved = resolver.resolveReferences([fileA, fileB, fileC], trees, model);
+
+      const cRef = resolved.find((r) => r.sourceFile === 'c.ts');
+      expect(cRef).toBeDefined();
+      // Multiple candidates → unresolved (ambiguous)
+      expect(cRef!.isResolved).toBe(false);
+      expect(cRef!.resolutionType).toBe('unresolved');
+    });
   });
 });

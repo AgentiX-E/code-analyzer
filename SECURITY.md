@@ -26,13 +26,13 @@ We aim to:
 
 - All dependencies are pinned with exact versions in `pnpm-lock.yaml`
 - Regular `npm audit` runs on every PR via CI
-- SBOM (Software Bill of Materials) generated for every release
+- SBOM (Software Bill of Materials) generation planned for upcoming releases
 - Dependencies are reviewed before addition
 
 ### Code Security
 
 - CodeQL static analysis runs on every push to main and every PR
-- No secrets or credentials in source code (enforced by pre-commit hooks)
+- No secrets or credentials in source code
 - All user input is validated and sanitized
 - SQL injection prevention via parameterized queries
 - No `eval()` or dynamic code execution on untrusted input

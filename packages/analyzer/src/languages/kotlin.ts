@@ -10,6 +10,7 @@ import {
   extractClassLike,
   extractAnnotations,
   extractDocComments,
+  extractImportsAsCaptures,
 } from './base-c-like.js';
 
 const KOTLIN_EXTENSIONS = ['.kt', '.kts'];
@@ -58,7 +59,7 @@ export class KotlinProvider implements LanguageProvider {
     extractAnnotations(source, filePath, captures, '@');
 
     // Imports
-    this.extractImportsAsCaptures(source, filePath, captures);
+    extractImportsAsCaptures(source, filePath, captures, (s) => this.extractImports(s));
 
     // Doc comments (KDoc)
     extractDocComments(source, filePath, captures, /\/\*\*([\s\S]*?)\*\//g);
@@ -97,7 +98,9 @@ export class KotlinProvider implements LanguageProvider {
     return patterns.some((p) => p.test(source));
   }
 
-  // ── Private Helpers ──
+  // ---------------------------------------------------------------------------
+  // Private Helpers
+  // ---------------------------------------------------------------------------
 
   private extractKotlinFunctions(source: string, filePath: string, captures: UnifiedCapture[]): void {
     // fun functionName(...): ReturnType { }
@@ -203,19 +206,4 @@ export class KotlinProvider implements LanguageProvider {
     }
   }
 
-  private extractImportsAsCaptures(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const parsedImports = this.extractImports(source);
-    for (const imp of parsedImports) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: imp.source,
-        startLine: imp.lineNumber,
-        endLine: imp.lineNumber,
-        startByte: 0,
-        endByte: 0,
-        name: imp.source,
-        properties: { names: imp.names.join(','), importType: imp.type, filePath },
-      });
-    }
-  }
 }

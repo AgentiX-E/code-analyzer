@@ -980,4 +980,169 @@ describe('ChangeDetector edge cases', () => {
     // Should not crash, though empty qname means getNodeByQualifiedName returns null
     expect(results).toHaveLength(0);
   });
+
+  it('should handle nodes with null qualifiedName for callers/callees/tests/routes fallback', async () => {
+    // Create a changed node with dependents that have null qualifiedName
+    const changedNode = createNode(1, {
+      name: 'targetFn',
+      qualifiedName: 'pkg.targetFn',
+      filePath: '/src/target.ts',
+      startLine: 10,
+      endLine: 20,
+    });
+    store.insertNode(changedNode);
+
+    // Caller with null qualifiedName
+    const callerNode = createNode(3, {
+      name: 'caller',
+      qualifiedName: null as any,
+      filePath: '/src/caller.ts',
+      startLine: 1,
+      endLine: 5,
+    });
+    const callerId = store.insertNode(callerNode);
+    store.insertEdge(createEdge(301, { sourceId: callerId, targetId: 1, type: 'CALLS' }));
+
+    // Callee with null qualifiedName
+    const calleeNode = createNode(4, {
+      name: 'callee',
+      qualifiedName: null as any,
+      filePath: '/src/callee.ts',
+      startLine: 1,
+      endLine: 5,
+    });
+    const calleeId = store.insertNode(calleeNode);
+    store.insertEdge(createEdge(401, { sourceId: 1, targetId: calleeId, type: 'CALLS' }));
+
+    const diff = createDiff({ filePath: '/src/target.ts' });
+    const results = await detector.mapDiffToSymbols(PROJECT_ID, diff);
+    expect(results).toHaveLength(1);
+    // Fallback to node-{id} when qualifiedName is null
+    expect(results[0]!.callers).toContain(`node-${callerId}`);
+    expect(results[0]!.callees).toContain(`node-${calleeId}`);
+  });
+
+  it('should handle Route nodes with null routePath', async () => {
+    // Node with Route label but null routePath
+    const changedNode = createNode(1, {
+      name: 'handler',
+      qualifiedName: 'pkg.handler',
+      filePath: '/src/handler.ts',
+      startLine: 10,
+      endLine: 20,
+    });
+    store.insertNode(changedNode);
+
+    // Route node with null routePath
+    const routeNode = createNode(6, {
+      label: 'Route',
+      name: 'GET /api/data',
+      qualifiedName: 'route.api.data',
+      filePath: '/src/routes.ts',
+      startLine: 1,
+      endLine: 5,
+      properties: {
+        name: 'GET /api/data',
+        routePath: null,
+        routeMethod: 'GET',
+      },
+    });
+    const routeId = store.insertNode(routeNode);
+    store.insertEdge(createEdge(601, { sourceId: 1, targetId: routeId, type: 'HANDLES_ROUTE' }));
+
+    const diff = createDiff({ filePath: '/src/handler.ts' });
+    const results = await detector.mapDiffToSymbols(PROJECT_ID, diff);
+    expect(results).toHaveLength(1);
+    // routePath === null should still make isRoute true since label === 'Route'
+    expect(results[0]!.routes.length).toBeGreaterThan(0);
+  });
+
+  it('should handle test nodes with null qualifiedName fallback', async () => {
+    // Changed node
+    const changedNode = createNode(1, {
+      name: 'targetFn',
+      qualifiedName: 'pkg.targetFn',
+      filePath: '/src/target.ts',
+      startLine: 10,
+      endLine: 20,
+    });
+    store.insertNode(changedNode);
+
+    // Test node with null qualifiedName
+    const testNode = createNode(5, {
+      label: 'Test',
+      name: 'testTarget',
+      qualifiedName: null as any,
+      filePath: '/src/__tests__/target.test.ts',
+      startLine: 1,
+      endLine: 10,
+    });
+    const testNodeId = store.insertNode(testNode);
+    store.insertEdge(createEdge(501, { sourceId: testNodeId, targetId: 1, type: 'TESTS' }));
+
+    const diff = createDiff({ filePath: '/src/target.ts' });
+    const results = await detector.mapDiffToSymbols(PROJECT_ID, diff);
+    expect(results).toHaveLength(1);
+    // Fallback to node-{id} when qualifiedName is null
+    expect(results[0]!.tests).toContain(`node-${testNodeId}`);
+  });
+
+  it('should handle route target node with null qualifiedName fallback', async () => {
+    // Changed node
+    const changedNode = createNode(1, {
+      name: 'handler',
+      qualifiedName: 'pkg.handler',
+      filePath: '/src/handler.ts',
+      startLine: 10,
+      endLine: 20,
+    });
+    store.insertNode(changedNode);
+
+    // Route target node with null qualifiedName
+    const routeNode = createNode(6, {
+      label: 'Route',
+      name: 'GET /api/items',
+      qualifiedName: null as any,
+      filePath: '/src/routes.ts',
+      startLine: 1,
+      endLine: 5,
+      properties: {
+        name: 'GET /api/items',
+        routePath: '/api/items',
+        routeMethod: 'GET',
+      },
+    });
+    const routeId = store.insertNode(routeNode);
+    store.insertEdge(createEdge(601, { sourceId: 1, targetId: routeId, type: 'HANDLES_ROUTE' }));
+
+    const diff = createDiff({ filePath: '/src/handler.ts' });
+    const results = await detector.mapDiffToSymbols(PROJECT_ID, diff);
+    expect(results).toHaveLength(1);
+    // Fallback to node-{id} when qualifiedName is null for route target
+    expect(results[0]!.routes).toContain(`node-${routeId}`);
+  });
+
+  it('should handle non-Route node with routePath explicitly null', async () => {
+    // A Function node that has routePath set to null in properties
+    // This triggers the routePath !== null check (line 205)
+    const changedNode = createNode(1, {
+      name: 'regularFn',
+      qualifiedName: 'pkg.regularFn',
+      filePath: '/src/regular.ts',
+      startLine: 10,
+      endLine: 20,
+      label: 'Function',
+      properties: {
+        name: 'regularFn',
+        routePath: null,
+      },
+    });
+    store.insertNode(changedNode);
+
+    const diff = createDiff({ filePath: '/src/regular.ts' });
+    const results = await detector.mapDiffToSymbols(PROJECT_ID, diff);
+    expect(results).toHaveLength(1);
+    // isRoute should be false since label !== 'Route' AND routePath === null
+    expect(results[0]!.routes).toHaveLength(0);
+  });
 });

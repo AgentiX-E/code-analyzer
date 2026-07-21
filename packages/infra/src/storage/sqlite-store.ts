@@ -1,4 +1,4 @@
-// @code-analyzer/infra — SQLite Store
+// @code-analyzer/infra — In-Memory Graph Store
 // Typed Map-based in-memory store with full CRUD, FTS, BFS, and integrity checks.
 
 import type {
@@ -76,6 +76,7 @@ export class SqliteStore {
     nextEdgeIdSnapshot: number;
   }>;
 
+  // TODO: Use _dbPath for SQLite persistence in a future version.
   constructor(_dbPath?: string) {
     this.nodes = new Map();
     this.edges = new Map();

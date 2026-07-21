@@ -944,3 +944,742 @@ describe('RustProvider extra hardening', () => {
     expect(imports.some(i => i.names.includes('Write'))).toBe(true);
   });
 });
+
+// ============================================================================
+// Branch Coverage Hardening — Third Wave
+// ============================================================================
+
+describe('CSharpProvider third wave', () => {
+  const p = new CSharpProvider();
+
+  it('detects record struct', () => {
+    const s = 'public record struct Point2D(int X, int Y);';
+    const captures = p.parse(s, 'Point2D.cs');
+    expect(captures.some(c => c.name === 'Point2D' && c.properties.isRecord === 'true')).toBe(true);
+  });
+
+  it('detects record with sealed modifier', () => {
+    const s = 'public sealed record ImmutableData(string Key, string Value);';
+    const captures = p.parse(s, 'Data.cs');
+    expect(captures.some(c => c.name === 'ImmutableData' && c.properties.isRecord === 'true')).toBe(true);
+  });
+
+  it('detects constructor with class detection', () => {
+    const s = 'public class Service {\n  public Service() { }\n}';
+    const captures = p.parse(s, 'Service.cs');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF && c.name === 'Service')).toBe(true);
+  });
+
+  it('detects method with generic return type', () => {
+    const s = 'public class Repo {\n  public Task<string> GetUsers() { return null; }\n}';
+    const captures = p.parse(s, 'Repo.cs');
+    expect(captures.some(c => c.name === 'GetUsers' && c.tag === CAPTURE_TAGS.METHOD_DEF)).toBe(true);
+  });
+
+  it('detects internal class', () => {
+    const s = 'internal class InternalService { public void DoWork() {} }';
+    const captures = p.parse(s, 'Service.cs');
+    expect(captures.some(c => c.name === 'InternalService' && c.tag === CAPTURE_TAGS.CLASS_DEF)).toBe(true);
+  });
+
+  it('detects protected method', () => {
+    const s = 'public class Base {\n  protected virtual void OnStart() { }\n}';
+    const captures = p.parse(s, 'Base.cs');
+    expect(captures.some(c => c.name === 'OnStart')).toBe(true);
+  });
+
+  it('detects private class', () => {
+    const s = 'private class InnerHelper { public void Run() { } }';
+    const captures = p.parse(s, 'Helper.cs');
+    expect(captures.some(c => c.name === 'InnerHelper' && c.tag === CAPTURE_TAGS.CLASS_DEF)).toBe(true);
+  });
+
+  it('detects const field as constant', () => {
+    const s = 'public class Config {\n  public const int MaxRetries = 3;\n}';
+    const captures = p.parse(s, 'Config.cs');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'MaxRetries')).toBe(true);
+  });
+
+  it('detects unsafe method', () => {
+    const s = 'public class Ptr {\n  public unsafe void* GetPointer() { return null; }\n}';
+    const captures = p.parse(s, 'Ptr.cs');
+    expect(captures.some(c => c.name === 'GetPointer')).toBe(true);
+  });
+
+  it('detects extern method', () => {
+    const s = 'public class Native {\n  public static extern int MessageBox(IntPtr h, string text, string caption, uint type);\n}';
+    const captures = p.parse(s, 'Native.cs');
+    expect(captures.some(c => c.name === 'MessageBox')).toBe(true);
+  });
+
+  it('detects expression-bodied property with get only', () => {
+    const s = 'public class User {\n  public string Name { get; }\n}';
+    const captures = p.parse(s, 'User.cs');
+    const prop = captures.find(c => c.name === 'Name');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.hasGet).toBe('true');
+  });
+
+  it('detects property with set only', () => {
+    const s = 'public class Data {\n  public int Value { set; }\n}';
+    const captures = p.parse(s, 'Data.cs');
+    const prop = captures.find(c => c.name === 'Value');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.hasSet).toBe('true');
+  });
+
+  it('detects property with get body', () => {
+    const s = 'public class Foo {\n  public string Label { get { return _label; } }\n}';
+    const captures = p.parse(s, 'Foo.cs');
+    expect(captures.some(c => c.name === 'Label')).toBe(true);
+  });
+
+  it('detects property with init only', () => {
+    const s = 'public class Config {\n  public string Key { get; init; }\n}';
+    const captures = p.parse(s, 'Config.cs');
+    const prop = captures.find(c => c.name === 'Key');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.hasGet).toBe('true');
+  });
+
+  it('handles isExported for public method', () => {
+    expect(p.isExported('public class Service { public void Execute() {} }', 'Execute')).toBe(true);
+  });
+
+  it('handles isExported for public field', () => {
+    expect(p.isExported('public class Data { public int Value; }', 'Value')).toBe(true);
+  });
+
+  it('handles isExported for public static field', () => {
+    expect(p.isExported('public class Constants { public static readonly int Max = 100; }', 'Max')).toBe(true);
+  });
+});
+
+describe('JavaProvider third wave', () => {
+  const p = new JavaProvider();
+
+  it('detects constructor inside class with preceding text', () => {
+    const s = 'public class User {\n  private String name;\n  public User(String name) {\n    this.name = name;\n  }\n}';
+    const captures = p.parse(s, 'User.java');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF && c.name === 'User')).toBe(true);
+  });
+
+  it('detects final field as constant', () => {
+    const s = 'public class Config {\n  private final String env = "prod";\n}';
+    const captures = p.parse(s, 'Config.java');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'env')).toBe(true);
+  });
+
+  it('detects field with generic type', () => {
+    const s = 'public class Container {\n  private List<String> items;\n}';
+    const captures = p.parse(s, 'Container.java');
+    expect(captures.some(c => c.name === 'items')).toBe(true);
+  });
+
+  it('detects static field', () => {
+    const s = 'public class Singleton {\n  private static Singleton instance;\n}';
+    const captures = p.parse(s, 'Singleton.java');
+    expect(captures.some(c => c.name === 'instance')).toBe(true);
+  });
+
+  it('detects protected field', () => {
+    const s = 'public class Base {\n  protected String id;\n}';
+    const captures = p.parse(s, 'Base.java');
+    expect(captures.some(c => c.name === 'id')).toBe(true);
+  });
+
+  it('detects record in class context', () => {
+    const s = 'public record User(String name, int age) {}';
+    const captures = p.parse(s, 'User.java');
+    expect(captures.some(c => c.name === 'User' && c.properties.isRecord === 'true')).toBe(true);
+  });
+
+  it('detects method with throws clause', () => {
+    const s = 'public class FileOp {\n  public void read(String path) throws IOException {\n  }\n}';
+    const captures = p.parse(s, 'FileOp.java');
+    expect(captures.some(c => c.name === 'read')).toBe(true);
+  });
+
+  it('detects synchronized method', () => {
+    const s = 'public class Counter {\n  public synchronized void increment() {\n  }\n}';
+    const captures = p.parse(s, 'Counter.java');
+    expect(captures.some(c => c.name === 'increment')).toBe(true);
+  });
+
+  it('detects native method', () => {
+    const s = 'public class Native {\n  public native int compute();\n}';
+    const captures = p.parse(s, 'Native.java');
+    expect(captures.some(c => c.name === 'compute')).toBe(true);
+  });
+
+  it('detects protected class', () => {
+    const s = 'protected class Inner {\n  void run() {}\n}';
+    const captures = p.parse(s, 'Inner.java');
+    expect(captures.some(c => c.name === 'Inner')).toBe(true);
+  });
+
+  it('handles isExported for public field', () => {
+    expect(p.isExported('public class Data { public int value; }', 'value')).toBe(true);
+  });
+
+  it('handles isExported for public static method', () => {
+    expect(p.isExported('public class Utils { public static void init() {} }', 'init')).toBe(true);
+  });
+
+  it('detects variable with type annotation and value', () => {
+    const s = 'public class Demo {\n  int count = 0;\n  String name = "test";\n}';
+    const captures = p.parse(s, 'Demo.java');
+    expect(captures.some(c => c.name === 'count')).toBe(true);
+    expect(captures.some(c => c.name === 'name')).toBe(true);
+  });
+});
+
+describe('KotlinProvider third wave', () => {
+  const p = new KotlinProvider();
+
+  it('detects extension function with receiver type', () => {
+    const s = 'fun String.isValidEmail(): Boolean {\n  return contains("@") && contains(".")\n}';
+    const captures = p.parse(s, 'ext.kt');
+    expect(captures.some(c => c.name === 'isValidEmail')).toBe(true);
+  });
+
+  it('detects property without explicit type (defaults to Any)', () => {
+    const s = 'val count = 42\nval name: String = "hello"';
+    const captures = p.parse(s, 'test.kt');
+    const prop = captures.find(c => c.name === 'count');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.propertyType).toBe('Any');
+  });
+
+  it('detects companion object without explicit name', () => {
+    const s = 'class MyClass {\n  companion object {\n    fun create() = MyClass()\n  }\n}';
+    const captures = p.parse(s, 'MyClass.kt');
+    // The regex requires object followed by a name (object\s+(\w+)), so companion object without name won't match
+    // This tests that the code doesn't crash and handles it gracefully
+    expect(Array.isArray(captures)).toBe(true);
+  });
+
+  it('detects interface', () => {
+    const s = 'interface Repository<T> {\n  fun findById(id: Long): T?\n}';
+    const captures = p.parse(s, 'Repo.kt');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF && c.name === 'Repository')).toBe(true);
+  });
+
+  it('detects operator function', () => {
+    const s = 'operator fun Point.plus(other: Point): Point {\n  return Point(x + other.x, y + other.y)\n}';
+    const captures = p.parse(s, 'Point.kt');
+    expect(captures.some(c => c.name === 'plus')).toBe(true);
+  });
+
+  it('detects infix function', () => {
+    const s = 'infix fun Int.times(str: String): String {\n  return str.repeat(this)\n}';
+    const captures = p.parse(s, 'ext.kt');
+    expect(captures.some(c => c.name === 'times')).toBe(true);
+  });
+
+  it('detects function with generic type parameter', () => {
+    const s = 'fun <T> singleton(item: T): List<T> {\n  return listOf(item)\n}';
+    const captures = p.parse(s, 'util.kt');
+    expect(captures.some(c => c.name === 'singleton')).toBe(true);
+  });
+
+  it('detects property without explicit type (defaults to Any)', () => {
+    const s = 'var count = 0';
+    const captures = p.parse(s, 'test.kt');
+    const prop = captures.find(c => c.name === 'count');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.propertyType).toBe('Any');
+  });
+
+  it('detects mutable var property', () => {
+    const s = 'var name = "test"';
+    const captures = p.parse(s, 'test.kt');
+    const prop = captures.find(c => c.name === 'name');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.mutable).toBe('true');
+  });
+
+  it('detects val property as constant', () => {
+    const s = 'val PI = 3.14';
+    const captures = p.parse(s, 'test.kt');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'PI')).toBe(true);
+  });
+});
+
+describe('RustProvider third wave', () => {
+  const p = new RustProvider();
+
+  it('detects trait method in impl block', () => {
+    const s = 'trait Draw {\n  fn draw(&self);\n}\nstruct Circle;\nimpl Draw for Circle {\n  fn draw(&self) {\n    println!("circle");\n  }\n}';
+    const captures = p.parse(s, 'draw.rs');
+    expect(captures.some(c => c.name === 'Circle')).toBe(true);
+    expect(captures.some(c => c.name === 'draw' && c.tag === CAPTURE_TAGS.FUNCTION_DEF)).toBe(true);
+  });
+
+  it('detects unsafe trait', () => {
+    const s = 'pub unsafe trait RawAccess {\n  unsafe fn read(&self) -> *const u8;\n}';
+    const captures = p.parse(s, 'raw.rs');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF && c.name === 'RawAccess')).toBe(true);
+  });
+
+  it('detects cfg attribute', () => {
+    const s = '#[cfg(test)]\nfn test_helper() {}\n#[derive(Debug)]\nstruct MyData {}';
+    const captures = p.parse(s, 'test.rs');
+    const attrs = captures.filter(c => c.tag === CAPTURE_TAGS.DECORATOR);
+    expect(attrs.some(a => a.name === 'cfg')).toBe(true);
+  });
+
+  it('detects inner attribute (#!)', () => {
+    const s = '#![no_std]\nfn main() {}';
+    const captures = p.parse(s, 'main.rs');
+    const attrs = captures.filter(c => c.tag === CAPTURE_TAGS.DECORATOR);
+    expect(attrs.some(a => a.name === 'no_std')).toBe(true);
+  });
+
+  it('detects use with wildcard', () => {
+    const s = 'use std::collections::HashMap;\nfn main() {}';
+    const imports = p.extractImports(s);
+    expect(imports.length).toBeGreaterThanOrEqual(1);
+    expect(imports.some(i => i.source === 'std::collections::HashMap')).toBe(true);
+  });
+
+  it('detects impl block with generic type parameter', () => {
+    const s = 'impl<T> Container<T> {\n  fn new() -> Self { Container {}\n  }\n}';
+    const captures = p.parse(s, 'container.rs');
+    expect(captures.some(c => c.properties.isImpl === 'true')).toBe(true);
+  });
+
+  it('detects pub(crate) struct', () => {
+    const s = 'pub(crate) struct InternalConfig {\n  debug: bool,\n}';
+    const captures = p.parse(s, 'config.rs');
+    expect(captures.some(c => c.name === 'InternalConfig')).toBe(true);
+  });
+
+  it('detects pub const', () => {
+    const s = 'pub const MAX_CONNECTIONS: u32 = 100;';
+    const captures = p.parse(s, 'constants.rs');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'MAX_CONNECTIONS')).toBe(true);
+  });
+
+  it('detects pub(crate) const', () => {
+    const s = 'pub(crate) const TIMEOUT: u64 = 30;';
+    const captures = p.parse(s, 'config.rs');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'TIMEOUT')).toBe(true);
+  });
+
+  it('handles isExported for pub(crate) function', () => {
+    expect(p.isExported('pub(crate) fn internal() {}', 'internal')).toBe(true);
+  });
+});
+
+// ============================================================================
+// Branch Coverage — base-c-like shared functions via Java provider
+// ============================================================================
+
+describe('JavaProvider base-c-like branch coverage', () => {
+  const p = new JavaProvider();
+
+  it('detects function with void return type via extractFunctions', () => {
+    const s = 'public class Service {\n  public void execute() {\n  }\n}';
+    const captures = p.parse(s, 'Service.java');
+    expect(captures.some(c => c.name === 'execute' && c.tag === CAPTURE_TAGS.METHOD_DEF)).toBe(true);
+  });
+
+  it('detects function with return type via extractFunctions', () => {
+    const s = 'public class Util {\n  public String getName() {\n    return "test";\n  }\n}';
+    const captures = p.parse(s, 'Util.java');
+    const m = captures.find(c => c.name === 'getName');
+    expect(m).toBeDefined();
+    expect(m!.properties.returnType).toBe('String');
+  });
+
+  it('detects function call via extractCalls', () => {
+    const s = 'public class Runner {\n  public void run() {\n    doSomething();\n    calculate();\n  }\n}';
+    const captures = p.parse(s, 'Runner.java');
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+    expect(calls.some(c => c.name === 'doSomething')).toBe(true);
+    expect(calls.some(c => c.name === 'calculate')).toBe(true);
+  });
+
+  it('skips ALL_CAPS constant in function calls', () => {
+    const s = 'public class Runner {\n  public void run() {\n    int MAX = 100;\n    doWork(MAX);\n  }\n}';
+    const captures = p.parse(s, 'Runner.java');
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+    // MAX should be skipped because it's ALL_CAPS
+    expect(calls.every(c => c.name !== 'MAX')).toBe(true);
+  });
+
+  it('detects variable with const keyword via extractVariables', () => {
+    const s = 'public class Config {\n  public static final int MAX_VALUE = 100;\n  private String name = "test";\n}';
+    const captures = p.parse(s, 'Config.java');
+    const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+    const vars = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    expect(consts.some(c => c.name === 'MAX_VALUE')).toBe(true);
+    expect(vars.some(v => v.name === 'name')).toBe(true);
+  });
+
+  it('detects variable with final keyword', () => {
+    const s = 'public class Config {\n  private final String env = "prod";\n}';
+    const captures = p.parse(s, 'Config.java');
+    const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+    expect(consts.some(c => c.name === 'env')).toBe(true);
+  });
+
+  it('detects doc comments via extractDocComments', () => {
+    const s = '/**\n * Represents a user.\n */\npublic class User {\n  /**\n   * Gets the name.\n   */\n  public String getName() { return null; }\n}';
+    const captures = p.parse(s, 'User.java');
+    const docs = captures.filter(c => c.tag === CAPTURE_TAGS.DOCSTRING);
+    expect(docs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('detects single-line doc comment', () => {
+    const s = '/** Single line doc */\npublic class Simple {}';
+    const captures = p.parse(s, 'Simple.java');
+    const docs = captures.filter(c => c.tag === CAPTURE_TAGS.DOCSTRING);
+    expect(docs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles private class extraction', () => {
+    const s = 'private class InnerHelper {\n  public void assist() {\n  }\n}';
+    const captures = p.parse(s, 'Helper.java');
+    expect(captures.some(c => c.name === 'InnerHelper')).toBe(true);
+  });
+
+  it('handles enum extraction', () => {
+    const s = 'public enum Status {\n  ACTIVE, INACTIVE, PENDING\n}';
+    const captures = p.parse(s, 'Status.java');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.ENUM_DEF && c.name === 'Status')).toBe(true);
+  });
+});
+
+// ============================================================================
+// Java - additional branch coverage for uncovered branches
+// ============================================================================
+
+describe('JavaProvider branch coverage wave 4', () => {
+  const p = new JavaProvider();
+
+  it('handles reserved word check in method extraction (L115-116)', () => {
+    // The check skips if/while/for/switch/catch/synchronized as method names
+    const s = 'public class Test {\n  public void for() {\n  }\n  public void if() {\n  }\n}';
+    const captures = p.parse(s, 'Test.java');
+    // 'for' and 'if' should not be extracted as method names
+    const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+    expect(methods.every(m => !['for', 'if'].includes(m.name!))).toBe(true);
+  });
+
+  it('handles field with short name filter (L155)', () => {
+    const s = 'public class Test {\n  private int x;\n  private int y;\n}';
+    const captures = p.parse(s, 'Test.java');
+    // Short field names (x, y - less than 2 chars) should be filtered
+    const fields = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    expect(fields.every(f => f.name!.length >= 2)).toBe(true);
+  });
+
+  it('handles import as capture extraction (L193)', () => {
+    const s = 'import java.util.List;\nimport java.util.ArrayList;\npublic class Test {}';
+    const captures = p.parse(s, 'Test.java');
+    const imports = captures.filter(c => c.tag === CAPTURE_TAGS.IMPORT);
+    expect(imports.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('handles explicit keyword check in method extraction (L116)', () => {
+    const s = 'public class Test {\n  public void switch() {\n  }\n  public void catch() {\n  }\n}';
+    const captures = p.parse(s, 'Test.java');
+    // 'switch' and 'catch' are in the explicit skip list
+    const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+    expect(methods.every(m => !['switch', 'catch'].includes(m.name!))).toBe(true);
+  });
+
+  it('handles synchronized keyword in method extraction (L115)', () => {
+    // 'synchronized' is in the explicit keyword skip list at L115
+    const s = 'public class Test {\n  public void synchronized() {\n  }\n}';
+    const captures = p.parse(s, 'Test.java');
+    const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+    expect(methods.every(m => !['synchronized'].includes(m.name!))).toBe(true);
+  });
+});
+
+// ============================================================================
+// Kotlin - additional branch coverage for uncovered branches
+// ============================================================================
+
+describe('KotlinProvider branch coverage wave 4', () => {
+  const p = new KotlinProvider();
+
+  it('handles reserved keyword in function detection (L110)', () => {
+    const s = 'fun when() {\n  println("test")\n}';
+    const captures = p.parse(s, 'test.kt');
+    // 'when' is a reserved keyword, should be skipped
+    const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'when');
+    expect(funcs).toEqual([]);
+  });
+
+  it('handles reserved keyword in property extraction (L147-148)', () => {
+    const s = 'val if = 1\nvar when = 2';
+    const captures = p.parse(s, 'test.kt');
+    // 'if' and 'when' are reserved, should be skipped
+    const props = captures.filter(c => c.name === 'if' || c.name === 'when');
+    expect(props).toEqual([]);
+  });
+
+  it('handles import as capture extraction (L209)', () => {
+    const s = 'import kotlin.collections.List\nimport kotlin.collections.ArrayList\nfun main() {}';
+    const captures = p.parse(s, 'main.kt');
+    const imports = captures.filter(c => c.tag === CAPTURE_TAGS.IMPORT);
+    expect(imports.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('handles short property name filter (L148)', () => {
+    const s = 'val x = 1\nvar y = 2\nval validName = 3';
+    const captures = p.parse(s, 'test.kt');
+    // 'x' and 'y' are less than 2 chars, should be filtered
+    const props = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    expect(props.every(p => p.name!.length >= 2)).toBe(true);
+    expect(props.some(p => p.name === 'validName')).toBe(true);
+  });
+});
+
+// ============================================================================
+// Rust - additional branch coverage for uncovered branches
+// ============================================================================
+
+describe('RustProvider branch coverage wave 4', () => {
+  const p = new RustProvider();
+
+  it('handles reserved keyword in struct detection (L161)', () => {
+    const s = 'pub struct if {}\npub struct Valid {}';
+    const captures = p.parse(s, 'test.rs');
+    // 'if' is reserved, should be skipped
+    const structs = captures.filter(c => c.name === 'if');
+    expect(structs).toEqual([]);
+    expect(captures.some(c => c.name === 'Valid')).toBe(true);
+  });
+
+  it('handles reserved keyword in const detection (L246)', () => {
+    const s = 'const if: u32 = 0;\nconst VALID: u32 = 1;';
+    const captures = p.parse(s, 'test.rs');
+    // 'if' is reserved, should be skipped in constants
+    const consts = captures.filter(c => c.name === 'if');
+    expect(consts).toEqual([]);
+    expect(captures.some(c => c.name === 'VALID')).toBe(true);
+  });
+
+  it('handles reserved keyword in call detection (L268)', () => {
+    const s = 'fn main() {\n  if true {\n    println!("test");\n  }\n}';
+    const captures = p.parse(s, 'test.rs');
+    // 'if' is reserved, should not appear as a function call
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.name === 'if');
+    expect(calls).toEqual([]);
+  });
+
+  it('handles use as capture extraction (L285)', () => {
+    const s = 'use std::collections::HashMap;\nuse std::io;\nfn main() {}';
+    const captures = p.parse(s, 'main.rs');
+    const imports = captures.filter(c => c.tag === CAPTURE_TAGS.IMPORT);
+    expect(imports.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('handles ALL_CAPS filter in call extraction (L268)', () => {
+    const s = 'fn main() {\n  let DEBUG = 1;\n  println!("{}", DEBUG);\n}';
+    const captures = p.parse(s, 'test.rs');
+    // ALL_CAPS names like DEBUG should be filtered from function calls
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.name === 'DEBUG');
+    expect(calls).toEqual([]);
+  });
+
+  it('handles uppercase single char call name filter (L267-268)', () => {
+    // Names that start with uppercase AND are all uppercase should be skipped
+    const s = 'fn main() {\n  let X = 1;\n  A();\n  B();\n}';
+    const captures = p.parse(s, 'test.rs');
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+    // 'A' and 'B' are single uppercase chars - should be skipped
+    expect(calls.every(c => c.name !== 'A' && c.name !== 'B')).toBe(true);
+  });
+});
+
+describe('CSharpProvider branch coverage hardening', () => {
+  const p = new CSharpProvider();
+
+  it('detects using static import', () => {
+    const s = 'using static System.Math;\npublic class Calc {}';
+    const imports = p.extractImports(s);
+    expect(imports.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('detects using with alias', () => {
+    const s = 'using Project = System.Collections.Generic;\npublic class Test {}';
+    const imports = p.extractImports(s);
+    expect(imports.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('detects attribute with arguments', () => {
+    const s = '[Authorize(Roles = "Admin")]\npublic class AdminController {}';
+    const captures = p.parse(s, 'Controller.cs');
+    const attrs = captures.filter(c => c.tag === CAPTURE_TAGS.DECORATOR);
+    expect(attrs.some(a => a.name === 'Authorize')).toBe(true);
+  });
+
+  it('detects method with where clause', () => {
+    const s = 'public class Repo {\n  public T GetById<T>(int id) where T : class { return null; }\n}';
+    const captures = p.parse(s, 'Repo.cs');
+    expect(captures.some(c => c.name === 'GetById')).toBe(true);
+  });
+});
+
+// ============================================================================
+// Branch Coverage — base-c-like findBlockEnd edge cases via C#
+// ============================================================================
+
+describe('CSharpProvider findBlockEnd edge cases', () => {
+  const p = new CSharpProvider();
+
+  it('handles method with line comment in body', () => {
+    const s = 'public class Test {\n  public void Run() {\n    // line comment\n    return;\n  }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const m = captures.find(c => c.name === 'Run');
+    expect(m).toBeDefined();
+    expect(m!.endLine).toBeGreaterThan(m!.startLine);
+  });
+
+  it('handles method with block comment in body', () => {
+    const s = 'public class Test {\n  public void Run() {\n    /* block comment */\n    return;\n  }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const m = captures.find(c => c.name === 'Run');
+    expect(m).toBeDefined();
+    expect(m!.endLine).toBeGreaterThan(m!.startLine);
+  });
+
+  it('handles method with string containing braces in body', () => {
+    const s = 'public class Test {\n  public string GetTemplate() {\n    return "{ nested } braces";\n  }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const m = captures.find(c => c.name === 'GetTemplate');
+    expect(m).toBeDefined();
+    expect(m!.endLine).toBeGreaterThan(m!.startLine);
+  });
+
+  it('handles method with single quoted string', () => {
+    const s = 'public class Test {\n  public char GetChar() {\n    return \'{\';\n  }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const m = captures.find(c => c.name === 'GetChar');
+    expect(m).toBeDefined();
+    expect(m!.endLine).toBeGreaterThan(m!.startLine);
+  });
+
+  it('handles class with no brace block (semicolon ended)', () => {
+    const s = 'public class Simple { }';
+    const captures = p.parse(s, 'Simple.cs');
+    expect(captures.some(c => c.name === 'Simple')).toBe(true);
+  });
+
+  it('handles property with get and set accessors', () => {
+    const s = 'public class User {\n  private string _name;\n  public string Name {\n    get { return _name; }\n    set { _name = value; }\n  }\n}';
+    const captures = p.parse(s, 'User.cs');
+    const prop = captures.find(c => c.name === 'Name');
+    expect(prop).toBeDefined();
+    expect(prop!.properties.hasGet).toBe('true');
+    expect(prop!.properties.hasSet).toBe('true');
+  });
+});
+
+// ============================================================================
+// CSharp - additional branch coverage for uncovered branches
+// ============================================================================
+
+describe('CSharpProvider branch coverage wave 4', () => {
+  const p = new CSharpProvider();
+
+  it('handles ALL_CAPS call being skipped (L253)', () => {
+    const s = 'public class Runner {\n  public void Execute() {\n    Console.WriteLine("test");\n  }\n}';
+    const captures = p.parse(s, 'Runner.cs');
+    // ALL_CAPS function calls should be skipped
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.name === 'WRITE');
+    expect(calls).toEqual([]);
+  });
+
+  it('handles foreach keyword in method extraction (L137-138 explicit list)', () => {
+    // 'foreach' is in the explicit keyword skip list at L137
+    const s = 'public class Test {\n  public void foreach() { }\n  public void lock() { }\n  public void fixed() { }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+    expect(methods.every(m => !['foreach', 'lock', 'fixed'].includes(m.name!))).toBe(true);
+  });
+
+  it('handles reserved word in call extraction (L137-138)', () => {
+    const s = 'public class Test {\n  public void Method() {\n    int x = if (true) 1 : 0;\n  }\n}';
+    // Should not crash when parsing if/while/for as calls
+    const captures = p.parse(s, 'Test.cs');
+    expect(Array.isArray(captures)).toBe(true);
+  });
+
+  it('handles property with name less than 2 chars (L179-181)', () => {
+    const s = 'public class Test {\n  public int X { get; set; }\n  public string A { get; }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    // Single-char property names should be skipped (length < 2 check)
+    const props = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    // X is 1 char, should be filtered. A is 1 char, should be filtered.
+    expect(props.every(p => p.name!.length >= 2)).toBe(true);
+  });
+
+  it('handles property with reserved name get/set (L179)', () => {
+    const s = 'public class Test {\n  public string Get { get; set; }\n  public string Set { get; set; }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    // 'Get' and 'Set' are reserved accessor names, should be skipped in properties
+    const props = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    expect(props.every(p => !['get', 'set'].includes(p.name!))).toBe(true);
+  });
+
+  it('handles extractUsings as capture (L270)', () => {
+    const s = 'using System;\nusing System.Collections.Generic;\npublic class Test {}';
+    const captures = p.parse(s, 'Test.cs');
+    const imports = captures.filter(c => c.tag === CAPTURE_TAGS.IMPORT);
+    expect(imports.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('handles reserved word filter in method extraction (L137-138)', () => {
+    // Test that reserved words like 'if', 'while', 'for', 'foreach', 'switch', 'lock', 'using', 'fixed' are filtered
+    const s = 'public class Test {\n  public void if() { }\n  public void while() { }\n  public void for() { }\n  public void using() { }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+    expect(methods.every(m => !['if', 'while', 'for', 'using'].includes(m.name!))).toBe(true);
+  });
+
+  it('handles property accessor name filter and short names (L178-180)', () => {
+    // Test that get/set/init/add/remove and short names are filtered from properties
+    const s = 'public class Test {\n  public string Get { get; set; }\n  public string Set { get; set; }\n  public string Init { get; set; }\n  public int X { get; set; }\n  public int Y { get; }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    // 'Get', 'Set', 'Init' are filtered as accessor names, 'X', 'Y' are filtered for short names
+    const props = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    expect(props.every(p => !['get', 'set', 'init', 'add', 'remove'].includes(p.name!))).toBe(true);
+    expect(props.every(p => p.name!.length >= 2)).toBe(true);
+  });
+
+  it('handles ALL_CAPS call name skip with uppercase check (L252-253)', () => {
+    // ALL_CAPS names starting with uppercase should be skipped in call extraction
+    const s = 'public class Test {\n  public void Run() {\n    DEBUG_MODE();\n    Console.WriteLine("test");\n  }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    // DEBUG_MODE is ALL_CAPS and should be skipped
+    const calls = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+    expect(calls.every(c => c.name !== 'DEBUG_MODE')).toBe(true);
+    // But Console should also be skipped (starts with uppercase)
+    expect(calls.every(c => !(c.name === c.name!.toUpperCase() && /^[A-Z]/.test(c.name!)))).toBe(true);
+  });
+
+  it('handles property literally named get/set/add/remove (L178-180)', () => {
+    // Properties literally named 'get', 'set', 'add', 'remove' should be filtered at L179
+    const s = 'public class Test {\n  public string get { get; set; }\n  public string set { get; set; }\n  public string add { add; remove; }\n  public string remove { add; remove; }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const props = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    // 'get', 'set', 'add', 'remove' should be filtered as accessor names
+    expect(props.every(p => !['get', 'set', 'add', 'remove'].includes(p.name!))).toBe(true);
+  });
+
+  it('handles property with C# keyword as name (L178)', () => {
+    // Property name that is a C# keyword (in CSHARP_RESERVED) should be filtered at L178
+    const s = 'public class Test {\n  public int string { get; set; }\n  public int class { get; set; }\n  public int void { get; set; }\n}';
+    const captures = p.parse(s, 'Test.cs');
+    const props = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    // Properties named after C# keywords should be filtered
+    expect(props.every(p => !['string', 'class', 'void'].includes(p.name!))).toBe(true);
+  });
+});

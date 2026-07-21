@@ -778,6 +778,53 @@ describe('StandardsEngine edge cases', () => {
     expect(results[0]!.passed).toBe(true);
   });
 
+  it('handles regex with zero-length matches gracefully', () => {
+    const engine = makeEngine();
+    // A regex that matches zero-length strings would cause infinite loop without guard
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'zero-length-regex',
+      name: 'Zero Length Regex',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'zl-1',
+        description: 'Zero length match',
+        checkType: 'regex',
+        checkConfig: { pattern: '(?=x)', flags: 'g' }, // lookahead, zero-length match
+        severity: 'low',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    // Should not hang - zero-length matches are skipped
+    expect(() => engine.checkSource('x = 1;', 'f.ts', standard)).not.toThrow();
+  });
+
+  it('handles checkType default case (unknown type)', () => {
+    const engine = makeEngine();
+    // Use type assertion to create an invalid checkType to reach the default case
+    const standard: any = {
+      id: 'default-test',
+      name: 'Default Test',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'dt-1',
+        description: 'Default case test',
+        checkType: 'unknown-type' as any,
+        checkConfig: {},
+        severity: 'low' as any,
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const results = engine.checkSource('code', 'f.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.passed).toBe(true); // default returns empty
+  });
+
   it('handles metric check with nesting-depth', () => {
     const engine = makeEngine();
     const standard: import('@code-analyzer/shared').ProjectStandard = {

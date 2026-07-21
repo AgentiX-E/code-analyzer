@@ -10,6 +10,7 @@ import {
   extractClassLike,
   extractAnnotations,
   extractDocComments,
+  extractImportsAsCaptures,
 } from './base-c-like.js';
 
 const RUST_EXTENSIONS = ['.rs'];
@@ -22,7 +23,7 @@ const RUST_RESERVED: ReadonlySet<string> = new Set([
   'struct', 'super', 'trait', 'true', 'type', 'unsafe', 'use', 'where',
   'while', 'async', 'await', 'dyn', 'abstract', 'become', 'box', 'do',
   'final', 'macro', 'override', 'priv', 'typeof', 'unsized', 'virtual',
-  'yield', 'try', 'union', 'dyn', 'macro_rules',
+  'yield', 'try', 'union', 'macro_rules',
 ]);
 
 export class RustProvider implements LanguageProvider {
@@ -60,7 +61,7 @@ export class RustProvider implements LanguageProvider {
     this.extractRustAttributes(source, filePath, captures);
 
     // Use declarations (imports)
-    this.extractUses(source, filePath, captures);
+    extractImportsAsCaptures(source, filePath, captures, (s) => this.extractImports(s));
 
     // Doc comments (///, //!, /** */)
     extractDocComments(source, filePath, captures, /\/\/\/\s*(.*)/g);
@@ -127,7 +128,9 @@ export class RustProvider implements LanguageProvider {
     return patterns.some((p) => p.test(source));
   }
 
-  // ── Private Helpers ──
+  // ---------------------------------------------------------------------------
+  // Private Helpers
+  // ---------------------------------------------------------------------------
 
   private extractRustAttributes(source: string, filePath: string, captures: UnifiedCapture[]): void {
     // Rust attributes: #[derive(Debug)], #[cfg(test)], #![no_std]
@@ -279,19 +282,4 @@ export class RustProvider implements LanguageProvider {
     }
   }
 
-  private extractUses(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const parsedImports = this.extractImports(source);
-    for (const imp of parsedImports) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: imp.source,
-        startLine: imp.lineNumber,
-        endLine: imp.lineNumber,
-        startByte: 0,
-        endByte: 0,
-        name: imp.source,
-        properties: { names: imp.names.join(','), importType: imp.type, filePath },
-      });
-    }
-  }
 }

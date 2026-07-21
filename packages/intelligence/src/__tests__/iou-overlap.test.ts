@@ -250,4 +250,15 @@ describe('IoUOverlapDetector.filterOverlapping', () => {
     const iou = detector.computeIoU(a, b);
     expect(iou).toBe(0); // negative range results in 0 intersection
   });
+
+  it('should handle union === 0 guard clause', () => {
+    // The union===0 guard is theoretically unreachable with normal inputs
+    // because if intersection > 0, union >= intersection >= 1.
+    // We test with degenerate regions where endLine < startLine
+    // intersectionStart = max(5,5)=5, intersectionEnd = min(3,3)=3 → 5 > 3 → returns 0 early
+    const a: CommentRegion = { filePath: '/src/app.ts', startLine: 5, endLine: 3, commentId: 'a' };
+    const b: CommentRegion = { filePath: '/src/app.ts', startLine: 5, endLine: 3, commentId: 'b' };
+    const iou = detector.computeIoU(a, b);
+    expect(iou).toBe(0);
+  });
 });

@@ -299,5 +299,207 @@ describe('GoProvider', () => {
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs).toHaveLength(1);
     });
+
+    it('should detect method with pointer receiver and no return type', () => {
+      const source = 'package main\ntype Setter struct {}\nfunc (s *Setter) Apply() {\n\tprintln("applied")\n}';
+      const captures = provider.parse(source, 'test.go');
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods).toHaveLength(1);
+      expect(methods[0]!.name).toBe('Apply');
+      expect(methods[0]!.containerName).toBe('Setter');
+    });
+
+    it('should detect method with value receiver', () => {
+      const source = 'package main\ntype Calc struct {}\nfunc (c Calc) Value() int { return 0 }';
+      const captures = provider.parse(source, 'test.go');
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods).toHaveLength(1);
+      expect(methods[0]!.properties?.receiver).toBe('c');
+    });
+
+    it('should handle function with multiple params and no return', () => {
+      const source = 'package main\nfunc Print(a, b string) {\n\tprintln(a + b)\n}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.name).toBe('Print');
+    });
+
+    it('should handle struct tag with backticks', () => {
+      const source = 'package main\ntype Model struct {\n\tID int `json:"id"`\n\tName string `json:"name"`\n}';
+      const captures = provider.parse(source, 'test.go');
+      const structs = captures.filter((c) => c.tag === CAPTURE_TAGS.STRUCT_DEF);
+      expect(structs).toHaveLength(1);
+      expect(structs[0]!.name).toBe('Model');
+    });
+
+    it('should handle interface with method signatures', () => {
+      const source = 'package main\ntype Formatter interface {\n\tFormat() string\n\tReset()\n}';
+      const captures = provider.parse(source, 'test.go');
+      const interfaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(interfaces).toHaveLength(1);
+      expect(interfaces[0]!.name).toBe('Formatter');
+    });
+
+    it('should handle multi-line import with mixed styles', () => {
+      const source = 'import (\n\t"encoding/json"\n\tyaml "gopkg.in/yaml.v3"\n)';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(2);
+    });
+
+    it('should handle const with value', () => {
+      const source = 'package main\nconst APIKey = "abc123"\n';
+      const captures = provider.parse(source, 'test.go');
+      const consts = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(consts.some(c => c.name === 'APIKey')).toBe(true);
+    });
+  });
+
+  // ============================================================================
+  // Branch coverage hardening - wave 2
+  // ============================================================================
+
+  describe('import branch coverage hardening', () => {
+    it('should handle single import with slashed path (L52 ?? fallback)', () => {
+      // path.split('/').pop() ?? path - when path has no '/'
+      const source = 'import "simple"';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.names).toContain('simple');
+    });
+
+    it('should handle single import with deeply nested path (L52 split pop)', () => {
+      const source = 'import "github.com/user/repo/pkg"';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.names).toContain('pkg');
+    });
+
+    it('should handle multi-line import with alias and ?? fallback (L76)', () => {
+      // The innerMatch[1] ?? innerMatch[2]!.split('/').pop() ?? innerMatch[2]! fallback chain
+      const source = 'import (\n\t"encoding/json"\n\t_ "github.com/lib/pq"\n)';
+      const imports = provider.extractImports(source);
+      expect(imports.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should handle multi-line import with no alias (L76 innerMatch[1] undefined)', () => {
+      const source = 'import (\n\t"fmt"\n)';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('fmt');
+      expect(imports[0]!.type).toBe('named');
+    });
+  });
+
+  describe('findBlockEnd branch coverage hardening', () => {
+    it('should handle prev === empty string at i === 0 (L262 ternary false)', () => {
+      // When i === 0, prev is ''
+      const source = 'package main\nfunc Test() {\n\treturn\n}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Test');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle openPos === 0 so i starts at 0 in for loop (L262 prev=empty)', () => {
+      // When openPos is 0 (immediately after the match), the for loop i starts at 0
+      // This triggers the 'prev' ternary at L262 where i > 0 is false
+      const source = 'package main\nfunc Foo(){ return 42 }';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Foo');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle string with backtick in findBlockEnd (L276-277)', () => {
+      const source = 'package main\nfunc Test() {\n\ts := `raw string with "quotes"`\n\treturn\n}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Test');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle escaped quote in string (L271)', () => {
+      const source = 'package main\nfunc Test() {\n\ts := "escaped \\"quote\\""\n\treturn\n}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Test');
+      expect(funcs).toHaveLength(1);
+    });
+  });
+
+  // ============================================================================
+  // Branch coverage hardening
+  // ============================================================================
+
+  describe('branch coverage hardening', () => {
+    it('should handle sort with same line items (L40-41)', () => {
+      const source = 'package main\nimport "fmt"\nimport "os"\nconst A = 1\nconst B = 2';
+      const captures = provider.parse(source, 'test.go');
+      for (let i = 1; i < captures.length; i++) {
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
+      }
+    });
+
+    it('should handle single import name fallback (L53)', () => {
+      // The path.split('/').pop() ?? path fallback
+      const source = 'import "simple"';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.names).toContain('simple');
+    });
+
+    it('should handle multi-line import alias fallback (L77)', () => {
+      const source = 'import (\n\t"net/http"\n)';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('net/http');
+    });
+
+    it('should handle findBlockEnd with string (L263)', () => {
+      const source = 'package main\nfunc Test() {\n\ts := "string"\n\treturn\n}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Test');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle findBlockEnd brace depth reduction (L284)', () => {
+      const source = 'package main\nfunc Nested() {\n\tif true {\n\t\treturn\n\t}\n\treturn\n}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Nested');
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.endLine).toBeGreaterThan(funcs[0]!.startLine);
+    });
+
+    it('should sort by startByte when startLine is equal (L40-41)', () => {
+      const source = 'package main\nconst A = 1; const B = 2';
+      const captures = provider.parse(source, 'test.go');
+      // Both consts on same line, should be sorted by startByte
+      const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(consts.length).toBeGreaterThanOrEqual(2);
+      if (consts.length >= 2) {
+        expect(consts[0]!.startLine).toBeLessThanOrEqual(consts[1]!.startLine);
+      }
+    });
+
+    it('should filter reserved keyword function name (L103)', () => {
+      const source = 'package main\nfunc if() {}\nfunc for() {}\nfunc func() {}';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      // Reserved keywords should be filtered
+      expect(funcs.every(f => !['if', 'for', 'func'].includes(f.name!))).toBe(true);
+    });
+
+    it('should handle extra closing brace in findBlockEnd (L283 depth=0)', () => {
+      const source = 'package main\nfunc Extra() {\n\treturn\n} }';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Extra');
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.endLine).toBeGreaterThan(funcs[0]!.startLine);
+    });
+
+    it('should handle openPos === 0 in findBlockEnd (L262 i===0)', () => {
+      // Function where { immediately follows the match start
+      const source = 'func Foo(){ return }';
+      const captures = provider.parse(source, 'test.go');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Foo');
+      expect(funcs).toHaveLength(1);
+    });
   });
 });

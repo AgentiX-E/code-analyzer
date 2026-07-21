@@ -134,10 +134,4 @@ Use Code Analyzer as an MCP server with Claude, Cursor, or any MCP-compatible cl
 
 ## Next Steps
 
-- [Configuration Guide](./configuration.md) — Full configuration reference
-- [MCP Server Guide](./mcp-server.md) — MCP setup for Claude, Cursor, etc.
-- [VS Code Extension Guide](./vs-code-extension.md) — Extension features and usage
-- [Code Review Guide](./code-review.md) — Review workflow best practices
-- [Search Guide](./search-guide.md) — Search query syntax and tips
-- [API Reference](./api-reference.md) — HTTP API documentation
-- [CLI Reference](./cli-reference.md) — Complete CLI command reference
+More documentation coming soon.

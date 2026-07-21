@@ -379,6 +379,16 @@ describe('getLanguageFromFilename', () => {
   it('returns null for hidden file with no extension', () => {
     expect(getLanguageFromFilename('.gitignore')).toBe(null);
   });
+
+  it('detects .d.ts via secondary extension check (foo.d.ts)', () => {
+    expect(getLanguageFromFilename('foo.d.ts')).toBe('typescript');
+  });
+
+  it('handles file with no path separators (uses filename directly)', () => {
+    // split('/') returns ['file.ts'], pop() returns 'file.ts'
+    // ?? filePath fallback is unreachable but we verify the happy path
+    expect(getLanguageFromFilename('file.ts')).toBe('typescript');
+  });
 });
 
 // ---------------------------------------------------------------------------

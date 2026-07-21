@@ -32,7 +32,6 @@ code-analyzer/
 ├── .github/            # GitHub Actions workflows
 ├── .vscode/            # VS Code workspace settings
 ├── docs/               # Documentation
-├── grammars/           # Tree-sitter grammars
 ├── packages/           # Monorepo packages
 │   ├── cli/            # CLI entry point and commands
 │   ├── core/           # Domain models and abstractions
@@ -127,10 +126,10 @@ Unit tests must meet strict coverage thresholds:
 
 | Metric     | Threshold |
 |------------|-----------|
-| Lines      | 90%       |
-| Branches   | 85%       |
-| Functions  | 90%       |
-| Statements | 90%       |
+| Lines      | 95%       |
+| Branches   | 90%       |
+| Functions  | 95%       |
+| Statements | 95%       |
 
 Barrel files (`src/index.ts`) are excluded from coverage as they are covered by consumer tests.
 

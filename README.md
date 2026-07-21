@@ -11,7 +11,7 @@
 ## Features
 
 ### 🔍 Deep Code Understanding
-- **Multi-language graph**: Index 30+ languages into a unified knowledge graph with 25+ entity types and 25+ relationship types
+- **Multi-language graph**: Index 8 languages into a unified knowledge graph with 33 entity types and 39 relationship types
 - **Call graph tracing**: Follow function calls across files, packages, and services
 - **Scope-aware resolution**: Language-agnostic symbol resolution engine with type inference
 - **Architecture analysis**: Automatic community detection, hotspot identification, and dependency mapping
@@ -31,8 +31,8 @@
 ### 🔗 Flexible Deployment
 - **MCP Server**: stdio or HTTP transport for any MCP-compatible agent
 - **VS Code Extension**: Full sidebar, inline annotations, and Copilot Chat integration
-- **CLI**: 14 commands for scripting and CI/CD pipelines
-- **CI/CD**: GitHub Actions, GitLab CI, and custom integration support
+- **CLI**: CLI commands for scripting and CI/CD pipelines
+- **CI/CD**: GitHub Actions and custom integration support
 
 ---
 
@@ -67,17 +67,17 @@ Add to your AI agent's MCP configuration:
   "mcpServers": {
     "code-analyzer": {
       "command": "npx",
-      "args": ["@code-analyzer/cli", "mcp"]
+      "args": ["-y", "@code-analyzer/mcp"]
     }
   }
 }
 ```
 
-This gives your AI agent access to 20+ code intelligence tools.
+This gives your AI agent access to 38 code intelligence tools.
 
 ### VS Code Extension
 
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/) or search for "Code Analyzer" in the Extensions view.
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentiX-E.code-analyzer) or search for "Code Analyzer" in the Extensions view.
 
 Features:
 - **Copilot Chat**: Type `@code-analyzer` in Copilot Chat to explore your codebase with AI assistance
@@ -93,7 +93,7 @@ Code Analyzer follows a strict **seven-layer architecture**:
 
 ```
 Layer 7: Presentation    ← VS Code Extension, Web UI, CLI
-Layer 6: Integration     ← GitHub Actions, GitLab CI, Custom Adapters
+Layer 6: Integration     ← GitHub Actions, Custom Adapters
 Layer 5: Service         ← MCP Server (stdio/HTTP), REST API, WebSocket
 Layer 4: Intelligence    ← Search, Embeddings, Code Review, Impact Analysis
 Layer 3: Analysis Engine ← Pipeline, Parsing, Resolution, Graph Building
@@ -117,14 +117,8 @@ Each layer depends only on the layers below it, ensuring clean separation of con
 | Kotlin | ✅ | ✅ | ✅ | ✅ | ✅ |
 | C# | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Rust | ✅ | ✅ | ✅ | ✅ | ✅ |
-| C | ✅ | ✅ | ⬜ | ✅ | — |
-| C++ | ✅ | ✅ | ⬜ | ✅ | — |
-| PHP | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Ruby | ✅ | ✅ | ⬜ | ✅ | ✅ |
-| Swift | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Dart | ✅ | ✅ | ✅ | ✅ | — |
 
-> 30+ languages with varying analysis depth. Additional languages added on a rolling basis.
+> 8 languages with comprehensive analysis depth. Additional languages added on a rolling basis.
 
 ---
 
@@ -140,6 +134,8 @@ Each layer depends only on the layers below it, ensuring clean separation of con
 | `@code-analyzer/infra` | [![npm](https://img.shields.io/npm/v/@code-analyzer/infra)](https://npmjs.com/@code-analyzer/infra) | Infrastructure |
 | `@code-analyzer/core` | [![npm](https://img.shields.io/npm/v/@code-analyzer/core)](https://npmjs.com/@code-analyzer/core) | Foundation library |
 | `@code-analyzer/shared` | [![npm](https://img.shields.io/npm/v/@code-analyzer/shared)](https://npmjs.com/@code-analyzer/shared) | Shared types |
+| `@code-analyzer/vscode` | [![npm](https://img.shields.io/npm/v/@code-analyzer/vscode)](https://npmjs.com/@code-analyzer/vscode) | VS Code extension |
+| `@code-analyzer/web` | [![npm](https://img.shields.io/npm/v/@code-analyzer/web)](https://npmjs.com/@code-analyzer/web) | Web UI |
 
 ---
 

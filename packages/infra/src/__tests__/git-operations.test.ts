@@ -510,4 +510,48 @@ describe('parseDiff hunk parsing edge cases', () => {
     expect(gitOps.parseDiff('')).toEqual([]);
     expect(gitOps.parseDiff('   ')).toEqual([]);
   });
+
+  it('parses diff with file mode changes (deleted file mode)', () => {
+    const output = [
+      'diff --git a/removed.ts b/removed.ts',
+      'deleted file mode 100644',
+      '--- a/removed.ts',
+      '+++ /dev/null',
+      '@@ -1,5 +0,0 @@',
+      '-code here',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('deleted');
+  });
+
+  it('parses diff with rename', () => {
+    const output = [
+      'diff --git a/old.ts b/new.ts',
+      'rename from old.ts',
+      'rename to new.ts',
+      '--- a/old.ts',
+      '+++ b/new.ts',
+      '@@ -1,5 +1,5 @@',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('renamed');
+    expect(diffs[0]!.oldPath).toBe('old.ts');
+  });
+
+  it('parses diff with hunk having only one count number', () => {
+    // Hunk format: @@ -start,count +start,count @@
+    // Sometimes count is omitted when it's 1
+    const output = [
+      'diff --git a/single.ts b/single.ts',
+      '--- a/single.ts',
+      '+++ b/single.ts',
+      '@@ -1 +1 @@',
+      ' line',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.ranges.length).toBe(1);
+  });
 });

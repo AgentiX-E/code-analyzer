@@ -256,3 +256,28 @@ export function extractDocComments(
     });
   }
 }
+
+/**
+ * Convert parsed imports into UnifiedCapture entries.
+ * Shared across C-like language providers (Java, Kotlin, C#, Rust).
+ */
+export function extractImportsAsCaptures(
+  source: string,
+  filePath: string,
+  captures: UnifiedCapture[],
+  extractImports: (source: string) => ParsedImport[],
+): void {
+  const parsedImports = extractImports(source);
+  for (const imp of parsedImports) {
+    captures.push({
+      tag: CAPTURE_TAGS.IMPORT,
+      text: imp.source,
+      startLine: imp.lineNumber,
+      endLine: imp.lineNumber,
+      startByte: 0,
+      endByte: 0,
+      name: imp.source,
+      properties: { names: imp.names.join(','), importType: imp.type, filePath },
+    });
+  }
+}

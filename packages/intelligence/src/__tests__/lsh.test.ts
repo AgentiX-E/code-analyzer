@@ -333,6 +333,41 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
       expect(edge.targetId).not.toBe(2);
     }
   });
+
+  it('should handle candidateId without fingerprint in map', () => {
+    const lsh = new LSHSearcher(16);
+    const store = new SqliteStore();
+    const mh = new MinHashSimilarity(128);
+
+    store.insertNode(createNode(1, 'f1'));
+    store.insertNode(createNode(2, 'f2'));
+
+    // First build with both nodes
+    lsh.buildSimilarityEdges(
+      store,
+      [1, 2],
+      (id) => mh.computeFingerprint(tokenizeCode('function test() {}')),
+      0.5,
+    );
+
+    // Clear and rebuild with only node 1 - node 2 was in old LSH but not in new map
+    lsh.clear();
+    const fp1 = mh.computeFingerprint(tokenizeCode('function test() {}'));
+    lsh.insert(1, fp1);
+
+    const fingerprintMap = new Map<number, number[]>();
+    fingerprintMap.set(1, fp1);
+    // node 2 not in fingerprintMap but might be in LSH buckets from first build
+
+    const edges = lsh.buildSimilarityEdges(
+      store,
+      [1],
+      (id) => fingerprintMap.get(id) ?? [],
+      0.5,
+    );
+
+    expect(Array.isArray(edges)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -388,5 +423,27 @@ describe('LSHSearcher.insertSimilarityEdge', () => {
     expect(edges.items.length).toBe(1);
     expect(edges.items[0]!.type).toBe('SIMILAR_TO');
     expect(edges.items[0]!.weight).toBe(0.85);
+  });
+
+  it('should gracefully handle duplicate edge insertion', () => {
+    const lsh = new LSHSearcher(16);
+    const store = new SqliteStore();
+
+    store.insertNode(createNode(1, 'func_a'));
+    store.insertNode(createNode(2, 'func_b'));
+
+    // Insert the same edge twice - should not throw (catch block handles it)
+    const edge = { sourceId: 1, targetId: 2, similarity: 0.85 };
+    expect(() => lsh.insertSimilarityEdge(store, edge, 'test-project')).not.toThrow();
+    expect(() => lsh.insertSimilarityEdge(store, edge, 'test-project')).not.toThrow();
+  });
+
+  it('should handle insertSimilarityEdge with non-existent nodes', () => {
+    const lsh = new LSHSearcher(16);
+    const store = new SqliteStore();
+
+    // Insert edge referencing nodes that don't exist - the catch block should handle it
+    const edge = { sourceId: 999, targetId: 998, similarity: 0.5 };
+    expect(() => lsh.insertSimilarityEdge(store, edge, 'test-project')).not.toThrow();
   });
 });

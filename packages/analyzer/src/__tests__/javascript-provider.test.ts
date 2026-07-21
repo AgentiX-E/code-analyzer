@@ -343,5 +343,200 @@ describe('JavaScriptProvider', () => {
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'bar');
       expect(funcs).toHaveLength(1);
     });
+
+    it('should detect arrow function with implicit return', () => {
+      const source = 'const add = (a, b) => a + b;';
+      const captures = provider.parse(source, 'test.js');
+      const arrowFuncs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true');
+      expect(arrowFuncs.length).toBeGreaterThanOrEqual(1);
+      expect(arrowFuncs.some(f => f.name === 'add')).toBe(true);
+    });
+
+    it('should detect arrow function with block body', () => {
+      const source = 'const compute = (x) => {\n  return x * 2;\n};';
+      const captures = provider.parse(source, 'test.js');
+      const arrowFuncs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true');
+      expect(arrowFuncs.some(f => f.name === 'compute')).toBe(true);
+    });
+
+    it('should detect async arrow function', () => {
+      const source = 'const fetch = async (url) => { return await request(url); };';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some(f => f.name === 'fetch')).toBe(true);
+    });
+
+    it('should detect class with static method', () => {
+      const source = 'class Util {\n  static create() { return new Util(); }\n}';
+      const captures = provider.parse(source, 'test.js');
+      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some(m => m.name === 'create')).toBe(true);
+    });
+
+    it('should detect class with multiple methods', () => {
+      const source = 'class Calculator {\n  constructor() { this.result = 0; }\n  add(n) { this.result += n; return this; }\n  get() { return this.result; }\n}';
+      const captures = provider.parse(source, 'test.js');
+      const constructors = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(constructors).toHaveLength(1);
+      expect(methods.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should detect export function with isExported', () => {
+      expect(provider.isExported('export function init() { return true; }', 'init')).toBe(true);
+    });
+
+    it('should detect function assigned with const as variable', () => {
+      const source = 'const handler = function process() { return "done"; };';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      // The named function 'process' inside the assignment should be detected
+      expect(funcs.some(f => f.name === 'process')).toBe(true);
+    });
+
+    it('should detect destructured require', () => {
+      const source = 'const { join, resolve } = require("path");';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.names).toContain('join');
+      expect(imports[0]!.names).toContain('resolve');
+    });
+
+    it('should handle export with named aliases', () => {
+      expect(provider.isExported('export { foo as default };', 'foo')).toBe(true);
+    });
+
+    it('should detect route with use method', () => {
+      const source = 'app.use("/api", middleware);';
+      const captures = provider.parse(source, 'test.js');
+      const routes = captures.filter(c => c.tag === CAPTURE_TAGS.ROUTE_PATH);
+      expect(routes.length).toBeGreaterThanOrEqual(1);
+      expect(routes.some(r => r.name === '/api')).toBe(true);
+    });
+
+    it('should handle export of let declaration', () => {
+      expect(provider.isExported('export let count = 0', 'count')).toBe(true);
+    });
+  });
+
+  // ============================================================================
+  // Branch coverage hardening - wave 2
+  // ============================================================================
+
+  describe('JSX component reserved keyword filter', () => {
+    it('should skip reserved keyword in JSX component detection (L262)', () => {
+      // A function named after a reserved keyword returning JSX should be filtered
+      const source = 'const class = () => { return <div>test</div>; };';
+      const captures = provider.parse(source, 'test.jsx');
+      // 'class' is a reserved keyword, should be skipped
+      const components = captures.filter(c => c.tag === CAPTURE_TAGS.COMPONENT_PROPS && c.name === 'class');
+      expect(components).toEqual([]);
+    });
+
+    it('should skip lowercase JSX-like function in component detection (L263)', () => {
+      const source = 'const render = () => { return <span>hi</span>; };';
+      const captures = provider.parse(source, 'test.jsx');
+      // 'render' starts with lowercase, should be skipped as component
+      const components = captures.filter(c => c.tag === CAPTURE_TAGS.COMPONENT_PROPS && c.name === 'render');
+      expect(components).toEqual([]);
+    });
+  });
+
+  describe('findBlockEnd branch coverage', () => {
+    it('should handle prev === empty at i === 0 (L364 ternary false)', () => {
+      const source = 'function foo() {\n  return 1;\n}';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'foo');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle openPos === 0 so i starts at 0 (L364 prev empty)', () => {
+      // When openPos is 0 (brace immediately after match), for loop starts at i=0
+      const source = 'function bar(){ return 2; }';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'bar');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle brace depth reduction (L376 else branch)', () => {
+      // When depth > 0 and closing brace is found, depth-- (not return)
+      const source = 'function nested() {\n  if (true) {\n    return 1;\n  }\n  return 0;\n}';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'nested');
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.endLine).toBeGreaterThan(funcs[0]!.startLine);
+    });
+
+    it('should handle closing brace at depth 0 (L376 if depth===0)', () => {
+      // First closing brace at depth 0 triggers return
+      const source = 'function simple() {\n  return 1;\n}';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'simple');
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.endLine).toBeGreaterThan(funcs[0]!.startLine);
+    });
+  });
+
+  // ============================================================================
+  // Branch coverage hardening
+  // ============================================================================
+
+  describe('branch coverage hardening', () => {
+    it('should handle reserved keyword in arrow function (L157)', () => {
+      const source = 'const if = () => { return; };';
+      const captures = provider.parse(source, 'test.js');
+      // 'if' is a reserved keyword, should be skipped in arrow functions
+      const arrowFuncs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'if');
+      expect(arrowFuncs).toEqual([]);
+    });
+
+    it('should handle reserved keyword in class method (L180)', () => {
+      const source = 'class Test {\n  if() { return; }\n  valid() { return; }\n}';
+      const captures = provider.parse(source, 'test.js');
+      // 'if' is reserved, should be skipped as method name
+      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.every(m => m.name !== 'if')).toBe(true);
+      expect(methods.some(m => m.name === 'valid')).toBe(true);
+    });
+
+    it('should handle reserved keyword in variable extraction (L241)', () => {
+      const source = 'const if = 1;\nconst valid = 2;';
+      const captures = provider.parse(source, 'test.js');
+      // 'if' is a reserved keyword, should be skipped in variables
+      const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'if');
+      expect(consts).toEqual([]);
+      expect(captures.some(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'valid')).toBe(true);
+    });
+
+    it('should handle JSX component detection filter (L263)', () => {
+      const source = 'const MyComponent = () => { return <div>test</div>; };';
+      const captures = provider.parse(source, 'test.jsx');
+      const components = captures.filter(c => c.tag === CAPTURE_TAGS.COMPONENT_PROPS);
+      expect(components.some(c => c.name === 'MyComponent')).toBe(true);
+    });
+
+    it('should handle docstring endLine with no newlines (L306)', () => {
+      const source = '/** @param {string} name */\nfunction greet(name) {}';
+      const captures = provider.parse(source, 'test.js');
+      const docs = captures.filter(c => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs).toHaveLength(1);
+      // Single-line JSDoc: endLine should equal startLine
+      expect(docs[0]!.endLine).toBe(docs[0]!.startLine);
+    });
+
+    it('should handle line comment end in findBlockEnd (L365)', () => {
+      const source = 'function test() {\n  // comment line\n  return true;\n}';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'test');
+      expect(funcs).toHaveLength(1);
+    });
+
+    it('should handle brace depth closing in findBlockEnd (L377)', () => {
+      const source = 'function wrap() {\n  if (true) {\n    return 1;\n  }\n  return 0;\n}';
+      const captures = provider.parse(source, 'test.js');
+      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'wrap');
+      expect(funcs).toHaveLength(1);
+      expect(funcs[0]!.endLine).toBeGreaterThan(funcs[0]!.startLine);
+    });
   });
 });

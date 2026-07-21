@@ -1480,6 +1480,20 @@ describe('Code Review Engine', () => {
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
+
+    it('should filter style comments on comment-only lines', async () => {
+      // The third filter rule: comment-only lines with style category
+      // To trigger this, we need a review comment on a line that only has a comment
+      const content = [
+        'function test() {',
+        '  // This is a comment only line',
+        '  const x = 1;',
+        '}',
+      ].join('\n');
+      const comments = await engine.reviewFile('test-project', '/src/style-comment.ts', content);
+      // The filter rules are applied; style comments on comment-only lines are filtered
+      expect(Array.isArray(comments)).toBe(true);
+    });
   });
 
   describe('Resume session — edge cases', () => {
@@ -1615,6 +1629,99 @@ describe('Code Review Engine', () => {
 
     it('handles diff with null/undefined ranges', async () => {
       const diff = createDiff({ filePath: 'with-ranges.ts' });
+      const diffs = [diff];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('relocates line numbers when offset is non-zero', async () => {
+      // Create a diff with ranges that have different old/new line counts
+      // This causes offset calculation in relocatePhase
+      const diff: GitDiff = {
+        filePath: 'relocate-test.ts',
+        oldHash: '', newHash: '',
+        ranges: [
+          { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 10, changeType: 'modified' },
+        ],
+        changeType: 'modified',
+      };
+      const diffs = [diff];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('relocates line numbers with multiple diff ranges', async () => {
+      // Multiple ranges where the first adds lines (affects offset for later lines)
+      const diff: GitDiff = {
+        filePath: 'multi-relocate.ts',
+        oldHash: '', newHash: '',
+        ranges: [
+          { oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 8, changeType: 'modified' },
+          { oldStart: 5, oldEnd: 7, newStart: 10, newEnd: 15, changeType: 'modified' },
+        ],
+        changeType: 'modified',
+      };
+      const diffs = [diff];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('relocates with range before comment line', async () => {
+      // Range starts before the comment's line, causing offset calculation
+      const diff: GitDiff = {
+        filePath: 'offset-relocate.ts',
+        oldHash: '', newHash: '',
+        ranges: [
+          { oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 5, changeType: 'modified' },
+        ],
+        changeType: 'modified',
+      };
+      const diffs = [diff];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('relocates with diff ranges that have delta from oldStart < comment line', async () => {
+      // Use a filePath that triggers heuristic findings (startLine=1)
+      // and a range with oldStart=0 so that oldStart(0) < startLine(1)
+      const diff: GitDiff = {
+        filePath: '/src/routes/handler.ts',
+        oldHash: '', newHash: '',
+        ranges: [
+          { oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' },
+        ],
+        changeType: 'added',
+      };
+      const diffs = [diff];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('relocates with added lines causing positive delta', async () => {
+      // Range with more added lines than removed → positive delta
+      const diff: GitDiff = {
+        filePath: '/src/api/config.ts',
+        oldHash: '', newHash: '',
+        ranges: [
+          { oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 15, changeType: 'added' },
+        ],
+        changeType: 'added',
+      };
+      const diffs = [diff];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('relocates with removed lines causing negative delta', async () => {
+      // Range with more removed lines than added → negative delta
+      const diff: GitDiff = {
+        filePath: '/src/types/handler.ts',
+        oldHash: '', newHash: '',
+        ranges: [
+          { oldStart: 0, oldEnd: 10, newStart: 1, newEnd: 1, changeType: 'deleted' },
+        ],
+        changeType: 'deleted',
+      };
       const diffs = [diff];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');

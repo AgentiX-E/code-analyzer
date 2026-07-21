@@ -92,7 +92,9 @@ export class TrendAnalyzer {
     };
   }
 
-  // ---- Private helpers ----
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
   private getValueAtPath(obj: unknown, path: string): number | null {
     const parts = path.split('.');

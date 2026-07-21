@@ -10,6 +10,7 @@ import {
   extractClassLike,
   extractAnnotations,
   extractDocComments,
+  extractImportsAsCaptures,
 } from './base-c-like.js';
 
 const CSHARP_EXTENSIONS = ['.cs'];
@@ -64,7 +65,7 @@ export class CSharpProvider implements LanguageProvider {
     this.extractCalls(source, filePath, captures);
 
     // Using directives (imports)
-    this.extractUsings(source, filePath, captures);
+    extractImportsAsCaptures(source, filePath, captures, (s) => this.extractImports(s));
 
     // Doc comments (///)
     extractDocComments(source, filePath, captures, /\/\/\/\s*<summary>([\s\S]*?)<\/summary>/g);
@@ -104,7 +105,9 @@ export class CSharpProvider implements LanguageProvider {
     return patterns.some((p) => p.test(source));
   }
 
-  // ── Private Helpers ──
+  // ---------------------------------------------------------------------------
+  // Private Helpers
+  // ---------------------------------------------------------------------------
 
   private extractCSharpAttributes(source: string, filePath: string, captures: UnifiedCapture[]): void {
     // C# attributes: [HttpGet], [Authorize(Roles = "Admin")]
@@ -264,19 +267,4 @@ export class CSharpProvider implements LanguageProvider {
     }
   }
 
-  private extractUsings(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const parsedImports = this.extractImports(source);
-    for (const imp of parsedImports) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: imp.source,
-        startLine: imp.lineNumber,
-        endLine: imp.lineNumber,
-        startByte: 0,
-        endByte: 0,
-        name: imp.source,
-        properties: { names: imp.names.join(','), importType: imp.type, filePath },
-      });
-    }
-  }
 }

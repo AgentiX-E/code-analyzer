@@ -418,4 +418,25 @@ describe('validateConfig', () => {
     // Valid config should have no errors
     expect(errors).toHaveLength(0);
   });
+
+  it('should extract empty path when error message has array index (regex mismatch)', () => {
+    // Error like "config.excludePatterns[0] must be a string" has '[' which
+    // is not in the regex character class [a-zA-Z0-9.], so the regex doesn't
+    // match and the fallback ?? '' is used.
+    const config = {
+      projectId: 'test',
+      rootPath: '/tmp',
+      maxFileSize: 1024,
+      maxFiles: 1000,
+      parseWorkers: 4,
+      excludePatterns: [123 as unknown as string],
+      includePatterns: [],
+      ignorePaths: [],
+    };
+    const errors = validateConfig(config);
+    expect(errors.length).toBeGreaterThan(0);
+    const arrayError = errors.find(e => e.message.includes('excludePatterns[0]'));
+    expect(arrayError).toBeDefined();
+    expect(arrayError!.path).toBe('');
+  });
 });

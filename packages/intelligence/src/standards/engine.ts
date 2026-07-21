@@ -146,7 +146,9 @@ export class StandardsEngine {
       }));
   }
 
-  // ---- Private helpers ----
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
   private checkRule(source: string, filePath: string, rule: StandardRule): Violation[] {
     switch (rule.checkType) {
@@ -252,7 +254,9 @@ export class StandardsEngine {
     return [];
   }
 
-  // ---- Utility methods ----
+  // ---------------------------------------------------------------------------
+  // Utility methods
+  // ---------------------------------------------------------------------------
 
   private getLineNumber(source: string, offset: number): number {
     const before = source.substring(0, offset);

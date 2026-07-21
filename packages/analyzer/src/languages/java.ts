@@ -13,6 +13,7 @@ import {
   extractVariables,
   extractAnnotations,
   extractDocComments,
+  extractImportsAsCaptures,
 } from './base-c-like.js';
 
 const JAVA_EXTENSIONS = ['.java'];
@@ -62,7 +63,7 @@ export class JavaProvider implements LanguageProvider {
     extractCalls(source, filePath, captures, JAVA_RESERVED);
 
     // Imports
-    this.extractImportsAsCaptures(source, filePath, captures);
+    extractImportsAsCaptures(source, filePath, captures, (s) => this.extractImports(s));
 
     // Doc comments
     extractDocComments(source, filePath, captures, /\/\*\*([\s\S]*?)\*\//g);
@@ -102,7 +103,9 @@ export class JavaProvider implements LanguageProvider {
     return patterns.some((p) => p.test(source));
   }
 
-  // ── Private Helpers ──
+  // ---------------------------------------------------------------------------
+  // Private Helpers
+  // ---------------------------------------------------------------------------
 
   private extractMethods(source: string, filePath: string, captures: UnifiedCapture[]): void {
     // Method declarations: public static void methodName(...) { }
@@ -187,19 +190,4 @@ export class JavaProvider implements LanguageProvider {
     }
   }
 
-  private extractImportsAsCaptures(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const parsedImports = this.extractImports(source);
-    for (const imp of parsedImports) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: imp.source,
-        startLine: imp.lineNumber,
-        endLine: imp.lineNumber,
-        startByte: 0,
-        endByte: 0,
-        name: imp.source,
-        properties: { names: imp.names.join(','), importType: imp.type, filePath },
-      });
-    }
-  }
 }
