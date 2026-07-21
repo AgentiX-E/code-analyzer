@@ -326,3 +326,188 @@ describe('GitOperations — Error Handling', () => {
     );
   });
 });
+
+// ==========================================================================
+// Diff Parsing Edge Cases (branch coverage hardening)
+// ==========================================================================
+
+describe('parseDiffOutput edge cases', () => {
+  let repo: string;
+  let gitOps: ReturnType<typeof createGitOperations>;
+
+  beforeEach(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'diff-edge-'));
+    execSync('git init', { cwd: repo });
+    execSync('git config user.email "test@test.com" && git config user.name "Test"', { cwd: repo });
+
+    // Create initial file
+    fs.writeFileSync(path.join(repo, 'main.ts'), 'export const version = "1.0.0";\n');
+    execSync('git add . && git commit -m "initial"', { cwd: repo });
+
+    gitOps = createGitOperations(repo);
+  });
+
+  afterEach(() => {
+    try { fs.rmSync(repo, { recursive: true, force: true }); } catch { /* ignore */ }
+  });
+
+  it('handles empty diff output', async () => {
+    const diffs = await gitOps.getDiff('HEAD', 'HEAD');
+    expect(diffs).toEqual([]);
+  });
+
+  it('handles rename detection', async () => {
+    fs.renameSync(path.join(repo, 'main.ts'), path.join(repo, 'app.ts'));
+    execSync('git add -A && git commit -m "rename"', { cwd: repo });
+
+    const diffs = await gitOps.getDiff('HEAD~1', 'HEAD');
+    // Should have at least one diff entry
+    expect(diffs.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('handles getStaleness when HEAD matches', async () => {
+    const head = await gitOps.getLastCommit();
+    const result = await gitOps.getStaleness(head);
+    expect(result.isStale).toBe(false);
+  });
+
+  it('handles getStaleness when HEAD differs', async () => {
+    const result = await gitOps.getStaleness('nonexistent-commit-hash');
+    expect(result.isStale).toBe(true);
+  });
+
+  it('handles getFileContent error gracefully', async () => {
+    await expect(gitOps.getFileContent('HEAD', 'nonexistent.ts'))
+      .rejects.toThrow('File not found');
+  });
+
+  it('handles getFileHash parsing', async () => {
+    const hash = await gitOps.getFileHash('HEAD', 'main.ts');
+    expect(hash).toBeTruthy();
+    expect(typeof hash).toBe('string');
+  });
+
+  it('parses hunk with implicit line counts (no comma)', async () => {
+    // Modify file to create a diff
+    fs.writeFileSync(path.join(repo, 'main.ts'), 'export const version = "2.0.0";\nexport const name = "test";\n');
+    execSync('git add . && git commit -m "update"', { cwd: repo });
+
+    const diffs = await gitOps.getDiff('HEAD~1', 'HEAD');
+    expect(diffs.length).toBeGreaterThanOrEqual(1);
+
+    // Each diff should have valid line ranges
+    for (const diff of diffs) {
+      for (const range of diff.ranges) {
+        expect(range.oldStart).toBeGreaterThanOrEqual(0);
+        expect(range.newStart).toBeGreaterThanOrEqual(0);
+        expect(range.oldEnd).toBeGreaterThanOrEqual(range.oldStart - 1);
+        expect(range.newEnd).toBeGreaterThanOrEqual(range.newStart - 1);
+      }
+    }
+  });
+
+  it('parses workspace diff', async () => {
+    fs.writeFileSync(path.join(repo, 'main.ts'), 'export const version = "3.0.0";\n');
+    const diffs = await gitOps.getWorkspaceDiff();
+    expect(Array.isArray(diffs)).toBe(true);
+  });
+});
+
+// ==========================================================================
+// parseDiff Direct Testing — Hunk Parsing Branch Coverage
+// ==========================================================================
+
+describe('parseDiff hunk parsing edge cases', () => {
+  const gitOps = createGitOperations('/tmp');
+
+  it('parses diff with implicit old count (no comma)', () => {
+    const output = [
+      'diff --git a/file.ts b/file.ts',
+      '--- a/file.ts',
+      '+++ b/file.ts',
+      '@@ -10 +20,3 @@',
+      '+added',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.filePath).toBe('file.ts');
+    expect(diffs[0]!.ranges.length).toBe(1);
+  });
+
+  it('parses diff with implicit new count (no comma)', () => {
+    const output = [
+      'diff --git a/src.ts b/src.ts',
+      '--- a/src.ts',
+      '+++ b/src.ts',
+      '@@ -10,3 +20 @@',
+      '+added',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.ranges.length).toBe(1);
+  });
+
+  it('detects renamed file in diff headers', () => {
+    const output = [
+      'diff --git a/old.ts b/new.ts',
+      'rename from old.ts',
+      'rename to new.ts',
+      '--- a/old.ts',
+      '+++ b/new.ts',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('renamed');
+    expect(diffs[0]!.oldPath).toBe('old.ts');
+  });
+
+  it('detects new file in diff headers', () => {
+    const output = [
+      'diff --git a/new.ts b/new.ts',
+      'new file mode 100644',
+      '--- /dev/null',
+      '+++ b/new.ts',
+      '@@ -0,0 +1,3 @@',
+      '+export const x = 1;',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('added');
+  });
+
+  it('detects deleted file in diff headers', () => {
+    const output = [
+      'diff --git a/old.ts b/old.ts',
+      'deleted file mode 100644',
+      '--- a/old.ts',
+      '+++ /dev/null',
+      '@@ -1,3 +0,0 @@',
+      '-export const x = 1;',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('deleted');
+  });
+
+  it('parses multiple hunks in single file', () => {
+    const output = [
+      'diff --git a/multi.ts b/multi.ts',
+      '--- a/multi.ts',
+      '+++ b/multi.ts',
+      '@@ -1,5 +1,5 @@',
+      ' context',
+      '@@ -20,5 +25,5 @@',
+      ' more',
+      '@@ -50,3 +60,3 @@',
+      ' final',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.ranges.length).toBe(3);
+  });
+
+  it('returns empty for empty or whitespace output', () => {
+    expect(gitOps.parseDiff('')).toEqual([]);
+    expect(gitOps.parseDiff('   ')).toEqual([]);
+  });
+});

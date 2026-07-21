@@ -700,3 +700,152 @@ describe('RustProvider', () => {
     });
   });
 });
+
+// ============================================================================
+// Branch Coverage Hardening — Additional Edge Cases
+// ============================================================================
+
+describe('JavaProvider edge cases', () => {
+  const provider = new JavaProvider();
+
+  it('detects static method', () => {
+    const source = 'public class Utils {\n  public static int calculate() {\n    return 42;\n  }\n}';
+    const captures = provider.parse(source, 'Utils.java');
+    const calc = captures.find(c => c.name === 'calculate');
+    expect(calc).toBeDefined();
+    expect(calc!.properties.static).toBe('true');
+  });
+
+  it('detects final field', () => {
+    const source = 'public class Config {\n  public static final String APP_NAME = "MyApp";\n}';
+    const captures = provider.parse(source, 'Config.java');
+    const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+    expect(consts.some(c => c.name === 'APP_NAME')).toBe(true);
+  });
+
+  it('detects method with type parameters', () => {
+    const source = 'public class Util {\n  public <T> T identity(T value) {\n    return value;\n  }\n}';
+    const captures = provider.parse(source, 'Util.java');
+    expect(captures.some(c => c.name === 'identity')).toBe(true);
+  });
+
+  it('detects interface methods', () => {
+    const source = 'public interface Service {\n  void execute();\n  int getCount();\n}';
+    const captures = provider.parse(source, 'Service.java');
+    expect(captures.some(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF)).toBe(true);
+  });
+
+  it('handles abstract class', () => {
+    const source = 'public abstract class BaseService {\n  public abstract void handle();\n  public void log() {}\n}';
+    const captures = provider.parse(source, 'BaseService.java');
+    expect(captures.some(c => c.name === 'BaseService')).toBe(true);
+    expect(captures.some(c => c.name === 'handle')).toBe(true);
+    expect(captures.some(c => c.name === 'log')).toBe(true);
+  });
+});
+
+describe('KotlinProvider edge cases', () => {
+  const provider = new KotlinProvider();
+
+  it('detects inline function', () => {
+    const source = 'inline fun <T> measure(crossinline block: () -> T): T {\n  return block()\n}';
+    const captures = provider.parse(source, 'utils.kt');
+    expect(captures.some(c => c.name === 'measure')).toBe(true);
+  });
+
+  it('detects private function', () => {
+    const source = 'private fun helper(): Int {\n  return 42\n}';
+    const captures = provider.parse(source, 'private.kt');
+    expect(captures.some(c => c.name === 'helper')).toBe(true);
+  });
+
+  it('detects lateinit property', () => {
+    const source = 'lateinit var name: String';
+    const captures = provider.parse(source, 'lateinit.kt');
+    expect(captures.some(c => c.name === 'name')).toBe(true);
+  });
+
+  it('detects const val', () => {
+    const source = 'const val MAX = 100';
+    const captures = provider.parse(source, 'const.kt');
+    const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+    expect(consts.some(c => c.name === 'MAX')).toBe(true);
+  });
+
+  it('detects enum class with properties', () => {
+    const source = 'enum class Color(val rgb: Int) {\n  RED(0xFF0000),\n  GREEN(0x00FF00),\n  BLUE(0x0000FF)\n}';
+    const captures = provider.parse(source, 'Color.kt');
+    expect(captures.some(c => c.name === 'Color')).toBe(true);
+  });
+});
+
+describe('CSharpProvider edge cases', () => {
+  const provider = new CSharpProvider();
+
+  it('detects virtual method', () => {
+    const source = 'public class Base {\n  public virtual void Handle() {}\n}';
+    const captures = provider.parse(source, 'Base.cs');
+    expect(captures.some(c => c.name === 'Handle')).toBe(true);
+  });
+
+  it('detects override method', () => {
+    const source = 'public class Derived : Base {\n  public override void Handle() {}\n}';
+    const captures = provider.parse(source, 'Derived.cs');
+    expect(captures.some(c => c.name === 'Handle')).toBe(true);
+  });
+
+  it('detects readonly field', () => {
+    const source = 'public class Config {\n  private readonly string _key = "test";\n}';
+    const captures = provider.parse(source, 'Config.cs');
+    const fields = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+    expect(fields.some(f => f.name === '_key')).toBe(true);
+  });
+
+  it('detects expression-bodied method', () => {
+    const source = 'public class Calc {\n  public int Add(int a, int b) => a + b;\n}';
+    const captures = provider.parse(source, 'Calc.cs');
+    expect(captures.some(c => c.name === 'Add')).toBe(true);
+  });
+
+  it('handles partial class', () => {
+    const source = 'public partial class MyForm {\n  public void Initialize() {}\n}';
+    const captures = provider.parse(source, 'MyForm.cs');
+    expect(captures.some(c => c.name === 'MyForm')).toBe(true);
+  });
+});
+
+describe('RustProvider edge cases', () => {
+  const provider = new RustProvider();
+
+  it('detects pub(crate) visibility', () => {
+    const source = 'pub(crate) fn internal_util() -> u32 {\n  42\n}';
+    const captures = provider.parse(source, 'internal.rs');
+    const func = captures.find(c => c.name === 'internal_util');
+    expect(func).toBeDefined();
+  });
+
+  it('detects method in impl block', () => {
+    const source = 'struct Counter { count: i32 }\nimpl Counter {\n  pub fn increment(&mut self) {\n    self.count += 1;\n  }\n}';
+    const captures = provider.parse(source, 'counter.rs');
+    expect(captures.some(c => c.name === 'increment')).toBe(true);
+  });
+
+  it('detects extern function', () => {
+    const source = 'extern "C" {\n  fn printf(format: *const u8, ...) -> i32;\n}';
+    const captures = provider.parse(source, 'ffi.rs');
+    expect(captures.some(c => c.name === 'printf')).toBe(true);
+  });
+
+  it('detects mod declaration indirectly', () => {
+    const source = 'pub mod utils;\nmod internal;';
+    const captures = provider.parse(source, 'mod.rs');
+    // mod declarations don't produce captures directly
+    expect(Array.isArray(captures)).toBe(true);
+  });
+
+  it('detects generic impl block', () => {
+    const source = 'impl<T: Display> Wrapper<T> {\n  pub fn new(val: T) -> Self {\n    Wrapper { val }\n  }\n}';
+    const captures = provider.parse(source, 'wrapper.rs');
+    expect(captures.some(c => c.name === 'new')).toBe(true);
+  });
+});

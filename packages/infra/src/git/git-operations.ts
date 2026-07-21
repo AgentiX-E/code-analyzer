@@ -26,6 +26,7 @@ export interface GitOperations {
   getFileHash(ref: string, filePath: string): Promise<string>;
   listBranches(): Promise<string[]>;
   getCurrentBranch(): Promise<string>;
+  parseDiff(output: string): GitDiff[];
 }
 
 export function createGitOperations(repoPath: string): GitOperations {
@@ -184,6 +185,10 @@ export function createGitOperations(repoPath: string): GitOperations {
 
     async getCurrentBranch(): Promise<string> {
       return git(`rev-parse --abbrev-ref HEAD`);
+    },
+
+    parseDiff(output: string): GitDiff[] {
+      return parseDiffOutput(output);
     },
   };
 }

@@ -241,4 +241,13 @@ describe('IoUOverlapDetector.filterOverlapping', () => {
     const filtered = detector.filterOverlapping(newComments, existing);
     expect(filtered).toHaveLength(1);
   });
+
+  it('should handle edge case with zero-length region', () => {
+    // startLine=endLine=1 gives intersection=1, union=1 → iou=1
+    // To trigger zero union, we need both regions to have end < start
+    const a: CommentRegion = { filePath: '/src/app.ts', startLine: 5, endLine: 1, commentId: 'a' };
+    const b: CommentRegion = { filePath: '/src/app.ts', startLine: 10, endLine: 1, commentId: 'b' };
+    const iou = detector.computeIoU(a, b);
+    expect(iou).toBe(0); // negative range results in 0 intersection
+  });
 });

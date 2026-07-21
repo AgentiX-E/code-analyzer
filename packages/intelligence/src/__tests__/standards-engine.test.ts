@@ -656,3 +656,328 @@ describe('StandardsEngine — edge cases', () => {
     expect(() => engine.checkSource(source, 'arrow.ts', standard)).not.toThrow();
   });
 });
+
+// ==========================================================================
+// Branch Coverage Hardening — Edge Cases
+// ==========================================================================
+
+describe('StandardsEngine edge cases', () => {
+  function makeEngine(): StandardsEngine {
+    return new StandardsEngine();
+  }
+
+  it('throws when loading unknown standard', () => {
+    const engine = makeEngine();
+    expect(() => engine.loadStandard('nonexistent-standard'))
+      .toThrow('Standard not found: nonexistent-standard');
+  });
+
+  it('rejects custom standard with built-in id conflict', () => {
+    const engine = makeEngine();
+    expect(() => engine.registerStandard({
+      id: 'typescript-coding',
+      name: 'conflict',
+      version: '1.0',
+      category: 'code-style',
+      description: '',
+      rules: [],
+      examples: [],
+    })).toThrow('conflicts with a built-in template');
+  });
+
+  it('registers and loads custom standard', () => {
+    const engine = makeEngine();
+    const custom: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'my-custom-std',
+      name: 'My Custom Standard',
+      version: '1.0.0',
+      category: 'code-style',
+      description: 'Custom rules',
+      rules: [{
+        id: 'no-debugger',
+        description: 'No debugger statements',
+        checkType: 'regex',
+        checkConfig: { pattern: 'debugger', forbidden: true },
+        severity: 'high',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    engine.registerStandard(custom);
+    const loaded = engine.loadStandard('my-custom-std');
+    expect(loaded.id).toBe('my-custom-std');
+  });
+
+  it('handles graph-query check type (deferred, returns empty)', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'graph-test',
+      name: 'Graph Test',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'gq-1',
+        description: 'Graph query test',
+        checkType: 'graph-query',
+        checkConfig: { query: 'MATCH (n) RETURN n' },
+        severity: 'low',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const results = engine.checkSource('code', 'f.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.passed).toBe(true); // deferred = no violations
+  });
+
+  it('handles llm-check check type (deferred, returns empty)', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'llm-test',
+      name: 'LLM Test',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'llm-1',
+        description: 'LLM check test',
+        checkType: 'llm-check',
+        checkConfig: { prompt: 'Is this code good?' },
+        severity: 'medium',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const results = engine.checkSource('code', 'f.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.passed).toBe(true);
+  });
+
+  it('handles regex check with empty pattern', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'empty-pattern',
+      name: 'Empty Pattern',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'ep-1',
+        description: 'Empty pattern check',
+        checkType: 'regex',
+        checkConfig: { pattern: '' },
+        severity: 'low',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const results = engine.checkSource('some code here', 'f.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    // Empty pattern should produce no violations
+    expect(results[0]!.passed).toBe(true);
+  });
+
+  it('handles metric check with nesting-depth', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'nesting-test',
+      name: 'Nesting Test',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'nest-1',
+        description: 'Max nesting depth',
+        checkType: 'metric',
+        checkConfig: { metric: 'nesting-depth', threshold: 2 },
+        severity: 'high',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const deeplyNested = [
+      'function deep() {',
+      '  if (true) {',
+      '    if (true) {',
+      '      if (true) {',
+      '        return;',
+      '      }',
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
+    const results = engine.checkSource(deeplyNested, 'deep.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles metric check with function-lines', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'func-lines-test',
+      name: 'Function Lines',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'fl-1',
+        description: 'Max function lines',
+        checkType: 'metric',
+        checkConfig: { metric: 'function-lines', threshold: 3 },
+        severity: 'medium',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const longFunc = [
+      'function long() {',
+      '  const a = 1;',
+      '  const b = 2;',
+      '  const c = 3;',
+      '  const d = 4;',
+      '  return a + b + c + d;',
+      '}',
+    ].join('\n');
+    const results = engine.checkSource(longFunc, 'long.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles metric check with unknown metric type', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'unknown-metric',
+      name: 'Unknown Metric',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'um-1',
+        description: 'Unknown metric',
+        checkType: 'metric',
+        checkConfig: { metric: 'unknown-metric', threshold: 10 },
+        severity: 'low',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const results = engine.checkSource('code', 'f.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.passed).toBe(true); // unknown metric = no violations
+  });
+
+  it('handles metric check with empty metric config', () => {
+    const engine = makeEngine();
+    const standard: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'empty-metric',
+      name: 'Empty Metric',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      rules: [{
+        id: 'em-1',
+        description: 'Empty metric config',
+        checkType: 'metric',
+        checkConfig: { metric: '', threshold: 10 },
+        severity: 'low',
+        autoFixable: false,
+      }],
+      examples: [],
+    };
+    const results = engine.checkSource('code', 'f.ts', standard);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.passed).toBe(true);
+  });
+
+  it('handles disabled rules in checkFiles', () => {
+    const engine = makeEngine();
+    // Register a custom standard with disabled rules
+    const custom: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'custom-disabled-test',
+      name: 'Custom Disabled',
+      version: '1.0',
+      category: 'code-style',
+      description: 'test',
+      config: { disabledRules: ['rule-a', 'rule-b'] },
+      rules: [
+        { id: 'rule-a', description: 'Rule A', checkType: 'regex', checkConfig: { pattern: 'debugger', forbidden: true }, severity: 'high', autoFixable: false },
+        { id: 'rule-b', description: 'Rule B', checkType: 'regex', checkConfig: { pattern: 'eval', forbidden: true }, severity: 'high', autoFixable: false },
+      ],
+      examples: [],
+    };
+    engine.registerStandard(custom);
+    const result = engine.checkFiles(
+      [{ path: 'f.ts', content: 'debugger; eval("x");' }],
+      'custom-disabled-test',
+    );
+    expect(result.complianceScore).toBe(100); // All rules disabled
+  });
+
+  it('handles empty file list in checkFiles', () => {
+    const engine = makeEngine();
+    const result = engine.checkFiles([], 'typescript-coding');
+    expect(result.filesChecked).toBe(0);
+    expect(result.complianceScore).toBe(100);
+  });
+
+  it('computeComplianceScore handles empty results', () => {
+    const engine = makeEngine();
+    const score = engine.computeComplianceScore([]);
+    expect(score).toBe(100);
+  });
+
+  it('computeSeverityWeightedScore handles empty results', () => {
+    const engine = makeEngine();
+    const score = engine.computeSeverityWeightedScore([]);
+    expect(score).toBe(100);
+  });
+
+  it('getAutoFixes returns empty for violations without autoFix', () => {
+    const engine = makeEngine();
+    const violations: import('@code-analyzer/shared').Violation[] = [{
+      filePath: 'f.ts',
+      lineNumber: 1,
+      message: 'test',
+      codeSnippet: 'code',
+      standardRef: 'rule-1',
+    }];
+    const fixes = engine.getAutoFixes(violations);
+    expect(fixes).toEqual([]);
+  });
+
+  it('getAutoFixes returns fixes for violations with autoFix', () => {
+    const engine = makeEngine();
+    const violations: import('@code-analyzer/shared').Violation[] = [{
+      filePath: 'f.ts',
+      lineNumber: 1,
+      message: 'test',
+      codeSnippet: 'bad',
+      autoFix: 'good',
+      suggestion: 'Use good instead',
+      standardRef: 'rule-1',
+    }];
+    const fixes = engine.getAutoFixes(violations);
+    expect(fixes.length).toBe(1);
+    expect(fixes[0]!.replacement).toBe('good');
+  });
+
+  it('computeSeverityWeightedScore handles all severity levels', () => {
+    const engine = makeEngine();
+    const results: import('@code-analyzer/shared').RuleCheckResult[] = [
+      { ruleId: '1', ruleDescription: '', passed: true, severity: 'critical', violations: [], autoFixable: false },
+      { ruleId: '2', ruleDescription: '', passed: false, severity: 'high', violations: [], autoFixable: false },
+      { ruleId: '3', ruleDescription: '', passed: true, severity: 'medium', violations: [], autoFixable: false },
+      { ruleId: '4', ruleDescription: '', passed: false, severity: 'low', violations: [], autoFixable: false },
+      { ruleId: '5', ruleDescription: '', passed: true, severity: 'info', violations: [], autoFixable: false },
+    ];
+    const score = engine.computeSeverityWeightedScore(results);
+    // Weight: critical(5)+high(0)+medium(3)+low(0)+info(1) = 9 / 15 = 60
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThan(100);
+  });
+
+  it('listTemplates returns all built-in templates', () => {
+    const engine = makeEngine();
+    const templates = engine.listTemplates();
+    expect(templates.length).toBeGreaterThan(0);
+  });
+});

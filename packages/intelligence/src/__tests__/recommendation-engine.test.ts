@@ -393,3 +393,162 @@ describe('RecommendationEngine — scoring model', () => {
     expect(prioritized[1].id).toBe('worst');
   });
 });
+
+// ==========================================================================
+// Branch Coverage Hardening — Edge Cases
+// ==========================================================================
+
+describe('RecommendationEngine edge cases', () => {
+  let engine: RecommendationEngine;
+
+  beforeEach(() => {
+    engine = new RecommendationEngine();
+  });
+
+  it('returns empty array for empty findings list', () => {
+    const recs = engine.generateRecommendations([]);
+    expect(recs).toEqual([]);
+  });
+
+  it('handles single finding', () => {
+    const finding: Finding = {
+      id: 'f-1',
+      title: 'Missing error handling',
+      description: 'Async function lacks try/catch',
+      filePath: 'src/api.ts',
+      lineRange: [10, 15],
+      severity: 'high',
+      category: 'error_handling',
+      recommendation: 'Add try/catch block',
+      relatedFindings: [],
+    };
+    const recs = engine.generateRecommendations([finding]);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    expect(recs[0]!.affectedFiles).toContain('src/api.ts');
+  });
+
+  it('groups related findings by file and category', () => {
+    const findings: Finding[] = [
+      { id: '1', title: 't1', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'high', category: 'bug', recommendation: '', relatedFindings: [] },
+      { id: '2', title: 't2', description: '', filePath: 'a.ts', lineRange: [3,4], severity: 'high', category: 'bug', recommendation: '', relatedFindings: [] },
+      { id: '3', title: 't3', description: '', filePath: 'b.ts', lineRange: [1,2], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    // a.ts bug findings should be grouped together
+    expect(recs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('finds related findings by id reference', () => {
+    const findings: Finding[] = [
+      { id: '1', title: 't1', description: '', filePath: 'x.ts', lineRange: [1,2], severity: 'medium', category: 'bug', recommendation: '', relatedFindings: ['2'] },
+      { id: '2', title: 't2', description: '', filePath: 'y.ts', lineRange: [3,4], severity: 'medium', category: 'bug', recommendation: '', relatedFindings: ['1'] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    // Should be grouped together since they reference each other
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('estimateEffort returns trivial for 1 file, 1 action', () => {
+    const effort = engine.estimateEffort({
+      id: 'r1', priority: 1, title: '', description: '',
+      estimatedEffort: 'small', affectedFiles: ['a.ts'], actionItems: [{ description: '', file: 'a.ts' }],
+      risksAddressed: [], references: [],
+    });
+    expect(effort).toBe('trivial');
+  });
+
+  it('estimateEffort returns xlarge for many files', () => {
+    const effort = engine.estimateEffort({
+      id: 'r1', priority: 1, title: '', description: '',
+      estimatedEffort: 'small',
+      affectedFiles: Array.from({ length: 20 }, (_, i) => `f${i}.ts`),
+      actionItems: Array.from({ length: 30 }, (_, i) => ({ description: `a${i}`, file: `f${i}.ts` })),
+      risksAddressed: [], references: [],
+    });
+    expect(effort).toBe('xlarge');
+  });
+
+  it('estimateEffort returns small for 3 files, 5 actions', () => {
+    const effort = engine.estimateEffort({
+      id: 'r1', priority: 2, title: '', description: '',
+      estimatedEffort: 'small',
+      affectedFiles: ['a.ts', 'b.ts', 'c.ts'],
+      actionItems: Array.from({ length: 5 }, (_, i) => ({ description: `a${i}`, file: 'x.ts' })),
+      risksAddressed: [], references: [],
+    });
+    expect(effort).toBe('small');
+  });
+
+  it('estimateEffort returns medium for 7 files, 10 actions', () => {
+    const effort = engine.estimateEffort({
+      id: 'r1', priority: 2, title: '', description: '',
+      estimatedEffort: 'small',
+      affectedFiles: Array.from({ length: 7 }, (_, i) => `f${i}.ts`),
+      actionItems: Array.from({ length: 10 }, (_, i) => ({ description: `a${i}`, file: 'x.ts' })),
+      risksAddressed: [], references: [],
+    });
+    expect(effort).toBe('medium');
+  });
+
+  it('estimateEffort returns large for 15 files, 20 actions', () => {
+    const effort = engine.estimateEffort({
+      id: 'r1', priority: 2, title: '', description: '',
+      estimatedEffort: 'small',
+      affectedFiles: Array.from({ length: 15 }, (_, i) => `f${i}.ts`),
+      actionItems: Array.from({ length: 20 }, (_, i) => ({ description: `a${i}`, file: 'x.ts' })),
+      risksAddressed: [], references: [],
+    });
+    expect(effort).toBe('large');
+  });
+
+  it('computes priority correctly for all severity levels', () => {
+    // Test via generateRecommendations
+    const severe: Finding = {
+      id: 's1', title: 'Critical bug', description: '', filePath: 'a.ts',
+      lineRange: [1, 2], severity: 'critical', category: 'bug',
+      recommendation: '', relatedFindings: [],
+    };
+    const recs = engine.generateRecommendations([severe]);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    expect(recs[0]!.priority).toBe(1);
+  });
+
+  it('handles info severity correctly', () => {
+    const findings: Finding[] = [
+      { id: 'i1', title: 'Info note', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'info', category: 'documentation', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    expect(recs[0]!.priority).toBe(3); // info → priority 3
+  });
+
+  it('handles medium severity correctly', () => {
+    const findings: Finding[] = [
+      { id: 'm1', title: 'Medium issue', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'medium', category: 'maintainability', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    expect(recs[0]!.priority).toBe(2); // medium → priority 2
+  });
+
+  it('handles unknown risk category gracefully', () => {
+    const findings: Finding[] = [
+      { id: 'u1', title: 'Unknown', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'low', category: 'other', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('enforces max recommendations limit', () => {
+    const findings: Finding[] = Array.from({ length: 50 }, (_, i) => ({
+      id: `f${i}`, title: `Issue ${i}`, description: '',
+      filePath: `src/file${i % 5}.ts`,
+      lineRange: [1, 2] as [number, number],
+      severity: (['low', 'medium', 'high'] as const)[i % 3],
+      category: (['bug', 'style', 'performance'] as const)[i % 3],
+      recommendation: '', relatedFindings: [],
+    }));
+    const recs = engine.generateRecommendations(findings, { maxRecommendations: 5 });
+    expect(recs.length).toBeLessThanOrEqual(5);
+  });
+});
