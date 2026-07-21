@@ -102,24 +102,33 @@ export class PRReviewEngine {
   }
 
   /**
-   * Review a GitHub pull request using the 8-Lens Review Swarm.
-   * Runs all 8 specialized lenses in parallel, then synthesizes findings
-   * through a hard-gate quality check with evidence validation and IoU dedup.
+   * Review a GitHub pull request using the 8-Lens Review Swarm with
+   * knowledge graph context enrichment and adversarial validation.
    *
-   * This provides deeper, multi-dimensional analysis compared to the
-   * standard single-pipeline review.
+   * Three-phase hybrid review:
+   * 1. Deterministic scan — 8 lenses run in parallel (<5s)
+   *    Each lens applies regex/heuristic rules to detect candidates
+   * 2. KG enrichment — each finding gets graph context (callers, callees, tests)
+   * 3. Synthesis + Adversarial validation — false positive filtering, IoU dedup
+   *
+   * Returns an MCP prompt that the MCP Client LLM can use for deep reasoning.
+   * The deterministic scan finds candidates; the LLM validates and reasons.
    */
   async reviewPRSwarm(
     projectId: string,
     _pr: PullRequest,
     diffs: GitDiff[],
-  ): Promise<PRReviewResult & { swarmResult: SwarmResult }> {
+  ): Promise<PRReviewResult & { swarmResult: SwarmResult; mcpPrompt: string }> {
     const swarm = new ReviewSwarm(this.store, {
       parallel: true,
       minSeverity: 'info',
     });
 
-    const swarmResult = await swarm.review(projectId, diffs);
+    // Phase 1+2: Deterministic scan + KG enrichment
+    const swarmResult = await swarm.reviewWithGraphContext(projectId, diffs);
+
+    // Phase 3: Generate MCP prompt for Client LLM deep review
+    const mcpPrompt = swarm.generateMCPPrompt(swarmResult, _pr.title ?? 'PR Review');
 
     // Build summary compatible with existing PRReviewResult
     const byCategory = { ...swarmResult.summary.byCategory } as Record<ReviewCategory, number>;
@@ -142,7 +151,7 @@ export class PRReviewEngine {
     return {
       sessionId: `swarm-${Date.now().toString(36)}`,
       comments: swarmResult.comments,
-      standardsResults: [], // Swarm uses its own lens-based analysis
+      standardsResults: [],
       impactResult: {
         riskLevel: summary.riskLevel,
         affectedFiles: swarmResult.actionPlan.map(a => a.files).flat(),
@@ -151,6 +160,7 @@ export class PRReviewEngine {
       } as ImpactResult,
       summary,
       swarmResult,
+      mcpPrompt,
     };
   }
 

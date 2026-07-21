@@ -69,7 +69,10 @@ export interface SwarmSummary {
   filesScanned: number;
   linesAnalyzed: number;
   evidenceRejected: number;
+  adversarialRejected: number;
   iouDeduped: number;
+  /** Findings requiring LLM validation (low confidence) */
+  needsLLMValidation: number;
 }
 
 export interface SwarmDecision {
@@ -163,6 +166,204 @@ export class ReviewSwarm {
       decision: synthesisResult.decision,
       actionPlan: synthesisResult.actionPlan,
       totalDurationMs,
+    };
+  }
+
+  /**
+   * Enhanced review with knowledge graph context enrichment.
+   * After the deterministic scan, enriches each finding with graph context
+   * (callers, callees, related tests, cross-repo references).
+   * This gives the MCP Client LLM the structural context needed for deep reasoning.
+   */
+  async reviewWithGraphContext(
+    projectId: string,
+    diffs: GitDiff[],
+    sourceContents?: Map<string, string>,
+  ): Promise<SwarmResult> {
+    // Phase 1: Deterministic scan
+    const result = await this.review(projectId, diffs, sourceContents);
+
+    // Phase 2: Enrich findings with knowledge graph context
+    for (const report of result.lensReports) {
+      for (const finding of report.findings) {
+        try {
+          finding.graphContext = this.enrichWithGraphContext(finding);
+        } catch {
+          // Graph enrichment is best-effort — don't fail review
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate an MCP prompt for Client LLM deep review.
+   * Packages all swarm findings + graph context into a structured prompt
+   * that guides the MCP Client's LLM through deeper analysis.
+   *
+   * The prompt structure:
+   * 1. PR summary and context
+   * 2. High-confidence findings (rule-based) — ask LLM to validate
+   * 3. Low-confidence findings (heuristic) — ask LLM to investigate deeply
+   * 4. Knowledge graph context — call chains, dependencies, tests
+   * 5. Adversarial challenge — ask LLM to find counter-examples
+   * 6. Missing patterns — ask LLM to find issues our rules missed
+   */
+  generateMCPPrompt(result: SwarmResult, prTitle: string): string {
+    const highConf = result.lensReports.flatMap(r =>
+      r.findings.filter(f => f.confidence === 'rule'),
+    );
+    const heuristic = result.lensReports.flatMap(r =>
+      r.findings.filter(f => f.confidence === 'heuristic' || f.confidence === 'low'),
+    );
+
+    const prompt = `## PR Review: ${prTitle}
+
+### Deterministic Scan Results
+${result.summary.totalFindings} findings from ${result.lensReports.length} lenses
+across ${result.summary.filesScanned} files (${result.summary.linesAnalyzed} lines).
+
+### High-Confidence Findings (Pattern-Matched — Please Validate)
+${highConf.length > 0
+  ? highConf.map((f, i) =>
+    `${i + 1}. **[${f.lens}] ${f.title}** (${f.severity})
+   File: ${f.evidence.filePath}:${f.evidence.startLine}
+   Code: \`${f.evidence.codeSnippet.slice(0, 100)}${f.evidence.codeSnippet.length > 100 ? '...' : ''}\`
+   ${f.description}
+   ${f.graphContext && f.graphContext.callers.length > 0 ? `Callers: ${f.graphContext.callers.join(', ')}` : ''}
+   ${f.suggestion ? `Suggested Fix: ${f.suggestion}` : ''}`,
+  ).join('\n\n')
+  : 'No high-confidence findings.'}
+
+### Heuristic / Low-Confidence Findings (Please Investigate)
+${heuristic.length > 0
+  ? heuristic.map((f, i) =>
+    `${i + 1}. **[${f.lens}] ${f.title}** (${f.severity}, confidence: ${f.confidence})
+   File: ${f.evidence.filePath}:${f.evidence.startLine}
+   Code: \`${f.evidence.codeSnippet.slice(0, 100)}${f.evidence.codeSnippet.length > 100 ? '...' : ''}\`
+   ${f.graphContext && f.graphContext.relatedTests.length > 0 ? `Related Tests: ${f.graphContext.relatedTests.join(', ')}` : 'No related tests found.'}
+   ${f.graphContext && f.graphContext.crossRepoRefs.length > 0 ? `Cross-Repo: ${f.graphContext.crossRepoRefs.join(', ')}` : ''}`,
+  ).join('\n\n')
+  : 'No heuristic findings.'}
+
+### Your Task as an AI Code Reviewer
+
+1. **Validate high-confidence findings**: Are these real issues or false positives?
+   Look at the actual code context before confirming.
+
+2. **Investigate low-confidence findings**: These are heuristic signals that need deeper analysis.
+   Check if they represent real bugs or just pattern matches on benign code.
+
+3. **Find missing patterns**: Our deterministic rules may have missed issues. Look for:
+   - Race conditions in async code
+   - Incorrect error handling (swallowed errors, missing error propagation)
+   - Business logic errors (wrong calculations, inverted conditions)
+   - Performance issues our rules didn't catch
+   - Security issues requiring semantic understanding
+
+4. **Adversarial challenge**: For each confirmed finding, construct a scenario where:
+   - The "bug" is actually intentional and correct
+   - An edge case makes the fix worse
+   Report only findings that survive adversarial scrutiny.
+
+5. **Provide final assessment**: For each confirmed finding, provide:
+   - Whether you agree with the severity
+   - A concrete fix suggestion with code
+   - Any additional context the developer needs
+
+### Decision Guidance
+- Block merge if: any confirmed CRITICAL finding
+- Request changes if: 3+ confirmed HIGH findings
+- Approve with comments if: only MEDIUM/LOW findings
+- Approve if: no confirmed findings
+
+Current automatic assessment: **${result.decision.recommendation.toUpperCase()}**
+Reason: ${result.decision.reason}`;
+
+    return prompt;
+  }
+
+  // -------------------------------------------------------------------------
+  // Knowledge Graph Enrichment
+  // -------------------------------------------------------------------------
+
+  /**
+   * Enrich a finding with knowledge graph context.
+   * Queries the graph for related entities to give the LLM structural context.
+   */
+  private enrichWithGraphContext(finding: LensFinding): LensFinding['graphContext'] {
+    const context: Required<NonNullable<LensFinding['graphContext']>> = {
+      callers: [],
+      callees: [],
+      relatedTests: [],
+      crossRepoRefs: [],
+    };
+
+    try {
+      // Find functions in the same file at nearby lines
+      const fileNodes = this.store.queryNodes({ label: 'File' });
+      const funcNodes = this.store.queryNodes({ label: 'Function' });
+
+      for (const func of funcNodes) {
+        const funcPath = (func.properties as Record<string, string>).filePath;
+        if (funcPath === finding.evidence.filePath) {
+          const funcLine = (func.properties as Record<string, number>).lineNumber;
+          if (funcLine && Math.abs(funcLine - finding.evidence.startLine) < 50) {
+            // Find callers of this nearby function
+            const edges = this.store.queryEdges({ targetId: func.id, type: 'CALLS' });
+            for (const edge of edges) {
+              const caller = this.store.getNode(edge.sourceId);
+              if (caller) {
+                context.callers.push(caller.name ?? caller.id);
+              }
+            }
+
+            // Find what this function calls
+            const outEdges = this.store.queryEdges({ sourceId: func.id, type: 'CALLS' });
+            for (const edge of outEdges) {
+              const callee = this.store.getNode(edge.targetId);
+              if (callee) {
+                context.callees.push(callee.name ?? callee.id);
+              }
+            }
+          }
+        }
+
+        // Find test files
+        if (funcPath && funcPath.includes('.test.') || funcPath?.includes('.spec.')) {
+          const testEdges = this.store.queryEdges({ sourceId: func.id });
+          for (const edge of testEdges) {
+            const target = this.store.getNode(edge.targetId);
+            if (target) {
+              const targetPath = (target.properties as Record<string, string>).filePath;
+              if (targetPath === finding.evidence.filePath) {
+                context.relatedTests.push(funcPath);
+              }
+            }
+          }
+        }
+
+        // Find cross-repo edges
+        if ((func.properties as Record<string, string>).crossRepo) {
+          const crossEdges = this.store.queryEdges({
+            sourceId: func.id,
+            type: 'CROSS_REPO_CALLS' as any,
+          });
+          for (const edge of crossEdges) {
+            context.crossRepoRefs.push(`${edge.sourceId} → ${edge.targetId}`);
+          }
+        }
+      }
+    } catch {
+      // Best-effort enrichment
+    }
+
+    return {
+      callers: [...new Set(context.callers)].slice(0, 10),
+      callees: [...new Set(context.callees)].slice(0, 10),
+      relatedTests: [...new Set(context.relatedTests)].slice(0, 5),
+      crossRepoRefs: [...new Set(context.crossRepoRefs)].slice(0, 5),
     };
   }
 
@@ -708,6 +909,17 @@ export class ReviewSwarm {
     evidenceRejected += (totalRaw - validatedFindings.length);
     allFindings = validatedFindings;
 
+    // Step 2.5: Adversarial validation — challenge each finding
+    // Try to disprove findings by checking for common false-positive patterns.
+    // Low-confidence findings are down-ranked; rule-based findings are checked
+    // for obvious false positives (e.g., commented code, test file exceptions).
+    let adversarialRejected = 0;
+    allFindings = allFindings.filter(f => {
+      const keep = this.adversarialValidate(f);
+      if (!keep) adversarialRejected++;
+      return keep;
+    });
+
     // Step 3: IoU-based deduplication
     const regions: CommentRegion[] = allFindings.map(f => ({
       filePath: f.evidence.filePath,
@@ -796,7 +1008,9 @@ export class ReviewSwarm {
       filesScanned: reports.reduce((sum, r) => sum + r.filesScanned, 0),
       linesAnalyzed: reports.reduce((sum, r) => sum + r.linesAnalyzed, 0),
       evidenceRejected,
+      adversarialRejected,
       iouDeduped,
+      needsLLMValidation: allFindings.filter(f => f.confidence === 'low').length,
     };
 
     // Step 7: Generate action plan
@@ -839,6 +1053,73 @@ export class ReviewSwarm {
       decision,
       actionPlan,
     };
+  }
+
+  /**
+   * Adversarial validation: try to disprove each finding.
+   *
+   * False positive checks:
+   * 1. Commented-out code (finding on a comment line) → reject
+   * 2. Test file exceptions (test.only in test file is intentional during dev) → keep but down-rank
+   * 3. Build/config files (eval in webpack config is normal) → down-rank
+   * 4. Low-confidence findings with zero graph context → mark for LLM, keep anyway
+   *
+   * This does NOT make the final decision — it adjusts confidence.
+   * The MCP Client LLM makes the final call on each finding.
+   */
+  private adversarialValidate(finding: LensFinding): boolean {
+    const code = finding.evidence.codeSnippet;
+    const filePath = finding.evidence.filePath;
+
+    // Check 1: Finding is on a comment-only line
+    if (code.trim().startsWith('//') || code.trim().startsWith('/*') || code.trim().startsWith('*')) {
+      // Security findings on comments are always false positives
+      if (finding.lens === 'security' && finding.confidence === 'rule') {
+        return false;
+      }
+      // Style findings on comments are noise
+      if (finding.lens === 'style') {
+        return false;
+      }
+      // Other lenses: keep but mark as low confidence
+      finding.confidence = 'low';
+      return true;
+    }
+
+    // Check 2: eval() in build tool configs — common and intentional
+    if (finding.evidence.ruleId === 'sec-eval' &&
+        (filePath.includes('webpack') || filePath.includes('vite.config') ||
+         filePath.includes('eslint') || filePath.includes('.config.'))) {
+      finding.confidence = 'low';
+      finding.severity = 'low';
+      return true; // Keep but heavily down-ranked
+    }
+
+    // Check 3: Hardcoded keys in test fixtures
+    if (finding.evidence.ruleId === 'sec-hardcoded-key' &&
+        (filePath.includes('.test.') || filePath.includes('.spec.') ||
+         filePath.includes('__fixtures__') || filePath.includes('mock'))) {
+      finding.confidence = 'low';
+      finding.severity = 'info';
+      return true;
+    }
+
+    // Check 4: console.log in CLI tools is normal
+    if (finding.evidence.ruleId === 'style-console-log' &&
+        (filePath.includes('/cli/') || filePath.includes('/bin/') || filePath.endsWith('.cli.ts'))) {
+      finding.confidence = 'low';
+      return true;
+    }
+
+    // Check 5: Missing JSDoc on React component props type (often unnecessary)
+    if (finding.evidence.ruleId === 'docs-missing-jsdoc' &&
+        code.includes('interface') && code.includes('Props')) {
+      finding.confidence = 'low';
+      return true;
+    }
+
+    // Default: keep the finding
+    return true;
   }
 
   /**

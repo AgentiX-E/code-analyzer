@@ -62,6 +62,28 @@ export interface LensFinding {
   evidence: EvidenceAnchor;
   /** Whether this finding is auto-fixable */
   autoFixable: boolean;
+  /**
+   * Confidence level:
+   * - 'rule': deterministic regex match (high confidence, may have false positives)
+   * - 'heuristic': pattern-based detection (medium confidence)
+   * - 'graph': knowledge graph-backed analysis (high confidence)
+   * - 'low': weak signal — needs LLM validation
+   */
+  confidence: 'rule' | 'heuristic' | 'graph' | 'low';
+  /**
+   * Knowledge graph context — related entities from the code intelligence graph.
+   * Populated during enrichment phase if a SqliteStore is available.
+   */
+  graphContext?: {
+    /** Callers of the flagged function */
+    callers: string[];
+    /** Functions called by the flagged code */
+    callees: string[];
+    /** Related test files */
+    relatedTests: string[];
+    /** Cross-repo references */
+    crossRepoRefs: string[];
+  };
 }
 
 /** Complete output from one lens */
@@ -446,6 +468,16 @@ export function createLensFinding(
       graphRef: options?.graphRef ?? evidence.graphRef,
     },
     autoFixable: options?.autoFixable ?? false,
+    // Assign confidence based on lens type:
+    // - security, style, testing: rule-based (regex match) → 'rule' confidence
+    // - performance, api, structure: heuristic → 'heuristic' confidence
+    // - docs: pattern-based → 'low' confidence (needs LLM validation)
+    confidence:
+      lens === 'security' || lens === 'style' || lens === 'testing'
+        ? 'rule'
+        : lens === 'docs'
+          ? 'low'
+          : 'heuristic',
   };
 }
 
