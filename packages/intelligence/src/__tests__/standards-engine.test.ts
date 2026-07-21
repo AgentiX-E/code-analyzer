@@ -17,9 +17,9 @@ function makeEngine(): StandardsEngine {
 // ---------------------------------------------------------------------------
 
 describe('Standard Templates', () => {
-  it('should have exactly 10 built-in templates', () => {
+  it('should have exactly 11 built-in templates', () => {
     const templates = listTemplates();
-    expect(templates).toHaveLength(10);
+    expect(templates).toHaveLength(11);
   });
 
   it('should include all required template IDs', () => {
@@ -33,6 +33,7 @@ describe('Standard Templates', () => {
       'go-idiomatic',
       'python-pep8',
       'security-baseline',
+      'security-essentials',
       'testing-standards',
       'typescript-coding',
     ]);
@@ -170,9 +171,9 @@ describe('StandardsEngine', () => {
   });
 
   describe('listTemplates', () => {
-    it('should return 10 templates', () => {
+    it('should return 11 templates', () => {
       const engine = makeEngine();
-      expect(engine.listTemplates()).toHaveLength(10);
+      expect(engine.listTemplates()).toHaveLength(11);
     });
   });
 });
@@ -540,7 +541,7 @@ describe('StandardsEngine.getAutoFixes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// All 10 templates — existence and rule validation
+// All 11 templates — existence and rule validation
 // ---------------------------------------------------------------------------
 
 describe('All 10 built-in templates — validation', () => {

@@ -555,7 +555,7 @@ describe('PR Review Engine', () => {
   });
 
   describe('checkStandards — all 5 standard templates', () => {
-    it('should produce results for all 5 built-in standards', async () => {
+    it('should produce results for all 6 built-in standards', async () => {
       const pr = createPR();
       const diffs = [createDiff({
         filePath: '/src/verify.ts',
@@ -566,8 +566,8 @@ describe('PR Review Engine', () => {
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
-      // Should have exactly 5 standards results (func-length, nesting, naming, error-handling, security)
-      expect(result.standardsResults.length).toBe(5);
+      // Should have exactly 6 standards results (func-length, nesting, naming, error-handling, security, security-essentials)
+      expect(result.standardsResults.length).toBe(6);
       for (const std of result.standardsResults) {
         expect(std.standardId).toBeTruthy();
         expect(std.ruleResults.length).toBeGreaterThan(0);
@@ -751,7 +751,7 @@ describe('PR Review Engine', () => {
       })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(5);
+      expect(result.standardsResults.length).toBe(6);
     });
   });
 
@@ -918,7 +918,7 @@ describe('PR Review Engine', () => {
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
       expect(result.sessionId).toBeTruthy();
-      expect(result.standardsResults.length).toBe(5);
+      expect(result.standardsResults.length).toBe(6);
       expect(result.impactResult.changedFiles.length).toBe(2);
       expect(result.summary.totalComments).toBeGreaterThanOrEqual(0);
     });
@@ -927,21 +927,21 @@ describe('PR Review Engine', () => {
       const pr = createPR();
       const diffs = [createDiff({ filePath: '/src/interfaces/IPayment.ts' })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(5);
+      expect(result.standardsResults.length).toBe(6);
     });
 
     it('should handle diffs with d.ts files', async () => {
       const pr = createPR();
       const diffs = [createDiff({ filePath: '/src/types.d.ts' })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(5);
+      expect(result.standardsResults.length).toBe(6);
     });
 
     it('should handle diffs with shared directory', async () => {
       const pr = createPR();
       const diffs = [createDiff({ filePath: '/src/shared/constants.ts' })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(5);
+      expect(result.standardsResults.length).toBe(6);
     });
 
     it('should handle diffs with API handler path', async () => {
@@ -951,7 +951,7 @@ describe('PR Review Engine', () => {
         ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
       })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(5);
+      expect(result.standardsResults.length).toBe(6);
     });
 
     it('should handle diffs with deleted files and impact', async () => {

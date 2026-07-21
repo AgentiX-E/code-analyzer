@@ -1,0 +1,69 @@
+#
+# Code Analyzer — .dockerignore
+#
+
+# Dependencies
+node_modules
+
+# Git
+.git
+.gitignore
+
+# Test coverage reports
+coverage
+
+# Build outputs (rebuilt during Docker build)
+dist
+*.tsbuildinfo
+
+# Turbo cache
+.turbo
+
+# Documentation (keep for build context, but ignore for image)
+# docs/
+
+# Tests — not needed in production image
+tests
+**/*.test.ts
+**/*.spec.ts
+**/*.bench.ts
+vitest.config.ts
+vitest.integration.config.ts
+vitest.property.config.ts
+vitest.e2e.config.ts
+
+# Benchmarks
+benchmarks
+
+# Temp files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+
+# IDE
+.vscode
+.idea
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# CI/CD
+.github
+.circleci
+.gitlab-ci.yml
+
+# Package manager state
+.pnpm-store
+
+# Misc
+*.md
+!README.md

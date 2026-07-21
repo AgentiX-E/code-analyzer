@@ -1,0 +1,111 @@
+version: "3.9"
+
+#
+# Code Analyzer — Docker Compose Configuration
+#
+
+services:
+  #
+  # MCP Server — serves the MCP protocol over HTTP/SSE transport
+  #
+  code-analyzer-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: code-analyzer-mcp:latest
+    container_name: code-analyzer-mcp
+    environment:
+      NODE_ENV: production
+      # API key authentication for MCP clients
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      # Optional: log level (debug, info, warn, error)
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Optional: transport mode (stdio, sse)
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-sse}
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount project directory for live code analysis
+      - .:/workspace:ro
+      # Persistent volume for the code graph storage
+      - graph-data:/app/data/graph
+    networks:
+      - analyzer-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  #
+  # Server — HTTP REST API server
+  #
+  code-analyzer-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: code-analyzer-server:latest
+    container_name: code-analyzer-server
+    command: ["node", "packages/server/dist/index.js"]
+    environment:
+      NODE_ENV: production
+      SERVER_API_KEY: ${SERVER_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/workspace:ro
+      - graph-data:/app/data/graph
+    networks:
+      - analyzer-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      code-analyzer-mcp:
+        condition: service_healthy
+
+networks:
+  analyzer-net:
+    driver: bridge
+    name: code-analyzer-net
+
+volumes:
+  graph-data:
+    driver: local
+    name: code-analyzer-graph-data

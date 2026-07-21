@@ -509,6 +509,193 @@ const documentation: ProjectStandard = {
 };
 
 /**
+ * Security Essentials — comprehensive security-focused standard.
+ * Covers SQL injection, hardcoded secrets, input validation, path traversal,
+ * CSRF protection, and XSS prevention.
+ */
+const securityEssentials: ProjectStandard = {
+  id: 'security-essentials',
+  name: 'Security Essentials',
+  version: '1.0.0',
+  category: 'security',
+  description:
+    'Comprehensive security checks: SQL injection prevention, no hardcoded secrets, input validation, path traversal protection, CSRF tokens, and XSS prevention.',
+  rules: [
+    {
+      id: 'sec-sql-injection',
+      description: 'No SQL injection patterns — detect string concatenation in SQL queries and raw queries without parameterization',
+      checkType: 'regex',
+      checkConfig: {
+        pattern: '(?:execute|query|run)\\s*\\(\\s*[`\'"][^`\'"]*\\$\\{|(?:SELECT|INSERT|UPDATE|DELETE|DROP)\\s+.*?\\+.*?["\'`]',
+        flags: 'gi',
+      },
+      severity: 'critical',
+      autoFixable: false,
+      fixSuggestion:
+        'Use parameterized queries (e.g. `db.query("SELECT * FROM users WHERE id = ?", [userId])`) or an ORM with built-in escaping.',
+    },
+    {
+      id: 'sec-hardcoded-secrets',
+      description: 'No hardcoded secrets — detect API keys, tokens, passwords, and credentials in source code',
+      checkType: 'regex',
+      checkConfig: {
+        pattern:
+          '(?:api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?key|secret[_-]?key|private[_-]?key|client[_-]?secret|db[_-]?password|database[_-]?url)\\s*[:=]\\s*[`\'"][A-Za-z0-9_\\-+=/]{12,}[`\'"]',
+        flags: 'gi',
+      },
+      severity: 'critical',
+      autoFixable: false,
+      fixSuggestion:
+        'Store secrets in environment variables or a secrets manager (e.g. process.env.API_KEY, Vault, AWS Secrets Manager).',
+    },
+    {
+      id: 'sec-no-password-plaintext',
+      description: 'No plaintext passwords — detect hardcoded password assignments in config or source',
+      checkType: 'regex',
+      checkConfig: {
+        pattern: '(?:password|passwd|pwd)\\s*[:=]\\s*[`\'"][^`\'"]{3,}[`\'"]',
+        flags: 'gi',
+      },
+      severity: 'critical',
+      autoFixable: false,
+      fixSuggestion:
+        'Never hardcode passwords. Use environment variables or secure vault storage.',
+    },
+    {
+      id: 'sec-input-validation',
+      description: 'Input validation required — detect missing validation on user-facing function parameters',
+      checkType: 'ast-pattern',
+      checkConfig: { pattern: 'missing-input-validation' },
+      severity: 'high',
+      autoFixable: false,
+      fixSuggestion:
+        'Validate all user-facing inputs: type-check, sanitize, and constrain values before use. Use libraries like zod, joi, or express-validator.',
+    },
+    {
+      id: 'sec-path-traversal',
+      description: 'No path traversal — detect unsanitized file path operations that could allow directory traversal',
+      checkType: 'regex',
+      checkConfig: {
+        pattern:
+          '(?:fs\\.(?:readFile|writeFile|createReadStream|createWriteStream|open|readdir|unlink|rmdir|mkdir|stat|access|realpath|exists)|path\\.(?:resolve|join))\\s*\\(\\s*[^,)]*\\+\\s*[^,)]*\\b(?:req\\.|request\\.|params\\.|query\\.|body\\.|input|user)',
+        flags: 'g',
+      },
+      severity: 'critical',
+      autoFixable: false,
+      fixSuggestion:
+        'Sanitize file paths with `path.normalize()` and validate that the resolved path stays within the intended directory. Use `path.resolve(baseDir, input)` and verify the result starts with `baseDir`.',
+    },
+    {
+      id: 'sec-csrf-protection',
+      description: 'CSRF protection required — detect POST/PUT/DELETE endpoints missing CSRF token validation',
+      checkType: 'ast-pattern',
+      checkConfig: { pattern: 'missing-csrf-token' },
+      severity: 'high',
+      autoFixable: false,
+      fixSuggestion:
+        'Add CSRF protection middleware (e.g. csurf, lusca) to all state-changing endpoints. For SPAs, use double-submit cookie pattern or synchronizer token pattern.',
+    },
+    {
+      id: 'sec-xss-prevention',
+      description: 'XSS prevention — detect unescaped user input in HTML templates, JSX, and innerHTML usage',
+      checkType: 'regex',
+      checkConfig: {
+        pattern:
+          '(?:dangerouslySetInnerHTML|innerHTML\\s*=|document\\.write\\s*\\(|eval\\s*\\(|new\\s+Function\\s*\\(|setTimeout\\s*\\(\\s*[`\'"][^`\'"]*\\$\\{)',
+        flags: 'g',
+      },
+      severity: 'critical',
+      autoFixable: false,
+      fixSuggestion:
+        'Avoid dangerouslySetInnerHTML, innerHTML, and eval(). Use framework-provided escaping (React auto-escapes JSX). For raw HTML, sanitize with DOMPurify before insertion.',
+    },
+    {
+      id: 'sec-no-eval-function',
+      description: 'No eval or Function constructor — detect dynamic code execution',
+      checkType: 'regex',
+      checkConfig: {
+        pattern: '\\b(?:eval|Function)\\s*\\(',
+        flags: 'g',
+      },
+      severity: 'critical',
+      autoFixable: false,
+      fixSuggestion:
+        'Avoid eval() and new Function(). Use structured data formats (JSON) for dynamic behavior.',
+    },
+    {
+      id: 'sec-crypto-weak',
+      description: 'No weak cryptographic algorithms — detect MD5, SHA1, or hardcoded keys for encryption',
+      checkType: 'regex',
+      checkConfig: {
+        pattern: '\\b(?:md5|sha1|des\\b|rc4|ecb)\\b|createHash\\s*\\(\\s*[`\'"]md5[`\'"]|createHash\\s*\\(\\s*[`\'"]sha1[`\'"]',
+        flags: 'gi',
+      },
+      severity: 'high',
+      autoFixable: false,
+      fixSuggestion:
+        'Use strong cryptographic algorithms: SHA-256, SHA-512, AES-GCM. For password hashing, use bcrypt, argon2, or scrypt.',
+    },
+  ],
+  examples: [
+    {
+      description: 'Parameterized SQL query — compliant',
+      compliant: true,
+      code: 'const rows = await db.query(\n  "SELECT * FROM users WHERE id = ?",\n  [userId]\n);',
+    },
+    {
+      description: 'String concatenation in SQL — non-compliant',
+      compliant: false,
+      code: 'const query = "SELECT * FROM users WHERE id = " + userId;\nconst rows = await db.execute(query);',
+      explanation: 'Vulnerable to SQL injection via string concatenation.',
+    },
+    {
+      description: 'Secret from environment — compliant',
+      compliant: true,
+      code: 'const apiKey = process.env.API_KEY;',
+    },
+    {
+      description: 'Hardcoded API key — non-compliant',
+      compliant: false,
+      code: 'const apiKey = "sk-abcdef1234567890";',
+      explanation: 'API key is hardcoded in source code.',
+    },
+    {
+      description: 'Safe file path resolution — compliant',
+      compliant: true,
+      code: 'const safePath = path.resolve(baseDir, path.normalize(userInput));\nif (!safePath.startsWith(baseDir)) {\n  throw new Error("Path traversal detected");\n}\nconst content = await fs.readFile(safePath);',
+    },
+    {
+      description: 'Unsanitized file path — non-compliant',
+      compliant: false,
+      code: 'const content = await fs.readFile("/data/" + req.params.file);',
+      explanation: 'User-controlled path allows directory traversal (e.g. ../../etc/passwd).',
+    },
+    {
+      description: 'CSRF-protected form — compliant',
+      compliant: true,
+      code: '<form method="POST" action="/api/users">\n  <input type="hidden" name="_csrf" value="{{csrfToken}}" />\n  <input name="email" />\n  <button type="submit">Save</button>\n</form>',
+    },
+    {
+      description: 'Missing CSRF token — non-compliant',
+      compliant: false,
+      code: '<form method="POST" action="/api/users">\n  <input name="email" />\n  <button type="submit">Save</button>\n</form>',
+      explanation: 'POST form missing CSRF token, vulnerable to cross-site request forgery.',
+    },
+    {
+      description: 'Safe JSX rendering — compliant',
+      compliant: true,
+      code: '<div>{user.name}</div>',
+    },
+    {
+      description: 'Unsafe innerHTML — non-compliant',
+      compliant: false,
+      code: 'element.innerHTML = user.bio;',
+      explanation: 'innerHTML assignment with user input allows XSS injection.',
+    },
+  ],
+};
+
+/**
  * Architecture Layered Standard — module boundaries and dependencies.
  */
 const architectureLayered: ProjectStandard = {
@@ -620,6 +807,7 @@ export const STANDARD_TEMPLATES: Record<string, ProjectStandard> = {
   'python-pep8': pythonPep8,
   'go-idiomatic': goIdiomatic,
   'security-baseline': securityBaseline,
+  'security-essentials': securityEssentials,
   'api-design': apiDesign,
   'testing-standards': testingStandards,
   'error-handling': errorHandling,
@@ -662,6 +850,14 @@ export function listTemplates(): StandardTemplate[] {
       name: 'Security Baseline',
       category: 'security',
       description: 'Security best practices for all languages.',
+      language: 'any',
+    },
+    {
+      id: 'security-essentials',
+      name: 'Security Essentials',
+      category: 'security',
+      description:
+        'Comprehensive security checks: SQL injection, hardcoded secrets, input validation, path traversal, CSRF, XSS.',
       language: 'any',
     },
     {

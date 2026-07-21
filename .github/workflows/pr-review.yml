@@ -4,14 +4,83 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+#
+# Concurrency: cancel in-progress reviews when new commits are pushed
+# Group by PR number so each PR gets its own queue
+#
+concurrency:
+  group: code-analyzer-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  issues: write
+
 jobs:
+  #
+  # 1. Post "review in progress" marker comment
+  #
+  review-in-progress:
+    name: Mark Review In Progress
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post "review in progress" marker
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const markerHeader = '<!-- code-analyzer-review-progress -->';
+            const body = `${markerHeader}
+            ## 🔄 Code Analyzer — Review in Progress
+
+            The automated review is currently running. This comment will be replaced with a full report once the analysis completes.
+
+            ⏳ **Status:** Running security, standards, and code-quality checks...
+
+            *Last updated: ${new Date().toISOString()}*
+            `;
+
+            // Find existing marker comments
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingMarker = comments.find(c => c.body && c.body.includes(markerHeader));
+
+            if (existingMarker) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingMarker.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  #
+  # 2. Run full code analysis and post inline review comments
+  #
   code-review:
     name: Code Analyzer Review
+    needs: review-in-progress
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
       checks: write
+      issues: write
 
     steps:
       - name: Checkout repository
@@ -37,7 +106,15 @@ jobs:
       - name: Run Code Analyzer
         id: analyzer
         run: |
-          # Analyze PR changes
+          # Analyze PR changes — output JSON for parsing
+          pnpm code-analyzer review pr \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }} \
+            --token ${{ secrets.GITHUB_TOKEN }} \
+            --format json \
+            --output review-report.json
+
+          # Also generate markdown for the summary comment
           pnpm code-analyzer review pr \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
@@ -45,15 +122,269 @@ jobs:
             --format markdown \
             --output review-report.md
 
-      - name: Post Review Report
-        if: success()
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: code-analyzer-review
-          path: review-report.md
+      #
+      # Evidence-required check: ensure each finding has a code reference
+      #
+      - name: Validate Findings Have Evidence
+        id: evidence-check
+        run: |
+          echo "Checking that all findings include code references..."
 
+          if [ -f review-report.json ]; then
+            # Using jq to validate each finding has a file path and line reference
+            FINDINGS_WITHOUT_EVIDENCE=$(jq '[.findings[] | select(.file == null or .line == null)] | length' review-report.json)
+
+            if [ "$FINDINGS_WITHOUT_EVIDENCE" -gt 0 ]; then
+              echo "::warning::${FINDINGS_WITHOUT_EVIDENCE} finding(s) missing code references (file/line)."
+              echo "findings-without-evidence=${FINDINGS_WITHOUT_EVIDENCE}" >> "$GITHUB_OUTPUT"
+
+              # List the problematic findings
+              jq -r '.findings[] | select(.file == null or .line == null) | "  - \(.rule // .id): \(.description // "no description")"' review-report.json
+            else
+              echo "All findings have valid code references."
+              echo "findings-without-evidence=0" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "No review report found."
+            echo "findings-without-evidence=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      #
+      # Deduplication: fetch existing review comments, then post only new findings
+      #
+      - name: Post Inline Review Comments
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read the review report
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync('review-report.json', 'utf8'));
+            } catch (err) {
+              console.log('No review report found or invalid JSON.');
+              return;
+            }
+
+            const findings = report.findings;
+            if (!findings || findings.length === 0) {
+              console.log('No findings to report.');
+              return;
+            }
+
+            const prNumber = context.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Step A: Fetch all existing review comments on this PR
+            console.log('Fetching existing review comments for deduplication...');
+            const { data: existingReviews } = await github.rest.pulls.listReviews({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+
+            // Collect all existing comment bodies across all reviews
+            const existingCommentMap = new Map();
+            for (const review of existingReviews) {
+              const { data: reviewComments } = await github.rest.pulls.listCommentsForReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                review_id: review.id,
+              });
+
+              for (const comment of reviewComments) {
+                // Key by file + line + rule ID for deduplication
+                const key = `${comment.path}:${comment.line}:${comment.body}`;
+                existingCommentMap.set(key, true);
+              }
+            }
+
+            // Also check standalone review comments (not tied to a review)
+            const { data: standaloneComments } = await github.rest.pulls.listReviewComments({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+
+            for (const comment of standaloneComments) {
+              const key = `${comment.path}:${comment.line || comment.start_line}:${comment.body}`;
+              existingCommentMap.set(key, true);
+            }
+
+            console.log(`Found ${existingCommentMap.size} existing review comments.`);
+
+            // Step B: Filter out findings that already have comments
+            const newFindings = [];
+            const skippedFindings = [];
+
+            for (const finding of findings) {
+              if (!finding.file || !finding.line) {
+                // Skip findings without file/line references — those go to summary only
+                console.log(`Skipping finding without file/line: ${finding.id || finding.rule}`);
+                skippedFindings.push(finding);
+                continue;
+              }
+
+              const commentBody = generateInlineComment(finding);
+              const dedupKey = `${finding.file}:${finding.line}:${commentBody}`;
+
+              if (existingCommentMap.has(dedupKey)) {
+                console.log(`Skipping duplicate comment: ${dedupKey}`);
+                skippedFindings.push(finding);
+              } else {
+                newFindings.push(finding);
+              }
+            }
+
+            console.log(`New findings to post: ${newFindings.length}, Duplicates skipped: ${skippedFindings.length}`);
+
+            // Step C: Create a new review with inline comments for new findings
+            if (newFindings.length > 0) {
+              const reviewComments = newFindings.map(finding => ({
+                path: finding.file,
+                line: finding.line,
+                side: 'RIGHT',
+                body: generateInlineComment(finding),
+              }));
+
+              // Post in batches to avoid hitting API limits
+              const BATCH_SIZE = 20;
+              for (let i = 0; i < reviewComments.length; i += BATCH_SIZE) {
+                const batch = reviewComments.slice(i, i + BATCH_SIZE);
+
+                await github.rest.pulls.createReview({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  event: 'COMMENT',
+                  comments: batch,
+                });
+
+                console.log(`Posted batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} comments)`);
+              }
+
+              console.log(`Successfully posted ${reviewComments.length} inline review comments.`);
+            }
+
+            if (skippedFindings.length > 0) {
+              console.log(`Skipped ${skippedFindings.length} findings (duplicates or no file/line reference).`);
+            }
+
+            // Helper: generate inline comment body from a finding
+            function generateInlineComment(finding) {
+              const severityEmoji = {
+                critical: '🔴',
+                high: '🟠',
+                medium: '🟡',
+                low: '🟢',
+              };
+
+              const emoji = severityEmoji[finding.severity] || '⚪';
+              const ruleName = finding.rule || finding.id || 'unknown';
+              const description = finding.description || finding.message || '';
+
+              let body = `**${emoji} [${ruleName}] ${finding.severity || 'info'}**\n\n${description}`;
+
+              if (finding.fixSuggestion) {
+                body += `\n\n💡 **Suggestion:** ${finding.fixSuggestion}`;
+              }
+
+              if (finding.snippet) {
+                body += `\n\n\`\`\`suggestion\n${finding.snippet}\n\`\`\``;
+              }
+
+              body += `\n\n<sub>🤖 Generated by [Code Analyzer](https://github.com/lambertyan/code-analyzer) | ${new Date().toISOString()}</sub>`;
+
+              return body;
+            }
+
+      #
+      # 2b. Post summary comment (replaces the "in progress" marker)
+      #
+      - name: Post Review Summary
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            let summaryBody = '';
+            try {
+              summaryBody = fs.readFileSync('review-report.md', 'utf8');
+            } catch (err) {
+              console.log('No markdown report found.');
+              summaryBody = '## Code Analyzer Review\n\nNo findings to report. ✅';
+            }
+
+            const markerHeader = '<!-- code-analyzer-review-progress -->';
+            const finalBody = `${markerHeader}
+            ${summaryBody}
+            `;
+
+            // Replace the in-progress marker comment, or create a new one if missing
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingMarker = comments.find(c => c.body && c.body.includes(markerHeader));
+
+            if (existingMarker) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingMarker.id,
+                body: finalBody,
+              });
+              console.log('Updated review summary comment.');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: finalBody,
+              });
+              console.log('Created review summary comment.');
+            }
+
+      #
+      # 2c. Fail workflow if any high/critical finding is missing evidence
+      #
+      - name: Enforce Evidence Requirements
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `⚠️ **Code Analyzer Review Failed**
+
+            The review encountered issues:
+            - Some findings are missing code references (file/line).
+            - Review process was interrupted.
+
+            Please check the workflow logs for details.
+
+            <sub>🤖 Generated by [Code Analyzer](https://github.com/lambertyan/code-analyzer)</sub>`,
+            });
+
+  #
+  # 3. Project Standards Check (inline comments + summary)
+  #
   standards-check:
     name: Project Standards Check
+    needs: review-in-progress
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,7 +414,15 @@ jobs:
       - name: Run Standards Check
         id: standards
         run: |
-          # Check PR changes against project standards
+          # Check PR changes against project standards — JSON for inline comments
+          pnpm code-analyzer standards check \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }} \
+            --token ${{ secrets.GITHUB_TOKEN }} \
+            --format json \
+            --output standards-report.json
+
+          # Also generate markdown for summary
           pnpm code-analyzer standards check \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
@@ -91,15 +430,97 @@ jobs:
             --format markdown \
             --output standards-report.md
 
-      - name: Post Standards Report
+      - name: Post Standards Inline Comments
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync('standards-report.json', 'utf8'));
+            } catch (err) {
+              console.log('No standards report found or invalid JSON.');
+              return;
+            }
+
+            const violations = report.violations || report.findings || [];
+            if (violations.length === 0) {
+              console.log('No standards violations to report.');
+              return;
+            }
+
+            const prNumber = context.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Deduplication: fetch existing comments
+            const { data: existingComments } = await github.rest.pulls.listReviewComments({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+
+            const existingKeys = new Set();
+            for (const c of existingComments) {
+              existingKeys.add(`${c.path}:${c.line || c.start_line}:${c.body}`);
+            }
+
+            const newViolations = violations.filter(v => {
+              if (!v.file || !v.line) return false;
+              const body = generateStandardsComment(v);
+              return !existingKeys.has(`${v.file}:${v.line}:${body}`);
+            });
+
+            if (newViolations.length === 0) {
+              console.log('All standards violations already have comments. Skipping.');
+              return;
+            }
+
+            console.log(`Posting ${newViolations.length} new standards inline comments.`);
+
+            const comments = newViolations.map(v => ({
+              path: v.file,
+              line: v.line,
+              side: 'RIGHT',
+              body: generateStandardsComment(v),
+            }));
+
+            // Post in batches
+            const BATCH_SIZE = 20;
+            for (let i = 0; i < comments.length; i += BATCH_SIZE) {
+              const batch = comments.slice(i, i + BATCH_SIZE);
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                event: 'COMMENT',
+                comments: batch,
+              });
+              console.log(`Posted batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+            }
+
+            console.log(`Successfully posted ${comments.length} standards inline comments.`);
+
+            function generateStandardsComment(violation) {
+              return `**📋 [${violation.standard || 'standards'}] ${violation.rule || violation.id}** — ${violation.severity || 'info'}\n\n${violation.description || violation.message || ''}\n\n💡 **Fix:** ${violation.fixSuggestion || 'Review and address this violation.'}`;
+            }
+
+      - name: Post Standards Summary
         if: success()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: code-analyzer-standards
           path: standards-report.md
 
+  #
+  # 4. Security Audit
+  #
   security-audit:
     name: Security Audit
+    needs: review-in-progress
     runs-on: ubuntu-latest
     permissions:
       contents: read
