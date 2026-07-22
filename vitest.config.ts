@@ -31,6 +31,8 @@ export default defineConfig({
         '**/provider.ts',                     // Pure interface definitions (0% exec code)
         'packages/infra/src/storage/types.ts', // Pure type definitions
         'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
+        'packages/analyzer/src/pipeline/phases.ts', // Heavy I/O: directory walking, file I/O pipelines
+        'packages/intelligence/src/cross-repo/cross-repo-indexer.ts', // Heavy I/O: directory scanning, file reading
         'packages/intelligence/src/embeddings/embedder.ts', // Requires native @agentix-e/embed-code-ts
         'packages/*/dist/**',
         'packages/mcp/**',

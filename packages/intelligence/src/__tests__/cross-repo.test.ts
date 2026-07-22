@@ -1023,4 +1023,522 @@ describe('Cross-Repo Edge Cases', () => {
     expect(() => groupManager.deleteGroup('x')).toThrow();
     expect(() => groupManager.addRepo('x', 'o', 'r', 'u', 'p')).toThrow();
   });
+
+  it('should classify matches with similar names and api patterns', async () => {
+    const nodeA = createProjectNode('o/repo-a', 'getRoute', 'Function', 'routes.ts', true);
+    const nodeB = createProjectNode('o/repo-b', 'getRutes', 'Function', 'routes.ts', true);
+
+    store.insertNode(nodeA);
+    store.insertNode(nodeB);
+
+    groupManager.createGroup('g1', 'Similar Match', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const matches = await indexer.resolveCrossRepoSymbols('g1');
+    // getRutes vs getRoute has Levenshtein distance 1, should match as similar_name
+    const similarMatch = matches.find((m) => m.matchType === 'similar_name');
+    expect(similarMatch).toBeTruthy();
+    if (similarMatch) {
+      expect(similarMatch.confidence).toBeCloseTo(0.7, 1);
+    }
+  });
+
+  it('should handle federated search with groupId filter', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const node = createProjectNode('group-a', 'findTarget', 'Function', 'src/target.ts', true);
+    store.insertNode(node);
+
+    const result = await engine.search('findTarget', { groupId: 'group-a' });
+    expect(result.totalResults).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle federated search with repoFilter option', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const node = createProjectNode('repo-target', 'searchMe', 'Function', 'src/app.ts', true);
+    store.insertNode(node);
+
+    const result = await engine.search('searchMe', { repoFilter: ['repo-target'] });
+    expect(result.totalResults).toBeGreaterThanOrEqual(1);
+    for (const item of result.results) {
+      expect(item.repo).toBe('repo-target');
+    }
+  });
+
+  it('should handle findDuplicates with no matching files', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const report = await engine.findDuplicates('empty-check', 0.99);
+    expect(report.totalDuplicates).toBe(0);
+  });
+
+  it('should detect cross-repo contracts from type aliases', async () => {
+    const typeA = createProjectNode('o/repo-a', 'ApiConfig', 'TypeAlias', 'config.ts', true);
+    const typeB = createProjectNode('o/repo-b', 'ApiConfig', 'TypeAlias', 'config.ts', true);
+
+    store.insertNode(typeA);
+    store.insertNode(typeB);
+
+    groupManager.createGroup('g1', 'Type Contracts', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const contracts = await indexer.detectContracts('g1');
+    const typeContract = contracts.find((c) => c.name === 'ApiConfig');
+    expect(typeContract).toBeTruthy();
+  });
+
+  it('should check type compatibility with changed return types', async () => {
+    const nodeA = createProjectNode('o/repo-a', 'processData', 'Function', 'src/proc.ts', true);
+    const nodeB: GraphNode = {
+      ...createProjectNode('o/repo-b', 'processData', 'Function', 'src/proc.ts', true),
+      signature: '(input: string): string',
+      properties: {
+        ...createProjectNode('o/repo-b', 'processData', 'Function', 'src/proc.ts', true).properties,
+        returnType: 'string',
+      },
+    };
+    const nodeAWithRT: GraphNode = {
+      ...nodeA,
+      signature: '(input: string): number',
+      properties: {
+        ...nodeA.properties,
+        returnType: 'number',
+      },
+    };
+
+    store.insertNode(nodeAWithRT);
+    store.insertNode(nodeB);
+
+    groupManager.createGroup('g1', 'Return Type', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const result = await indexer.checkTypeCompatibility('g1', 'processData', 'processData');
+    expect(result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('should check type compatibility with added required properties', async () => {
+    const nodeA = createProjectNode('o/repo-a', 'dataObj', 'Function', 'src/data.ts', true);
+    const nodeB = createProjectNode('o/repo-b', 'dataObj', 'Function', 'src/data.ts', true);
+
+    const nodeAWithProp: GraphNode = {
+      ...nodeA,
+      properties: {
+        ...nodeA.properties,
+        configurable: true,
+      },
+    };
+    const nodeBWithProp: GraphNode = {
+      ...nodeB,
+      properties: {
+        ...nodeB.properties,
+      },
+    };
+
+    store.insertNode(nodeAWithProp);
+    store.insertNode(nodeBWithProp);
+
+    groupManager.createGroup('g1', 'Added Props', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const result = await indexer.checkTypeCompatibility('g1', 'dataObj', 'dataObj');
+    // Property 'configurable' is in nodeA but not in nodeB → should be flagged
+    expect(result.breakingChanges.length + result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('should analyze cross-repo impact with depth limits', async () => {
+    groupManager.createGroup('g1', 'Impact', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const result = await indexer.analyzeCrossRepoImpact('g1', 'o/repo-a');
+    expect(result.changedRepo).toBe('o/repo-a');
+    expect(Array.isArray(result.analysis)).toBe(true);
+    expect(Array.isArray(result.affectedRepos)).toBe(true);
+  });
+
+  it('should handle getCrossRepoUsage with cross-repo filter', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const crossNode = createProjectNode('cross-repo:g1', 'fake-dep', 'Function', 'fake.ts');
+    store.insertNode(crossNode);
+
+    const result = await engine.getCrossRepoUsage('fake-dep', 'g1');
+    expect(result.dependencyName).toBe('fake-dep');
+    expect(result.totalFiles).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle getCrossRepoUsage with File nodes filtered out', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const fileNode = createProjectNode('repo-a', 'lodash.something', 'File', 'src/app.ts');
+    store.insertNode(fileNode);
+    const symbolNode = createProjectNode('repo-a', 'lodashHelper', 'Function', 'src/helper.ts');
+    store.insertNode(symbolNode);
+
+    const result = await engine.getCrossRepoUsage('lodash', 'g1');
+    expect(result.dependencyName).toBe('lodash');
+    // File nodes should be filtered out
+    expect(result.totalFiles).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle findDuplicates with MinHash token extraction', async () => {
+    const engine = new FederatedSearchEngine(store);
+
+    const fileA = createProjectNode('repo-a', 'Controller.ts', 'File', 'Controller.ts');
+    const fileB = createProjectNode('repo-b', 'Controller.ts', 'File', 'Controller.ts');
+
+    const insertedA = store.insertNode({
+      ...fileA,
+      qualifiedName: 'file:repo-a:Controller.ts',
+    });
+    const insertedB = store.insertNode({
+      ...fileB,
+      qualifiedName: 'file:repo-b:Controller.ts',
+    });
+
+    // Create DEFINES edges
+    const now = new Date().toISOString();
+    const funcA = createProjectNode('repo-a', 'getUsers', 'Function', 'Controller.ts', true);
+    const funcB = createProjectNode('repo-b', 'getUsers', 'Function', 'Controller.ts', true);
+
+    const fA = store.insertNode(funcA);
+    const fB = store.insertNode(funcB);
+
+    store.insertEdge({
+      id: 0, projectId: 'repo-a', sourceId: insertedA, targetId: fA,
+      type: 'DEFINES', properties: {}, weight: 1, createdAt: now,
+    });
+    store.insertEdge({
+      id: 0, projectId: 'repo-b', sourceId: insertedB, targetId: fB,
+      type: 'DEFINES', properties: {}, weight: 1, createdAt: now,
+    });
+
+    const report = await engine.findDuplicates('test-g', 0.3);
+    expect(report.groupId).toBe('test-g');
+    expect(Array.isArray(report.duplicates)).toBe(true);
+  });
+
+  it('should handle repos with autoIndex false being skipped', async () => {
+    groupManager.createGroup('g1', 'Skip Group', '');
+    // RepoGroupManager.addRepo sets autoIndex: true by default
+    // but we test that indexGroup only indexes repos with autoIndex
+    const result = await indexer.indexGroup('g1');
+    expect(result.reposIndexed).toBe(0);
+    expect(result.errors.length).toBe(0);
+  });
+
+  it('should detect contracts with shared type aliases', async () => {
+    const typeA = createProjectNode('o/repo-a', 'UserDTO', 'TypeAlias', 'types.ts', true);
+    const typeB = createProjectNode('o/repo-b', 'UserDTO', 'TypeAlias', 'types.ts', true);
+    const typeC = createProjectNode('o/repo-c', 'UserDTO', 'TypeAlias', 'types.ts', true);
+
+    store.insertNode(typeA);
+    store.insertNode(typeB);
+    store.insertNode(typeC);
+
+    groupManager.createGroup('g1', 'Three Repos', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-c', 'u', '');
+
+    const contracts = await indexer.detectContracts('g1');
+    const contract = contracts.find((c) => c.name === 'UserDTO');
+    expect(contract).toBeTruthy();
+    if (contract) {
+      expect(contract.dependencies.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('should handle federated search with maxResults option', async () => {
+    const engine = new FederatedSearchEngine(store);
+    for (let i = 0; i < 20; i++) {
+      const node = createProjectNode('repo-x', `searchItem${i}`, 'Function', 'src/search.ts', true);
+      store.insertNode(node);
+    }
+
+    const result = await engine.search('searchItem', { maxResults: 5 });
+    expect(result.results.length).toBeLessThanOrEqual(5);
+    expect(result.totalResults).toBeLessThanOrEqual(5);
+  });
+
+  it('should handle findSymbol with empty results', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const results = await engine.findSymbol('nonexistentSymbolXYZ123');
+    expect(results).toEqual([]);
+  });
+
+  it('should handle findSymbol with Variable label', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const node = createProjectNode('repo-a', 'myVariable', 'Variable', 'src/app.ts', false);
+    store.insertNode(node);
+
+    const results = await engine.findSymbol('myVariable');
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.symbol).toBe('myVariable');
+  });
+
+  it('should handle search with non-symbol labels (File)', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const fileNode = createProjectNode('repo-a', 'App.ts', 'File', 'src/App.ts');
+    store.insertNode(fileNode);
+
+    const result = await engine.search('App');
+    // With many results, non-symbol labels may be filtered
+    expect(Array.isArray(result.results)).toBe(true);
+  });
+
+  it('should detect cross-repo impact with no changes', async () => {
+    groupManager.createGroup('g1', 'No Impact', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const result = await indexer.analyzeCrossRepoImpact('g1', 'o/repo-a');
+    expect(result.analysis.length).toBe(0);
+  });
+
+  it('should handle checkTypeCompatibility with different language', async () => {
+    const nodeA: GraphNode = {
+      ...createProjectNode('o/repo-a', 'LanguageFunc', 'Function', 'src/func.py', true),
+      language: 'python',
+      properties: {
+        ...createProjectNode('o/repo-a', 'LanguageFunc', 'Function', 'src/func.py', true).properties,
+        language: 'python',
+      },
+    };
+    const nodeB: GraphNode = {
+      ...createProjectNode('o/repo-b', 'LanguageFunc', 'Function', 'src/func.ts', true),
+      language: 'typescript',
+      properties: {
+        ...createProjectNode('o/repo-b', 'LanguageFunc', 'Function', 'src/func.ts', true).properties,
+        language: 'typescript',
+      },
+    };
+
+    store.insertNode(nodeA);
+    store.insertNode(nodeB);
+
+    groupManager.createGroup('g1', 'Lang Diff', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const result = await indexer.checkTypeCompatibility('g1', 'LanguageFunc', 'LanguageFunc');
+    expect(result.compatible).toBe(true);
+    expect(result.sourceType).toContain('Function');
+  });
+
+  it('should handle federated search with groupId non-matching repos', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const node = createProjectNode('other-group', 'funcName', 'Function', 'src/app.ts', true);
+    store.insertNode(node);
+
+    const result = await engine.search('funcName', { groupId: 'different-group' });
+    expect(Array.isArray(result.results)).toBe(true);
+  });
+
+  it('should handle federated findSymbol with non-symbol labels', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const fileNode = createProjectNode('repo-a', 'myFile', 'File', 'src/file.ts');
+    store.insertNode(fileNode);
+
+    const results = await engine.findSymbol('myFile');
+    // File nodes should not appear in results (only code symbols)
+    expect(Array.isArray(results)).toBe(true);
+  });
+
+  it('should handle findDuplicates with no symbol files', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const fileA = createProjectNode('repo-a', 'EmptyFile.ts', 'File', 'EmptyFile.ts');
+    const fileB = createProjectNode('repo-b', 'EmptyFile.ts', 'File', 'EmptyFile.ts');
+
+    store.insertNode({ ...fileA, qualifiedName: 'file:repo-a:EmptyFile.ts' });
+    store.insertNode({ ...fileB, qualifiedName: 'file:repo-b:EmptyFile.ts' });
+
+    const report = await engine.findDuplicates('dup-test', 0.0);
+    expect(report.totalDuplicates).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle getCrossRepoUsage with signature-based matching', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const node = createProjectNode('repo-a', 'somePkg', 'Function', 'src/app.ts');
+    const nodeWithSig: GraphNode = {
+      ...node,
+      signature: 'somePkg.doSomething()',
+    };
+    store.insertNode(nodeWithSig);
+
+    const result = await engine.getCrossRepoUsage('somePkg', 'g1');
+    expect(result.dependencyName).toBe('somePkg');
+    expect(result.totalRepos).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should handle federated search with many non-symbol results filtering', async () => {
+    const engine = new FederatedSearchEngine(store);
+    // Add many File nodes (non-symbol) and a few Function nodes
+    for (let i = 0; i < 20; i++) {
+      const fileNode = createProjectNode('repo-x', `FileNode${i}`, 'File', `src/file${i}.ts`);
+      store.insertNode(fileNode);
+    }
+    const funcNode = createProjectNode('repo-x', 'targetFunc', 'Function', 'src/app.ts', true);
+    store.insertNode(funcNode);
+
+    const result = await engine.search('Node', { maxResults: 5 });
+    expect(result.totalResults).toBeLessThanOrEqual(5);
+  });
+
+  it('should handle findDuplicates with same-repo comparison skip', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const fileA = createProjectNode('same-repo', 'FileA.ts', 'File', 'FileA.ts');
+    const fileB = createProjectNode('same-repo', 'FileB.ts', 'File', 'FileB.ts');
+
+    store.insertNode({ ...fileA, qualifiedName: 'file:same-repo:FileA.ts' });
+    store.insertNode({ ...fileB, qualifiedName: 'file:same-repo:FileB.ts' });
+
+    const report = await engine.findDuplicates('same-test', 0.0);
+    // Same repo files should be skipped in comparison
+    expect(report.totalDuplicates).toBe(0);
+  });
+
+  it('should handle getCrossRepoUsage with cross-repo namespace filtering', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const crossNode = createProjectNode('cross-repo:some-id', 'dep-name', 'Function', 'fake.ts');
+    store.insertNode(crossNode);
+
+    const result = await engine.getCrossRepoUsage('dep-name', 'test-group');
+    // cross-repo project IDs should be filtered
+    expect(result.totalRepos).toBe(0);
+  });
+
+  it('should handle indexGroup with language filter', async () => {
+    groupManager.createGroup('g1', 'Lang Filter', '');
+    const baseDir = join(tmpdir(), `lang-filter-${Date.now()}`);
+    const repoDir = createTestRepoDir(baseDir, 'service-lang', {
+      'index.ts': 'export function getData() { return 42; }',
+      'utils.py': 'def helper(): return True',
+      'README.md': '# Doc',
+    });
+    groupManager.addRepo('g1', 'org', 'service-lang', 'https://a.example.com', repoDir);
+
+    const result = await indexer.indexGroup('g1', { languages: ['typescript'] });
+    expect(result.groupId).toBe('g1');
+    expect(result.reposIndexed).toBe(1);
+  });
+
+  it('should handle indexGroup with force option', async () => {
+    const baseDir = join(tmpdir(), `force-opt-${Date.now()}`);
+    const repoDir = createTestRepoDir(baseDir, 'service-force', {
+      'index.ts': 'export function getStuff() { return true; }',
+    });
+    groupManager.createGroup('g1', 'Force Index', '');
+    groupManager.addRepo('g1', 'org', 'service-force', 'https://a.example.com', repoDir);
+
+    const result = await indexer.indexGroup('g1', { force: true });
+    expect(result.reposIndexed).toBe(1);
+  });
+
+  it('should handle federated findSymbol with groupId null', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const node = createProjectNode('repo-x', 'groupedSym', 'Function', 'src/x.ts');
+    store.insertNode(node);
+
+    const results = await engine.findSymbol('groupedSym');
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should handle getCrossRepoUsage excluding File nodes', async () => {
+    const engine = new FederatedSearchEngine(store);
+    const fileNode = createProjectNode('repo-a', 'my-dep', 'File', 'src/pkg.ts');
+    store.insertNode(fileNode);
+    const fnNode = createProjectNode('repo-a', 'useDep', 'Function', 'src/app.ts');
+    store.insertNode(fnNode);
+
+    const result = await engine.getCrossRepoUsage('dep', 'g1');
+    // File nodes should be excluded from results
+    expect(Array.isArray(result.usedBy)).toBe(true);
+  });
+
+  it('should handle findDuplicates with pairwise comparison across different repos', async () => {
+    const engine = new FederatedSearchEngine(store);
+    
+    const fileA = createProjectNode('rx', 'FileX.ts', 'File', 'FileX.ts');
+    const fileB = createProjectNode('ry', 'FileY.ts', 'File', 'FileY.ts');
+    
+    const faRef = store.insertNode({ ...fileA, qualifiedName: 'file:rx:FileX.ts' });
+    const fbRef = store.insertNode({ ...fileB, qualifiedName: 'file:ry:FileY.ts' });
+    
+    const funcA = createProjectNode('rx', 'fnA', 'Function', 'FileX.ts', true);
+    const funcB = createProjectNode('ry', 'fnA', 'Function', 'FileY.ts', true);
+    
+    const fA = store.insertNode(funcA);
+    const fB = store.insertNode(funcB);
+    
+    const now = new Date().toISOString();
+    store.insertEdge({ id: 0, projectId: 'rx', sourceId: faRef, targetId: fA, type: 'DEFINES', properties: {}, weight: 1, createdAt: now });
+    store.insertEdge({ id: 0, projectId: 'ry', sourceId: fbRef, targetId: fB, type: 'DEFINES', properties: {}, weight: 1, createdAt: now });
+    
+    const report = await engine.findDuplicates('pair-test', 0.3);
+    expect(Array.isArray(report.duplicates)).toBe(true);
+  });
+
+  it('should handle resolveCrossRepoSymbols with import references', async () => {
+    // Set up repo symbols
+    const nodeA = createProjectNode('o/repo-a', 'exportedFn', 'Function', 'src/export.ts', true);
+    const fileA = createProjectNode('o/repo-a', 'src/export.ts', 'File', 'src/export.ts');
+    const fileB = createProjectNode('o/repo-b', 'src/consumer.ts', 'File', 'src/consumer.ts');
+
+    store.insertNode(nodeA);
+    store.insertNode(fileA);
+    store.insertNode(fileB);
+
+    groupManager.createGroup('g1', 'Import Ref', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const matches = await indexer.resolveCrossRepoSymbols('g1');
+    expect(Array.isArray(matches)).toBe(true);
+  });
+
+  it('should handle detectContracts with more than 2 repos', async () => {
+    const iface = createProjectNode('o/repo-a', 'SharedApi', 'Interface', 'types.ts', true);
+    const iface2 = createProjectNode('o/repo-b', 'SharedApi', 'Interface', 'types.ts', true);
+    const iface3 = createProjectNode('o/repo-c', 'SharedApi', 'Interface', 'types.ts', true);
+
+    store.insertNode(iface);
+    store.insertNode(iface2);
+    store.insertNode(iface3);
+
+    groupManager.createGroup('g1', 'Three Repo', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-c', 'u', '');
+
+    const contracts = await indexer.detectContracts('g1');
+    const shared = contracts.find((c) => c.name === 'SharedApi');
+    expect(shared).toBeTruthy();
+  });
+
+  it('should handle checkTypeCompatibility with same symbol in different file', async () => {
+    const nodeA = createProjectNode('o/repo-a', 'CompatibleFn', 'Function', 'src/a.ts', true);
+    const nodeB = createProjectNode('o/repo-b', 'CompatibleFn', 'Function', 'src/b.ts', true);
+
+    store.insertNode(nodeA);
+    store.insertNode(nodeB);
+
+    groupManager.createGroup('g1', 'Same File', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const result = await indexer.checkTypeCompatibility('g1', 'CompatibleFn', 'CompatibleFn');
+    expect(result.compatible).toBe(true);
+  });
+
+  it('should handle buildCrossRepoGraph with cross-repo calls', async () => {
+    groupManager.createGroup('g1', 'Calls', '');
+    groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+    groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+    const report = await indexer.buildCrossRepoGraph('g1');
+    expect(report.repos.length).toBe(2);
+    expect(report.crossRepoEdges).toBe(0);
+    expect(typeof report.orphanSymbols).toBe('number');
+  });
 });

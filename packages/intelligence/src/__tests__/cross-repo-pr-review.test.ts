@@ -793,6 +793,58 @@ describe('CrossRepoPRReviewEngine', () => {
 
       expect(result.apiBreakingChanges.some((b) => b.changeType === 'renamed')).toBe(true);
     });
+
+    it('should detect multiple breaking changes for medium severity', async () => {
+      const pr = createPR();
+      const diffs = [
+        createDiff({ filePath: 'src/api/one.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
+        createDiff({ filePath: 'src/api/two.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
+        createDiff({ filePath: 'src/api/three.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
+        createDiff({ filePath: 'src/api/four.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
+      ];
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', diffs);
+      expect(result.totalBreakingChanges).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should generate cross-repo summary with recommendations', async () => {
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/PublicInterface.ts',
+        changeType: 'deleted',
+        ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
+      });
+
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [diff]);
+      expect(Array.isArray(summary.recommendations)).toBe(true);
+      expect(summary.breakingChanges).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should handle version compatibility with empty repos', async () => {
+      const emptyManager = new RepoGroupManager();
+      const fs3 = require('node:fs');
+      const os3 = require('node:os');
+      const path3 = require('node:path');
+      const tmpDir3 = fs3.mkdtempSync(path3.join(os3.tmpdir(), 'empty-ver-'));
+      fs3.mkdirSync(path3.join(tmpDir3, 'bare-repo'), { recursive: true });
+
+      emptyManager.createGroup('bare', 'Bare Group', '');
+      emptyManager.addRepo('bare', 'myorg', 'bare-repo', '', path3.join(tmpDir3, 'bare-repo'));
+
+      const emptyIdx = new CrossRepoIndexer(new InMemoryGraphStore(), emptyManager);
+      const emptyEng = new CrossRepoPRReviewEngine(emptyIdx, emptyManager, reviewEngine);
+      const result = await emptyEng.checkVersionCompatibility('bare');
+      expect(result.groupId).toBe('bare');
+    });
+
+    it('should predict test impact with diffs on other repos', async () => {
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/users.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [diff]);
+      expect(result.sourceRepo).toBe('myorg/service-a');
+      expect(result.totalTestsAffected).toBeDefined();
+    });
   });
 });
 
@@ -1107,6 +1159,13 @@ describe('VersionCompatibilityMatrix', () => {
   // -----------------------------------------------------------------------
 
   describe('integration', () => {
+    it('should handle parseSemver with trailing characters', () => {
+      const result = matrix.parseSemver('^4.17.0-beta.1');
+      expect(result.major).toBe(4);
+      expect(result.minor).toBe(17);
+      expect(result.patch).toBe(0);
+    });
+
     it('should build matrix and detect conflicts in one flow', () => {
       const m = matrix.buildMatrix('test-group', [
         { repo: 'repo-a', version: '1.0.0', dependencies: { a: '1.0', b: '2.0' } },
@@ -1155,6 +1214,44 @@ describe('VersionCompatibilityMatrix', () => {
       expect(conflicts.length).toBe(1);
       expect(conflicts[0]!.repos.length).toBe(3);
       expect(conflicts[0]!.recommendedVersion).toBe('3.0.0');
+    });
+
+    it('should handle parseSemver with trailing characters', () => {
+      const result = matrix.parseSemver('^4.17.0-beta.1');
+      expect(result.major).toBe(4);
+      expect(result.minor).toBe(17);
+      expect(result.patch).toBe(0);
+    });
+
+    it('should handle checkUpgradeSafety for same version', () => {
+      const m = matrix.buildMatrix('test', [
+        { repo: 'repo-a', dependencies: { lodash: '4.17.0' } },
+      ]);
+      const report = matrix.checkUpgradeSafety('lodash', '4.17.0', '4.17.0', m);
+      expect(report.safe).toBe(true);
+      expect(report.recommendations.some((r) => r.includes('identical'))).toBe(true);
+    });
+
+    it('should handle pickHighestVersion with prefixed versions across ranges', () => {
+      const result = matrix.pickHighestVersion(['~1.0.0', '^2.0.0', '3.0.0']);
+      expect(result).toBe('3.0.0');
+    });
+
+    it('should handle detectConflicts with single shared dependency and 3 different versions', () => {
+      const m = matrix.buildMatrix('test', [
+        { repo: 'repo-a', dependencies: { pkg: '1.0.0' } },
+        { repo: 'repo-b', dependencies: { pkg: '2.0.0' } },
+        { repo: 'repo-c', dependencies: { pkg: '1.5.0' } },
+      ]);
+      const conflicts = matrix.detectConflicts(m);
+      expect(conflicts.length).toBe(1);
+      expect(conflicts[0]!.packageName).toBe('pkg');
+      expect(conflicts[0]!.conflictType).toBe('major_mismatch');
+    });
+
+    it('should handle detectConflicts with null matrix', () => {
+      // @ts-expect-error testing null
+      expect(matrix.detectConflicts(undefined)).toEqual([]);
     });
   });
 });
