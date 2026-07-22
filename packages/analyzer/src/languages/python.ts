@@ -1,281 +1,307 @@
-// @code-analyzer/analyzer — Python Provider
+// @code-analyzer/analyzer — Python Tree-sitter Provider
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
-import type { LanguageProvider, ParsedImport } from './provider.js';
+import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
+import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
+const pyExtensions = ['.py', '.pyi', '.pyx', '.pxd'];
+const pyGlobs = ['**/*.py', '**/*.pyi', '**/*.pyx', '**/*.pxd'];
 
-function lineNumberAt(source: string, offset: number): number {
-  return source.slice(0, offset).split('\n').length;
-}
-
-const pythonExtensions = ['.py', '.pyi', '.pyx', '.pxd'];
-const pythonGlobs = ['**/*.py', '**/*.pyi', '**/*.pyx', '**/*.pxd'];
-
-const PY_RESERVED_KEYWORDS: ReadonlySet<string> = new Set([
-  'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
-  'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
-  'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
-  'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
-  'try', 'while', 'with', 'yield',
-]);
-
-export class PythonProvider implements LanguageProvider {
+export class PythonProvider extends TreeSitterBaseProvider {
   readonly language = 'python';
   readonly displayName = 'Python';
-  readonly extensions = pythonExtensions;
-  readonly globs = pythonGlobs;
+  readonly extensions = pyExtensions;
+  readonly globs = pyGlobs;
   readonly importSemantics = 'wildcard-leaf' as const;
 
-  parse(source: string, filePath: string): UnifiedCapture[] {
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const py = require('tree-sitter-python') as { python: TreeSitterLanguage };
+      return py.python || (py as unknown as TreeSitterLanguage);
+    } catch {
+      return null;
+    }
+  }
+
+  protected override getNodeMappings(): NodeTypeMapping[] {
+    return [
+      { nodeType: 'function_definition', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
+      { nodeType: 'class_definition', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'identifier' },
+      { nodeType: 'decorated_definition', captureTag: CAPTURE_TAGS.DECORATOR, useFirstNamedChild: true },
+    ];
+  }
+
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+
+    if (nodeType === 'function_definition') {
+      const nameNode = this.findNamedChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'class_definition') {
+      const nameNode = this.findNamedChild(node, 'identifier');
+      if (nameNode) {
+        // Extract base classes
+        let baseClasses = '';
+        for (let i = 0; i < node.namedChildCount; i++) {
+          const child = node.namedChild(i);
+          if (child.type === 'argument_list') {
+            const bases: string[] = [];
+            for (let j = 0; j < child.childCount; j++) {
+              const arg = child.child(j);
+              if (arg.type === 'identifier') bases.push(arg.text);
+            }
+            baseClasses = bases.join(',');
+            break;
+          }
+        }
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: `class ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { baseClasses, filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'decorated_definition') {
+      // Extract decorators
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === 'decorator') {
+          const called = this.findNamedChild(child, 'call');
+          let text = '@';
+          if (called) {
+            const func = this.findNamedChild(called, 'identifier') || this.findNamedChild(called, 'attribute');
+            text += called.text;
+            const name = func ? func.text : called.text.split('(')[0];
+            captures.push({
+              tag: CAPTURE_TAGS.DECORATOR,
+              text,
+              startLine: child.startPosition.row + 1,
+              endLine: child.endPosition.row + 1,
+              startByte: child.startIndex,
+              endByte: child.endIndex,
+              name,
+              properties: { decorator: name!, filePath: this.filePath },
+            });
+          } else {
+            const id = this.findNamedChild(child, 'identifier') || this.findNamedChild(child, 'attribute');
+            if (id) {
+              captures.push({
+                tag: CAPTURE_TAGS.DECORATOR,
+                text: id.text,
+                startLine: child.startPosition.row + 1,
+                endLine: child.endPosition.row + 1,
+                startByte: child.startIndex,
+                endByte: child.endIndex,
+                name: id.text,
+                properties: { decorator: id.text, filePath: this.filePath },
+              });
+            }
+          }
+        }
+      }
+      // Still process the inner definition
+      for (let i = 0; i < node.childCount; i++) {
+        this.walkAndCapture(node.child(i), captures);
+      }
+      return;
+    } else if (nodeType === 'import_statement') {
+      let sourceName = '';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'dotted_name') {
+          sourceName = child.text;
+        } else if (child.type === 'aliased_import') {
+          const id = this.findNamedChild(child, 'identifier');
+          if (id) sourceName = id.text;
+        }
+      }
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: sourceName,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: sourceName,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'import_from_statement') {
+      let sourceName = '';
+      const fromNode = this.findNamedChild(node, 'dotted_name');
+      if (fromNode) sourceName = fromNode.text;
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: sourceName,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: sourceName,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'expression_statement') {
+      // Check for triple-quoted string (docstring)
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'string') {
+          const text = child.text;
+          if ((text.startsWith('"""') || text.startsWith("'''")) && text.length > 5) {
+            captures.push({
+              tag: CAPTURE_TAGS.DOCSTRING,
+              text,
+              startLine: child.startPosition.row + 1,
+              endLine: child.endPosition.row + 1,
+              startByte: child.startIndex,
+              endByte: child.endIndex,
+              properties: { filePath: this.filePath },
+            });
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkAndCapture(node.child(i), captures);
+    }
+  }
+
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'import_statement') {
+      const line = node.startPosition.row + 1;
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'dotted_name') {
+          imports.push({ source: child.text, names: [child.text], type: 'named', lineNumber: line });
+        } else if (child.type === 'aliased_import') {
+          const alias = this.findNamedChild(child, 'identifier');
+          const name = alias ? alias.text : child.text;
+          imports.push({ source: name, names: [name], type: 'namespace', lineNumber: line });
+        }
+      }
+      return;
+    }
+
+    if (node.type === 'import_from_statement') {
+      const line = node.startPosition.row + 1;
+      const fromNode = this.findNamedChild(node, 'dotted_name');
+      const source = fromNode ? fromNode.text : '';
+      const names: string[] = [];
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'dotted_name' && !fromNode) continue;
+        if (child.type === 'aliased_import') {
+          const id = this.findNamedChild(child, 'identifier');
+          if (id) names.push(id.text);
+        } else if (child.type === 'dotted_name' && fromNode && child !== fromNode) {
+          names.push(child.text);
+        }
+      }
+      if (source) {
+        imports.push({ source, names: names.length > 0 ? names : [source], type: 'named', lineNumber: line });
+      }
+      return;
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), imports);
+    }
+  }
+
+  protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    // Python: public unless prefixed with single underscore (not dunder)
+    if (symbolName.startsWith('_') && !symbolName.startsWith('__')) return false;
+    // Check __all__
+    if (this.source.includes('__all__')) {
+      const match = this.source.match(/__all__\s*=\s*\[([\s\S]*?)\]/);
+      if (match) {
+        const items = match[1]!.split(',').map((s) => s.trim().replace(/['"]/g, ''));
+        return items.includes(symbolName);
+      }
+    }
+    return true;
+  }
+
+  // Fallback
+  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
-
-    this.extractFunctions(source, filePath, captures);
-    this.extractClasses(source, filePath, captures);
-    this.extractImportsAsCaptures(source, filePath, captures);
-    this.extractDecorators(source, filePath, captures);
-    this.extractDocstrings(source, filePath, captures);
-
+    const funcRegex = /(?:async\s+)?def\s+(\w+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = funcRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const clsRegex = /class\s+(\w+)/g;
+    while ((m = clsRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const decRegex = /@(\w+(?:\.\w+)*)/g;
+    while ((m = decRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.DECORATOR, text: m[0], startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { decorator: m[1]!, filePath } });
+    }
+    const docRegex = /("""|''')[\s\S]*?\1/g;
+    while ((m = docRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.DOCSTRING, text: m[0], startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, properties: { filePath } });
+    }
+    const imps = this.fallbackExtractImports(source);
+    for (const imp of imps) {
+      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+    }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  extractImports(source: string): ParsedImport[] {
+  protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-
-    // from X import Y, Z
-    const fromImportRegex = /from\s+([\w.]+)\s+import\s+([\w\s,]+)(?:\s+as\s+(\w+))?/g;
-    let match: RegExpExecArray | null;
-    while ((match = fromImportRegex.exec(source)) !== null) {
-      const modulePath = match[1]!;
-      const namesStr = match[2]!;
-      const names = namesStr.split(',').map((s) => s.trim().split(/\s+as\s+/)[0]!).filter(Boolean);
-      imports.push({
-        source: modulePath,
-        names,
-        type: 'named',
-        lineNumber: lineNumberAt(source, match.index),
-      });
+    let m: RegExpExecArray | null;
+    const fromRegex = /from\s+([\w.]+)\s+import\s+([\w\s,]+)/g;
+    while ((m = fromRegex.exec(source)) !== null) {
+      imports.push({ source: m[1]!, names: m[2]!.split(',').map((s) => s.trim().split(/\s+as\s+/)[0]!).filter(Boolean), type: 'named', lineNumber: this.ln(source, m.index) });
     }
-
-    // import X, import X as Y
-    const importRegex = /^import\s+([\w\s,.]+?)(?:\s+#.*)?$/gm;
-    while ((match = importRegex.exec(source)) !== null) {
-      const modules = match[1]!.split(',');
-      for (const mod of modules) {
-        /* v8 ignore next */
+    const impRegex = /^import\s+([\w\s,.]+?)(?:\s+#.*)?$/gm;
+    while ((m = impRegex.exec(source)) !== null) {
+      for (const mod of m[1]!.split(',')) {
         const parts = mod.trim().split(/\s+as\s+/);
-        const name = parts[0]!.trim();
-        imports.push({
-          source: name,
-          names: [parts[1]?.trim() ?? name],
-          type: parts.length > 1 ? 'namespace' : 'named',
-          lineNumber: lineNumberAt(source, match.index),
-        });
+        imports.push({ source: parts[0]!.trim(), names: [parts[1]?.trim() ?? parts[0]!.trim()], type: parts.length > 1 ? 'namespace' : 'named', lineNumber: this.ln(source, m.index) });
       }
     }
-
     return imports;
   }
 
-  isExported(source: string, symbolName: string): boolean {
-    // In Python, everything is effectively public except _prefixed names
-    if (symbolName.startsWith('_') && !symbolName.startsWith('__')) {
-      return false;
-    }
-
-    // Check __all__ array
-    const allRegex = /__all__\s*=\s*\[([\s\S]*?)\]/;
-    const allMatch = allRegex.exec(source);
+  protected override fallbackIsExported(_source: string, symbolName: string): boolean {
+    if (symbolName.startsWith('_') && !symbolName.startsWith('__')) return false;
+    const allMatch = this.source.match(/__all__\s*=\s*\[([\s\S]*?)\]/);
     if (allMatch) {
-      const items = allMatch[1]!.split(',').map((s) => s.trim().replace(/['"]/g, ''));
-      return items.includes(symbolName);
+      return allMatch[1]!.split(',').map((s) => s.trim().replace(/['"]/g, '')).includes(symbolName);
     }
-
-    return true; // Default: public
+    return true;
   }
 
-  // --- Private extraction helpers ---
-
-  private extractFunctions(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const funcRegex = /(?:async\s+)?def\s+(\w+)\s*\(/g;
-    let match: RegExpExecArray | null;
-    while ((match = funcRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      if (PY_RESERVED_KEYWORDS.has(name)) continue;
-      const startLine = lineNumberAt(source, match.index);
-
-      // Find indentation to determine function end
-      const lineStart = source.lastIndexOf('\n', match.index) + 1;
-      const indentMatch = source.slice(lineStart, match.index).match(/^(\s*)/);
-      const baseIndent = indentMatch ? indentMatch[1]!.length : 0;
-
-      let endLine = startLine;
-      const afterFunc = source.slice(match.index + match[0].length);
-      let bodyIdx: number | null = null;
-
-      // Find the function body start (skip annotations/return type)
-      let searchIdx = 0;
-      let parens = 1;
-      let inString: string | null = null;
-      for (let i = 0; i < afterFunc.length && parens > 0; i++) {
-        const ch = afterFunc[i]!;
-        const prev = i > 0 ? afterFunc[i - 1] : '';
-        if (inString) {
-          if (ch === inString && prev !== '\\') inString = null;
-          continue;
-        }
-        if (ch === '"' || ch === "'") { inString = ch; continue; }
-        if (ch === '(') parens++;
-        else if (ch === ')') { parens--; searchIdx = i + 1; }
-      }
-
-      if (parens === 0 && searchIdx > 0) {
-        const slice = afterFunc.slice(searchIdx);
-        const colonIdx = slice.indexOf(':');
-        if (colonIdx !== -1) {
-          bodyIdx = searchIdx + colonIdx + 1;
-        }
-      }
-
-      if (bodyIdx !== null) {
-        endLine = this.findBlockEndByIndent(source, match.index + match[0].length + bodyIdx, baseIndent);
-      }
-
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_DEF,
-        text: name,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
+  // Helpers
+  private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
     }
+    return null;
   }
 
-  private extractClasses(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const classRegex = /class\s+(\w+)\s*(?:\(([\s\S]*?)\))?\s*:/g;
-    let match: RegExpExecArray | null;
-    while ((match = classRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      const startLine = lineNumberAt(source, match.index);
-
-      const lineStart = source.lastIndexOf('\n', match.index) + 1;
-      const indentMatch = source.slice(lineStart, match.index).match(/^(\s*)/);
-      const baseIndent = indentMatch ? indentMatch[1]!.length : 0;
-      const endLine = this.findBlockEndByIndent(source, match.index + match[0].length, baseIndent);
-
-      const bases = match[2] ? match[2].split(',').map((s) => s.trim()) : [];
-
-      captures.push({
-        tag: CAPTURE_TAGS.CLASS_DEF,
-        text: `class ${name}`,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { baseClasses: bases.join(','), filePath },
-      });
-    }
-  }
-
-  private extractDecorators(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const decoratorRegex = /@(\w+(?:\.\w+)*(?:\([\s\S]*?\))?)/g;
-    let match: RegExpExecArray | null;
-    while ((match = decoratorRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      /* v8 ignore next */
-      const startLine = lineNumberAt(source, match.index);
-      const decoratorName = name.split('(')[0] ?? name;
-      captures.push({
-        tag: CAPTURE_TAGS.DECORATOR,
-        text: name,
-        startLine,
-        endLine: startLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name: decoratorName,
-        properties: { decorator: decoratorName, filePath },
-      });
-    }
-  }
-
-  private extractDocstrings(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // Triple-quoted docstrings
-    const docstringRegex = /("""|''')[\s\S]*?\1/g;
-    let match: RegExpExecArray | null;
-    while ((match = docstringRegex.exec(source)) !== null) {
-      const text = match[0];
-      const startLine = lineNumberAt(source, match.index);
-      const endLine = startLine + (text.match(/\n/g)?.length ?? 0);
-      captures.push({
-        tag: CAPTURE_TAGS.DOCSTRING,
-        text,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + text.length,
-        properties: { filePath },
-      });
-    }
-  }
-
-  private extractImportsAsCaptures(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const parsedImports = this.extractImports(source);
-    for (const imp of parsedImports) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: imp.source,
-        startLine: imp.lineNumber,
-        endLine: imp.lineNumber,
-        startByte: 0,
-        endByte: 0,
-        name: imp.source,
-        properties: { names: imp.names.join(','), importType: imp.type, filePath },
-      });
-    }
-  }
-
-  private findBlockEndByIndent(source: string, startOffset: number, baseIndent: number): number {
-    const lines = source.slice(startOffset).split('\n');
-    let lineIdx = 0;
-
-    // Skip the first line if it's empty
-    /* v8 ignore next */
-    if (lines[0] && lines[0].trim() === '') lineIdx = 1;
-
-    let firstContentIndent: number | null = null;
-
-    for (; lineIdx < lines.length; lineIdx++) {
-      const line = lines[lineIdx]!;
-      // Skip empty lines and comments
-      const trimmed = line.trimStart();
-      /* v8 ignore next */
-      if (trimmed === '' || trimmed.startsWith('#')) continue;
-
-      const indent = line.match(/^(\s*)/)?.[1]?.length ?? 0;
-
-      if (firstContentIndent === null) {
-        if (indent > baseIndent) {
-          firstContentIndent = indent;
-        } else if (indent <= baseIndent && indent === 0) {
-          return lineNumberAt(source, startOffset) + lineIdx;
-        }
-      } else {
-        if (indent <= baseIndent) {
-          return lineNumberAt(source, startOffset) + lineIdx;
-        }
-      }
-    }
-
-    return lineNumberAt(source, source.length);
-  }
-
-  // Expose for tests
-  _lineNumberAt(source: string, offset: number): number {
-    return lineNumberAt(source, offset);
+  private ln(source: string, offset: number): number {
+    return source.slice(0, offset).split('\n').length;
   }
 }

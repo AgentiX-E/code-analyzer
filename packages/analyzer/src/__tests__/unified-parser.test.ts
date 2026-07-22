@@ -3,8 +3,10 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { describe, it, expect } from 'vitest';
 
 import { GoProvider } from '../languages/go.js';
+import { JavaProvider } from '../languages/java.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
 import { PythonProvider } from '../languages/python.js';
+import { RustProvider } from '../languages/rust.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 import { UnifiedParser } from '../parser/unified-parser.js';
 
@@ -16,6 +18,8 @@ describe('UnifiedParser', () => {
     new PythonProvider(),
     new GoProvider(),
     new JavaScriptProvider(),
+    new JavaProvider(),
+    new RustProvider(),
   ];
 
   function createFile(filePath: string, content: string): DiscoveredFile {
@@ -39,7 +43,7 @@ describe('UnifiedParser', () => {
 
     it('should return undefined for unknown language', () => {
       const parser = new UnifiedParser(providers);
-      expect(parser.getProvider('rust')).toBeUndefined();
+      expect(parser.getProvider('ruby')).toBeUndefined();
     });
   });
 

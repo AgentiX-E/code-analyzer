@@ -43,6 +43,13 @@ export { TypeScriptProvider } from './languages/typescript.js';
 export { PythonProvider } from './languages/python.js';
 export { GoProvider } from './languages/go.js';
 export { JavaScriptProvider } from './languages/javascript.js';
+export { JavaProvider } from './languages/java.js';
+export { CSharpProvider } from './languages/csharp.js';
+export { RustProvider } from './languages/rust.js';
+export { KotlinProvider } from './languages/kotlin.js';
+export { PhpProvider } from './languages/php.js';
+export { RubyProvider } from './languages/ruby.js';
+export { SwiftProvider } from './languages/swift.js';
 
 // Parser
 export { UnifiedParser } from './parser/unified-parser.js';

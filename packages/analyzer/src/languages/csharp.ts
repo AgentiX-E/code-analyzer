@@ -1,270 +1,266 @@
-// @code-analyzer/analyzer — C# Language Provider
+// @code-analyzer/analyzer — C# Tree-sitter Provider
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
-import type { LanguageProvider, ParsedImport } from './provider.js';
+import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import {
-  lineNumberAt,
-  findBlockEnd,
-  extractClassLike,
-  extractAnnotations,
-  extractDocComments,
-  extractImportsAsCaptures,
-} from './base-c-like.js';
+import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const CSHARP_EXTENSIONS = ['.cs'];
 const CSHARP_GLOBS = ['**/*.cs'];
 
-const CSHARP_RESERVED: ReadonlySet<string> = new Set([
-  'abstract', 'as', 'base', 'bool', 'break', 'byte', 'case', 'catch',
-  'char', 'checked', 'class', 'const', 'continue', 'decimal', 'default',
-  'delegate', 'do', 'double', 'else', 'enum', 'event', 'explicit',
-  'extern', 'false', 'finally', 'fixed', 'float', 'for', 'foreach',
-  'goto', 'if', 'implicit', 'in', 'int', 'interface', 'internal',
-  'is', 'lock', 'long', 'namespace', 'new', 'null', 'object', 'operator',
-  'out', 'override', 'params', 'private', 'protected', 'public',
-  'readonly', 'ref', 'return', 'sbyte', 'sealed', 'short', 'sizeof',
-  'stackalloc', 'static', 'string', 'struct', 'switch', 'this', 'throw',
-  'true', 'try', 'typeof', 'uint', 'ulong', 'unchecked', 'unsafe',
-  'ushort', 'using', 'var', 'virtual', 'void', 'volatile', 'while',
-  'record', 'init', 'required', 'global', 'file', 'nint', 'nuint',
-  'dynamic', 'async', 'await', 'nameof', 'when', 'where', 'yield',
-]);
-
-export class CSharpProvider implements LanguageProvider {
+export class CSharpProvider extends TreeSitterBaseProvider {
   readonly language = 'csharp';
   readonly displayName = 'C#';
   readonly extensions = CSHARP_EXTENSIONS;
   readonly globs = CSHARP_GLOBS;
   readonly importSemantics = 'named' as const;
 
-  parse(source: string, filePath: string): UnifiedCapture[] {
-    const captures: UnifiedCapture[] = [];
-
-    // Classes, structs, interfaces, enums, records
-    extractClassLike(source, filePath, captures, 'class', CAPTURE_TAGS.CLASS_DEF, ['public', 'private', 'internal', 'protected', 'static', 'abstract', 'sealed', 'partial']);
-    extractClassLike(source, filePath, captures, 'struct', CAPTURE_TAGS.CLASS_DEF, ['public', 'private', 'internal', 'protected', 'readonly', 'ref']);
-    extractClassLike(source, filePath, captures, 'interface', CAPTURE_TAGS.INTERFACE_DEF, ['public', 'private', 'internal', 'protected']);
-    extractClassLike(source, filePath, captures, 'enum', CAPTURE_TAGS.ENUM_DEF, ['public', 'private', 'internal', 'protected']);
-    this.extractRecords(source, filePath, captures);
-
-    // Methods
-    this.extractMethods(source, filePath, captures);
-
-    // Properties
-    this.extractProperties(source, filePath, captures);
-
-    // Fields
-    this.extractFields(source, filePath, captures);
-
-    // Attributes (using [Attribute] syntax)
-    this.extractCSharpAttributes(source, filePath, captures);
-
-    // Method calls
-    this.extractCalls(source, filePath, captures);
-
-    // Using directives (imports)
-    extractImportsAsCaptures(source, filePath, captures, (s) => this.extractImports(s));
-
-    // Doc comments (///)
-    extractDocComments(source, filePath, captures, /\/\/\/\s*<summary>([\s\S]*?)<\/summary>/g);
-    extractDocComments(source, filePath, captures, /\/\*\*([\s\S]*?)\*\//g);
-
-    // Sort by line
-    captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
-    return captures;
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const cs = require('tree-sitter-c-sharp') as { csharp: TreeSitterLanguage };
+      return cs.csharp || (cs as unknown as TreeSitterLanguage);
+    } catch {
+      return null;
+    }
   }
 
-  extractImports(source: string): ParsedImport[] {
-    const imports: ParsedImport[] = [];
-    // using System.Collections.Generic;
-    const usingRegex = /using\s+(?:static\s+)?([\w.]+)(?:\s*=\s*[\w.]+)?\s*;/g;
-    let match: RegExpExecArray | null;
-    while ((match = usingRegex.exec(source)) !== null) {
-      const fullPath = match[1]!;
-      const parts = fullPath.split('.');
-      const name = parts[parts.length - 1]!;
+  protected override getNodeMappings(): NodeTypeMapping[] {
+    return [
+      { nodeType: 'class_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'identifier' },
+      { nodeType: 'interface_declaration', captureTag: CAPTURE_TAGS.INTERFACE_DEF, nameChildType: 'identifier' },
+      { nodeType: 'struct_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'identifier' },
+      { nodeType: 'enum_declaration', captureTag: CAPTURE_TAGS.ENUM_DEF, nameChildType: 'identifier' },
+      { nodeType: 'method_declaration', captureTag: CAPTURE_TAGS.METHOD_DEF, nameChildType: 'identifier' },
+    ];
+  }
 
-      imports.push({
-        source: fullPath,
-        names: [name],
-        type: 'named',
-        lineNumber: lineNumberAt(source, match.index),
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+
+    if (nodeType === 'class_declaration') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: `class ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'interface_declaration') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.INTERFACE_DEF,
+          text: `interface ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'struct_declaration') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: `struct ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { isStruct: 'true', filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'enum_declaration') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.ENUM_DEF,
+          text: `enum ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'method_declaration') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        const container = this.findContainerNode(node);
+        let containerName: string | undefined;
+        if (container) {
+          const cn = this.findChild(container, 'identifier');
+          if (cn) containerName = cn.text;
+        }
+        const tag = nameNode.text === containerName ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF;
+        captures.push({
+          tag,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          containerName,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'property_declaration') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'using_directive') {
+      const nameNode = this.findChild(node, 'identifier') || this.findChild(node, 'qualified_name');
+      let sourcePath = nameNode ? nameNode.text : '';
+      // For qualified names, collect all identifiers
+      if (node.type === 'qualified_name') {
+        sourcePath = node.text;
+      }
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: sourcePath,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: sourcePath,
+        properties: { filePath: this.filePath },
       });
+    } else if (nodeType === 'attribute') {
+      const nameNode = this.findChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.DECORATOR,
+          text: node.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: nameNode.text,
+          properties: { decorator: nameNode.text, filePath: this.filePath },
+        });
+      }
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkAndCapture(node.child(i), captures);
+    }
+  }
+
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'using_directive') {
+      const line = node.startPosition.row + 1;
+      let path = '';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'identifier') path = child.text;
+      }
+      // For qualified names
+      const qn = this.findDeep(node, 'qualified_name');
+      if (qn) path = qn.text;
+      if (path) {
+        imports.push({ source: path, names: [path], type: 'named', lineNumber: line });
+      }
+      return;
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), imports);
+    }
+  }
+
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    if (node.type === 'class_declaration' || node.type === 'interface_declaration' ||
+        node.type === 'struct_declaration' || node.type === 'enum_declaration' ||
+        node.type === 'method_declaration' || node.type === 'property_declaration') {
+      const modifierList = this.findChild(node, 'modifier');
+      const isPublic = !modifierList || modifierList.text.includes('public');
+      if (isPublic) {
+        const nameNode = this.findChild(node, 'identifier');
+        if (nameNode && nameNode.text === symbolName) return true;
+      }
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      if (this.checkExported(node.child(i), symbolName)) return true;
+    }
+    return false;
+  }
+
+  // Fallbacks
+  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+    const captures: UnifiedCapture[] = [];
+    let m: RegExpExecArray | null;
+    const clRegex = /(?:public\s+)?(?:static\s+)?(?:abstract\s+)?(?:sealed\s+)?(?:partial\s+)?class\s+(\w+)/g;
+    while ((m = clRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const ifRegex = /(?:public\s+)?interface\s+(\w+)/g;
+    while ((m = ifRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.INTERFACE_DEF, text: `interface ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const usings = this.fallbackExtractImports(source);
+    for (const u of usings) {
+      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: u.source, startLine: u.lineNumber, endLine: u.lineNumber, startByte: 0, endByte: 0, name: u.source, properties: { names: u.names.join(','), importType: u.type, filePath } });
+    }
+    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+  }
+
+  protected override fallbackExtractImports(source: string): ParsedImport[] {
+    const imports: ParsedImport[] = [];
+    let m: RegExpExecArray | null;
+    const regex = /using\s+(?:static\s+)?([\w.]+)\s*;/g;
+    while ((m = regex.exec(source)) !== null) {
+      imports.push({ source: m[1]!, names: [m[1]!], type: 'named', lineNumber: this.ln(source, m.index) });
     }
     return imports;
   }
 
-  isExported(source: string, symbolName: string): boolean {
-    const patterns = [
-      new RegExp(`public\\s+(?:class|struct|interface|enum|record)\\s+${symbolName}\\b`),
-      new RegExp(`public\\s+(?:static\\s+)?(?:virtual\\s+)?(?:override\\s+)?(?:async\\s+)?\\w+(?:<[^>]*>)?\\s+${symbolName}\\s*[({]`),
-      new RegExp(`public\\s+(?:static\\s+)?(?:readonly\\s+)?\\w+\\s+${symbolName}\\b`),
-    ];
-    return patterns.some((p) => p.test(source));
+  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+    const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`public\\s+(?:class|interface|struct|enum)\\s+${s}\\b|public\\s+(?:static\\s+)?\\w+\\s+${s}\\s*[({]`).test(source);
   }
 
-  // ---------------------------------------------------------------------------
-  // Private Helpers
-  // ---------------------------------------------------------------------------
-
-  private extractCSharpAttributes(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // C# attributes: [HttpGet], [Authorize(Roles = "Admin")]
-    const attrRegex = /\[(\w+)(?:\([\s\S]*?\))?\]/g;
-    let match: RegExpExecArray | null;
-    while ((match = attrRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      const startLine = lineNumberAt(source, match.index);
-      captures.push({
-        tag: CAPTURE_TAGS.DECORATOR,
-        text: match[0],
-        startLine,
-        endLine: startLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { decorator: name, filePath },
-      });
+  private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
     }
+    return null;
   }
 
-  private extractMethods(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // Method declarations: public static async Task<Result> MethodName(...) { }
-    const methodRegex = /(?:(?:public|private|internal|protected|static|abstract|virtual|override|async|sealed|partial|unsafe|extern)\s+)*(\w+(?:<[^>]*>)?)\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)\s*(?:where\s+[\s\S]*?)?\s*(?:\{|=>|;)/g;
-    let match: RegExpExecArray | null;
-    while ((match = methodRegex.exec(source)) !== null) {
-      const retType = match[1]!;
-      const name = match[2]!;
-      if (CSHARP_RESERVED.has(name)) continue;
-      if (['if', 'while', 'for', 'foreach', 'switch', 'lock', 'using', 'fixed'].includes(name)) continue;
-
-      const startLine = lineNumberAt(source, match.index);
-      const hasBlock = match[0].includes('{');
-      const endLine = hasBlock ? findBlockEnd(source, match.index + match[0].indexOf('{')) : startLine;
-
-      // Detect constructor (method name matches class name)
-      const precedingText = source.slice(Math.max(0, match.index - 500), match.index);
-      const classMatch = precedingText.match(/(?:class|struct|record)\s+(\w+)/g);
-      const className = classMatch ? classMatch[classMatch.length - 1]!.split(/\s+/)[1] : undefined;
-
-      const isConstructor = name === className;
-      const tag = isConstructor ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF;
-
-      captures.push({
-        tag,
-        text: name,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        containerName: className,
-        properties: {
-          returnType: isConstructor ? '' : retType,
-          parameterCount: String(match[3] ? match[3].split(',').filter(p => p.trim().length > 0).length : 0),
-          static: String(match[0].includes('static')),
-          async: String(match[0].includes('async')),
-          filePath,
-        },
-      });
+  private findDeep(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    if (node.type === type) return node;
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const r = this.findDeep(node.namedChild(i), type);
+      if (r) return r;
     }
+    return null;
   }
 
-  private extractProperties(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // Property declarations: public string Name { get; set; }
-    const propRegex = /(?:(?:public|private|internal|protected|static|virtual|override|abstract|required)\s+)*(\w+(?:<[^>]*>)?)\s+(\w+)\s*\{/g;
-    let match: RegExpExecArray | null;
-    while ((match = propRegex.exec(source)) !== null) {
-      const propType = match[1]!;
-      const name = match[2]!;
-      if (CSHARP_RESERVED.has(name)) continue;
-      if (['get', 'set', 'init', 'add', 'remove'].includes(name)) continue;
-      if (name.length < 2) continue;
-      const line = lineNumberAt(source, match.index);
-      const body = source.slice(match.index, match.index + 200);
-      const hasGet = body.includes('get;') || body.includes('get ');
-      const hasSet = body.includes('set;') || body.includes('set ');
-
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: name,
-        startLine: line,
-        endLine: line,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { propertyType: propType, hasGet: String(hasGet), hasSet: String(hasSet), filePath },
-      });
-    }
+  private ln(source: string, offset: number): number {
+    return source.slice(0, offset).split('\n').length;
   }
-
-  private extractFields(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // Field declarations: private readonly int _count;
-    const fieldRegex = /(?:(?:public|private|internal|protected|static|readonly|const)\s+)*(\w+(?:<[^>]*>)?)\s+(_?\w+)\s*(?:=\s*[^;]+)?\s*;/g;
-    let match: RegExpExecArray | null;
-    while ((match = fieldRegex.exec(source)) !== null) {
-      const fieldType = match[1]!;
-      const name = match[2]!;
-      if (CSHARP_RESERVED.has(name)) continue;
-      if (name.length < 2) continue;
-      const line = lineNumberAt(source, match.index);
-
-      captures.push({
-        tag: match[0].includes('const') || match[0].includes('readonly') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
-        text: name,
-        startLine: line,
-        endLine: line,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { fieldType, filePath },
-      });
-    }
-  }
-
-  private extractRecords(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // record MyRecord(string Name, int Age);
-    // record class MyRecord { }
-    // record struct MyStruct { }
-    const recordRegex = /(?:public\s+)?(?:sealed\s+)?record\s+(?:class|struct)?\s*(\w+)/g;
-    let match: RegExpExecArray | null;
-    while ((match = recordRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      const startLine = lineNumberAt(source, match.index);
-      const endLine = findBlockEnd(source, match.index + match[0].length);
-      captures.push({
-        tag: CAPTURE_TAGS.CLASS_DEF,
-        text: `record ${name}`,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { isRecord: 'true', filePath },
-      });
-    }
-  }
-
-  private extractCalls(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const callRegex = /(\w+)\s*\(/g;
-    let match: RegExpExecArray | null;
-    while ((match = callRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      if (CSHARP_RESERVED.has(name)) continue;
-      if (/^[A-Z]/.test(name) && name === name.toUpperCase()) continue;
-      const startLine = lineNumberAt(source, match.index);
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_CALL,
-        text: name,
-        startLine,
-        endLine: startLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-  }
-
 }
