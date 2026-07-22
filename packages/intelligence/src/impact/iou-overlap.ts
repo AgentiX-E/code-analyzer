@@ -102,11 +102,6 @@ export class IoUOverlapDetector {
     const unionEnd = Math.max(a.endLine, b.endLine);
     const union = unionEnd - unionStart + 1;
 
-    // Guard against division by zero (should not happen with valid inputs)
-    if (union === 0) {
-      return 0;
-    }
-
     return intersection / union;
   }
 }

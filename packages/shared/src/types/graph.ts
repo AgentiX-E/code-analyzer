@@ -640,22 +640,17 @@ export function isRelationshipType(value: string): value is RelationshipType {
 
 /** Map a file extension or filename to a SupportedLanguage */
 export function getLanguageFromFilename(filePath: string): SupportedLanguage | null {
-  const base = filePath.split('/').pop() ?? filePath;
+  const parts = filePath.split('/');
+  const base = parts[parts.length - 1]!;
   const dotIndex = base.lastIndexOf('.');
   if (dotIndex === -1) return null;
 
   const ext = base.slice(dotIndex).toLowerCase();
 
-  // Special: dot-notated prefixes like .d.ts
-  if (ext === '.d.ts') return 'typescript';
+  // Compound-extension fast paths: .d.ts, .tsx, .jsx
+  if (base.toLowerCase().endsWith('.d.ts')) return 'typescript';
   if (ext === '.tsx') return 'typescript';
   if (ext === '.jsx') return 'javascript';
-
-  const secondaryExt = base.slice(0, dotIndex).lastIndexOf('.');
-  if (secondaryExt >= 0) {
-    const secondPart = base.slice(secondaryExt).toLowerCase();
-    if (secondPart === '.d.ts') return 'typescript';
-  }
 
   const EXT_MAP: Record<string, SupportedLanguage> = {
     '.ts': 'typescript',

@@ -33,7 +33,7 @@ export const DEFAULT_STANDARDS: ProjectStandard[] = [
         id: 'nesting-depth-4',
         description: 'Code nesting depth must not exceed 4 levels.',
         checkType: 'metric',
-        checkConfig: { maxDepth: 4, maxLines: 200 },
+        checkConfig: { maxDepth: 4, maxLines: 50 },
         severity: 'high',
         autoFixable: false,
       },
