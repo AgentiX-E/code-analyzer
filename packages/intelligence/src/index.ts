@@ -171,3 +171,85 @@ export type {
 // Review Pipeline
 export { ReviewPipeline } from './review/review-pipeline.js';
 export type { PipelineReviewConfig } from './review/review-pipeline.js';
+
+// Rules Engine
+export {
+  RulesEngine,
+  getFileLanguage,
+  runRules,
+  DEFAULT_RULES,
+} from './rules/rules-engine.js';
+export type {
+  RuleCategory,
+  CodeRule,
+  RuleContext,
+  RuleViolation,
+  GraphAnalysisData,
+  AnalyzeOptions,
+  RulesResult,
+} from './rules/rules-engine.js';
+export { EMPTY_GRAPH_DATA } from './rules/rules-engine.js';
+
+// Rule Definitions
+export type { RuleDefinition, RuleSeverity } from './rules/rules-engine.js';
+export {
+  ALL_RULE_DEFINITIONS,
+  NO_UNDEF,
+  NO_DUPLICATE_IMPORTS,
+  NO_UNREACHABLE_CODE,
+  NO_CONSTANT_CONDITION,
+  NO_EMPTY_CATCH,
+  NO_UNUSED_VARS,
+  NO_UNSAFE_OPTIONAL_CHAINING,
+  NO_ARRAY_INDEX_KEY,
+  NO_EVAL,
+  NO_SQL_INJECTION,
+  NO_XSS,
+  NO_HARDCODED_SECRETS,
+  NO_COMMAND_INJECTION,
+  NO_PATH_TRAVERSAL,
+  NO_OPEN_REDIRECT,
+  NO_UNSAFE_DESERIALIZATION,
+  NO_WEAK_CRYPTO,
+  NO_INSECURE_RANDOM,
+  NO_HTTP_URL,
+  NO_DEBUG_STATEMENT,
+  NO_SYNC_FS,
+  NO_LARGE_ARRAY_COPY,
+  NO_INEFFICIENT_REGEX,
+  NO_LOOP_AWAIT,
+  NO_REDUNDANT_COMPUTATION,
+  AVOID_BLOCKING_OPERATIONS,
+  PREFER_LAZY_LOADING,
+  NO_N_PLUS_ONE,
+  MAX_FUNCTION_LINES,
+  MAX_PARAMS,
+  MAX_NESTING_DEPTH,
+  MAX_CYCLOMATIC_COMPLEXITY,
+  NO_MAGIC_NUMBERS,
+  NO_TODO_FIXME,
+  CONSISTENT_NAMING,
+  NO_DEAD_CODE,
+  NO_GOD_CLASS,
+  PREFER_EARLY_RETURN,
+  TRAILING_WHITESPACE,
+  NO_CONSOLE,
+  CONSISTENT_QUOTES,
+  NO_LONG_LINES,
+  SPACING_CONSISTENCY,
+  FILE_HEADER,
+  NO_CIRCULAR_DEPS,
+  NO_LAYER_VIOLATION,
+  NO_BARREL_EXPORT,
+  MAX_MODULE_SIZE,
+  NO_CROSS_BOUNDARY_ACCESS,
+  MISSING_ABSTRACTION,
+} from './rules/rules-engine.js';
+
+// Rule Executor
+export type { RuleCheckResult, RuleChecker } from './rules/rules-engine.js';
+export { CHECKER_MAP } from './rules/rules-engine.js';
+
+// Rules Registry
+export { RulesRegistry } from './rules/rules-engine.js';
+export type { RegisteredRule } from './rules/rules-engine.js';

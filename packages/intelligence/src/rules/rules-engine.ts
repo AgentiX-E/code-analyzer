@@ -5,7 +5,75 @@
 import type { Severity, GitDiff, GraphEdge, GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
-// Core Rule Types
+// Re-exports from sub-modules
+// ---------------------------------------------------------------------------
+
+export type {
+  RuleDefinition,
+  RuleCategory,
+  RuleSeverity,
+} from './rule-definitions.js';
+export {
+  ALL_RULE_DEFINITIONS,
+  NO_UNDEF,
+  NO_DUPLICATE_IMPORTS,
+  NO_UNREACHABLE_CODE,
+  NO_CONSTANT_CONDITION,
+  NO_EMPTY_CATCH,
+  NO_UNUSED_VARS,
+  NO_UNSAFE_OPTIONAL_CHAINING,
+  NO_ARRAY_INDEX_KEY,
+  NO_EVAL,
+  NO_SQL_INJECTION,
+  NO_XSS,
+  NO_HARDCODED_SECRETS,
+  NO_COMMAND_INJECTION,
+  NO_PATH_TRAVERSAL,
+  NO_OPEN_REDIRECT,
+  NO_UNSAFE_DESERIALIZATION,
+  NO_WEAK_CRYPTO,
+  NO_INSECURE_RANDOM,
+  NO_HTTP_URL,
+  NO_DEBUG_STATEMENT,
+  NO_SYNC_FS,
+  NO_LARGE_ARRAY_COPY,
+  NO_INEFFICIENT_REGEX,
+  NO_LOOP_AWAIT,
+  NO_REDUNDANT_COMPUTATION,
+  AVOID_BLOCKING_OPERATIONS,
+  PREFER_LAZY_LOADING,
+  NO_N_PLUS_ONE,
+  MAX_FUNCTION_LINES,
+  MAX_PARAMS,
+  MAX_NESTING_DEPTH,
+  MAX_CYCLOMATIC_COMPLEXITY,
+  NO_MAGIC_NUMBERS,
+  NO_TODO_FIXME,
+  CONSISTENT_NAMING,
+  NO_DEAD_CODE,
+  NO_GOD_CLASS,
+  PREFER_EARLY_RETURN,
+  TRAILING_WHITESPACE,
+  NO_CONSOLE,
+  CONSISTENT_QUOTES,
+  NO_LONG_LINES,
+  SPACING_CONSISTENCY,
+  FILE_HEADER,
+  NO_CIRCULAR_DEPS,
+  NO_LAYER_VIOLATION,
+  NO_BARREL_EXPORT,
+  MAX_MODULE_SIZE,
+  NO_CROSS_BOUNDARY_ACCESS,
+  MISSING_ABSTRACTION,
+} from './rule-definitions.js';
+
+export type { RuleCheckResult, RuleChecker } from './rule-executor.js';
+export { CHECKER_MAP } from './rule-executor.js';
+export { RulesRegistry } from './rules-registry.js';
+export type { RegisteredRule } from './rules-registry.js';
+
+// ---------------------------------------------------------------------------
+// Core Rule Types (preserved for backward compatibility)
 // ---------------------------------------------------------------------------
 
 /** Categories for deterministic rules.
@@ -112,6 +180,20 @@ function isTestFile(filePath: string): boolean {
   );
 }
 
+function isBuiltinOrKeyword(name: string): boolean {
+  const builtins = new Set([
+    'console', 'require', 'module', 'exports', '__dirname', '__filename',
+    'process', 'Buffer', 'setTimeout', 'setInterval', 'clearTimeout',
+    'clearInterval', 'Promise', 'JSON', 'Math', 'Date', 'RegExp',
+    'Map', 'Set', 'WeakMap', 'WeakSet', 'Array', 'Object', 'String',
+    'Number', 'Boolean', 'Symbol', 'undefined', 'null', 'true', 'false',
+    'this', 'super', 'arguments', 'Error', 'TypeError', 'Reflect',
+    'Proxy', 'Intl', 'BigInt', 'NaN', 'Infinity', 'parseInt',
+    'parseFloat', 'isNaN', 'isFinite', 'encodeURI', 'decodeURI',
+  ]);
+  return builtins.has(name);
+}
+
 // ===========================================================================
 // CATEGORY 1: CORRECTNESS (8 Rules)
 // ===========================================================================
@@ -127,7 +209,6 @@ const NO_UNDEF: CodeRule = {
     const results: RuleViolation[] = [];
     const declared = new Set<string>();
 
-    // Collect declared identifiers
     for (const raw of ctx.lines) {
       const line = raw.trim();
       const decl = line.match(/^(?:const|let|var|function|class|import)\s+(\w+)/);
@@ -164,7 +245,6 @@ const NO_UNDEF: CodeRule = {
           !isBuiltinOrKeyword(ident) &&
           !ident.startsWith('import')
         ) {
-          // Check it's used as a reference, not being declared
           if (
             !trimmed.startsWith(`const ${ident}`) &&
             !trimmed.startsWith(`let ${ident}`) &&
@@ -185,20 +265,6 @@ const NO_UNDEF: CodeRule = {
     return results;
   },
 };
-
-function isBuiltinOrKeyword(name: string): boolean {
-  const builtins = new Set([
-    'console', 'require', 'module', 'exports', '__dirname', '__filename',
-    'process', 'Buffer', 'setTimeout', 'setInterval', 'clearTimeout',
-    'clearInterval', 'Promise', 'JSON', 'Math', 'Date', 'RegExp',
-    'Map', 'Set', 'WeakMap', 'WeakSet', 'Array', 'Object', 'String',
-    'Number', 'Boolean', 'Symbol', 'undefined', 'null', 'true', 'false',
-    'this', 'super', 'arguments', 'Error', 'TypeError', 'Reflect',
-    'Proxy', 'Intl', 'BigInt', 'NaN', 'Infinity', 'parseInt',
-    'parseFloat', 'isNaN', 'isFinite', 'encodeURI', 'decodeURI',
-  ]);
-  return builtins.has(name);
-}
 
 const NO_DUPLICATE_IMPORTS: CodeRule = {
   id: 'no-duplicate-imports',
@@ -248,19 +314,13 @@ const NO_UNREACHABLE_CODE: CodeRule = {
       const trimmed = line.trim();
 
       if (!/^\s*(?:return|throw|break|continue)\b/.test(trimmed)) continue;
-      // Check if the return/throw is the last statement inside a block
-      // Look at the next line — if it's code (not closing brace), it's unreachable
       if (i + 1 < ctx.lines.length) {
         const next = ctx.lines[i + 1]!;
         const nextTrimmed = next.trim();
 
-        // Skip empty lines and comments
         if (nextTrimmed === '' || nextTrimmed.startsWith('//')) continue;
-
-        // If next line is a closing brace, that's normal
         if (nextTrimmed.startsWith('}') || nextTrimmed === '}' || nextTrimmed === ');') continue;
 
-        // If the return/throw isn't inside a conditional (inline if)
         if (!trimmed.includes('?')) {
           results.push(makeV(
             NO_UNREACHABLE_CODE, ctx.filePath, i + 2,
@@ -320,7 +380,6 @@ const NO_EMPTY_CATCH: CodeRule = {
       const line = ctx.lines[i]!;
       const trimmed = line.trim();
 
-      // Match catch(…) { … } on a single line with empty body
       if (/catch\s*\([^)]*\)\s*\{\s*\}/.test(trimmed)) {
         results.push(makeV(
           NO_EMPTY_CATCH, ctx.filePath, i + 1,
@@ -330,7 +389,6 @@ const NO_EMPTY_CATCH: CodeRule = {
         continue;
       }
 
-      // Match multi-line empty catch: catch(...) { then next line is just }
       if (/catch\s*\([^)]*\)\s*\{/.test(trimmed)) {
         let j = i + 1;
         let hasContent = false;
@@ -364,7 +422,6 @@ const NO_UNUSED_VARS: CodeRule = {
   check(ctx: RuleContext): RuleViolation[] {
     const results: RuleViolation[] = [];
 
-    // Simple heuristic: find const/let/var declarations and check if the name appears elsewhere
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
       const trimmed = line.trim();
@@ -374,7 +431,6 @@ const NO_UNUSED_VARS: CodeRule = {
       if (!decl) continue;
 
       const name = decl[1]!;
-      // Skip if name appears to be "_" (intentionally unused by convention)
       if (name === '_') continue;
 
       let usedElsewhere = false;
@@ -405,15 +461,12 @@ const NO_UNSAFE_OPTIONAL_CHAINING: CodeRule = {
   category: 'correctness',
   severity: 'medium',
   title: 'Potentially unsafe optional chaining',
-  description: 'Optional chaining (?. ) used where the left-hand value is known to be defined, suggesting a logic error.',
+  description: 'Optional chaining (?.) used where the left-hand value is known to be defined, suggesting a logic error.',
   check(ctx: RuleContext): RuleViolation[] {
     const results: RuleViolation[] = [];
 
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
-
-      // Detect ?. on a variable that was just checked for truthiness
-      // e.g., if (foo) { foo?.bar }  — the ?. is unnecessary if foo is checked
       if (line.includes('?.')) {
         results.push(makeV(
           NO_UNSAFE_OPTIONAL_CHAINING, ctx.filePath, i + 1,
@@ -439,8 +492,6 @@ const NO_ARRAY_INDEX_KEY: CodeRule = {
 
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
-
-      // Detect key={index} or key={i} in React/JSX
       if (/\bkey\s*=\s*\{?\s*(?:index|i|idx|j|k)\b/.test(line)) {
         results.push(makeV(
           NO_ARRAY_INDEX_KEY, ctx.filePath, i + 1,
@@ -505,7 +556,6 @@ const NO_SQL_INJECTION: CodeRule = {
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
 
-      // Detect string concatenation in SQL queries
       const concatPattern =
         /(?:SELECT|INSERT|UPDATE|DELETE|DROP)\s+.*[`'"].*\$\{.*[`'"]/i;
       const plusConcat = /[`'"][^`'"]*(?:SELECT|INSERT|UPDATE|DELETE|DROP)[^`'"]*[`'"]\s*\+/i;
@@ -622,7 +672,6 @@ const NO_COMMAND_INJECTION: CodeRule = {
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
 
-      // exec/spawn with string concatenation
       if (
         /(?:exec|spawn|execSync|execFile|execFileSync)\s*\(/.test(line) &&
         (/\+/.test(line) || /\$\{/.test(line) || /`.*\$/.test(line))
@@ -690,7 +739,6 @@ const NO_OPEN_REDIRECT: CodeRule = {
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
 
-      // redirect(url) where url comes from request
       if (
         /(?:redirect|res\.redirect|response\.redirect)\s*\(/.test(line) &&
         /\b(?:req\.|request\.|params\.|query\.)/.test(line)
@@ -721,7 +769,6 @@ const NO_UNSAFE_DESERIALIZATION: CodeRule = {
       const line = ctx.lines[i]!;
 
       if (/JSON\.parse\s*\(/.test(line) && !/try\s*\{/.test(line)) {
-        // Check if there's a try/catch in the surrounding context (simplified)
         let inTryBlock = false;
         for (let j = Math.max(0, i - 5); j < i; j++) {
           if (ctx.lines[j]!.includes('try {')) inTryBlock = true;
@@ -793,7 +840,6 @@ const NO_INSECURE_RANDOM: CodeRule = {
       const line = ctx.lines[i]!;
 
       if (/Math\.random\s*\(\)/.test(line)) {
-        // Check surrounding context for security implications (token, key, crypto)
         const context = ctx.lines.slice(Math.max(0, i - 2), Math.min(ctx.lines.length, i + 3)).join(' ');
         if (/token|key|password|secret|crypto|auth/.test(context.toLowerCase())) {
           results.push(makeV(
@@ -823,7 +869,6 @@ const NO_HTTP_URL: CodeRule = {
       const line = ctx.lines[i]!;
       if (line.trim().startsWith('//') || line.trim().startsWith('/*')) continue;
 
-      // Match http:// URLs but NOT inside comments or import paths that are relative
       const httpMatch = line.match(/['"`]http:\/\/[^'"]+['"`]/);
       if (httpMatch && !line.includes('http://localhost') && !line.includes('http://127.0.0.1')) {
         results.push(makeV(
@@ -933,7 +978,6 @@ const NO_LARGE_ARRAY_COPY: CodeRule = {
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
 
-      // [...largeArray] where array size is unknown but likely large
       if (/\[\.\.\.(\w+)\]/.test(line)) {
         results.push(makeV(
           NO_LARGE_ARRAY_COPY, ctx.filePath, i + 1,
@@ -1026,12 +1070,6 @@ const AVOID_BLOCKING_OPS: CodeRule = {
   description: 'CPU-intensive synchronous operations can block the event loop.',
   check(ctx: RuleContext): RuleViolation[] {
     const results: RuleViolation[] = [];
-
-    const blockingOps = [
-      /JSON\.parse\s*\(\s*.+?\.toString\s*\(\)\s*\)/, // Large JSON stringify in sync context
-      /\bwhile\s*\(\s*true\s*\)/, // Infinite loop without break
-      /\.sort\s*\(\s*\)/, // Sorting large arrays
-    ];
 
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
@@ -1140,7 +1178,6 @@ const NO_REDUNDANT_COMPUTATION: CodeRule = {
       const trimmed = line.trim();
       if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
 
-      // Look for method calls with the same args
       const callMatch = trimmed.match(/(\w+\.\w+\([^)]*\))/g);
       if (callMatch) {
         for (const call of callMatch) {
@@ -1188,7 +1225,6 @@ const MAX_FUNCTION_LINES: CodeRule = {
       const line = ctx.lines[i]!;
       const trimmed = line.trim();
 
-      // Detect function declarations
       const funcMatch = trimmed.match(
         /^(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w+)/,
       );
@@ -1245,7 +1281,7 @@ const MAX_PARAMS: CodeRule = {
       const line = ctx.lines[i]!;
 
       const paramMatch = line.match(
-        /(?:function\s+|=>\s*|\w+\s*\()\s*\(([^)]*)\)/,
+        /(?:function\s+\w+\s*|=>\s*|\w+\s*)\s*\(([^)]*)\)/,
       );
       if (paramMatch) {
         const params = paramMatch[1]!
@@ -1311,7 +1347,7 @@ const MAX_CYCLOMATIC_COMPLEXITY: CodeRule = {
     const threshold = 15;
 
     let inFunction = false;
-    let complexity = 1; // Base complexity
+    let complexity = 1;
     let funcStart = 0;
     let braceDepth = 0;
     let funcName = 'anonymous';
@@ -1343,7 +1379,6 @@ const MAX_CYCLOMATIC_COMPLEXITY: CodeRule = {
           if (ch === '}') braceDepth--;
         }
 
-        // Count branch points
         if (/\bif\b/.test(trimmed)) complexity++;
         if (/\belse\s+if\b/.test(trimmed)) complexity++;
         if (/\bcase\b/.test(trimmed)) complexity++;
@@ -1379,7 +1414,6 @@ const NO_MAGIC_NUMBERS: CodeRule = {
   check(ctx: RuleContext): RuleViolation[] {
     const results: RuleViolation[] = [];
 
-    // Allow certain common numbers: 0, 1, 2, -1 and array indices
     const allowedNumbers = new Set([0, 1, 2, -1]);
 
     for (let i = 0; i < ctx.lines.length; i++) {
@@ -1388,7 +1422,6 @@ const NO_MAGIC_NUMBERS: CodeRule = {
       if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
       if (trimmed.startsWith('const') || trimmed.startsWith('enum') || trimmed.startsWith('type')) continue;
 
-      // Find standalone numbers not in import paths or comments
       const numMatch = line.match(/(?<!\w)(\d{4,})(?!\w)/g);
       if (numMatch) {
         for (const num of numMatch) {
@@ -1450,7 +1483,6 @@ const CONSISTENT_NAMING: CodeRule = {
       const line = ctx.lines[i]!;
       const trimmed = line.trim();
 
-      // Check class names should be PascalCase
       const classMatch = trimmed.match(/^(?:export\s+)?class\s+([a-z]\w+)/);
       if (classMatch) {
         results.push(makeV(
@@ -1460,7 +1492,6 @@ const CONSISTENT_NAMING: CodeRule = {
         ));
       }
 
-      // Check variable names starting with uppercase (not classes/enums)
       const varMatch = trimmed.match(/^(?:const|let|var)\s+([A-Z][a-z]\w*)\s*=/);
       if (varMatch && !isTestFile(ctx.filePath)) {
         results.push(makeV(
@@ -1553,7 +1584,6 @@ const NO_GOD_CLASS: CodeRule = {
           if (ch === '}') classDepth--;
         }
 
-        // Count methods (approximation using common patterns)
         if (
           /^\s*(?:public|private|protected|static)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+(?:<[^>]*>)?)?\s*\{/.test(trimmed) &&
           !trimmed.includes('constructor') &&
@@ -1693,7 +1723,6 @@ const CONSISTENT_QUOTES: CodeRule = {
 
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
-      // Count string literals (simplified)
       const singleMatches = line.match(/'[^']*'/g);
       const doubleMatches = line.match(/"[^"]*"/g);
       if (singleMatches) singleCount += singleMatches.length;
@@ -1724,7 +1753,6 @@ const NO_LONG_LINES: CodeRule = {
 
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
-      // Skip import statements which often have long URLs
       if (line.trim().startsWith('import ')) continue;
       if (line.length > maxLength) {
         results.push(makeV(
@@ -1753,7 +1781,6 @@ const SPACING_CONSISTENCY: CodeRule = {
       const trimmed = line.trim();
       if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
 
-      // Detect missing space before/after = operator
       if (/\w=/.test(trimmed) && !/[!=<>]==/.test(trimmed)) {
         results.push(makeV(
           SPACING_CONSISTENCY, ctx.filePath, i + 1,
@@ -1925,7 +1952,6 @@ const MAX_MODULE_SIZE: CodeRule = {
   check(ctx: RuleContext): RuleViolation[] {
     const results: RuleViolation[] = [];
 
-    // This rule requires graph context to determine module file count
     const graphData = ctx.graphContext;
     if (graphData && graphData.outDegree > 30) {
       results.push(makeV(
@@ -1951,7 +1977,6 @@ const NO_CROSS_BOUNDARY_ACCESS: CodeRule = {
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
 
-      // Import of private/internal module paths
       if (
         line.includes('import ') &&
         (line.includes('/internal/') || line.includes('/private/') || line.includes('/_'))
@@ -1980,11 +2005,9 @@ const MISSING_ABSTRACTION: CodeRule = {
     for (let i = 0; i < ctx.lines.length; i++) {
       const line = ctx.lines[i]!;
 
-      // new ConcreteClass() where interface exists (heuristic check)
       const newMatch = line.match(/new\s+(\w+)\s*\(/);
       if (newMatch && newMatch[1]) {
         const className = newMatch[1]!;
-        // Check if there's a corresponding I-prefixed interface pattern
         const hasInterface = ctx.lines.some((l) => l.includes(`interface I${className}`) || l.includes(`interface ${className.replace(/Impl$/, '')}`));
         if (hasInterface) {
           results.push(makeV(
@@ -2087,7 +2110,6 @@ export function runRules(ctx: RuleContext, rules?: CodeRule[]): RuleViolation[] 
   const lang = ctx.language || detectLanguage(ctx.filePath);
 
   for (const rule of ruleSet) {
-    // Language filter
     if (rule.language && rule.language.length > 0) {
       if (!rule.language.includes(lang)) {
         continue;
@@ -2103,4 +2125,139 @@ export function runRules(ctx: RuleContext, rules?: CodeRule[]): RuleViolation[] 
   }
 
   return violations;
+}
+
+// ===========================================================================
+// NEW: Rules Engine (wraps RulesRegistry)
+// ===========================================================================
+
+import { RulesRegistry } from './rules-registry.js';
+import type { RuleCheckResult } from './rule-executor.js';
+
+export interface AnalyzeOptions {
+  /** Only run rules matching these categories */
+  categories?: RuleCategory[];
+  /** Only run rules matching these severities */
+  severities?: string[];
+  /** Skip rules with these IDs */
+  excludeRules?: string[];
+}
+
+export interface RulesResult {
+  violations: RuleCheckResult[];
+  summary: {
+    totalRules: number;
+    totalViolations: number;
+    byCategory: Record<string, number>;
+    bySeverity: Record<string, number>;
+  };
+}
+
+/**
+ * The main deterministic rules engine.
+ * Wraps a RulesRegistry and provides high-level analysis methods.
+ */
+export class RulesEngine {
+  private registry: RulesRegistry;
+
+  constructor(registry?: RulesRegistry) {
+    this.registry = registry ?? RulesRegistry.createDefault();
+  }
+
+  /**
+   * Run all applicable rules on source lines.
+   */
+  analyze(
+    filePath: string,
+    lines: string[],
+    options?: AnalyzeOptions,
+  ): RulesResult {
+    const language = detectLanguage(filePath);
+    let violations: RuleCheckResult[];
+
+    if (options?.categories && options.categories.length === 1) {
+      violations = this.registry.runByCategory(options.categories[0]!, lines, filePath, language);
+    } else {
+      violations = this.registry.runAll(lines, filePath, language);
+    }
+
+    // Filter by severity if specified
+    if (options?.severities && options.severities.length > 0) {
+      const severitySet = new Set(options.severities);
+      const allRules = this.registry.getAll();
+      violations = violations.filter((v) => {
+        const rule = allRules.find((r) => r.definition.id === v.ruleId);
+        return rule ? severitySet.has(rule.definition.severity) : true;
+      });
+    }
+
+    // Exclude rules if specified
+    if (options?.excludeRules && options.excludeRules.length > 0) {
+      const excludeSet = new Set(options.excludeRules);
+      violations = violations.filter((v) => !excludeSet.has(v.ruleId));
+    }
+
+    return buildResult(violations, this.registry);
+  }
+
+  /**
+   * Run rules appropriate for code review (subset optimized for PRs).
+   * Focuses on: correctness, security, architecture.
+   */
+  reviewReview(filePath: string, lines: string[]): RulesResult {
+    const language = detectLanguage(filePath);
+    const categories: RuleCategory[] = ['correctness', 'security', 'architecture'];
+    const allViolations: RuleCheckResult[] = [];
+
+    for (const category of categories) {
+      allViolations.push(...this.registry.runByCategory(category, lines, filePath, language));
+    }
+
+    return buildResult(allViolations, this.registry);
+  }
+
+  /**
+   * Run only security rules.
+   */
+  securityScan(filePath: string, lines: string[]): RulesResult {
+    const language = detectLanguage(filePath);
+    const violations = this.registry.runByCategory('security', lines, filePath, language);
+    return buildResult(violations, this.registry);
+  }
+
+  /**
+   * Get the underlying registry. Useful for inspection or custom queries.
+   */
+  getRegistry(): RulesRegistry {
+    return this.registry;
+  }
+}
+
+/**
+ * Build a RulesResult from violations.
+ */
+function buildResult(violations: RuleCheckResult[], registry: RulesRegistry): RulesResult {
+  const byCategory: Record<string, number> = {};
+  const bySeverity: Record<string, number> = {};
+  const allRules = registry.getAll();
+
+  for (const v of violations) {
+    const rule = allRules.find((r) => r.definition.id === v.ruleId);
+    if (rule) {
+      const cat = rule.definition.category;
+      const sev = rule.definition.severity;
+      byCategory[cat] = (byCategory[cat] ?? 0) + 1;
+      bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
+    }
+  }
+
+  return {
+    violations,
+    summary: {
+      totalRules: registry.size,
+      totalViolations: violations.length,
+      byCategory,
+      bySeverity,
+    },
+  };
 }
