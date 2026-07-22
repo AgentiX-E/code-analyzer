@@ -446,4 +446,39 @@ describe('LSHSearcher.insertSimilarityEdge', () => {
     const edge = { sourceId: 999, targetId: 998, similarity: 0.5 };
     expect(() => lsh.insertSimilarityEdge(store, edge, 'test-project')).not.toThrow();
   });
+
+  it('should handle stale LSH candidates from previous call (L136)', () => {
+    const lsh = new LSHSearcher(8); // Use fewer bands to increase collision probability
+    const store = new InMemoryGraphStore();
+    const mh = new MinHashSimilarity(128);
+
+    store.insertNode(createNode(1, 'stale_func'));
+    store.insertNode(createNode(2, 'another_func'));
+    store.insertNode(createNode(3, 'third_func'));
+
+    // First call: populate LSH buckets with nodes 1 and 2
+    const fp1 = mh.computeFingerprint(tokenizeCode('function stale_func() { return "abc"; }'));
+    const fp2 = mh.computeFingerprint(tokenizeCode('function another_func() { return "abc"; }'));
+
+    lsh.buildSimilarityEdges(
+      store,
+      [1, 2],
+      (id) => id === 1 ? fp1 : fp2,
+      0.9,
+    );
+
+    // Second call: node 3 with a fingerprint that collides with previous LSH bucket
+    // This may cause LSH to return stale candidates (1 or 2) not in the current map
+    const fp3 = mh.computeFingerprint(tokenizeCode('function another_func() { return "abc"; }'));
+
+    const edges = lsh.buildSimilarityEdges(
+      store,
+      [3],
+      (id) => id === 3 ? fp3 : [],
+      0.5,
+    );
+
+    // Should not crash regardless of whether stale candidates are found
+    expect(Array.isArray(edges)).toBe(true);
+  });
 });

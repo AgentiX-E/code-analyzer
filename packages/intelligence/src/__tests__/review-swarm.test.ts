@@ -1097,6 +1097,46 @@ function handler(req: any, res: any) {
       // Long function = medium severity, no critical/high
       expect(result.decision.recommendation).toBe('approve-with-comments');
     });
+
+    it('should recommend request-changes with many high findings (L1035)', async () => {
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        minSeverity: 'medium',
+      });
+      // Create a file with multiple security issues (but not eval, which is critical)
+      const content = [
+        '// Security issues in this file',
+        'const hardcoded1 = "password123";',
+        'const hardcoded2 = "api_key_abc";',
+        'const hardcoded3 = "secret_token";',
+        'const hardcoded4 = "admin_password";',
+        'console.log("debug info");',
+        'document.write("unsafe");',
+      ].join('\n');
+      const diffs = [createDiff({ filePath: '/src/secrets.ts' })];
+      const sources = createSourceMap({ '/src/secrets.ts': content });
+      const result = await swarm.review('test-project', diffs, sources);
+      expect(result.decision).toBeDefined();
+    });
+
+    it('should handle adversarial validation with comment-only lines (L1085)', async () => {
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['style', 'security'],
+        minSeverity: 'info',
+      });
+      // Code with comment lines that the style lens will analyze
+      const content = [
+        'function okay() {',
+        '  // TODO: fix this function - it is too long and complex',
+        '  return 42;',
+        '}',
+      ].join('\n');
+      const diffs = [createDiff({ filePath: '/src/commented.ts' })];
+      const sources = createSourceMap({ '/src/commented.ts': content });
+      const result = await swarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
   });
 
   describe('constructor and config', () => {

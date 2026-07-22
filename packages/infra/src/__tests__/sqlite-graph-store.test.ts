@@ -62,6 +62,42 @@ describe('SqliteGraphStore', () => {
   });
 
   // ==========================================================================
+  // Close lifecycle edge cases
+  // ==========================================================================
+
+  describe('close', () => {
+    it('double close does not throw errors', () => {
+      store.close();
+      expect(() => store.close()).not.toThrow();
+    });
+
+    it('all operations throw after close', () => {
+      store.close();
+      expect(() => store.getNode(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getNodesByLabel('Function' as NodeLabel)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getNodesByFile('some.ts')).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getNodeByQName('foo.bar')).toThrow('SqliteGraphStore is closed');
+      expect(() => store.deleteNode(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.insertEdge(createTestEdge({ sourceId: 1, targetId: 2 }))).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getEdge(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getEdgesBySource(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getEdgesByTarget(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getEdgesByType('CALLS')).toThrow('SqliteGraphStore is closed');
+      expect(() => store.updateEdge(1, { type: 'CALLS' })).toThrow('SqliteGraphStore is closed');
+      expect(() => store.deleteEdge(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.insertNodes([])).toThrow('SqliteGraphStore is closed');
+      expect(() => store.insertEdges([])).toThrow('SqliteGraphStore is closed');
+      expect(() => store.searchNodes('test')).toThrow('SqliteGraphStore is closed');
+      expect(() => store.searchNodesByLabel('test', 'Function' as NodeLabel)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.bfs(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getNeighbors(1)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.validate()).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getStats()).toThrow('SqliteGraphStore is closed');
+      expect(() => store.vacuum()).toThrow('SqliteGraphStore is closed');
+    });
+  });
+
+  // ==========================================================================
   // Node CRUD — Insert
   // ==========================================================================
 
@@ -153,6 +189,19 @@ describe('SqliteGraphStore', () => {
       expect(retrieved!.docstring).toBeNull();
       expect(retrieved!.complexity).toBeNull();
       expect(retrieved!.fingerprint).toBeNull();
+    });
+
+    it('uses explicit createdAt and updatedAt when provided', () => {
+      const customDate = '2024-01-15T10:30:00.000Z';
+      const node = createTestNode({
+        qualifiedName: 'custom.dates',
+        createdAt: customDate,
+        updatedAt: '2024-02-20T14:00:00.000Z',
+      });
+      const id = store.insertNode(node);
+      const retrieved = store.getNode(id)!;
+      expect(retrieved.createdAt).toBe(customDate);
+      expect(retrieved.updatedAt).toBe('2024-02-20T14:00:00.000Z');
     });
   });
 
@@ -321,6 +370,56 @@ describe('SqliteGraphStore', () => {
       store.updateNode(id, { name: 'updated' });
       expect(store.getNode(id)!.id).toBe(id);
     });
+
+    it('keeps existing fields when they are not in the update payload', () => {
+      const node = createTestNode({
+        qualifiedName: 'upd.keep',
+        filePath: '/original/path.ts',
+        language: 'python',
+        signature: 'original_sig',
+        docstring: 'original docs',
+        complexity: 10,
+        isExported: false,
+        fingerprint: 'orig_fp',
+      });
+      const id = store.insertNode(node);
+      // Update only name — all other fields should be preserved
+      store.updateNode(id, { name: 'renamed' });
+      const updated = store.getNode(id)!;
+      expect(updated.name).toBe('renamed');
+      expect(updated.filePath).toBe('/original/path.ts');
+      expect(updated.language).toBe('python');
+      expect(updated.signature).toBe('original_sig');
+      expect(updated.docstring).toBe('original docs');
+      expect(updated.complexity).toBe(10);
+      expect(updated.isExported).toBe(false);
+      expect(updated.fingerprint).toBe('orig_fp');
+    });
+
+    it('preserves existing properties when updates has no properties', () => {
+      const node = createTestNode({
+        qualifiedName: 'upd.noprops',
+        properties: { existingKey: 'existingValue', count: 42 },
+      });
+      const id = store.insertNode(node);
+      store.updateNode(id, { name: 'somethingElse' });
+      const updated = store.getNode(id)!;
+      expect(updated.properties.existingKey).toBe('existingValue');
+      expect(updated.properties.count).toBe(42);
+    });
+
+    it('merges new properties with existing ones', () => {
+      const node = createTestNode({
+        qualifiedName: 'upd.mergeprops',
+        properties: { oldKey: 'old', sharedKey: 'oldValue' },
+      });
+      const id = store.insertNode(node);
+      store.updateNode(id, { properties: { newKey: 'new', sharedKey: 'newValue' } });
+      const updated = store.getNode(id)!;
+      expect(updated.properties.oldKey).toBe('old');
+      expect(updated.properties.newKey).toBe('new');
+      expect(updated.properties.sharedKey).toBe('newValue');
+    });
   });
 
   // ==========================================================================
@@ -370,6 +469,18 @@ describe('SqliteGraphStore', () => {
       const id = store.insertEdge(edge);
       expect(id).toBeGreaterThan(0);
       expect(store.getStats().edgeCount).toBe(1);
+    });
+
+    it('uses explicit createdAt when provided', () => {
+      const customDate = '2024-03-01T08:00:00.000Z';
+      const edge = createTestEdge({
+        sourceId: node1,
+        targetId: node2,
+        createdAt: customDate,
+      });
+      const id = store.insertEdge(edge);
+      const retrieved = store.getEdge(id)!;
+      expect(retrieved.createdAt).toBe(customDate);
     });
 
     it('throws when source node does not exist', () => {
@@ -475,6 +586,74 @@ describe('SqliteGraphStore', () => {
       expect(() => store.updateEdge(999, { type: 'CALLS' })).toThrow(
         'Edge update failed: edge id=999 not found',
       );
+    });
+
+    it('keeps existing weight when not in update payload', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.wt.n1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.wt.n2' }));
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, weight: 3.5 }));
+      store.updateEdge(edgeId, { type: 'IMPORTS' });
+      expect(store.getEdge(edgeId)!.weight).toBe(3.5);
+      expect(store.getEdge(edgeId)!.type).toBe('IMPORTS');
+    });
+
+    it('changes sourceId to a valid new node', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.src1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.src2' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'ue.src3' }));
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      store.updateEdge(edgeId, { sourceId: n3 });
+      expect(store.getEdge(edgeId)!.sourceId).toBe(n3);
+      expect(store.getEdge(edgeId)!.targetId).toBe(n2);
+    });
+
+    it('changes targetId to a valid new node', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.tgt1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.tgt2' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'ue.tgt3' }));
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      store.updateEdge(edgeId, { targetId: n3 });
+      expect(store.getEdge(edgeId)!.sourceId).toBe(n1);
+      expect(store.getEdge(edgeId)!.targetId).toBe(n3);
+    });
+
+    it('changes both sourceId and targetId', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.both1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.both2' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'ue.both3' }));
+      const n4 = store.insertNode(createTestNode({ qualifiedName: 'ue.both4' }));
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      store.updateEdge(edgeId, { sourceId: n3, targetId: n4 });
+      expect(store.getEdge(edgeId)!.sourceId).toBe(n3);
+      expect(store.getEdge(edgeId)!.targetId).toBe(n4);
+    });
+
+    it('throws when new sourceId does not exist', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.badsrc' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.badsrc2' }));
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      expect(() => store.updateEdge(edgeId, { sourceId: 99999 })).toThrow('source node');
+    });
+
+    it('throws when new targetId does not exist', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.badtgt' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.badtgt2' }));
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      expect(() => store.updateEdge(edgeId, { targetId: 99999 })).toThrow('target node');
+    });
+
+    it('merges edge properties when updating', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.prop1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.prop2' }));
+      const edgeId = store.insertEdge(createTestEdge({
+        sourceId: n1,
+        targetId: n2,
+        properties: { originalProp: 'value1' },
+      }));
+      store.updateEdge(edgeId, { properties: { newProp: 'value2' } });
+      const edge = store.getEdge(edgeId)!;
+      expect(edge.properties.originalProp).toBe('value1');
+      expect(edge.properties.newProp).toBe('value2');
     });
   });
 
@@ -741,6 +920,20 @@ describe('SqliteGraphStore', () => {
       store.insertEdge(createTestEdge({ sourceId: n5, targetId: n1, type: 'CALLS' }));
       const result = store.bfs(n1);
       expect(result.length).toBe(5);
+    });
+
+    it('skips ghosts — neighbor target node no longer exists', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'bfs.ghost1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'bfs.ghost2' }));
+      const n3 = store.insertNode(createTestNode({ qualifiedName: 'bfs.ghost3' }));
+      // n1 -> n2 (edge exists), n2 -> n3 (edge exists)
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
+      store.insertEdge(createTestEdge({ sourceId: n2, targetId: n3 }));
+      // Delete n3 — but the edge n2->n3 should cascade-delete
+      // So the only remaining edge is n1->n2
+      store.deleteNode(n3);
+      const result = store.bfs(n1);
+      expect(result.length).toBe(2); // n1, n2
     });
 
     it('does not traverse backwards', () => {
@@ -1078,6 +1271,10 @@ describe('SqliteGraphStore', () => {
       resetCounters();
       const edge = createTestEdge({ id: 99, sourceId: 1, targetId: 2 });
       expect(edge.id).toBe(99);
+    });
+
+    it('deleting a non-existent file with deleteDatabase does not throw', () => {
+      expect(() => deleteDatabase('/nonexistent/path/db.sqlite')).not.toThrow();
     });
   });
 });

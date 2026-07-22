@@ -1160,4 +1160,64 @@ describe('PR Review Engine', () => {
       expect(result.summary.byCategory.other).toBeGreaterThanOrEqual(1);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // reviewPRSwarm — additional risk level branch coverage (L147, L149, L151)
+  // -----------------------------------------------------------------------
+
+  describe('reviewPRSwarm — additional risk level coverage', () => {
+    it('should handle swarm review with file containing security issues', async () => {
+      const testDir = path.join(os.tmpdir(), 'swarm-risk-test-' + Date.now());
+      fs.mkdirSync(testDir, { recursive: true });
+      const filePath = path.join(testDir, 'risky.ts');
+      fs.writeFileSync(filePath, [
+        'function risky() {',
+        '  eval("bad code");',
+        '  innerHTML = "unsafe";',
+        '  return "done";',
+        '}',
+      ].join('\n'), 'utf-8');
+
+      try {
+        const pr = createPR({ title: 'Risky change' });
+        const diffs = [createDiff({
+          filePath,
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 5, changeType: 'added' }],
+        })];
+
+        const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
+        expect(result.summary.riskLevel).toBeDefined();
+        expect(result.summary.totalComments).toBeGreaterThanOrEqual(0);
+      } finally {
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+      }
+    });
+
+    it('should handle swarm review with file containing performance issues', async () => {
+      const testDir = path.join(os.tmpdir(), 'swarm-perf-test-' + Date.now());
+      fs.mkdirSync(testDir, { recursive: true });
+      const filePath = path.join(testDir, 'heavy.ts');
+      fs.writeFileSync(filePath, 'for (let i = 0; i < 100000; i++) { process(i); }\n', 'utf-8');
+
+      try {
+        const pr = createPR({ title: 'Nested loops' });
+        const diffs = [createDiff({
+          filePath,
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        })];
+
+        const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
+        expect(result.summary.riskLevel).toBeDefined();
+      } finally {
+        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+      }
+    });
+
+    it('should handle empty target list in swarm action plan', async () => {
+      const pr = createPR({ title: 'No files' });
+      const result = await prEngine.reviewPRSwarm('test-project', pr, []);
+      expect(result.summary.riskLevel).toBe('low');
+      expect(result.summary.totalComments).toBe(0);
+    });
+  });
 });

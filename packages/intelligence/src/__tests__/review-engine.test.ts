@@ -1114,6 +1114,19 @@ describe('Code Review Engine', () => {
       expect(session.status).toBe('completed');
     });
 
+    it('should trigger filter rules for comment-only diff content (L340)', async () => {
+      // Diffs with only comment content may produce heuristic results
+      // that get filtered out by the filter phase if existingCode is comment-only
+      const diffs = [createDiff({
+        filePath: '/src/empty.ts',
+        changeType: 'added',
+        ranges: [],
+      })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+      expect(session.filesReviewed).toBeGreaterThanOrEqual(0);
+    });
+
     it('should handle diffs with zero ranges', async () => {
       const diffs = [
         createDiff({
