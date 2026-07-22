@@ -5,8 +5,8 @@
 export { CodeAnalyzerMCPServer } from './server/mcp-server.js';
 
 // Tool Registry & Tools
-export { ToolRegistry, createToolRegistry } from './tools/index.js';
-export type { ToolResult, ToolHandler, RegisteredTool } from './tools/registry.js';
+export { ToolRegistry, createToolRegistry, ToolContextImpl } from './tools/index.js';
+export type { ToolResult, ToolHandler, RegisteredTool, ToolContext, GraphStats, DependencyTreeNode } from './tools/index.js';
 export { makeSchema } from './tools/registry.js';
 
 // Cypher Engine

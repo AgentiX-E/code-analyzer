@@ -115,7 +115,7 @@ function executeScan(step: PlanStep, ctx: ExecContext): void {
     : undefined;
 
   const result = ctx.store.queryNodes({
-    projectId: '',
+    projectId: ctx.projectId,
     label: labels,
     limit: 10000,
     offset: 0,

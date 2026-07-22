@@ -2,8 +2,24 @@
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { tokenize, parse, plan, execute } from '../cypher/index.js';
+import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { NodeLabel } from '@code-analyzer/shared';
 import type { ToolResult } from './registry.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getContext(store?: unknown): ToolContext | null {
+  if (ToolContextImpl.isToolContext(store)) return store;
+  return null;
+}
+
+function getStore(storeOrContext: unknown): InMemoryGraphStore | null {
+  if (storeOrContext instanceof InMemoryGraphStore) return storeOrContext;
+  if (ToolContextImpl.isToolContext(storeOrContext)) return storeOrContext.store;
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // search_graph
@@ -32,51 +48,63 @@ export const searchGraphSchema = {
 export async function searchGraph(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
   const params = args as unknown as SearchGraphParams;
   const query = params.query;
-  const labels = params.labels;
   const maxLimit = 100;
   const limit = Math.min(params.limit ?? 20, maxLimit);
   const offset = params.offset ?? 0;
 
-  if (store instanceof InMemoryGraphStore) {
-    const results = store.searchFts(query, {
-      limit,
-      offset,
-      labels: labels as NodeLabel[] | undefined,
-    });
+  try {
+    const graphStore = getStore(store);
+
+    if (graphStore) {
+      const results = graphStore.searchFts(query, {
+        limit,
+        offset,
+        labels: (params.labels ?? []) as NodeLabel[],
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            items: results.map(r => ({
+              nodeId: r.nodeId,
+              name: r.node.name,
+              qualifiedName: r.node.qualifiedName,
+              label: r.node.label,
+              filePath: r.node.filePath,
+              rank: r.rank,
+              snippet: r.snippet,
+            })),
+            total: results.length,
+            returned: results.length,
+            hasMore: results.length >= limit,
+          }, null, 2),
+        }],
+      };
+    }
 
     return {
       content: [{
         type: 'text',
         text: JSON.stringify({
-          items: results.map(r => ({
-            nodeId: r.nodeId,
-            name: r.node.name,
-            qualifiedName: r.node.qualifiedName,
-            label: r.node.label,
-            filePath: r.node.filePath,
-            rank: r.rank,
-            snippet: r.snippet,
-          })),
-          total: results.length,
-          returned: results.length,
-          hasMore: results.length >= limit,
+          items: [],
+          total: 0,
+          returned: 0,
+          hasMore: false,
+          message: 'No graph store available',
         }, null, 2),
       }],
     };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{
+        type: 'text',
+        text: `Search error: ${message}`,
+      }],
+      isError: true,
+    };
   }
-
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        items: [],
-        total: 0,
-        returned: 0,
-        hasMore: false,
-        message: 'No store available',
-      }, null, 2),
-    }],
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -110,35 +138,84 @@ export async function searchCode(args: Record<string, unknown>, store?: unknown)
   const limit = Math.min(params.limit ?? 20, maxLimit);
   const offset = params.offset ?? 0;
 
-  if (store instanceof InMemoryGraphStore) {
-    const results = store.searchFts(query, { limit, offset });
+  try {
+    const ctx = getContext(store);
+
+    if (ctx) {
+      // Use hybrid search (BM25 + vector fallback)
+      const searchEngine = ctx.getSearchEngine();
+      const results = await searchEngine.search({
+        query,
+        labels: undefined,
+        limit,
+        filePath: params.filePath,
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            items: results.map(r => ({
+              nodeId: r.node.id,
+              name: r.node.name,
+              qualifiedName: r.node.qualifiedName,
+              filePath: r.node.filePath,
+              startLine: r.node.startLine,
+              endLine: r.node.endLine,
+              label: r.node.label,
+              signature: r.node.signature,
+              bm25Score: r.bm25Score,
+              vectorScore: r.vectorScore,
+              combinedScore: r.combinedScore,
+              searchMethod: r.vectorScore > 0 ? 'hybrid (BM25 + vector)' : 'BM25 text search',
+            })),
+            total: results.length,
+            returned: results.length,
+            hasMore: results.length >= limit,
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Fallback: use FTS from store
+    const graphStore = getStore(store);
+    if (graphStore) {
+      const results = graphStore.searchFts(query, { limit, offset });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            items: results.map(r => ({
+              nodeId: r.nodeId,
+              name: r.node.name,
+              filePath: r.node.filePath,
+              startLine: r.node.startLine,
+              endLine: r.node.endLine,
+              rank: r.rank,
+              snippet: r.snippet,
+            })),
+            total: results.length,
+            returned: results.length,
+            hasMore: results.length >= limit,
+            searchMethod: 'FTS (basic text search)',
+          }, null, 2),
+        }],
+      };
+    }
+
     return {
       content: [{
         type: 'text',
-        text: JSON.stringify({
-          items: results.map(r => ({
-            nodeId: r.nodeId,
-            name: r.node.name,
-            filePath: r.node.filePath,
-            startLine: r.node.startLine,
-            endLine: r.node.endLine,
-            rank: r.rank,
-            snippet: r.snippet,
-          })),
-          total: results.length,
-          returned: results.length,
-          hasMore: results.length >= limit,
-        }, null, 2),
+        text: JSON.stringify({ items: [], total: 0, returned: 0, hasMore: false, message: 'No store available' }, null, 2),
       }],
     };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Search error: ${message}` }],
+      isError: true,
+    };
   }
-
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({ items: [], total: 0, returned: 0, hasMore: false }, null, 2),
-    }],
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -163,25 +240,69 @@ export const semanticSearchSchema = {
   required: ['query'],
 };
 
-export async function semanticSearch(args: Record<string, unknown>): Promise<ToolResult> {
+export async function semanticSearch(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
   const params = args as unknown as SemanticSearchParams;
   const query = params.query;
   const threshold = params.threshold ?? 0.7;
 
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        items: [],
-        total: 0,
-        returned: 0,
-        hasMore: false,
+  try {
+    const ctx = getContext(store);
+    if (ctx) {
+      // Try vector search via hybrid search engine
+      const searchEngine = ctx.getSearchEngine();
+      const results = await searchEngine.search({
         query,
-        threshold,
-        note: 'Semantic embeddings not yet indexed for this project',
-      }, null, 2),
-    }],
-  };
+        limit: params.limit ?? 10,
+      });
+
+      const vectorResults = results.filter(r => r.vectorScore > 0);
+
+      if (vectorResults.length > 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              items: vectorResults.map(r => ({
+                nodeId: r.node.id,
+                name: r.node.name,
+                qualifiedName: r.node.qualifiedName,
+                filePath: r.node.filePath,
+                vectorScore: r.vectorScore,
+              })),
+              total: vectorResults.length,
+              returned: vectorResults.length,
+              hasMore: false,
+              query,
+              threshold,
+              note: 'Vector embeddings available',
+            }, null, 2),
+          }],
+        };
+      }
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          items: [],
+          total: 0,
+          returned: 0,
+          hasMore: false,
+          query,
+          threshold,
+          searchMethod: 'BM25 text search (vector embeddings not indexed)',
+          note: 'Semantic embeddings not yet indexed for this project. Install an embedding provider for vector search.',
+        }, null, 2),
+      }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Semantic search error: ${message}` }],
+      isError: true,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -212,40 +333,50 @@ export async function traceCallPath(args: Record<string, unknown>, store?: unkno
   const targetSymbol = params.targetSymbol;
   const maxDepth = params.maxDepth ?? 10;
 
-  const result: {
-    path: Array<{ symbol: string; depth: number; relationship: string }>;
-    found: boolean;
-    maxDepthReached: boolean;
-  } = {
-    path: [],
-    found: false,
-    maxDepthReached: false,
-  };
+  try {
+    const result: {
+      path: Array<{ symbol: string; depth: number; relationship: string; filePath: string | null }>;
+      found: boolean;
+      maxDepthReached: boolean;
+    } = {
+      path: [],
+      found: false,
+      maxDepthReached: false,
+    };
 
-  if (store instanceof InMemoryGraphStore) {
-    const node = store.getNodeByQualifiedName(sourceSymbol);
-    if (node) {
-      const bfs = store.bfs(node.id, maxDepth, ['CALLS']);
-      const path = bfs.nodes.map(n => ({
-        symbol: n.qualifiedName,
-        depth: bfs.pathLengths.get(n.id) ?? 0,
-        relationship: 'CALLS',
-      }));
-      result.path = path;
-      result.found = targetSymbol
-        ? path.some(p => p.symbol === targetSymbol)
-        : path.length > 0;
-      result.maxDepthReached = bfs.maxDepthReached >= maxDepth;
+    const graphStore = getStore(store);
+    if (graphStore) {
+      const node = graphStore.getNodeByQualifiedName(sourceSymbol);
+      if (node) {
+        const bfs = graphStore.bfs(node.id, maxDepth, ['CALLS', 'IMPLEMENTS', 'EXTENDS']);
+        const path = bfs.nodes.map(n => ({
+          symbol: n.qualifiedName,
+          depth: bfs.pathLengths.get(n.id) ?? 0,
+          relationship: 'CALLS',
+          filePath: n.filePath,
+        }));
+        result.path = path;
+        result.found = targetSymbol
+          ? path.some(p => p.symbol === targetSymbol)
+          : path.length > 1;
+        result.maxDepthReached = bfs.maxDepthReached >= maxDepth;
+      }
     }
-  }
 
-  return {
-    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-  };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Trace error: ${message}` }],
+      isError: true,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
-// query_graph
+// query_graph (Cypher)
 // ---------------------------------------------------------------------------
 
 interface QueryGraphParams {
@@ -270,13 +401,15 @@ export async function queryGraph(args: Record<string, unknown>, store?: unknown)
   const projectId = params.projectId;
   const limitH = params.limit ?? 20;
 
-  if (store instanceof InMemoryGraphStore) {
-    try {
+  try {
+    const graphStore = getStore(store);
+
+    if (graphStore) {
       const tokens = tokenize(cypher);
       const ast = parse(tokens);
       const queryPlan = plan(ast);
       if (limitH) queryPlan.limit = limitH;
-      const result = execute(queryPlan, store, projectId);
+      const result = execute(queryPlan, graphStore, projectId);
 
       return {
         content: [{
@@ -290,23 +423,24 @@ export async function queryGraph(args: Record<string, unknown>, store?: unknown)
           }, null, 2),
         }],
       };
-    } catch (error: unknown) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Cypher query error: ${error instanceof Error ? error.message : String(error)}`,
-        }],
-        isError: true,
-      };
     }
-  }
 
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({ columns: [], rows: [], rowCount: 0, error: 'No store available' }, null, 2),
-    }],
-  };
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({ columns: [], rows: [], rowCount: 0, error: 'No store available' }, null, 2),
+      }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{
+        type: 'text',
+        text: `Cypher query error: ${message}`,
+      }],
+      isError: true,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -333,26 +467,71 @@ export const getCodeSnippetSchema = {
   required: ['filePath', 'projectId'],
 };
 
-export async function getCodeSnippet(args: Record<string, unknown>): Promise<ToolResult> {
+export async function getCodeSnippet(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
   const params = args as unknown as GetCodeSnippetParams;
   const filePath = params.filePath;
   const startLine = params.startLine ?? 1;
   const endLine = params.endLine ?? startLine;
   const contextLines = params.contextLines ?? 5;
 
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        filePath,
-        startLine: Math.max(1, startLine - contextLines),
-        endLine: endLine + contextLines,
-        language: 'auto-detected',
-        code: '// Code snippet not available in current session',
-        note: 'File system access required for code retrieval',
-      }, null, 2),
-    }],
-  };
+  try {
+    const graphStore = getStore(store);
+
+    if (graphStore) {
+      // Try to find nodes in this file and line range
+      const matchingNodes = graphStore.getAllNodes().filter(
+        n => n.filePath === filePath && n.projectId === params.projectId,
+      );
+
+      if (matchingNodes.length > 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              filePath,
+              startLine: Math.max(1, startLine - contextLines),
+              endLine: endLine + contextLines,
+              symbolsInRange: matchingNodes
+                .filter(n => {
+                  if (n.startLine === null || n.endLine === null) return false;
+                  return n.startLine <= endLine && n.endLine >= startLine;
+                })
+                .map(n => ({
+                  name: n.name,
+                  qualifiedName: n.qualifiedName,
+                  label: n.label,
+                  startLine: n.startLine,
+                  endLine: n.endLine,
+                  signature: n.signature,
+                })),
+              totalSymbols: matchingNodes.length,
+              note: 'Graph-backed snippet info. Use review_file for code content analysis or read the file directly for full content.',
+            }, null, 2),
+          }],
+        };
+      }
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          filePath,
+          startLine: Math.max(1, startLine - contextLines),
+          endLine: endLine + contextLines,
+          language: 'auto-detected',
+          code: '// Code snippet not available in current session',
+          note: 'File system access required for code retrieval',
+        }, null, 2),
+      }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Snippet error: ${message}` }],
+      isError: true,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -378,54 +557,108 @@ export async function getArchitecture(args: Record<string, unknown>, store?: unk
   const projectId = params.projectId;
   const detail = params.detail ?? 'overview';
 
-  const architecture: {
-    layers: Array<{ name: string; components: string[] }>;
-    patterns: string[];
-    entryPoints: string[];
-    dependencies: string[];
-  } = {
-    layers: [],
-    patterns: [],
-    entryPoints: [],
-    dependencies: [],
-  };
+  try {
+    const ctx = getContext(store);
+    const graphStore = getStore(store);
 
-  if (store instanceof InMemoryGraphStore) {
-    // Gather high-level architectural info from the graph
-    const allNodes = store.getAllNodes().filter(n => n.projectId === projectId);
-    const modules = allNodes.filter(n => n.label === 'Module');
-    const classes = allNodes.filter(n => n.label === 'Class');
-    const functions = allNodes.filter(n => n.label === 'Function');
+    if (ctx) {
+      const stats = ctx.getGraphStats(projectId);
+      const allNodes = ctx.store.getAllNodes().filter(n => n.projectId === projectId);
 
-    architecture.layers = [{
-      name: 'application',
-      components: [
-        ...modules.map(m => m.name),
-        ...classes.slice(0, 10).map(c => c.name),
-      ],
-    }];
+      const modules = allNodes.filter(n => n.label === 'Module');
+      const classes = allNodes.filter(n => n.label === 'Class');
+      const functions = allNodes.filter(n => n.label === 'Function');
+      const interfaces = allNodes.filter(n => n.label === 'Interface');
+      const routes = allNodes.filter(n => n.label === 'Route');
 
-    architecture.entryPoints = functions
-      .filter(f => f.isExported)
-      .slice(0, 10)
-      .map(f => f.qualifiedName);
-
-    architecture.dependencies = modules.map(m => m.qualifiedName);
-  }
-
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
+      const architecture = {
         projectId,
         detail,
-        architecture,
-        nodeCount: store instanceof InMemoryGraphStore
-          ? store.getAllNodes().filter(n => n.projectId === projectId).length
-          : 0,
-      }, null, 2),
-    }],
-  };
+        nodeCount: stats.nodeCount,
+        edgeCount: stats.edgeCount,
+        labelDistribution: stats.labelDistribution,
+        layers: [{
+          name: 'application',
+          components: [
+            ...modules.map(m => ({ name: m.name, qualifiedName: m.qualifiedName })),
+            ...classes.slice(0, 20).map(c => ({ name: c.name, qualifiedName: c.qualifiedName })),
+          ],
+        }],
+        patterns: [] as string[],
+        entryPoints: functions
+          .filter(f => f.isExported)
+          .slice(0, 20)
+          .map(f => ({ name: f.name, qualifiedName: f.qualifiedName, filePath: f.filePath })),
+        interfaces: interfaces.slice(0, 10).map(i => ({
+          name: i.name,
+          qualifiedName: i.qualifiedName,
+          filePath: i.filePath,
+        })),
+        routes: routes.map(r => ({
+          path: r.properties.routePath ?? r.name,
+          method: r.properties.routeMethod ?? 'GET',
+          handler: r.qualifiedName,
+        })),
+        dependencies: modules.map(m => ({ name: m.name, qualifiedName: m.qualifiedName })),
+      };
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(architecture, null, 2) }],
+      };
+    }
+
+    if (graphStore) {
+      const allNodes = graphStore.getAllNodes().filter(n => n.projectId === projectId);
+      const modules = allNodes.filter(n => n.label === 'Module');
+      const classes = allNodes.filter(n => n.label === 'Class');
+      const functions = allNodes.filter(n => n.label === 'Function');
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            projectId,
+            detail,
+            architecture: {
+              layers: [{
+                name: 'application',
+                components: [
+                  ...modules.map(m => m.name),
+                  ...classes.slice(0, 10).map(c => c.name),
+                ],
+              }],
+              patterns: [],
+              entryPoints: functions
+                .filter(f => f.isExported)
+                .slice(0, 10)
+                .map(f => f.qualifiedName),
+              dependencies: modules.map(m => m.qualifiedName),
+            },
+            nodeCount: allNodes.length,
+          }, null, 2),
+        }],
+      };
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          projectId,
+          detail,
+          architecture: { layers: [], patterns: [], entryPoints: [], dependencies: [] },
+          nodeCount: 0,
+          message: 'No graph store available',
+        }, null, 2),
+      }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Architecture error: ${message}` }],
+      isError: true,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -448,40 +681,77 @@ export async function getGraphSchema(args: Record<string, unknown>, store?: unkn
   const params = args as unknown as GetGraphSchemaParams;
   const projectId = params.projectId;
 
-  const schema: {
-    nodeLabels: Array<{ label: string; count: number }>;
-    relationshipTypes: Array<{ type: string; count: number }>;
-  } = {
-    nodeLabels: [],
-    relationshipTypes: [],
-  };
-
-  if (store instanceof InMemoryGraphStore) {
-    const nodes = store.getAllNodes().filter(n => n.projectId === projectId);
-    const edges = store.getAllEdges().filter(e => e.projectId === projectId);
-
-    // Count node labels
-    const labelCounts = new Map<string, number>();
-    for (const node of nodes) {
-      labelCounts.set(node.label, (labelCounts.get(node.label) ?? 0) + 1);
+  try {
+    const ctx = getContext(store);
+    if (ctx) {
+      const stats = ctx.getGraphStats(projectId);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            projectId,
+            nodeCount: stats.nodeCount,
+            edgeCount: stats.edgeCount,
+            nodeLabels: stats.labelDistribution,
+            relationshipTypes: stats.relationshipDistribution,
+          }, null, 2),
+        }],
+      };
     }
-    schema.nodeLabels = Array.from(labelCounts.entries())
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count);
 
-    // Count relationship types
-    const typeCounts = new Map<string, number>();
-    for (const edge of edges) {
-      typeCounts.set(edge.type, (typeCounts.get(edge.type) ?? 0) + 1);
+    const graphStore = getStore(store);
+    if (graphStore) {
+      const nodes = graphStore.getAllNodes().filter(n => n.projectId === projectId);
+      const edges = graphStore.getAllEdges().filter(e => e.projectId === projectId);
+
+      const labelCounts = new Map<string, number>();
+      for (const node of nodes) {
+        labelCounts.set(node.label, (labelCounts.get(node.label) ?? 0) + 1);
+      }
+      const nodeLabels = Array.from(labelCounts.entries())
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
+
+      const typeCounts = new Map<string, number>();
+      for (const edge of edges) {
+        typeCounts.set(edge.type, (typeCounts.get(edge.type) ?? 0) + 1);
+      }
+      const relationshipTypes = Array.from(typeCounts.entries())
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            projectId,
+            nodeCount: nodes.length,
+            edgeCount: edges.length,
+            nodeLabels,
+            relationshipTypes,
+          }, null, 2),
+        }],
+      };
     }
-    schema.relationshipTypes = Array.from(typeCounts.entries())
-      .map(([type, count]) => ({ type, count }))
-      .sort((a, b) => b.count - a.count);
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          projectId,
+          nodeLabels: [],
+          relationshipTypes: [],
+          message: 'No graph store available',
+        }, null, 2),
+      }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Schema error: ${message}` }],
+      isError: true,
+    };
   }
-
-  return {
-    content: [{ type: 'text', text: JSON.stringify(schema, null, 2) }],
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -509,66 +779,126 @@ export async function exploreSymbol(args: Record<string, unknown>, store?: unkno
   const symbolName = params.symbolName;
   const includeRelationships = Boolean(params.includeRelationships);
 
-  const result: {
-    symbol: Record<string, unknown> | null;
-    relationships: unknown[];
-    calls: unknown[];
-    calledBy: unknown[];
-  } = {
-    symbol: null,
-    relationships: [],
-    calls: [],
-    calledBy: [],
-  };
+  try {
+    const result: {
+      symbol: Record<string, unknown> | null;
+      relationships: unknown[];
+      calls: unknown[];
+      calledBy: unknown[];
+      fileSymbols: unknown[];
+    } = {
+      symbol: null,
+      relationships: [],
+      calls: [],
+      calledBy: [],
+      fileSymbols: [],
+    };
 
-  if (store instanceof InMemoryGraphStore) {
-    // Try qualified name first, then search
-    let node = store.getNodeByQualifiedName(symbolName);
-    if (!node) {
-      const searchResults = store.searchFts(symbolName, { limit: 1 });
-      const firstResult = searchResults[0];
-      if (firstResult) {
-        node = firstResult.node;
+    const graphStore = getStore(store);
+
+    if (graphStore) {
+      let node = graphStore.getNodeByQualifiedName(symbolName);
+      if (!node) {
+        const searchResults = graphStore.searchFts(symbolName, { limit: 1 });
+        const firstResult = searchResults[0];
+        if (firstResult) {
+          node = firstResult.node;
+        }
+      }
+
+      if (node) {
+        result.symbol = {
+          id: node.id,
+          name: node.name,
+          qualifiedName: node.qualifiedName,
+          label: node.label,
+          filePath: node.filePath,
+          startLine: node.startLine,
+          endLine: node.endLine,
+          language: node.language,
+          signature: node.signature,
+          docstring: node.docstring,
+          complexity: node.complexity,
+          isExported: node.isExported,
+          properties: node.properties,
+        };
+
+        // Get file siblings (all symbols in the same file)
+        if (node.filePath) {
+          const fileSymbols = graphStore.getAllNodes().filter(
+            n => n.filePath === node!.filePath && n.id !== node!.id,
+          );
+          result.fileSymbols = fileSymbols.slice(0, 50).map(n => ({
+            name: n.name,
+            qualifiedName: n.qualifiedName,
+            label: n.label,
+            startLine: n.startLine,
+            isExported: n.isExported,
+          }));
+        }
+
+        if (includeRelationships) {
+          const outgoing = graphStore.getEdgesForNode(node.id, undefined, 'out');
+          const incoming = graphStore.getEdgesForNode(node.id, undefined, 'in');
+
+          result.relationships = [
+            ...outgoing.map(e => {
+              const targetNode = graphStore.getNode(e.targetId);
+              return {
+                direction: 'outgoing',
+                type: e.type,
+                targetId: e.targetId,
+                targetName: targetNode?.qualifiedName ?? `node-${e.targetId}`,
+                targetLabel: targetNode?.label,
+              };
+            }),
+            ...incoming.map(e => {
+              const sourceNode = graphStore.getNode(e.sourceId);
+              return {
+                direction: 'incoming',
+                type: e.type,
+                sourceId: e.sourceId,
+                sourceName: sourceNode?.qualifiedName ?? `node-${e.sourceId}`,
+                sourceLabel: sourceNode?.label,
+              };
+            }),
+          ];
+
+          result.calls = outgoing
+            .filter(e => e.type === 'CALLS')
+            .map(e => {
+              const targetNode = graphStore.getNode(e.targetId);
+              return {
+                targetId: e.targetId,
+                targetName: targetNode?.qualifiedName,
+                targetFile: targetNode?.filePath,
+              };
+            });
+
+          result.calledBy = incoming
+            .filter(e => e.type === 'CALLS')
+            .map(e => {
+              const sourceNode = graphStore.getNode(e.sourceId);
+              return {
+                sourceId: e.sourceId,
+                callerName: sourceNode?.qualifiedName,
+                callerFile: sourceNode?.filePath,
+              };
+            });
+        }
       }
     }
 
-    if (node) {
-      result.symbol = {
-        id: node.id,
-        name: node.name,
-        qualifiedName: node.qualifiedName,
-        label: node.label,
-        filePath: node.filePath,
-        startLine: node.startLine,
-        endLine: node.endLine,
-        language: node.language,
-        signature: node.signature,
-        complexity: node.complexity,
-        isExported: node.isExported,
-      };
-
-      if (includeRelationships) {
-        const outgoing = store.getEdgesForNode(node.id, undefined, 'out');
-        const incoming = store.getEdgesForNode(node.id, undefined, 'in');
-        result.relationships = [
-          ...outgoing.map(e => ({ direction: 'outgoing', type: e.type, targetId: e.targetId })),
-          ...incoming.map(e => ({ direction: 'incoming', type: e.type, sourceId: e.sourceId })),
-        ];
-
-        result.calls = outgoing
-          .filter(e => e.type === 'CALLS')
-          .map(e => ({ targetId: e.targetId, targetName: store.getNode(e.targetId)?.qualifiedName }));
-
-        result.calledBy = incoming
-          .filter(e => e.type === 'CALLS')
-          .map(e => ({ sourceId: e.sourceId, callerName: store.getNode(e.sourceId)?.qualifiedName }));
-      }
-    }
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Explore error: ${message}` }],
+      isError: true,
+    };
   }
-
-  return {
-    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -595,48 +925,81 @@ export async function findImplementations(args: Record<string, unknown>, store?:
   const params = args as unknown as FindImplementationsParams;
   const interfaceName = params.interfaceName;
 
-  const result: {
-    interface: Record<string, unknown> | null;
-    implementations: Array<{ id: number; name: string; qualifiedName: string; filePath: string | null }>;
-    methodImplementations: unknown[];
-  } = {
-    interface: null,
-    implementations: [],
-    methodImplementations: [],
-  };
+  try {
+    const result: {
+      interface: Record<string, unknown> | null;
+      implementations: Array<{ id: number; name: string; qualifiedName: string; filePath: string | null; methods?: string[] }>;
+      methodImplementations: unknown[];
+    } = {
+      interface: null,
+      implementations: [],
+      methodImplementations: [],
+    };
 
-  if (store instanceof InMemoryGraphStore) {
-    let ifaceNode = store.getNodeByQualifiedName(interfaceName);
-    if (!ifaceNode) {
-      const searchResults = store.searchFts(interfaceName, { limit: 1, labels: ['Interface'] });
-      const firstResult = searchResults[0];
-      if (firstResult) ifaceNode = firstResult.node;
+    const graphStore = getStore(store);
+
+    if (graphStore) {
+      let ifaceNode = graphStore.getNodeByQualifiedName(interfaceName);
+      if (!ifaceNode) {
+        const searchResults = graphStore.searchFts(interfaceName, { limit: 1, labels: ['Interface'] });
+        const firstResult = searchResults[0];
+        if (firstResult) ifaceNode = firstResult.node;
+      }
+
+      if (ifaceNode) {
+        result.interface = {
+          id: ifaceNode.id,
+          name: ifaceNode.name,
+          qualifiedName: ifaceNode.qualifiedName,
+          filePath: ifaceNode.filePath,
+        };
+
+        // Find IMPLEMENTS edges pointing to this interface
+        const incoming = graphStore.getEdgesForNode(ifaceNode.id, 'IMPLEMENTS', 'in');
+        const implementorIds = new Set<number>();
+
+        result.implementations = incoming
+          .map(e => {
+            const node = graphStore.getNode(e.sourceId);
+            if (node) {
+              implementorIds.add(node.id);
+              return {
+                id: node.id,
+                name: node.name,
+                qualifiedName: node.qualifiedName,
+                filePath: node.filePath,
+              };
+            }
+            return null;
+          })
+          .filter(Boolean) as Array<{ id: number; name: string; qualifiedName: string; filePath: string | null }>;
+
+        // Find method implementations
+        for (const implId of implementorIds) {
+          const methods = graphStore.getEdgesForNode(implId, 'HAS_METHOD', 'out');
+          for (const methodEdge of methods) {
+            const methodNode = graphStore.getNode(methodEdge.targetId);
+            if (methodNode) {
+              result.methodImplementations.push({
+                implementorId: implId,
+                methodName: methodNode.name,
+                methodQname: methodNode.qualifiedName,
+                filePath: methodNode.filePath,
+              });
+            }
+          }
+        }
+      }
     }
 
-    if (ifaceNode) {
-      result.interface = {
-        id: ifaceNode.id,
-        name: ifaceNode.name,
-        qualifiedName: ifaceNode.qualifiedName,
-      };
-
-      // Find IMPLEMENTS edges pointing to this interface
-      const incoming = store.getEdgesForNode(ifaceNode.id, 'IMPLEMENTS', 'in');
-      result.implementations = incoming
-        .map(e => {
-          const node = store.getNode(e.sourceId);
-          return node ? {
-            id: node.id,
-            name: node.name,
-            qualifiedName: node.qualifiedName,
-            filePath: node.filePath,
-          } : null;
-        })
-        .filter(Boolean) as Array<{ id: number; name: string; qualifiedName: string; filePath: string | null }>;
-    }
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: `Implementation search error: ${message}` }],
+      isError: true,
+    };
   }
-
-  return {
-    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-  };
 }
