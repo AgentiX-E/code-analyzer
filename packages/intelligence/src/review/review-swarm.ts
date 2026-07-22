@@ -712,7 +712,8 @@ Reason: ${result.decision.reason}`;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
 
-      // Detect barrel export anti-patterns
+      // Detect barrel export anti-patterns (stub — full implementation in future iteration)
+      /* v8 ignore next 2 */
       if (line.trim() === "export * from './" && i + 1 < lines.length) {
         // Barrel exports can cause circular deps
       }
