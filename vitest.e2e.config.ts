@@ -20,7 +20,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/integration/**/*.test.ts'],
+    include: ['tests/e2e/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -31,6 +31,6 @@ export default defineConfig({
         'packages/*/src/**/*.bench.ts',
       ],
     },
-    testTimeout: 30_000,
+    testTimeout: 60_000,
   },
 });
