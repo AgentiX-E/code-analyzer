@@ -5,7 +5,7 @@ import { ChangeDetector } from '../impact/change-detector.js';
 import type {
   ChangedSymbol,
 } from '../impact/change-detector.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
   GraphNode,
   GraphEdge,
@@ -88,7 +88,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
 // ---------------------------------------------------------------------------
 
 describe('ChangeDetector.classifyRisk', () => {
-  const detector = new ChangeDetector(new SqliteStore());
+  const detector = new ChangeDetector(new InMemoryGraphStore());
 
   const baseSymbol: ChangedSymbol = {
     name: 'testFn',
@@ -256,11 +256,11 @@ describe('ChangeDetector.classifyRisk', () => {
 // ---------------------------------------------------------------------------
 
 describe('ChangeDetector.getSymbolsInRange', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let detector: ChangeDetector;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     detector = new ChangeDetector(store);
   });
 
@@ -441,11 +441,11 @@ describe('ChangeDetector.getSymbolsInRange', () => {
 // ---------------------------------------------------------------------------
 
 describe('ChangeDetector.mapDiffToSymbols', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let detector: ChangeDetector;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     detector = new ChangeDetector(store);
   });
 
@@ -731,11 +731,11 @@ describe('ChangeDetector.mapDiffToSymbols', () => {
 // ---------------------------------------------------------------------------
 
 describe('ChangeDetector.detectChanges', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let detector: ChangeDetector;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     detector = new ChangeDetector(store);
   });
 
@@ -919,11 +919,11 @@ describe('ChangeDetector.detectChanges', () => {
 // ---------------------------------------------------------------------------
 
 describe('ChangeDetector edge cases', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let detector: ChangeDetector;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     detector = new ChangeDetector(store);
   });
 

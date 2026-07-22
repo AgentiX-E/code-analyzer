@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ImpactAnalyzer } from '../impact/impact-analyzer.js';
 import type { ChangedSymbol } from '../impact/change-detector.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ function createNode(
 }
 
 function createEdge(
-  store: SqliteStore,
+  store: InMemoryGraphStore,
   id: number,
   sourceId: number,
   targetId: number,
@@ -83,11 +83,11 @@ function makeChangedSymbol(
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.findDirectDependents', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -198,11 +198,11 @@ describe('ImpactAnalyzer.findDirectDependents', () => {
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.findIndirectDependents', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -327,11 +327,11 @@ describe('ImpactAnalyzer.findIndirectDependents', () => {
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.findAffectedTests', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -418,11 +418,11 @@ describe('ImpactAnalyzer.findAffectedTests', () => {
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.findAffectedRoutes', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -517,11 +517,11 @@ describe('ImpactAnalyzer.findAffectedRoutes', () => {
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.findAffectedProcesses', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -578,11 +578,11 @@ describe('ImpactAnalyzer.findAffectedProcesses', () => {
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.computeRiskScore', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -746,11 +746,11 @@ describe('ImpactAnalyzer.computeRiskScore', () => {
 // ---------------------------------------------------------------------------
 
 describe('ImpactAnalyzer.analyze', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let analyzer: ImpactAnalyzer;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
     analyzer = new ImpactAnalyzer(store);
   });
 
@@ -944,7 +944,7 @@ describe('ImpactAnalyzer.analyze', () => {
 
 describe('ImpactAnalyzer risk determination', () => {
   it('should return critical when processes are blocked', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const process = createNode(1, {
@@ -971,7 +971,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should return critical when impactCount >= 20', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const nodeIds: number[] = [];
@@ -1001,7 +1001,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should return high when maxSymbolRisk is critical but impact<20', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const fn = createNode(1, { qualifiedName: 'pkg.risk' });
@@ -1024,7 +1024,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should return medium when maxSymbolRisk is high and impact<5', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const fn = createNode(1, { qualifiedName: 'pkg.high_risk' });
@@ -1047,7 +1047,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should return medium when impactCount >= 5 but < 10', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const nodeIds: number[] = [];
@@ -1077,7 +1077,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should compute impact breadth score at different levels', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     // >= 20 -> 25 points
@@ -1154,7 +1154,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should compute file count score at different levels', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     // >= 10 files -> 15 points
@@ -1181,7 +1181,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should handle Route node without routePath property', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const route = createNode(1, {
@@ -1196,7 +1196,7 @@ describe('ImpactAnalyzer risk determination', () => {
   });
 
   it('should handle STEP_IN_PROCESS edge with missing step node', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const process = createNode(1, { label: 'Process', name: 'TestProcess' });
@@ -1220,7 +1220,7 @@ describe('ImpactAnalyzer risk determination', () => {
 
 describe('ImpactAnalyzer — additional edge cases', () => {
   it('should handle BFS with depth 0', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const aId = store.insertNode(createNode(1));
@@ -1234,7 +1234,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should traverse IMPLEMENTS edges in BFS', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const aId = store.insertNode(createNode(1, { label: 'Interface' }));
@@ -1248,7 +1248,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should traverse EXTENDS edges in BFS', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const aId = store.insertNode(createNode(1, { label: 'Class' }));
@@ -1261,7 +1261,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should traverse MEMBER_OF edges in BFS', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const aId = store.insertNode(createNode(1, { label: 'Namespace' }));
@@ -1274,7 +1274,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute risk score with processCount = 2', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const result: any = {
@@ -1293,7 +1293,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute risk score with processCount = 1', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const result: any = {
@@ -1311,7 +1311,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute risk score with 5+ files', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const result: any = {
@@ -1327,7 +1327,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute risk score with 2+ files', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const result: any = {
@@ -1343,7 +1343,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute risk score with 10+ symbols', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const symbols = Array.from({ length: 10 }, (_, i) => ({
@@ -1367,7 +1367,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle process severity unaffected', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const fn = createNode(1);
@@ -1380,7 +1380,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle changed symbol with removed change type', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const fn = createNode(1, { filePath: '/src/removed.ts' });
@@ -1402,7 +1402,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle changed symbol with added change type', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const fn = createNode(1, { filePath: '/src/added.ts' });
@@ -1424,7 +1424,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute file count score at >=5 threshold', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const result: any = {
@@ -1440,7 +1440,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute changes magnitude at >=5 threshold', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const symbols = Array.from({ length: 5 }, (_, i) => ({
@@ -1464,7 +1464,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute changes magnitude at >=1 threshold', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const result: any = {
@@ -1480,7 +1480,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle HANDLES_ROUTE edge where sourceNode has no handler', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const handler = createNode(1);
@@ -1499,7 +1499,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle STEP_IN_PROCESS with missing step node', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const process = createNode(1, { label: 'Process', name: 'TestProcess' });
@@ -1514,7 +1514,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle STEP_IN_PROCESS with missing process node', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const step = createNode(1, { name: 'someStep' });
@@ -1529,7 +1529,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle Route node with non-string routePath property', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const route = createNode(1, {
@@ -1544,7 +1544,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle route via HANDLES_ROUTE with non-string routePath', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const handler = createNode(1, {
@@ -1589,7 +1589,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle route node with routeMethod non-string property', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const route = createNode(1, {
@@ -1603,7 +1603,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle risk determination with impactCount between 10 and 19', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const nodeIds: number[] = [];
@@ -1632,7 +1632,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle risk determination with medium severity symbol', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const fn = createNode(1, { qualifiedName: 'pkg.medium' });
@@ -1654,7 +1654,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should compute process count score at >= 2 and >= 1 thresholds', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     // Exactly 2 processes → 13 points
@@ -1686,7 +1686,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle STEP_IN_PROCESS edge deduplication', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const process = createNode(1, { label: 'Process', name: 'DedupTest' });
@@ -1701,7 +1701,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle route nodes with undefined routeMethod (defaults to GET)', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     // Handler node - use matching qualifiedName
@@ -1754,7 +1754,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle route consumer with null qualifiedName fallback', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     // Handler - use matching qualifiedName
@@ -1794,7 +1794,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle severityToRiskLevel for degraded severity', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     // degraded → medium via severityToRiskLevel
@@ -1816,7 +1816,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
   });
 
   it('should handle severityToRiskLevel for unaffected severity', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const changedSymbols: ChangedSymbol[] = [{
@@ -1838,7 +1838,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     // Create a process with a step, then analyze the step as changed
     // This triggers findAffectedProcesses with severity 'degraded'
     // which then goes through severityToRiskLevel('degraded') → 'medium'
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
     const process = createNode(1, {

@@ -1,16 +1,16 @@
-// @code-analyzer/infra — SqliteStore Tests
+// @code-analyzer/infra — InMemoryGraphStore Tests
 // Comprehensive tests for CRUD, FTS, BFS, transactions, and integrity.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SqliteStore } from '../storage/sqlite-store.js';
+import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import { createTestNode, createTestEdge, resetCounters } from './helpers.js';
 
-describe('SqliteStore', () => {
-  let store: SqliteStore;
+describe('InMemoryGraphStore', () => {
+  let store: InMemoryGraphStore;
 
   beforeEach(() => {
     resetCounters();
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
   });
 
   // ==========================================================================
@@ -25,18 +25,18 @@ describe('SqliteStore', () => {
     });
 
     it('creates a store with a dbPath argument (ignored for in-memory)', () => {
-      const s = new SqliteStore('/tmp/test.db');
+      const s = new InMemoryGraphStore('/tmp/test.db');
       expect(s).toBeDefined();
     });
 
     it('throws when operating on a closed store', () => {
       store.close();
-      expect(() => store.insertNode(createTestNode())).toThrow('SqliteStore is closed');
+      expect(() => store.insertNode(createTestNode())).toThrow('InMemoryGraphStore is closed');
     });
 
     it('allows creating multiple independent stores', () => {
-      const store1 = new SqliteStore();
-      const store2 = new SqliteStore();
+      const store1 = new InMemoryGraphStore();
+      const store2 = new InMemoryGraphStore();
 
       store1.insertNode(createTestNode({ qualifiedName: 'a.b.c' }));
       store2.insertNode(createTestNode({ qualifiedName: 'x.y.z' }));
@@ -1085,7 +1085,7 @@ describe('SqliteStore', () => {
     it('detects duplicate qualified names', () => {
       // Delete the first node that has auto-increment id, re-insert
       // Actually we need to bypass the index check - use different mechanism
-      // Since SqliteStore enforces unique qname, we need to directly manipulate
+      // Since InMemoryGraphStore enforces unique qname, we need to directly manipulate
       // Let's test that uniqueness works at insertion level first
       store.insertNode(createTestNode({ qualifiedName: 'dupe.name' }));
       expect(() => store.insertNode(createTestNode({ qualifiedName: 'dupe.name' }))).toThrow();
@@ -1517,7 +1517,7 @@ describe('SqliteStore', () => {
 
   describe('integrity check edge cases', () => {
     it('returns empty issues for clean store', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'clean.node', name: 'cleanNode' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'clean.node2', name: 'cleanNode2' }));
       store.insertEdge({
@@ -1540,7 +1540,7 @@ describe('SqliteStore', () => {
     });
 
     it('detects duplicate qualified names when inserting with different IDs', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       store.insertNode(createTestNode({ qualifiedName: 'dup.test1', name: 'first' }));
 
       // The store inserts the node before checking qname, so the node exists in nodes map

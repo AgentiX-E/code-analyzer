@@ -656,7 +656,7 @@ Query String
 [Planner] → Execution Plan
     │
     ▼
-[Executor] → Results from SqliteStore
+[Executor] → Results from InMemoryGraphStore
 ```
 
 ---

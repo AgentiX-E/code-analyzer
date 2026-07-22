@@ -51,7 +51,7 @@ interface StoredEdge {
   createdAt: string;
 }
 
-export class SqliteStore {
+export class InMemoryGraphStore {
   private nodes: Map<number, StoredNode>;
   private edges: Map<number, StoredEdge>;
   private qnameIndex: Map<string, number>;
@@ -893,7 +893,7 @@ export class SqliteStore {
 
   private ensureOpen(): void {
     if (this.closed) {
-      throw new Error('SqliteStore is closed');
+      throw new Error('InMemoryGraphStore is closed');
     }
   }
 

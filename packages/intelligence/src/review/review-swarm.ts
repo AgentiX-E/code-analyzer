@@ -9,7 +9,7 @@ import type {
   ReviewCategory,
   Severity,
 } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { StandardsEngine } from '../standards/engine.js';
 import { IoUOverlapDetector, type CommentRegion } from '../impact/iou-overlap.js';
 import {
@@ -113,7 +113,7 @@ export class ReviewSwarm {
   private readonly config: Required<SwarmConfig>;
 
   constructor(
-    private store: SqliteStore,
+    private store: InMemoryGraphStore,
     config?: SwarmConfig,
   ) {
     this.standardsEngine = new StandardsEngine();

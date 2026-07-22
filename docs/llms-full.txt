@@ -56,7 +56,7 @@ code-analyzer/
 │   ├── shared/          # Shared types, constants, validation
 │   │   └── src/types/   # Graph, pipeline, review, search, MCP types
 │   ├── core/            # Foundation: config, logging, errors, i18n, metrics
-│   ├── infra/           # Infrastructure: SqliteStore, worker pool, git, cache
+│   ├── infra/           # Infrastructure: InMemoryGraphStore, worker pool, git, cache
 │   ├── analyzer/        # Analysis: 8 language providers, pipeline, graph builder
 │   ├── intelligence/    # Intelligence: search, review, impact, standards, embeddings
 │   ├── mcp/             # MCP server: 38 tools, Cypher, resources, prompts
@@ -76,7 +76,7 @@ code-analyzer/
 |---------|-------------|-------------|
 | `@code-analyzer/shared` | TypeScript type definitions for the entire platform. Defines 33 node labels, 39 relationship types, 18 pipeline phases, graph primitives, review types, search types, MCP types, and more. Zero runtime code — types only. | 4 files |
 | `@code-analyzer/core` | Foundation layer. Config loading with 4-layer merge (defaults → global → project → env), structured logging with formatters, typed error hierarchy (10 categories), i18n engine, metrics collector, lifecycle hooks. | 12 files |
-| `@code-analyzer/infra` | Infrastructure layer. In-memory SqliteStore with adjacency indices and FTS, worker pool with concurrency control and retry, circuit breaker, file discoverer, file watcher, parse cache, git diff/history operations. | 9 files |
+| `@code-analyzer/infra` | Infrastructure layer. In-memory InMemoryGraphStore with adjacency indices and FTS, worker pool with concurrency control and retry, circuit breaker, file discoverer, file watcher, parse cache, git diff/history operations. | 9 files |
 | `@code-analyzer/analyzer` | Analysis engine. 8 language providers implementing LanguageProvider interface, unified parser normalizing ASTs to UnifiedCapture, 18-phase DAG pipeline with Kahn's topological sort, knowledge graph builder, scope-aware symbol resolution. | 15 files |
 | `@code-analyzer/intelligence` | Intelligence layer. Hybrid BM25+vector search with RRF fusion, code review engine with Plan/Analyze/Filter/Relocate pipeline, PR review with standards integration, BFS-based impact analysis, change detector with IoU overlap, standards engine with 10 templates, report generation, embedding generation, MinHash+LSH deduplication, memory compression. | 19 files |
 | `@code-analyzer/mcp` | MCP server. Implements MCP protocol with stdio and HTTP transports. 38 tools across 7 categories, 15 resources, 5 prompts. Cypher query engine (lexer/parser/planner/executor). Auth middleware, token-bucket rate limiter, request logger. Skill installer for agent integration. | 19 files |
@@ -105,9 +105,9 @@ const report = await analyzer.generateReport({ type: 'health', format: 'markdown
 
 ### Graph Store API
 ```typescript
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-const store = new SqliteStore();
+const store = new InMemoryGraphStore();
 store.insertNode(node);           // Insert a graph node
 store.insertEdge(edge);           // Insert a graph edge
 store.getNode(id);                // Get node by ID

@@ -1,10 +1,10 @@
 /**
- * Performance benchmarks for SqliteStore.
+ * Performance benchmarks for InMemoryGraphStore.
  * Measures throughput of critical operations under realistic workloads.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SqliteStore } from '../../packages/infra/src/storage/sqlite-store.js';
+import { InMemoryGraphStore } from '../../packages/infra/src/storage/in-memory-graph-store.js';
 import { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '../../packages/shared/src/types/graph.js';
 
 function generateNodes(count: number, projectId = 'perf-test'): GraphNode[] {
@@ -59,11 +59,11 @@ function generateEdges(nodeIds: number[], edgesPerNode: number, projectId = 'per
   return edges;
 }
 
-describe('SqliteStore Performance', () => {
-  let store: SqliteStore;
+describe('InMemoryGraphStore Performance', () => {
+  let store: InMemoryGraphStore;
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
   });
 
   // ── Node Insert Performance ──

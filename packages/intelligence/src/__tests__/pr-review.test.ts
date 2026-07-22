@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CodeReviewEngine } from '../review/review-engine.js';
 import { PRReviewEngine } from '../review/pr-review.js';
 import { SessionStore } from '../review/session-store.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GitDiff, PullRequest, GraphNode, GraphEdge } from '@code-analyzer/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,8 +14,8 @@ import * as os from 'os';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createStore(): SqliteStore {
-  return new SqliteStore();
+function createStore(): InMemoryGraphStore {
+  return new InMemoryGraphStore();
 }
 
 function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
@@ -77,7 +77,7 @@ function createPR(overrides: Partial<PullRequest> = {}): PullRequest {
   };
 }
 
-function createNode(store: SqliteStore, overrides: Partial<GraphNode> = {}): number {
+function createNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {}): number {
   return store.insertNode({
     id: 0,
     projectId: 'test-project',
@@ -100,7 +100,7 @@ function createNode(store: SqliteStore, overrides: Partial<GraphNode> = {}): num
   });
 }
 
-function createEdge(store: SqliteStore, sourceId: number, targetId: number, overrides: Partial<GraphEdge> = {}): void {
+function createEdge(store: InMemoryGraphStore, sourceId: number, targetId: number, overrides: Partial<GraphEdge> = {}): void {
   store.insertEdge({
     id: 0,
     projectId: 'test-project',
@@ -125,7 +125,7 @@ function getTempDir(): string {
 // ---------------------------------------------------------------------------
 
 describe('PR Review Engine', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let reviewEngine: CodeReviewEngine;
   let prEngine: PRReviewEngine;
   let tempDir: string;

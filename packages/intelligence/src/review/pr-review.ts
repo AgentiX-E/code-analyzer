@@ -12,7 +12,7 @@ import type {
   StandardsCheckResult,
   ProjectStandard,
 } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { CodeReviewEngine, type ReviewContext } from './review-engine.js';
 import { SessionStore } from './session-store.js';
 import { DEFAULT_STANDARDS } from './standards-defaults.js';
@@ -54,7 +54,7 @@ export class PRReviewEngine {
 
   constructor(
     private reviewEngine: CodeReviewEngine,
-    private store: SqliteStore,
+    private store: InMemoryGraphStore,
     sessionStore?: SessionStore,
   ) {
     this.sessionStore = sessionStore ?? new SessionStore();

@@ -74,7 +74,7 @@ Code Analyzer follows a strict **seven-layer architecture**. Each layer depends 
 │                Layer 2: Infrastructure                           │
 │   ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌──────────────┐ │
 │   │  Storage    │ │  Workers   │ │  Cache   │ │  Git Ops     │ │
-│   │ (SqliteStore)│ │ (Pool)    │ │ (Parse)  │ │ (Diff/Hist) │ │
+│   │ (InMemoryGraphStore)│ │ (Pool)    │ │ (Parse)  │ │ (Diff/Hist) │ │
 │   └─────┬──────┘ └─────┬──────┘ └────┬─────┘ └──────┬───────┘ │
 │         │              │             │               │         │
 │   ┌─────▼──────────────▼─────────────▼───────────────▼───────┐ │
@@ -407,7 +407,7 @@ AI Agent (Claude, Cursor, Codex, etc.)
 │  └────┬────┘ └────┬─────┘ └────┬────┘  │
 │       │           │            │       │
 │  ┌────▼───────────▼────────────▼─────┐ │
-│  │        SqliteStore                │ │
+│  │        InMemoryGraphStore                │ │
 │  │  (In-Memory Knowledge Graph)      │ │
 │  └───────────────────────────────────┘ │
 └─────────────────────────────────────────┘
@@ -445,7 +445,7 @@ The `packages/mcp/src/cypher/` directory implements a Cypher-like graph query la
 | `lexer.ts` | Tokenizes Cypher queries into KEYWORD, IDENTIFIER, STRING, NUMBER, OPERATOR, and PUNCTUATION tokens |
 | `parser.ts` | Parses token streams into AST nodes (MATCH, WHERE, RETURN clauses) |
 | `planner.ts` | Generates execution plans from parsed queries |
-| `executor.ts` | Executes plans against the SqliteStore |
+| `executor.ts` | Executes plans against the InMemoryGraphStore |
 
 Supported Cypher syntax:
 ```cypher
@@ -473,9 +473,9 @@ LIMIT 10
 
 ### Storage Design
 
-> **Current implementation note**: Despite its name, `SqliteStore` currently uses an in-memory `Map`-based storage. SQLite persistence is planned for a future release. Data does not survive process restarts.
+> **Current implementation note**: `InMemoryGraphStore` uses in-memory `Map`-based storage. SQLite persistence is planned for a future release. Data does not survive process restarts.
 
-The `SqliteStore` (`packages/infra/src/storage/sqlite-store.ts`) uses an in-memory Map-based storage with:
+The `InMemoryGraphStore` (`packages/infra/src/storage/in-memory-graph-store.ts`) uses an in-memory Map-based storage with:
 
 - **Adjacency indices**: `sourceEdgeIndex` and `targetEdgeIndex` for O(1) edge lookups
 - **Qualified name index**: `qnameIndex` for direct symbol resolution
@@ -537,7 +537,7 @@ Source Files (*.ts, *.py, *.go, ...)
     ▼
 [Graph Builder] ──→ KnowledgeGraph (33 node types, 39 edge types)
     │
-    ├──→ [SqliteStore] (in-memory, adjacency-indexed)
+    ├──→ [InMemoryGraphStore] (in-memory, adjacency-indexed)
     │
     ├──→ [Hybrid Search] (BM25 + vector + RRF)
     │

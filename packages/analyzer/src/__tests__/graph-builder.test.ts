@@ -1,4 +1,4 @@
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect } from 'vitest';
 
 import { GraphBuilder } from '../graph/graph-builder.js';
@@ -26,7 +26,7 @@ function createMockContext(): PipelineContext {
 describe('GraphBuilder', () => {
   describe('build', () => {
     it('should create a graph with project and root folder nodes', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -51,7 +51,7 @@ describe('GraphBuilder', () => {
     });
 
     it('should create qname index for the project node', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -61,7 +61,7 @@ describe('GraphBuilder', () => {
     });
 
     it('should create file index for the root folder', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -72,8 +72,8 @@ describe('GraphBuilder', () => {
   });
 
   describe('dumpToStore', () => {
-    it('should dump graph nodes and edges to SQLite store', () => {
-      const store = new SqliteStore();
+    it('should dump graph nodes and edges to in-memory graph store', () => {
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -85,7 +85,7 @@ describe('GraphBuilder', () => {
     });
 
     it('should dump data with correct project ID', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -100,7 +100,7 @@ describe('GraphBuilder', () => {
 
   describe('validate', () => {
     it('should validate a clean graph', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -113,7 +113,7 @@ describe('GraphBuilder', () => {
     });
 
     it('should detect orphan edges', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -137,7 +137,7 @@ describe('GraphBuilder', () => {
     });
 
     it('should detect orphan edge with missing source node', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -161,7 +161,7 @@ describe('GraphBuilder', () => {
     });
 
     it('should detect duplicate qualified names', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
@@ -195,7 +195,7 @@ describe('GraphBuilder', () => {
 
   describe('graph structure', () => {
     it('should create CONTAINS edge from Project to Folder', () => {
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);

@@ -2,7 +2,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { EngineBridge } from '../services/engine-bridge.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Helper to create test data in a store
@@ -298,14 +298,14 @@ describe('EngineBridge', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Integration Tests with Real SqliteStore
+  // Integration Tests with Real InMemoryGraphStore
   // -------------------------------------------------------------------------
 
   describe('Integration (Real Store)', () => {
     it('searches with a real database', async () => {
       const bridge = new EngineBridge();
       await bridge.initialize();
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const node = makeNode('login', 'test.src.login', {
         filePath: 'src/login.ts',
       });
@@ -323,7 +323,7 @@ describe('EngineBridge', () => {
       bridge.setProjectId('test');
 
       // Insert nodes directly into a separate store for verification
-      const store = new SqliteStore();
+      const store = new InMemoryGraphStore();
       const n1 = makeNode('A', 'test.A', { filePath: 'a.ts' });
       const n2 = makeNode('B', 'test.B', { filePath: 'b.ts' });
       store.insertNode(n1);

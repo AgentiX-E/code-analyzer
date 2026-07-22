@@ -256,7 +256,7 @@ User Action (click, search, filter)
     → Hook (useCodeIntelligence)
       → API Service (fetch / WebSocket)
         → Backend (@code-analyzer/intelligence)
-          → Storage (@code-analyzer/infra SqliteStore)
+          → Storage (@code-analyzer/infra InMemoryGraphStore)
 
 Response flows back through the same chain, with React re-rendering
 based on state changes.

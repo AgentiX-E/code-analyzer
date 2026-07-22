@@ -60,7 +60,7 @@ code-analyzer analyze --repo . --format json --output analysis.json
 1. File discovery scans your project respecting `.gitignore`
 2. Each file is parsed by the appropriate language provider
 3. An 18-phase DAG pipeline builds a knowledge graph
-4. The graph is stored in a local SQLite database
+4. The graph is stored in an in-memory graph store
 5. You get a summary of nodes, edges, and analysis time
 
 ### Step 2: Search Your Knowledge Graph

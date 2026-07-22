@@ -2,7 +2,7 @@
 // Storage, Git, Filesystem, Workers, Cache, and Supervisor
 
 // Storage
-export { SqliteStore } from './storage/sqlite-store.js';
+export { InMemoryGraphStore } from './storage/in-memory-graph-store.js';
 export type {
   NodeQuery,
   EdgeQuery,

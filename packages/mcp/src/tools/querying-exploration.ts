@@ -1,6 +1,6 @@
 // @code-analyzer/mcp — Querying & Exploration Tools
 
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { tokenize, parse, plan, execute } from '../cypher/index.js';
 import type { NodeLabel } from '@code-analyzer/shared';
 import type { ToolResult } from './registry.js';
@@ -37,7 +37,7 @@ export async function searchGraph(args: Record<string, unknown>, store?: unknown
   const limit = Math.min(params.limit ?? 20, maxLimit);
   const offset = params.offset ?? 0;
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     const results = store.searchFts(query, {
       limit,
       offset,
@@ -110,7 +110,7 @@ export async function searchCode(args: Record<string, unknown>, store?: unknown)
   const limit = Math.min(params.limit ?? 20, maxLimit);
   const offset = params.offset ?? 0;
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     const results = store.searchFts(query, { limit, offset });
     return {
       content: [{
@@ -222,7 +222,7 @@ export async function traceCallPath(args: Record<string, unknown>, store?: unkno
     maxDepthReached: false,
   };
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     const node = store.getNodeByQualifiedName(sourceSymbol);
     if (node) {
       const bfs = store.bfs(node.id, maxDepth, ['CALLS']);
@@ -270,7 +270,7 @@ export async function queryGraph(args: Record<string, unknown>, store?: unknown)
   const projectId = params.projectId;
   const limitH = params.limit ?? 20;
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     try {
       const tokens = tokenize(cypher);
       const ast = parse(tokens);
@@ -390,7 +390,7 @@ export async function getArchitecture(args: Record<string, unknown>, store?: unk
     dependencies: [],
   };
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     // Gather high-level architectural info from the graph
     const allNodes = store.getAllNodes().filter(n => n.projectId === projectId);
     const modules = allNodes.filter(n => n.label === 'Module');
@@ -420,7 +420,7 @@ export async function getArchitecture(args: Record<string, unknown>, store?: unk
         projectId,
         detail,
         architecture,
-        nodeCount: store instanceof SqliteStore
+        nodeCount: store instanceof InMemoryGraphStore
           ? store.getAllNodes().filter(n => n.projectId === projectId).length
           : 0,
       }, null, 2),
@@ -456,7 +456,7 @@ export async function getGraphSchema(args: Record<string, unknown>, store?: unkn
     relationshipTypes: [],
   };
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     const nodes = store.getAllNodes().filter(n => n.projectId === projectId);
     const edges = store.getAllEdges().filter(e => e.projectId === projectId);
 
@@ -521,7 +521,7 @@ export async function exploreSymbol(args: Record<string, unknown>, store?: unkno
     calledBy: [],
   };
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     // Try qualified name first, then search
     let node = store.getNodeByQualifiedName(symbolName);
     if (!node) {
@@ -605,7 +605,7 @@ export async function findImplementations(args: Record<string, unknown>, store?:
     methodImplementations: [],
   };
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     let ifaceNode = store.getNodeByQualifiedName(interfaceName);
     if (!ifaceNode) {
       const searchResults = store.searchFts(interfaceName, { limit: 1, labels: ['Interface'] });

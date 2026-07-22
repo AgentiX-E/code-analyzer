@@ -2,7 +2,7 @@
 // Tests for the 8-Lens PR Review Swarm system.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ReviewSwarm } from '../review/review-swarm.js';
 import {
   LENS_PROFILES,
@@ -250,11 +250,11 @@ describe('Security Patterns', () => {
 // ---------------------------------------------------------------------------
 
 describe('ReviewSwarm', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let swarm: ReviewSwarm;
 
   beforeEach(() => {
-    store = new SqliteStore(':memory:');
+    store = new InMemoryGraphStore(':memory:');
     swarm = new ReviewSwarm(store, {
       parallel: false, // Sequential for deterministic test output
       minSeverity: 'info',

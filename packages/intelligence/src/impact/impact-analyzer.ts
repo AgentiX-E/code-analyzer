@@ -9,7 +9,7 @@ import type {
   RelationshipType,
   NodeLabel,
 } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ChangedSymbol } from './change-detector.js';
 
 // ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ const DEFAULT_MAX_DEPTH = 3;
 // ---------------------------------------------------------------------------
 
 export class ImpactAnalyzer {
-  constructor(private store: SqliteStore) {}
+  constructor(private store: InMemoryGraphStore) {}
 
   /**
    * Full impact analysis for a set of changed symbols.

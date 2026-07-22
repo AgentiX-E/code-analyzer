@@ -6,7 +6,7 @@ import type {
   ReviewSession,
   GitDiff,
 } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   analyzeFileHeuristics,
   toReviewComment,
@@ -42,7 +42,7 @@ const DEFAULT_REVIEW_CONFIG: ReviewConfig = {
 export interface ReviewContext {
   projectId: string;
   diff: GitDiff[];
-  store: SqliteStore;
+  store: InMemoryGraphStore;
   sessionId: string;
   config: ReviewConfig;
 }
@@ -87,7 +87,7 @@ export class CodeReviewEngine {
   private readonly sessionStore: SessionStore;
 
   constructor(
-    private store: SqliteStore,
+    private store: InMemoryGraphStore,
     config?: Partial<ReviewConfig>,
     sessionStore?: SessionStore,
   ) {
@@ -416,7 +416,7 @@ export class CodeReviewEngine {
   }
 
   /**
-   * Build graph analysis data for a file from the SqliteStore.
+   * Build graph analysis data for a file from the InMemoryGraphStore.
    */
   private buildGraphData(
     _projectId: string,

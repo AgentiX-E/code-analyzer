@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CodeReviewEngine } from '../review/review-engine.js';
 import { SessionStore } from '../review/session-store.js';
 import { analyzeFileHeuristics, toReviewComment } from '../review/heuristics.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -16,8 +16,8 @@ import type { GitDiff, GraphNode, GraphEdge } from '@code-analyzer/shared';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createStore(): SqliteStore {
-  return new SqliteStore();
+function createStore(): InMemoryGraphStore {
+  return new InMemoryGraphStore();
 }
 
 function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
@@ -33,7 +33,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
   };
 }
 
-function createNode(store: SqliteStore, overrides: Partial<GraphNode> = {}): void {
+function createNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {}): void {
   store.insertNode({
     id: 0,
     projectId: 'test-project',
@@ -56,7 +56,7 @@ function createNode(store: SqliteStore, overrides: Partial<GraphNode> = {}): voi
   });
 }
 
-function createEdge(store: SqliteStore, overrides: Partial<GraphEdge> = {}): void {
+function createEdge(store: InMemoryGraphStore, overrides: Partial<GraphEdge> = {}): void {
   store.insertEdge({
     id: 0,
     projectId: 'test-project',
@@ -921,7 +921,7 @@ describe('Heuristic Analysis', () => {
 // ---------------------------------------------------------------------------
 
 describe('Code Review Engine', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let engine: CodeReviewEngine;
   let tempDir: string;
   let sessionStore: SessionStore;

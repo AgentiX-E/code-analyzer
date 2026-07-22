@@ -1,7 +1,7 @@
 // @code-analyzer/mcp — Cypher Executor
-// Executes a query plan against an SqliteStore and formats results.
+// Executes a query plan against an InMemoryGraphStore and formats results.
 
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge, NodeLabel, RelationshipType, CypherExpression } from '@code-analyzer/shared';
 import type { QueryPlan, ColumnDef, PlanStep } from './planner.js';
 import { buildFilterPredicate } from './planner.js';
@@ -25,7 +25,7 @@ interface ExecContext {
   nodes: Map<string, GraphNode[]>;
   edges: Map<string, GraphEdge[]>;
   nodeVars: Map<string, GraphNode>;
-  store: SqliteStore;
+  store: InMemoryGraphStore;
   projectId: string;
 }
 
@@ -34,7 +34,7 @@ interface ExecContext {
 // ---------------------------------------------------------------------------
 
 /** Execute a query plan against the store and return formatted results. */
-export function execute(plan: QueryPlan, store: SqliteStore, projectId?: string): QueryResult {
+export function execute(plan: QueryPlan, store: InMemoryGraphStore, projectId?: string): QueryResult {
   const startTime = Date.now();
 
   const ctx: ExecContext = {

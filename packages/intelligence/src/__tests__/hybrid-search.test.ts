@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HybridSearchEngine, tokenize, cosineSimilarity } from '../search/hybrid-search.js';
 import type { RankedResult } from '../search/hybrid-search.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -36,8 +36,8 @@ function createNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
   };
 }
 
-function createStore(): SqliteStore {
-  const store = new SqliteStore();
+function createStore(): InMemoryGraphStore {
+  const store = new InMemoryGraphStore();
   for (let i = 1; i <= 10; i++) {
     store.insertNode(createNode(i));
   }
@@ -329,7 +329,7 @@ describe('HybridSearchEngine.search', () => {
 
 describe('HybridSearchEngine index management', () => {
   it('should allow adding new nodes', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     engine.initialize();
 
@@ -372,7 +372,7 @@ describe('HybridSearchEngine index management', () => {
   });
 
   it('should handle rebuild with empty store', () => {
-    const emptyStore = new SqliteStore();
+    const emptyStore = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(emptyStore);
     engine.initialize();
     expect(engine.documentCount).toBe(0);
@@ -387,7 +387,7 @@ describe('HybridSearchEngine index management', () => {
 
 describe('HybridSearchEngine — filter edge cases', () => {
   it('should filter by isExported = false', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
     store.insertNode(createNode(1, { name: 'exportedFunc', isExported: true }));
@@ -399,7 +399,7 @@ describe('HybridSearchEngine — filter edge cases', () => {
   });
 
   it('should filter with filePattern for wildcard paths', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
     store.insertNode(createNode(1, { name: 'myFunc', filePath: '/src/utils/helpers.ts' }));
@@ -412,7 +412,7 @@ describe('HybridSearchEngine — filter edge cases', () => {
   });
 
   it('should reject nodes without filePath for filePattern filter', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
     store.insertNode(createNode(1, { name: 'orphan', filePath: undefined }));
@@ -424,7 +424,7 @@ describe('HybridSearchEngine — filter edge cases', () => {
   });
 
   it('should handle maxComplexity with null complexity nodes', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
     store.insertNode(createNode(1, { name: 'simple', complexity: null }));
@@ -437,7 +437,7 @@ describe('HybridSearchEngine — filter edge cases', () => {
   });
 
   it('should handle minComplexity with null complexity nodes', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
     store.insertNode(createNode(1, { name: 'node_null', complexity: null }));
@@ -450,7 +450,7 @@ describe('HybridSearchEngine — filter edge cases', () => {
   });
 
   it('should handle all filters combined', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
     store.insertNode(createNode(1, {
@@ -501,7 +501,7 @@ describe('HybridSearchEngine — vector search', () => {
   });
 
   it('should register embeddings and perform vector search', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     store.insertNode(createNode(1, { name: 'getUser', qualifiedName: 'api.getUser' }));
     store.insertNode(createNode(2, { name: 'getAccount', qualifiedName: 'api.getAccount' }));
 
@@ -525,7 +525,7 @@ describe('HybridSearchEngine — vector search', () => {
   });
 
   it('should limit vector search results to topK', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     for (let i = 1; i <= 5; i++) {
       store.insertNode(createNode(i));
     }
@@ -552,7 +552,7 @@ describe('HybridSearchEngine — vector search', () => {
 
 describe('HybridSearchEngine.search with embeddings', () => {
   it('should combine BM25 and vector results when embeddings registered', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     store.insertNode(createNode(1, { name: 'getUserData', qualifiedName: 'api.getUserData' }));
     store.insertNode(createNode(2, { name: 'setUserData', qualifiedName: 'api.setUserData' }));
 
@@ -695,7 +695,7 @@ describe('tokenize — additional edge cases', () => {
 
 describe('HybridSearchEngine — inverted index edge cases', () => {
   it('should handle removing and re-adding a document', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     engine.initialize();
 
@@ -711,7 +711,7 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
   });
 
   it('should handle search with no query terms (empty after tokenization)', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     store.insertNode(createNode(1, { name: 'func', qualifiedName: 'pkg.func' }));
     engine.initialize();
@@ -726,7 +726,7 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
   });
 
   it('should handle removeDocument for node not in docs', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     engine.initialize();
     const before = engine.documentCount;
@@ -735,7 +735,7 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
   });
 
   it('should handle InvertedIndex removeDocument last posting', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     const node = createNode(1, { name: 'unique_term_xyz', qualifiedName: 'pkg.unique_term_xyz' });
     engine.refreshNode(node);
@@ -745,7 +745,7 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
   });
 
   it('should handle minimum complexity filter with exactly matching value', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     store.insertNode(createNode(1, { name: 'testFunc', complexity: 5 }));
     engine.initialize();
@@ -755,7 +755,7 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
   });
 
   it('should search all docs when no index term matches', () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
     store.insertNode(createNode(1, { name: 'hello', qualifiedName: 'pkg.hello' }));
     engine.initialize();

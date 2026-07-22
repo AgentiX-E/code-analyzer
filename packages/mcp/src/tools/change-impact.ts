@@ -1,6 +1,6 @@
 // @code-analyzer/mcp — Change & Impact Analysis Tools
 
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ToolResult } from './registry.js';
 
 // ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
     estimatedEffort: 'low',
   };
 
-  if (store instanceof SqliteStore && targetSymbol) {
+  if (store instanceof InMemoryGraphStore && targetSymbol) {
     const node = store.getNodeByQualifiedName(targetSymbol);
     if (node) {
       const bfs = store.bfs(node.id, depth, ['CALLS', 'IMPLEMENTS', 'EXTENDS']);
@@ -152,7 +152,7 @@ export async function routeMap(args: Record<string, unknown>, store?: unknown): 
     filePath: string | undefined;
   }> = [];
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     const routeNodes = store.getAllNodes().filter(
       n => n.projectId === projectId && n.label === 'Route',
     );
@@ -212,7 +212,7 @@ export async function checkCycles(args: Record<string, unknown>, store?: unknown
     warnings: [],
   };
 
-  if (store instanceof SqliteStore) {
+  if (store instanceof InMemoryGraphStore) {
     // Simple cycle detection using DFS for IMPORTS edges
     const nodes = module
       ? [store.getNodeByQualifiedName(module)].filter(Boolean) as NonNullable<ReturnType<typeof store.getNodeByQualifiedName>>[]
@@ -235,7 +235,7 @@ export async function checkCycles(args: Record<string, unknown>, store?: unknown
 
 function detectCycle(
   nodeId: number,
-  store: SqliteStore,
+  store: InMemoryGraphStore,
   visited: Set<number>,
   recStack: Set<number>,
   path: number[],

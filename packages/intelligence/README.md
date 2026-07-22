@@ -80,10 +80,10 @@ Requires Node.js >= 18 and `@code-analyzer/analyzer` installed.
 
 ```typescript
 import { HybridSearchEngine, EmbeddingEngine } from '@code-analyzer/intelligence';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // Initialize storage and embeddings
-const store = new SqliteStore(':memory:');
+const store = new InMemoryGraphStore(':memory:');
 const embedder = new EmbeddingEngine({ dimensions: 768, normalize: true });
 
 // Set up hybrid search
@@ -582,7 +582,7 @@ store.completeSession(session.id);
 ├── @code-analyzer/core (workspace:*)
 │   └── Core configuration and project model
 ├── @code-analyzer/infra (workspace:*)
-│   └── SqliteStore, infrastructure utilities
+│   └── InMemoryGraphStore, infrastructure utilities
 └── @code-analyzer/analyzer (workspace:*)
     └── Pipeline orchestrator, language providers, graph builder
 ```
@@ -601,4 +601,4 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup, coding stand
 - [docs/](../../docs/) — Design documents, API reference, and guides
 - `@code-analyzer/analyzer` — Analysis engine (language parsing, pipeline, graph)
 - `@code-analyzer/shared` — Shared types and constants
-- `@code-analyzer/infra` — Infrastructure (SQLite store, worker pool)
+- `@code-analyzer/infra` — Infrastructure (in-memory graph store, worker pool)

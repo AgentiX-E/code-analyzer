@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LSHSearcher } from '../similarity/lsh.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ describe('LSHSearcher.query', () => {
 describe('LSHSearcher.buildSimilarityEdges', () => {
   it('should find similar node pairs', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const mh = new MinHashSimilarity(128);
 
     // Create nodes with similar and dissimilar code snippets
@@ -235,7 +235,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
   it('should respect the similarity threshold', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const mh = new MinHashSimilarity(128);
 
     for (let i = 1; i <= 5; i++) {
@@ -274,7 +274,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
   it('should avoid self-pairs and duplicates', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const mh = new MinHashSimilarity(128);
 
     store.insertNode(createNode(1, 'f1'));
@@ -305,7 +305,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
   it('should handle empty node list', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
 
     const edges = lsh.buildSimilarityEdges(store, [], () => [], 0.8);
     expect(edges).toEqual([]);
@@ -313,7 +313,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
   it('should handle nodes without fingerprints', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const mh = new MinHashSimilarity(128);
 
     store.insertNode(createNode(1, 'f1'));
@@ -336,7 +336,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
   it('should handle candidateId without fingerprint in map', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const mh = new MinHashSimilarity(128);
 
     store.insertNode(createNode(1, 'f1'));
@@ -407,7 +407,7 @@ describe('LSHSearcher.clear', () => {
 describe('LSHSearcher.insertSimilarityEdge', () => {
   it('should insert a SIMILAR_TO edge into the store', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
 
     // Insert nodes first
     store.insertNode(createNode(1, 'func_a'));
@@ -427,7 +427,7 @@ describe('LSHSearcher.insertSimilarityEdge', () => {
 
   it('should gracefully handle duplicate edge insertion', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
 
     store.insertNode(createNode(1, 'func_a'));
     store.insertNode(createNode(2, 'func_b'));
@@ -440,7 +440,7 @@ describe('LSHSearcher.insertSimilarityEdge', () => {
 
   it('should handle insertSimilarityEdge with non-existent nodes', () => {
     const lsh = new LSHSearcher(16);
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
 
     // Insert edge referencing nodes that don't exist - the catch block should handle it
     const edge = { sourceId: 999, targetId: 998, similarity: 0.5 };

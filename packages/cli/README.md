@@ -82,7 +82,7 @@ code-analyzer analyze ./my-project
 # Analyzing ./my-project...
 ```
 
-The `analyze` command processes the source code at the given path, building a knowledge graph of symbols, relationships, and dependencies. The indexed data is stored in the SQLite knowledge graph for subsequent querying.
+The `analyze` command processes the source code at the given path, building a knowledge graph of symbols, relationships, and dependencies. The indexed data is stored in the in-memory graph store for subsequent querying.
 
 ### Search the Knowledge Graph
 
@@ -159,7 +159,7 @@ code-analyzer analyze ./packages/shared
 2. **AST parsing** — Parses each file using tree-sitter to extract symbols
 3. **Symbol extraction** — Identifies functions, classes, interfaces, modules, etc.
 4. **Relationship detection** — Maps imports, calls, inheritance, implementations
-5. **Graph construction** — Builds the knowledge graph in SQLite with FTS5 indexing
+5. **Graph construction** — Builds the knowledge graph in the in-memory store with full-text indexing
 6. **Status reporting** — Outputs node/edge counts and indexing status
 
 #### `search`
@@ -251,7 +251,7 @@ nodeId,name,qualifiedName,label,filePath,startLine,rank
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `CODE_ANALYZER_DATA_DIR` | `string` | `~/.code-analyzer/data` | Data directory for SQLite databases |
+| `CODE_ANALYZER_DATA_DIR` | `string` | `~/.code-analyzer/data` | Data directory for graph data |
 | `CODE_ANALYZER_LOG_LEVEL` | `string` | `info` | Log level (debug, info, warn, error, silent) |
 | `CODE_ANALYZER_DEFAULT_LANGUAGE` | `string` | auto | Default programming language for analysis |
 | `CODE_ANALYZER_MAX_FILE_SIZE` | `string` | `1mb` | Maximum file size to analyze |
@@ -1096,7 +1096,7 @@ The analyzer supports auto-detection for the following languages:
 |------------|-------------|
 | `@code-analyzer/shared` | Shared types and schemas |
 | `@code-analyzer/core` | Core analysis engine interfaces |
-| `@code-analyzer/infra` | Infrastructure layer (SQLite, logging) |
+| `@code-analyzer/infra` | Infrastructure layer (graph store, logging) |
 | `@code-analyzer/analyzer` | Static code analysis (tree-sitter parsing) |
 | `@code-analyzer/intelligence` | AI-powered code intelligence |
 | `@code-analyzer/mcp` | MCP server (for agent integration) |
@@ -1141,7 +1141,7 @@ Commander.js parses arguments
   │   ├── Symbol extraction (functions, classes, etc.)
   │   ├── Relationship detection (calls, imports, etc.)
   │   └── Metric calculation (complexity, lines, etc.)
-  ├── @code-analyzer/infra — SqliteStore persistence
+  ├── @code-analyzer/infra — InMemoryGraphStore persistence
   │   ├── Node storage with FTS5 indexing
   │   ├── Edge storage for relationships
   │   └── Graph traversal (BFS/DFS)

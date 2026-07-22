@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Knowledge Graph Builder
 
-import type { SqliteStore } from '@code-analyzer/infra';
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
   KnowledgeGraph,
   GraphNode,
@@ -22,11 +22,11 @@ export interface IntegrityReport {
 }
 
 export class GraphBuilder {
-  private readonly store: SqliteStore;
+  private readonly store: InMemoryGraphStore;
   private nextNodeId: number;
   private nextEdgeId: number;
 
-  constructor(store: SqliteStore) {
+  constructor(store: InMemoryGraphStore) {
     this.store = store;
     this.nextNodeId = 1;
     this.nextEdgeId = 1;
@@ -73,7 +73,7 @@ export class GraphBuilder {
     return graph;
   }
 
-  /** Dump in-memory graph to SQLite store */
+  /** Dump in-memory graph to store */
   dumpToStore(graph: KnowledgeGraph, projectId: string): void {
     for (const [, node] of graph.nodes) {
       this.store.insertNode({ ...node, projectId });

@@ -2,7 +2,7 @@
 // Facade that bridges the VS Code extension to the bundled analyzer engine.
 // Abstracts all intelligence-layer operations behind simplified methods.
 
-import { SqliteStore, createGitOperations } from '@code-analyzer/infra';
+import { InMemoryGraphStore, createGitOperations } from '@code-analyzer/infra';
 import {
   HybridSearchEngine,
   CodeReviewEngine,
@@ -64,7 +64,7 @@ export type IndexingListener = () => void;
 // ---------------------------------------------------------------------------
 
 export class EngineBridge {
-  private store: SqliteStore;
+  private store: InMemoryGraphStore;
   private searchEngine: HybridSearchEngine;
   private reviewEngine: CodeReviewEngine;
   private standards: StandardsEngine;
@@ -80,7 +80,7 @@ export class EngineBridge {
       context?.globalStorageUri?.fsPath
         ? `${context.globalStorageUri.fsPath}/graph.db`
         : ':memory:';
-    this.store = new SqliteStore(dbPath);
+    this.store = new InMemoryGraphStore(dbPath);
     this.searchEngine = new HybridSearchEngine(this.store);
     this.reviewEngine = new CodeReviewEngine(this.store);
     this.standards = new StandardsEngine();
@@ -102,7 +102,7 @@ export class EngineBridge {
       this.searchEngine.initialize();
     } catch {
       // Store was closed, recreate all components
-      this.store = new SqliteStore(':memory:');
+      this.store = new InMemoryGraphStore(':memory:');
       this.searchEngine = new HybridSearchEngine(this.store);
       this.reviewEngine = new CodeReviewEngine(this.store);
       this.changeDetector = new ChangeDetector(this.store);

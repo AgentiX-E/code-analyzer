@@ -17,7 +17,7 @@
 @code-analyzer/infra (Layer 2 - Infrastructure)
 │
 ├── storage/
-│   ├── sqlite-store.ts    — SqliteStore (in-memory graph CRUD, FTS, BFS, transactions)
+│   ├── in-memory-graph-store.ts    — InMemoryGraphStore (in-memory graph CRUD, FTS, BFS, transactions)
 │   └── types.ts           — Query, FTS, BFS, integrity, and file event types
 │
 ├── git/
@@ -48,7 +48,7 @@ Requires Node.js >= 22.
 
 | Category | Exports | Description |
 |----------|---------|-------------|
-| **Storage** | `SqliteStore`, `NodeQuery`, `EdgeQuery`, `FtsSearchResult`, `BfsResult`, `IntegrityReport` | In-memory graph store with full CRUD, FTS, BFS, and integrity checks |
+| **Storage** | `InMemoryGraphStore`, `NodeQuery`, `EdgeQuery`, `FtsSearchResult`, `BfsResult`, `IntegrityReport` | In-memory graph store with full CRUD, FTS, BFS, and integrity checks |
 | **Git** | `createGitOperations`, `GitOperations` | Git diff, changed files, merge-base, staleness, branch listing |
 | **Filesystem** | `createFileDiscoverer`, `FileDiscoverer`, `createFileWatcher`, `FileWatcher` | File discovery with glob matching and debounced watching |
 | **Workers** | `createWorkerPool`, `WorkerPool`, `CircuitBreaker`, `IndexSupervisor` | Concurrent execution, circuit breaking, index supervision |
@@ -59,9 +59,9 @@ Requires Node.js >= 22.
 ### Graph Store
 
 ```typescript
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-const store = new SqliteStore();
+const store = new InMemoryGraphStore();
 
 // Insert nodes
 const nodeId = store.insertNode({

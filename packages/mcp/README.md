@@ -11,7 +11,7 @@
 
 `@code-analyzer/mcp` is the Model Context Protocol server for the Code Analyzer platform. It exposes a comprehensive suite of 38 tools that AI coding agents (Claude Code, Cursor, Codex, Windsurf, CodeBuddy, Aider, Continue) can invoke to query, explore, review, and understand codebases. Built on the official `@modelcontextprotocol/sdk`, it supports both stdio (local) and HTTP/SSE (remote) transports with built-in middleware for authentication, rate limiting, tool policy enforcement, and request logging.
 
-The server wraps a full openCypher read-subset query engine (lexer, recursive-descent parser, planner, and SQL-backed executor) that translates graph queries into efficient searches against an SQLite knowledge graph. An integrated skill installer auto-generates agent-specific skill files for 10 different AI coding assistants.
+The server wraps a full openCypher read-subset query engine (lexer, recursive-descent parser, planner, and SQL-backed executor) that translates graph queries into efficient searches against an in-memory knowledge graph. An integrated skill installer auto-generates agent-specific skill files for 10 different AI coding assistants.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -36,7 +36,7 @@ The server wraps a full openCypher read-subset query engine (lexer, recursive-de
 └─────────────────────────┼────────────────────────────────┘
                           │
 ┌─────────────────────────▼────────────────────────────────┐
-│              SqliteStore (Knowledge Graph)                │
+│              InMemoryGraphStore (Knowledge Graph)                │
 │  38 node labels · 38 relationship types · FTS5 index     │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -116,9 +116,9 @@ mcpServer.getServer(); // MCP SDK Server instance
 
 ```typescript
 import { tokenize, parse, plan, execute } from '@code-analyzer/mcp';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-const store = new SqliteStore();
+const store = new InMemoryGraphStore();
 const cypher = 'MATCH (f:Function)-[:CALLS]->(c:Function) RETURN f.name, c.name LIMIT 10';
 
 const tokens = tokenize(cypher);
@@ -452,7 +452,7 @@ Available skill templates (10):
 |------------|-------------|
 | `@code-analyzer/shared` | Shared types (`ToolDefinition`, `MCPServerConfig`, graph types) |
 | `@code-analyzer/core` | Core analysis engine interfaces |
-| `@code-analyzer/infra` | `SqliteStore` — SQLite-backed graph storage with FTS5 |
+| `@code-analyzer/infra` | `InMemoryGraphStore` — in-memory graph storage with FTS5 |
 | `@code-analyzer/analyzer` | Static analysis and AST parsing |
 | `@code-analyzer/intelligence` | AI/LLM-powered code intelligence |
 | `@modelcontextprotocol/sdk` | Official MCP TypeScript SDK (^1.0.0) |
@@ -493,7 +493,7 @@ src/
 │   ├── lexer.ts                # Tokenizer (keywords, identifiers, operators, literals)
 │   ├── parser.ts               # Recursive-descent parser (MATCH, WHERE, RETURN, ORDER BY, expressions)
 │   ├── planner.ts              # AST → QueryPlan translator, buildFilterPredicate
-│   └── executor.ts             # QueryPlan → SqliteStore executor, result building
+│   └── executor.ts             # QueryPlan → InMemoryGraphStore executor, result building
 ├── resources/
 │   └── index.ts                # 15 resource definitions
 ├── prompts/

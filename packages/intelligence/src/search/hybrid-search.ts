@@ -2,7 +2,7 @@
 // Combines BM25 text search with vector semantic search using Reciprocal Rank Fusion.
 
 import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Search-specific interfaces
@@ -141,7 +141,7 @@ class InvertedIndex {
     this.docs.delete(nodeId);
   }
 
-  buildIndex(store: SqliteStore): void {
+  buildIndex(store: InMemoryGraphStore): void {
     const nodes = store.getAllNodes();
     for (const node of nodes) {
       this.addDocument(node);
@@ -320,7 +320,7 @@ export class HybridSearchEngine {
   private embedContent: EmbedContentFn | null = null;
   private initialized = false;
 
-  constructor(private store: SqliteStore) {}
+  constructor(private store: InMemoryGraphStore) {}
 
   /**
    * Initialize the search engine by building the inverted index.

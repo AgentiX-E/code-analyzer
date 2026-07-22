@@ -5,7 +5,7 @@ import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { EmbeddingEngine } from '../embeddings/embedder.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
 import { LSHSearcher } from '../similarity/lsh.js';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -43,12 +43,12 @@ function createNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
 // ---------------------------------------------------------------------------
 
 describe('End-to-End: Search → Embedding → Similarity', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
   let searchEngine: HybridSearchEngine;
   let embedEngine: EmbeddingEngine;
 
   beforeEach(async () => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
 
     // Create diverse set of nodes
     store.insertNode(createNode(1, {
@@ -156,7 +156,7 @@ describe('End-to-End: Search → Embedding → Similarity', () => {
 // ---------------------------------------------------------------------------
 
 describe('End-to-End: MinHash → LSH → Similarity Edges', () => {
-  let store: SqliteStore;
+  let store: InMemoryGraphStore;
 
   function tokenizeCode(text: string): string[] {
     return text
@@ -168,7 +168,7 @@ describe('End-to-End: MinHash → LSH → Similarity Edges', () => {
   }
 
   beforeEach(() => {
-    store = new SqliteStore();
+    store = new InMemoryGraphStore();
   });
 
   it('should detect similar function implementations', () => {
@@ -312,7 +312,7 @@ describe('End-to-End: Incremental Update', () => {
 
 describe('End-to-End: Full Intelligence Pipeline', () => {
   it('should search, embed, and find similar nodes', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
 
     // Step 1: Insert a diverse codebase
     const snippets = [

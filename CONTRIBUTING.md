@@ -116,7 +116,7 @@ pnpm vitest run --coverage
 ### Test Categories
 
 - **Unit tests** — Reside in `packages/*/src/**/*.test.ts`. Test individual functions/modules in isolation. Fast, no I/O.
-- **Integration tests** — Reside in `tests/integration/`. Test interactions between packages. May use SQLite or file system.
+- **Integration tests** — Reside in `tests/integration/`. Test interactions between packages. May use the in-memory graph store or file system.
 - **Property-based tests** — Reside in `tests/property/`. Use `fast-check` to verify invariants with random inputs.
 - **E2E tests** — Reside in `tests/e2e/`. Full CLI or server tests exercising the complete pipeline.
 
