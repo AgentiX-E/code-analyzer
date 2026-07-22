@@ -148,3 +148,26 @@ export type {
 // IoU Overlap Detection
 export { IoUOverlapDetector } from './impact/iou-overlap.js';
 export type { CommentRegion } from './impact/iou-overlap.js';
+
+// GitHub PR Webhook
+export { GitHubPRWebhook } from './review/github-webhook.js';
+export type {
+  GitHubPREvent,
+  WebhookResult,
+  PRFile,
+  InlineComment,
+} from './review/github-webhook.js';
+
+// Diff Parser
+export { DiffParser } from './review/diff-parser.js';
+export type {
+  ParsedLine,
+  FileAddition,
+  FileDeletion,
+  DiffStats,
+  FileRename,
+} from './review/diff-parser.js';
+
+// Review Pipeline
+export { ReviewPipeline } from './review/review-pipeline.js';
+export type { PipelineReviewConfig } from './review/review-pipeline.js';
