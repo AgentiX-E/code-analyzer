@@ -3,6 +3,7 @@
 
 // Storage
 export { InMemoryGraphStore } from './storage/in-memory-graph-store.js';
+export { SqliteGraphStore, deleteDatabase } from './storage/sqlite-graph-store.js';
 export type {
   NodeQuery,
   EdgeQuery,
