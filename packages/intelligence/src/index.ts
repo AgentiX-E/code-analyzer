@@ -94,7 +94,7 @@ export type { CompressionConfig } from './compression/memory-compressor.js';
 
 // Standards Engine
 export { StandardsEngine } from './standards/engine.js';
-export type { AutoFix } from './standards/engine.js';
+export type { AutoFix, CheckViolation, ComplianceReport } from './standards/engine.js';
 export {
   STANDARD_TEMPLATES,
   getTemplate,

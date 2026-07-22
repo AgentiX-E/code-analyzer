@@ -17,6 +17,26 @@ export interface AutoFix {
   description: string;
 }
 
+export interface CheckViolation {
+  ruleId: string;
+  description: string;
+  severity: Severity;
+  filePath: string;
+  lineNumber: number;
+  message: string;
+  suggestion?: string;
+}
+
+export interface ComplianceReport {
+  standardId: string;
+  score: number; // 0-100
+  totalChecks: number;
+  passedChecks: number;
+  failedChecks: number;
+  skippedChecks: number;
+  violations: CheckViolation[];
+}
+
 export class StandardsEngine {
   private customStandards = new Map<string, ProjectStandard>();
 
@@ -371,5 +391,247 @@ export class StandardsEngine {
       .reduce((sum, r) => sum + (weights[r.severity] ?? 0), 0);
 
     return Math.round((passedWeight / maxPossible) * 10000) / 100;
+  }
+
+  // ---------------------------------------------------------------------------
+  // New Features: Auto-Detection, Composition, Compliance Report
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Auto-detect which standards apply based on project files.
+   * Scans file paths and names to determine applicable standards.
+   */
+  detectApplicableStandards(filePaths: string[]): string[] {
+    const applicable = new Set<string>();
+    const extensions = new Set<string>();
+    const filenames = new Set<string>();
+    const lowerPaths = new Set<string>();
+
+    for (const fp of filePaths) {
+      const lower = fp.toLowerCase();
+      lowerPaths.add(lower);
+      const parts = lower.split('/');
+      const filename = parts[parts.length - 1]!;
+      filenames.add(filename);
+
+      const dotIdx = filename.lastIndexOf('.');
+      if (dotIdx !== -1) {
+        extensions.add(filename.slice(dotIdx));
+        // Compound extensions
+        if (filename.endsWith('.d.ts')) extensions.add('.d.ts');
+        if (filename.endsWith('.test.ts') || filename.endsWith('.spec.ts')) extensions.add('.test.ts');
+        if (filename.endsWith('.test.js') || filename.endsWith('.spec.js')) extensions.add('.test.js');
+      }
+    }
+
+    // Always applicable — security and documentation
+    applicable.add('security-baseline');
+    applicable.add('security-essentials');
+    applicable.add('documentation');
+
+    // Language-specific detection
+    if (extensions.has('.ts') || extensions.has('.tsx') || extensions.has('.d.ts')) {
+      applicable.add('typescript-coding');
+      applicable.add('typescript-best-practices');
+    }
+    if (extensions.has('.js') || extensions.has('.jsx') || extensions.has('.mjs') || extensions.has('.cjs')) {
+      applicable.add('javascript-best-practices');
+    }
+    if (extensions.has('.py') || extensions.has('.pyi')) {
+      applicable.add('python-pep8');
+      applicable.add('python-pep8-extended');
+    }
+    if (extensions.has('.go')) {
+      applicable.add('go-idiomatic');
+      applicable.add('go-idiomatic-extended');
+    }
+    if (extensions.has('.rs')) {
+      applicable.add('rust-best-practices');
+    }
+    if (extensions.has('.java') || extensions.has('.kt') || extensions.has('.kts')) {
+      applicable.add('java-best-practices');
+    }
+
+    // Test file detection
+    if (extensions.has('.test.ts') || extensions.has('.spec.ts') || extensions.has('.test.js') || extensions.has('.spec.js') ||
+        [...lowerPaths].some((p) => p.includes('_test.py') || p.includes('test_') || p.includes('_test.go') || p.includes('_test.rs'))) {
+      applicable.add('testing-standards');
+      applicable.add('testing-standard');
+    }
+
+    // Dockerfile detection
+    if (filenames.has('dockerfile') || filenames.has('docker-compose.yml') || filenames.has('docker-compose.yaml')) {
+      applicable.add('container-security');
+      applicable.add('dependency-security');
+    }
+
+    // Package manager files
+    if (filenames.has('package.json')) {
+      applicable.add('dependency-management');
+      applicable.add('dependency-security');
+    }
+    if (filenames.has('requirements.txt') || filenames.has('pyproject.toml') || filenames.has('pipfile')) {
+      applicable.add('dependency-security');
+    }
+    if (filenames.has('go.mod')) {
+      applicable.add('dependency-security');
+    }
+    if (filenames.has('cargo.toml')) {
+      applicable.add('dependency-security');
+    }
+
+    // API files detection
+    const apiPatterns = ['/routes/', '/api/', '/controllers/', '/handlers/', 'router.', 'middleware.'];
+    if (apiPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
+      applicable.add('api-design');
+      applicable.add('api-design-standard');
+      applicable.add('api-security');
+    }
+
+    // Error handling always applicable for code files
+    if (extensions.size > 0) {
+      applicable.add('error-handling');
+      applicable.add('error-handling-standard');
+      applicable.add('logging-standard');
+    }
+
+    // Architecture detection
+    const archPatterns = ['/domain/', '/usecase/', '/infrastructure/', '/repository/', '/service/', '/entity/'];
+    if (archPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
+      applicable.add('architecture-layered');
+      applicable.add('clean-architecture');
+    }
+
+    // Microservices detection
+    const msPatterns = ['/services/', 'circuit-breaker', 'service-discovery', 'api-gateway'];
+    if (msPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
+      applicable.add('microservices-patterns');
+    }
+
+    // Event-driven detection
+    const eventPatterns = ['/events/', '/handlers/', '/consumers/', '/producers/', 'event', 'message', 'queue', 'kafka', 'rabbitmq'];
+    if (eventPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
+      applicable.add('event-driven-architecture');
+    }
+
+    // ML detection
+    const mlPatterns = ['/models/', '/training/', '/pipelines/', '/notebooks/', 'train', 'model', 'dataset', 'mlflow', 'dvc'];
+    if (mlPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
+      applicable.add('ml-pipeline-best-practices');
+    }
+
+    // AI agent detection
+    const aiPatterns = ['/tools/', '/prompts/', '/agents/', 'mcp', 'tool.', 'prompt.', 'agent.'];
+    if (aiPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
+      applicable.add('ai-agent-code-patterns');
+    }
+
+    // Config file detection
+    if (filenames.has('.env') || filenames.has('.env.example') || filenames.has('config.ts') || filenames.has('config.js') || filenames.has('settings.py')) {
+      applicable.add('configuration-management');
+    }
+
+    // Data privacy always applicable when code exists
+    applicable.add('data-privacy');
+
+    // OWASP always applicable for web projects
+    if (extensions.has('.ts') || extensions.has('.tsx') || extensions.has('.js') || extensions.has('.jsx') || extensions.has('.py') || extensions.has('.go') || extensions.has('.java')) {
+      applicable.add('owasp-top10');
+    }
+
+    return [...applicable].sort();
+  }
+
+  /**
+   * Compose multiple standards into a single combined standard.
+   * Merges rules from all standards with deduplication by rule ID.
+   * Later standards override earlier ones when rule IDs conflict.
+   */
+  composeStandards(standardIds: string[], options?: { name?: string; description?: string }): ProjectStandard {
+    const mergedRules = new Map<string, StandardRule>();
+    const mergedExamples: ProjectStandard['examples'] = [];
+
+    for (const id of standardIds) {
+      const standard = this.loadStandard(id);
+      for (const rule of standard.rules) {
+        // Later standards override earlier ones
+        mergedRules.set(rule.id, rule);
+      }
+      if (standard.examples && standard.examples.length > 0) {
+        mergedExamples.push(...standard.examples);
+      }
+    }
+
+    return {
+      id: `composed-${standardIds.join('-')}`,
+      name: options?.name ?? `Composed Standard (${standardIds.length} standards)`,
+      version: '1.0.0',
+      category: 'custom',
+      description: options?.description ?? `Composed from: ${standardIds.join(', ')}`,
+      rules: [...mergedRules.values()],
+      examples: mergedExamples,
+    };
+  }
+
+  /**
+   * Compute a detailed compliance report for a standard against a set of files.
+   * Returns a ComplianceReport with score, pass/fail/skip counts, and violations.
+   */
+  computeDetailedComplianceReport(
+    files: Array<{ path: string; content: string }>,
+    standardId: string,
+  ): ComplianceReport {
+    const standard = this.loadStandard(standardId);
+    const allViolations: CheckViolation[] = [];
+    let passedChecks = 0;
+    let failedChecks = 0;
+    let skippedChecks = 0;
+    const config = standard.config;
+    const disabledRules = new Set(config?.disabledRules ?? []);
+
+    for (const rule of standard.rules) {
+      if (disabledRules.has(rule.id)) {
+        skippedChecks++;
+        continue;
+      }
+
+      let rulePassed = true;
+      for (const file of files) {
+        const violations = this.checkRule(file.content, file.path, rule);
+        if (violations.length > 0) {
+          rulePassed = false;
+          for (const v of violations) {
+            allViolations.push({
+              ruleId: rule.id,
+              description: rule.description,
+              severity: rule.severity,
+              filePath: v.filePath,
+              lineNumber: v.lineNumber,
+              message: v.message,
+              suggestion: v.suggestion,
+            });
+          }
+        }
+      }
+
+      if (rulePassed) {
+        passedChecks++;
+      } else {
+        failedChecks++;
+      }
+    }
+
+    const totalChecks = standard.rules.filter((r) => !disabledRules.has(r.id)).length;
+    const score = totalChecks === 0 ? 100 : Math.round((passedChecks / totalChecks) * 100);
+
+    return {
+      standardId,
+      score,
+      totalChecks,
+      passedChecks,
+      failedChecks,
+      skippedChecks,
+      violations: allViolations,
+    };
   }
 }
