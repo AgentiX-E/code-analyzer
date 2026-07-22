@@ -65,3 +65,16 @@ export type {
   ComponentDescriptor,
   LifecycleOptions,
 } from './lifecycle/index.js';
+
+// Security
+export { RBACEngine, AuditLogger, SecretScanner } from './security/index.js';
+export type {
+  Permission,
+  Role,
+  RoleDefinition,
+  UserIdentity,
+  AuditEvent,
+  AuditQuery,
+  AuditSummary,
+  SecretScanResult,
+} from './security/index.js';

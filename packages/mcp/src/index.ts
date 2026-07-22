@@ -41,11 +41,14 @@ export {
   RateLimiter,
   ToolPolicy,
   RequestLogger,
+  CircuitBreaker,
 } from './middleware/index.js';
 export type {
   AuthResult,
   RateLimitResult,
   LogEntry,
+  CircuitBreakerOptions,
+  CircuitState,
 } from './middleware/index.js';
 
 // Agent Skills Installer
