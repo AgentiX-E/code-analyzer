@@ -17,6 +17,10 @@ export type {
   ClassifiedIntent,
   IntentType,
   AnalysisContext,
+  SlashCommand,
+  ComplexityMetrics,
+  SymbolDetail,
+  ImpactResult,
 } from './participant/code-analyzer-participant.js';
 
 // Engine Bridge
@@ -29,6 +33,10 @@ export type {
   ImpactResultItem,
   TraceResultItem,
   StandardsResultItem,
+  SymbolDetailItem,
+  ComplexityMetricsItem,
+  SearchResultWithScore,
+  IndexingState,
 } from './services/engine-bridge.js';
 
 // VS Code API abstraction
@@ -56,6 +64,8 @@ export { ConfigService } from './services/config-service.js';
 export type { CodeAnalyzerConfig } from './services/config-service.js';
 export { GitService } from './services/git-service.js';
 export type { DiffInfo } from './services/git-service.js';
+export { FileWatcherService, DEFAULT_WATCHER_CONFIG } from './services/file-watcher.js';
+export type { WatcherConfig, FileSystemWatcher, WatcherFactory } from './services/file-watcher.js';
 
 // Providers
 export {
@@ -90,4 +100,5 @@ export type {
   StatusBarState,
   StatusBarDisplay,
   StatusBarItemFactory,
+  StatusBarSnapshot,
 } from './views/status-bar.js';
