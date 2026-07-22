@@ -156,6 +156,23 @@ describe('FileDiscoverer', () => {
     expect(files[0]!.filePath).toContain('tests');
   });
 
+  it('matches includePatterns by basename when path-based match fails', async () => {
+    rootPath = setup(['deep', 'deep/nested'], {
+      'deep/a.ts': 'const a = 1;',
+      'src/b.ts': 'const b = 2;',
+      'tests/c.spec.ts': 'test("c");',
+    });
+
+    // Include only files matching basename '*.spec.ts'
+    // The relative path 'tests/c.spec.ts' won't match '*.spec.ts' by path
+    // but will match by basename (c.spec.ts matches *.spec.ts)
+    const files = await discoverer.discover(rootPath, {
+      includePatterns: ['*.spec.ts'],
+    });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('tests/c.spec.ts');
+  });
+
   it('respects .gitignore when enabled', async () => {
     rootPath = setup([], {
       '.gitignore': 'ignored/\n*.gen.ts',

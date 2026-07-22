@@ -204,5 +204,32 @@ describe('GraphBuilder', () => {
       expect(edges).toHaveLength(1);
       expect(edges[0]!.type).toBe('CONTAINS');
     });
+
+    it('ensureFolderPath creates intermediate folder nodes', () => {
+      const store = new InMemoryGraphStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      const initialNodeCount = graph.nodes.size;
+      const initialEdgeCount = graph.edges.size;
+
+      const folderId = builder.ensureFolderPath(
+        graph,
+        ctx.rootPath,
+        'src/utils',
+      );
+
+      expect(folderId).toBeGreaterThan(0);
+      // Should create 'src' and 'utils' folder nodes
+      expect(graph.nodes.size).toBe(initialNodeCount + 2);
+      expect(graph.edges.size).toBe(initialEdgeCount + 2);
+
+      // Verify the nodes exist
+      const folderNodes = Array.from(graph.nodes.values()).filter(
+        (n) => n.label === 'Folder',
+      );
+      expect(folderNodes.length).toBe(3); // root + src + utils
+    });
   });
 });

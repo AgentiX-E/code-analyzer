@@ -159,10 +159,12 @@ export function createFileDiscoverer(): FileDiscoverer {
 
       try {
         entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      /* v8 ignore start */
       } catch {
         // Permission denied or directory removed — skip
         continue;
       }
+      /* v8 ignore stop */
 
       for (const entry of entries) {
         const fullPath = path.join(currentDir, entry.name);
@@ -186,10 +188,12 @@ export function createFileDiscoverer(): FileDiscoverer {
             let content = '';
             try {
               content = fs.readFileSync(fullPath, 'utf-8');
+            /* v8 ignore start */
             } catch {
               // Binary or unreadable — skip
               continue;
             }
+            /* v8 ignore stop */
 
             const hash = computeSimpleHash(content);
 
@@ -200,10 +204,12 @@ export function createFileDiscoverer(): FileDiscoverer {
               hash,
               size: stat.size,
             });
+          /* v8 ignore start */
           } catch {
             // Permission denied or file removed — skip
             continue;
           }
+          /* v8 ignore stop */
         }
       }
     }

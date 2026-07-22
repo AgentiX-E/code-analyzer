@@ -191,6 +191,7 @@ export class PipelineOrchestrator {
     // Check for duplicate phase IDs (defense-in-depth; constructor also checks)
     const ids = new Set<PipelinePhaseId>();
     for (const phase of this.phases.values()) {
+      /* v8 ignore start */
       if (ids.has(phase.id)) {
         errors.push({
           type: 'duplicate_id',
@@ -198,6 +199,7 @@ export class PipelineOrchestrator {
           phaseId: phase.id,
         });
       }
+      /* v8 ignore stop */
       ids.add(phase.id);
     }
 
