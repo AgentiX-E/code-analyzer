@@ -1,5 +1,5 @@
 // @code-analyzer/core — Public API
-// Foundation layer: config, logging, errors, i18n, metrics, lifecycle
+// Foundation layer: config, logging, errors, i18n, metrics, lifecycle, operations, security
 
 // Configuration
 export type { CodeAnalyzerConfig } from '@code-analyzer/shared';
@@ -65,6 +65,37 @@ export type {
   ComponentDescriptor,
   LifecycleOptions,
 } from './lifecycle/index.js';
+
+// Operations — health checks, metrics export, graceful shutdown, resilience
+export {
+  HealthCheckRegistry,
+  MetricsRegistry,
+  createStandardMetrics,
+  GracefulShutdown,
+  RetryPolicy,
+  DeadLetterQueue,
+} from './operations/index.js';
+export type {
+  // Note: operations HealthStatus/HealthCheckResult conflict with lifecycle types;
+  // import from './operations' directly for the operational variants.
+  HealthCheck,
+  HealthCheckRegistryOptions,
+  MetricType,
+  MetricLabel,
+  CounterMetric,
+  GaugeMetric,
+  HistogramMetric,
+  ShutdownSignal,
+  ShutdownHandler,
+  ShutdownResult,
+  GracefulShutdownOptions,
+  RetryConfig,
+  DeadLetterEntry,
+  DeadLetterQueueOptions,
+  RetryResult,
+  HealthStatus as OperationalHealthStatus,
+  HealthCheckResult as OperationalHealthCheckResult,
+} from './operations/index.js';
 
 // Security
 export { RBACEngine, AuditLogger, SecretScanner } from './security/index.js';
