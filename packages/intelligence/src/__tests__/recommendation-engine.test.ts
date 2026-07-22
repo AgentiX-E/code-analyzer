@@ -577,4 +577,99 @@ describe('RecommendationEngine edge cases', () => {
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(0);
   });
+
+  it('hits IMPACT_WEIGHT fallback (?? 0.2) for unknown risk categories (L214)', () => {
+    // Use risksAddressed with a value NOT in IMPACT_WEIGHT to trigger the ?? 0.2 fallback
+    const rec: Recommendation = {
+      id: 'rec-unknown',
+      priority: 2,
+      title: 'Unknown risk',
+      description: 'Unknown risk category',
+      estimatedEffort: 'small',
+      affectedFiles: ['a.ts'],
+      actionItems: [{ description: 'Fix' }],
+      risksAddressed: ['completely_unknown_category'],
+      references: [],
+    };
+    const prioritized = engine.prioritizeRecommendations([rec]);
+    expect(prioritized.length).toBe(1);
+    // The computeImpactWeight returns 0.3 when count === 0 (empty risks),
+    // but with unknown risk the weight is 0.2, so count should be 1 and
+    // totalImpact = 0.2, avg = 0.2
+    expect(prioritized[0]!.id).toBe('rec-unknown');
+  });
+
+  it('hits EFFORT_INVERSE fallback (?? 0.5) for unknown effort level (L223)', () => {
+    // Use estimatedEffort with a value NOT in EFFORT_INVERSE to trigger ?? 0.5
+    const rec: Recommendation = {
+      id: 'rec-effort-fallback',
+      priority: 2,
+      title: 'Unknown effort',
+      description: 'Effort fallback test',
+      estimatedEffort: 'invalid_effort' as any,
+      affectedFiles: ['a.ts'],
+      actionItems: [{ description: 'Fix' }],
+      risksAddressed: ['bug'],
+      references: [],
+    };
+    const prioritized = engine.prioritizeRecommendations([rec]);
+    expect(prioritized.length).toBe(1);
+    expect(prioritized[0]!.id).toBe('rec-effort-fallback');
+  });
+
+  it('returns low severity via highestSeverity with low-only findings (L230)', () => {
+    // When the ONLY findings have 'low' severity, the for loop must reach 'low'
+    // and return it as the highest severity — covering the return sev branch
+    const lowFindings: Finding[] = [
+      { id: 'l1', title: 'Low issue', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(lowFindings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    // low severity → priority 3
+    expect(recs[0]!.priority).toBe(3);
+  });
+
+  it('returns low severity with multiple low findings (L230)', () => {
+    // Multiple low severity findings should still return 'low' as highest
+    const lowFindings: Finding[] = [
+      { id: 'l1', title: 'Low 1', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+      { id: 'l2', title: 'Low 2', description: '', filePath: 'b.ts', lineRange: [1, 2], severity: 'low', category: 'documentation', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(lowFindings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    expect(recs.every((r) => r.priority === 3)).toBe(true);
+  });
+
+  it('returns medium severity when highest severity is medium (L230)', () => {
+    // Findings with mixed medium and low severities — highest should be medium
+    const findings: Finding[] = [
+      { id: 'm1', title: 'Medium', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'medium', category: 'maintainability', recommendation: '', relatedFindings: [] },
+      { id: 'l1', title: 'Low', description: '', filePath: 'a.ts', lineRange: [3, 4], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    // medium severity → priority 2
+    expect(recs[0]!.priority).toBe(2);
+  });
+
+  it('hits mostCommonField fallback (??) with empty findings array (L255)', () => {
+    // Access private method to test the nullish coalescing fallback path.
+    // The fallback is at: sorted[0]?.[0] ?? (findings[0]?.[field] as Finding[T])
+    // When findings is empty, sorted is empty, so we hit the ?? fallback.
+    const result = (engine as any).mostCommonField?.([], 'category');
+    // The fallback returns undefined when findings is empty
+    expect(result).toBeUndefined();
+  });
+
+  it('handles finding without lineRange via buildRecommendation (L180)', () => {
+    // When a finding has no lineRange, the ?? undefined branch on line 180
+    // should be triggered: lineRange: f.lineRange ?? undefined
+    const findings: Finding[] = [
+      { id: 'no-range', title: 'No range', description: '', filePath: 'a.ts', lineRange: undefined, severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+    ];
+    const recs = engine.generateRecommendations(findings);
+    expect(recs.length).toBeGreaterThanOrEqual(1);
+    // The action item should have lineRange undefined
+    expect(recs[0]!.actionItems[0]!.lineRange).toBeUndefined();
+  });
 });
