@@ -27,6 +27,8 @@ import type { GitDiff, GraphNode, NodeLabel, RelationshipType } from '@code-anal
 function createTempGitRepo(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ca-int-'));
   execSync('git init', { cwd: dir, stdio: 'pipe' });
+  execSync('git config user.name "TestBot"', { cwd: dir, stdio: 'pipe' });
+  execSync('git config user.email "test@code-analyzer.dev"', { cwd: dir, stdio: 'pipe' });
   for (const [fp, content] of Object.entries(files)) {
     const full = path.join(dir, fp);
     fs.mkdirSync(path.dirname(full), { recursive: true });
