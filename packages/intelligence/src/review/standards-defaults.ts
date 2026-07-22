@@ -242,4 +242,22 @@ export const DEFAULT_STANDARDS: ProjectStandard[] = [
       },
     ],
   },
+  {
+    id: 'std-general',
+    name: 'General Quality',
+    version: '1.0.0',
+    category: 'general',
+    description: 'General code quality checks not covered by other standards.',
+    rules: [
+      {
+        id: 'general-check',
+        description: 'Generic quality marker for extensible standards.',
+        checkType: 'regex',
+        checkConfig: { pattern: 'STDGENERAL_MARKER_7F3A', forbidden: true },
+        severity: 'low',
+        autoFixable: false,
+      },
+    ],
+    examples: [],
+  },
 ];

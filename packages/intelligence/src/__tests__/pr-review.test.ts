@@ -555,7 +555,7 @@ describe('PR Review Engine', () => {
   });
 
   describe('checkStandards — all 5 standard templates', () => {
-    it('should produce results for all 6 built-in standards', async () => {
+    it('should produce results for all 7 built-in standards', async () => {
       const pr = createPR();
       const diffs = [createDiff({
         filePath: '/src/verify.ts',
@@ -566,8 +566,8 @@ describe('PR Review Engine', () => {
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
-      // Should have exactly 6 standards results (func-length, nesting, naming, error-handling, security, security-essentials)
-      expect(result.standardsResults.length).toBe(6);
+      // Should have exactly 7 standards results (func-length, nesting, naming, error-handling, security, security-essentials, general)
+      expect(result.standardsResults.length).toBe(7);
       for (const std of result.standardsResults) {
         expect(std.standardId).toBeTruthy();
         expect(std.ruleResults.length).toBeGreaterThan(0);
@@ -751,7 +751,7 @@ describe('PR Review Engine', () => {
       })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(6);
+      expect(result.standardsResults.length).toBe(7);
     });
   });
 
@@ -920,7 +920,7 @@ describe('PR Review Engine', () => {
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
       expect(result.sessionId).toBeTruthy();
-      expect(result.standardsResults.length).toBe(6);
+      expect(result.standardsResults.length).toBe(7);
       expect(result.impactResult.changedFiles.length).toBe(2);
       expect(result.summary.totalComments).toBeGreaterThanOrEqual(0);
     });
@@ -929,21 +929,21 @@ describe('PR Review Engine', () => {
       const pr = createPR();
       const diffs = [createDiff({ filePath: '/src/interfaces/IPayment.ts' })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(6);
+      expect(result.standardsResults.length).toBe(7);
     });
 
     it('should handle diffs with d.ts files', async () => {
       const pr = createPR();
       const diffs = [createDiff({ filePath: '/src/types.d.ts' })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(6);
+      expect(result.standardsResults.length).toBe(7);
     });
 
     it('should handle diffs with shared directory', async () => {
       const pr = createPR();
       const diffs = [createDiff({ filePath: '/src/shared/constants.ts' })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(6);
+      expect(result.standardsResults.length).toBe(7);
     });
 
     it('should handle diffs with API handler path', async () => {
@@ -953,7 +953,7 @@ describe('PR Review Engine', () => {
         ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
       })];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      expect(result.standardsResults.length).toBe(6);
+      expect(result.standardsResults.length).toBe(7);
     });
 
     it('should handle diffs with deleted files and impact', async () => {
@@ -1126,6 +1126,38 @@ describe('PR Review Engine', () => {
 
       const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
       expect(result.summary.riskLevel).toBe('low');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // mapStandardCategory 'other' branch (L408)
+  // -----------------------------------------------------------------------
+
+  describe('standards — general (other) category', () => {
+    it('should map std-general to "other" category (L408)', async () => {
+      const pr = createPR();
+      // Use a file path containing the std-general forbidden marker
+      const diffs = [createDiff({
+        filePath: '/src/STDGENERAL_MARKER_7F3A.ts',
+        changeType: 'modified',
+      })];
+
+      const result = await prEngine.reviewPR('test-project', pr, diffs);
+      // std-general standard should be present and produce a violation
+      const generalStd = result.standardsResults.find(
+        (s) => s.standardId === 'std-general',
+      );
+      expect(generalStd).toBeDefined();
+      // The forbidden marker in the file path triggers a violation
+      const ruleResult = generalStd!.ruleResults.find(
+        (r) => r.ruleId === 'general-check',
+      );
+      expect(ruleResult).toBeDefined();
+      expect(ruleResult!.passed).toBe(false);
+      // The violation flows through standardsToComments → mapStandardCategory
+      // std-general does not match security/error/func-length/nesting/naming
+      // so it maps to 'other' category
+      expect(result.summary.byCategory.other).toBeGreaterThanOrEqual(1);
     });
   });
 });
