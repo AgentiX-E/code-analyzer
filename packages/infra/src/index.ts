@@ -37,3 +37,14 @@ export type { SupervisorConfig, SupervisorOptions } from './workers/supervisor.j
 // Parse Cache
 export { createParseCache, computeContentHash } from './cache/parse-cache.js';
 export type { ParseCache } from './cache/parse-cache.js';
+
+// Parallel Indexer
+export { ParallelIndexer } from './workers/parallel-indexer.js';
+export type {
+  ParallelIndexerConfig,
+  IndexProgress,
+  IndexerOptions,
+  IndexerResult,
+  IndexerError,
+  BatchParseResult,
+} from './workers/parallel-indexer.js';

@@ -22,7 +22,9 @@
     "format:check": "prettier --check .",
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
-    "bench": "turbo bench",
+    "bench": "vitest bench",
+    "bench:ci": "vitest bench --run --reporter=json > bench-results.json",
+    "check:perf": "node scripts/check-benchmarks.js",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "turbo build && changeset publish"
