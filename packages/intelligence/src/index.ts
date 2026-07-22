@@ -277,3 +277,23 @@ export type {
   DuplicateGroup,
   UsageReport,
 } from './cross-repo/federated-search.js';
+
+export { CrossRepoPRReviewEngine } from './cross-repo/cross-repo-pr-review.js';
+export type {
+  CrossRepoReviewResult,
+  CrossRepoImpactEntry,
+  APIBreakingReport,
+  APIBreakingChange,
+  TestImpactReport,
+  TestImpactPrediction,
+  CrossRepoReviewSummary,
+  VersionCompatibilityReport,
+} from './cross-repo/cross-repo-pr-review.js';
+
+export { VersionCompatibilityMatrix } from './cross-repo/version-matrix.js';
+export type {
+  CompatibilityMatrix,
+  VersionConflict,
+  VersionAlignment,
+  UpgradeSafetyReport,
+} from './cross-repo/version-matrix.js';
