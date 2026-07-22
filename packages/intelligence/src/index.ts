@@ -253,3 +253,27 @@ export { CHECKER_MAP } from './rules/rules-engine.js';
 // Rules Registry
 export { RulesRegistry } from './rules/rules-engine.js';
 export type { RegisteredRule } from './rules/rules-engine.js';
+
+// Cross-Repo Analysis
+export { RepoGroupManager } from './cross-repo/repo-group-manager.js';
+
+export { CrossRepoIndexer, levenshteinDistance } from './cross-repo/cross-repo-indexer.js';
+export type {
+  IndexOptions,
+  IndexResult,
+  CrossRepoSymbolMatch,
+  CrossRepoGraphReport,
+  TypeCompatResult,
+  CrossRepoImpactResult,
+} from './cross-repo/cross-repo-indexer.js';
+
+export { FederatedSearchEngine } from './cross-repo/federated-search.js';
+export type {
+  FederatedSearchOptions,
+  FederatedSearchResult,
+  FederatedSearchItem,
+  FederatedSymbolResult,
+  DuplicateReport,
+  DuplicateGroup,
+  UsageReport,
+} from './cross-repo/federated-search.js';
