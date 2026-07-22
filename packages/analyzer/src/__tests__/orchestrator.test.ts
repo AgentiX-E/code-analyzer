@@ -65,7 +65,7 @@ describe('PipelineOrchestrator', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should detect cycles in the pipeline DAG', () => {
+    it('should detect cycles in the pipeline DAG via execute()', async () => {
       const phaseA = {
         id: 'a' as PipelinePhaseId,
         dependencies: ['b' as PipelinePhaseId],
@@ -81,9 +81,12 @@ describe('PipelineOrchestrator', () => {
         execute: async () => ({ phaseId: 'b' as PipelinePhaseId, status: 'success' as const }),
       };
       const orchestrator = new PipelineOrchestrator([phaseA, phaseB]);
-      const result = orchestrator.validatePipeline();
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.type === 'cycle')).toBe(true);
+      // validatePipeline no longer checks cycles (deferred to execute)
+      // Cycles are detected during topological sort in execute()
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('failed');
+      expect(result.errors.some((e) => e.message.includes('cycle'))).toBe(true);
     });
   });
 

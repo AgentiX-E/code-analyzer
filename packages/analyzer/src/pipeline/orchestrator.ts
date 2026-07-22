@@ -183,11 +183,12 @@ export class PipelineOrchestrator {
     };
   }
 
-  /** Validate the DAG: no cycles, all deps exist */
+  /** Validate the DAG: check for duplicate IDs and missing dependencies.
+   *  Cycle detection is deferred to execute() via topologicalSort. */
   validatePipeline(): ValidationResult {
     const errors: ValidationError[] = [];
 
-    // Check for duplicate phase IDs
+    // Check for duplicate phase IDs (defense-in-depth; constructor also checks)
     const ids = new Set<PipelinePhaseId>();
     for (const phase of this.phases.values()) {
       if (ids.has(phase.id)) {
@@ -211,15 +212,6 @@ export class PipelineOrchestrator {
           });
         }
       }
-    }
-
-    // Check for cycles
-    const sorted = this.topologicalSort();
-    if (!sorted) {
-      errors.push({
-        type: 'cycle',
-        message: 'Pipeline DAG contains one or more cycles',
-      });
     }
 
     return {

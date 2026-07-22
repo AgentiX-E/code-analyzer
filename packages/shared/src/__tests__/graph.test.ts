@@ -384,6 +384,12 @@ describe('getLanguageFromFilename', () => {
     expect(getLanguageFromFilename('foo.d.ts')).toBe('typescript');
   });
 
+  it('detects .d.ts as bare filename (covers L650 ext === .d.ts branch)', () => {
+    // When .d.ts is the only dot in the filename, lastIndexOf('.') = 0,
+    // and ext = '.d.ts', hitting the fast-path L650
+    expect(getLanguageFromFilename('.d.ts')).toBe('typescript');
+  });
+
   it('handles file with no path separators (uses filename directly)', () => {
     // split('/') returns ['file.ts'], pop() returns 'file.ts'
     // ?? filePath fallback is unreachable but we verify the happy path

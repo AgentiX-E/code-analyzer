@@ -840,8 +840,11 @@ Reason: ${result.decision.reason}`;
         const hasDocComment = precedingLines.some(l => /\/\*\*/.test(l)) ||
           precedingLines.some(l => /^\/\/\//.test(l.trim()));
 
-        if (!hasDocComment && !trimmed.includes('export type') && !trimmed.includes('export interface') && !trimmed.includes('export {')) {
-          const match = trimmed.match(/(?:function|class|const|let|var)\s+(\w+)/);
+        // export type aliases and export { re-exports } rarely need JSDoc.
+        // export interface without JSDoc is flagged — adversarial check 5
+        // down-ranks Props interfaces specifically.
+        if (!hasDocComment && !trimmed.includes('export type') && !trimmed.includes('export {')) {
+          const match = trimmed.match(/(?:function|class|const|let|var|interface)\s+(\w+)/);
           if (match) {
             const evidence: EvidenceAnchor = {
               filePath: diff.filePath,

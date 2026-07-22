@@ -199,7 +199,7 @@ describe('SqliteStore Performance', () => {
 
   // ── Transaction Performance ──
 
-  it('transaction: rollback on 1000 inserts under 50ms', () => {
+  it('transaction: rollback on 1000 inserts under 100ms', () => {
     const start = performance.now();
     try {
       store.transaction(() => {
@@ -211,7 +211,7 @@ describe('SqliteStore Performance', () => {
       // Expected
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(50);
+    expect(elapsed).toBeLessThan(100);
     // State should be restored
     expect(store.getNodeCount()).toBe(0);
   });

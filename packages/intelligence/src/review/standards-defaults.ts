@@ -27,13 +27,13 @@ export const DEFAULT_STANDARDS: ProjectStandard[] = [
     name: 'Nesting Depth',
     version: '1.0.0',
     category: 'code-style',
-    description: 'Code should not nest deeper than 4 levels.',
+    description: 'Code should not nest deeper than 4 levels. Files should not exceed 200 lines.',
     rules: [
       {
         id: 'nesting-depth-4',
         description: 'Code nesting depth must not exceed 4 levels.',
         checkType: 'metric',
-        checkConfig: { maxDepth: 4 },
+        checkConfig: { maxDepth: 4, maxLines: 200 },
         severity: 'high',
         autoFixable: false,
       },

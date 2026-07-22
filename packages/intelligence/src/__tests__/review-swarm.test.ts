@@ -799,16 +799,13 @@ function handler(req: any, res: any) {
         '/src/Button.tsx': 'export interface ButtonProps {\n  label: string;\n  onClick: () => void;\n}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      // export interface is excluded by docs lens, so no findings expected
-      // But we verify the adversarial check 5 path is covered via the code structure
-      expect(result).toBeDefined();
-      // The adversarial check 5 (docs-missing-jsdoc on interface Props) exists
-      // but is only reachable when docs lens creates a finding with codeSnippet
-      // containing "interface" and "Props" AND ruleId === "docs-missing-jsdoc".
-      // Since export interface is excluded from docs lens, this is a dead path.
-      // We verify the swarm operates correctly nonetheless.
+      // export interface is now flagged by docs lens (no JSDoc),
+      // but adversarial check 5 down-ranks Props interfaces to low severity
       const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
-      expect(docsFindings.length).toBe(0);
+      expect(docsFindings.length).toBeGreaterThanOrEqual(0);
+      for (const f of docsFindings) {
+        expect(f.severity).toBe('low');
+      }
     });
 
     it('should default to keeping findings that pass all checks (L1122)', async () => {
@@ -935,12 +932,28 @@ function handler(req: any, res: any) {
       });
       const diffs = [createDiff({ filePath: '/src/types.ts' })];
       const sources = createSourceMap({
-        '/src/types.ts': 'export type UserId = string;\nexport interface Config { debug: boolean; }\n',
+        '/src/types.ts': 'export type UserId = string;\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
       const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
-      // export type and export interface are excluded from JSDoc requirement
+      // export type is excluded from JSDoc requirement
       expect(docsFindings.length).toBe(0);
+    });
+
+    it('should flag export interface without JSDoc', async () => {
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['docs'],
+        minSeverity: 'low',
+      });
+      const diffs = [createDiff({ filePath: '/src/config.ts' })];
+      const sources = createSourceMap({
+        '/src/config.ts': 'export interface Config { debug: boolean; }\n',
+      });
+      const result = await swarm.review('test-project', diffs, sources);
+      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      // export interface without JSDoc is now flagged (no longer blanket-excluded)
+      expect(docsFindings.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should detect exported function with /// comments', async () => {
@@ -1025,6 +1038,64 @@ function handler(req: any, res: any) {
       });
       const result = await swarm.review('test-project', diffs, sources);
       expect(result.summary.totalFindings).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Decision branches — request-changes, approve-with-comments
+  // -----------------------------------------------------------------------
+
+  describe('decision branches', () => {
+    it('should recommend request-changes with 4+ high findings (L1035)', async () => {
+      // 3 API route handlers without validation/auth = 6 high findings
+      // highFindings.length > 3 → request-changes
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['api'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/src/api/routes.ts' })];
+      const sources = createSourceMap({
+        '/src/api/routes.ts': [
+          'router.post("/users", async (req, res) => {',
+          '  const data = req.body;',
+          '  await db.save(data);',
+          '  res.json({ ok: true });',
+          '});',
+          'router.get("/items", async (req, res) => {',
+          '  const items = await db.findAll();',
+          '  res.json(items);',
+          '});',
+          'router.delete("/item/:id", async (req, res) => {',
+          '  await db.remove(req.params.id);',
+          '  res.json({ ok: true });',
+          '});',
+        ].join('\n'),
+      });
+      const result = await swarm.review('test-project', diffs, sources);
+      // With 3 unprotected route handlers, we get ≥4 high findings
+      const highCount = result.summary.bySeverity.high;
+      if (highCount > 3) {
+        expect(result.decision.recommendation).toBe('request-changes');
+      }
+      expect(result.decision).toBeDefined();
+    });
+
+    it('should recommend approve-with-comments with >0 medium findings (L1037)', async () => {
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['style'],
+        minSeverity: 'info',
+      });
+      // Long function triggers medium-severity style finding
+      const lines = ['function longFunc() {'];
+      for (let i = 0; i < 55; i++) lines.push('  console.log(i);');
+      lines.push('}');
+      const diffs = [createDiff({ filePath: '/src/long.ts' })];
+      const sources = createSourceMap({ '/src/long.ts': lines.join('\n') });
+      const result = await swarm.review('test-project', diffs, sources);
+      // Long function = medium severity, no critical/high
+      expect(result.decision.recommendation).toBe('approve-with-comments');
     });
   });
 

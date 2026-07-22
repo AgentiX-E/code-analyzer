@@ -80,16 +80,21 @@ export class PRReviewEngine {
     const session = await this.reviewEngine.reviewDiff(projectId, diffs);
 
     // Gather all comments from the session
-    const comments = this.gatherComments(session.id);
+    const sessionComments = this.gatherComments(session.id);
 
     // Run standards checks
     const ctx = this.buildReviewContext(projectId, diffs, session.id);
     const standardsResults = await this.checkStandards(ctx);
 
+    // Merge standards violations into review comments so they
+    // affect severity counts and merge recommendation.
+    const standardsComments = this.standardsToComments(standardsResults);
+    const comments = [...sessionComments, ...standardsComments];
+
     // Compute impact result
     const impactResult = this.computeImpact(projectId, enrichedDiffs);
 
-    // Build summary
+    // Build summary (now includes standards-derived comments)
     const summary = this.buildSummary(comments, impactResult);
 
     return {
@@ -333,6 +338,52 @@ export class PRReviewEngine {
     if (ruleResults.length === 0) return 100;
     const passedCount = ruleResults.filter((r) => r.passed).length;
     return Math.round((passedCount / ruleResults.length) * 100);
+  }
+
+  /**
+   * Convert standards check violations into ReviewComment objects so they
+   * flow into the comment stream and affect severity counts and the final
+   * merge recommendation.
+   */
+  private standardsToComments(results: StandardsCheckResult[]): ReviewComment[] {
+    const comments: ReviewComment[] = [];
+    for (const result of results) {
+      for (const ruleResult of result.ruleResults) {
+        if (ruleResult.passed) continue;
+        for (const violation of ruleResult.violations) {
+          const category = this.mapStandardCategory(result.standardId);
+          comments.push({
+            path: violation.filePath,
+            content: `[standards/${result.standardId}] ${ruleResult.ruleDescription}`,
+            existingCode: violation.codeSnippet,
+            suggestionCode: violation.suggestion ?? violation.autoFix,
+            startLine: violation.lineNumber,
+            endLine: violation.lineNumber,
+            category,
+            severity: ruleResult.severity,
+            filtered: false,
+            id: `std-${result.standardId}-${ruleResult.ruleId}-${violation.lineNumber}`,
+            createdAt: new Date().toISOString(),
+          } as ReviewComment);
+        }
+      }
+    }
+    return comments;
+  }
+
+  /**
+   * Map a standard ID to the closest ReviewCategory for summary aggregation.
+   */
+  private mapStandardCategory(standardId: string): ReviewCategory {
+    if (standardId.includes('security')) return 'security';
+    if (standardId.includes('error')) return 'bug';
+    if (
+      standardId.includes('func-length') ||
+      standardId.includes('nesting') ||
+      standardId.includes('naming')
+    )
+      return 'maintainability';
+    return 'other';
   }
 
   // -------------------------------------------------------------------------
