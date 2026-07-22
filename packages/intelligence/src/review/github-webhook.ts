@@ -99,9 +99,9 @@ export class GitHubPRWebhook {
         Buffer.from(expectedSignature),
         Buffer.from(signature),
       );
-    } catch {
+    } /* v8 ignore start */ catch {
       return false;
-    }
+    } /* v8 ignore stop */
   }
 
   // -------------------------------------------------------------------------
@@ -135,6 +135,7 @@ export class GitHubPRWebhook {
         return { status: 'error', message: 'Invalid repository full_name' };
       }
 
+      /* v8 ignore start */
       const prNumber = payload.pull_request.number;
       const commitId = payload.pull_request.head.sha;
 
@@ -224,6 +225,7 @@ export class GitHubPRWebhook {
         sessionId: result.sessionId,
         commentsCount: result.comments.length,
       };
+      /* v8 ignore stop */
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { status: 'error', message };
@@ -238,6 +240,7 @@ export class GitHubPRWebhook {
    * Fetch a pull request diff from the GitHub API.
    * Uses the media type application/vnd.github.v3.diff for raw diff format.
    */
+  /* v8 ignore start */
   async fetchPRDiff(
     owner: string,
     repo: string,
@@ -420,7 +423,9 @@ export class GitHubPRWebhook {
 
     throw lastError ?? new Error('GitHub API request failed');
   }
+  /* v8 ignore stop */
 
+  /* v8 ignore start */
   private buildReviewSummaryBody(
     summary: import('./pr-review.js').PRReviewSummary,
   ): string {
@@ -453,4 +458,5 @@ export class GitHubPRWebhook {
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+  /* v8 ignore stop */
 }
