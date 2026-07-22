@@ -2,6 +2,22 @@
 
 > Setup and usage guide for the Code Analyzer MCP server — expose 38 tools, 15 resources, and 5 prompts to AI coding agents.
 
+> **Alpha Status**: The MCP server framework, middleware, transports, and Cypher query engine are fully functional. The 38 tool definitions exist and are callable, but most tool implementations currently return placeholder or empty data. The table below summarizes per-tool status. Use the legends `[Functional]` (tested and working), `[Partial]` (may return real data in some cases), and `[Experimental]` (placeholder data only) to understand what to expect.
+
+### Tool Implementation Status Summary
+
+| Category | Tools | Status |
+|----------|-------|--------|
+| Indexing & Lifecycle (4 tools) | `analyze_repository`, `list_projects`, `delete_project`, `index_status` | [Experimental] — Placeholder responses |
+| Querying & Exploration (10 tools) | `search_graph`, `search_code`, `semantic_search`, `trace_call_path`, `query_graph`, `get_code_snippet`, `get_architecture`, `get_graph_schema`, `explore_symbol`, `find_implementations` | [Partial] — `search_graph` and `query_graph` work on in-memory data; rest return placeholders |
+| Change & Impact (4 tools) | `detect_changes`, `impact_analysis`, `route_map`, `check_cycles` | [Experimental] — Placeholder responses |
+| Code Review (2 tools) | `review_diff`, `review_file` | [Experimental] — Empty results; requires LLM backend |
+| PR Review (2 tools) | `review_pr`, `check_standards` | [Experimental] — Placeholder responses |
+| Reports (3 tools) | `generate_report`, `export_report`, `get_recommendations` | [Experimental] — Placeholder responses |
+| Cross-Repo (6 tools) | All cross-repo tools | [Experimental] — Placeholder responses |
+| PDG (3 tools) | `pdg_query`, `taint_analysis`, `explain_taint` | [Experimental] — Requires PDG construction |
+| Standards, ADR, Agent (4 tools) | `list_standards`, `create_standard`, `manage_adr`, `install_skills` | [Partial] — `install_skills` functional; rest are stubs |
+
 ---
 
 ## What is MCP?
@@ -405,86 +421,86 @@ npx @code-analyzer/mcp --transport http
 
 ### Indexing & Lifecycle (4 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `analyze_repository` | Analyze and index a code repository | `path` (required), `language`, `incremental` |
-| `list_projects` | List all indexed projects | None |
-| `delete_project` | Delete an indexed project and its data | `projectId` (required) |
-| `index_status` | Get indexing status for a project | `projectId` (required) |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `analyze_repository` | [Experimental] | Analyze and index a code repository | `path` (required), `language`, `incremental` |
+| `list_projects` | [Experimental] | List all indexed projects | None |
+| `delete_project` | [Experimental] | Delete an indexed project and its data | `projectId` (required) |
+| `index_status` | [Experimental] | Get indexing status for a project | `projectId` (required) |
 
 ### Querying & Exploration (10 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `search_graph` | Search the knowledge graph by keyword | `query` (required), `labels`, `limit` |
-| `search_code` | Search source code using full-text search | `query` (required), `filePath`, `limit` |
-| `semantic_search` | Semantic search using embeddings | `query` (required), `limit` |
-| `trace_call_path` | Trace call paths between symbols | `source` (required), `target`, `maxDepth` |
-| `query_graph` | Execute a Cypher query against the graph | `query` (required), `limit` |
-| `get_code_snippet` | Retrieve a code snippet by file and line range | `filePath` (required), `startLine`, `endLine` |
-| `get_architecture` | Get architectural overview of a project | `projectId` (required) |
-| `get_graph_schema` | Get graph schema information | None |
-| `explore_symbol` | Explore a symbol and its relationships | `symbol` (required), `projectId` |
-| `find_implementations` | Find implementations of an interface | `interfaceName` (required), `projectId` |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `search_graph` | [Partial] | Search the knowledge graph by keyword | `query` (required), `labels`, `limit` |
+| `search_code` | [Partial] | Search source code using full-text search | `query` (required), `filePath`, `limit` |
+| `semantic_search` | [Experimental] | Semantic search using embeddings | `query` (required), `limit` |
+| `trace_call_path` | [Experimental] | Trace call paths between symbols | `source` (required), `target`, `maxDepth` |
+| `query_graph` | [Partial] | Execute a Cypher query against the graph | `query` (required), `limit` |
+| `get_code_snippet` | [Experimental] | Retrieve a code snippet by file and line range | `filePath` (required), `startLine`, `endLine` |
+| `get_architecture` | [Experimental] | Get architectural overview of a project | `projectId` (required) |
+| `get_graph_schema` | [Experimental] | Get graph schema information | None |
+| `explore_symbol` | [Experimental] | Explore a symbol and its relationships | `symbol` (required), `projectId` |
+| `find_implementations` | [Experimental] | Find implementations of an interface | `interfaceName` (required), `projectId` |
 
 ### Change & Impact (4 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `detect_changes` | Detect code changes between references | `projectId` (required), `fromRef`, `toRef` |
-| `impact_analysis` | Analyze impact of code changes | `projectId` (required), `symbol` (required) |
-| `route_map` | Get route map for a project | `projectId` (required) |
-| `check_cycles` | Check for circular dependencies | `projectId` (required) |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `detect_changes` | [Experimental] | Detect code changes between references | `projectId` (required), `fromRef`, `toRef` |
+| `impact_analysis` | [Experimental] | Analyze impact of code changes | `projectId` (required), `symbol` (required) |
+| `route_map` | [Experimental] | Get route map for a project | `projectId` (required) |
+| `check_cycles` | [Experimental] | Check for circular dependencies | `projectId` (required) |
 
 ### Code Review (2 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `review_diff` | Review a git diff for issues | `projectId` (required), `fromRef`, `toRef` |
-| `review_file` | Review a single file for issues | `filePath` (required), `content` (required) |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `review_diff` | [Experimental] | Review a git diff for issues | `projectId` (required), `fromRef`, `toRef` |
+| `review_file` | [Experimental] | Review a single file for issues | `filePath` (required), `content` (required) |
 
 ### PR Review (2 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `review_pr` | Review a pull request | `projectId` (required), `prNumber` (required) |
-| `check_standards` | Check code against project standards | `projectId` (required), `standardId` (required) |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `review_pr` | [Experimental] | Review a pull request | `projectId` (required), `prNumber` (required) |
+| `check_standards` | [Experimental] | Check code against project standards | `projectId` (required), `standardId` (required) |
 
 ### Reports (3 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `generate_report` | Generate an analysis report | `projectId` (required), `type`, `format` |
-| `export_report` | Export a report in specified format | `reportId` (required), `format` |
-| `get_recommendations` | Get code improvement recommendations | `projectId` (required), `category` |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `generate_report` | [Experimental] | Generate an analysis report | `projectId` (required), `type`, `format` |
+| `export_report` | [Experimental] | Export a report in specified format | `reportId` (required), `format` |
+| `get_recommendations` | [Experimental] | Get code improvement recommendations | `projectId` (required), `category` |
 
 ### Cross-Repo (6 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `cross_repo_search` | Search across multiple repositories | `query` (required), `groupIds` |
-| `cross_repo_trace` | Trace call paths across repositories | `source` (required), `target` |
-| `cross_repo_impact` | Analyze cross-repo impact of changes | `symbol` (required), `groupIds` |
-| `manage_repo_group` | Manage repository groups | `action` (required), `groupId` |
-| `sync_contracts` | Synchronize contracts across repos | `groupId` (required) |
-| `discover_related_repos` | Discover related repositories | `owner` (required), `topics` |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `cross_repo_search` | [Experimental] | Search across multiple repositories | `query` (required), `groupIds` |
+| `cross_repo_trace` | [Experimental] | Trace call paths across repositories | `source` (required), `target` |
+| `cross_repo_impact` | [Experimental] | Analyze cross-repo impact of changes | `symbol` (required), `groupIds` |
+| `manage_repo_group` | [Experimental] | Manage repository groups | `action` (required), `groupId` |
+| `sync_contracts` | [Experimental] | Synchronize contracts across repos | `groupId` (required) |
+| `discover_related_repos` | [Experimental] | Discover related repositories | `owner` (required), `topics` |
 
 ### PDG (3 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `pdg_query` | Query the program dependence graph | `projectId` (required), `function` (required) |
-| `taint_analysis` | Perform taint analysis for security | `projectId` (required), `source` (required) |
-| `explain_taint` | Explain a taint analysis path | `pathId` (required) |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `pdg_query` | [Experimental] | Query the program dependence graph | `projectId` (required), `function` (required) |
+| `taint_analysis` | [Experimental] | Perform taint analysis for security | `projectId` (required), `source` (required) |
+| `explain_taint` | [Experimental] | Explain a taint analysis path | `pathId` (required) |
 
 ### Standards, ADR, Agent (4 tools)
 
-| Tool | Description | Key Parameters |
-|------|-------------|---------------|
-| `list_standards` | List project standards | `projectId`, `category` |
-| `create_standard` | Create a new project standard | `standard` (required) |
-| `manage_adr` | Manage Architecture Decision Records | `action` (required), `projectId` |
-| `install_skills` | Install agent skills for the project | `agentType` (required), `projectId` |
+| Tool | Status | Description | Key Parameters |
+|------|--------|-------------|---------------|
+| `list_standards` | [Experimental] | List project standards | `projectId`, `category` |
+| `create_standard` | [Experimental] | Create a new project standard | `standard` (required) |
+| `manage_adr` | [Experimental] | Manage Architecture Decision Records | `action` (required), `projectId` |
+| `install_skills` | [Functional] | Install agent skills for the project | `agentType` (required), `projectId` |
 
 ### Tool Profiles
 

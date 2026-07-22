@@ -2,6 +2,8 @@
 
 > Comprehensive guide to automated code review with Code Analyzer — PR review workflow, standards engine, impact analysis, session management, and CI/CD integration.
 
+> **Alpha Status**: The code review engine currently uses a heuristic-based approach with rule-driven analysis (function size, nesting depth, naming conventions, etc.). The four-phase pipeline (Plan → Analyze → Filter → Relocate) is implemented, but the analysis phase relies on local heuristic rules rather than an LLM backend. LLM integration for deeper semantic analysis is planned for a future release. The MCP tools `review_pr`, `review_diff`, and `review_file` currently return placeholder data — the heuristic engine works directly via the programmatic API. See [MCP-SERVER.md](MCP-SERVER.md) for tool implementation status.
+
 ---
 
 ## PR Review Workflow
@@ -24,7 +26,7 @@ Analyzes the diff to determine review strategy:
 
 ### Phase 2: Analyze
 
-Runs heuristic analysis on the diff content:
+Runs heuristic analysis on the diff content (LLM integration is planned for deeper semantic review):
 
 - Builds graph analysis data (out-degree, in-degree, exported symbols)
 - Detects circular dependencies via DFS cycle detection
@@ -100,7 +102,9 @@ interface ReviewComment {
 
 ## Standards Engine
 
-Code Analyzer includes a standards engine with 10 built-in templates and support for custom project standards.
+> **Alpha Status**: The standards engine architecture is designed but not yet functional. The 10 built-in templates are defined but rule execution returns empty results. The MCP tool `check_standards` returns placeholder data. This section documents the planned design.
+
+Code Analyzer includes a standards engine with 10 built-in templates planned for implementation and support for custom project standards.
 
 ### 10 Built-in Templates
 
@@ -200,7 +204,9 @@ console.log(`Compliance score: ${result.complianceScore}%`);
 
 ## Impact Analysis & Blast Radius
 
-The `ImpactAnalyzer` (`packages/intelligence/src/impact/impact-analyzer.ts`) determines the blast radius of code changes.
+> **Alpha Status**: Impact analysis is designed but not yet implemented. The MCP tools `impact_analysis` and `detect_changes` return placeholder data. This section documents the planned design.
+
+The `ImpactAnalyzer` (`packages/intelligence/src/impact/impact-analyzer.ts`) is designed to determine the blast radius of code changes.
 
 ### How It Works
 
@@ -274,6 +280,8 @@ const reviewEngine = new CodeReviewEngine(store, {
 ---
 
 ## CI/CD Integration
+
+> **Alpha Status**: CI workflow files are created but not yet tested end-to-end. The examples below illustrate the planned usage.
 
 ### GitHub Actions — PR Review
 

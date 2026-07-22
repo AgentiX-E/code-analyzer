@@ -1,6 +1,20 @@
 # Architecture
 
-> `code-analyzer` — A world-class layered code intelligence platform that transforms source code into a structured knowledge graph with 33 entity types and 39 relationship types.
+> `code-analyzer` — Architecture documentation for a layered code intelligence platform that aims to transform source code into a structured knowledge graph with 33 entity types and 39 relationship types.
+
+> **Implementation Status**: This document describes the target architecture. The current alpha (v0.1.0) implements Layers 1 (Foundation) and 2 (Infrastructure) with the in-memory store. Layer 3 (Analysis Engine) has a functional pipeline orchestrator but all 18 phases return placeholder data. Layer 4 (Intelligence) has the BM25 search component and heuristic-based review engine functional on in-memory data; vector search, embeddings, impact analysis, and standards engine are scaffolds. Layer 5 (Service) has a complete MCP server framework with 38 tool definitions, working Cypher query engine, and middleware stack, though most tool implementations return placeholder data. Layers 6 (Integration) and 7 (Presentation) are planned but not implemented.
+
+### Layer Implementation Status Summary
+
+| Layer | Package(s) | Status | Notes |
+|-------|-----------|--------|-------|
+| 1. Foundation | `core`, `shared` | ✅ Implemented | Config, logging, errors, i18n, metrics, lifecycle — complete |
+| 2. Infrastructure | `infra` | ✅ Implemented | File ops, git ops, worker pool, in-memory store — SQLite persistence planned |
+| 3. Analysis Engine | `analyzer` | ⚠️ Partial | Pipeline orchestrator complete; all 18 phases are stubs |
+| 4. Intelligence | `intelligence` | ⚠️ Partial | BM25 search + heuristic review functional; rest is scaffolds |
+| 5. Service | `mcp`, `server` | ⚠️ Partial | MCP framework, Cypher engine, middleware complete; tools return placeholders |
+| 6. Integration | N/A | ⬜ Planned | CI workflows created; not tested end-to-end |
+| 7. Presentation | `cli`, `vscode`, `web` | ⬜ Planned | Package scaffolds only |
 
 ---
 
@@ -446,6 +460,8 @@ LIMIT 10
 
 ## Performance Characteristics
 
+> **Note**: These are design targets for the in-memory store based on synthetic test data. Real-world performance with the full analysis pipeline has not been measured yet.
+
 | Metric | Target | Description |
 |--------|--------|-------------|
 | Indexing speed | 1M LOC in <60s | Worker thread pools with incremental parse caching |
@@ -456,6 +472,8 @@ LIMIT 10
 | Memory per 1K LOC | 3-5MB | Language-dependent; TypeScript ~5MB, Python ~3MB |
 
 ### Storage Design
+
+> **Current implementation note**: Despite its name, `SqliteStore` currently uses an in-memory `Map`-based storage. SQLite persistence is planned for a future release. Data does not survive process restarts.
 
 The `SqliteStore` (`packages/infra/src/storage/sqlite-store.ts`) uses an in-memory Map-based storage with:
 
@@ -492,7 +510,7 @@ The `createWorkerPool` (`packages/infra/src/workers/pool.ts`) provides:
 
 | Decision | Rationale | Tradeoff |
 |----------|-----------|----------|
-| In-memory graph store | Sub-10ms query latency | Higher memory usage for large repos |
+| In-memory graph store (current) | Simpler implementation during alpha | Data lost on restart; SQLite planned for persistence |
 | Regex-based parsing | Fast indexing without compiler frontends | 95-99% accuracy vs 100% with full compilers |
 | BM25 + vector hybrid search | Best of both worlds: exact keyword + semantic | Requires pre-computed embeddings |
 | Kahn's algorithm for DAG | Deterministic execution order | Must maintain explicit dependency declarations |

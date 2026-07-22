@@ -2,79 +2,51 @@
 
 All notable changes to Code Analyzer will be documented in this file.
 
-## [1.0.0] — Unreleased
+## [0.1.0] — 2026-07-22 (Alpha Release)
 
-### 🚀 Initial Release
+### Alpha Release — Core Architecture Established
 
-**Code Analyzer v1.0.0** — A world-class code intelligence platform with layered architecture, MCP service, and VS Code extension.
+**Code Analyzer v0.1.0** is an alpha release establishing the foundational architecture for a code intelligence platform with layered design, MCP service, and VS Code extension.
 
-### Core Features
+This release delivers a solid architectural foundation with working infrastructure, MCP server framework, and Cypher query engine. Most analysis pipeline phases and intelligence features are scaffolded but return placeholder data. The project is approximately 30-40% complete.
 
-- **7-Layer Architecture**: Foundation → Infrastructure → Analysis Engine → Intelligence → Service → Integration → Presentation
+### What's Implemented
+
+- **7-Layer Architecture**: Foundation → Infrastructure → Analysis Engine → Intelligence → Service → Integration → Presentation (layers defined, dependencies enforced)
 - **10-package pnpm monorepo** with Turborepo
-- **Knowledge Graph**: 33 node types, 39 relationship types, SQLite with FTS5
-- **18-phase DAG pipeline**: scan → structure → parse → markdown → config → crossFile → scopeResolution → routes → tools → di → pruneLocalSymbols → communities → processes → tests → dump → similarity → semantic → embed
+- **Shared type system**: 33 node types, 39 relationship types fully defined
+- **Foundation layer** (`@code-analyzer/core`): Config loading/validation, structured logging, error taxonomy, i18n, lifecycle hooks, metrics collection
+- **Infrastructure layer** (`@code-analyzer/infra`): File discovery, file watcher, git operations (diff/history), worker pool with circuit breaker, parse cache, in-memory graph store with FTS, BFS, transactions, and integrity validation
+- **Pipeline orchestrator**: 18-phase DAG pipeline with Kahn's algorithm topological sort, dependency resolution, context threading, and error resilience
+- **MCP server framework** (`@code-analyzer/mcp`): 38 tool definitions, 15 resources, 5 prompts, middleware (auth, rate limiting, logging), stdio and HTTP transports
+- **Cypher query engine**: Lexer, parser, planner, and executor for subset of openCypher read operations
+- **Language provider scaffolds**: 8 language provider interfaces (TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust)
+- **Code review engine**: Heuristic-based review pipeline (Plan → Analyze → Filter → Relocate)
 
-### Analysis Engine
+### What's Scaffolded (Placeholder/Stub)
 
-- **8 Language Providers**: TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust
-- **Scope Resolution**: Same-file, cross-file named/default/namespace imports, 3-tier resolution
-- **Unified Parser**: Regex-based parsing with worker pool parallelization
-- **Knowledge Graph Builder**: Full graph construction with integrity validation
-
-### Intelligence Layer
-
-- **Hybrid Search**: BM25 + vector semantic search with Reciprocal Rank Fusion (k=60)
-- **4-Phase Code Review**: Plan → Analyze → Filter → Relocate with three-zone memory compression
-- **Project Standards Engine**: 10 built-in templates, 4 check types (ast-pattern, regex, graph-query, metric)
-- **Impact Analysis**: Change impact prediction with IoU overlap detection
-- **Trend Analysis**: Multi-metric trend detection with direction-aware reporting
-- **MinHash + LSH**: 128-hash fingerprints for near-clone detection
-- **Embeddings**: SHA-256 → deterministic vectors (mock) + @agentix-e/embed-code-ts (real)
-
-### MCP Server
-
-- **38 Tools**: Search, Review, Standards, Reports, PDG, Cross-Repo, Indexing, Querying
-- **15 Resources**: Architecture, graph, standards, reports, sessions, skills
-- **5 Prompts**: Explore, review, impact, refactor, debug
-- **Middleware**: Auth (API key), rate limiting, tool policies, request logging
-- **Cypher Query Engine**: Full openCypher read subset (lexer → parser → planner → executor)
-
-### VS Code Extension
-
-- **Copilot Chat Participant**: `@code-analyzer` with 6 intent classifiers (explore, search, review, impact, debug, refactor)
-- **Sidebar Provider**: Search, review, architecture view
-- **Status Bar Integration**: Index status, session state
-- **Engine Bridge**: Facade bridging all 5 core packages
-
-### Performance
-
-- 10,000 nodes insert in < 200ms
-- 50,000 nodes insert in < 1 second
-- Edge traversal in < 5ms on dense graphs
-- BFS depth 3 on 1000 nodes in < 10ms
-- Full-text search on 10K nodes in < 250ms
+- All 18 pipeline phases return success with zero counts
+- Graph store is in-memory `Map` (no SQLite persistence)
+- Most MCP tool implementations return placeholder/empty data
+- Language providers have scaffolding but no real parsing
+- Intelligence layer (search, review, impact, standards, embeddings) is skeletal
+- VS Code extension, web UI, and CLI have package structure only
+- No CI/CD integration testing completed
 
 ### Testing
 
-- **2,440 tests** across 57 test files
-- **Coverage**: 98.88% statements, 95.13% branches, 99.81% functions
-- **24 real integration tests** (no mocks)
-- **performance benchmarks**
-- **extended language tests** across 4 new languages
+- Comprehensive unit tests for core, infra, analyzer, and MCP packages
+- Tests validate the architecture, type system, and package interfaces
+- Test coverage reflects the implemented code (foundation + infrastructure layers)
 
-### CI/CD
+### Next Steps
 
-- GitHub Actions: Build, lint, test, typecheck, CodeQL, PR review, security audit
-
-### Security
-
-- Security policy with vulnerability disclosure timeline
-- CodeQL static analysis on every push
-- SBOM generation planned for upcoming releases
-- API key authentication and rate limiting
-- Worker process isolation
-- No arbitrary code execution
+- Implement actual parsing in language providers
+- Implement pipeline phases with real analysis logic
+- Add SQLite persistence layer
+- Build out intelligence layer features (search, impact, embeddings)
+- Complete MCP tool implementations
+- Build VS Code extension UI
 
 ---
 
@@ -82,4 +54,4 @@ All notable changes to Code Analyzer will be documented in this file.
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 1.0.0 | TBD | Initial release |
+| 0.1.0 | 2026-07-22 | Alpha release — core architecture established |
