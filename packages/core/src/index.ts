@@ -65,3 +65,22 @@ export type {
   ComponentDescriptor,
   LifecycleOptions,
 } from './lifecycle/index.js';
+
+// AI Agent Auto-Detection
+export {
+  detectAllAgents,
+  detectAgentById,
+  getSupportedAgents,
+  getAgentMetadata,
+  getAgentRegistry,
+} from './agents/detector.js';
+export { getMcpTemplate, getAgentSetupGuide, getQuickSetup } from './agents/templates.js';
+export type {
+  AgentId,
+  AgentMetadata,
+  AgentDetection,
+  AgentDetectionResult,
+  DetectionSignal,
+  DetectionConfidence,
+  McpConfigTemplate,
+} from './agents/types.js';

@@ -4,6 +4,49 @@ All notable changes to Code Analyzer will be documented in this file.
 
 ## [1.0.0] — Unreleased
 
+### 🚀 Ecosystem & Distribution (Iteration 7)
+
+#### npm Publishing
+- **12-package pnpm monorepo** with complete npm metadata for all public packages
+- `keywords`, `repository`, `bugs`, `homepage` fields on all packages
+- `publishConfig.access: "public"` for `@code-analyzer/*` scope
+- `files: ["dist"]` for minimal package size
+- `engines.node >= 20.0.0` enforcement
+
+#### VS Code Marketplace
+- Full marketplace manifest with icon, gallery banner, Q&A link
+- Publisher: `agentix`
+- 7 Copilot Chat slash commands: `/review`, `/explain`, `/impact`, `/find`, `/deps`, `/refactor`, `/test`
+
+#### Homebrew & Docker
+- **Homebrew formula** (`homebrew/code-analyzer.rb`) for `brew install code-analyzer`
+- **Multi-arch Docker image** with `linux/amd64` and `linux/arm64` support
+- **Docker Bake** (`docker/docker-bake.hcl`) for parallel multi-platform builds
+- 5-stage optimized Dockerfile: base → builder → runner → cli → vscode-builder
+
+#### GitHub Action
+- **`code-analyzer-action`** composite action for CI integration
+- 7 inputs: `github-token`, `standards`, `severity`, `fail-on`, `max-files`, `exclude-patterns`, `languages`
+- PR comment integration with Markdown summary
+- Reusable workflow (`.github/workflows/code-analyzer.yml`) with PR/review triggers
+
+#### AI Agent Auto-Detection
+- **12 supported agents**: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codeium, Tabnine, Amazon Q, Roo Code, Augment Code
+- 5 detection methods: environment variables, config files, binaries, processes, VS Code extensions
+- Per-agent MCP configuration templates
+- `code-analyzer setup --auto` for zero-config onboarding
+- `code-analyzer setup --agent <name>` for manual agent selection
+
+#### Integration Guides
+- **7 comprehensive integration guides**: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot
+- Quick-start instructions, manual config, verification steps, troubleshooting for each
+- Agent-specific features: slash commands, auto-approve, rules integration
+- Team setup guide for GitHub Copilot with shared `.github/copilot/mcp.json`
+
+### 📊 Coverage
+- **2,871 tests** across 60 test files
+- **Lines: 98.51%** | **Branches: 95.25%** | **Functions: 99.8%** | **Statements: 98.51%**
+
 ### 🚀 Initial Release
 
 **Code Analyzer v1.0.0** — A world-class code intelligence platform with layered architecture, MCP service, and VS Code extension.
