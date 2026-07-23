@@ -4,6 +4,24 @@
   "description": "Shared types, constants, and protocols for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
+  "keywords": ["code-analysis", "code-review", "knowledge-graph", "mcp", "static-analysis", "ast", "code-intelligence"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "directory": "packages/shared"
+  },
+  "bugs": {
+    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+  },
+  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

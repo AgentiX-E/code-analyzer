@@ -4,6 +4,24 @@
   "description": "Intelligence layer for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
+  "keywords": ["code-analysis", "code-review", "knowledge-graph", "hybrid-search", "semantic-search", "impact-analysis", "code-intelligence"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "directory": "packages/intelligence"
+  },
+  "bugs": {
+    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+  },
+  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

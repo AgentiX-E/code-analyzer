@@ -5,9 +5,28 @@
   "description": "World-class code intelligence for VS Code — AI-powered code exploration, review, and analysis",
   "author": "Lambertyan",
   "license": "MIT",
+  "keywords": ["code-analysis", "vscode-extension", "code-review", "knowledge-graph", "copilot-chat", "ai-assisted", "code-intelligence"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "directory": "packages/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+  },
+  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "qna": "https://github.com/Lambertyan/code-analyzer/discussions",
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
   "publisher": "agentix",
   "engines": {
-    "vscode": "^1.95.0"
+    "vscode": "^1.95.0",
+    "node": ">=20.0.0"
   },
   "categories": [
     "Programming Languages",

@@ -5,6 +5,20 @@
   "description": "Web UI for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
+  "keywords": ["code-analysis", "web-ui", "knowledge-graph", "visualization", "dashboard", "code-intelligence"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "directory": "packages/web"
+  },
+  "bugs": {
+    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+  },
+  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "sideEffects": false,
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
