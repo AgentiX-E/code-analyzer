@@ -53,10 +53,13 @@ jobs:
       - run: pnpm turbo build --filter=...^...
 
       - name: Run ESLint
-        run: pnpm eslint . --max-warnings 0
+        run: pnpm lint
 
-  format:
-    name: Format Check
+      - name: Run Prettier check
+        run: pnpm format:check
+
+  typecheck:
+    name: Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +75,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm format:check
+      - run: pnpm turbo build --filter=...^...
+
+      - name: Run type check
+        run: pnpm typecheck
 
   test:
     name: Test (Node ${{ matrix.node-version }})
@@ -99,6 +105,52 @@ jobs:
       - name: Run unit tests
         run: pnpm test:unit
 
+      - name: Run tests with coverage
+        if: matrix.node-version == '22'
+        run: pnpm vitest run --coverage
+
+      - name: Check coverage thresholds
+        if: matrix.node-version == '22'
+        run: |
+          echo "Checking coverage thresholds..."
+
+          # Coverage thresholds defined in vitest config are automatically enforced.
+          # This step verifies the coverage report exists and reports the summary.
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "Coverage report generated successfully."
+
+            LINES=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+            BRANCHES=$(jq '.total.branches.pct' coverage/coverage-summary.json)
+            FUNCTIONS=$(jq '.total.functions.pct' coverage/coverage-summary.json)
+            STATEMENTS=$(jq '.total.statements.pct' coverage/coverage-summary.json)
+
+            echo "Coverage Summary:"
+            echo "  Lines:      ${LINES}%"
+            echo "  Branches:   ${BRANCHES}%"
+            echo "  Functions:  ${FUNCTIONS}%"
+            echo "  Statements: ${STATEMENTS}%"
+
+            # Thresholds: 95% lines, 90% branches, 95% functions, 95% statements
+            LINES_OK=$(echo "${LINES} >= 95" | bc -l)
+            BRANCHES_OK=$(echo "${BRANCHES} >= 90" | bc -l)
+            FUNCTIONS_OK=$(echo "${FUNCTIONS} >= 95" | bc -l)
+            STATEMENTS_OK=$(echo "${STATEMENTS} >= 95" | bc -l)
+
+            if [ "${LINES_OK}" = "0" ] || [ "${BRANCHES_OK}" = "0" ] || [ "${FUNCTIONS_OK}" = "0" ] || [ "${STATEMENTS_OK}" = "0" ]; then
+              echo ""
+              echo "::error::Coverage thresholds not met!"
+              [ "${LINES_OK}" = "0" ] && echo "::error::Lines: ${LINES}% (threshold: 95%)"
+              [ "${BRANCHES_OK}" = "0" ] && echo "::error::Branches: ${BRANCHES}% (threshold: 90%)"
+              [ "${FUNCTIONS_OK}" = "0" ] && echo "::error::Functions: ${FUNCTIONS}% (threshold: 95%)"
+              [ "${STATEMENTS_OK}" = "0" ] && echo "::error::Statements: ${STATEMENTS}% (threshold: 95%)"
+              exit 1
+            fi
+
+            echo "All coverage thresholds met."
+          else
+            echo "::warning::No coverage report found. Skipping threshold check."
+          fi
+
       - name: Upload coverage
         if: matrix.node-version == '22'
         uses: actions/upload-artifact@v4
@@ -107,14 +159,13 @@ jobs:
           path: coverage/
           retention-days: 7
 
-  typecheck:
-    name: TypeCheck (Node ${{ matrix.node-version }})
+  benchmarks:
+    name: Benchmark Check
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ['20', '22']
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -122,11 +173,97 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '22'
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm turbo build --filter=...^...
+      - run: pnpm turbo build
 
-      - run: pnpm typecheck
+      - name: Run benchmarks (current branch)
+        run: pnpm bench:ci
+
+      - name: Check benchmark regressions
+        run: |
+          echo "Checking benchmark regressions against main baseline..."
+
+          if [ ! -f bench-results.json ]; then
+            echo "::warning::No benchmark results found. Skipping regression check."
+            exit 0
+          fi
+
+          # Save current results
+          mv bench-results.json bench-results-current.json
+
+          # Checkout main to get baseline
+          git fetch origin main
+          git stash
+          git checkout origin/main
+
+          pnpm install --frozen-lockfile 2>/dev/null || true
+          pnpm turbo build 2>/dev/null || true
+          pnpm bench:ci 2>/dev/null || true
+
+          if [ -f bench-results.json ]; then
+            mv bench-results.json bench-results-baseline.json
+          fi
+
+          # Restore current branch
+          git checkout -
+          git stash pop 2>/dev/null || true
+
+          # Run comparison script
+          if [ -f bench-results-baseline.json ] && [ -f bench-results-current.json ]; then
+            echo "Comparing benchmarks..."
+
+            # Extract benchmark names and values
+            echo "Baseline benchmarks:"
+            jq -r '.benchmarks[]? | "\(.name): \(.ops) ops/sec"' bench-results-baseline.json 2>/dev/null || true
+
+            echo ""
+            echo "Current benchmarks:"
+            jq -r '.benchmarks[]? | "\(.name): \(.ops) ops/sec"' bench-results-current.json 2>/dev/null || true
+
+            # Check for regressions >20%
+            HAS_REGRESSION=0
+
+            BASELINE_NAMES=$(jq -r '.benchmarks[]?.name' bench-results-baseline.json 2>/dev/null)
+            for NAME in ${BASELINE_NAMES}; do
+              BASELINE_OPS=$(jq -r --arg n "$NAME" '.benchmarks[] | select(.name == $n) | .ops' bench-results-baseline.json)
+              CURRENT_OPS=$(jq -r --arg n "$NAME" '.benchmarks[] | select(.name == $n) | .ops' bench-results-current.json)
+
+              if [ -n "${BASELINE_OPS}" ] && [ -n "${CURRENT_OPS}" ] && [ "${BASELINE_OPS}" != "null" ] && [ "${CURRENT_OPS}" != "null" ]; then
+                REGRESSION=$(echo "scale=2; (${BASELINE_OPS} - ${CURRENT_OPS}) / ${BASELINE_OPS} * 100" | bc -l)
+                REGRESSION_INT=$(echo "${REGRESSION}" | cut -d. -f1)
+
+                if echo "${REGRESSION} > 20" | bc -l | grep -q 1; then
+                  echo "::error::Benchmark regression detected: ${NAME} is ${REGRESSION}% slower than baseline!"
+                  HAS_REGRESSION=1
+                elif echo "${REGRESSION} > 0" | bc -l | grep -q 1; then
+                  echo "::notice::Benchmark ${NAME}: ${REGRESSION}% regression (within threshold)"
+                else
+                  REGRESSION_ABS=$(echo "${REGRESSION}" | sed 's/-//')
+                  echo "::notice::Benchmark ${NAME}: ${REGRESSION_ABS}% improvement"
+                fi
+              fi
+            done
+
+            if [ "${HAS_REGRESSION}" -eq 1 ]; then
+              echo ""
+              echo "::error::One or more benchmarks have regressed by more than 20%!"
+              exit 1
+            fi
+
+            echo ""
+            echo "No significant benchmark regressions detected."
+          else
+            echo "::notice::No baseline benchmarks found. Skipping comparison."
+          fi
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: bench-results-current.json
+          retention-days: 30

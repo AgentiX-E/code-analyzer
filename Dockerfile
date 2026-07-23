@@ -1,11 +1,17 @@
 #
-# Code Analyzer — Multi-stage Docker Build
+# Code Analyzer — Multi-stage Docker Build (Multi-arch)
+#
+# Build: docker build --platform linux/amd64,linux/arm64 .
+# Or use: docker buildx bake
 #
 
 #
 # Stage 1: Builder
 #
-FROM node:22-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 
 # Install pnpm globally
 RUN corepack enable && corepack prepare pnpm@9 --activate
@@ -39,15 +45,16 @@ RUN pnpm turbo build --filter=...^...
 #
 # Stage 2: Runner
 #
-FROM node:22-alpine AS runner
+FROM node:20-alpine AS runner
 
 # Labels (org.opencontainers metadata)
 LABEL org.opencontainers.image.title="Code Analyzer"
-LABEL org.opencontainers.image.description="World-class layered code intelligence platform — MCP server, VS Code extension, and CLI"
-LABEL org.opencontainers.image.version="0.1.0"
+LABEL org.opencontainers.image.description="Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents"
+LABEL org.opencontainers.image.version="0.2.0"
 LABEL org.opencontainers.image.authors="Lambertyan"
 LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.source="https://github.com/lambertyan/code-analyzer"
+LABEL org.opencontainers.image.source="https://github.com/AgentiX-E/code-analyzer"
+LABEL org.opencontainers.image.documentation="https://github.com/AgentiX-E/code-analyzer"
 
 ENV NODE_ENV=production
 
@@ -92,12 +99,13 @@ RUN pnpm install --frozen-lockfile --prod
 # Switch to non-root user
 USER code-analyzer
 
-# Expose port for HTTP transport
+# Expose port for HTTP/SSE transport (MCP server)
 EXPOSE 3000
 
 # Health check — verify the MCP server is reachable
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-# Default command: run the MCP server
-CMD ["node", "packages/mcp/dist/index.js"]
+# Entrypoint and default command
+ENTRYPOINT ["node"]
+CMD ["packages/mcp/dist/index.js"]

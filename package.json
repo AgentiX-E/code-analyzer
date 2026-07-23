@@ -1,13 +1,36 @@
 {
-  "name": "code-analyzer-monorepo",
+  "name": "code-analyzer",
   "version": "0.1.0",
-  "private": true,
-  "description": "World-class layered code intelligence platform — MCP server, VS Code extension, and CLI",
+  "description": "Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
   "author": "Lambertyan",
   "license": "MIT",
+  "keywords": [
+    "code-analysis",
+    "knowledge-graph",
+    "mcp",
+    "code-review",
+    "tree-sitter",
+    "static-analysis",
+    "ai-agent",
+    "copilot",
+    "cross-repo",
+    "pr-review"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgentiX-E/code-analyzer.git"
+  },
+  "homepage": "https://github.com/AgentiX-E/code-analyzer",
+  "bugs": {
+    "url": "https://github.com/AgentiX-E/code-analyzer/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
+  "files": [
+    "packages/*/dist",
+    "packages/*/package.json"
+  ],
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "turbo build",
@@ -27,7 +50,8 @@
     "check:perf": "node scripts/check-benchmarks.js",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "turbo build && changeset publish"
+    "release": "turbo build && changeset publish",
+    "publish": "turbo build && pnpm -r publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

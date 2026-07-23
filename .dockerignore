@@ -64,6 +64,9 @@ logs
 # Package manager state
 .pnpm-store
 
+# Docker build config
+docker-bake.hcl
+
 # Misc
 *.md
 !README.md

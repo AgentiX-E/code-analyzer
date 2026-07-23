@@ -1,0 +1,49 @@
+name: Publish VS Code Extension
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: publish-vscode-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm turbo build --filter=@code-analyzer/vscode...^...
+
+      - name: Package VS Code extension
+        run: |
+          cd packages/vscode
+          npx @vscode/vsce package
+
+      - name: Publish to VS Code Marketplace
+        run: |
+          cd packages/vscode
+          npx @vscode/vsce publish --packagePath $(ls *.vsix | head -1)
+        env:
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+
+      - name: Publish to Open VSX Registry
+        run: |
+          cd packages/vscode
+          npx ovsx publish $(ls *.vsix | head -1)
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
