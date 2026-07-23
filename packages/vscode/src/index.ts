@@ -1,8 +1,9 @@
 // @code-analyzer/vscode — Public API
 // Re-exports for consumers of the vscode extension package.
-
-// Extension entry (the activate/deactivate functions)
-export { activate, deactivate } from './extension/extension.js';
+//
+// NOTE: activate/deactivate are NOT exported here because they require
+// the 'vscode' module which is only available inside the VS Code extension
+// host. VS Code finds them via package.json "main" → dist/extension/extension.js.
 
 // Participant
 export {

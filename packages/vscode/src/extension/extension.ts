@@ -2,18 +2,20 @@
 // This is the ONLY file that directly imports from 'vscode'.
 // It creates all VS Code objects and injects them via interfaces.
 
+import * as vscode from 'vscode';
+
 import { EngineBridge } from '../services/engine-bridge.js';
 import { ConfigService } from '../services/config-service.js';
 import { FileWatcherService } from '../services/file-watcher.js';
-import {
-  createStatusBarManager,
-} from '../views/status-bar.js';
+import { createStatusBarManager } from '../views/status-bar.js';
 import { registerCommands } from './commands.js';
+import { CodeAnalyzerChatParticipant } from '../participant/code-analyzer-participant.js';
 import type {
   IVSCodeAPI,
-  WorkspaceConfiguration,
   DiagnosticCollection,
+  VSCodeWorkspaceFolder,
 } from '../services/vscode-api.js';
+import { StatusBarAlignment } from '../services/vscode-api.js';
 
 // ---------------------------------------------------------------------------
 // Extension state
@@ -26,15 +28,18 @@ let fileWatcher: FileWatcherService | null = null;
 // Extension lifecycle
 // ---------------------------------------------------------------------------
 
-export function activate(context: { subscriptions: Array<{ dispose(): void }>; extensionUri?: unknown }): void {
-  // 1. Initialize engine bridge
-  engine = new EngineBridge();
+export function activate(context: vscode.ExtensionContext): void {
+  // 1. Initialize engine bridge with global storage path
+  engine = new EngineBridge({
+    globalStorageUri: context.globalStorageUri,
+  });
 
-  // 2. Initialize services
-  const config = { get: <T>(_section: string): T | undefined => undefined, getWithDefault: <T>(_section: string, defaultVal: T): T => defaultVal };
-  const configService = new ConfigService(config as WorkspaceConfiguration);
+  // 2. Initialize services with real VS Code configuration
+  const configService = new ConfigService(
+    vscode.workspace.getConfiguration('codeAnalyzer'),
+  );
 
-  // 3. Create VS Code API adapter
+  // 3. Create VS Code API adapter wrapping real vscode module
   const api = createVSCodeAPIAdapter();
 
   // 4. Register Copilot Chat Participant with all 7 slash commands
@@ -47,7 +52,7 @@ export function activate(context: { subscriptions: Array<{ dispose(): void }>; e
   const commentCollection = createDiagnosticCollection(context);
 
   // 7. Register status bar with real-time updates
-  statusBarManager = registerStatusBar(context, engine);
+  registerStatusBar(context, engine);
 
   // 8. Register commands (analyze, review, search, config)
   const { disposables } = registerCommands(
@@ -64,10 +69,12 @@ export function activate(context: { subscriptions: Array<{ dispose(): void }>; e
   fileWatcher = startFileWatcher(context, engine);
 
   // 10. Start background initialization
-  engine.initialize()
+  engine
+    .initialize()
     .then(() => {
       // After initialization, trigger initial indexing
-      const workspaceRoot = process.cwd();
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath
+        ?? process.cwd();
       return engine!.indexWorkspace(workspaceRoot);
     })
     .catch(() => {
@@ -99,61 +106,67 @@ export function deactivate(): void {
 }
 
 // ---------------------------------------------------------------------------
-// VS Code API Adapter (bridge between IVSCodeAPI and real vscode module)
+// VS Code API Adapter — wraps the real vscode module behind IVSCodeAPI
+// for testability of commands.ts and other consumers
 // ---------------------------------------------------------------------------
 
 function createVSCodeAPIAdapter(): IVSCodeAPI {
-  // In VS Code, this would use the real vscode module like:
-  // import * as vscode from 'vscode';
-  // return {
-  //   showInformationMessage: (msg) => vscode.window.showInformationMessage(msg) as PromiseLike<string>,
-  //   ...
-  // }
-  //
-  // For testability, we return a NOOP implementation
   return {
-    showInformationMessage: async () => undefined,
-    showErrorMessage: async () => undefined,
-    showWarningMessage: async () => undefined,
-    showInputBox: async () => undefined,
-    showQuickPick: async () => undefined,
-    createOutputChannel: (_name: string) => ({
-      appendLine: () => {},
-      show: () => {},
-      dispose: () => {},
-    }),
-    withProgress: async (_options, task) => {
-      await task({ report: () => {} });
+    // Window
+    showInformationMessage: (msg) =>
+      Promise.resolve(vscode.window.showInformationMessage(msg)),
+    showErrorMessage: (msg) =>
+      Promise.resolve(vscode.window.showErrorMessage(msg)),
+    showWarningMessage: (msg) =>
+      Promise.resolve(vscode.window.showWarningMessage(msg)),
+    showInputBox: (options) =>
+      Promise.resolve(vscode.window.showInputBox(options)),
+    showQuickPick: (items, options) =>
+      Promise.resolve(
+        vscode.window.showQuickPick(items as readonly vscode.QuickPickItem[], options),
+      ),
+    createOutputChannel: (name) => vscode.window.createOutputChannel(name),
+    withProgress: async (options, task) => {
+      await vscode.window.withProgress(
+        options,
+        (progress) => task({ report: (value) => progress.report(value) }),
+      );
     },
-    getWorkspaceFolders: () => [],
-    getConfiguration: () => ({
-      get: <T>(_section: string): T | undefined => undefined,
-      getDefault: <T>(_section: string, defaultValue: T): T => defaultValue,
-    } as WorkspaceConfiguration),
-    registerCommand: () => ({ dispose() {} }),
-    executeCommand: async () => undefined,
-    createDiagnosticCollection: () => ({
-      set: () => {},
-      delete: () => {},
-      clear: () => {},
-      dispose: () => {},
-    }),
-    createStatusBarItem: () => ({
-      text: '',
-      tooltip: '',
-      command: '',
-      show() {},
-      hide() {},
-      dispose() {},
-    }),
+
+    // Workspace
+    getWorkspaceFolders: () =>
+      vscode.workspace.workspaceFolders as
+        | VSCodeWorkspaceFolder[]
+        | undefined,
+    getConfiguration: (section) =>
+      vscode.workspace.getConfiguration(section),
+
+    // Commands
+    registerCommand: (command, callback) =>
+      vscode.commands.registerCommand(command, callback as (...args: unknown[]) => unknown),
+    executeCommand: async (command, ...args) =>
+      vscode.commands.executeCommand(command, ...args),
+
+    // Diagnostics
+    createDiagnosticCollection: (name) =>
+      vscode.languages.createDiagnosticCollection(name) as unknown as DiagnosticCollection,
+
+    // Status Bar
+    createStatusBarItem: (alignment, priority) =>
+      vscode.window.createStatusBarItem(
+        alignment as unknown as vscode.StatusBarAlignment,
+        priority,
+      ),
+
+    // URI
     Uri: {
-      file: (path: string) => ({
-        fsPath: path,
-        toString: () => path,
-      }),
-      parse: (uriString: string) => ({ toString: () => uriString }),
+      file: (path: string) => vscode.Uri.file(path),
+      parse: (uriString: string) => vscode.Uri.parse(uriString),
     },
-    ViewColumn: { One: 1 },
+
+    ViewColumn: {
+      One: vscode.ViewColumn.One,
+    },
   };
 }
 
@@ -162,7 +175,7 @@ function createVSCodeAPIAdapter(): IVSCodeAPI {
 // ---------------------------------------------------------------------------
 
 function startFileWatcher(
-  context: { subscriptions: Array<{ dispose(): void }> },
+  context: vscode.ExtensionContext,
   eng: EngineBridge,
 ): FileWatcherService {
   const watcher = new FileWatcherService(eng);
@@ -176,58 +189,54 @@ function startFileWatcher(
 // ---------------------------------------------------------------------------
 
 function registerChatParticipantWithCommands(
-  context: { subscriptions: Array<{ dispose(): void }> },
-  _engine: EngineBridge,
+  context: vscode.ExtensionContext,
+  eng: EngineBridge,
 ): void {
-  // In actual VS Code, this would register the chat participant with all commands:
-  // import { CodeAnalyzerChatParticipant } from '../participant/code-analyzer-participant.js';
-  //
-  // const participant = vscode.chat.createChatParticipant(
-  //   'code-analyzer',
-  //   async (request, context, stream, token) => {
-  //     const handler = new CodeAnalyzerChatParticipant(engine);
-  //     return handler.handleRequest(request as any, context as any, stream as any, token as any);
-  //   }
-  // );
-  //
-  // // Registration of slash commands:
-  // participant.command('review', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('review', request.prompt, stream as any, token as any);
-  // });
-  // participant.command('explain', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('explain', request.prompt, stream as any, token as any);
-  // });
-  // participant.command('impact', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('impact', request.prompt, stream as any, token as any);
-  // });
-  // participant.command('find', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('find', request.prompt, stream as any, token as any);
-  // });
-  // participant.command('deps', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('deps', request.prompt, stream as any, token as any);
-  // });
-  // participant.command('refactor', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('refactor', request.prompt, stream as any, token as any);
-  // });
-  // participant.command('test', async (request, context, stream, token) => {
-  //   const handler = new CodeAnalyzerChatParticipant(engine);
-  //   return handler.handleSlashCommand('test', request.prompt, stream as any, token as any);
-  // });
-  //
-  // context.subscriptions.push(participant);
-
-  // For now, register the participant as a disposable placeholder
-  context.subscriptions.push({
-    dispose() {
-      // Chat participant and commands are auto-disposed by VS Code
+  const participant = vscode.chat.createChatParticipant(
+    'code-analyzer',
+    async (request, _ctx, stream, token) => {
+      const handler = new CodeAnalyzerChatParticipant(eng);
+      return handler.handleRequest(request as any, _ctx as any, stream as any, token as any);
     },
+  );
+
+  // Register all 7 slash commands
+  participant.command('review', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('review', request.prompt, stream as any, token as any);
   });
+
+  participant.command('explain', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('explain', request.prompt, stream as any, token as any);
+  });
+
+  participant.command('impact', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('impact', request.prompt, stream as any, token as any);
+  });
+
+  participant.command('find', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('find', request.prompt, stream as any, token as any);
+  });
+
+  participant.command('deps', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('deps', request.prompt, stream as any, token as any);
+  });
+
+  participant.command('refactor', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('refactor', request.prompt, stream as any, token as any);
+  });
+
+  participant.command('test', async (request, _ctx, stream, token) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('test', request.prompt, stream as any, token as any);
+  });
+
+  context.subscriptions.push(participant);
 }
 
 // ---------------------------------------------------------------------------
@@ -235,30 +244,36 @@ function registerChatParticipantWithCommands(
 // ---------------------------------------------------------------------------
 
 function registerSidebar(
-  context: { subscriptions: Array<{ dispose(): void }> },
+  context: vscode.ExtensionContext,
   _engine: EngineBridge,
 ): void {
-  // In actual VS Code:
-  // const sidebarProvider = {
-  //   resolveWebviewView(webviewView: vscode.WebviewView) {
-  //     webviewView.webview.options = { enableScripts: true };
-  //     webviewView.webview.html = generateSidebarHtml();
-  //     const logic = new SidebarLogic(engine);
-  //     webviewView.webview.onDidReceiveMessage(async (msg) => {
-  //       const response = await logic.handleMessage(msg);
-  //       webviewView.webview.postMessage(response);
-  //     });
-  //   }
-  // };
-  // context.subscriptions.push(
-  //   vscode.window.registerWebviewViewProvider('code-analyzer.sidebar', sidebarProvider)
-  // );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('code-analyzer.sidebar', {
+      resolveWebviewView(webviewView: vscode.WebviewView) {
+        webviewView.webview.options = {
+          enableScripts: true,
+        };
+        webviewView.webview.html = generateSidebarHtml();
+      },
+    }),
+  );
+}
 
-  context.subscriptions.push({
-    dispose() {
-      // Sidebar is auto-disposed by VS Code
-    },
-  });
+function generateSidebarHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Analyzer</title>
+</head>
+<body>
+  <div id="root">
+    <h2>Code Analyzer</h2>
+    <p>Indexing workspace...</p>
+  </div>
+</body>
+</html>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,19 +281,12 @@ function registerSidebar(
 // ---------------------------------------------------------------------------
 
 function createDiagnosticCollection(
-  context: { subscriptions: Array<{ dispose(): void }> },
+  context: vscode.ExtensionContext,
 ): DiagnosticCollection {
-  // In actual VS Code:
-  // const collection = vscode.languages.createDiagnosticCollection('code-analyzer');
-  // context.subscriptions.push(collection);
-
-  const collection: DiagnosticCollection = {
-    set: () => {},
-    delete: () => {},
-    clear: () => {},
-    dispose: () => {},
-  };
-  context.subscriptions.push(collection);
+  const collection = vscode.languages.createDiagnosticCollection(
+    'code-analyzer',
+  ) as unknown as DiagnosticCollection;
+  context.subscriptions.push(collection as unknown as { dispose(): void });
   return collection;
 }
 
@@ -287,22 +295,18 @@ function createDiagnosticCollection(
 // ---------------------------------------------------------------------------
 
 function registerStatusBar(
-  context: { subscriptions: Array<{ dispose(): void }> },
+  context: vscode.ExtensionContext,
   eng: EngineBridge,
-): StatusBarManager {
+): void {
   const manager = createStatusBarManager(
     {
-      createStatusBarItem: () => ({
-        text: '$(search) Code Analyzer',
-        tooltip: 'Code Analyzer',
-        command: 'code-analyzer.showSidebar',
-        show() {},
-        hide() {},
-        dispose() {},
-      }),
+      createStatusBarItem: (alignment, priority) =>
+        vscode.window.createStatusBarItem(
+          alignment as unknown as vscode.StatusBarAlignment,
+          priority,
+        ),
     },
     eng,
   );
   context.subscriptions.push(manager);
-  return manager;
 }
