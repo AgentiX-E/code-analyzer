@@ -43,6 +43,9 @@
     "@code-analyzer/infra": "workspace:*",
     "@code-analyzer/analyzer": "workspace:*"
   },
+  "optionalDependencies": {
+    "@agentix-e/embed-code-ts": "^1.0.0"
+  },
   "devDependencies": {
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

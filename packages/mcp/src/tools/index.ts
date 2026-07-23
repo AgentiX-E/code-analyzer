@@ -4,7 +4,9 @@
 import { ToolRegistry } from './registry.js';
 
 export { ToolRegistry };
-export type { ToolHandler, RegisteredTool } from './registry.js';// Indexing & Lifecycle
+export type { ToolHandler, RegisteredTool } from './registry.js';
+export { ToolContextImpl } from './tool-context.js';
+export type { ToolContext, GraphStats, DependencyTreeNode } from './tool-context.js';// Indexing & Lifecycle
 import {
   analyzeRepository, analyzeRepositorySchema,
   listProjects, listProjectsSchema,

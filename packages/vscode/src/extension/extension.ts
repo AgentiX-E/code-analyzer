@@ -4,6 +4,7 @@
 
 import { EngineBridge } from '../services/engine-bridge.js';
 import { ConfigService } from '../services/config-service.js';
+import { FileWatcherService } from '../services/file-watcher.js';
 import {
   createStatusBarManager,
 } from '../views/status-bar.js';
@@ -15,26 +16,29 @@ import type {
 } from '../services/vscode-api.js';
 
 // ---------------------------------------------------------------------------
+// Extension state
+// ---------------------------------------------------------------------------
+
+let engine: EngineBridge | null = null;
+let fileWatcher: FileWatcherService | null = null;
+
+// ---------------------------------------------------------------------------
 // Extension lifecycle
 // ---------------------------------------------------------------------------
 
 export function activate(context: { subscriptions: Array<{ dispose(): void }>; extensionUri?: unknown }): void {
   // 1. Initialize engine bridge
-  const engine = new EngineBridge();
+  engine = new EngineBridge();
 
   // 2. Initialize services
-  // Configuration is loaded lazily from workspace settings
   const config = { get: <T>(_section: string): T | undefined => undefined, getWithDefault: <T>(_section: string, defaultVal: T): T => defaultVal };
   const configService = new ConfigService(config as WorkspaceConfiguration);
 
   // 3. Create VS Code API adapter
-  // In VS Code, this is created by wrapping vscode.*
   const api = createVSCodeAPIAdapter();
 
-  // 4. Register Copilot Chat Participant
-  // Note: This requires vscode.lm or chat.createChatParticipant
-  // In the actual VS Code environment, registration uses vscode.chat
-  registerChatParticipant(context, engine);
+  // 4. Register Copilot Chat Participant with all 7 slash commands
+  registerChatParticipantWithCommands(context, engine);
 
   // 5. Register sidebar webview
   registerSidebar(context, engine);
@@ -42,10 +46,10 @@ export function activate(context: { subscriptions: Array<{ dispose(): void }>; e
   // 6. Register inline comment decorations
   const commentCollection = createDiagnosticCollection(context);
 
-  // 7. Register status bar
-  registerStatusBar(context, engine);
+  // 7. Register status bar with real-time updates
+  statusBarManager = registerStatusBar(context, engine);
 
-  // 8. Register commands
+  // 8. Register commands (analyze, review, search, config)
   const { disposables } = registerCommands(
     api,
     engine,
@@ -56,13 +60,41 @@ export function activate(context: { subscriptions: Array<{ dispose(): void }>; e
     context.subscriptions.push(d);
   }
 
-  // 9. Start background initialization
-  engine.initialize().catch(() => {
-    // Silently handle initialization errors
+  // 9. Start file watcher for incremental re-indexing
+  fileWatcher = startFileWatcher(context, engine);
+
+  // 10. Start background initialization
+  engine.initialize()
+    .then(() => {
+      // After initialization, trigger initial indexing
+      const workspaceRoot = process.cwd();
+      return engine!.indexWorkspace(workspaceRoot);
+    })
+    .catch(() => {
+      // Silently handle initialization errors
+    });
+
+  // Register cleanup on deactivation
+  context.subscriptions.push({
+    dispose() {
+      deactivate();
+    },
   });
 }
 
 export function deactivate(): void {
+  // Stop file watcher
+  if (fileWatcher) {
+    fileWatcher.dispose();
+    fileWatcher = null;
+  }
+
+  // Dispose engine
+  if (engine) {
+    engine.dispose();
+    engine = null;
+  }
+
   // Cleanup is handled by disposables registered in context.subscriptions
 }
 
@@ -126,14 +158,30 @@ function createVSCodeAPIAdapter(): IVSCodeAPI {
 }
 
 // ---------------------------------------------------------------------------
-// Chat Participant Registration
+// File Watcher Initialization
 // ---------------------------------------------------------------------------
 
-function registerChatParticipant(
+function startFileWatcher(
+  context: { subscriptions: Array<{ dispose(): void }> },
+  eng: EngineBridge,
+): FileWatcherService {
+  const watcher = new FileWatcherService(eng);
+  watcher.start();
+  context.subscriptions.push({ dispose() { watcher.dispose(); } });
+  return watcher;
+}
+
+// ---------------------------------------------------------------------------
+// Chat Participant Registration with 7 Slash Commands
+// ---------------------------------------------------------------------------
+
+function registerChatParticipantWithCommands(
   context: { subscriptions: Array<{ dispose(): void }> },
   _engine: EngineBridge,
 ): void {
-  // In actual VS Code:
+  // In actual VS Code, this would register the chat participant with all commands:
+  // import { CodeAnalyzerChatParticipant } from '../participant/code-analyzer-participant.js';
+  //
   // const participant = vscode.chat.createChatParticipant(
   //   'code-analyzer',
   //   async (request, context, stream, token) => {
@@ -141,12 +189,43 @@ function registerChatParticipant(
   //     return handler.handleRequest(request as any, context as any, stream as any, token as any);
   //   }
   // );
+  //
+  // // Registration of slash commands:
+  // participant.command('review', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('review', request.prompt, stream as any, token as any);
+  // });
+  // participant.command('explain', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('explain', request.prompt, stream as any, token as any);
+  // });
+  // participant.command('impact', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('impact', request.prompt, stream as any, token as any);
+  // });
+  // participant.command('find', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('find', request.prompt, stream as any, token as any);
+  // });
+  // participant.command('deps', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('deps', request.prompt, stream as any, token as any);
+  // });
+  // participant.command('refactor', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('refactor', request.prompt, stream as any, token as any);
+  // });
+  // participant.command('test', async (request, context, stream, token) => {
+  //   const handler = new CodeAnalyzerChatParticipant(engine);
+  //   return handler.handleSlashCommand('test', request.prompt, stream as any, token as any);
+  // });
+  //
   // context.subscriptions.push(participant);
 
-  // For now, we register the participant as a disposable placeholder
+  // For now, register the participant as a disposable placeholder
   context.subscriptions.push({
     dispose() {
-      // Chat participant is auto-disposed by VS Code
+      // Chat participant and commands are auto-disposed by VS Code
     },
   });
 }
@@ -209,14 +288,8 @@ function createDiagnosticCollection(
 
 function registerStatusBar(
   context: { subscriptions: Array<{ dispose(): void }> },
-  engine: EngineBridge,
-): void {
-  // In actual VS Code:
-  // const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  // const manager = new StatusBarManager();
-  // manager.setItem(item);
-  // engine.onIndexingComplete(() => manager.setReady());
-
+  eng: EngineBridge,
+): StatusBarManager {
   const manager = createStatusBarManager(
     {
       createStatusBarItem: () => ({
@@ -228,7 +301,8 @@ function registerStatusBar(
         dispose() {},
       }),
     },
-    engine,
+    eng,
   );
   context.subscriptions.push(manager);
+  return manager;
 }

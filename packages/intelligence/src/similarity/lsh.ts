@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — LSH (Locality-Sensitive Hashing) Searcher
 // Uses banded MinHash to efficiently find candidate near-duplicate pairs.
 
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphEdge } from '@code-analyzer/shared';
 import { MinHashSimilarity } from './minhash.js';
 
@@ -103,7 +103,7 @@ export class LSHSearcher {
    * Uses LSH to find candidate pairs, then computes exact MinHash similarity.
    */
   buildSimilarityEdges(
-    _store: SqliteStore,
+    _store: InMemoryGraphStore,
     nodeIds: number[],
     getFingerprint: (id: number) => number[],
     threshold: number = 0.8,
@@ -153,7 +153,7 @@ export class LSHSearcher {
   /**
    * Insert an edge into the store as a SIMILAR_TO relationship.
    */
-  insertSimilarityEdge(store: SqliteStore, edge: SimilarityEdge, projectId: string): void {
+  insertSimilarityEdge(store: InMemoryGraphStore, edge: SimilarityEdge, projectId: string): void {
     const now = new Date().toISOString();
     const graphEdge: GraphEdge = {
       id: 0, // Will be assigned by store

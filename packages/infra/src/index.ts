@@ -2,7 +2,8 @@
 // Storage, Git, Filesystem, Workers, Cache, and Supervisor
 
 // Storage
-export { SqliteStore } from './storage/sqlite-store.js';
+export { InMemoryGraphStore } from './storage/in-memory-graph-store.js';
+export { SqliteGraphStore, deleteDatabase } from './storage/sqlite-graph-store.js';
 export type {
   NodeQuery,
   EdgeQuery,
@@ -36,3 +37,14 @@ export type { SupervisorConfig, SupervisorOptions } from './workers/supervisor.j
 // Parse Cache
 export { createParseCache, computeContentHash } from './cache/parse-cache.js';
 export type { ParseCache } from './cache/parse-cache.js';
+
+// Parallel Indexer
+export { ParallelIndexer } from './workers/parallel-indexer.js';
+export type {
+  ParallelIndexerConfig,
+  IndexProgress,
+  IndexerOptions,
+  IndexerResult,
+  IndexerError,
+  BatchParseResult,
+} from './workers/parallel-indexer.js';

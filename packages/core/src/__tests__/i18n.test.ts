@@ -94,8 +94,8 @@ describe('DefaultTranslator', () => {
   });
 
   it('should handle multiple interpolation parameters', () => {
-    const result = translator.t('lifecycle.init', { component: 'SQLiteStore' });
-    expect(result).toContain('SQLiteStore');
+    const result = translator.t('lifecycle.init', { component: 'InMemoryGraphStore' });
+    expect(result).toContain('InMemoryGraphStore');
     expect(result).not.toContain('{component}');
   });
 

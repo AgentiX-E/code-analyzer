@@ -565,5 +565,24 @@ describe('Session Store', () => {
       expect(sessions[0]!.mode).toBe('unknown');
       expect(sessions[0]!.status).toBe('running');
     });
+
+    it('should handle recordItemDone with unknown session ID', () => {
+      const item: ReviewItemResult = {
+        filePath: '/test.ts',
+        fingerprint: 'abc',
+        comments: [],
+        duration: 100,
+      };
+      expect(() => store.recordItemDone('unknown-session', item)).not.toThrow();
+    });
+
+    it('should handle recordItemFailed with unknown session ID', () => {
+      const error: ReviewItemError = {
+        filePath: '/test.ts',
+        fingerprint: 'abc',
+        error: 'Something went wrong',
+      };
+      expect(() => store.recordItemFailed('unknown-session', error)).not.toThrow();
+    });
   });
 });

@@ -10,6 +10,7 @@ import type {
   ChatResponseStream,
   CancellationToken,
   ClassifiedIntent,
+  SlashCommand,
 } from '../participant/code-analyzer-participant.js';
 import { EngineBridge } from '../services/engine-bridge.js';
 
@@ -614,5 +615,409 @@ describe('CodeAnalyzerChatParticipant — handleRequest', () => {
       makeToken(false),
     );
     expect(result.metadata?.intent).toBe('debug');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Slash Command Tests
+// ---------------------------------------------------------------------------
+
+describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
+  let participant: CodeAnalyzerChatParticipant;
+
+  beforeEach(() => {
+    const engine = new EngineBridge();
+    engine.setProjectId('test');
+    participant = new CodeAnalyzerChatParticipant(engine);
+  });
+
+  // -------------------------------------------------------------------------
+  // /review
+  // -------------------------------------------------------------------------
+
+  describe('/review', () => {
+    it('returns metadata for review command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'review', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('review');
+      expect(result.metadata).toHaveProperty('issuesFound');
+      expect(result.metadata).toHaveProperty('filesChanged');
+    });
+
+    it('streams markdown content for review', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'review', '', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Code Review');
+    });
+
+    it('handles review via handleRequest with command field', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('', 'review'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('review');
+    });
+
+    it('handles review from prompt text "/review"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/review'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('review');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // /explain
+  // -------------------------------------------------------------------------
+
+  describe('/explain', () => {
+    it('returns metadata for explain command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'explain', 'UserService', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('explain');
+      expect(result.metadata?.symbol).toBe('UserService');
+    });
+
+    it('streams explanation content', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'explain', 'UserService', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Symbol Explanation');
+    });
+
+    it('handles missing params gracefully', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'explain', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('missing_params');
+      expect(stream.content).toContain('Usage');
+    });
+
+    it('handles explain from prompt text "/explain auth"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/explain auth'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('explain');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // /impact
+  // -------------------------------------------------------------------------
+
+  describe('/impact', () => {
+    it('returns metadata for impact command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'impact', 'Database', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('impact');
+      expect(result.metadata?.symbol).toBe('Database');
+    });
+
+    it('streams impact analysis content', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'impact', 'Database', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Impact Analysis');
+    });
+
+    it('handles missing params gracefully', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'impact', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('missing_params');
+      expect(stream.content).toContain('Usage');
+    });
+
+    it('handles impact from prompt "/impact CacheService"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/impact CacheService'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('impact');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // /find
+  // -------------------------------------------------------------------------
+
+  describe('/find', () => {
+    it('returns metadata for find command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'find', 'login', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('find');
+      expect(result.metadata?.query).toBe('login');
+    });
+
+    it('streams search results content', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'find', 'login', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Search Results');
+    });
+
+    it('handles empty query gracefully', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'find', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('missing_params');
+    });
+
+    it('handles find from prompt "/find UserService"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/find UserService'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('find');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // /deps
+  // -------------------------------------------------------------------------
+
+  describe('/deps', () => {
+    it('returns metadata for deps command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'deps', 'UserService', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('deps');
+      expect(result.metadata?.symbol).toBe('UserService');
+    });
+
+    it('streams dependency graph content', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'deps', 'UserService', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Dependency Graph');
+    });
+
+    it('shows upstream and downstream sections', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'deps', 'UserService', stream, makeToken(false),
+      );
+      expect(stream.content).toContain('Upstream');
+      expect(stream.content).toContain('Downstream');
+    });
+
+    it('handles missing params gracefully', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'deps', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('missing_params');
+    });
+
+    it('handles deps from prompt "/deps AuthService"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/deps AuthService'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('deps');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // /refactor
+  // -------------------------------------------------------------------------
+
+  describe('/refactor', () => {
+    it('returns metadata for refactor command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'refactor', 'UserService', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('refactor');
+      expect(result.metadata).toHaveProperty('opportunitiesCount');
+    });
+
+    it('streams refactoring content', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'refactor', 'UserService', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Refactoring');
+    });
+
+    it('handles missing params gracefully', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'refactor', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('missing_params');
+    });
+
+    it('handles refactor from prompt "/refactor BigFunction"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/refactor BigFunction'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('refactor');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // /test
+  // -------------------------------------------------------------------------
+
+  describe('/test', () => {
+    it('returns metadata for test command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'test', 'UserService', stream, makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('test');
+      expect(result.metadata).toHaveProperty('testCount');
+      expect(result.metadata).toHaveProperty('gapsCount');
+    });
+
+    it('streams test coverage content', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'test', 'UserService', stream, makeToken(false),
+      );
+      expect(stream.length).toBeGreaterThan(0);
+      expect(stream.content).toContain('Test Coverage');
+    });
+
+    it('shows existing tests and coverage gaps sections', async () => {
+      const stream = makeStream();
+      await participant.handleSlashCommand(
+        'test', 'UserService', stream, makeToken(false),
+      );
+      expect(stream.content).toContain('Existing Tests');
+    });
+
+    it('handles missing params gracefully', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'test', '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('missing_params');
+    });
+
+    it('handles test from prompt "/test AuthService"', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/test AuthService'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.command).toBe('test');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Slash Command Edge Cases
+  // -------------------------------------------------------------------------
+
+  describe('edge cases', () => {
+    it('handles cancelled token for slash command', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'review', '', stream, makeToken(true),
+      );
+      expect(result.metadata).toEqual({ cancelled: true });
+      expect(stream.content).toBe('');
+    });
+
+    it('handles unknown slash command as error', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'unknown' as SlashCommand, '', stream, makeToken(false),
+      );
+      expect(result.metadata?.error).toBe('unknown_command');
+      expect(stream.content).toContain('Unknown Command');
+    });
+
+    it('handles slash command with extra whitespace in params', async () => {
+      const stream = makeStream();
+      const result = await participant.handleSlashCommand(
+        'explain', '  MySymbol  ', stream, makeToken(false),
+      );
+      expect(result.metadata?.symbol).toBe('MySymbol');
+    });
+
+    it('respects cancellation during slash command execution', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('/review'),
+        makeContext(),
+        stream,
+        makeToken(true),
+      );
+      expect(result.metadata).toEqual({ cancelled: true });
+    });
+
+    it('handleRequest falls back to intent classification for non-slash prompts', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('how does auth work'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.intent).toBe('explore');
+    });
+
+    it('handleRequest falls back to intent classification for random text', async () => {
+      const stream = makeStream();
+      const result = await participant.handleRequest(
+        makeRequest('just some text here'),
+        makeContext(),
+        stream,
+        makeToken(false),
+      );
+      expect(result.metadata?.intent).toBeDefined();
+    });
   });
 });

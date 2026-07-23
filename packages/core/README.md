@@ -173,8 +173,8 @@ t.t('config.loading');
 t.t('config.loadedGlobal', { path: '/home/user/.code-analyzer/config.json' });
 // "Merged global config from /home/user/.code-analyzer/config.json"
 
-t.t('lifecycle.shutdownTimeout', { component: 'sqlite-store', timeout: 5000 });
-// "Shutdown timed out for component "sqlite-store" after 5000ms"
+t.t('lifecycle.shutdownTimeout', { component: 'in-memory-graph-store', timeout: 5000 });
+// "Shutdown timed out for component "in-memory-graph-store" after 5000ms"
 
 // Use custom translator for testing
 setTranslator({

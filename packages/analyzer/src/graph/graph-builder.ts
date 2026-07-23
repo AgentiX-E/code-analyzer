@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Knowledge Graph Builder
 
-import type { SqliteStore } from '@code-analyzer/infra';
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
   KnowledgeGraph,
   GraphNode,
@@ -22,11 +22,11 @@ export interface IntegrityReport {
 }
 
 export class GraphBuilder {
-  private readonly store: SqliteStore;
+  private readonly store: InMemoryGraphStore;
   private nextNodeId: number;
   private nextEdgeId: number;
 
-  constructor(store: SqliteStore) {
+  constructor(store: InMemoryGraphStore) {
     this.store = store;
     this.nextNodeId = 1;
     this.nextEdgeId = 1;
@@ -73,14 +73,23 @@ export class GraphBuilder {
     return graph;
   }
 
-  /** Dump in-memory graph to SQLite store */
+  /** Dump in-memory graph to store */
   dumpToStore(graph: KnowledgeGraph, projectId: string): void {
+    // Map old graph node IDs to new store node IDs
+    const idMap = new Map<number, number>();
+
     for (const [, node] of graph.nodes) {
-      this.store.insertNode({ ...node, projectId });
+      const newId = this.store.insertNode({ ...node, projectId });
+      idMap.set(node.id, newId);
     }
 
     for (const [, edge] of graph.edges) {
-      this.store.insertEdge({ ...edge, projectId });
+      this.store.insertEdge({
+        ...edge,
+        projectId,
+        sourceId: idMap.get(edge.sourceId) ?? edge.sourceId,
+        targetId: idMap.get(edge.targetId) ?? edge.targetId,
+      });
     }
   }
 
@@ -136,10 +145,109 @@ export class GraphBuilder {
   }
 
   // -------------------------------------------------------------------------
-  // Private Helpers
+  // Public Graph Manipulation Methods (for pipeline phases)
   // -------------------------------------------------------------------------
 
-  private createNode(
+  /**
+   * Create a node and add it to the graph.
+   * Safe across multiple GraphBuilder instances — resolves ID conflicts.
+   * Returns the created GraphNode.
+   */
+  addNode(
+    graph: KnowledgeGraph,
+    label: NodeLabel,
+    name: string,
+    properties: NodeProperties,
+    qualifiedName?: string,
+  ): GraphNode {
+    // If qualified name already exists, return the existing node
+    if (qualifiedName && graph.qnameIndex.has(qualifiedName)) {
+      const existingId = graph.qnameIndex.get(qualifiedName)!;
+      const existingNode = graph.nodes.get(existingId);
+      if (existingNode) {
+        return existingNode;
+      }
+    }
+
+    const node = this.createNode(label, name, properties);
+    // Ensure no ID conflicts with existing graph nodes (multiple builder instances)
+    while (graph.nodes.has(node.id)) {
+      node.id = this.nextNodeId++;
+    }
+    if (qualifiedName) {
+      node.qualifiedName = qualifiedName;
+    }
+    graph.nodes.set(node.id, node);
+
+    // Index by qualified name
+    if (node.qualifiedName && !graph.qnameIndex.has(node.qualifiedName)) {
+      graph.qnameIndex.set(node.qualifiedName, node.id);
+    }
+
+    // Index File/Folder nodes by filePath
+    if ((label === 'File' || label === 'Folder') && node.filePath) {
+      graph.fileIndex.set(node.filePath, node.id);
+    }
+
+    return node;
+  }
+
+  /**
+   * Create an edge and add it to the graph.
+   * Safe across multiple GraphBuilder instances — resolves ID conflicts.
+   * Returns the created GraphEdge.
+   */
+  addEdge(
+    graph: KnowledgeGraph,
+    sourceId: number,
+    targetId: number,
+    type: RelationshipType,
+    projectId: string,
+  ): GraphEdge {
+    const edge = this.createEdge(sourceId, targetId, type, projectId);
+    // Ensure no ID conflicts with existing graph edges (multiple builder instances)
+    while (graph.edges.has(edge.id)) {
+      edge.id = this.nextEdgeId++;
+    }
+    graph.edges.set(edge.id, edge);
+    return edge;
+  }
+
+  /**
+   * Find a folder node ID for a given path, creating intermediate folder nodes
+   * as needed. Returns the leaf folder node ID.
+   */
+  ensureFolderPath(
+    graph: KnowledgeGraph,
+    rootPath: string,
+    relativePath: string,
+  ): number {
+    const parts = relativePath.split('/').filter((p) => p.length > 0);
+    let currentPath = rootPath;
+    let parentId = graph.fileIndex.get(rootPath)!;
+
+    for (const part of parts) {
+      currentPath = `${currentPath}/${part}`;
+      let folderId = graph.fileIndex.get(currentPath);
+      if (!folderId) {
+        const folderNode = this.addNode(graph, 'Folder', currentPath, {
+          name: part,
+          filePath: currentPath,
+        }, `folder:${currentPath}`);
+        folderId = folderNode.id;
+        this.addEdge(graph, parentId, folderId, 'CONTAINS', graph.projectId);
+      }
+      parentId = folderId;
+    }
+
+    return parentId;
+  }
+
+  // -------------------------------------------------------------------------
+  // Node/Edge Factory Methods (public for external use)
+  // -------------------------------------------------------------------------
+
+  createNode(
     label: NodeLabel,
     name: string,
     properties: NodeProperties,
@@ -167,7 +275,7 @@ export class GraphBuilder {
     };
   }
 
-  private createEdge(
+  createEdge(
     sourceId: number,
     targetId: number,
     type: RelationshipType,

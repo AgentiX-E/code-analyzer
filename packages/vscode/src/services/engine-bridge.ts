@@ -2,7 +2,7 @@
 // Facade that bridges the VS Code extension to the bundled analyzer engine.
 // Abstracts all intelligence-layer operations behind simplified methods.
 
-import { SqliteStore, createGitOperations } from '@code-analyzer/infra';
+import { InMemoryGraphStore, createGitOperations } from '@code-analyzer/infra';
 import {
   HybridSearchEngine,
   CodeReviewEngine,
@@ -57,14 +57,43 @@ export interface StandardsResultItem {
   message: string;
 }
 
+export interface SymbolDetailItem {
+  name: string;
+  qualifiedName: string;
+  filePath: string;
+  signature?: string;
+  docstring?: string;
+  label: string;
+  isExported: boolean;
+}
+
+export interface ComplexityMetricsItem {
+  cyclomaticComplexity: number;
+  linesOfCode: number;
+  parameterCount: number;
+  nestingDepth: number;
+}
+
+export interface SearchResultWithScore extends SearchResultItem {
+  relevanceScore: number;
+}
+
 export type IndexingListener = () => void;
+
+export type IndexingProgressListener = (state: IndexingState) => void;
+
+export interface IndexingState {
+  status: 'idle' | 'indexing' | 'ready' | 'error';
+  symbolCount: number;
+  progress: number;
+}
 
 // ---------------------------------------------------------------------------
 // EngineBridge
 // ---------------------------------------------------------------------------
 
 export class EngineBridge {
-  private store: SqliteStore;
+  private store: InMemoryGraphStore;
   private searchEngine: HybridSearchEngine;
   private reviewEngine: CodeReviewEngine;
   private standards: StandardsEngine;
@@ -74,13 +103,14 @@ export class EngineBridge {
   private initialized = false;
   private projectId: string | null = null;
   private indexingListeners: IndexingListener[] = [];
+  private progressListeners: IndexingProgressListener[] = [];
 
   constructor(context?: { globalStorageUri?: { fsPath: string } }) {
     const dbPath =
       context?.globalStorageUri?.fsPath
         ? `${context.globalStorageUri.fsPath}/graph.db`
         : ':memory:';
-    this.store = new SqliteStore(dbPath);
+    this.store = new InMemoryGraphStore(dbPath);
     this.searchEngine = new HybridSearchEngine(this.store);
     this.reviewEngine = new CodeReviewEngine(this.store);
     this.standards = new StandardsEngine();
@@ -102,7 +132,7 @@ export class EngineBridge {
       this.searchEngine.initialize();
     } catch {
       // Store was closed, recreate all components
-      this.store = new SqliteStore(':memory:');
+      this.store = new InMemoryGraphStore(':memory:');
       this.searchEngine = new HybridSearchEngine(this.store);
       this.reviewEngine = new CodeReviewEngine(this.store);
       this.changeDetector = new ChangeDetector(this.store);
@@ -132,10 +162,33 @@ export class EngineBridge {
     this.indexingListeners.push(fn);
   }
 
+  onIndexingProgress(fn: IndexingProgressListener): void {
+    this.progressListeners.push(fn);
+  }
+
   private notifyIndexingComplete(): void {
     for (const fn of this.indexingListeners) {
       fn();
     }
+    this.notifyProgress({ status: 'ready', symbolCount: this.store.getAllNodes().length, progress: 100 });
+  }
+
+  private notifyProgress(state: IndexingState): void {
+    for (const fn of this.progressListeners) {
+      fn(state);
+    }
+  }
+
+  /**
+   * Return the current indexing state for status bar display.
+   */
+  getIndexingState(): IndexingState {
+    const nodeCount = this.store.getAllNodes().length;
+    return {
+      status: this.initialized ? 'ready' : 'idle',
+      symbolCount: nodeCount,
+      progress: this.initialized ? 100 : 0,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -310,6 +363,138 @@ export class EngineBridge {
       passed: r.passed,
       message: r.ruleDescription,
     }));
+  }
+
+  // -------------------------------------------------------------------------
+  // Symbol Details — full symbol info with signature and docstring
+  // -------------------------------------------------------------------------
+
+  async getSymbolDetail(entity: string): Promise<SymbolDetailItem | undefined> {
+    if (!this.projectId) return undefined;
+    const node = this.store.getNodeByQualifiedName(entity);
+    if (!node) return undefined;
+
+    return {
+      name: node.name,
+      qualifiedName: node.qualifiedName,
+      filePath: node.filePath ?? '',
+      signature: node.signature ?? undefined,
+      docstring: node.docstring ?? undefined,
+      label: node.label,
+      isExported: node.isExported,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Callees — find symbols called by the given symbol (outgoing edges)
+  // -------------------------------------------------------------------------
+
+  async findCallees(entity: string): Promise<TraceResultItem[]> {
+    if (!this.projectId) return [];
+    const node = this.store.getNodeByQualifiedName(entity);
+    if (!node) return [];
+
+    const outgoingEdges = this.store.queryEdges({
+      projectId: this.projectId,
+      sourceId: node.id,
+      type: 'CALLS',
+      limit: 100,
+    });
+
+    return outgoingEdges.items.map((e) => {
+      const targetNode = this.store.getNode(e.targetId);
+      return {
+        name: targetNode?.name ?? `node-${e.targetId}`,
+        filePath: targetNode?.filePath ?? '',
+      };
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Related Tests — find tests that test a given symbol
+  // -------------------------------------------------------------------------
+
+  async findRelatedTests(entity: string): Promise<TraceResultItem[]> {
+    if (!this.projectId) return [];
+    const node = this.store.getNodeByQualifiedName(entity);
+    if (!node) return [];
+
+    const testEdges = this.store.queryEdges({
+      projectId: this.projectId,
+      targetId: node.id,
+      type: 'TESTS',
+      limit: 100,
+    });
+
+    return testEdges.items.map((e) => {
+      const testNode = this.store.getNode(e.sourceId);
+      return {
+        name: testNode?.name ?? `test-${e.sourceId}`,
+        filePath: testNode?.filePath ?? '',
+      };
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Complexity Metrics
+  // -------------------------------------------------------------------------
+
+  async getComplexityMetrics(entity: string): Promise<ComplexityMetricsItem> {
+    if (!this.projectId) {
+      return { cyclomaticComplexity: 0, linesOfCode: 0, parameterCount: 0, nestingDepth: 0 };
+    }
+    const node = this.store.getNodeByQualifiedName(entity);
+    if (!node) {
+      return { cyclomaticComplexity: 0, linesOfCode: 0, parameterCount: 0, nestingDepth: 0 };
+    }
+
+    const lineCount = node.endLine !== null && node.startLine !== null
+      ? node.endLine - node.startLine + 1
+      : 0;
+
+    return {
+      cyclomaticComplexity: node.complexity ?? 0,
+      linesOfCode: lineCount,
+      parameterCount: 0, // Would require AST parsing
+      nestingDepth: 0,   // Would require AST parsing
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Search with Scores — search returning relevance scores
+  // -------------------------------------------------------------------------
+
+  async searchWithScores(query: string): Promise<SearchResultWithScore[]> {
+    if (!this.projectId) return [];
+    const results = await this.searchEngine.search({
+      query,
+      projectId: this.projectId,
+      limit: 20,
+    });
+    return results.map((r) => ({
+      name: r.node.name,
+      filePath: r.node.filePath ?? '',
+      label: r.node.label,
+      relevanceScore: r.combinedScore,
+    }));
+  }
+
+  // -------------------------------------------------------------------------
+  // Incremental re-index for file watcher
+  // -------------------------------------------------------------------------
+
+  /**
+   * Trigger a re-index for changed files. Called by the file watcher
+   * after files have been modified on disk.
+   */
+  async incrementalReindex(_changedFiles: string[]): Promise<void> {
+    if (!this.initialized) return;
+
+    // Rebuild the search index to reflect any changes
+    this.searchEngine.rebuildIndex();
+
+    // Notify listeners that indexing state has changed
+    this.notifyIndexingComplete();
   }
 
   // -------------------------------------------------------------------------

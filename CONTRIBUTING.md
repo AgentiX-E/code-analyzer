@@ -116,7 +116,7 @@ pnpm vitest run --coverage
 ### Test Categories
 
 - **Unit tests** — Reside in `packages/*/src/**/*.test.ts`. Test individual functions/modules in isolation. Fast, no I/O.
-- **Integration tests** — Reside in `tests/integration/`. Test interactions between packages. May use SQLite or file system.
+- **Integration tests** — Reside in `tests/integration/`. Test interactions between packages. May use the in-memory graph store or file system.
 - **Property-based tests** — Reside in `tests/property/`. Use `fast-check` to verify invariants with random inputs.
 - **E2E tests** — Reside in `tests/e2e/`. Full CLI or server tests exercising the complete pipeline.
 
@@ -273,6 +273,135 @@ pnpm changeset
 ```
 
 Follow the prompts to select affected packages and describe the change.
+
+## Publishing Packages
+
+### Release Checklist
+
+Before cutting a release, ensure the following:
+
+- [ ] All CI checks pass on `main` (build, lint, typecheck, test, benchmarks)
+- [ ] Coverage thresholds are met (95% lines, 90% branches, 95% functions, 95% statements)
+- [ ] No benchmark regressions >20%
+- [ ] `CHANGELOG.md` is up to date with all changes since last release
+- [ ] Version numbers are consistent across root `package.json` and all sub-packages
+- [ ] Breaking changes are documented in the changelog
+- [ ] `pnpm build` completes successfully
+- [ ] `pnpm test` passes with all test suites
+
+### Version Bumping Process
+
+We use [Changesets](https://github.com/changesets/changesets) for version management.
+
+1. **Create a changeset** for each PR that changes package behavior:
+
+   ```bash
+   pnpm changeset
+   ```
+
+   Select the affected packages and choose the appropriate bump type:
+   - `major` — breaking changes
+   - `minor` — new features (backwards compatible)
+   - `patch` — bug fixes and small improvements
+
+2. **Bump versions** when preparing a release:
+
+   ```bash
+   pnpm version
+   ```
+
+   This updates `package.json` files and `CHANGELOG.md` entries based on all pending changesets.
+
+3. **Commit the version bump**:
+
+   ```bash
+   git add .
+   git commit -m "chore: bump versions for release"
+   git push
+   ```
+
+### Publishing to npm
+
+Releases to npm are automated via GitHub Actions. To publish:
+
+1. Ensure all changes are merged to `main` and CI passes
+2. Bump versions using the process above
+3. Create a GitHub Release:
+   - Tag: `v{version}` (e.g., `v0.2.0`)
+   - Title: `v{version}`
+   - Description: Copy the relevant section from `CHANGELOG.md`
+   - Click "Publish release"
+
+The `.github/workflows/publish-npm.yml` workflow triggers on release publish and will:
+- Build all packages
+- Run the full test suite with coverage
+- Publish all packages to npm with `--access public`
+
+**Prerequisites:**
+- An `npm` environment in GitHub repository settings
+- `NPM_TOKEN` secret configured in that environment
+
+### Publishing Docker Image
+
+Multi-arch Docker images are built and pushed automatically:
+
+1. Create a GitHub Release as described above
+2. The `.github/workflows/publish-docker.yml` workflow triggers on release publish
+3. Images are built for `linux/amd64` and `linux/arm64` platforms
+4. Tags: `latest`, `vX.Y.Z`, `vX.Y`, `vX`
+
+**Prerequisites:**
+- A `docker` environment in GitHub repository settings
+- `DOCKER_USERNAME` and `DOCKER_TOKEN` secrets configured
+
+Manual multi-arch build (for local testing):
+
+```bash
+# Create a builder
+docker buildx create --use
+
+# Build and push
+VERSION=0.2.0 docker buildx bake --push
+```
+
+### Publishing VS Code Extension
+
+The VS Code extension is published to both VS Code Marketplace and Open VSX Registry:
+
+1. Create a GitHub Release as described above
+2. The `.github/workflows/publish-vscode.yml` workflow triggers on release publish
+
+**Prerequisites:**
+- A `vscode-marketplace` environment in GitHub repository settings
+- `VSCODE_MARKETPLACE_TOKEN` and `OPEN_VSX_TOKEN` secrets configured
+
+### Changelog Requirements
+
+All notable changes must be documented in `CHANGELOG.md`. Follow these guidelines:
+
+- Use [Keep a Changelog](https://keepachangelog.com/) format
+- Group changes by categories: Added, Changed, Deprecated, Removed, Fixed, Security
+- Reference relevant issues and PR numbers
+- Include migration instructions for breaking changes
+- Summarize high-level impact at the top of each release section
+- Archive older releases under a collapsible "Version History" section
+
+Example entry:
+
+```markdown
+## [0.2.0] — YYYY-MM-DD
+
+### Added
+- Feature description (#123)
+
+### Changed
+- Breaking change description with migration guide (#456)
+
+### Fixed
+- Bug fix description (#789)
+```
+
+---
 
 ## Questions?
 

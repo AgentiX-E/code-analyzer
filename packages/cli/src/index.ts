@@ -2,6 +2,7 @@
 // @code-analyzer/cli — Command Line Interface
 
 import { Command } from 'commander';
+import { createAgentCommand } from './commands/agent.js';
 
 const program = new Command();
 
@@ -25,5 +26,8 @@ program
   .action((_query: string) => {
     console.log(`Searching for "${_query}"...`);
   });
+
+// Agent integration commands
+program.addCommand(createAgentCommand());
 
 program.parse();

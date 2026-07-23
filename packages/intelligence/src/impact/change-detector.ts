@@ -7,7 +7,7 @@ import type {
   GraphNode,
   RelationshipType,
 } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -58,7 +58,7 @@ const DEPENDENT_RELATIONSHIPS: RelationshipType[] = [
 // ---------------------------------------------------------------------------
 
 export class ChangeDetector {
-  constructor(private store: SqliteStore) {}
+  constructor(private store: InMemoryGraphStore) {}
 
   /**
    * Detect changed symbols from a set of git diffs.

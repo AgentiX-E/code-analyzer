@@ -12,8 +12,9 @@ import {
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { MCPServerConfig, ToolDefinition, ResourceDefinition, PromptDefinition } from '@code-analyzer/shared';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { createToolRegistry, ToolRegistry } from '../tools/index.js';
+import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
 import { registerResources } from '../resources/index.js';
 import { registerPrompts } from '../prompts/index.js';
 import { AuthMiddleware, RateLimiter, RequestLogger } from '../middleware/index.js';
@@ -40,7 +41,8 @@ export class CodeAnalyzerMCPServer {
   private server: Server;
   private config: MCPServerConfig;
   private registry: ToolRegistry;
-  private store: SqliteStore;
+  private store: InMemoryGraphStore;
+  private toolContext: ToolContext;
   private auth: AuthMiddleware;
   private rateLimiter: RateLimiter;
   private logger: RequestLogger;
@@ -49,7 +51,8 @@ export class CodeAnalyzerMCPServer {
 
   constructor(config: Partial<MCPServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.store = new SqliteStore();
+    this.store = new InMemoryGraphStore();
+    this.toolContext = new ToolContextImpl(this.store);
     this.registry = createToolRegistry();
     this.auth = new AuthMiddleware();
     this.rateLimiter = new RateLimiter();
@@ -112,8 +115,8 @@ export class CodeAnalyzerMCPServer {
           };
         }
 
-        // Execute tool
-        const result = await this.registry.execute(name, argsObj, this.store);
+        // Execute tool with ToolContext
+        const result = await this.registry.execute(name, argsObj, this.toolContext);
 
         // Log request
         this.logger.log({
@@ -246,9 +249,14 @@ export class CodeAnalyzerMCPServer {
     return this.registry;
   }
 
-  /** Get the SQLite store. */
-  getStore(): SqliteStore {
+  /** Get the in-memory graph store. */
+  getStore(): InMemoryGraphStore {
     return this.store;
+  }
+
+  /** Get the ToolContext wrapping all analysis services. */
+  getToolContext(): ToolContext {
+    return this.toolContext;
   }
 
   /** Get the server configuration. */

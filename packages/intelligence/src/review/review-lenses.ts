@@ -72,7 +72,7 @@ export interface LensFinding {
   confidence: 'rule' | 'heuristic' | 'graph' | 'low';
   /**
    * Knowledge graph context — related entities from the code intelligence graph.
-   * Populated during enrichment phase if a SqliteStore is available.
+   * Populated during enrichment phase if a InMemoryGraphStore is available.
    */
   graphContext?: {
     /** Callers of the flagged function */

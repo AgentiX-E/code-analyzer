@@ -1,12 +1,12 @@
 // @code-analyzer — Real Integration Tests (No Mocks)
-// Tests using REAL SqliteStore, real git repos, real file I/O, and real language parsers.
+// Tests using REAL InMemoryGraphStore, real git repos, real file I/O, and real language parsers.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execSync } from 'node:child_process';
-import { SqliteStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { createGitOperations } from '@code-analyzer/infra';
 import { createFileDiscoverer } from '@code-analyzer/infra';
 import { StandardsEngine } from '@code-analyzer/intelligence';
@@ -27,6 +27,8 @@ import type { GitDiff, GraphNode, NodeLabel, RelationshipType } from '@code-anal
 function createTempGitRepo(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ca-int-'));
   execSync('git init', { cwd: dir, stdio: 'pipe' });
+  execSync('git config user.name "TestBot"', { cwd: dir, stdio: 'pipe' });
+  execSync('git config user.email "test@code-analyzer.dev"', { cwd: dir, stdio: 'pipe' });
   for (const [fp, content] of Object.entries(files)) {
     const full = path.join(dir, fp);
     fs.mkdirSync(path.dirname(full), { recursive: true });
@@ -47,9 +49,9 @@ function makeNode(name: string, qname: string, label: NodeLabel = 'Function'): G
   };
 }
 
-// ─── 1. SqliteStore Real Tests ───
-describe('SqliteStore (Real DB)', () => {
-  const store = new SqliteStore();
+// ─── 1. InMemoryGraphStore Real Tests ───
+describe('InMemoryGraphStore (Real DB)', () => {
+  const store = new InMemoryGraphStore();
   afterAll(() => store.close());
 
   it('inserts and retrieves a node', () => {
@@ -76,7 +78,7 @@ describe('SqliteStore (Real DB)', () => {
   });
 
   it('supports BFS traversal with real edges', () => {
-    const s = new SqliteStore();
+    const s = new InMemoryGraphStore();
     const a = s.insertNode(makeNode('a', 'p.a'));
     const b = s.insertNode(makeNode('b', 'p.b'));
     const c = s.insertNode(makeNode('c', 'p.c'));
@@ -167,7 +169,7 @@ describe('Language Parsers (Real Code)', () => {
 
 // ─── 4. Code Review Engine Real Tests ───
 describe('Code Review (Real Analysis)', () => {
-  const store = new SqliteStore();
+  const store = new InMemoryGraphStore();
   const engine = new CodeReviewEngine(store);
   afterAll(() => store.close());
 
@@ -279,7 +281,7 @@ describe('Memory Compressor (Real)', () => {
 // ─── 9. Hybrid Search Real Tests ───
 describe('Hybrid Search (Real)', () => {
   it('ranks results by relevance', async () => {
-    const store = new SqliteStore();
+    const store = new InMemoryGraphStore();
     const search = new HybridSearchEngine(store);
     for (let i = 0; i < 30; i++) store.insertNode(makeNode(`fn${i}`, `p.src.fn${i}`));
     const results = await search.search({ query: 'fn15', projectId: 'p', limit: 5 });

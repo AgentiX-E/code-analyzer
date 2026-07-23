@@ -1,290 +1,312 @@
-// @code-analyzer/analyzer — Go Provider
+// @code-analyzer/analyzer — Go Tree-sitter Provider
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
-import type { LanguageProvider, ParsedImport } from './provider.js';
+import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-
-
-function lineNumberAt(source: string, offset: number): number {
-  return source.slice(0, offset).split('\n').length;
-}
+import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const goExtensions = ['.go'];
 const goGlobs = ['**/*.go'];
 
-const GO_RESERVED_KEYWORDS: ReadonlySet<string> = new Set([
-  'break', 'case', 'chan', 'const', 'continue', 'default', 'defer',
-  'else', 'fallthrough', 'for', 'func', 'go', 'goto', 'if', 'import',
-  'interface', 'map', 'package', 'range', 'return', 'select', 'struct',
-  'switch', 'type', 'var',
-]);
-
-export class GoProvider implements LanguageProvider {
+export class GoProvider extends TreeSitterBaseProvider {
   readonly language = 'go';
   readonly displayName = 'Go';
   readonly extensions = goExtensions;
   readonly globs = goGlobs;
   readonly importSemantics = 'wildcard-leaf' as const;
 
-  parse(source: string, filePath: string): UnifiedCapture[] {
-    const captures: UnifiedCapture[] = [];
-
-    this.extractFunctions(source, filePath, captures);
-    this.extractStructs(source, filePath, captures);
-    this.extractInterfaces(source, filePath, captures);
-    this.extractImportsAsCaptures(source, filePath, captures);
-    this.extractPackages(source, filePath, captures);
-    this.extractVariables(source, filePath, captures);
-
-    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('tree-sitter-go') as TreeSitterLanguage;
+    } catch {
+      return null;
+    }
   }
 
-  extractImports(source: string): ParsedImport[] {
-    const imports: ParsedImport[] = [];
+  protected override getNodeMappings(): NodeTypeMapping[] {
+    return [
+      { nodeType: 'function_declaration', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
+      { nodeType: 'type_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'type_identifier' },
+      { nodeType: 'import_declaration', captureTag: CAPTURE_TAGS.IMPORT, useFirstNamedChild: true },
+    ];
+  }
 
-    // Single imports: import "path"
-    const singleImportRegex = /import\s+"([^"]+)"/g;
-    let match: RegExpExecArray | null;
-    while ((match = singleImportRegex.exec(source)) !== null) {
-      imports.push({
-        source: match[1]!,
-        names: [match[1]!.split('/').pop() ?? match[1]!],
-        type: 'named',
-        lineNumber: lineNumberAt(source, match.index),
-      });
-    }
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
 
-    // Named imports: import alias "path"
-    const namedImportRegex = /import\s+(\w+)\s+"([^"]+)"/g;
-    while ((match = namedImportRegex.exec(source)) !== null) {
-      imports.push({
-        source: match[2]!,
-        names: [match[1]!],
-        type: 'namespace',
-        lineNumber: lineNumberAt(source, match.index),
-      });
-    }
+    if (nodeType === 'function_declaration') {
+      const nameNode = this.findChildType(node, 'identifier');
+      if (nameNode) {
+        const exported = nameNode.text[0] === nameNode.text[0]?.toUpperCase();
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { exported: String(exported), filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'type_declaration') {
+      // Determine if it's a struct, interface, or type alias
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === 'type_spec') {
+          const nameNode = this.findChildType(child, 'type_identifier');
+          if (!nameNode) continue;
 
-    // Multi-line imports: import ( ... )
-    const multiImportRegex = /import\s*\(([\s\S]*?)\)/g;
-    while ((match = multiImportRegex.exec(source)) !== null) {
-      const body = match[1]!;
-      const lineRegex = /(?:(\w+)\s+)?"([^"]+)"/g;
-      let innerMatch: RegExpExecArray | null;
-      while ((innerMatch = lineRegex.exec(body)) !== null) {
-        const alias = innerMatch[1] ?? innerMatch[2]!.split('/').pop() ?? innerMatch[2]!;
-        imports.push({
-          source: innerMatch[2]!,
-          names: [alias],
-          type: innerMatch[1] ? 'namespace' : 'named',
-          lineNumber: lineNumberAt(source, match.index),
+          // Check what kind of type
+          const structType = this.findChildType(child, 'struct_type');
+          const ifaceType = this.findChildType(child, 'interface_type');
+
+          if (structType) {
+            captures.push({
+              tag: CAPTURE_TAGS.STRUCT_DEF,
+              text: `struct ${nameNode.text}`,
+              startLine: child.startPosition.row + 1,
+              endLine: child.endPosition.row + 1,
+              startByte: nameNode.startIndex,
+              endByte: nameNode.endIndex,
+              name: nameNode.text,
+              properties: { filePath: this.filePath },
+            });
+          } else if (ifaceType) {
+            captures.push({
+              tag: CAPTURE_TAGS.INTERFACE_DEF,
+              text: `interface ${nameNode.text}`,
+              startLine: child.startPosition.row + 1,
+              endLine: child.endPosition.row + 1,
+              startByte: nameNode.startIndex,
+              endByte: nameNode.endIndex,
+              name: nameNode.text,
+              properties: { filePath: this.filePath },
+            });
+          } else {
+            captures.push({
+              tag: CAPTURE_TAGS.TYPE_DEF,
+              text: `type ${nameNode.text}`,
+              startLine: child.startPosition.row + 1,
+              endLine: child.endPosition.row + 1,
+              startByte: nameNode.startIndex,
+              endByte: nameNode.endIndex,
+              name: nameNode.text,
+              properties: { filePath: this.filePath },
+            });
+          }
+        }
+      }
+    } else if (nodeType === 'method_declaration') {
+      // Find receiver type and method name
+      const nameNode = this.findChildType(node, 'field_identifier') || this.findChildType(node, 'identifier');
+      let receiverType: string | undefined;
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === 'parameter_list') {
+          // Check if it's a receiver (first param list)
+          for (let j = 0; j < child.childCount; j++) {
+            const p = child.child(j);
+            if (p.type === 'parameter_declaration') {
+              const typeId = this.findChildType(p, 'type_identifier') || this.findChildType(p, 'pointer_type');
+              if (typeId) {
+                receiverType = typeId.type === 'pointer_type'
+                  ? this.findChildType(typeId, 'type_identifier')?.text
+                  : typeId.text;
+              }
+              break;
+            }
+          }
+          break;
+        }
+      }
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.METHOD_DEF,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          containerName: receiverType,
+          properties: { receiverType: receiverType ?? '', filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'import_declaration') {
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'import_spec') {
+          let path = '';
+          let alias: string | undefined;
+          for (let j = 0; j < child.childCount; j++) {
+            const sub = child.child(j);
+            if (sub.type === 'interpreted_string_literal') {
+              path = sub.text.slice(1, -1);
+            } else if (sub.type === 'package_identifier') {
+              alias = sub.text;
+            }
+          }
+          if (path) {
+            captures.push({
+              tag: CAPTURE_TAGS.IMPORT,
+              text: path,
+              startLine: node.startPosition.row + 1,
+              endLine: node.endPosition.row + 1,
+              startByte: node.startIndex,
+              endByte: node.endIndex,
+              name: path,
+              properties: { alias: alias ?? '', filePath: this.filePath },
+            });
+          }
+        }
+      }
+    } else if (nodeType === 'var_declaration' || nodeType === 'const_declaration') {
+      const isConst = nodeType === 'const_declaration';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'var_spec' || child.type === 'const_spec') {
+          const idNode = this.findChildType(child, 'identifier');
+          if (idNode) {
+            captures.push({
+              tag: isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
+              text: idNode.text,
+              startLine: child.startPosition.row + 1,
+              endLine: child.endPosition.row + 1,
+              startByte: idNode.startIndex,
+              endByte: idNode.endIndex,
+              name: idNode.text,
+              properties: { filePath: this.filePath },
+            });
+          }
+        }
+      }
+    } else if (nodeType === 'package_clause') {
+      const nameNode = this.findChildType(node, 'package_identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: `package ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
         });
       }
     }
 
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkAndCapture(node.child(i), captures);
+    }
+  }
+
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'import_spec') {
+      let path = '';
+      let alias: string | undefined;
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === 'interpreted_string_literal') {
+          path = child.text.slice(1, -1);
+        } else if (child.type === 'package_identifier') {
+          alias = child.text;
+        }
+      }
+      if (path) {
+        const names = alias ? [alias] : [path.split('/').pop() ?? path];
+        imports.push({
+          source: path,
+          names,
+          type: alias ? 'namespace' : 'named',
+          lineNumber: node.startPosition.row + 1,
+        });
+      }
+      return;
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), imports);
+    }
+  }
+
+  protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    if (!symbolName) return false;
+    return symbolName[0] === symbolName[0]?.toUpperCase() && symbolName[0] !== symbolName[0]?.toLowerCase();
+  }
+
+  // Fallbacks
+  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+    const captures: UnifiedCapture[] = [];
+    let m: RegExpExecArray | null;
+    const funcRegex = /func\s+(\w+)\s*\(/g;
+    while ((m = funcRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const methRegex = /func\s+\((\w+)\s+\*?(\w+)\)\s+(\w+)\s*\(/g;
+    while ((m = methRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.METHOD_DEF, text: m[3]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[3]!, containerName: m[2]!, properties: { receiver: m[1]!, receiverType: m[2]!, filePath } });
+    }
+    const structRegex = /type\s+(\w+)\s+struct/g;
+    while ((m = structRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.STRUCT_DEF, text: `struct ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const ifaceRegex = /type\s+(\w+)\s+interface/g;
+    while ((m = ifaceRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.INTERFACE_DEF, text: `interface ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    }
+    const pkgRegex = /^package\s+(\w+)/m;
+    m = pkgRegex.exec(source);
+    if (m) captures.push({ tag: CAPTURE_TAGS.VARIABLE_DEF, text: `package ${m[1]!}`, startLine: 1, endLine: 1, startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    const imps = this.fallbackExtractImports(source);
+    for (const imp of imps) {
+      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+    }
+    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
+  }
+
+  protected override fallbackExtractImports(source: string): ParsedImport[] {
+    const imports: ParsedImport[] = [];
+    let m: RegExpExecArray | null;
+    const singleRegex = /import\s+"([^"]+)"/g;
+    while ((m = singleRegex.exec(source)) !== null) {
+      imports.push({ source: m[1]!, names: [m[1]!.split('/').pop() ?? m[1]!], type: 'named', lineNumber: this.ln(source, m.index) });
+    }
+    const namedRegex = /import\s+(\w+)\s+"([^"]+)"/g;
+    while ((m = namedRegex.exec(source)) !== null) {
+      imports.push({ source: m[2]!, names: [m[1]!], type: 'namespace', lineNumber: this.ln(source, m.index) });
+    }
+    const multiRegex = /import\s*\(([\s\S]*?)\)/g;
+    while ((m = multiRegex.exec(source)) !== null) {
+      const lineRegex = /(?:(\w+)\s+)?"([^"]+)"/g;
+      let inner: RegExpExecArray | null;
+      while ((inner = lineRegex.exec(m[1]!))) {
+        imports.push({ source: inner[2]!, names: [inner[1] ?? inner[2]!.split('/').pop() ?? inner[2]!], type: inner[1] ? 'namespace' : 'named', lineNumber: this.ln(source, m.index) });
+      }
+    }
     return imports;
   }
 
-  isExported(_source: string, symbolName: string): boolean {
-    // In Go, exported symbols start with uppercase
-    if (symbolName.length === 0) return false;
-    return symbolName[0] === symbolName[0]!.toUpperCase() && symbolName[0] !== symbolName[0].toLowerCase();
+  protected override fallbackIsExported(_source: string, symbolName: string): boolean {
+    if (!symbolName) return false;
+    return symbolName[0] === symbolName[0]?.toUpperCase() && symbolName[0] !== symbolName[0]?.toLowerCase();
   }
 
-  // --- Private extraction helpers ---
-
-  private extractFunctions(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // Regular functions: func Name(...)
-    const funcRegex = /func\s+(\w+)\s*\(/g;
-    let match: RegExpExecArray | null;
-    while ((match = funcRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      if (GO_RESERVED_KEYWORDS.has(name)) continue;
-      const startLine = lineNumberAt(source, match.index);
-      const endLine = this.findBlockEnd(source, match.index);
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_DEF,
-        text: name,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { exported: String(this.isExported(source, name)), filePath },
-      });
+  private findChildType(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
     }
-
-    // Methods: func (r Receiver) Name(...)
-    const methodRegex = /func\s+\((\w+)\s+\*?(\w+)\)\s+(\w+)\s*\(/g;
-    while ((match = methodRegex.exec(source)) !== null) {
-      const receiverName = match[1]!;
-      const receiverType = match[2]!;
-      const methodName = match[3]!;
-      const startLine = lineNumberAt(source, match.index);
-      const endLine = this.findBlockEnd(source, match.index);
-      captures.push({
-        tag: CAPTURE_TAGS.METHOD_DEF,
-        text: methodName,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name: methodName,
-        containerName: receiverType,
-        properties: { receiver: receiverName, receiverType, filePath },
-      });
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) return node.child(i);
     }
+    return null;
   }
 
-  private extractStructs(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const structRegex = /type\s+(\w+)\s+struct\s*\{/g;
-    let match: RegExpExecArray | null;
-    while ((match = structRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      const startLine = lineNumberAt(source, match.index);
-      const endLine = this.findBlockEnd(source, match.index + match[0].length);
-      captures.push({
-        tag: CAPTURE_TAGS.STRUCT_DEF,
-        text: `struct ${name}`,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-  }
-
-  private extractInterfaces(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const interfaceRegex = /type\s+(\w+)\s+interface\s*\{/g;
-    let match: RegExpExecArray | null;
-    while ((match = interfaceRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      const startLine = lineNumberAt(source, match.index);
-      const endLine = this.findBlockEnd(source, match.index + match[0].length);
-      captures.push({
-        tag: CAPTURE_TAGS.INTERFACE_DEF,
-        text: `interface ${name}`,
-        startLine,
-        endLine,
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-  }
-
-  private extractPackages(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const packageRegex = /^package\s+(\w+)/m;
-    const match = packageRegex.exec(source);
-    if (match) {
-      const name = match[1]!;
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: `package ${name}`,
-        startLine: lineNumberAt(source, match.index),
-        endLine: lineNumberAt(source, match.index),
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-  }
-
-  private extractVariables(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    // var declarations at package level
-    const varRegex = /var\s+(\w+)\s+/g;
-    let match: RegExpExecArray | null;
-    while ((match = varRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      if (GO_RESERVED_KEYWORDS.has(name)) continue;
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: name,
-        startLine: lineNumberAt(source, match.index),
-        endLine: lineNumberAt(source, match.index),
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-
-    // const declarations
-    const constRegex = /const\s+(\w+)\s+/g;
-    while ((match = constRegex.exec(source)) !== null) {
-      const name = match[1]!;
-      if (GO_RESERVED_KEYWORDS.has(name)) continue;
-      captures.push({
-        tag: CAPTURE_TAGS.CONSTANT_DEF,
-        text: name,
-        startLine: lineNumberAt(source, match.index),
-        endLine: lineNumberAt(source, match.index),
-        startByte: match.index,
-        endByte: match.index + match[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-  }
-
-  private extractImportsAsCaptures(source: string, filePath: string, captures: UnifiedCapture[]): void {
-    const parsedImports = this.extractImports(source);
-    for (const imp of parsedImports) {
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: imp.source,
-        startLine: imp.lineNumber,
-        endLine: imp.lineNumber,
-        startByte: 0,
-        endByte: 0,
-        name: imp.source,
-        properties: { names: imp.names.join(','), importType: imp.type, filePath },
-      });
-    }
-  }
-
-  private findBlockEnd(source: string, startOffset: number): number {
-    const slice = source.slice(startOffset);
-    const openPos = slice.indexOf('{');
-    if (openPos === -1) return lineNumberAt(source, startOffset);
-
-    let depth = 0;
-    let inString: string | null = null;
-    let inLineComment = false;
-
-    for (let i = openPos; i < slice.length; i++) {
-      const ch = slice[i]!;
-      const prev = i > 0 ? slice[i - 1] : '';
-
-      if (inLineComment) {
-        if (ch === '\n') inLineComment = false;
-        continue;
-      }
-
-      if (inString) {
-        if (ch === inString && prev !== '\\') inString = null;
-        continue;
-      }
-
-      if (prev === '/' && ch === '/') { inLineComment = true; continue; }
-
-      if (ch === '"' || ch === "'" || ch === '`') {
-        inString = ch;
-        continue;
-      }
-
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        if (depth === 0) return lineNumberAt(source, startOffset + i);
-        depth--;
-      }
-    }
-
-    return lineNumberAt(source, source.length);
+  private ln(source: string, offset: number): number {
+    return source.slice(0, offset).split('\n').length;
   }
 }

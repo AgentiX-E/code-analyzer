@@ -81,7 +81,7 @@ import {
   JavaScriptProvider,
   createAllPhases,
 } from '@code-analyzer/analyzer';
-import { SqliteStore, WorkerPool } from '@code-analyzer/infra';
+import { InMemoryGraphStore, WorkerPool } from '@code-analyzer/infra';
 
 // 1. Set up language providers
 const parser = new UnifiedParser([
@@ -109,7 +109,7 @@ const scopeTrees = resolver.buildScopeTrees(result.graph);
 const refs = resolver.resolveReferences(parsedFiles, scopeTrees, semanticModel);
 
 // 5. Build and validate the graph
-const store = new SqliteStore(':memory:');
+const store = new InMemoryGraphStore(':memory:');
 const builder = new GraphBuilder(store);
 const graph = builder.build(pipelineContext);
 const integrity = builder.validate(graph);
@@ -165,7 +165,7 @@ pruneLocalSymbols — Remove private symbols not needed externally
 communities    — Group related symbols into community clusters
 processes      — Discover CI/CD, Docker, and runtime processes
 tests          — Map test files to their targets
-dump           — Serialize the graph to the SQLite store
+dump           — Serialize the graph to the in-memory graph store
 similarity     — Compute MinHash fingerprints for duplicate detection
 semantic       — Build the semantic model from graph structure
 embed          — Generate vector embeddings for all nodes
@@ -287,7 +287,7 @@ const graph: KnowledgeGraph = builder.build(ctx);
 const report: IntegrityReport = builder.validate(graph);
 // { valid: true, nodeCount: 1500, edgeCount: 3200, orphanEdges: 0, ... }
 
-// Persist to SQLite
+// Persist to in-memory graph store
 builder.dumpToStore(graph, 'my-project');
 ```
 
@@ -311,7 +311,7 @@ No configuration needed — constructor takes no arguments.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `store` | `SqliteStore` | Yes | SQLite store for persistence |
+| `store` | `InMemoryGraphStore` | Yes | in-memory graph store for persistence |
 
 ## Package Dependency Tree
 
@@ -323,7 +323,7 @@ No configuration needed — constructor takes no arguments.
 ├── @code-analyzer/core (workspace:*)
 │   └── Core configuration and project model
 └── @code-analyzer/infra (workspace:*)
-    └── Infrastructure: SqliteStore, WorkerPool
+    └── Infrastructure: InMemoryGraphStore, WorkerPool
 ```
 
 ## License
@@ -340,4 +340,4 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup, coding stand
 - [docs/](../../docs/) — Design documents, API reference, and guides
 - `@code-analyzer/intelligence` — Semantic search, code review, and impact analysis layer
 - `@code-analyzer/shared` — Shared types and constants
-- `@code-analyzer/infra` — Infrastructure (SQLite store, worker pool)
+- `@code-analyzer/infra` — Infrastructure (in-memory graph store, worker pool)

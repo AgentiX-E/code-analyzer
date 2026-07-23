@@ -1,20 +1,64 @@
 # Code Analyzer
 
-> **World-class layered code intelligence platform.** Understand, search, and review code at unprecedented depth — available as an MCP server for AI agents, a VS Code extension with Copilot Chat integration, and a standalone CLI.
+> **Experimental code intelligence platform (Alpha).** Understand, search, and review code at depth — powered by an MCP server for AI agents, a VS Code extension with Copilot Chat integration, and a standalone CLI.
 
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](https://github.com/AgentiX-E/code-analyzer)
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions)
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/AgentiX-E/code-analyzer)
 [![Docs](https://img.shields.io/badge/docs-getting--started-blue)](docs/getting-started.md)
-[![npm](https://img.shields.io/npm/v/@code-analyzer/cli?color=blue)](https://www.npmjs.com/package/@code-analyzer/cli)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-green)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
+## Current Status
+
+> **Alpha — Active Development** · Core architecture is established. Most analysis and intelligence features are in development.
+
+Code Analyzer is in an early alpha stage. The architecture, shared type system, package structure, and MCP server framework are in place and well-tested. However, the analysis pipeline phases, intelligence layer features, and many MCP tool implementations are currently returning placeholder data. The project is approximately 30-40% complete; the sections below describe the target architecture and planned capabilities.
+
+### Feature Implementation Status
+
+| Feature Area | Status | Notes |
+|---|---|---|
+| Foundation layer (core types, config, logging, errors, i18n) | ✅ Implemented | Solid, well-tested foundation |
+| Infrastructure layer (file discovery, git ops, worker pool) | ✅ Implemented | In-memory store; SQLite persistence is planned |
+| Analysis pipeline framework (18-phase DAG orchestrator) | ✅ Implemented | Orchestrator and DAG logic complete; all phases return placeholder data |
+| Language providers (TS, JS, Python, Go, Java, Kotlin, C#, Rust) | ⚠️ Partial | Scaffolding in place; regex-based parsing stubs only |
+| Scope resolution & graph building | ⚠️ Partial | Types and interfaces defined; implementations returning zero results |
+| Hybrid search (BM25 + vector) | ⚠️ Partial | BM25 component functional on in-memory store; vector search is a stub |
+| Code review engine | ⚠️ Partial | Heuristic rules implemented; LLM integration is planned |
+| MCP server (38 tools, 15 resources, 5 prompts) | ⚠️ Partial | Framework complete; most tools return placeholder/empty data |
+| Cypher query engine | ✅ Implemented | Lexer, parser, planner, executor all functional |
+| Impact analysis & blast radius | ⬜ Planned | Types and interfaces defined |
+| Standards engine (10 templates) | ⬜ Planned | Architecture designed; rule execution is a stub |
+| Embeddings & semantic analysis | ⬜ Planned | Mock embedding provider only |
+| Cross-repo federation | ⬜ Planned | Tool definitions exist; no execution logic |
+| PDG & taint analysis | ⬜ Planned | Stub implementations only |
+| VS Code extension (sidebar, Copilot Chat, annotations) | ⬜ Planned | Package structure exists; UI not implemented |
+| Web UI | ⬜ Planned | Package scaffold only |
+| CLI commands | ⬜ Planned | Entry point exists; commands not implemented |
+| Incremental indexing & caching | ⬜ Planned | Cache infrastructure ready; not wired in |
+| CI/CD integrations | ⬜ Planned | Workflow files created; not tested end-to-end |
+
+### What Works Today
+
+- **Package architecture**: 10-package pnpm monorepo with Turborepo, strict layering, shared type system
+- **Foundation layer**: Config loading/validation, structured logging, error taxonomy, i18n, lifecycle management, metrics collection
+- **Infrastructure layer**: File discovery, file watcher, git operations (diff, history), worker pool with circuit breaker, parse cache, in-memory graph store with FTS, BFS, transactions, and integrity validation
+- **MCP server framework**: Tool registry, middleware (auth, rate limiting, request logging), transport layer (stdio + HTTP), Cypher query engine, skill installer, resources, prompts
+- **Pipeline orchestrator**: Kahn's algorithm-based DAG execution, dependency-aware phase skipping, context threading
+- **Test suite**: Comprehensive unit tests for core, infra, analyzer, and MCP packages
+
+### What is Under Development
+
+The next phase of development focuses on implementing the actual analysis logic in the pipeline phases, building out the intelligence layer (search, review, impact), connecting real parsing to the language providers, and adding SQLite persistence.
+
+---
+
 ## Overview
 
-**Code Analyzer** transforms raw source code into a structured knowledge graph with 33 entity types and 39 relationship types, enabling deep semantic queries, call-graph tracing, architecture analysis, and AI-assisted code review. It runs entirely locally — your code never leaves your machine.
+**Code Analyzer** aims to transform raw source code into a structured knowledge graph with 33 entity types and 39 relationship types, enabling deep semantic queries, call-graph tracing, architecture analysis, and AI-assisted code review. It runs entirely locally — your code never leaves your machine.
 
 **Who is this for?**
 - **AI agents and coding assistants** that need deep code intelligence via MCP
@@ -34,7 +78,7 @@ Layer 6: Integration     ← GitHub Actions, Custom Adapters
 Layer 5: Service         ← MCP Server (stdio/HTTP), REST API, WebSocket
 Layer 4: Intelligence    ← Search, Embeddings, Code Review, Impact Analysis
 Layer 3: Analysis Engine ← Pipeline, Parsing, Resolution, Graph Building
-Layer 2: Infrastructure  ← SQLite Store, Git, File System, Worker Pool
+Layer 2: Infrastructure  ← Storage, Git, File System, Worker Pool
 Layer 1: Foundation      ← Core Types, Config, Logging, Errors, I18n
 ```
 
@@ -43,7 +87,7 @@ Layer 1: Foundation      ← Core Types, Config, Logging, Errors, I18n
 | Layer | Input | Processing | Output |
 |-------|-------|------------|--------|
 | **1. Foundation** | Raw config files, env vars | Configuration loading, error taxonomy, structured logging, i18n strings | Typed configs, localized messages, metrics collectors |
-| **2. Infrastructure** | File paths, git refs | File discovery, git diff extraction, SQLite persistence, worker thread orchestration | File lists, diffs, stored graph data, computed results from worker pool |
+| **2. Infrastructure** | File paths, git refs | File discovery, git diff extraction, storage, worker thread orchestration | File lists, diffs, stored graph data, computed results |
 | **3. Analysis Engine** | Source files (8 languages) | Language-specific parsing, unified capture extraction, scope resolution, graph edge building | Unified knowledge graph (33 entity types × 39 relationship types) |
 | **4. Intelligence** | Knowledge graph, user queries | BM25 + vector hybrid search, PR diff review pipeline, impact analysis via graph traversal, LSH deduplication | Search results, review comments, impact reports, recommendations |
 | **5. Service** | MCP tool calls, HTTP requests | MCP protocol (tools/resources/prompts/skills), Cypher query execution, REST endpoints, WebSocket events | Structured tool results, HTTP JSON responses, real-time updates |
@@ -55,72 +99,53 @@ Layer 1: Foundation      ← Core Types, Config, Logging, Errors, I18n
 ## Features
 
 ### Deep Code Understanding
-- **Multi-language graph**: Index 8 languages (TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust) into a unified knowledge graph with 33 entity types (functions, classes, interfaces, routes, decorators, etc.) and 39 relationship types (calls, inherits, implements, imports, decorates, etc.)
-- **Call graph tracing**: Follow function calls across files, packages, and services — trace a request from a REST endpoint down to the database query
+- **Multi-language graph**: Aims to index 8 languages (TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust) into a unified knowledge graph with 33 entity types (functions, classes, interfaces, routes, decorators, etc.) and 39 relationship types (calls, inherits, implements, imports, decorates, etc.)
+- **Call graph tracing**: Aims to follow function calls across files, packages, and services — trace a request from a REST endpoint down to the database query
 - **Scope-aware resolution**: Language-agnostic symbol resolution engine with type inference across lexical scopes
-- **Architecture analysis**: Automatic community detection (Louvain algorithm), hotspot identification via graph centrality, and dependency mapping across module boundaries
+- **Architecture analysis**: Planned community detection (Louvain algorithm), hotspot identification via graph centrality, and dependency mapping across module boundaries
 - **Unified parser**: Single `UnifiedCapture` format normalizes all 8 languages into a common representation for graph building and cross-language queries
 
 ### AI-Ready Intelligence
-- **MCP Server**: Expose code intelligence as 38 MCP tools for AI coding agents (Claude, Cursor, Codex, etc.) with stdio and HTTP transports, plus resources, prompts, and installable skills
-- **Copilot Chat Participant**: Native VS Code integration using `@code-analyzer` — ask questions about your codebase in natural language
-- **Code Review Engine**: Plan → Analyze → Filter → Relocate pipeline with extensible review rules and memory compression for large PRs (IoU overlap detection, LSH-based deduplication)
-- **Semantic Search**: Hybrid BM25 + vector search powered by code-aware embeddings — find semantically similar code even when naming conventions differ
-- **Impact Analysis**: Graph-based change detection — see what files, functions, and services are affected before you make a change
-- **Standards Engine**: Built-in templates for TypeScript, Python, and general best practices, plus custom standards via YAML config
-- **Cypher Query**: Graph query language support for power users — `MATCH (f:Function)-[:CALLS]->(t:Function) RETURN f, t`
+- **MCP Server**: Framework complete with 38 tool definitions for AI coding agents (Claude, Cursor, Codex, etc.) with stdio and HTTP transports, plus resources, prompts, and installable skills. Many tool implementations currently return placeholder data; see [docs/MCP-SERVER.md](docs/MCP-SERVER.md) for per-tool status.
+- **Copilot Chat Participant**: Planned VS Code integration using `@code-analyzer` — ask questions about your codebase in natural language
+- **Code Review Engine**: Heuristic-based review pipeline (Plan → Analyze → Filter → Relocate) with extensible review rules. LLM integration is planned for deeper semantic analysis. See [docs/CODE-REVIEW.md](docs/CODE-REVIEW.md).
+- **Semantic Search**: Planned hybrid BM25 + vector search powered by code-aware embeddings — find semantically similar code even when naming conventions differ
+- **Impact Analysis**: Planned graph-based change detection — see what files, functions, and services are affected before you make a change
+- **Standards Engine**: Architecture designed with 10 built-in templates planned for TypeScript, Python, and general best practices, plus custom standards via YAML config
+- **Cypher Query**: Functional graph query language support for power users — `MATCH (f:Function)-[:CALLS]->(t:Function) RETURN f, t`
 
-### Production-Grade Performance
+### Planned Performance
 
-Code Analyzer is engineered for speed at every layer. Below are benchmark results measured on a standard developer machine (Apple M2 Pro, 32 GB RAM, Node.js 22).
+Code Analyzer is designed with performance in mind at every layer. The architecture targets the following benchmarks — these are design targets from the automated test suite and are not yet verified on real-world repositories:
 
-#### Core Benchmark Results
-
-All benchmarks below are from the automated test suite (`tests/performance/`) and are verified on every CI run.
-
-| Operation | Data Size | Time (P99) | Category | Notes |
+| Operation | Data Size | Target (P99) | Category | Notes |
 |-----------|-----------|------------|----------|-------|
-| Node insert | 10,000 nodes | < 200 ms | Write | Batch insert with FTS5 indexing |
-| Node insert | 50,000 nodes | < 1 s | Write | Batch insert, WAL mode |
+| Node insert | 10,000 nodes | < 200 ms | Write | Batch insert with indexing |
 | Edge insert | 20,000 edges | < 300 ms | Write | Bulk edge creation |
 | Filtered query | 10K pool, 100 results | < 100 ms | Read | Label-filtered with pagination |
-| Pattern query | 10K pool, glob match | < 100 ms | Read | `LIKE` pattern with FTS5 |
 | Edge traversal | 1K nodes, dense graph | < 5 ms | Read | Adjacency-list index lookup |
-| Degree lookup | 1K nodes, 10 edges/node | < 1 ms | Read | Indexed degree query |
 | BFS depth 3 | 1,000 nodes, 3 edges/node | < 10 ms | Traversal | Path-finding use case |
 | FTS search | 10,000 nodes | < 250 ms | Read | BM25 ranking |
 | Cascading delete | 1K nodes, dense graph | < 5 ms | Write | Node + cascading edge deletion |
 | Transaction rollback | 1,000 inserts | < 50 ms | Write | Atomicity with state restore |
 | Integrity check | 10K nodes + 20K edges | < 100 ms | Read | Full graph validation |
 
-#### Real-World Pipeline Performance
-
-| Scenario | Data Volume | Time | Dominant Phase |
-|----------|------------|------|----------------|
-| TypeScript monorepo | 100K LOC | ~8 s | Parsing (parallel workers) |
-| Python Django project | 150K LOC | ~12 s | Type resolution |
-| Go microservice | 50K LOC | ~4 s | Lightest parsing overhead |
-| Rust crate | 80K LOC | ~10 s | Macro-aware parsing |
-| Java Spring Boot | 200K LOC | ~18 s | JVM-style patterns |
-| Incremental update | 1 file changed | < 500 ms | File watcher + diff |
-| Full re-index | 1M LOC | < 60 s | Worker pool saturation |
+> **Note**: These benchmarks reflect operations on the in-memory store with synthetic data from unit tests. Real-world performance with actual repository parsing, persistent SQLite storage, and the full analysis pipeline has not yet been measured.
 
 #### Performance Architecture
-
 - **Zero data egress**: All processing happens locally — your code never leaves your machine
-- **Worker thread pool**: Parsing parallelized across all CPU cores with automatic load balancing
-- **SQLite WAL mode**: Concurrent reads during writes, no read locks during indexing
-- **FTS5 indexing**: Tokenized full-text search with BM25 ranking for relevance-ordered results
-- **Adjacency-list storage**: Edge lookups are O(1) index seeks, not full table scans
-- **Circuit breaker**: Worker pool resilience with automatic retry and graceful degradation on persistent failures
-- **Incremental caching**: Parse results cached to disk; only modified files are re-parsed
+- **Worker thread pool**: Planned parallel parsing across all CPU cores with automatic load balancing
+- **WAL mode**: Planned concurrent reads during writes (when SQLite persistence is implemented)
+- **FTS5 indexing**: Planned tokenized full-text search with BM25 ranking
+- **Adjacency-list storage**: Edge lookups target O(1) index seeks
+- **Circuit breaker**: Worker pool resilience with automatic retry and graceful degradation
 
 ### Flexible Deployment
 - **MCP Server**: stdio or HTTP transport for any MCP-compatible agent (Claude Desktop, Cursor, Continue, etc.)
-- **VS Code Extension**: Full sidebar, inline annotations, status bar indicators, and Copilot Chat integration
-- **CLI**: Command-line interface for scripting and CI/CD pipelines
-- **CI/CD**: GitHub Actions integration for automated PR review and standards enforcement
-- **REST API**: HTTP server for custom integrations and dashboards
+- **VS Code Extension**: Planned full sidebar, inline annotations, status bar indicators, and Copilot Chat integration
+- **CLI**: Planned command-line interface for scripting and CI/CD pipelines
+- **CI/CD**: Planned GitHub Actions integration for automated PR review and standards enforcement
+- **REST API**: Planned HTTP server for custom integrations and dashboards
 
 ---
 
@@ -132,23 +157,11 @@ All benchmarks below are from the automated test suite (`tests/performance/`) an
 # Install globally
 npm install -g @code-analyzer/cli
 
-# Index a repository (first run may take 30-60s for large repos)
+# Index a repository
 code-analyzer analyze ./my-project
 
 # Search the knowledge graph
 code-analyzer search "authentication flow" --repo ./my-project
-
-# Trace a call path from endpoint to database
-code-analyzer trace "POST /api/login" "database.query" --repo ./my-project
-
-# Review staged or committed changes
-code-analyzer review --diff --repo ./my-project
-
-# Check coding standards
-code-analyzer standards check --repo . --standard typescript-best-practices
-
-# Generate a codebase health report
-code-analyzer report generate --repo . --format html --output report.html
 ```
 
 ### Option 2 — npx (no install)
@@ -156,9 +169,6 @@ code-analyzer report generate --repo . --format html --output report.html
 ```bash
 # One-shot analysis without global install
 npx @code-analyzer/cli analyze --repo ./my-project
-
-# Review a PR in CI
-npx @code-analyzer/cli review pr --repo . --pr 42 --token $GITHUB_TOKEN
 ```
 
 ### Option 3 — MCP Server Setup
@@ -179,39 +189,9 @@ Add to your AI agent's MCP configuration (Claude Desktop, Cursor, etc.):
 }
 ```
 
-**What your AI agent gets:** 38 tools across 7 categories — indexing lifecycle management, querying and exploration (search, call graph tracing, architecture overview, Cypher queries), code review (PR review, standards check), change impact analysis (function-level blast radius, PDG analysis), reporting (health, trends, recommendations), cross-repository operations, and standards/ADR agent tools. Plus MCP resources for graph snapshots and installable skills for domain-specific workflows.
+The MCP server exposes 38 tool definitions — currently, the Cypher query engine and search tools are functional on in-memory data, while review, impact, reporting, and cross-repo tools return placeholder data. See [docs/MCP-SERVER.md](docs/MCP-SERVER.md) for detailed per-tool status.
 
-Once connected, your agent can answer questions like:
-- "Find all functions that call `authenticateUser` and trace their callers"
-- "What's the architecture of this project? Show me the dependency graph"
-- "Review PR #42 against our TypeScript best practices"
-- "If I rename `getUserById`, what else needs to change?"
-- "Show me the code quality trends over the last 30 days"
-
-### Option 4 — VS Code Extension
-
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentiX-E.code-analyzer) or search for "Code Analyzer" in the Extensions view (Ctrl+Shift+X / Cmd+Shift+X).
-
-**Copilot Chat integration:**
-1. Install the extension and GitHub Copilot Chat
-2. Open Copilot Chat (Ctrl+Shift+I / Cmd+Shift+I)
-3. Type `@code-analyzer` followed by your question
-
-```
-@code-analyzer explore the authentication module
-@code-analyzer search for all REST API handlers
-@code-analyzer review this file against project standards
-@code-analyzer impact what if I rename getUser to fetchUser?
-@code-analyzer debug why is the login flow failing?
-@code-analyzer refactor suggest improvements for this class
-```
-
-**Other VS Code features:**
-- **Graph Sidebar**: Interactive visualization of your code's dependency graph with expand/collapse and filtering
-- **Inline Reviews**: AI-powered code review comments directly in your editor via the Problems panel and gutter annotations
-- **Impact Analysis**: See the blast radius of any change before you make it, shown as a notification
-
-### Option 5 — Build from Source
+### Option 4 — Build from Source
 
 ```bash
 git clone https://github.com/AgentiX-E/code-analyzer.git
@@ -225,10 +205,6 @@ pnpm build
 
 # Run tests
 pnpm test
-
-# Link CLI for local use
-cd packages/cli && npm link
-code-analyzer analyze ./my-project
 ```
 
 ---
@@ -286,8 +262,6 @@ const impact = await analyzer.analyzeImpact({
   file: 'src/auth/login.ts',
   symbol: 'authenticateUser',
 });
-console.log(`Affected files: ${impact.affectedFiles.length}`);
-console.log(`Affected functions: ${impact.affectedSymbols.length}`);
 
 // Run a Cypher query on the knowledge graph
 const graphResults = await analyzer.queryGraph(`
@@ -305,61 +279,7 @@ const report = await analyzer.generateReport({
 });
 ```
 
-### MCP Tool Usage via AI Agent
-
-When the MCP server is connected, your AI agent automatically has access to these tools. Example interactions:
-
-```
-User: "Find all places where we call the deprecated `oldAuth` function"
-Agent: [calls search_graph tool] → Returns 12 call sites across 8 files
-Agent: [calls analyze_impact tool on each call site] → Shows blast radius for each
-
-User: "Review PR #42 against our standards"
-Agent: [calls review_pr tool] → Returns structured review with 5 findings
-Agent: [calls check_standards tool] → Confirms 3 issues violate TypeScript best practices
-```
-
-### CI/CD Pipeline (GitHub Actions)
-
-```yaml
-name: Code Analysis
-on:
-  pull_request:
-    types: [opened, synchronize]
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Run Code Analyzer
-        run: |
-          npx @code-analyzer/cli review pr \
-            --repo . \
-            --pr ${{ github.event.pull_request.number }} \
-            --token ${{ secrets.GITHUB_TOKEN }} \
-            --format markdown \
-            --output review-report.md
-
-      - name: Post Review Report
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('review-report.md', 'utf8');
-            github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: context.issue.number,
-              body: report,
-            });
-```
+> **Note**: The programmatic API is defined but most methods return placeholder data in the current alpha. The API surface is stable and ready for implementation.
 
 ---
 
@@ -374,7 +294,7 @@ Code Analyzer can be configured via a `.code-analyzer.yml` file, environment var
 | `incremental` | `boolean` | `true` | Enable incremental indexing (re-index only changed files) |
 | `maxWorkers` | `number` | CPU count | Number of worker threads for parallel parsing |
 | `parseCache` | `boolean` | `true` | Cache parsed AST results to disk for faster re-indexing |
-| `cacheDir` | `string` | `.code-analyzer/cache` | Directory for parse cache and SQLite database |
+| `cacheDir` | `string` | `.code-analyzer/cache` | Directory for parse cache and database |
 | `ignorePatterns` | `string[]` | `[node_modules, .git, dist]` | Glob patterns for files and directories to ignore |
 | `searchRanking` | `string` | `hybrid` | Search ranking strategy: `bm25`, `vector`, or `hybrid` |
 | `reviewSeverity` | `string` | `warning` | Minimum severity for review findings: `info`, `warning`, `error` |
@@ -408,19 +328,19 @@ reviewMaxFindings: 30
 ## Language Support
 
 | Language | Definitions | Imports | Type Resolution | Call Graph | Routes |
-|----------|------------|---------|-----------------|------------|--------|
-| TypeScript | ✅ | ✅ | ✅ | ✅ | ✅ |
-| JavaScript | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Python | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Go | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Java | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Kotlin | ✅ | ✅ | ✅ | ✅ | ✅ |
-| C# | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Rust | ✅ | ✅ | ✅ | ✅ | ✅ |
+|----------|:----------:|:-------:|:---------------:|:----------:|:------:|
+| TypeScript | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| JavaScript | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| Python | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| Go | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| Java | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| Kotlin | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| C# | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+| Rust | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
 
-> 8 languages with comprehensive analysis depth. Additional languages added on a rolling basis.
+> **Legend**: ✅ Implemented · ⚠️ Provider scaffold with stub parsing · ⬜ Not started
 >
-> For the full feature matrix, cross-language analysis details, performance characteristics, and guides for adding new languages, see [docs/language-support.md](docs/language-support.md).
+> Language provider scaffolding exists for all 8 languages. Actual parsing implementations are in development. See [docs/language-support.md](docs/language-support.md) for details.
 
 ---
 
@@ -434,57 +354,57 @@ code-analyzer/
 │   │       ├── types/              # UnifiedCapture, Graph types
 │   │       ├── constants/          # Entity & relationship type enums
 │   │       └── validation/         # Schema validation utilities
-│   ├── core/                       # Foundation layer (Layer 1)
+│   ├── core/                       # Foundation layer (Layer 1) — ✅ Implemented
 │   │   └── src/
 │   │       ├── config/             # Config loading, defaults, validation
 │   │       ├── logging/            # Structured logger with formatters
 │   │       ├── errors/             # Error taxonomy and hierarchy
 │   │       ├── i18n/               # Internationalization engine
-│   │       ├── metrics/            # Metrics collection
+│   │       ��── metrics/            # Metrics collection
 │   │       └── lifecycle/          # Lifecycle management hooks
-│   ├── infra/                      # Infrastructure layer (Layer 2)
+│   ├── infra/                      # Infrastructure layer (Layer 2) — ✅ Implemented
 │   │   └── src/
-│   │       ├── storage/            # SQLite store with typed queries
+│   │       ��── storage/            # In-memory store with typed queries (SQLite planned)
 │   │       ├── cache/              # Parse result caching
 │   │       ├── filesystem/         # File discovery and watching
 │   │       ├── git/                # Git diff and history operations
 │   │       └── workers/            # Worker pool, supervisor, circuit breaker
-│   ├── analyzer/                   # Analysis Engine layer (Layer 3)
+│   ├── analyzer/                   # Analysis Engine layer (Layer 3) — ⚠️ Partial
 │   │   └── src/
-│   │       ├── languages/          # 8 language providers (TS, JS, Python, Go, Java, Kotlin, C#, Rust)
-│   │       ├── parser/             # Unified parser converting ASTs to UnifiedCapture
-│   │       ├── pipeline/           # Orchestrator and analysis phases
-│   │       ├── graph/              # Knowledge graph builder
-│   │       └── resolution/         # Scope-aware symbol resolution
-│   ├── intelligence/               # Intelligence layer (Layer 4)
+│   │       ├── languages/          # 8 language provider scaffolds
+│   │       ├── parser/             # Unified parser (stub)
+│   │       ├── pipeline/           # Orchestrator (✅) + phases (⚠️ stubs)
+│   │       ├── graph/              # Knowledge graph builder (stub)
+│   │       └── resolution/         # Scope-aware symbol resolution (stub)
+│   ├── intelligence/               # Intelligence layer (Layer 4) — ⚠️ Partial
 │   │   └── src/
-│   │       ├── search/             # Hybrid BM25 + vector search
-│   │       ├── embeddings/         # Code-aware embedding generation
-│   │       ├── review/             # Code review engine, PR review, session store
-│   │       ├── standards/          # Standards engine and templates
-│   │       ├── impact/             # Impact analysis and change detection
-│   │       ├── report/             # Report generation, formatting, trends
-│   │       ├── compression/        # Memory compression for large contexts
-│   │       └── similarity/         # MinHash and LSH for deduplication
-│   ├── mcp/                        # MCP Server (Layer 5)
+│   │       ├── search/             # Hybrid BM25 + vector search (BM25 functional)
+│   │       ├── embeddings/         # Code-aware embedding generation (stub)
+│   │       ├── review/             # Code review engine (heuristic-based)
+│   │       ├── standards/          # Standards engine (stub)
+│   │       ├── impact/             # Impact analysis (planned)
+│   │       ├── report/             # Report generation (planned)
+│   │       ├── compression/        # Memory compression (planned)
+│   │       └── similarity/         # MinHash and LSH (planned)
+│   ├── mcp/                        # MCP Server (Layer 5) — ✅ Framework / ⚠️ Tools
 │   │   └── src/
-│   │       ├── server/             # MCP protocol implementation (stdio + HTTP)
-│   │       ├── tools/              # 38 tool definitions across 7 categories
-│   │       ├── cypher/             # Cypher query lexer, parser, planner, executor
+│   │       ├���─ server/             # MCP protocol implementation (stdio + HTTP)
+│   │       ├── tools/              # 38 tool definitions (many placeholder)
+│   │       ├── cypher/             # Cypher query lexer, parser, planner, executor ✅
 │   │       ├── resources/          # MCP resource handlers
 │   │       ├── prompts/            # MCP prompt templates
-│   │       ├── skills/             # MCP skill installer
-│   │       └── middleware/         # Authentication and rate limiting
-│   ├── server/                     # HTTP REST API (Layer 5)
-│   ├── cli/                        # CLI entry point (Layer 7)
-│   ├── vscode/                     # VS Code Extension (Layer 7)
+│   │       ├── skills/             # MCP skill installer ✅
+│   │       └── middleware/         # Auth ✅, rate limiting ✅, logging ✅
+│   ├── server/                     # HTTP REST API (Layer 5) — ⬜ Planned
+│   ├── cli/                        # CLI entry point (Layer 7) — ⬜ Planned
+│   ├── vscode/                     # VS Code Extension (Layer 7) — ⬜ Planned
 │   │   └── src/
 │   │       ├── extension/          # Extension activation and commands
 │   │       ├── participant/        # Copilot Chat participant
 │   │       ├── providers/          # Sidebar, comments, config providers
 │   │       ├── services/           # Engine bridge, git, config, VS Code API
 │   │       └── views/              # Status bar and UI views
-│   └── web/                        # Web UI (Layer 7)
+│   └── web/                        # Web UI (Layer 7) — ⬜ Planned
 ├── docs/
 │   ├── getting-started.md          # 5-minute quickstart guide
 │   └── language-support.md         # Full language feature matrix
@@ -514,27 +434,24 @@ code-analyzer/
 | **Disk** | 50 MB | 500 MB+ (parse cache for large repos) |
 | **GPU** (optional) | N/A | Not required — embedding inference runs on CPU |
 
-> **No additional system packages required.** Tree-sitter grammars are pre-built and bundled. SQLite is bundled via better-sqlite3. All processing is local — no external API calls.
+> **No additional system packages required.** All processing is local — no external API calls.
 
 ---
 
 ## CLI Quick Reference
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `analyze` | Index a repository into the knowledge graph | `code-analyzer analyze ./my-project --languages ts,python` |
-| `search` | Full-text or semantic search of the graph | `code-analyzer search "auth" --semantic --language ts` |
-| `trace` | Trace call paths between two symbols | `code-analyzer trace "login" "db.query" --max-depth 10` |
-| `review` | Review staged changes or a PR | `code-analyzer review --diff` |
-| `review pr` | Review a specific GitHub PR | `code-analyzer review pr --repo . --pr 42 --token $TOKEN` |
-| `standards check` | Check code against coding standards | `code-analyzer standards check --standard ts-best-practices` |
-| `report generate` | Generate codebase health report | `code-analyzer report generate --format html --output report.html` |
-| `report recommend` | Get actionable recommendations | `code-analyzer report recommend --format md --output recs.md` |
-| `report trends` | Trend analysis over time | `code-analyzer report trends --repo . --days 30` |
-| `graph export` | Export the knowledge graph | `code-analyzer graph export --format json --output graph.json` |
-| `graph query` | Run a Cypher query | `code-analyzer graph query "MATCH (f:Function) RETURN f.name"` |
-| `config show` | Show current configuration | `code-analyzer config show` |
-| `config init` | Create a `.code-analyzer.yml` template | `code-analyzer config init` |
+| Command | Description | Status |
+|---------|-------------|--------|
+| `analyze` | Index a repository into the knowledge graph | ⬜ Planned |
+| `search` | Full-text or semantic search of the graph | ⬜ Planned |
+| `trace` | Trace call paths between two symbols | ⬜ Planned |
+| `review` | Review staged changes or a PR | ⬜ Planned |
+| `standards check` | Check code against coding standards | ⬜ Planned |
+| `report generate` | Generate codebase health report | ⬜ Planned |
+| `graph export` | Export the knowledge graph | ⬜ Planned |
+| `graph query` | Run a Cypher query | ⬜ Planned |
+| `config show` | Show current configuration | ⚠️ Partial |
+| `config init` | Create a `.code-analyzer.yml` template | ⚠️ Partial |
 
 ---
 
@@ -543,25 +460,27 @@ code-analyzer/
 | Resource | Description | URL |
 |----------|-------------|-----|
 | Getting Started | 5-minute quickstart guide | [docs/getting-started.md](docs/getting-started.md) |
-| Language Support | Full feature matrix, cross-language analysis, performance | [docs/language-support.md](docs/language-support.md) |
+| Language Support | Full feature matrix, cross-language analysis | [docs/language-support.md](docs/language-support.md) |
+| Architecture | System architecture and design | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| MCP Server | MCP setup and tool reference | [docs/MCP-SERVER.md](docs/MCP-SERVER.md) |
+| Code Review | Review engine and standards guide | [docs/CODE-REVIEW.md](docs/CODE-REVIEW.md) |
+| Configuration | Full configuration reference | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
 | Contributing | Development setup, coding standards, PR guidelines | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Changelog | Version history and release notes | [CHANGELOG.md](CHANGELOG.md) |
 | Security Policy | Vulnerability reporting and security practices | [SECURITY.md](SECURITY.md) |
 | License | MIT license terms | [LICENSE](LICENSE) |
-| npm (CLI) | `@code-analyzer/cli` | [npmjs.com/package/@code-analyzer/cli](https://www.npmjs.com/package/@code-analyzer/cli) |
-| npm (MCP) | `@code-analyzer/mcp` | [npmjs.com/package/@code-analyzer/mcp](https://www.npmjs.com/package/@code-analyzer/mcp) |
-| npm (Core) | `@code-analyzer/core` | [npmjs.com/package/@code-analyzer/core](https://www.npmjs.com/package/@code-analyzer/core) |
-| npm (Analyzer) | `@code-analyzer/analyzer` | [npmjs.com/package/@code-analyzer/analyzer](https://www.npmjs.com/package/@code-analyzer/analyzer) |
 
 ---
 
 ## Known Limitations
 
-- **Regex-based parsing**: Language providers use regex and AST-based parsing rather than full compiler frontends. Accuracy is 95-99%+ for supported languages but may miss some edge cases (e.g., complex macro expansions, deeply nested template metaprogramming).
-- **Language coverage**: Currently 8 languages. C/C++, Ruby, Swift, PHP, and other languages are planned but not yet supported. See [docs/language-support.md](docs/language-support.md) for the full feature matrix.
+- **Alpha status**: Core architecture is solid but most analysis features are stubbed or return placeholder data. See [Current Status](#current-status) section above.
+- **In-memory storage**: The graph store uses an in-memory `Map` rather than SQLite. Data does not persist across restarts. SQLite persistence is planned.
+- **Regex-based parsing**: Language providers use regex-based parsing rather than full compiler frontends. Accuracy targets 95-99%+ for supported languages but may miss some edge cases.
+- **Language coverage**: Currently 8 languages with provider scaffolds. Full implementations are in development. See [docs/language-support.md](docs/language-support.md) for the full feature matrix.
 - **Dynamic language limitations**: For JavaScript and Python, dynamic `eval()` calls, computed property access, and runtime monkey-patching are not statically analyzable.
-- **Cross-language calls**: Cross-language dependencies (e.g., TypeScript frontend calling Python API) are captured as `CROSS_REPO_*` edges in the graph but do not include type-level resolution across language boundaries.
-- **No fine-tuning**: The embedding model is frozen — no on-device fine-tuning for domain-specific codebases.
+- **Cross-language calls**: Planned cross-language dependencies will be captured as `CROSS_REPO_*` edges in the graph but will not include type-level resolution across language boundaries.
+- **No fine-tuning**: The embedding model is planned to be frozen — no on-device fine-tuning for domain-specific codebases.
 - **Memory for large repos**: Repositories with > 5M LOC may require 16 GB+ RAM for the full knowledge graph in memory. Use `--max-workers` to limit parallelism.
 - **MCP server auth**: The MCP HTTP transport does not yet include built-in authentication. Use a reverse proxy (nginx, Caddy) for access control in production deployments.
 
@@ -587,12 +506,10 @@ pnpm install
 # Build all packages
 pnpm build
 
-# Run tests (unit, integration, property-based, E2E)
+# Run tests
 pnpm test              # All tests across all packages
 pnpm test:unit         # Unit tests only
 pnpm test:integration  # Integration tests only
-pnpm test:property     # Property-based tests (fast-check)
-pnpm test:e2e          # End-to-end tests
 
 # Lint and format
 pnpm lint              # ESLint across all packages
@@ -601,9 +518,6 @@ pnpm format            # Auto-fix formatting
 
 # Type checking
 pnpm typecheck         # TypeScript type checking across all packages
-
-# Run benchmarks
-pnpm bench             # Performance benchmarks
 
 # Clean build artifacts
 pnpm clean
@@ -615,7 +529,7 @@ This project uses:
 - **pnpm workspaces** for package management
 - **Turborepo** for build orchestration and caching
 - **Changesets** for versioning and changelog generation
-- **Vitest** for testing (unit, integration, property-based, E2E)
+- **Vitest** for testing
 - **ESLint + Prettier** for code quality
 
 ---
@@ -635,5 +549,5 @@ MIT © [Lambertyan](https://github.com/AgentiX-E)
 ---
 
 <p align="center">
-  <b>Code Analyzer</b> — Setting the standard for code intelligence.
+  <b>Code Analyzer</b> — Building the standard for code intelligence.
 </p>

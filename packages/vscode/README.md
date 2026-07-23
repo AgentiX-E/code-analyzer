@@ -412,7 +412,7 @@ The extension follows a strict separation-of-concerns architecture:
 | Package | Role |
 |---|---|
 | `@code-analyzer/shared` | Shared types (`GitDiff`, etc.) |
-| `@code-analyzer/infra` | Storage (`SqliteStore`) and git operations |
+| `@code-analyzer/infra` | Storage (`InMemoryGraphStore`) and git operations |
 | `@code-analyzer/analyzer` | AST analysis pipeline (via EngineBridge) |
 | `@code-analyzer/intelligence` | Search (`HybridSearchEngine`), review (`CodeReviewEngine`), standards, change detection, impact analysis, embeddings |
 

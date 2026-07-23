@@ -36,7 +36,7 @@ The server is designed as a composable HTTP service that exposes the full capabi
 └─────────────────────────┼──────────────────────────────────┘
                           │
 ┌─────────────────────────▼──────────────────────────────────┐
-│              SqliteStore (Knowledge Graph)                  │
+│              InMemoryGraphStore (Knowledge Graph)                  │
 │  @code-analyzer/infra · FTS5 · Graph Storage               │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -427,7 +427,7 @@ Program Dependence Graph queries and taint analysis for security auditing.
 |----------|------|---------|-------------|
 | `CODE_ANALYZER_PORT` | `number` | `8080` | HTTP server port |
 | `CODE_ANALYZER_HOST` | `string` | `0.0.0.0` | HTTP server bind address |
-| `CODE_ANALYZER_DATA_DIR` | `string` | `~/.code-analyzer/data` | Data directory for SQLite stores |
+| `CODE_ANALYZER_DATA_DIR` | `string` | `~/.code-analyzer/data` | Data directory for in-memory graph stores |
 | `CODE_ANALYZER_LOG_LEVEL` | `string` | `info` | Log level (debug, info, warn, error) |
 | `CODE_ANALYZER_MAX_BODY_SIZE` | `string` | `10mb` | Maximum request body size |
 | `CODE_ANALYZER_TIMEOUT` | `number` | `30000` | Request timeout in milliseconds |
@@ -449,7 +449,7 @@ Program Dependence Graph queries and taint analysis for security auditing.
 |------------|-------------|
 | `@code-analyzer/shared` | Shared type definitions and schemas |
 | `@code-analyzer/core` | Core engine interfaces and abstractions |
-| `@code-analyzer/infra` | Infrastructure layer (`SqliteStore`, logging, configuration) |
+| `@code-analyzer/infra` | Infrastructure layer (`InMemoryGraphStore`, logging, configuration) |
 | `@code-analyzer/analyzer` | Static code analysis and AST parsing |
 | `@code-analyzer/intelligence` | AI-powered code intelligence engine |
 
@@ -573,7 +573,7 @@ src/
 └── index.ts                    # createServer() factory — HTTP server with start/shutdown
 ```
 
-The server package provides a `createServer()` factory function that returns a server instance with `start(port)` and `shutdown()` methods. The HTTP layer is designed to be embedded into larger applications or run standalone. It wraps the intelligence engine from `@code-analyzer/intelligence`, which coordinates analysis through `@code-analyzer/analyzer` and stores results in the `SqliteStore` from `@code-analyzer/infra`.
+The server package provides a `createServer()` factory function that returns a server instance with `start(port)` and `shutdown()` methods. The HTTP layer is designed to be embedded into larger applications or run standalone. It wraps the intelligence engine from `@code-analyzer/intelligence`, which coordinates analysis through `@code-analyzer/analyzer` and stores results in the `InMemoryGraphStore` from `@code-analyzer/infra`.
 
 ### Request Flow
 
@@ -595,7 +595,7 @@ Intelligence Engine (@code-analyzer/intelligence)
   │   └── Relationship detection
   │
   ├── Graph Storage (@code-analyzer/infra)
-  │   ├── SQLite + FTS5
+  │   ├── In-memory graph store + FTS
   │   ├── Graph traversal (BFS/DFS)
   │   └── Cypher query execution
   │

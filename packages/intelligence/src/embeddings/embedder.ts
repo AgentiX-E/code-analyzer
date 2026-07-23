@@ -119,27 +119,50 @@ class MockEmbeddingBackend implements EmbeddingBackend {
 // ---------------------------------------------------------------------------
 
 /**
- * Attempt to create a real embedding backend using @agentix-e/embed-code-ts.
- * Returns null if the package is not available.
- * Uses a dynamic import with fallback to avoid TypeScript compilation errors.
+ * Type declaration for the @agentix-e/embed-code-ts module API.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface EmbedCodeTsModule {
+  /** Primary embed function — accepts a code snippet, returns a vector */
+  embed?(input: string): Promise<Float32Array | number[] | Record<string, unknown>>;
+  /** Alternative embed function names */
+  embedCode?(code: string): Promise<Float32Array | number[] | Record<string, unknown>>;
+  /** Alternative embed function names */
+  run?(input: string): Promise<Float32Array | number[] | Record<string, unknown>>;
+  /** Batch embed variant */
+  embedBatch?(inputs: string[]): Promise<(Float32Array | number[])[]>;
+  /** Initialize the underlying model */
+  initialize?(): Promise<unknown>;
+  /** Alternative init function names */
+  loadModel?(): Promise<unknown>;
+  /** Alternative init function names */
+  init?(): Promise<unknown>;
+  /** Release native resources */
+  dispose?(): void;
+}
+
+/**
+ * Attempt to create a real embedding backend using @agentix-e/embed-code-ts.
+ * Returns null if the package is not available (e.g. native build failure).
+ * Uses a dynamic import with try/catch for graceful fallback to the mock backend.
+ */
 async function tryCreateRealBackend(config: EmbeddingConfig): Promise<EmbeddingBackend | null> {
   try {
-    // Dynamic import of optional native dependency
-    const importFn = new Function('specifier', 'return import(specifier)') as (s: string) => Promise<Record<string, unknown>>;
-    const pkg = await importFn('@agentix-e/embed-code-ts');
+    // Dynamic import of optional native dependency.
+    // Using a direct import() call inside a try/catch is the standard way
+    // to handle optional dependencies in ESM environments.
+    const pkg = (await import('@agentix-e/embed-code-ts')) as EmbedCodeTsModule;
     return new RealEmbeddingBackend(pkg, config);
   } catch {
+    // Package not available — caller will fall back to mock backend
     return null;
   }
 }
 
 class RealEmbeddingBackend implements EmbeddingBackend {
-  private model: unknown | null = null;
+  private initialized = false;
 
   constructor(
-    private pkg: Record<string, unknown>,
+    private pkg: EmbedCodeTsModule,
     private config: EmbeddingConfig,
   ) {}
 
@@ -149,15 +172,34 @@ class RealEmbeddingBackend implements EmbeddingBackend {
 
   async embedCode(code: string): Promise<Float32Array> {
     await this.ensureModel();
-    // Call the real embed function; the API may vary, so we try common patterns
-    const embedFn = (this.pkg['embed'] ?? this.pkg['embedCode'] ?? this.pkg['run']) as unknown;
-    if (typeof embedFn !== 'function') {
+    // Try exported functions in priority order
+    const embedFn = this.pkg.embed ?? this.pkg.embedCode ?? this.pkg.run;
+    if (!embedFn) {
       throw new Error('@agentix-e/embed-code-ts does not export a callable embed function');
     }
     const result = await embedFn(code);
+    return this.coerceVector(result);
+  }
+
+  async embedBatch(codes: string[]): Promise<Float32Array[]> {
+    await this.ensureModel();
+    // Prefer native batch embed if available
+    if (this.pkg.embedBatch) {
+      const results = await this.pkg.embedBatch(codes);
+      return results.map((r) => this.coerceVector(r));
+    }
+    // Fall back to sequential embedding
+    const results: Float32Array[] = [];
+    for (const code of codes) {
+      results.push(await this.embedCode(code));
+    }
+    return results;
+  }
+
+  private coerceVector(result: Float32Array | number[] | Record<string, unknown>): Float32Array {
     if (result instanceof Float32Array) return result;
     if (Array.isArray(result)) return new Float32Array(result);
-    // Handle object with embedding/vector field
+    // Handle object with embedding/vector/data field
     if (result && typeof result === 'object') {
       const obj = result as Record<string, unknown>;
       const vec = obj['embedding'] ?? obj['vector'] ?? obj['data'];
@@ -167,26 +209,18 @@ class RealEmbeddingBackend implements EmbeddingBackend {
     throw new Error('Unexpected embedding result format');
   }
 
-  async embedBatch(codes: string[]): Promise<Float32Array[]> {
-    const results: Float32Array[] = [];
-    for (const code of codes) {
-      results.push(await this.embedCode(code));
-    }
-    return results;
-  }
-
   private async ensureModel(): Promise<void> {
-    if (this.model !== null) return;
-    const initFn = (this.pkg['initialize'] ?? this.pkg['loadModel'] ?? this.pkg['init']) as unknown;
-    if (typeof initFn === 'function') {
-      this.model = await (initFn as () => unknown)();
-    } else {
-      this.model = {}; // No initialization needed
+    if (this.initialized) return;
+    const initFn = this.pkg.initialize ?? this.pkg.loadModel ?? this.pkg.init;
+    if (initFn) {
+      await initFn();
     }
+    this.initialized = true;
   }
 
   dispose(): void {
-    this.model = null;
+    this.pkg.dispose?.();
+    this.initialized = false;
   }
 }
 

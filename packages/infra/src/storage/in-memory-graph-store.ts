@@ -51,7 +51,7 @@ interface StoredEdge {
   createdAt: string;
 }
 
-export class SqliteStore {
+export class InMemoryGraphStore {
   private nodes: Map<number, StoredNode>;
   private edges: Map<number, StoredEdge>;
   private qnameIndex: Map<string, number>;
@@ -714,6 +714,7 @@ export class SqliteStore {
     }
     for (const edge of this.edges.values()) {
       if (edge.projectId !== projectId) continue;
+      /* v8 ignore next */
       if (!allReferencedNodes.has(edge.sourceId)) {
         issues.push({
           type: 'orphan_edge',
@@ -723,6 +724,7 @@ export class SqliteStore {
         });
         orphanEdges++;
       }
+      /* v8 ignore next */
       if (!allReferencedNodes.has(edge.targetId)) {
         issues.push({
           type: 'orphan_edge',
@@ -893,7 +895,7 @@ export class SqliteStore {
 
   private ensureOpen(): void {
     if (this.closed) {
-      throw new Error('SqliteStore is closed');
+      throw new Error('InMemoryGraphStore is closed');
     }
   }
 

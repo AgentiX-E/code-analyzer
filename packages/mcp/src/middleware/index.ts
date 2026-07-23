@@ -1,5 +1,5 @@
 // @code-analyzer/mcp — MCP Middleware
-// Auth, rate limiting, tool policies, and request logging.
+// Auth, rate limiting, tool policies, request logging, and circuit breaker.
 
 import type { ToolProfile } from '@code-analyzer/shared';
 
@@ -48,6 +48,86 @@ export class AuthMiddleware {
   /** Remove an API key. */
   removeKey(key: string): void {
     this.apiKeys.delete(key);
+  }
+
+  /**
+   * Authenticate via OAuth2 token.
+   * The validator function receives the token and returns true if valid.
+   */
+  static async authenticateOAuth2(
+    token: string,
+    validator: (token: string) => Promise<boolean>,
+  ): Promise<AuthResult> {
+    if (!token) {
+      return { allowed: false, message: 'Missing OAuth2 token' };
+    }
+
+    try {
+      const valid = await validator(token);
+      if (!valid) {
+        return { allowed: false, message: 'Invalid or expired OAuth2 token' };
+      }
+      return { allowed: true };
+    } catch {
+      return { allowed: false, message: 'OAuth2 token validation failed' };
+    }
+  }
+
+  /**
+   * Authenticate via JWT token.
+   * Validates JWT structure and signature (HS256).
+   */
+  static async authenticateJWT(
+    token: string,
+    secret: string,
+  ): Promise<AuthResult & { payload?: Record<string, unknown> }> {
+    if (!token) {
+      return { allowed: false, message: 'Missing JWT token' };
+    }
+
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return { allowed: false, message: 'Invalid JWT format' };
+    }
+
+    try {
+      const [headerB64, payloadB64, signatureB64] = parts;
+
+      // Decode header and payload
+      const header = JSON.parse(
+        Buffer.from(headerB64!, 'base64url').toString('utf-8'),
+      ) as Record<string, unknown>;
+      const payload = JSON.parse(
+        Buffer.from(payloadB64!, 'base64url').toString('utf-8'),
+      ) as Record<string, unknown>;
+
+      // Verify algorithm
+      if (header['alg'] !== 'HS256') {
+        return { allowed: false, message: 'Unsupported JWT algorithm' };
+      }
+
+      // Verify signature using HMAC-SHA256
+      const crypto = await import('crypto');
+      const signingInput = `${headerB64}.${payloadB64}`;
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(signingInput)
+        .digest('base64url');
+
+      if (signatureB64 !== expectedSignature) {
+        return { allowed: false, message: 'Invalid JWT signature' };
+      }
+
+      // Check expiration
+      const exp = payload['exp'] as number | undefined;
+      if (exp && Date.now() / 1000 > exp) {
+        return { allowed: false, message: 'JWT token expired' };
+      }
+
+      return { allowed: true, payload };
+    } catch {
+      return { allowed: false, message: 'JWT token validation failed' };
+    }
   }
 }
 
@@ -151,6 +231,8 @@ export interface LogEntry {
   duration: number;
   error: boolean;
   timestamp: string;
+  correlationId?: string;
+  userId?: string;
 }
 
 export class RequestLogger {
@@ -162,7 +244,7 @@ export class RequestLogger {
     this.maxLogs = maxLogs;
   }
 
-  /** Log a request. */
+  /** Log a request with optional correlation ID and user identity. */
   log(entry: Omit<LogEntry, 'timestamp'>): void {
     const logEntry: LogEntry = {
       ...entry,
@@ -194,5 +276,92 @@ export class RequestLogger {
       ? this.logs.reduce((sum, l) => sum + l.duration, 0) / total
       : 0;
     return { total, errors, avgDuration };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Circuit Breaker
+// ---------------------------------------------------------------------------
+
+export type CircuitState = 'closed' | 'open' | 'half-open';
+
+export interface CircuitBreakerOptions {
+  failureThreshold?: number;
+  resetTimeoutMs?: number;
+  halfOpenMaxRequests?: number;
+}
+
+export class CircuitBreaker {
+  private state: CircuitState = 'closed';
+  private failureCount = 0;
+  private failureThreshold: number;
+  private resetTimeoutMs: number;
+  private halfOpenMaxRequests: number;
+  private lastFailureTime: number = 0;
+  private halfOpenRequests = 0;
+
+  constructor(options: CircuitBreakerOptions = {}) {
+    this.failureThreshold = options.failureThreshold ?? 5;
+    this.resetTimeoutMs = options.resetTimeoutMs ?? 30000;
+    this.halfOpenMaxRequests = options.halfOpenMaxRequests ?? 3;
+  }
+
+  /** Execute an async function with circuit breaker protection. */
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === 'open') {
+      if (Date.now() - this.lastFailureTime >= this.resetTimeoutMs) {
+        this.state = 'half-open';
+        this.halfOpenRequests = 0;
+      } else {
+        throw new Error('Circuit breaker is open');
+      }
+    }
+
+    if (this.state === 'half-open') {
+      if (this.halfOpenRequests >= this.halfOpenMaxRequests) {
+        throw new Error('Circuit breaker half-open request limit reached');
+      }
+      this.halfOpenRequests++;
+    }
+
+    try {
+      const result = await fn();
+
+      // Success resets the breaker
+      if (this.state === 'half-open') {
+        this.state = 'closed';
+        this.failureCount = 0;
+      } else {
+        this.failureCount = 0;
+      }
+
+      return result;
+    } catch (error) {
+      this.failureCount++;
+      this.lastFailureTime = Date.now();
+
+      if (this.failureCount >= this.failureThreshold) {
+        this.state = 'open';
+      }
+
+      throw error;
+    }
+  }
+
+  /** Get the current circuit state. */
+  getState(): CircuitState {
+    return this.state;
+  }
+
+  /** Get the current failure count. */
+  getFailureCount(): number {
+    return this.failureCount;
+  }
+
+  /** Reset the circuit breaker to closed state. */
+  reset(): void {
+    this.state = 'closed';
+    this.failureCount = 0;
+    this.halfOpenRequests = 0;
   }
 }
