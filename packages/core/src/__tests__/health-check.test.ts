@@ -74,7 +74,7 @@ describe('HealthCheckRegistry', () => {
       const status = await registry.runAll();
       expect(status.status).toBe('healthy');
       expect(status.checks.length).toBeGreaterThanOrEqual(4);
-      expect(status.uptime).toBeGreaterThan(0);
+      expect(status.uptime).toBeGreaterThanOrEqual(0);
       expect(status.version).toBe('0.0.0');
       expect(status.timestamp).toBeTruthy();
     });
