@@ -1,27 +1,22 @@
 ---
 name: Feature Request
-about: Suggest a new feature for Code Analyzer
-title: '[Feature]: '
-labels: ['enhancement']
-assignees: []
+about: Suggest a new feature or enhancement
+title: "[FEATURE] "
+labels: enhancement
+assignees: ''
 ---
 
 ## Problem Statement
-
-What problem would this feature solve?
+A clear description of the problem this feature would solve.
 
 ## Proposed Solution
-
 Describe the feature you'd like to see.
 
-## Alternative Solutions
+## Alternatives Considered
+Any alternative solutions or workarounds you've considered.
 
-Describe any alternative solutions you've considered.
-
-## Use Cases
-
-Describe specific use cases where this feature would be valuable.
+## Use Case
+How would you use this feature? Who would benefit from it?
 
 ## Additional Context
-
-Add any other context, references, or screenshots.
+Any references, screenshots, or related issues.
