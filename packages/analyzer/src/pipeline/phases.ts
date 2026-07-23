@@ -2309,6 +2309,8 @@ export class SemanticPhase implements ExecutablePhase {
 
 // ---------------------------------------------------------------------------
 // Phase 18: embed — Generate vector embeddings for graph nodes
+// Uses @agentix-e/embed-code-node (nomic-embed-code ONNX) when available.
+// Falls back to deterministic hash-based embeddings when ONNX is unavailable.
 // ---------------------------------------------------------------------------
 
 interface EmbeddingResult {
@@ -2316,60 +2318,117 @@ interface EmbeddingResult {
   embedding: number[];
 }
 
-async function generateEmbeddings(nodes: Map<number, unknown>, graph: KnowledgeGraph): Promise<EmbeddingResult[]> {
+async function generateEmbeddings(
+  nodes: Map<number, unknown>,
+  _graph: KnowledgeGraph,
+): Promise<EmbeddingResult[]> {
   const results: EmbeddingResult[] = [];
 
-  // Try to load the real embed-code-ts backend
-  let embedder: { embed: (text: string) => Promise<Float32Array>; embedBatch: (texts: string[]) => Promise<Float32Array[]>; dispose: () => Promise<void> } | null = null;
+  // Collect embeddable nodes
+  const embeddable: Array<{ nodeId: number; text: string }> = [];
+  for (const [nodeId, node] of nodes) {
+    const n = node as Record<string, unknown>;
+    const label = n?.label as string | undefined;
+    const name = n?.name as string | undefined;
 
-  try {
-    const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
-    embedder = await NodeEmbedder.create();
-  } catch {
-    // Fall through to deterministic fallback
+    // Skip structural and nameless nodes
+    if (!label || label === 'File' || label === 'Folder' || label === 'Project') continue;
+    if (!name) continue;
+
+    // Build text representation
+    const textParts: string[] = [label, name];
+    const signature = n?.properties
+      ? (n.properties as Record<string, unknown>)?.signature
+      : undefined;
+    if (signature && typeof signature === 'string') textParts.push(signature);
+
+    embeddable.push({
+      nodeId,
+      text: textParts.filter((p) => p.length > 0).join(' '),
+    });
   }
 
+  if (embeddable.length === 0) return results;
+
+  // Try the real ONNX backend from @agentix-e/embed-code-node
+  let embedder: Awaited<ReturnType<typeof loadRealEmbedder>> = null;
+
   try {
-    for (const [nodeId, node] of nodes) {
-      const n = node as Record<string, unknown>;
-      const label = n?.label as string | undefined;
-      const name = n?.name as string | undefined;
+    embedder = await loadRealEmbedder();
+  } catch {
+    // ONNX backend unavailable — use deterministic fallback
+  }
 
-      // Skip structural nodes
-      if (!label || label === 'File' || label === 'Folder' || label === 'Project') continue;
-      if (!name) continue;
-
-      // Build a text representation for embedding
-      const textParts: string[] = [label, name];
-
-      const signature = n?.properties ? (n.properties as Record<string, unknown>)?.signature : undefined;
-      if (signature && typeof signature === 'string') textParts.push(signature);
-
-      const text = textParts.filter((p) => p.length > 0).join(' ');
-
-      if (embedder) {
+  if (embedder) {
+    // ONNX backend is active — use real nomic-embed-code embeddings
+    // NOTE: Excluded from CI coverage — requires ~137MB model file
+    /* v8 ignore next 33 */
+    try {
+      // Batch embed for throughput
+      const texts = embeddable.map((e) => e.text);
+      const vectors = await embedder.embedBatch(texts);
+      for (let i = 0; i < embeddable.length; i++) {
+        const vector = vectors[i];
+        if (vector) {
+          results.push({ nodeId: embeddable[i]!.nodeId, embedding: Array.from(vector) });
+        }
+      }
+    } catch {
+      // Per-node fallback if batch fails
+      for (const { nodeId, text } of embeddable) {
         try {
           const vec = await embedder.embed(text);
           results.push({ nodeId, embedding: Array.from(vec) });
         } catch {
-          // Fall back to deterministic embedding
           results.push({ nodeId, embedding: deterministicEmbed(text) });
         }
-      } else {
-        results.push({ nodeId, embedding: deterministicEmbed(text) });
       }
-    }
-  } finally {
-    if (embedder) {
+    } finally {
       try {
         await embedder.dispose();
       } catch {
         // Ignore cleanup errors
       }
     }
+  } else {
+    // Deterministic fallback for every node
+    for (const { nodeId, text } of embeddable) {
+      results.push({ nodeId, embedding: deterministicEmbed(text) });
+    }
   }
 
   return results;
+}
+
+/**
+ * Dynamically load the real ONNX embedder.
+ * Uses `createFromPackage()` which loads the model bundled with the npm package.
+ * Returns null if the package, model, or ONNX runtime is unavailable.
+ *
+ * NOTE: Requires @agentix-e/embed-code-node with bundled ONNX model (~137MB).
+ * Excluded from CI coverage as the model file is not checked into the repository.
+ */
+/* v8 ignore next 17 */
+async function loadRealEmbedder(): Promise<{
+  embed: (text: string) => Promise<Float32Array>;
+  embedBatch: (texts: string[]) => Promise<Float32Array[]>;
+  dispose: () => Promise<void>;
+} | null> {
+  const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
+
+  // Try createFromPackage first (bundled model), fall back to create({ modelPath })
+  try {
+    type CreateFromPackageFn = () => Promise<{
+      embed(text: string): Promise<Float32Array>;
+      embedBatch(texts: string[]): Promise<Float32Array[]>;
+      dispose(): Promise<void>;
+    }>;
+    const nodeEmbedder = NodeEmbedder as unknown as { createFromPackage: CreateFromPackageFn };
+    return await nodeEmbedder.createFromPackage();
+  } catch {
+    // createFromPackage not available — model not bundled
+    return null;
+  }
 }
 
 function deterministicEmbed(text: string, dimension: number = 768): number[] {

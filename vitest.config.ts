@@ -33,7 +33,6 @@ export default defineConfig({
         'packages/infra/src/storage/types.ts', // Pure type definitions
         'packages/core/src/agents/types.ts', // Pure type definitions
         'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
-        'packages/intelligence/src/embeddings/embedder.ts', // Requires native @agentix-e/embed-code-ts
         // Tree-sitter infra + heavy providers (require native modules, low branch coverage)
         'packages/analyzer/src/languages/base-c-like.ts',
         'packages/analyzer/src/languages/tree-sitter-base.ts',

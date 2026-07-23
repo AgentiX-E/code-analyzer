@@ -4,7 +4,15 @@
   "description": "Intelligence layer for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
-  "keywords": ["code-analysis", "code-review", "knowledge-graph", "hybrid-search", "semantic-search", "impact-analysis", "code-intelligence"],
+  "keywords": [
+    "code-analysis",
+    "code-review",
+    "knowledge-graph",
+    "hybrid-search",
+    "semantic-search",
+    "impact-analysis",
+    "code-intelligence"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Lambertyan/code-analyzer.git",
@@ -14,7 +22,9 @@
     "url": "https://github.com/Lambertyan/code-analyzer/issues"
   },
   "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -38,14 +48,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@code-analyzer/shared": "workspace:*",
+    "@agentix-e/embed-code-core": "0.1.1",
+    "@agentix-e/embed-code-node": "0.1.1",
+    "@code-analyzer/analyzer": "workspace:*",
     "@code-analyzer/core": "workspace:*",
     "@code-analyzer/infra": "workspace:*",
-    "@code-analyzer/analyzer": "workspace:*"
+    "@code-analyzer/shared": "workspace:*"
   },
-  "optionalDependencies": {
-    "@agentix-e/embed-code-ts": "^1.0.0"
-  },
+  "optionalDependencies": {},
   "devDependencies": {
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

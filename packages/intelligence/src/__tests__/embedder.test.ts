@@ -1,7 +1,262 @@
 // @code-analyzer/intelligence — Embedding Engine Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { EmbeddingEngine } from '../embeddings/embedder.js';
+import {
+  EmbeddingEngine,
+  MockEmbeddingBackend,
+} from '../embeddings/embedder.js';
+
+// ---------------------------------------------------------------------------
+// MockEmbeddingBackend — direct tests
+// ---------------------------------------------------------------------------
+
+describe('MockEmbeddingBackend', () => {
+  it('has backendType "mock"', () => {
+    const backend = new MockEmbeddingBackend();
+    expect(backend.backendType).toBe('mock');
+  });
+
+  it('respects custom dimensions', () => {
+    const backend = new MockEmbeddingBackend({ dimensions: 256, normalize: true });
+    expect(backend.dimensions).toBe(256);
+  });
+
+  it('embedCode returns normalized vectors by default', async () => {
+    const backend = new MockEmbeddingBackend({ dimensions: 768, normalize: true });
+    const vec = await backend.embedCode('test');
+    let norm = 0;
+    for (let i = 0; i < vec.length; i++) norm += vec[i]! * vec[i]!;
+    expect(Math.sqrt(norm)).toBeCloseTo(1.0, 5);
+  });
+
+  it('embedCode skips normalization when disabled', async () => {
+    const backend = new MockEmbeddingBackend({ dimensions: 128, normalize: false });
+    const vec = await backend.embedCode('test');
+    let norm = 0;
+    for (let i = 0; i < vec.length; i++) norm += vec[i]! * vec[i]!;
+    // Without normalization, norm is unlikely to be 1.0
+    expect(Math.sqrt(norm)).not.toBeCloseTo(1.0, 3);
+  });
+
+  it('embedBatch returns correct count', async () => {
+    const backend = new MockEmbeddingBackend();
+    const vecs = await backend.embedBatch(['a', 'b', 'c']);
+    expect(vecs.length).toBe(3);
+    expect(vecs[0]!.length).toBe(768);
+  });
+
+  it('embedBatch with empty array', async () => {
+    const backend = new MockEmbeddingBackend();
+    const vecs = await backend.embedBatch([]);
+    expect(vecs).toEqual([]);
+  });
+
+  it('dispose is a no-op', () => {
+    const backend = new MockEmbeddingBackend();
+    expect(() => backend.dispose()).not.toThrow();
+  });
+
+  it('produces deterministic output for same input', async () => {
+    const backend = new MockEmbeddingBackend();
+    const v1 = await backend.embedCode('hello');
+    const v2 = await backend.embedCode('hello');
+    for (let i = 0; i < v1.length; i++) {
+      expect(v1[i]).toBe(v2[i]);
+    }
+  });
+
+  it('produces different output for different input', async () => {
+    const backend = new MockEmbeddingBackend();
+    const v1 = await backend.embedCode('alpha');
+    const v2 = await backend.embedCode('beta');
+    let diff = 0;
+    for (let i = 0; i < v1.length; i++) {
+      if (v1[i] !== v2[i]) diff++;
+    }
+    expect(diff).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EmbeddingEngine — Backend type reporting
+// ---------------------------------------------------------------------------
+
+describe('EmbeddingEngine activeBackend', () => {
+  it('reports "mock" when using fallback backend', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+    expect(engine.activeBackend).toBe('mock');
+  });
+
+  it('reports "mock" before initialization', () => {
+    const engine = new EmbeddingEngine();
+    expect(engine.activeBackend).toBe('mock');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EmbeddingEngine.importEmbeddings
+// ---------------------------------------------------------------------------
+
+describe('EmbeddingEngine.importEmbeddings', () => {
+  let engine: EmbeddingEngine;
+
+  beforeEach(async () => {
+    engine = new EmbeddingEngine();
+    await engine.initialize();
+  });
+
+  it('imports embeddings from Float32Array entries', () => {
+    engine.importEmbeddings([
+      { nodeId: 1, embedding: new Float32Array([0.1, 0.2, 0.3]) },
+      { nodeId: 2, embedding: new Float32Array([0.4, 0.5, 0.6]) },
+    ]);
+    expect(engine.getEmbedding(1)).not.toBeNull();
+    expect(engine.getEmbedding(2)).not.toBeNull();
+    expect(engine.getEmbedding(1)![0]).toBeCloseTo(0.1, 5);
+  });
+
+  it('imports embeddings from number[] entries', () => {
+    engine.importEmbeddings([
+      { nodeId: 3, embedding: [0.7, 0.8, 0.9] },
+    ]);
+    const retrieved = engine.getEmbedding(3);
+    expect(retrieved).not.toBeNull();
+    expect(retrieved![0]).toBeCloseTo(0.7, 5);
+    expect(retrieved![1]).toBeCloseTo(0.8, 5);
+    expect(retrieved![2]).toBeCloseTo(0.9, 5);
+  });
+
+  it('imports mixed Float32Array and number[] entries', () => {
+    engine.importEmbeddings([
+      { nodeId: 1, embedding: new Float32Array([1, 2, 3]) },
+      { nodeId: 2, embedding: [4, 5, 6] },
+    ]);
+    expect(engine.getEmbedding(1)![0]).toBe(1);
+    expect(engine.getEmbedding(2)![0]).toBe(4);
+  });
+
+  it('importEmbeddings does not modify original array', () => {
+    const original = new Float32Array([1, 2, 3]);
+    engine.importEmbeddings([{ nodeId: 1, embedding: original }]);
+    original[0] = 999;
+    const retrieved = engine.getEmbedding(1);
+    expect(retrieved![0]).toBe(1); // Copy was made, original unchanged
+  });
+
+  it('importEmbeddings with empty array is a no-op', () => {
+    engine.importEmbeddings([]);
+    expect(engine.embeddingCount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EmbeddingEngine.createEmbeddingLookup
+// ---------------------------------------------------------------------------
+
+describe('EmbeddingEngine.createEmbeddingLookup', () => {
+  let engine: EmbeddingEngine;
+
+  beforeEach(async () => {
+    engine = new EmbeddingEngine();
+    await engine.initialize();
+  });
+
+  it('returns a lookup function that finds stored embeddings', () => {
+    const vec = new Float32Array([0.5, 0.5, 0.5]);
+    engine.storeEmbedding(42, vec);
+
+    const lookup = engine.createEmbeddingLookup();
+    const result = lookup(42);
+    expect(result).not.toBeNull();
+    expect(result![0]).toBeCloseTo(0.5, 5);
+  });
+
+  it('returns null for unknown node IDs', () => {
+    const lookup = engine.createEmbeddingLookup();
+    expect(lookup(999)).toBeNull();
+  });
+
+  it('lookup function works with importEmbeddings data', () => {
+    engine.importEmbeddings([
+      { nodeId: 10, embedding: [0.1, 0.2] },
+      { nodeId: 20, embedding: [0.3, 0.4] },
+    ]);
+    const lookup = engine.createEmbeddingLookup();
+    expect(lookup(10)).not.toBeNull();
+    expect(lookup(20)).not.toBeNull();
+    expect(lookup(30)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EmbeddingEngine.embeddingCount
+// ---------------------------------------------------------------------------
+
+describe('EmbeddingEngine.embeddingCount', () => {
+  it('starts at zero', () => {
+    const engine = new EmbeddingEngine();
+    expect(engine.embeddingCount).toBe(0);
+  });
+
+  it('increments with storeEmbedding', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+    engine.storeEmbedding(1, new Float32Array([1, 2]));
+    expect(engine.embeddingCount).toBe(1);
+    engine.storeEmbedding(2, new Float32Array([3, 4]));
+    expect(engine.embeddingCount).toBe(2);
+  });
+
+  it('does not increment on update', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+    engine.storeEmbedding(1, new Float32Array([1, 2]));
+    engine.storeEmbedding(1, new Float32Array([3, 4]));
+    expect(engine.embeddingCount).toBe(1);
+  });
+
+  it('resets to zero after dispose', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+    engine.storeEmbedding(1, new Float32Array([1, 2]));
+    engine.dispose();
+    expect(engine.embeddingCount).toBe(0);
+  });
+
+  it('tracks importEmbeddings correctly', () => {
+    const engine = new EmbeddingEngine();
+    engine.importEmbeddings([
+      { nodeId: 1, embedding: [1, 2] },
+      { nodeId: 2, embedding: [3, 4] },
+    ]);
+    expect(engine.embeddingCount).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EmbeddingBackend type guards
+// ---------------------------------------------------------------------------
+
+describe('EmbeddingBackend interface conformance', () => {
+  it('MockEmbeddingBackend implements EmbeddingBackend', () => {
+    const backend = new MockEmbeddingBackend();
+    expect(backend.backendType).toBeDefined();
+    expect(typeof backend.embedCode).toBe('function');
+    expect(typeof backend.embedBatch).toBe('function');
+    expect(typeof backend.dimensions).toBe('number');
+    expect(typeof backend.dispose).toBe('function');
+  });
+
+  it('MockEmbeddingBackend dimensions matches config', () => {
+    const b768 = new MockEmbeddingBackend({ dimensions: 768, normalize: true });
+    const b512 = new MockEmbeddingBackend({ dimensions: 512, normalize: true });
+    const b256 = new MockEmbeddingBackend({ dimensions: 256, normalize: true });
+    expect(b768.dimensions).toBe(768);
+    expect(b512.dimensions).toBe(512);
+    expect(b256.dimensions).toBe(256);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Deterministic Output Tests

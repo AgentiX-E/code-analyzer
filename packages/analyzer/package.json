@@ -4,7 +4,15 @@
   "description": "Code analysis engine for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
-  "keywords": ["code-analysis", "static-analysis", "ast", "tree-sitter", "scope-resolution", "unified-parser", "code-intelligence"],
+  "keywords": [
+    "code-analysis",
+    "static-analysis",
+    "ast",
+    "tree-sitter",
+    "scope-resolution",
+    "unified-parser",
+    "code-intelligence"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Lambertyan/code-analyzer.git",
@@ -14,7 +22,9 @@
     "url": "https://github.com/Lambertyan/code-analyzer/issues"
   },
   "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -38,17 +48,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@code-analyzer/shared": "workspace:*",
+    "@agentix-e/embed-code-core": "0.1.1",
+    "@agentix-e/embed-code-node": "0.1.1",
     "@code-analyzer/core": "workspace:*",
     "@code-analyzer/infra": "workspace:*",
+    "@code-analyzer/shared": "workspace:*",
     "tree-sitter": "^0.21.1",
-    "tree-sitter-typescript": "^0.21.0",
-    "tree-sitter-javascript": "^0.21.0",
-    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-c-sharp": "^0.21.0",
     "tree-sitter-go": "^0.21.0",
     "tree-sitter-java": "^0.21.0",
-    "tree-sitter-c-sharp": "^0.21.0",
-    "tree-sitter-rust": "^0.21.0"
+    "tree-sitter-javascript": "^0.21.0",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-rust": "^0.21.0",
+    "tree-sitter-typescript": "^0.21.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

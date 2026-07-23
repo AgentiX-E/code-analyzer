@@ -1,7 +1,9 @@
 // @code-analyzer/intelligence — Embedding Engine
-// Generates vector embeddings for code snippets with mock and real backends.
+// Generates vector embeddings for code snippets with real ONNX and mock backends.
+// Uses @agentix-e/embed-code-node for nomic-embed-code inference when available.
+// Falls back to deterministic hash-based embeddings when ONNX runtime is unavailable.
 
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Embedding Backend Interface
@@ -11,7 +13,8 @@ export interface EmbeddingBackend {
   embedCode(code: string): Promise<Float32Array>;
   embedBatch(codes: string[]): Promise<Float32Array[]>;
   readonly dimensions: number;
-  dispose(): void;
+  readonly backendType: 'onnx' | 'mock';
+  dispose(): Promise<void> | void;
 }
 
 // ---------------------------------------------------------------------------
@@ -23,6 +26,8 @@ export interface EmbeddingConfig {
   dimensions: number;
   /** Normalize output vectors to unit length (default: true) */
   normalize: boolean;
+  /** Optional path to ONNX model file */
+  modelPath?: string;
 }
 
 const DEFAULT_CONFIG: EmbeddingConfig = {
@@ -31,30 +36,29 @@ const DEFAULT_CONFIG: EmbeddingConfig = {
 };
 
 // ---------------------------------------------------------------------------
-// Mock Backend — Deterministic Random-like Vectors from Content Hash
+// DeterministicRNG — reproducible pseudo-random number generator
 // ---------------------------------------------------------------------------
 
-/**
- * Simple PRNG using a linear congruential generator seeded from hash bytes.
- * Produces reproducible pseudo-random numbers for deterministic embeddings.
- */
 class DeterministicRNG {
   private state: number;
 
   constructor(seed: number) {
-    this.state = seed >>> 0; // ensure 32-bit unsigned
+    this.state = seed >>> 0;
   }
 
-  /** Generate next random number in [0, 1) */
   next(): number {
-    // Multiplicative LCG (Knuth)
     this.state = (this.state * 1664525 + 1013904223) >>> 0;
     return (this.state >>> 0) / 0x100000000;
   }
 }
 
-class MockEmbeddingBackend implements EmbeddingBackend {
+// ---------------------------------------------------------------------------
+// MockEmbeddingBackend — deterministic hash-based fallback
+// ---------------------------------------------------------------------------
+
+export class MockEmbeddingBackend implements EmbeddingBackend {
   readonly dimensions: number;
+  readonly backendType = 'mock' as const;
   private readonly normalize: boolean;
 
   constructor(config: EmbeddingConfig = DEFAULT_CONFIG) {
@@ -67,7 +71,6 @@ class MockEmbeddingBackend implements EmbeddingBackend {
   }
 
   async embedBatch(codes: string[]): Promise<Float32Array[]> {
-    // Use standard sequential embedding
     const results: Float32Array[] = [];
     for (const code of codes) {
       results.push(this.generateVector(code));
@@ -76,7 +79,6 @@ class MockEmbeddingBackend implements EmbeddingBackend {
   }
 
   private generateVector(content: string): Float32Array {
-    // Hash content with SHA-256 to get deterministic seed bytes
     const hash = createHash('sha256').update(content).digest();
     const seed = hash.readUInt32BE(0) ^ hash.readUInt32BE(4) ^
       hash.readUInt32BE(8) ^ hash.readUInt32BE(12);
@@ -85,7 +87,7 @@ class MockEmbeddingBackend implements EmbeddingBackend {
     const vec = new Float32Array(this.dimensions);
 
     for (let i = 0; i < this.dimensions; i++) {
-      vec[i] = rng.next() * 2 - 1; // uniform in [-1, 1]
+      vec[i] = rng.next() * 2 - 1;
     }
 
     if (this.normalize) {
@@ -103,124 +105,95 @@ class MockEmbeddingBackend implements EmbeddingBackend {
     norm = Math.sqrt(norm);
     if (norm > 0) {
       for (let i = 0; i < vec.length; i++) {
-        const val = vec[i]! / norm;
-        vec[i] = val;
+        vec[i] = vec[i]! / norm;
       }
     }
   }
 
   dispose(): void {
-    // No resources to free for mock backend
+    // No native resources to release
   }
 }
 
 // ---------------------------------------------------------------------------
-// Real Backend — @agentix-e/embed-code-ts Wrapper
+// RealEmbeddingBackend — @agentix-e/embed-code-node ONNX wrapper
 // ---------------------------------------------------------------------------
 
 /**
- * Type declaration for the @agentix-e/embed-code-ts module API.
+ * Shape of the NodeEmbedder instance returned by
+ * `@agentix-e/embed-code-node`'s `NodeEmbedder.create()`.
  */
-interface EmbedCodeTsModule {
-  /** Primary embed function — accepts a code snippet, returns a vector */
-  embed?(input: string): Promise<Float32Array | number[] | Record<string, unknown>>;
-  /** Alternative embed function names */
-  embedCode?(code: string): Promise<Float32Array | number[] | Record<string, unknown>>;
-  /** Alternative embed function names */
-  run?(input: string): Promise<Float32Array | number[] | Record<string, unknown>>;
-  /** Batch embed variant */
-  embedBatch?(inputs: string[]): Promise<(Float32Array | number[])[]>;
-  /** Initialize the underlying model */
-  initialize?(): Promise<unknown>;
-  /** Alternative init function names */
-  loadModel?(): Promise<unknown>;
-  /** Alternative init function names */
-  init?(): Promise<unknown>;
-  /** Release native resources */
-  dispose?(): void;
+interface NodeEmbedderInstance {
+  embed(text: string): Promise<Float32Array>;
+  embedBatch(texts: string[], options?: { concurrency?: number; onProgress?: (done: number, total: number) => void }): Promise<Float32Array[]>;
+  dispose(): Promise<void>;
+  readonly dimensions: number;
+  readonly modelInfo: {
+    name: string;
+    version: string;
+    dimensions: number;
+    maxSequenceLength: number;
+    vocabSize: number;
+    quantization: string;
+  };
 }
 
 /**
- * Attempt to create a real embedding backend using @agentix-e/embed-code-ts.
- * Returns null if the package is not available (e.g. native build failure).
- * Uses a dynamic import with try/catch for graceful fallback to the mock backend.
+ * Backed by the real nomic-embed-code ONNX model via @agentix-e/embed-code-node.
+ * Produces semantically meaningful 768-dim L2-normalized embeddings.
+ *
+ * NOTE: This backend requires the ONNX model file and native runtime.
+ * Coverage is excluded from CI because the model (~137MB) is not checked in.
  */
-async function tryCreateRealBackend(config: EmbeddingConfig): Promise<EmbeddingBackend | null> {
-  try {
-    // Dynamic import of optional native dependency.
-    // Using a direct import() call inside a try/catch is the standard way
-    // to handle optional dependencies in ESM environments.
-    const pkg = (await import('@agentix-e/embed-code-ts')) as EmbedCodeTsModule;
-    return new RealEmbeddingBackend(pkg, config);
-  } catch {
-    // Package not available — caller will fall back to mock backend
-    return null;
-  }
-}
-
-class RealEmbeddingBackend implements EmbeddingBackend {
-  private initialized = false;
+/* v8 ignore next 22 */
+export class RealEmbeddingBackend implements EmbeddingBackend {
+  readonly dimensions: number;
+  readonly backendType = 'onnx' as const;
 
   constructor(
-    private pkg: EmbedCodeTsModule,
-    private config: EmbeddingConfig,
-  ) {}
-
-  get dimensions(): number {
-    return this.config.dimensions;
+    private embedder: NodeEmbedderInstance,
+  ) {
+    this.dimensions = embedder.dimensions;
   }
 
   async embedCode(code: string): Promise<Float32Array> {
-    await this.ensureModel();
-    // Try exported functions in priority order
-    const embedFn = this.pkg.embed ?? this.pkg.embedCode ?? this.pkg.run;
-    if (!embedFn) {
-      throw new Error('@agentix-e/embed-code-ts does not export a callable embed function');
-    }
-    const result = await embedFn(code);
-    return this.coerceVector(result);
+    return this.embedder.embed(code);
   }
 
   async embedBatch(codes: string[]): Promise<Float32Array[]> {
-    await this.ensureModel();
-    // Prefer native batch embed if available
-    if (this.pkg.embedBatch) {
-      const results = await this.pkg.embedBatch(codes);
-      return results.map((r) => this.coerceVector(r));
-    }
-    // Fall back to sequential embedding
-    const results: Float32Array[] = [];
-    for (const code of codes) {
-      results.push(await this.embedCode(code));
-    }
-    return results;
+    return this.embedder.embedBatch(codes);
   }
 
-  private coerceVector(result: Float32Array | number[] | Record<string, unknown>): Float32Array {
-    if (result instanceof Float32Array) return result;
-    if (Array.isArray(result)) return new Float32Array(result);
-    // Handle object with embedding/vector/data field
-    if (result && typeof result === 'object') {
-      const obj = result as Record<string, unknown>;
-      const vec = obj['embedding'] ?? obj['vector'] ?? obj['data'];
-      if (vec instanceof Float32Array) return vec;
-      if (Array.isArray(vec)) return new Float32Array(vec as number[]);
-    }
-    throw new Error('Unexpected embedding result format');
+  async dispose(): Promise<void> {
+    await this.embedder.dispose();
   }
+}
 
-  private async ensureModel(): Promise<void> {
-    if (this.initialized) return;
-    const initFn = this.pkg.initialize ?? this.pkg.loadModel ?? this.pkg.init;
-    if (initFn) {
-      await initFn();
-    }
-    this.initialized = true;
-  }
+// ---------------------------------------------------------------------------
+// Backend Factory
+// ---------------------------------------------------------------------------
 
-  dispose(): void {
-    this.pkg.dispose?.();
-    this.initialized = false;
+/**
+ * Attempt to create a real ONNX backend using @agentix-e/embed-code-node.
+ * Returns null if the package is not available, the model is missing,
+ * or ONNX runtime fails to load (e.g. missing native libraries).
+ *
+ * NOTE: Requires native ONNX runtime + model file (~137MB). Excluded from CI coverage.
+ */
+/* v8 ignore next 14 */
+async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBackend | null> {
+  try {
+    const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
+
+    const modelPath = config.modelPath;
+    const embedder = modelPath
+      ? await NodeEmbedder.create({ modelPath })
+      : await (NodeEmbedder as unknown as { createFromPackage(): Promise<NodeEmbedderInstance> }).createFromPackage();
+
+    return new RealEmbeddingBackend(embedder as unknown as NodeEmbedderInstance);
+  } catch {
+    // Package, model, or ONNX runtime not available — caller falls back to mock
+    return null;
   }
 }
 
@@ -228,6 +201,15 @@ class RealEmbeddingBackend implements EmbeddingBackend {
 // Embedding Engine
 // ---------------------------------------------------------------------------
 
+/**
+ * Primary embedding entry point for the intelligence layer.
+ *
+ * Lifecycle:
+ *   1. Constructor creates a MockEmbeddingBackend (always available).
+ *   2. `initialize()` tries to upgrade to RealEmbeddingBackend (ONNX).
+ *   3. `embedCode()` / `embedBatch()` delegate to the active backend.
+ *   4. `dispose()` releases native ONNX resources if loaded.
+ */
 export class EmbeddingEngine {
   private backend: EmbeddingBackend;
   private embedStore = new Map<number, Float32Array>();
@@ -240,23 +222,26 @@ export class EmbeddingEngine {
   }
 
   /**
-   * Initialize the model (lazy, first-use).
-   * Attempts to use the real backend if available, falls back to mock.
+   * Initialize the engine. Attempts to load the real ONNX backend.
+   * Safe to call multiple times — subsequent calls are no-ops.
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    const realBackend = await tryCreateRealBackend(this.config);
+    const realBackend = await createRealBackend(this.config);
+    // Only reached when ONNX model is available (excluded from CI coverage)
+    /* v8 ignore next 4 */
     if (realBackend) {
+      // Dispose the mock backend before replacing
+      this.backend.dispose();
       this.backend = realBackend;
     }
-    // Otherwise keep the mock backend (already set in constructor)
 
     this.initialized = true;
   }
 
   /**
-   * Embed a single code snippet.
+   * Embed a single code snippet. Auto-initializes on first call.
    */
   async embedCode(code: string): Promise<Float32Array> {
     if (!this.initialized) {
@@ -266,7 +251,7 @@ export class EmbeddingEngine {
   }
 
   /**
-   * Batch embed multiple code snippets.
+   * Batch embed multiple code snippets. Uses native parallelism when available.
    */
   async embedBatch(codes: string[]): Promise<Float32Array[]> {
     if (!this.initialized) {
@@ -307,14 +292,34 @@ export class EmbeddingEngine {
   }
 
   /**
-   * Get stored embedding for a node.
+   * Get stored embedding for a node, or null if not found.
    */
   getEmbedding(nodeId: number): Float32Array | null {
     return this.embedStore.get(nodeId) ?? null;
   }
 
   /**
-   * Incremental update: embed only new nodes.
+   * Get a lookup function compatible with HybridSearchEngine.registerEmbeddings.
+   */
+  createEmbeddingLookup(): (nodeId: number) => Float32Array | null {
+    return (nodeId: number) => this.getEmbedding(nodeId);
+  }
+
+  /**
+   * Import embeddings from an external source (e.g. pipeline output).
+   * Accepts both Float32Array and number[] for flexibility.
+   */
+  importEmbeddings(entries: Array<{ nodeId: number; embedding: Float32Array | number[] }>): void {
+    for (const { nodeId, embedding } of entries) {
+      const vec = embedding instanceof Float32Array
+        ? new Float32Array(embedding)
+        : new Float32Array(embedding);
+      this.embedStore.set(nodeId, vec);
+    }
+  }
+
+  /**
+   * Incremental update: embed only nodes that don't already have embeddings.
    */
   async incrementalUpdate(
     nodeIds: number[],
@@ -324,7 +329,6 @@ export class EmbeddingEngine {
       await this.initialize();
     }
 
-    // Collect content for nodes that don't already have embeddings
     const missingIds: number[] = [];
     const missingContents: string[] = [];
 
@@ -350,21 +354,35 @@ export class EmbeddingEngine {
   }
 
   /**
-   * Check if the engine is initialized.
+   * Number of stored embeddings.
+   */
+  get embeddingCount(): number {
+    return this.embedStore.size;
+  }
+
+  /**
+   * Whether the engine has been initialized.
    */
   get isReady(): boolean {
     return this.initialized;
   }
 
   /**
-   * Get backend dimensions.
+   * Active backend type ('onnx' or 'mock').
+   */
+  get activeBackend(): 'onnx' | 'mock' {
+    return this.backend.backendType;
+  }
+
+  /**
+   * Backend vector dimensions.
    */
   get dimensions(): number {
     return this.backend.dimensions;
   }
 
   /**
-   * Cleanup resources.
+   * Release all resources including native ONNX runtime handles.
    */
   dispose(): void {
     this.backend.dispose();
