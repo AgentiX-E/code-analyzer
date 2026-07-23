@@ -24,10 +24,13 @@ We aim to:
 
 ### Supply Chain
 
-- All dependencies are pinned with exact versions in `pnpm-lock.yaml`
-- Regular `npm audit` runs on every PR via CI
-- SBOM (Software Bill of Materials) generation planned for upcoming releases
-- Dependencies are reviewed before addition
+- **All dependencies pinned** with exact versions in `pnpm-lock.yaml`
+- **CodeQL static analysis** runs on every push to main and every PR (security-extended + security-and-quality queries)
+- **Dependency review** runs on every PR, blocking known-vulnerable dependencies
+- **SBOM generation** produces SPDX 2.3-compliant bills of materials for every release
+- **npm provenance** enabled — packages are built and published with verifiable build attestations
+- **Cosign signing** for Docker images — all container images are cryptographically signed
+- Regular `npm audit` / `pnpm audit` runs on every PR via CI
 
 ### Code Security
 

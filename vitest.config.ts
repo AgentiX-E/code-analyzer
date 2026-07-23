@@ -34,8 +34,17 @@ export default defineConfig({
         'packages/core/src/agents/types.ts', // Pure type definitions
         'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
         'packages/intelligence/src/embeddings/embedder.ts', // Requires native @agentix-e/embed-code-ts
-        // Tree-sitter language providers (require native modules)
-        'packages/analyzer/src/languages/*.ts',
+        // Tree-sitter infra + heavy providers (require native modules, low branch coverage)
+        'packages/analyzer/src/languages/base-c-like.ts',
+        'packages/analyzer/src/languages/tree-sitter-base.ts',
+        'packages/analyzer/src/languages/csharp.ts',
+        'packages/analyzer/src/languages/go.ts',
+        'packages/analyzer/src/languages/java.ts',
+        'packages/analyzer/src/languages/javascript.ts',
+        'packages/analyzer/src/languages/kotlin.ts',
+        'packages/analyzer/src/languages/python.ts',
+        'packages/analyzer/src/languages/rust.ts',
+        'packages/analyzer/src/languages/typescript.ts',
         // I/O-bound files that cannot achieve 95%+ branch coverage in CI
         'packages/analyzer/src/pipeline/phases.ts',
         'packages/analyzer/src/pipeline/parallel-phases.ts',
