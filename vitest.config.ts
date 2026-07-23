@@ -60,7 +60,7 @@ export default defineConfig({
         'packages/infra/src/git/*.ts',
         // Generated / dist
         'packages/*/dist/**',
-        // Non-covered packages
+        // Non-covered packages (integration-layer packages require full environment)
         'packages/mcp/**',
         'packages/server/**',
         'packages/vscode/**',
