@@ -739,6 +739,99 @@ describe('CrossRepoIndexer', () => {
       // No cross-repo edges, so no affected repos
       expect(result.analysis.length).toBe(0);
     });
+
+    it('should accept optional changedSymbols parameter', async () => {
+      groupManager.createGroup('g1', 'Symbol', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+      groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+      const result = await indexer.analyzeCrossRepoImpact('g1', 'o/repo-a', ['myFunction']);
+      expect(result.changedRepo).toBe('o/repo-a');
+      expect(result.changedSymbols).toEqual(['myFunction']);
+    });
+
+    it('should not set changedSymbols when parameter is empty', async () => {
+      groupManager.createGroup('g1', 'Symbol2', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+
+      const result = await indexer.analyzeCrossRepoImpact('g1', 'o/repo-a', []);
+      expect(result.changedSymbols).toBeUndefined();
+    });
+  });
+
+  describe('getRepoNodes', () => {
+    it('should be a public method', () => {
+      expect(typeof indexer.getRepoNodes).toBe('function');
+    });
+
+    it('should return empty array for empty store', () => {
+      const nodes = indexer.getRepoNodes('nonexistent');
+      expect(Array.isArray(nodes)).toBe(true);
+      expect(nodes.length).toBe(0);
+    });
+
+    it('should return nodes for a specific project', () => {
+      groupManager.createGroup('g1', 'Nodes', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+
+      // Insert a node directly into store
+      const node = createProjectNode('o/repo-a', 'testFn', 'Function', 'src/test.ts', true);
+      store.insertNode(node);
+      const allNodes = store.getAllNodes();
+      const id = allNodes[0]!.id;
+
+      const nodes = indexer.getRepoNodes('o/repo-a');
+      expect(nodes.length).toBeGreaterThanOrEqual(1);
+      expect(nodes.some((n) => n.name === 'testFn')).toBe(true);
+    });
+  });
+
+  describe('traceSymbolDependencies', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(
+        indexer.traceSymbolDependencies('nonexistent', 'o/repo-a', 'fn'),
+      ).rejects.toThrow('not found');
+    });
+
+    it('should throw for repo not in group', async () => {
+      groupManager.createGroup('g1', 'Trace', '');
+      await expect(
+        indexer.traceSymbolDependencies('g1', 'unknown-repo', 'fn'),
+      ).rejects.toThrow('not in group');
+    });
+
+    it('should return empty array for symbol with no matches', async () => {
+      groupManager.createGroup('g1', 'Trace', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+      const traces = await indexer.traceSymbolDependencies('g1', 'o/repo-a', 'nonexistentFn');
+      expect(traces).toEqual([]);
+    });
+
+    it('should trace direct dependencies via CROSS_REPO edges', async () => {
+      groupManager.createGroup('g1', 'Trace', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+      groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+      // Set up cross-repo graph: fn in repo-a calls fn in repo-b
+      const nodeA = createProjectNode('o/repo-a', 'sourceFn', 'Function', 'src/a.ts', true);
+      const nodeB = createProjectNode('o/repo-b', 'targetFn', 'Function', 'src/b.ts', true);
+      store.insertNode(nodeA);
+      store.insertNode(nodeB);
+      const allNodes = store.getAllNodes();
+      const idA = allNodes.find((n) => n.name === 'sourceFn')!.id;
+      const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
+
+      store.insertEdge({
+        id: 0, projectId: 'o/repo-a',
+        sourceId: idA, targetId: idB,
+        type: 'CROSS_REPO_CALLS', properties: {}, weight: 1,
+        createdAt: new Date().toISOString(),
+      });
+
+      const traces = await indexer.traceSymbolDependencies('g1', 'o/repo-a', 'sourceFn');
+      expect(traces.length).toBeGreaterThanOrEqual(1);
+      expect(traces.some((t) => t.targetRepo === 'o/repo-b')).toBe(true);
+    });
   });
 });
 

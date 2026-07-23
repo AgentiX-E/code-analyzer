@@ -63,10 +63,10 @@ describe('CodeAnalyzerMCPServer', () => {
   });
 
   describe('tool dispatch', () => {
-    it('should have all 38 tools registered', () => {
+    it('should have all 39 tools registered', () => {
       server = new CodeAnalyzerMCPServer();
       const tools = server.getRegistry().list();
-      expect(tools.length).toBe(38);
+      expect(tools.length).toBe(39);
     });
 
     it('should have expected tool names', () => {

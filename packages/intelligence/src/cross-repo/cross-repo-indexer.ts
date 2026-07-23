@@ -68,12 +68,27 @@ export interface TypeCompatResult {
 export interface CrossRepoImpactResult {
   changedRepo: string;
   affectedRepos: string[];
+  /** Symbols that were specifically analyzed. Empty means all symbols in changed repo. */
+  changedSymbols?: string[];
   analysis: {
     repo: string;
     affectedSymbols: string[];
     impactLevel: 'critical' | 'high' | 'medium' | 'low';
     reason: string;
   }[];
+}
+
+/** A single dependency trace from one symbol to another across repos. */
+export interface SymbolDependencyTrace {
+  sourceRepo: string;
+  sourceSymbol: string;
+  sourceFile: string;
+  targetRepo: string;
+  targetSymbol: string;
+  targetFile: string;
+  dependencyType: string;
+  depth: number;
+  confidence: 'high' | 'medium' | 'low';
 }
 
 // ---------------------------------------------------------------------------
@@ -962,10 +977,12 @@ export class CrossRepoIndexer {
   /**
    * Analyze the impact of changes in one repo on other repos in the group.
    * Uses BFS over cross-repo edges to find affected repos.
+   * @param changedSymbols - Optional filter: only trace impact from these specific symbols
    */
   async analyzeCrossRepoImpact(
     groupId: string,
     changedRepoId: string,
+    changedSymbols?: string[],
   ): Promise<CrossRepoImpactResult> {
     const group = this.groupManager.getGroup(groupId);
     if (!group) {
@@ -982,19 +999,36 @@ export class CrossRepoIndexer {
     const analysis: CrossRepoImpactResult['analysis'] = [];
     const affectedRepos = new Set<string>();
 
+    // Determine which source nodes to start BFS from.
+    // When changedSymbols is provided, only start from nodes matching those symbols.
+    const sourceNodes = changedSymbols && changedSymbols.length > 0
+      ? this.getRepoNodes(changedRepoId).filter((n) =>
+          changedSymbols.some((s) =>
+            n.name.toLowerCase() === s.toLowerCase() ||
+            n.qualifiedName.toLowerCase().includes(s.toLowerCase()),
+          ),
+        )
+      : null;
+
     // BFS from changed repo along cross-repo edges
     const visited = new Set<string>();
     const queue: Array<{ repo: string; depth: number }> = [];
     queue.push({ repo: changedRepoId, depth: 0 });
     visited.add(changedRepoId);
 
+    // Track which symbols in affected repos are actually impacted
+    const affectedSymbolMap = new Map<string, Set<string>>();
+
     while (queue.length > 0) {
       const current = queue.shift()!;
       if (current.repo !== changedRepoId) {
         affectedRepos.add(current.repo);
-        const affectedSymbols = this.getSymbolsInRepo(current.repo).map(
-          (n) => n.name,
-        );
+        const specificSymbols = affectedSymbolMap.get(current.repo);
+
+        // If we have specific symbol tracking, use that. Otherwise return all symbols.
+        const affectedSymbols = specificSymbols && specificSymbols.size > 0
+          ? Array.from(specificSymbols)
+          : this.getSymbolsInRepo(current.repo).map((n) => n.name);
 
         let impactLevel: 'critical' | 'high' | 'medium' | 'low' = 'low';
         if (current.depth === 1) impactLevel = 'high';
@@ -1013,12 +1047,26 @@ export class CrossRepoIndexer {
       // Find all repos this repo depends on via cross-repo edges
       const nodes = this.getRepoNodes(current.repo);
       for (const node of nodes) {
+        // When sourceNodes filter is active at depth 0, only traverse matching nodes
+        if (current.depth === 0 && sourceNodes && !sourceNodes.some((sn) => sn.id === node.id)) {
+          continue;
+        }
+
         const edgesOut = this.store.getEdgesForNode(node.id);
         for (const edge of edgesOut) {
           if (!edge.type.startsWith('CROSS_REPO_')) continue;
           const targetNode = this.store.getNode(edge.targetId);
           if (!targetNode) continue;
           const targetRepo = targetNode.projectId;
+
+          // Track specific affected symbol
+          if (current.repo === changedRepoId) {
+            const symbols = affectedSymbolMap.get(targetRepo) ?? new Set<string>();
+            symbols.add(targetNode.name);
+            if (targetNode.qualifiedName) symbols.add(targetNode.qualifiedName);
+            affectedSymbolMap.set(targetRepo, symbols);
+          }
+
           if (visited.has(targetRepo)) continue;
           visited.add(targetRepo);
           queue.push({ repo: targetRepo, depth: current.depth + 1 });
@@ -1028,16 +1076,101 @@ export class CrossRepoIndexer {
 
     return {
       changedRepo: changedRepoId,
+      changedSymbols: changedSymbols && changedSymbols.length > 0 ? changedSymbols : undefined,
       affectedRepos: Array.from(affectedRepos),
       analysis,
     };
   }
 
-  // -----------------------------------------------------------------------
-  // Private Helpers
-  // -----------------------------------------------------------------------
+  /**
+   * Trace exact dependency chains from a symbol in one repo to symbols in other repos.
+   * Returns precise "symbol X in repo A → symbol Y in repo B" traces via CROSS_REPO_* edges.
+   */
+  async traceSymbolDependencies(
+    groupId: string,
+    sourceRepoId: string,
+    symbolName: string,
+  ): Promise<SymbolDependencyTrace[]> {
+    const group = this.groupManager.getGroup(groupId);
+    if (!group) {
+      throw new Error(`Group "${groupId}" not found`);
+    }
 
-  private getRepoNodes(projectId: string): GraphNode[] {
+    const repos = group.repos.map((r) => r.fullName);
+    if (!repos.includes(sourceRepoId)) {
+      throw new Error(
+        `Source repo "${sourceRepoId}" is not in group "${groupId}"`,
+      );
+    }
+
+    const traces: SymbolDependencyTrace[] = [];
+
+    // Find the symbol node(s) in source repo
+    const sourceNodes = this.getRepoNodes(sourceRepoId).filter(
+      (n) =>
+        n.name.toLowerCase() === symbolName.toLowerCase() ||
+        n.qualifiedName.toLowerCase().includes(symbolName.toLowerCase()),
+    );
+
+    if (sourceNodes.length === 0) return traces;
+
+    // For each matching source node, follow outgoing CROSS_REPO_* edges
+    for (const sourceNode of sourceNodes) {
+      const edgesOut = this.store.getEdgesForNode(sourceNode.id);
+
+      for (const edge of edgesOut) {
+        if (!edge.type.startsWith('CROSS_REPO_')) continue;
+
+        const targetNode = this.store.getNode(edge.targetId);
+        if (!targetNode) continue;
+        if (targetNode.projectId === sourceRepoId) continue;
+
+        const targetRepo = targetNode.projectId;
+        if (!repos.includes(targetRepo)) continue;
+
+        // Follow one more level for transitive dependencies
+        const transitiveEdges = this.store.getEdgesForNode(targetNode.id);
+        for (const tEdge of transitiveEdges) {
+          if (!tEdge.type.startsWith('CROSS_REPO_')) continue;
+          const transitiveTarget = this.store.getNode(tEdge.targetId);
+          if (!transitiveTarget || transitiveTarget.projectId === targetRepo) continue;
+          if (!repos.includes(transitiveTarget.projectId)) continue;
+
+          traces.push({
+            sourceRepo: sourceRepoId,
+            sourceSymbol: sourceNode.qualifiedName,
+            sourceFile: sourceNode.filePath ?? '',
+            targetRepo: transitiveTarget.projectId,
+            targetSymbol: transitiveTarget.qualifiedName,
+            targetFile: transitiveTarget.filePath ?? '',
+            dependencyType: `transitive_${tEdge.type}`,
+            depth: 2,
+            confidence: 'medium',
+          });
+        }
+
+        traces.push({
+          sourceRepo: sourceRepoId,
+          sourceSymbol: sourceNode.qualifiedName,
+          sourceFile: sourceNode.filePath ?? '',
+          targetRepo,
+          targetSymbol: targetNode.qualifiedName,
+          targetFile: targetNode.filePath ?? '',
+          dependencyType: edge.type,
+          depth: 1,
+          confidence: 'high',
+        });
+      }
+    }
+
+    return traces;
+  }
+
+  /**
+   * Get all graph nodes belonging to a specific project/repo.
+   * Public method — used by CrossRepoPRReviewEngine and external consumers.
+   */
+  getRepoNodes(projectId: string): GraphNode[] {
     const result = this.store.queryNodes({
       projectId,
       limit: 500000,
@@ -1045,6 +1178,10 @@ export class CrossRepoIndexer {
     });
     return result.items;
   }
+
+  // -----------------------------------------------------------------------
+  // Private Helpers
+  // -----------------------------------------------------------------------
 
   private getSymbolsInRepo(projectId: string): GraphNode[] {
     return this.getRepoNodes(projectId).filter(

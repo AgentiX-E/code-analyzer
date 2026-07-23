@@ -26,6 +26,7 @@ function getStore(storeOrContext: unknown): InMemoryGraphStore | null {
 
 interface ReviewPRParams {
   projectId: string;
+  groupId?: string;
   prNumber?: number;
   baseRef?: string;
   headRef?: string;
@@ -37,6 +38,7 @@ export const reviewPRSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
+    groupId: { type: 'string', description: 'Repository group ID for cross-repo PR review' },
     prNumber: { type: 'number', description: 'Pull request number' },
     baseRef: { type: 'string', description: 'Base branch reference' },
     headRef: { type: 'string', description: 'Head branch reference' },
@@ -49,11 +51,99 @@ export const reviewPRSchema = {
 export async function reviewPR(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
   const params = args as unknown as ReviewPRParams;
   const projectId = params.projectId;
+  const groupId = params.groupId;
   const prNumber = params.prNumber;
   const baseRef = params.baseRef ?? 'main';
   const headRef = params.headRef ?? 'HEAD';
   const includeAiReview = Boolean(params.includeAiReview);
   const diff = params.diff;
+
+  // Cross-repo PR review path — when groupId is provided
+  if (groupId) {
+    try {
+      const ctx = getContext(store);
+      if (ctx) {
+        const diffs = diff ? parsePrDiff(projectId, diff) : [];
+        const pr = {
+          number: prNumber ?? 0,
+          title: `PR Review for ${projectId}`,
+          body: '',
+          state: 'open' as const,
+          base: {
+            ref: baseRef,
+            sha: '',
+            repo: {
+              id: 0,
+              owner: projectId.split('/')[0] ?? '',
+              name: projectId.split('/')[1] ?? projectId,
+              fullName: projectId,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: 'typescript',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: headRef,
+            sha: '',
+            repo: {
+              id: 0,
+              owner: projectId.split('/')[0] ?? '',
+              name: projectId.split('/')[1] ?? projectId,
+              fullName: projectId,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: 'typescript',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'unknown' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const engine = ctx.getCrossRepoPRReviewEngine();
+        const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, projectId, diffs as any);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              projectId,
+              groupId,
+              crossRepoRisk: result.summary.crossRepoRisk,
+              mergeRecommendation: result.summary.mergeRecommendation,
+              reposImpacted: result.summary.reposImpacted,
+              breakingChanges: result.summary.breakingChanges,
+              crossRepoImpacts: result.crossRepoImpacts,
+              apiBreakingChanges: result.apiBreakingChanges,
+              testPredictions: result.testPredictions,
+              recommendations: result.summary.recommendations,
+              mode: 'cross-repo',
+            }, null, 2),
+          }],
+        };
+      }
+      // Fall through to single-repo if no context
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: err instanceof Error ? err.message : String(err),
+            projectId,
+            groupId,
+            mode: 'cross-repo',
+          }, null, 2),
+        }],
+      };
+    }
+  }
 
   try {
     const ctx = getContext(store);

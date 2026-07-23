@@ -1,5 +1,5 @@
 // @code-analyzer/mcp — Tools Index
-// Registers all 38 MCP tools into the ToolRegistry.
+// Registers all 39 MCP tools into the ToolRegistry.
 
 import { ToolRegistry } from './registry.js';
 
@@ -63,6 +63,7 @@ import {
   manageRepoGroup, manageRepoGroupSchema,
   syncContracts, syncContractsSchema,
   discoverRelatedRepos, discoverRelatedReposSchema,
+  crossRepoReviewPR, crossRepoReviewPRSchema,
 } from './cross-repo.js';
 
 // PDG
@@ -84,7 +85,7 @@ import {
 // Register All Tools
 // ---------------------------------------------------------------------------
 
-/** Create and configure a ToolRegistry with all 38 tools. */
+/** Create and configure a ToolRegistry with all 39 tools. */
 export function createToolRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
 
@@ -125,13 +126,14 @@ export function createToolRegistry(): ToolRegistry {
   registry.register('export_report', 'Export a report in specified format', exportReportSchema, exportReport, 'analysis');
   registry.register('get_recommendations', 'Get code improvement recommendations', getRecommendationsSchema, getRecommendations, 'analysis');
 
-  // Cross-Repo (6)
+  // Cross-Repo (7)
   registry.register('cross_repo_search', 'Search across multiple repositories', crossRepoSearchSchema, crossRepoSearch, 'analysis');
   registry.register('cross_repo_trace', 'Trace call paths across repositories', crossRepoTraceSchema, crossRepoTrace, 'analysis');
   registry.register('cross_repo_impact', 'Analyze cross-repo impact of changes', crossRepoImpactSchema, crossRepoImpact, 'analysis');
   registry.register('manage_repo_group', 'Manage repository groups', manageRepoGroupSchema, manageRepoGroup, 'all');
   registry.register('sync_contracts', 'Synchronize contracts across repos', syncContractsSchema, syncContracts, 'analysis');
   registry.register('discover_related_repos', 'Discover related repositories', discoverRelatedReposSchema, discoverRelatedRepos, 'scout');
+  registry.register('cross_repo_review_pr', 'Review a pull request with cross-repo context', crossRepoReviewPRSchema, crossRepoReviewPR, 'analysis');
 
   // PDG (3)
   registry.register('pdg_query', 'Query the program dependence graph', pdgQuerySchema, pdgQuery, 'analysis');

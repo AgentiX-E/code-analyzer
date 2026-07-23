@@ -9,6 +9,7 @@ import {
   RepoGroupManager,
   FederatedSearchEngine,
   CrossRepoIndexer,
+  CrossRepoPRReviewEngine,
 } from '@code-analyzer/intelligence';
 import type { PipelineOrchestrator } from '@code-analyzer/analyzer';
 import type { PipelineResult } from '@code-analyzer/analyzer';
@@ -48,6 +49,9 @@ export interface ToolContext {
 
   /** Cross-repo indexer — group indexing, impact analysis, contract detection. */
   getCrossRepoIndexer(): CrossRepoIndexer;
+
+  /** Cross-repo PR review engine — reviews PRs with cross-repo awareness and dependency tracing. */
+  getCrossRepoPRReviewEngine(): CrossRepoPRReviewEngine;
 
   /** Get node/edge counts and label distribution for the given project. */
   getGraphStats(projectId: string): GraphStats;
@@ -98,6 +102,7 @@ export class ToolContextImpl implements ToolContext {
   private _repoGroupManager: RepoGroupManager | null = null;
   private _federatedSearch: FederatedSearchEngine | null = null;
   private _crossRepoIndexer: CrossRepoIndexer | null = null;
+  private _crossRepoPrReview: CrossRepoPRReviewEngine | null = null;
   public currentAnalysis?: PipelineResult;
 
   constructor(store: InMemoryGraphStore) {
@@ -148,6 +153,17 @@ export class ToolContextImpl implements ToolContext {
       );
     }
     return this._crossRepoIndexer;
+  }
+
+  getCrossRepoPRReviewEngine(): CrossRepoPRReviewEngine {
+    if (!this._crossRepoPrReview) {
+      this._crossRepoPrReview = new CrossRepoPRReviewEngine(
+        this.getCrossRepoIndexer(),
+        this.getRepoGroupManager(),
+        this.getReviewEngine(),
+      );
+    }
+    return this._crossRepoPrReview;
   }
 
   async getPipeline(): Promise<PipelineOrchestrator> {

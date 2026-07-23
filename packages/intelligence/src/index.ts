@@ -265,6 +265,7 @@ export type {
   CrossRepoGraphReport,
   TypeCompatResult,
   CrossRepoImpactResult,
+  SymbolDependencyTrace,
 } from './cross-repo/cross-repo-indexer.js';
 
 export { FederatedSearchEngine } from './cross-repo/federated-search.js';

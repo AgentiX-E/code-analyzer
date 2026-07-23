@@ -710,3 +710,187 @@ export async function discoverRelatedRepos(args: Record<string, unknown>, store?
     }],
   };
 }
+
+// ---------------------------------------------------------------------------
+// cross_repo_review_pr — Cross-Repo PR Review
+// ---------------------------------------------------------------------------
+
+interface CrossRepoReviewPRParams {
+  groupId: string;
+  sourceRepoId: string;
+  prNumber?: number;
+  diffs?: Array<{
+    filePath: string;
+    changeType: string;
+    oldPath?: string;
+    ranges?: Array<{
+      oldStart: number;
+      oldEnd: number;
+      newStart: number;
+      newEnd: number;
+      changeType: string;
+    }>;
+  }>;
+}
+
+export const crossRepoReviewPRSchema = {
+  type: 'object',
+  properties: {
+    groupId: { type: 'string', description: 'Repository group ID' },
+    sourceRepoId: { type: 'string', description: 'Source repository full name (owner/name)' },
+    prNumber: { type: 'number', description: 'Pull request number' },
+    diffs: {
+      type: 'array',
+      items: { type: 'object' },
+      description: 'Array of git diff objects for the PR',
+    },
+  },
+  required: ['groupId', 'sourceRepoId'],
+};
+
+export async function crossRepoReviewPR(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+  const params = args as unknown as CrossRepoReviewPRParams;
+  const groupId = params.groupId;
+  const sourceRepoId = params.sourceRepoId;
+  const prNumber = params.prNumber;
+
+  if (!store || !ToolContextImpl.isToolContext(store)) {
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          error: 'ToolContext with graph store is required for cross-repo PR review. Run analyze_repository first.',
+        }, null, 2),
+      }],
+    };
+  }
+
+  const ctx = store as ToolContextImpl;
+
+  // Convert plain repo name to owner/name format if needed (hoisted for catch access)
+  let parsedSourceRepo: string;
+  try {
+    const parsed = parseRepoRef(sourceRepoId);
+    parsedSourceRepo = `${parsed.owner}/${parsed.name}`;
+  } catch {
+    parsedSourceRepo = sourceRepoId;
+  }
+
+  try {
+    // Build GitDiff objects from raw diffs
+    const diffs: Array<{
+      filePath: string;
+      oldHash: string;
+      newHash: string;
+      changeType: string;
+      oldPath?: string;
+      ranges: Array<{
+        oldStart: number;
+        oldEnd: number;
+        newStart: number;
+        newEnd: number;
+        changeType: string;
+      }>;
+    }> = (params.diffs ?? []).map((d) => ({
+      filePath: d.filePath,
+      oldHash: '',
+      newHash: '',
+      changeType: d.changeType ?? 'modified',
+      oldPath: d.oldPath,
+      ranges: (d.ranges ?? []).map((r) => ({
+        oldStart: r.oldStart,
+        oldEnd: r.oldEnd,
+        newStart: r.newStart,
+        newEnd: r.newEnd,
+        changeType: r.changeType ?? 'modified',
+      })),
+    }));
+
+    // Construct a minimal PullRequest object
+    const pr = {
+      number: prNumber ?? 0,
+      title: `Cross-repo review for ${parsedSourceRepo}`,
+      body: '',
+      state: 'open' as const,
+      base: {
+        ref: 'main',
+        sha: '',
+        repo: {
+          id: 0,
+          owner: parsedSourceRepo.split('/')[0] ?? '',
+          name: parsedSourceRepo.split('/')[1] ?? '',
+          fullName: parsedSourceRepo,
+          defaultBranch: 'main',
+          cloneUrl: '',
+          language: 'typescript',
+          topics: [],
+          isPrivate: false,
+          description: '',
+        },
+      },
+      head: {
+        ref: 'feature',
+        sha: '',
+        repo: {
+          id: 0,
+          owner: parsedSourceRepo.split('/')[0] ?? '',
+          name: parsedSourceRepo.split('/')[1] ?? '',
+          fullName: parsedSourceRepo,
+          defaultBranch: 'main',
+          cloneUrl: '',
+          language: 'typescript',
+          topics: [],
+          isPrivate: false,
+          description: '',
+        },
+      },
+      user: { login: 'unknown' },
+      labels: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const engine = ctx.getCrossRepoPRReviewEngine();
+
+    // Sync group from singleton to ensure cross-repo tools share state
+    const singletonMgr = await getGroupManager();
+    const engineMgr = ctx.getRepoGroupManager();
+    if (singletonMgr.hasGroup(groupId) && !engineMgr.hasGroup(groupId)) {
+      const sg = singletonMgr.getGroup(groupId)!;
+      engineMgr.createGroup(groupId, sg.name, sg.description);
+      for (const repo of sg.repos) {
+        try { engineMgr.addRepo(groupId, repo.owner, repo.repo, repo.fullName, repo.localPath); } catch { /* skip */ }
+      }
+    }
+
+    const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, parsedSourceRepo, diffs as any);
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          sourceRepo: toExternalRepoRef(parsedSourceRepo),
+          crossRepoRisk: result.summary.crossRepoRisk,
+          mergeRecommendation: result.summary.mergeRecommendation,
+          reposImpacted: result.summary.reposImpacted,
+          breakingChanges: result.summary.breakingChanges,
+          crossRepoImpacts: result.crossRepoImpacts,
+          apiBreakingChanges: result.apiBreakingChanges,
+          testPredictions: result.testPredictions,
+          recommendations: result.summary.recommendations,
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          error: err instanceof Error ? err.message : String(err),
+          groupId,
+          sourceRepoId: toExternalRepoRef(parsedSourceRepo),
+        }, null, 2),
+      }],
+    };
+  }
+}

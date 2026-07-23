@@ -930,3 +930,107 @@ describe('discoverRelatedRepos', () => {
     expect(result.content[0].text).toContain('Missing required parameter');
   });
 });
+
+// ---------------------------------------------------------------------------
+// cross_repo_review_pr Tests
+// ---------------------------------------------------------------------------
+
+describe('cross_repo_review_pr', () => {
+  let registry: ToolRegistry;
+  let ctx: ToolContextImpl;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+    ctx = createTestContext();
+  });
+
+  it('should require groupId and sourceRepoId', async () => {
+    const result = await registry.execute('cross_repo_review_pr', {}, ctx);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Missing required parameter');
+  });
+
+  it('should require graph context for review', async () => {
+    const result = await registry.execute('cross_repo_review_pr', {
+      groupId: 'test-group',
+      sourceRepoId: 'repo-alpha',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toContain('graph store');
+  });
+
+  it('should return error for non-existent group', async () => {
+    const result = await registry.execute('cross_repo_review_pr', {
+      groupId: 'no-group',
+      sourceRepoId: 'repo-alpha',
+    }, ctx);
+    // The tool should report an error either via isError or in the content
+    const hasError = result.isError === true || 
+      (typeof result.content?.[0]?.text === 'string' && result.content[0].text.includes('error'));
+    expect(hasError).toBe(true);
+  });
+
+  it('should handle empty diffs', async () => {
+    // First create a group
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'review-group',
+      name: 'Review Group',
+      repos: ['repo-alpha', 'repo-beta'],
+    });
+
+    const result = await registry.execute('cross_repo_review_pr', {
+      groupId: 'review-group',
+      sourceRepoId: 'repo-alpha',
+      diffs: [],
+    }, ctx);
+    const data = JSON.parse(result.content[0].text);
+    expect(data.sourceRepo).toBe('repo-alpha');
+    expect(data.crossRepoRisk).toBe('low');
+    expect(data.mergeRecommendation).toBe('approve');
+  });
+
+  it('should detect breaking changes for deleted files', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'breaking-group',
+      name: 'Breaking Group',
+      repos: ['repo-alpha', 'repo-beta'],
+    });
+
+    const result = await registry.execute('cross_repo_review_pr', {
+      groupId: 'breaking-group',
+      sourceRepoId: 'repo-alpha',
+      diffs: [{
+        filePath: 'src/api/users.ts',
+        changeType: 'deleted',
+        ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
+      }],
+    }, ctx);
+    const data = JSON.parse(result.content[0].text);
+    expect(data.sourceRepo).toBe('repo-alpha');
+    expect(data.breakingChanges).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should not break with modified file diffs', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'mod-group',
+      name: 'Modified Group',
+      repos: ['repo-alpha'],
+    });
+
+    const result = await registry.execute('cross_repo_review_pr', {
+      groupId: 'mod-group',
+      sourceRepoId: 'repo-alpha',
+      diffs: [{
+        filePath: 'src/api/newFeature.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' }],
+      }],
+    }, ctx);
+    const data = JSON.parse(result.content[0].text);
+    expect(data.sourceRepo).toBe('repo-alpha');
+    expect(data.mergeRecommendation).toBeDefined();
+  });
+});

@@ -482,15 +482,33 @@ export class CrossRepoPRReviewEngine {
 
   /**
    * Extract symbols that changed based on the diffs.
+   * When a graph store is available through the review engine, queries
+   * the graph for precise symbol resolution. Falls back to file-name extraction.
    */
   private extractChangedSymbols(
     diffs: GitDiff[],
-    _sourceRepoId: string,
+    sourceRepoId: string,
   ): string[] {
     const symbols = new Set<string>();
 
     for (const diff of diffs) {
-      // Extract function/class/interface names from the file path
+      // Try to find actual symbols in the graph for modified/deleted files
+      if (diff.changeType !== 'added') {
+        try {
+          const repoNodes = this.indexer.getRepoNodes(sourceRepoId);
+          const fileNodes = repoNodes.filter(
+            (n) => n.filePath === diff.filePath || n.filePath === diff.oldPath,
+          );
+          for (const node of fileNodes) {
+            if (node.name) symbols.add(node.name);
+            if (node.qualifiedName) symbols.add(node.qualifiedName);
+          }
+        } catch {
+          // Fall back to file-name extraction
+        }
+      }
+
+      // Always extract from file path as baseline
       const baseName = diff.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
       if (baseName) {
         symbols.add(baseName);
@@ -508,6 +526,8 @@ export class CrossRepoPRReviewEngine {
 
   /**
    * Detect API breaking changes in the changed symbols.
+   * Uses traceSymbolDependencies() for precise graph-based dependency tracing
+   * combined with heuristic diff content analysis.
    */
   private async detectBreakingChanges(
     diffs: GitDiff[],
@@ -519,23 +539,36 @@ export class CrossRepoPRReviewEngine {
     const group = this.groupManager.getGroup(groupId);
     if (!group) return breakingChanges;
 
-    const otherRepos = group.repos
-      .map((r) => r.fullName)
-      .filter((r) => r !== _sourceRepoId);
+    // Build a dependency map: symbol → list of affected repos
+    // Use traceSymbolDependencies for precision, fall back to resolveCrossRepoSymbols
+    const dependencyMap = new Map<string, string[]>();
+    const tracePromises = changedSymbols.map(async (symbol) => {
+      try {
+        const traces = await this.indexer.traceSymbolDependencies(
+          groupId,
+          _sourceRepoId,
+          symbol,
+        );
+        if (traces.length > 0) {
+          const repos = [...new Set(traces.map((t) => t.targetRepo))];
+          dependencyMap.set(symbol, repos);
+        }
+      } catch {
+        // Tracing unavailable, will fall through to resolveCrossRepoSymbols
+      }
+    });
 
-    // Match changed symbols against cross-repo symbol matches
-    let matches;
-    try {
-      matches = await this.indexer.resolveCrossRepoSymbols(groupId);
-    } catch {
-      matches = [];
-    }
+    await Promise.all(tracePromises);
 
-    for (const diff of diffs) {
-      const fileSymbols = this.extractFileSymbols(diff);
-
-      for (const symbol of fileSymbols) {
-        // Find repos that depend on this symbol
+    // Fallback: if no graph-based traces found, try fuzzy symbol matching
+    if (dependencyMap.size === 0) {
+      let matches;
+      try {
+        matches = await this.indexer.resolveCrossRepoSymbols(groupId);
+      } catch {
+        matches = [];
+      }
+      for (const symbol of changedSymbols) {
         const dependentRepos = matches
           .filter(
             (m) =>
@@ -543,6 +576,17 @@ export class CrossRepoPRReviewEngine {
               m.targetSymbol.includes(symbol),
           )
           .map((m) => m.sourceRepo);
+        if (dependentRepos.length > 0) {
+          dependencyMap.set(symbol, dependentRepos);
+        }
+      }
+    }
+
+    for (const diff of diffs) {
+      const fileSymbols = this.extractFileSymbols(diff);
+
+      for (const symbol of fileSymbols) {
+        const dependentRepos = dependencyMap.get(symbol) ?? [];
 
         // Check for various breaking change types
         if (diff.changeType === 'deleted') {
@@ -635,7 +679,7 @@ export class CrossRepoPRReviewEngine {
 
     for (const repo of otherRepos) {
       try {
-        const repoNodes = this.indexer['getRepoNodes']?.(repo.fullName);
+        const repoNodes = this.indexer.getRepoNodes(repo.fullName);
         if (!repoNodes) {
           // Fallback: add a low-confidence prediction
           if (changedSymbols.length > 0) {
