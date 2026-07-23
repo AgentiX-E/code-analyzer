@@ -92,6 +92,34 @@ export {
   generateConfigHtml,
 } from './providers/config-provider.js';
 
+export {
+  GraphExplorerLogic,
+} from './providers/graph-explorer.js';
+export type {
+  GraphNodeData,
+  GraphEdgeData,
+  GraphData,
+} from './providers/graph-explorer.js';
+
+export {
+  ReviewDecorationLogic,
+} from './providers/review-decoration-provider.js';
+export type {
+  DecorationSeverity,
+  DecorationConfig,
+  HoverContent,
+  CodeLensAction,
+  FileDecorationGroup,
+} from './providers/review-decoration-provider.js';
+
+export {
+  GraphTreeDataProviderLogic,
+} from './providers/tree-view-provider.js';
+export type {
+  TreeItemData,
+  GraphTreeItem,
+} from './providers/tree-view-provider.js';
+
 // Views
 export {
   StatusBarManager,

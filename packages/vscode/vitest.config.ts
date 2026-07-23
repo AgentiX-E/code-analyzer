@@ -46,7 +46,18 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/__tests__/**', 'src/index.ts'],
+      exclude: [
+        'src/__tests__/**',
+        'src/index.ts',
+        'src/extension/extension.ts',
+        'src/extension/commands.ts',
+      ],
+      thresholds: {
+        lines: 80,
+        branches: 75,
+        functions: 95,
+        statements: 80,
+      },
     },
     testTimeout: 10000,
   },

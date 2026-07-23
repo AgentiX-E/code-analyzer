@@ -1,6 +1,6 @@
 // @code-analyzer/vscode — Engine Bridge Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EngineBridge } from '../services/engine-bridge.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
@@ -356,6 +356,90 @@ describe('EngineBridge', () => {
       expect(bridge.isInitialized).toBe(true);
 
       bridge.dispose();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getDiffContentSafe (private) — coverage for branch paths
+  // -------------------------------------------------------------------------
+
+  describe('getDiffContentSafe', () => {
+    it('returns file content when newHash is truthy', async () => {
+      const mockGetFileContent = vi.fn().mockResolvedValue('file content from git');
+      const mockGit = {
+        getWorkspaceDiff: vi.fn(),
+        getFileContent: mockGetFileContent,
+      };
+
+      const diff = {
+        filePath: 'src/exists.ts',
+        oldHash: '',
+        newHash: 'abc123',
+        ranges: [],
+        changeType: 'modified' as const,
+      };
+
+      const result = await (bridge as any).getDiffContentSafe(mockGit, diff);
+      expect(mockGetFileContent).toHaveBeenCalledWith('HEAD', 'src/exists.ts');
+      expect(result).toBe('file content from git');
+    });
+
+    it('returns fallback metadata when newHash is falsy', async () => {
+      const mockGit = {
+        getWorkspaceDiff: vi.fn(),
+        getFileContent: vi.fn(),
+      };
+
+      const diff = {
+        filePath: 'src/fallback.ts',
+        oldHash: '',
+        newHash: '',
+        ranges: [],
+        changeType: 'added' as const,
+      };
+
+      const result = await (bridge as any).getDiffContentSafe(mockGit, diff);
+      expect(result).toBe('// File: src/fallback.ts\n// Change: added\n');
+      expect(mockGit.getFileContent).not.toHaveBeenCalled();
+    });
+
+    it('returns empty string when changeType is deleted', async () => {
+      const mockGit = {
+        getWorkspaceDiff: vi.fn(),
+        getFileContent: vi.fn(),
+      };
+
+      const diff = {
+        filePath: 'src/deleted.ts',
+        oldHash: 'abc123',
+        newHash: 'def456',
+        ranges: [],
+        changeType: 'deleted' as const,
+      };
+
+      const result = await (bridge as any).getDiffContentSafe(mockGit, diff);
+      expect(result).toBe('');
+      expect(mockGit.getFileContent).not.toHaveBeenCalled();
+    });
+
+    it('returns fallback on git.getFileContent error (catch path)', async () => {
+      const mockGetFileContent = vi.fn().mockRejectedValue(new Error('git error'));
+      const mockGit = {
+        getWorkspaceDiff: vi.fn(),
+        getFileContent: mockGetFileContent,
+      };
+
+      const diff = {
+        filePath: 'src/broken.ts',
+        oldHash: '',
+        newHash: 'xyz789',
+        ranges: [],
+        changeType: 'modified' as const,
+      };
+
+      const result = await (bridge as any).getDiffContentSafe(mockGit, diff);
+      expect(result).toBe('// File: src/broken.ts\n// Change: modified\n');
+      expect(mockGetFileContent).toHaveBeenCalledWith('HEAD', 'src/broken.ts');
     });
   });
 });

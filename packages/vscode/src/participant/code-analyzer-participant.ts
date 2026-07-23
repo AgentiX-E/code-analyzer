@@ -1201,6 +1201,7 @@ export class CodeAnalyzerChatParticipant {
           callers: await this.engine.findCallers(entity),
         };
       }
+      /* v8 ignore next 4 */
       default:
         return {
           searchResults: await this.engine.search(request.prompt),

@@ -10,6 +10,14 @@ import { FileWatcherService } from '../services/file-watcher.js';
 import { createStatusBarManager } from '../views/status-bar.js';
 import { registerCommands } from './commands.js';
 import { CodeAnalyzerChatParticipant } from '../participant/code-analyzer-participant.js';
+import {
+  SidebarLogic,
+  generateSidebarHtml,
+} from '../providers/sidebar-provider.js';
+import { ConfigLogic, generateConfigHtml } from '../providers/config-provider.js';
+import { GraphExplorerLogic } from '../providers/graph-explorer.js';
+import { ReviewDecorationLogic } from '../providers/review-decoration-provider.js';
+import { GraphTreeDataProviderLogic } from '../providers/tree-view-provider.js';
 import type {
   IVSCodeAPI,
   DiagnosticCollection,
@@ -47,6 +55,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // 5. Register sidebar webview
   registerSidebar(context, engine);
+
+  // 5b. Register config webview
+  registerConfigWebview(context, configService);
 
   // 6. Register inline comment decorations
   const commentCollection = createDiagnosticCollection(context);
@@ -245,8 +256,11 @@ function registerChatParticipantWithCommands(
 
 function registerSidebar(
   context: vscode.ExtensionContext,
-  _engine: EngineBridge,
+  engine: EngineBridge,
 ): void {
+  const sidebarLogic = new SidebarLogic(engine);
+  const graphLogic = new GraphExplorerLogic(engine);
+
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('code-analyzer.sidebar', {
       resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -254,26 +268,54 @@ function registerSidebar(
           enableScripts: true,
         };
         webviewView.webview.html = generateSidebarHtml();
+
+        // Handle messages from the webview
+        webviewView.webview.onDidReceiveMessage(
+          async (message: { command: string; [key: string]: unknown }) => {
+            try {
+              // Route graph-related messages to GraphExplorerLogic
+              if (message.command === 'getGraphData') {
+                const rootSymbol = message['rootSymbol'] as string | undefined;
+                const graphData = await graphLogic.getGraphData(rootSymbol);
+                webviewView.webview.postMessage({
+                  command: 'graphData',
+                  nodes: graphData.nodes,
+                  edges: graphData.edges,
+                });
+                return;
+              }
+              if (message.command === 'getNodeDetail') {
+                const nodeId = message['nodeId'] as number;
+                const detail = await graphLogic.getNodeDetail(nodeId);
+                webviewView.webview.postMessage({
+                  command: 'nodeDetail',
+                  detail,
+                });
+                return;
+              }
+              if (message.command === 'navigate') {
+                const filePath = message['filePath'] as string;
+                if (filePath) {
+                  const uri = vscode.Uri.file(filePath);
+                  await vscode.commands.executeCommand('vscode.open', uri);
+                }
+                return;
+              }
+
+              // Route everything else through SidebarLogic
+              const response = await sidebarLogic.handleMessage(message);
+              webviewView.webview.postMessage(response);
+            } catch {
+              webviewView.webview.postMessage({
+                command: 'error',
+                message: 'An internal error occurred',
+              });
+            }
+          },
+        );
       },
     }),
   );
-}
-
-function generateSidebarHtml(): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Code Analyzer</title>
-</head>
-<body>
-  <div id="root">
-    <h2>Code Analyzer</h2>
-    <p>Indexing workspace...</p>
-  </div>
-</body>
-</html>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -309,4 +351,65 @@ function registerStatusBar(
     eng,
   );
   context.subscriptions.push(manager);
+}
+
+// ---------------------------------------------------------------------------
+// Config Webview Registration
+// ---------------------------------------------------------------------------
+
+function registerConfigWebview(
+  context: vscode.ExtensionContext,
+  configService: ConfigService,
+): void {
+  const configLogic = new ConfigLogic(configService);
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('code-analyzer.config', {
+      resolveWebviewView(webviewView: vscode.WebviewView) {
+        webviewView.webview.options = {
+          enableScripts: true,
+        };
+        const currentConfig = configLogic.getConfig();
+        webviewView.webview.html = generateConfigHtml(currentConfig);
+
+        webviewView.webview.onDidReceiveMessage(
+          async (message: { command: string; [key: string]: unknown }) => {
+            try {
+              if (message.command === 'saveConfig') {
+                const config = message.config as Record<string, unknown> | undefined;
+                if (config) {
+                  const errors = configLogic.validate(config as any);
+                  if (errors.length > 0) {
+                    webviewView.webview.postMessage({
+                      command: 'configError',
+                      message: errors.join('; '),
+                    });
+                    return;
+                  }
+                  // Update VS Code configuration
+                  for (const [key, value] of Object.entries(config)) {
+                    await vscode.workspace
+                      .getConfiguration('codeAnalyzer')
+                      .update(key, value, vscode.ConfigurationTarget.Global);
+                  }
+                }
+                webviewView.webview.postMessage({ command: 'configSaved' });
+              } else if (message.command === 'resetConfig') {
+                const defaults = configLogic.getDefaults();
+                webviewView.webview.postMessage({
+                  command: 'configDefaults',
+                  config: defaults,
+                });
+              }
+            } catch {
+              webviewView.webview.postMessage({
+                command: 'configError',
+                message: 'Failed to save configuration',
+              });
+            }
+          },
+        );
+      },
+    }),
+  );
 }

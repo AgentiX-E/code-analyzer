@@ -128,7 +128,8 @@ export function registerCommands(
   // Show config
   disposables.push(
     api.registerCommand('code-analyzer.showConfig', () => {
-      api.executeCommand('workbench.view.extension.code-analyzer-config');
+      // Open the Code Analyzer sidebar and switch to config view
+      api.executeCommand('code-analyzer.config.focus');
     }),
   );
 

@@ -73,6 +73,14 @@
         {
           "id": "code-analyzer.sidebar",
           "name": "Code Intelligence"
+        },
+        {
+          "id": "code-analyzer.graphExplorer",
+          "name": "Graph Explorer"
+        },
+        {
+          "id": "code-analyzer.config",
+          "name": "Configuration"
         }
       ]
     },
@@ -96,6 +104,42 @@
       {
         "command": "code-analyzer.showConfig",
         "title": "Configure Code Analyzer"
+      },
+      {
+        "command": "code-analyzer.config.focus",
+        "title": "Focus Config View"
+      },
+      {
+        "command": "code-analyzer.graphExplorer.focus",
+        "title": "Focus Graph Explorer"
+      },
+      {
+        "command": "code-analyzer.fixIssue",
+        "title": "Fix Issue"
+      },
+      {
+        "command": "code-analyzer.ignoreIssue",
+        "title": "Ignore Issue"
+      },
+      {
+        "command": "code-analyzer.explainIssue",
+        "title": "Explain Issue"
+      },
+      {
+        "command": "code-analyzer.findCallers",
+        "title": "Find Callers"
+      },
+      {
+        "command": "code-analyzer.findCallees",
+        "title": "Find Callees"
+      },
+      {
+        "command": "code-analyzer.traceImpact",
+        "title": "Trace Impact"
+      },
+      {
+        "command": "code-analyzer.showSymbolDetail",
+        "title": "Show Symbol Details"
       }
     ],
     "configuration": {
@@ -116,8 +160,67 @@
           "type": "number",
           "default": 10485760,
           "description": "Max file size in bytes"
+        },
+        "codeAnalyzer.excludePatterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["node_modules/**", "dist/**", ".git/**", "build/**"],
+          "description": "File patterns to exclude from analysis"
+        },
+        "codeAnalyzer.reviewOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run code review automatically on save"
+        },
+        "codeAnalyzer.showInlineDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Display review comments as inline decorations"
+        },
+        "codeAnalyzer.maxSearchResults": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum number of search results"
         }
       }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "code-analyzer.analyze",
+          "when": "view == code-analyzer.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.review",
+          "when": "view == code-analyzer.sidebar",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "code-analyzer.findCallers",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.findCallees",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.traceImpact",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.showSymbolDetail",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        }
+      ]
     }
   },
   "dependencies": {

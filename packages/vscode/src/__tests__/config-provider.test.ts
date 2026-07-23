@@ -125,4 +125,35 @@ describe('generateConfigHtml', () => {
     const html = generateConfigHtml(custom);
     expect(html).not.toContain('autoIndex" checked');
   });
+
+  it('renders moderate index mode selected correctly', () => {
+    const custom = ConfigService.withDefaults({ indexMode: 'moderate' });
+    const html = generateConfigHtml(custom);
+    expect(html).toContain('value="moderate" selected');
+  });
+
+  it('renders fast index mode selected correctly', () => {
+    const custom = ConfigService.withDefaults({ indexMode: 'fast' });
+    const html = generateConfigHtml(custom);
+    expect(html).toContain('value="fast" selected');
+  });
+
+  it('renders showInlineDecorations unchecked', () => {
+    const custom = ConfigService.withDefaults({ showInlineDecorations: false });
+    const html = generateConfigHtml(custom);
+    expect(html).not.toContain('showInlineDecorations" checked');
+  });
+
+  it('renders maxSearchResults with correct value', () => {
+    const custom = ConfigService.withDefaults({ maxSearchResults: 50 });
+    const html = generateConfigHtml(custom);
+    expect(html).toContain('value="50"');
+  });
+
+  it('handles maxFileSize of zero bytes', () => {
+    const custom = ConfigService.withDefaults({ maxFileSize: 0 });
+    const html = generateConfigHtml(custom);
+    expect(html).toContain('value="0"');
+    expect(html).toContain('0 Bytes');
+  });
 });
