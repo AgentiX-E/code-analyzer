@@ -1834,6 +1834,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     });
   });
 
+  it('should cover severityToRiskLevel for all severities', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    // Access private method via bracket notation to cover all branches
+    const method = (analyzer as any)['severityToRiskLevel'] as (severity: string) => string;
+    expect(method('blocked')).toBe('critical');
+    expect(method('degraded')).toBe('medium');
+    expect(method('unaffected')).toBe('low');
+  });
+
   it('should trigger severityToRiskLevel for degraded via analyze', async () => {
     // Create a process with a step, then analyze the step as changed
     // This triggers findAffectedProcesses with severity 'degraded'

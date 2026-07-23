@@ -269,6 +269,45 @@ describe('RepoGroupManager', () => {
     });
   });
 
+  describe('hasGroup', () => {
+    it('should return true for existing group', () => {
+      manager.createGroup('g1', 'Group 1', '');
+      expect(manager.hasGroup('g1')).toBe(true);
+    });
+
+    it('should return false for non-existent group', () => {
+      expect(manager.hasGroup('nonexistent')).toBe(false);
+    });
+  });
+
+  describe('cloneGroup', () => {
+    it('should deep-clone contracts with definition and dependencies', () => {
+      manager.createGroup('g1', 'Clone Test', '');
+      // Manually insert a contract into the internal groups map to test clone
+      const internal = (manager as any).groups.get('g1');
+      internal.contracts = [{
+        id: 'contract-1',
+        name: 'UserDTO',
+        description: 'Shared DTO',
+        uri: '/api/user',
+        version: '1.0.0',
+        definition: { kind: 'shared_interface', fields: ['id', 'name'] },
+        dependencies: ['o/repo-a', 'o/repo-b'],
+      }];
+
+      const group = manager.getGroup('g1')!;
+      expect(group.contracts).toHaveLength(1);
+      expect(group.contracts[0]!.definition).toEqual({ kind: 'shared_interface', fields: ['id', 'name'] });
+      expect(group.contracts[0]!.dependencies).toEqual(['o/repo-a', 'o/repo-b']);
+
+      // Verify it's a deep clone — modifying the returned object shouldn't affect original
+      group.contracts[0]!.definition = { modified: true } as any;
+      group.contracts[0]!.dependencies.push('o/repo-c');
+      const fresh = manager.getGroup('g1')!;
+      expect(fresh.contracts[0]!.definition).toEqual({ kind: 'shared_interface', fields: ['id', 'name'] });
+      expect(fresh.contracts[0]!.dependencies).toEqual(['o/repo-a', 'o/repo-b']);
+    });
+  });
   describe('config save/load', () => {
     const tmpDir = join(tmpdir(), `cross-repo-test-${Date.now()}`);
 
@@ -774,6 +813,51 @@ describe('FederatedSearchEngine', () => {
       for (const r of results) {
         expect(r.repo).toBe('group-a');
       }
+    });
+
+    it('should return exact match via qualified name lookup', async () => {
+      const node = createProjectNode('repo-a', 'qualifiedNameMatch', 'Function', 'src/utils.ts', true);
+      // Set qualifiedName to exactly match the search term for getNodeByQualifiedName
+      node.qualifiedName = 'qualifiedNameMatch';
+      store.insertNode(node);
+
+      const results = await engine.findSymbol('qualifiedNameMatch');
+      expect(results.length).toBe(1);
+
+      // The result should come from the qualified name exact match path
+      expect(results[0]!.symbol).toBe('qualifiedNameMatch');
+      expect(results[0]!.matchType).toBe('exact');
+      expect(results[0]!.repo).toBe('repo-a');
+    });
+
+    it('should skip duplicates when exactNode is also found via FTS', async () => {
+      // Node found by getNodeByQualifiedName (qualifiedName matches search term)
+      const exactNode = createProjectNode('repo-a', 'sharedSymbol', 'Function', 'src/app.ts', true);
+      exactNode.qualifiedName = 'sharedSymbol';
+      store.insertNode(exactNode);
+
+      // Another node with same name in different repo, found only via FTS
+      const ftsNode = createProjectNode('repo-b', 'sharedSymbol', 'Function', 'src/app.ts', true);
+      store.insertNode(ftsNode);
+
+      const results = await engine.findSymbol('sharedSymbol');
+
+      // Should include both nodes: one from qualified name lookup, one from FTS
+      // The exactNode should NOT appear twice (deduplicated via seen set)
+      expect(results.length).toBe(2);
+
+      // Verify no duplicate repos
+      const repoList = results.map(r => r.repo);
+      expect(new Set(repoList).size).toBe(repoList.length);
+
+      // Verify both repos are present
+      const repos = results.map(r => r.repo).sort();
+      expect(repos).toEqual(['repo-a', 'repo-b']);
+
+      // Find the exact qualified name match
+      const exactResult = results.find(r => r.qualifiedName === 'sharedSymbol');
+      expect(exactResult).toBeTruthy();
+      expect(exactResult!.matchType).toBe('exact');
     });
   });
 

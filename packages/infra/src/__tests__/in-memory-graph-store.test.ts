@@ -1107,6 +1107,24 @@ describe('InMemoryGraphStore', () => {
       expect(results.length).toBe(1);
       expect(results[0]!.node.name).toBe('NoDecoratorsFunc');
     });
+
+    it('matches filePath when it is the best (only) match', () => {
+      // Insert a node where the search term appears ONLY in filePath,
+      // so filePath rank (2) becomes bestRank.
+      store.insertNode(createTestNode({
+        qualifiedName: 'filepath.only.node',
+        name: 'FilepathOnlyFunc',
+        label: 'Function' as NodeLabel,
+        filePath: 'src/unique-path/filepath-only-match.ts',
+        signature: null,
+        docstring: null,
+        properties: {},
+      }));
+      const results = store.searchFts('unique-path');
+      expect(results.length).toBe(1);
+      expect(results[0]!.matchedColumn).toBe('filePath');
+      expect(results[0]!.node.filePath).toContain('unique-path');
+    });
   });
 
   // ==========================================================================
@@ -1326,6 +1344,41 @@ describe('InMemoryGraphStore', () => {
       expect(report.nodeCount).toBe(1);
       // Edges are cascaded on deleteNode, so orphan count should be 0
       expect(report.orphanEdges).toBe(0);
+    });
+
+    it('detects orphan edge when source node is missing', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orphan.src2', projectId: 'orphan-src-proj' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orphan.tgt2', projectId: 'orphan-src-proj' }));
+      const edgeId = store.insertEdge(createTestEdge({
+        sourceId: n1,
+        targetId: n2,
+        projectId: 'orphan-src-proj',
+        type: 'CALLS',
+      }));
+      // Simulate orphan edge: directly remove source node from internal nodes map
+      // without going through deleteNode (which would cascade-delete edges)
+      (store as any).nodes.delete(n1);
+      (store as any).qnameIndex.delete('orphan.src2');
+      const report = store.validateIntegrity('orphan-src-proj');
+      expect(report.orphanEdges).toBe(1);
+      expect(report.issues.some((i: any) => i.type === 'orphan_edge' && i.edgeId === edgeId)).toBe(true);
+    });
+
+    it('detects orphan edge when target node is missing', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orphan.src3', projectId: 'orphan-tgt-proj' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orphan.tgt3', projectId: 'orphan-tgt-proj' }));
+      const edgeId = store.insertEdge(createTestEdge({
+        sourceId: n1,
+        targetId: n2,
+        projectId: 'orphan-tgt-proj',
+        type: 'CALLS',
+      }));
+      // Simulate orphan edge: directly remove target node from internal nodes map
+      (store as any).nodes.delete(n2);
+      (store as any).qnameIndex.delete('orphan.tgt3');
+      const report = store.validateIntegrity('orphan-tgt-proj');
+      expect(report.orphanEdges).toBe(1);
+      expect(report.issues.some((i: any) => i.type === 'orphan_edge' && i.edgeId === edgeId)).toBe(true);
     });
   });
 
@@ -1666,12 +1719,21 @@ describe('InMemoryGraphStore', () => {
       expect(store.getEdgeCount()).toBe(3);
     });
 
-    it('rejects batch edges with missing source', () => {
+    it('rejects batch edges with missing target', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.valid' }));
       const edges = [
         createTestEdge(n1, 99999, 'CALLS'), // target doesn't exist
       ];
       expect(() => store.insertEdges(edges)).toThrow('not found');
+      expect(store.getEdgeCount()).toBe(0);
+    });
+
+    it('rejects batch edges with missing source', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.valid2' }));
+      const edges = [
+        createTestEdge({ sourceId: 99999, targetId: n1, type: 'CALLS' }),
+      ];
+      expect(() => store.insertEdges(edges)).toThrow('source node id=99999 not found');
       expect(store.getEdgeCount()).toBe(0);
     });
   });

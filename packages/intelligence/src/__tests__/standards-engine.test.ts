@@ -1170,6 +1170,19 @@ describe('StandardsEngine — auto-detection', () => {
     expect(standards).toContain('security-baseline');
     expect(standards).toContain('documentation');
   });
+
+  it('should detect cargo.toml for dependency-security', () => {
+    const files = ['cargo.toml', 'src/main.rs'];
+    const standards = engine.detectApplicableStandards(files);
+    expect(standards).toContain('dependency-security');
+  });
+
+  it('should detect layered architecture patterns from directory structure', () => {
+    const files = ['src/domain/user/entity.ts', 'src/infrastructure/db/repository.ts'];
+    const standards = engine.detectApplicableStandards(files);
+    expect(standards).toContain('architecture-layered');
+    expect(standards).toContain('clean-architecture');
+  });
 });
 
 describe('StandardsEngine — composeStandards', () => {

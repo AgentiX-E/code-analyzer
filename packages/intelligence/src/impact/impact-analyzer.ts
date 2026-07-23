@@ -640,7 +640,6 @@ export class ImpactAnalyzer {
         return 'critical';
       case 'degraded':
         return 'medium';
-      /* v8 ignore next */
       case 'unaffected':
         return 'low';
     }

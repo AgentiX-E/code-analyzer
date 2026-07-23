@@ -569,6 +569,32 @@ describe('Config File Detection', () => {
   });
 });
 
+// ── Confidence Aggregation — High Branch Coverage ────────────────
+
+describe('Confidence Aggregation — High', () => {
+  it('should return high confidence with 2+ high signals (L305 highCount >= 2)', () => {
+    // Create an aider config file in home dir to trigger a high-confidence signal
+    const aiderConfigPath = path.join(os.homedir(), '.aider.conf.yml');
+    const existedBefore = fs.existsSync(aiderConfigPath);
+    try {
+      fs.writeFileSync(aiderConfigPath, 'model: gpt-4');
+      // Set an env var for a medium signal
+      process.env.AIDER_MODEL = 'gpt-4';
+      process.env.AIDER_API_KEY = 'sk-test';
+      process.env.AIDER_EDIT_FORMAT = 'diff';
+
+      const result = detectAgentById('aider')!;
+      // Should have config signal (high) + 3 env signals (medium)
+      // 1 high + 3 medium → high (highCount >= 1 && mediumCount >= 2)
+      expect(result.confidence).toBe('high');
+    } finally {
+      if (!existedBefore) {
+        try { fs.unlinkSync(aiderConfigPath); } catch { /* cleanup */ }
+      }
+    }
+  });
+});
+
 // ── Edge Cases ───────────────────────────────────────────────────
 
 describe('Edge Cases', () => {

@@ -127,6 +127,23 @@ describe('RetryPolicy', () => {
       // With jitter enabled, just verify construction works
       expect(policy).toBeDefined();
     });
+
+    it('should apply jitter during retry', async () => {
+      let attempts = 0;
+      const policy = new RetryPolicy({ maxAttempts: 2, baseDelay: 1 });
+      // jitter is enabled by default
+
+      const result = await policy.execute(async () => {
+        attempts++;
+        if (attempts < 2) {
+          throw new Error('First attempt fails');
+        }
+        return 'recovered with jitter';
+      });
+
+      expect(result).toBe('recovered with jitter');
+      expect(attempts).toBe(2);
+    });
   });
 
   describe('isLastAttempt', () => {

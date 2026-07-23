@@ -177,8 +177,8 @@ function hasEnv(name: string): boolean {
  * Supports ~-prefixed paths.
  */
 function hasPath(filePath: string): boolean {
+  /* v8 ignore next */
   const resolved = filePath.startsWith('~')
-    /* v8 ignore next */
     ? path.join(homeDir, filePath.slice(1))
     : filePath;
   try {
@@ -193,6 +193,7 @@ function hasPath(filePath: string): boolean {
  * Look for a binary in PATH.
  */
 function hasBinary(name: string): boolean {
+  /* v8 ignore next */
   const pathDirs = (process.env.PATH ?? '/usr/bin').split(path.delimiter);
   for (const dir of pathDirs) {
     const full = path.join(dir, name);

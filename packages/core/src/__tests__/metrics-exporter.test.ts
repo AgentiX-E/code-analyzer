@@ -160,10 +160,32 @@ describe('MetricsRegistry', () => {
       expect(data.sum).toBe(0);
     });
 
+    it('should export labeled histogram in Prometheus format', () => {
+      const h = registry.histogram('lbl_hist', 'Labeled histogram', [0.1, 1.0], ['endpoint']);
+      h.observe(0.05, { endpoint: '/api' });
+
+      const output = registry.exportPrometheus();
+      expect(output).toContain('lbl_hist_bucket{endpoint="/api",le="0.1"} 1');
+      expect(output).toContain('lbl_hist_bucket{endpoint="/api",le="+Inf"} 1');
+    });
+
     it('should return the same histogram instance when called again', () => {
       const h1 = registry.histogram('test_hist', 'Test');
       const h2 = registry.histogram('test_hist', 'Different');
       expect(h1).toBe(h2);
+    });
+
+    it('should aggregate buckets across labels via bucketsKeyed', () => {
+      const h = registry.histogram('keyed_hist', 'Aggregated', [0.5, 1.0]) as unknown as {
+        bucketsKeyed: Record<string, number>;
+        observe: (value: number, labels?: Record<string, string>) => void;
+      };
+      h.observe(0.3, { endpoint: '/a' });
+      h.observe(0.7, { endpoint: '/b' });
+      const keyed = h.bucketsKeyed;
+      // 0.3 goes into 0.5 bucket, 0.7 goes into 1.0 bucket (and 0.5 bucket)
+      expect(keyed['0.5']).toBe(1);
+      expect(keyed['1']).toBe(2);
     });
   });
 
@@ -212,6 +234,15 @@ describe('MetricsRegistry', () => {
       expect(output).toContain('http_requests_total{method="POST"} 1');
     });
 
+    it('should sort multiple label names in export', () => {
+      const c = registry.counter('multi_label', 'Multi label test', ['status', 'method']);
+      c.inc(1, { method: 'GET', status: '200' });
+
+      const output = registry.exportPrometheus();
+      // Labels should be sorted alphabetically: method before status
+      expect(output).toContain('multi_label{method="GET",status="200"} 1');
+    });
+
     it('should export empty histogram correctly', () => {
       registry.histogram('empty_hist', 'Empty histogram');
       const output = registry.exportPrometheus();
@@ -239,6 +270,12 @@ describe('MetricsRegistry', () => {
       expect(output).toContain('hist_bucket{le="+Inf"} 2');
       // le=5 should have count 1 (value 3.0 only)
       expect(output).toContain('hist_bucket{le="5"} 1');
+    });
+
+    it('should handle bucket boundary of Infinity', () => {
+      registry.histogram('inf_hist', 'Infinity test', [Number.POSITIVE_INFINITY]).observe(100);
+      const output = registry.exportPrometheus();
+      expect(output).toContain('inf_hist_bucket{le="+Inf"} 1');
     });
   });
 

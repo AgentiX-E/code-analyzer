@@ -714,7 +714,6 @@ export class InMemoryGraphStore {
     }
     for (const edge of this.edges.values()) {
       if (edge.projectId !== projectId) continue;
-      /* v8 ignore next */
       if (!allReferencedNodes.has(edge.sourceId)) {
         issues.push({
           type: 'orphan_edge',
@@ -724,7 +723,6 @@ export class InMemoryGraphStore {
         });
         orphanEdges++;
       }
-      /* v8 ignore next */
       if (!allReferencedNodes.has(edge.targetId)) {
         issues.push({
           type: 'orphan_edge',

@@ -55,6 +55,24 @@ describe('Correctness Rules', () => {
       expect(results).toEqual([]);
     });
 
+    it('should handle arrow functions with parameters', () => {
+      const source = 'const processData = (data, options) => data;\nprocessData(item, config);';
+      const results = runRule('no-undef', source);
+      // data, options, processData are declared; item and config are undefined
+      expect(results.filter((v) => v.message.includes('item')).length).toBeGreaterThan(0);
+    });
+
+    it('should recognize function parameters as declared', () => {
+      const source = 'function handler(a, b) { compute(a, b); }';
+      const results = runRule('no-undef', source);
+      // a and b are declared as params; handler is declared; compute is undef
+      expect(results.length).toBeGreaterThan(0);
+      const computeViolations = results.filter((v) => v.message.includes('compute'));
+      const paramViolations = results.filter((v) => v.message.includes('"a"') || v.message.includes('"b"'));
+      expect(computeViolations.length).toBeGreaterThan(0);
+      expect(paramViolations.length).toBe(0);
+    });
+
     it('should handle empty lines array', () => {
       const results = runRule('no-undef', '');
       expect(results).toEqual([]);
@@ -121,6 +139,19 @@ describe('Correctness Rules', () => {
 
     it('should not flag catch with content', () => {
       const results = runRule('no-empty-catch', 'try { foo(); } catch(e) { console.error(e); }');
+      expect(results).toHaveLength(0);
+    });
+
+    it('should detect multiline catch with only empty lines', () => {
+      const source = 'try {\n  foo();\n} catch(e) {\n\n}';
+      const results = runRule('no-empty-catch', source);
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].ruleId).toBe('no-empty-catch');
+    });
+
+    it('should not flag multiline catch with content on a later line', () => {
+      const source = 'try {\n  foo();\n} catch(e) {\n\n  console.error(e);\n}';
+      const results = runRule('no-empty-catch', source);
       expect(results).toHaveLength(0);
     });
   });
@@ -224,6 +255,12 @@ describe('Security Rules', () => {
       const results = runRule('no-xss', 'el.textContent = userInput;');
       expect(results).toHaveLength(0);
     });
+
+    it('should detect document.write()', () => {
+      const results = runRule('no-xss', 'document.write(userInput);');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].message).toContain('document.write');
+    });
   });
 
   describe('no-hardcoded-secrets (CWE-798)', () => {
@@ -267,6 +304,18 @@ describe('Security Rules', () => {
     it('should not flag safe file reads', () => {
       const results = runRule('no-path-traversal', 'fs.readFile("config.json", cb);');
       expect(results).toHaveLength(0);
+    });
+
+    it('should detect path constructed from user input with path.join', () => {
+      const results = runRule('no-path-traversal', 'const file = path.join(baseDir, req.query.file);');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].message).toContain('CWE-22');
+    });
+
+    it('should detect path constructed from user input with path.resolve', () => {
+      const results = runRule('no-path-traversal', 'const file = path.resolve(req.params.dir, fileName);');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].message).toContain('CWE-22');
     });
   });
 
@@ -356,6 +405,12 @@ describe('Security Rules', () => {
     it('should detect debugger statement', () => {
       const results = runRule('no-debug-statement', 'debugger;');
       expect(results.length).toBeGreaterThan(0);
+    });
+
+    it('should detect console.debug', () => {
+      const results = runRule('no-debug-statement', 'console.debug("test");');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].message).toContain('CWE-489');
     });
 
     it('should not flag console.log in test files', () => {

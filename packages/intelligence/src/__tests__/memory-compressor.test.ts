@@ -635,5 +635,35 @@ describe('Memory Compressor', () => {
       expect(result.needed).toBe(true);
       expect(result.urgent).toBe(true);
     });
+
+    it('should truncate summary when it exceeds the maxSummaryTokens budget', () => {
+      // Use extremely small maxTokens so availableSummaryTokens is minimal (100).
+      // Generate very long key symbol names to push the summary past 100 tokens.
+      const customCompressor = new MemoryCompressor({
+        frozenZoneSize: 2,
+        activeTurns: 1,
+        maxTokens: 100,
+      });
+      const longName = 'VeryLongFunctionNameThatExceedsNormalLength' +
+        'AndTakesUpManyCharactersInTheSummaryString';
+      const messages: TestMessage[] = [];
+      for (let i = 0; i < 30; i++) {
+        messages.push({
+          content: `User: function ${longName}${i}() { return class ${longName}Class${i} {}; } const ${longName}Const${i} = 42; let ${longName}Let${i} = 99; var ${longName}Var${i} = 0; padding text for compression test`,
+        });
+      }
+      const tokens = customCompressor.countMessageTokens(messages);
+      const compressed = customCompressor.compress(messages, tokens);
+
+      // Verify compression occurred
+      expect(compressed.length).toBeLessThan(messages.length);
+
+      // The summary should be present
+      const summaryMsg = compressed.find(
+        (m) => m.content.includes('[Summarized context:'),
+      );
+      expect(summaryMsg).toBeDefined();
+      expect(summaryMsg!.content.length).toBeGreaterThan(0);
+    });
   });
 });

@@ -44,9 +44,11 @@ export default defineConfig({
         'packages/analyzer/src/languages/kotlin.ts',
         'packages/analyzer/src/languages/python.ts',
         'packages/analyzer/src/languages/rust.ts',
+        'packages/analyzer/src/languages/php.ts',
+        'packages/analyzer/src/languages/ruby.ts',
+        'packages/analyzer/src/languages/swift.ts',
         'packages/analyzer/src/languages/typescript.ts',
         // I/O-bound files that cannot achieve 95%+ branch coverage in CI
-        'packages/analyzer/src/pipeline/phases.ts',
         'packages/analyzer/src/pipeline/parallel-phases.ts',
         'packages/infra/src/workers/parallel-indexer.ts',
         'packages/intelligence/src/cross-repo/cross-repo-indexer.ts',

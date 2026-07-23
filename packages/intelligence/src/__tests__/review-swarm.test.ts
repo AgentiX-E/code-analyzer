@@ -371,6 +371,45 @@ describe('ReviewSwarm', () => {
       const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
       expect(styleFindings.some(c => c.title.includes('Debug console.log'))).toBe(true);
     });
+
+    it('should detect deep nesting (>4 levels)', async () => {
+      const lines = [
+        'function deepFunc() {',
+        '  {',
+        '    {',
+        '      {',
+        '        {',
+        '          {',
+        '            return 42;',
+        '          }',
+        '        }',
+        '      }',
+        '    }',
+        '  }',
+        '}',
+      ];
+      const diffs = [createDiff({ filePath: '/src/deep.ts' })];
+      const sources = createSourceMap({ '/src/deep.ts': lines.join('\n') });
+
+      const result = await swarm.review('test-project', diffs, sources);
+      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
+      expect(styleFindings.some(c => c.title.includes('Deep Nesting'))).toBe(true);
+    });
+
+    it('should detect method-style function declarations', async () => {
+      // Trigger regex capture group 3: (\w+)\s*\([^)]*\)\s*\{
+      const lines = [
+        'class Foo {',
+        '  methodName(x, y) {',
+        '    return x + y;',
+        '  }',
+        '}',
+      ];
+      const diffs = [createDiff({ filePath: '/src/method.ts' })];
+      const sources = createSourceMap({ '/src/method.ts': lines.join('\n') });
+      const result = await swarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
   });
 
   describe('review — api lens', () => {
@@ -589,6 +628,20 @@ function handler(req: any, res: any) {
     it('should handle empty diffs', async () => {
       const result = await swarm.review('test-project', []);
       expect(result.comments).toHaveLength(0);
+      expect(result.decision.recommendation).toBe('approve');
+    });
+
+    it('should handle diffs without sourceContents (fallback to diff ranges)', async () => {
+      const diff = createDiff({
+        filePath: '/src/no-source.ts',
+        ranges: [
+          { oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' as const },
+        ],
+      });
+      const result = await swarm.review('test-project', [diff]);
+      // Without sourceContents, content is generated from diff.ranges
+      // This should not throw and should still produce a valid result
+      expect(result).toBeDefined();
       expect(result.decision.recommendation).toBe('approve');
     });
 
@@ -828,6 +881,23 @@ function handler(req: any, res: any) {
       }
     });
 
+    it('should down-rank hardcoded keys in mock files (L1112 mock branch)', async () => {
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['security'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/src/mocks/keys.mock.ts' })];
+      const sources = createSourceMap({
+        '/src/mocks/keys.mock.ts': 'const api_key = "sk-test-1234567890abcdef";\n',
+      });
+      const result = await swarm.review('test-project', diffs, sources);
+      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      for (const f of secFindings) {
+        expect(['low', 'info']).toContain(f.severity);
+      }
+    });
+
     it('should down-rank console.log in CLI tools (L1108-1112)', async () => {
       const swarm = new ReviewSwarm(store, {
         parallel: false,
@@ -915,6 +985,23 @@ function handler(req: any, res: any) {
       expect(result).toBeDefined();
       expect(result.decision.recommendation).toBe('approve');
     });
+
+    it('should handle enrichment errors gracefully (catch branch, L191-193)', async () => {
+      // Mock enrichWithGraphContext to throw, covering the catch in reviewWithGraphContext
+      const originalMethod = (swarm as any).enrichWithGraphContext;
+      (swarm as any).enrichWithGraphContext = () => { throw new Error('Enrichment failed'); };
+      try {
+        const result = await swarm.reviewWithGraphContext(
+          'test-project',
+          [createDiff({ filePath: '/src/test.ts' })],
+          createSourceMap({ '/src/test.ts': 'eval("x");\n' }),
+        );
+        expect(result).toBeDefined();
+        expect(result.lensReports.length).toBeGreaterThan(0);
+      } finally {
+        (swarm as any).enrichWithGraphContext = originalMethod;
+      }
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -945,14 +1032,33 @@ function handler(req: any, res: any) {
     });
 
     it('should include heuristic findings when present', async () => {
+      // Use performance lens to produce heuristic-confidence findings
       const result = await swarm.review(
         'test-project',
-        [createDiff({ filePath: '/src/combined.ts' })],
+        [createDiff({ filePath: '/src/perf.ts' })],
         createSourceMap({
-          '/src/combined.ts': 'function test() {\n  console.log("debug");\n  const longName = 1;\n}\n',
+          '/src/perf.ts': 'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
         }),
       );
-      const prompt = swarm.generateMCPPrompt(result, 'Combined PR');
+      const prompt = swarm.generateMCPPrompt(result, 'Performance PR');
+      expect(prompt).toContain('Heuristic / Low-Confidence Findings');
+    });
+
+    it('should handle heuristic findings with graph context in prompt (L244-246)', async () => {
+      // Use reviewWithGraphContext to set graphContext on findings
+      const swarm2 = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['performance', 'security'],
+        minSeverity: 'info',
+      });
+      const result = await swarm2.reviewWithGraphContext(
+        'test-project',
+        [createDiff({ filePath: '/src/perf2.ts' })],
+        createSourceMap({
+          '/src/perf2.ts': 'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
+        }),
+      );
+      const prompt = swarm2.generateMCPPrompt(result, 'PR with graph context');
       expect(prompt).toContain('Heuristic / Low-Confidence Findings');
     });
   });

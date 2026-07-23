@@ -1,6 +1,6 @@
 // @code-analyzer/intelligence — Review Pipeline Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ReviewPipeline } from '../review/review-pipeline.js';
 import { CodeReviewEngine } from '../review/review-engine.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -470,6 +470,37 @@ describe('ReviewPipeline - Review Execution', () => {
     const comments = await pipeline.executeReview(diffs, engine, config);
     expect(Array.isArray(comments)).toBe(true);
   });
+
+  it('should gracefully handle review engine failure and continue', async () => {
+    const store = createStore();
+    const engine = createEngine(store);
+    const pipeline = new ReviewPipeline();
+
+    // Mock engine.reviewDiff to throw, triggering the catch block
+    vi.spyOn(engine, 'reviewDiff').mockRejectedValueOnce(
+      new Error('Engine failure'),
+    );
+
+    const diffs = [
+      {
+        diff: createDiff(),
+        affectedSymbols: [],
+        relatedTests: [],
+        impactScore: 0,
+      },
+    ];
+    const config = {
+      maxTokens: 8000,
+      maxToolCalls: 10,
+      planLineThreshold: 200,
+      timeout: 30000,
+      concurrency: 4,
+    };
+
+    const comments = await pipeline.executeReview(diffs, engine, config);
+    // Catch block should swallow the error and return empty array
+    expect(comments).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -878,5 +909,29 @@ describe('ReviewPipeline - Edge Cases', () => {
 
     const result = pipeline.deduplicate(comments);
     expect(result).toHaveLength(2);
+  });
+
+  it('should return false when testGlobRegex regex construction fails', () => {
+    const pipeline = new ReviewPipeline();
+
+    // Temporarily replace global RegExp to force SyntaxError in testGlobRegex.
+    // The method properly escapes all special chars, so this catch block is
+    // defensive — we inject a mock to verify it returns false gracefully.
+    const OrigRegExp = globalThis.RegExp;
+    try {
+      vi.stubGlobal(
+        'RegExp',
+        class {
+          constructor(_pattern: string, _flags?: string) {
+            throw new SyntaxError('Invalid regular expression');
+          }
+        } as any,
+      );
+
+      const result = (pipeline as any).testGlobRegex('test.ts', '**/pattern');
+      expect(result).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

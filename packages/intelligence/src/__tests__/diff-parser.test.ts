@@ -198,6 +198,29 @@ describe('DiffParser - Unified Diff Parsing', () => {
     expect(result[0]!.oldPath).toBe('old-name.ts');
     expect(result[0]!.changeType).toBe('renamed');
   });
+
+  it('should skip lines before the first diff header', () => {
+    const parser = createParser();
+    // Lines before any "diff --git" header should be ignored (inFile is false)
+    const diff = [
+      'commit abc123def456',
+      'Author: Test <test@example.com>',
+      'Date:   Mon Jan 1 00:00:00 2024 +0000',
+      '',
+      '    Some commit message',
+      '',
+      'diff --git a/src/main.ts b/src/main.ts',
+      'index 123..456 100644',
+      '--- a/src/main.ts',
+      '+++ b/src/main.ts',
+      '@@ -1,1 +1,1 @@',
+      ' unchanged',
+    ].join('\n');
+
+    const result = parser.parseUnifiedDiff(diff);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.filePath).toBe('src/main.ts');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -535,7 +558,20 @@ describe('DiffParser - Statistics', () => {
 // ---------------------------------------------------------------------------
 
 describe('DiffParser - Hunk Parsing', () => {
-  it('should parse hunks with default counts', () => {
+  it('should parse hunks with default counts (both omitted)', () => {
+    const parser = createParser();
+    // @@ -1 +1 @@ means oldStart=1, oldCount=1 (default), newStart=1, newCount=1 (default)
+    const lines = ['@@ -1 +1 @@', ' context'];
+
+    const hunks = parser.parseHunks(lines);
+    expect(hunks).toHaveLength(1);
+    expect(hunks[0]!.oldStart).toBe(1);
+    expect(hunks[0]!.oldCount).toBe(1);
+    expect(hunks[0]!.newStart).toBe(1);
+    expect(hunks[0]!.newCount).toBe(1);
+  });
+
+  it('should parse hunks with default counts (only old omitted)', () => {
     const parser = createParser();
     const lines = ['@@ -1 +1,2 @@', '+added line', ' context'];
 

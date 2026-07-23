@@ -177,6 +177,21 @@ describe('HealthCheckRegistry', () => {
         expect(typeof check.latency).toBe('number');
       }
     });
+
+    it('should handle thrown non-Error in checks', async () => {
+      registry.unregister('memory-usage');
+      registry.register({
+        name: 'throws-string',
+        check: async () => {
+          throw 'Boom string';
+        },
+      });
+      const status = await registry.runAll();
+      const failCheck = status.checks.find((c: HealthCheckResult) => c.name === 'throws-string');
+      expect(failCheck).toBeDefined();
+      expect(failCheck!.status).toBe('fail');
+      expect(failCheck!.message).toContain('Boom string');
+    });
   });
 
   describe('runOne', () => {
@@ -207,6 +222,18 @@ describe('HealthCheckRegistry', () => {
       const result = await registry.runOne('slow-one');
       expect(result.status).toBe('fail');
       expect(result.message).toContain('timed out');
+    });
+
+    it('should handle thrown non-Error in runOne', async () => {
+      registry.register({
+        name: 'throws-number',
+        check: async () => {
+          throw 42;
+        },
+      });
+      const result = await registry.runOne('throws-number');
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('42');
     });
   });
 
@@ -325,6 +352,18 @@ describe('HealthCheckRegistry', () => {
       expect(result.message).toContain('Connection refused');
     });
 
+    it('should handle store check throwing non-Error', async () => {
+      const r = new HealthCheckRegistry({
+        storeCheck: async () => {
+          throw 'Connection string';
+        },
+        memoryThreshold: 100,
+      });
+      const result = await r.runOne('store-connectivity');
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('Connection string');
+    });
+
     it('should pass disk-space check by default', async () => {
       const result = await registry.runOne('disk-space');
       expect(result.status).toBe('pass');
@@ -374,6 +413,18 @@ describe('HealthCheckRegistry', () => {
       const result = await r.runOne('worker-pool');
       expect(result.status).toBe('fail');
       expect(result.message).toContain('Workers exhausted');
+    });
+
+    it('should handle worker pool check throwing non-Error', async () => {
+      const r = new HealthCheckRegistry({
+        workerPoolCheck: async () => {
+          throw { reason: 'exhausted' };
+        },
+        memoryThreshold: 100,
+      });
+      const result = await r.runOne('worker-pool');
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('[object Object]');
     });
 
     // worker-pool is not critical, so the overall status should be degraded

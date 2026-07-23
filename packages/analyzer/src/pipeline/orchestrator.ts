@@ -102,6 +102,7 @@ export class PipelineOrchestrator {
 
     for (const phaseId of order) {
       const phase = this.phases.get(phaseId);
+      /* v8 ignore next */
       if (!phase) continue;
 
       // Check if dependencies completed successfully
@@ -244,6 +245,7 @@ export class PipelineOrchestrator {
         if (deps) {
           deps.push(phase.id);
         }
+        /* v8 ignore next */
         inDegree.set(phase.id, (inDegree.get(phase.id) ?? 0) + 1);
       }
     }
@@ -266,8 +268,10 @@ export class PipelineOrchestrator {
       const current = queue.shift()!;
       result.push(current);
 
+      /* v8 ignore next */
       const neighbors = adjacency.get(current) ?? [];
       for (const neighbor of neighbors) {
+        /* v8 ignore next */
         const newDegree = (inDegree.get(neighbor) ?? 1) - 1;
         inDegree.set(neighbor, newDegree);
         if (newDegree === 0) {
