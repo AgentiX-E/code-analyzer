@@ -2,15 +2,21 @@
 // Wraps the InMemoryGraphStore and all analysis services for use by tool handlers.
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { HybridSearchEngine } from '@code-analyzer/intelligence';
-import { CodeReviewEngine } from '@code-analyzer/intelligence';
-import { ImpactAnalyzer } from '@code-analyzer/intelligence';
+import {
+  HybridSearchEngine,
+  CodeReviewEngine,
+  ImpactAnalyzer,
+  RepoGroupManager,
+  FederatedSearchEngine,
+  CrossRepoIndexer,
+} from '@code-analyzer/intelligence';
 import type { PipelineOrchestrator } from '@code-analyzer/analyzer';
 import type { PipelineResult } from '@code-analyzer/analyzer';
 import type {
   GraphNode,
   GraphEdge,
   NodeLabel,
+  RepoGroup,
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +39,15 @@ export interface ToolContext {
 
   /** Pipeline orchestrator for running analysis phases. Lazy initialized. */
   getPipeline(): Promise<PipelineOrchestrator>;
+
+  /** Repository group manager — CRUD for repo groups with persistence. */
+  getRepoGroupManager(): RepoGroupManager;
+
+  /** Federated search engine — cross-repo symbol search and duplicate detection. */
+  getFederatedSearch(): FederatedSearchEngine;
+
+  /** Cross-repo indexer — group indexing, impact analysis, contract detection. */
+  getCrossRepoIndexer(): CrossRepoIndexer;
 
   /** Get node/edge counts and label distribution for the given project. */
   getGraphStats(projectId: string): GraphStats;
@@ -80,6 +95,9 @@ export class ToolContextImpl implements ToolContext {
   private _reviewEngine: CodeReviewEngine | null = null;
   private _impactAnalyzer: ImpactAnalyzer | null = null;
   private _pipeline: PipelineOrchestrator | null = null;
+  private _repoGroupManager: RepoGroupManager | null = null;
+  private _federatedSearch: FederatedSearchEngine | null = null;
+  private _crossRepoIndexer: CrossRepoIndexer | null = null;
   public currentAnalysis?: PipelineResult;
 
   constructor(store: InMemoryGraphStore) {
@@ -106,6 +124,30 @@ export class ToolContextImpl implements ToolContext {
       this._impactAnalyzer = new ImpactAnalyzer(this.store);
     }
     return this._impactAnalyzer;
+  }
+
+  getRepoGroupManager(): RepoGroupManager {
+    if (!this._repoGroupManager) {
+      this._repoGroupManager = new RepoGroupManager();
+    }
+    return this._repoGroupManager;
+  }
+
+  getFederatedSearch(): FederatedSearchEngine {
+    if (!this._federatedSearch) {
+      this._federatedSearch = new FederatedSearchEngine(this.store);
+    }
+    return this._federatedSearch;
+  }
+
+  getCrossRepoIndexer(): CrossRepoIndexer {
+    if (!this._crossRepoIndexer) {
+      this._crossRepoIndexer = new CrossRepoIndexer(
+        this.store,
+        this.getRepoGroupManager(),
+      );
+    }
+    return this._crossRepoIndexer;
   }
 
   async getPipeline(): Promise<PipelineOrchestrator> {

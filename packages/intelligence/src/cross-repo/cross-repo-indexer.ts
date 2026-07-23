@@ -1040,7 +1040,7 @@ export class CrossRepoIndexer {
   private getRepoNodes(projectId: string): GraphNode[] {
     const result = this.store.queryNodes({
       projectId,
-      limit: 100000,
+      limit: 500000,
       offset: 0,
     });
     return result.items;
@@ -1134,7 +1134,7 @@ export class CrossRepoIndexer {
       const sourceFileNode = nodes.find(
         (n) =>
           n.label === 'File' &&
-          n.qualifiedName === `file:${projectId}:${relative('/tmp/root', sourceFile)}`,
+          n.filePath === sourceFile,
       );
 
       // Fallback: search by name

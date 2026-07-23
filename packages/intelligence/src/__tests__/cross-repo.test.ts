@@ -280,6 +280,54 @@ describe('RepoGroupManager', () => {
     });
   });
 
+  describe('updateGroup', () => {
+    it('should update group name', () => {
+      manager.createGroup('g1', 'Old Name', 'Old Desc');
+      const result = manager.updateGroup('g1', { name: 'New Name' });
+      expect(result).toBe(true);
+      const group = manager.getGroup('g1')!;
+      expect(group.name).toBe('New Name');
+      expect(group.description).toBe('Old Desc');
+    });
+
+    it('should update group description', () => {
+      manager.createGroup('g1', 'Name', 'Old Desc');
+      manager.updateGroup('g1', { description: 'New Desc' });
+      const group = manager.getGroup('g1')!;
+      expect(group.description).toBe('New Desc');
+    });
+
+    it('should update both name and description', () => {
+      manager.createGroup('g1', 'Old Name', 'Old Desc');
+      manager.updateGroup('g1', { name: 'New Name', description: 'New Desc' });
+      const group = manager.getGroup('g1')!;
+      expect(group.name).toBe('New Name');
+      expect(group.description).toBe('New Desc');
+    });
+
+    it('should return false for non-existent group', () => {
+      const result = manager.updateGroup('nonexistent', { name: 'Test' });
+      expect(result).toBe(false);
+    });
+
+    it('should not modify group when no updates provided', () => {
+      manager.createGroup('g1', 'Name', 'Desc');
+      manager.updateGroup('g1', {});
+      const group = manager.getGroup('g1')!;
+      expect(group.name).toBe('Name');
+      expect(group.description).toBe('Desc');
+    });
+
+    it('should not affect repos when updating metadata', () => {
+      manager.createGroup('g1', 'Name', '');
+      manager.addRepo('g1', 'owner', 'repo', 'url', '/path');
+      manager.updateGroup('g1', { name: 'New Name' });
+      const repos = manager.getRepos('g1');
+      expect(repos.length).toBe(1);
+      expect(repos[0]!.fullName).toBe('owner/repo');
+    });
+  });
+
   describe('cloneGroup', () => {
     it('should deep-clone contracts with definition and dependencies', () => {
       manager.createGroup('g1', 'Clone Test', '');

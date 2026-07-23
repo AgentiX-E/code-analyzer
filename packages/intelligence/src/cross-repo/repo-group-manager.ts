@@ -209,6 +209,19 @@ export class RepoGroupManager {
   }
 
   /**
+   * Update a group's metadata (name, description).
+   * Does NOT modify repos — use addRepo/removeRepo for that.
+   * @returns true if the group existed and was updated.
+   */
+  updateGroup(id: string, updates: { name?: string; description?: string }): boolean {
+    const group = this.groups.get(id);
+    if (!group) return false;
+    if (updates.name !== undefined) group.name = updates.name;
+    if (updates.description !== undefined) group.description = updates.description;
+    return true;
+  }
+
+  /**
    * Check if a group exists.
    */
   hasGroup(id: string): boolean {

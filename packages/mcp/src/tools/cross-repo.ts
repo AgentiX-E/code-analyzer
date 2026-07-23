@@ -5,18 +5,48 @@ import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
 
 // ---------------------------------------------------------------------------
-// In-memory group storage (shared across tool calls within a session)
+// Singleton RepoGroupManager for session-scoped group persistence
 // ---------------------------------------------------------------------------
 
-interface RepoGroup {
-  groupId: string;
-  name: string;
-  description: string;
-  repos: string[];
-  createdAt: string;
+let _groupManagerPromise: Promise<InstanceType<typeof import('@code-analyzer/intelligence')['RepoGroupManager']>> | null = null;
+
+async function getGroupManager(): Promise<InstanceType<typeof import('@code-analyzer/intelligence')['RepoGroupManager']>> {
+  if (!_groupManagerPromise) {
+    _groupManagerPromise = (async () => {
+      const { RepoGroupManager } = await import('@code-analyzer/intelligence');
+      return new RepoGroupManager();
+    })();
+  }
+  return _groupManagerPromise;
 }
 
-const groupStore = new Map<string, RepoGroup>();
+/**
+ * Parse a repo reference into { owner, name }.
+ * Supports: owner/name, https://github.com/owner/name, or plain name (defaults owner to '_').
+ */
+function parseRepoRef(ref: string): { owner: string; name: string } {
+  // owner/name format
+  const slashMatch = ref.match(/^([\w.-]+)\/([\w.-]+)$/);
+  if (slashMatch) return { owner: slashMatch[1]!, name: slashMatch[2]! };
+  // URL format
+  try {
+    const u = new URL(ref.includes('://') ? ref : `https://${ref}`);
+    const parts = u.pathname.replace(/^\//, '').split('/');
+    if (parts.length >= 2 && parts[0] && parts[1]) return { owner: parts[0]!, name: parts[1]! };
+  } catch { /* not a URL */ }
+  // Plain name — use as repo name with default owner
+  return { owner: '_', name: ref };
+}
+
+/** Convert internal fullName back to a client-facing repo reference. Strips default '_/' prefix. */
+function toExternalRepoRef(fullName: string): string {
+  return fullName.startsWith('_/') ? fullName.slice(2) : fullName;
+}
+
+/** Extract plain repo names from a RepoGroup for client-facing output. */
+function extractRepoNames(repos: Array<{ fullName: string }>): string[] {
+  return repos.map((r) => toExternalRepoRef(r.fullName));
+}
 
 // ---------------------------------------------------------------------------
 // cross_repo_search — Search across all indexed repositories
@@ -63,8 +93,8 @@ export async function crossRepoSearch(args: Record<string, unknown>, store?: unk
         if (repos.length > 0 && !repos.includes(repo)) continue;
 
         // Apply group filter if specified
-        const group = params.groupId ? groupStore.get(params.groupId) : null;
-        if (group && !group.repos.includes(repo)) continue;
+        const group = params.groupId ? (await getGroupManager()).getGroup(params.groupId) : null;
+        if (group && !group.repos.some((r) => toExternalRepoRef(r.fullName) === repo)) continue;
 
         items.push({
           repo,
@@ -329,112 +359,148 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
   const description = params.description ?? '';
   const repos = params.repos ?? [];
 
+  const manager = await getGroupManager();
   const result: Record<string, unknown> = { action };
 
-  switch (action) {
-    case 'create': {
-      const newId = groupId ?? `group_${Date.now()}`;
-      groupStore.set(newId, {
-        groupId: newId,
-        name: name ?? newId,
-        description,
-        repos,
-        createdAt: new Date().toISOString(),
-      });
-      result['groupId'] = newId;
-      result['name'] = name;
-      result['repos'] = repos;
-      result['created'] = true;
-      break;
-    }
-    case 'list': {
-      const groups: RepoGroup[] = [];
-      for (const [, group] of groupStore) {
-        groups.push(group);
+  try {
+    switch (action) {
+      case 'create': {
+        const newId = groupId ?? `group_${Date.now()}`;
+        manager.createGroup(newId, name ?? newId, description);
+        for (const repo of repos) {
+          const parsed = parseRepoRef(repo);
+          manager.addRepo(newId, parsed.owner, parsed.name, repo, '');
+        }
+        const created = manager.getGroup(newId)!;
+        result['groupId'] = created.id;
+        result['name'] = created.name;
+        result['repos'] = extractRepoNames(created.repos);
+        result['created'] = true;
+        break;
       }
-      result['groups'] = groups;
-      result['total'] = groups.length;
-      break;
-    }
-    case 'get': {
-      const group = groupId ? groupStore.get(groupId) : undefined;
-      if (group) {
-        result['groupId'] = group.groupId;
-        result['name'] = group.name;
-        result['description'] = group.description;
-        result['repos'] = group.repos;
-        result['createdAt'] = group.createdAt;
-        result['found'] = true;
-      } else {
-        result['groupId'] = groupId;
-        result['found'] = false;
+      case 'list': {
+        const groups = manager.listGroups();
+        result['groups'] = groups.map((g) => ({
+          groupId: g.id,
+          name: g.name,
+          description: g.description,
+          repos: extractRepoNames(g.repos),
+          repoCount: g.repos.length,
+        }));
+        result['total'] = groups.length;
+        break;
       }
-      break;
-    }
-    case 'update': {
-      if (!groupId) {
-        result['error'] = 'groupId is required for update';
-      } else {
-        const existing = groupStore.get(groupId);
-        if (existing) {
-          if (name) existing.name = name;
-          if (description) existing.description = description;
-          if (repos.length > 0) existing.repos = repos;
-          groupStore.set(groupId, existing);
-          result['groupId'] = groupId;
-          result['updated'] = true;
+      case 'get': {
+        const group = groupId ? manager.getGroup(groupId) : undefined;
+        if (group) {
+          result['groupId'] = group.id;
+          result['name'] = group.name;
+          result['description'] = group.description;
+          result['repos'] = extractRepoNames(group.repos);
+          result['repoCount'] = group.repos.length;
+          result['found'] = true;
         } else {
           result['groupId'] = groupId;
-          result['updated'] = false;
+          result['found'] = false;
         }
+        break;
       }
-      break;
-    }
-    case 'delete': {
-      if (!groupId) {
-        result['error'] = 'groupId is required for delete';
-      } else {
-        const deleted = groupStore.delete(groupId);
-        result['groupId'] = groupId;
-        result['deleted'] = deleted;
-      }
-      break;
-    }
-    case 'add_repo': {
-      if (!groupId || repos.length === 0) {
-        result['error'] = 'groupId and repos are required for add_repo';
-      } else {
-        const existing = groupStore.get(groupId);
-        if (existing) {
-          const newRepos = repos.filter((r) => !existing.repos.includes(r));
-          existing.repos.push(...newRepos);
-          groupStore.set(groupId, existing);
-          result['groupId'] = groupId;
-          result['addedRepos'] = newRepos;
-          result['totalRepos'] = existing.repos.length;
+      case 'update': {
+        if (!groupId) {
+          result['error'] = 'groupId is required for update';
         } else {
-          result['error'] = 'Group not found';
+          const updated = manager.updateGroup(groupId, {
+            ...(name ? { name } : {}),
+            ...(description ? { description } : {}),
+          });
+          if (updated) {
+            // Repos parameter replaces the entire repo list
+            if (params.repos !== undefined) {
+              // Remove all existing repos
+              const currentRepos = manager.getGroup(groupId)?.repos ?? [];
+              for (const r of currentRepos) {
+                try { manager.removeRepo(groupId, r.fullName); } catch { /* ignore */ }
+              }
+              // Add new repos
+              for (const repo of repos) {
+                const parsed = parseRepoRef(repo);
+                try { manager.addRepo(groupId, parsed.owner, parsed.name, repo, ''); } catch { /* skip duplicate */ }
+              }
+            }
+            result['groupId'] = groupId;
+            result['updated'] = true;
+          } else {
+            result['groupId'] = groupId;
+            result['updated'] = false;
+          }
         }
+        break;
       }
-      break;
-    }
-    case 'remove_repo': {
-      if (!groupId || repos.length === 0) {
-        result['error'] = 'groupId and repos are required for remove_repo';
-      } else {
-        const existing = groupStore.get(groupId);
-        if (existing) {
-          existing.repos = existing.repos.filter((r) => !repos.includes(r));
-          groupStore.set(groupId, existing);
-          result['groupId'] = groupId;
-          result['removedRepos'] = repos;
-          result['totalRepos'] = existing.repos.length;
+      case 'delete': {
+        if (!groupId) {
+          result['error'] = 'groupId is required for delete';
         } else {
-          result['error'] = 'Group not found';
+          try {
+            manager.deleteGroup(groupId);
+            result['groupId'] = groupId;
+            result['deleted'] = true;
+          } catch {
+            result['groupId'] = groupId;
+            result['deleted'] = false;
+          }
         }
+        break;
       }
-      break;
+      case 'add_repo': {
+        if (!groupId || repos.length === 0) {
+          result['error'] = 'groupId and repos are required for add_repo';
+        } else {
+          const group = manager.getGroup(groupId);
+          if (group) {
+            const added: string[] = [];
+            for (const repo of repos) {
+              const parsed = parseRepoRef(repo);
+              try {
+                manager.addRepo(groupId, parsed.owner, parsed.name, repo, '');
+                added.push(toExternalRepoRef(`${parsed.owner}/${parsed.name}`));
+              } catch { /* skip duplicate */ }
+            }
+            result['groupId'] = groupId;
+            result['addedRepos'] = added;
+            result['totalRepos'] = manager.getGroup(groupId)?.repos.length ?? 0;
+          } else {
+            result['error'] = 'Group not found';
+          }
+        }
+        break;
+      }
+      case 'remove_repo': {
+        if (!groupId || repos.length === 0) {
+          result['error'] = 'groupId and repos are required for remove_repo';
+        } else {
+          const group = manager.getGroup(groupId);
+          if (group) {
+            const removed: string[] = [];
+            for (const repo of repos) {
+              const parsed = parseRepoRef(repo);
+              const repoFullName = `${parsed.owner}/${parsed.name}`;
+              try {
+                manager.removeRepo(groupId, repoFullName);
+                removed.push(toExternalRepoRef(repoFullName));
+              } catch { /* not in group */ }
+            }
+            result['groupId'] = groupId;
+            result['removedRepos'] = removed;
+            result['totalRepos'] = manager.getGroup(groupId)?.repos.length ?? 0;
+          } else {
+            result['error'] = 'Group not found';
+          }
+        }
+        break;
+      }
     }
+  } catch (err) {
+    result['error'] = err instanceof Error ? err.message : String(err);
   }
 
   return {
@@ -470,14 +536,16 @@ export async function syncContracts(args: Record<string, unknown>, store?: unkno
 
   const synced: string[] = [];
   const conflicts: string[] = [];
-  const group = groupStore.get(groupId);
+  const manager = await getGroupManager();
+  const group = manager.getGroup(groupId);
 
-  if (store && ToolContextImpl.isToolContext(store) && group) {
+  if (group && store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     const gstore = ctx.store;
 
     // Discover contracts from graph: Routes with HANDLES_ROUTE edges
-    for (const repo of group.repos) {
+    const repoPlainNames = extractRepoNames(group.repos);
+    for (const repo of repoPlainNames) {
       const allNodes = gstore.getAllNodes();
       const repoRoutes = allNodes.filter(
         (n) => n.label === 'Route' && n.projectId === repo
@@ -489,7 +557,7 @@ export async function syncContracts(args: Record<string, unknown>, store?: unkno
         const contractKey = `${routeMethod}:${routePath}`;
 
         // Check if this route exists in other repos
-        for (const otherRepo of group.repos) {
+        for (const otherRepo of repoPlainNames) {
           if (otherRepo === repo) continue;
           const otherRoute = allNodes.find(
             (n) =>
@@ -613,9 +681,12 @@ export async function discoverRelatedRepos(args: Record<string, unknown>, store?
   }
 
   // Also include repos from groups
-  for (const [, group] of groupStore) {
-    if (group.repos.includes(projectId)) {
-      for (const repo of group.repos) {
+  const mgr = await getGroupManager();
+
+  for (const group of mgr.listGroups()) {
+    const repoPlainNames = extractRepoNames(group.repos);
+    if (repoPlainNames.includes(projectId)) {
+      for (const repo of repoPlainNames) {
         if (repo !== projectId && !relatedRepos.find((r) => r.repo === repo)) {
           relatedRepos.push({
             repo,
