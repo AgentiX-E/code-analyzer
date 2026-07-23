@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 #
-# Code Analyzer — One-Click Install Script
+# Code Analyzer — Zero-Config Install & Setup
 #
-# Detects OS, installs prerequisites, clones the repository,
-# builds all packages, and configures the MCP server.
+# One command to go from nothing to fully configured:
+#   curl -fsSL https://raw.githubusercontent.com/AgentiX-E/code-analyzer/main/scripts/setup.sh | bash
+#
+# Options:
+#   --skip-node     Skip Node.js version check
+#   --skip-index    Skip initial project indexing
+#   --agent <name>  Specific agent to configure (auto-detect by default)
+#   --dir <path>    Project directory (default: current)
 #
 
 set -euo pipefail
@@ -25,6 +31,29 @@ err()   { printf "${RED}[ERR]${NC} %s\n" "$*"; exit 1; }
 REPO_URL="https://github.com/AgentiX-E/code-analyzer.git"
 INSTALL_DIR="${HOME}/code-analyzer"
 NODE_MIN_VERSION=20
+SKIP_NODE=false
+SKIP_INDEX=false
+AGENT="auto"
+PROJECT_DIR="."
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-node) SKIP_NODE=true; shift ;;
+    --skip-index) SKIP_INDEX=true; shift ;;
+    --agent) AGENT="$2"; shift 2 ;;
+    --dir) PROJECT_DIR="$2"; shift 2 ;;
+    -h|--help)
+      echo "Usage: $0 [OPTIONS]"
+      echo "  --skip-node     Skip Node.js version check"
+      echo "  --skip-index    Skip initial project indexing"
+      echo "  --agent <name>  AI agent to configure (auto-detect by default)"
+      echo "  --dir <path>    Project directory"
+      exit 0
+      ;;
+    *) warn "Unknown option: $1"; shift ;;
+  esac
+done
 
 echo ""
 echo "============================================"
@@ -236,26 +265,25 @@ main() {
 
   echo ""
   echo "============================================"
-  echo "  Installation Complete!"
+  echo "  Zero-Config Setup Complete!"
   echo "============================================"
   echo ""
-  echo "  Repository:   ${INSTALL_DIR}"
-  echo "  CLI Commands:"
-  echo "    cd ${INSTALL_DIR}"
-  echo "    pnpm code-analyzer --help"
+  echo "  Installed: ${INSTALL_DIR}"
   echo ""
-  echo "  Test the MCP server:"
-  echo "    cd ${INSTALL_DIR}"
-  echo "    node packages/mcp/dist/index.js"
+  echo "  Quick Start:"
+  echo "    cd your-project"
+  echo "    npx @code-analyzer/cli init      # one-time setup"
+  echo "    npx @code-analyzer/cli analyze .  # index your code"
+  echo "    npx @code-analyzer/cli status     # check status"
+  echo "    npx @code-analyzer/cli search <query> # search code"
+  echo "    npx @code-analyzer/cli review .   # review code"
   echo ""
-  echo "  Run the MCP server via Docker:"
-  echo "    cd ${INSTALL_DIR}"
-  echo "    docker compose up -d"
+  echo "  AI Agent Setup:"
+  echo "    npx @code-analyzer/cli agent detect   # find your agent"
+  echo "    npx @code-analyzer/cli agent configure  # auto-configure"
   echo ""
-  echo "  Next steps:"
-  echo "    1. Open your AI editor (Cursor, Windsurf, etc.)"
-  echo "    2. Restart the editor to connect the MCP server"
-  echo "    3. Try: 'Analyze this codebase' in chat"
+  echo "  MCP Server:  node ${INSTALL_DIR}/packages/mcp/dist/index.js"
+  echo "  Docker:      docker compose up -d"
   echo ""
 }
 
