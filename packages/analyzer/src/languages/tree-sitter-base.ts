@@ -284,6 +284,21 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       containerName = this.extractContainerName(parent);
     }
 
+    // Extract base classes for class-like nodes (extends/implements)
+    if (
+      node.type === 'class_declaration' ||
+      node.type === 'class_definition'
+    ) {
+      const baseClasses = this.extractBaseClasses(node);
+      if (baseClasses) {
+        properties.baseClasses = baseClasses;
+      }
+      const interfaces = this.extractInterfaces(node);
+      if (interfaces) {
+        properties.interfaces = interfaces;
+      }
+    }
+
     const capture: UnifiedCapture = {
       tag: mapping.captureTag,
       text: node.text,
@@ -403,6 +418,74 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Extract the name from a container node */
   protected extractContainerName(node: TreeSitterSyntaxNode): string | undefined {
     return this.extractNameFromNode(node);
+  }
+
+  /** Extract base class names from a class_declaration node */
+  protected extractBaseClasses(node: TreeSitterSyntaxNode): string | undefined {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      // TypeScript/JavaScript: class_heritage → extends_clause → identifier
+      // Python: argument_list → identifier
+      // Java: superclass → type_identifier
+      if (
+        child.type === 'class_heritage' ||
+        child.type === 'superclass' ||
+        child.type === 'extends_clause'
+      ) {
+        const parts: string[] = [];
+        this.collectIdentifiers(child, parts);
+        if (parts.length > 0) return parts.join(',');
+      }
+      // Python-style class Foo(Bar): argument_list
+      if (child.type === 'argument_list') {
+        const parts: string[] = [];
+        for (let j = 0; j < child.childCount; j++) {
+          const arg = child.child(j);
+          if (
+            arg.type === 'identifier' ||
+            arg.type === 'type_identifier' ||
+            arg.type === 'attribute'
+          ) {
+            parts.push(arg.text);
+          }
+        }
+        if (parts.length > 0) return parts.join(',');
+      }
+    }
+    return undefined;
+  }
+
+  /** Extract implemented interfaces from a class node */
+  protected extractInterfaces(node: TreeSitterSyntaxNode): string | undefined {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'class_heritage') {
+        for (let j = 0; j < child.childCount; j++) {
+          const clause = child.child(j);
+          if (clause.type === 'implements_clause') {
+            const parts: string[] = [];
+            this.collectIdentifiers(clause, parts);
+            if (parts.length > 0) return parts.join(',');
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /** Recursively collect identifier/type_identifier texts from a node */
+  private collectIdentifiers(node: TreeSitterSyntaxNode, parts: string[]): void {
+    if (
+      node.type === 'identifier' ||
+      node.type === 'type_identifier' ||
+      node.type === 'property_identifier'
+    ) {
+      parts.push(node.text);
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectIdentifiers(node.child(i), parts);
+    }
   }
 
   // -----------------------------------------------------------------------

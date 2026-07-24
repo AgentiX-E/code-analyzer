@@ -52,9 +52,11 @@ interface StoredEdge {
 }
 
 export class InMemoryGraphStore {
-  private nodes: Map<number, StoredNode>;
-  private edges: Map<number, StoredEdge>;
-  private qnameIndex: Map<string, number>;
+  public nodes: Map<number, StoredNode>;
+  public edges: Map<number, StoredEdge>;
+  public qnameIndex: Map<string, number>;
+  /** File path → node ID index (for File/Folder nodes) */
+  public fileIndex: Map<string, number>;
   /** Adjacency index: sourceNodeId → set of edge IDs */
   private sourceEdgeIndex: Map<number, Set<number>>;
   /** Reverse adjacency: targetNodeId → set of edge IDs */
@@ -81,6 +83,7 @@ export class InMemoryGraphStore {
     this.nodes = new Map();
     this.edges = new Map();
     this.qnameIndex = new Map();
+    this.fileIndex = new Map();
     this.sourceEdgeIndex = new Map();
     this.targetEdgeIndex = new Map();
     this.nextNodeId = 1;

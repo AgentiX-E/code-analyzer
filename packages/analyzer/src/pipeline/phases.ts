@@ -25,6 +25,7 @@ import { getLanguageFromFilename, CAPTURE_TAGS } from '@code-analyzer/shared';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { LanguageProvider } from '../languages/provider.js';
+import type { ParsedImport } from '../languages/provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 
 import { GraphBuilder } from '../graph/graph-builder.js';
@@ -1047,6 +1048,9 @@ export class CrossFilePhase implements ExecutablePhase {
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
+      const scanData = ctx.phaseData.get('scan') as
+        | { discoveredFiles: DiscoveredFile[] }
+        | undefined;
       const parseData = ctx.phaseData.get('parse') as
         | { parsedFiles: ParsedFile[] }
         | undefined;
@@ -1058,43 +1062,83 @@ export class CrossFilePhase implements ExecutablePhase {
       const resolvedImports: ResolvedImport[] = [];
       let importEdgesCreated = 0;
 
+      // Build a content cache from scan data for re-parsing imports
+      const contentCache = new Map<string, string>();
+      if (scanData?.discoveredFiles) {
+        for (const file of scanData.discoveredFiles) {
+          contentCache.set(file.filePath, file.content);
+        }
+      }
+
       for (const parsedFile of parseData.parsedFiles) {
-        // Collect imports from capture data
+        const fileContent = contentCache.get(parsedFile.filePath);
+        if (!fileContent) continue;
+
+        const lang = parsedFile.language;
+        if (!lang) continue;
+
+        // Use the language provider's extractImports for accurate AST-based import parsing
+        let fileImports: ParsedImport[] = [];
+        try {
+          const provider = await getOrLoadProvider(lang);
+          if (provider) {
+            fileImports = provider.extractImports(fileContent);
+          }
+        } catch {
+          // Fall back to capture-based imports below
+        }
+
+        // Also extract imports from AST captures (for languages where provider may not be available)
         const ast = parsedFile.ast as UnifiedCapture[];
-        if (!Array.isArray(ast)) continue;
+        if (Array.isArray(ast)) {
+          const importCaptures = ast.filter(
+            (c) =>
+              c.tag === CAPTURE_TAGS.IMPORT ||
+              c.tag === CAPTURE_TAGS.IMPORT_NAMED ||
+              c.tag === CAPTURE_TAGS.IMPORT_DEFAULT ||
+              c.tag === CAPTURE_TAGS.IMPORT_WILDCARD,
+          );
 
-        const importCaptures = ast.filter(
-          (c) =>
-            c.tag === CAPTURE_TAGS.IMPORT ||
-            c.tag === CAPTURE_TAGS.IMPORT_NAMED ||
-            c.tag === CAPTURE_TAGS.IMPORT_DEFAULT ||
-            c.tag === CAPTURE_TAGS.IMPORT_WILDCARD,
-        );
+          // Merge capture-based imports with provider-based imports (deduplicate)
+          const seenSources = new Set(fileImports.map((i) => i.source));
+          for (const imp of importCaptures) {
+            const importPath = imp.name ?? imp.text;
+            if (!importPath || seenSources.has(importPath)) continue;
+            seenSources.add(importPath);
 
-        for (const imp of importCaptures) {
-          const importPath = imp.name ?? imp.text;
-          if (!importPath) continue;
+            const importedNames = imp.properties?.names
+              ? imp.properties.names.split(',').filter(Boolean)
+              : [];
 
+            fileImports.push({
+              source: importPath,
+              names: importedNames,
+              type: imp.properties?.importType === 'namespace'
+                ? 'namespace'
+                : imp.properties?.importType === 'default'
+                  ? 'default'
+                  : 'named',
+              lineNumber: imp.startLine,
+            });
+          }
+        }
+
+        // Resolve each import to a file path
+        for (const imp of fileImports) {
           const resolvedFile = resolveImportPath(
-            importPath,
+            imp.source,
             parsedFile.filePath,
             ctx.rootPath,
           );
 
-          const importedNames = imp.properties?.names
-            ? imp.properties.names.split(',').filter(Boolean)
-            : [];
-
           resolvedImports.push({
             sourceFile: parsedFile.filePath,
-            importPath,
-            importedSymbols: importedNames,
+            importPath: imp.source,
+            importedSymbols: imp.names,
             resolvedFiles: resolvedFile ? [resolvedFile] : [],
-            semantics: imp.properties?.importType === 'namespace'
+            semantics: imp.type === 'namespace' || imp.type === 'wildcard'
               ? 'namespace'
-              : imp.properties?.importType === 'default'
-                ? 'named'
-                : 'named',
+              : 'named',
           });
 
           // Create IMPORTS edge if resolved
@@ -1155,12 +1199,42 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         return { phaseId: this.id, status: 'success', output: { referencesResolved: 0 } };
       }
 
+      // Read crossFile phase data for import resolution
+      const crossFileData = ctx.phaseData.get('crossFile') as
+        | { resolvedImports: ResolvedImport[]; importEdgesCreated: number }
+        | undefined;
+
       const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
       let referencesResolved = 0;
 
+      // Build a file-level import resolution map: sourceFile -> targetFile -> importedSymbols
+      const importMap = new Map<string, Map<string, Set<string>>>();
+      if (crossFileData?.resolvedImports) {
+        for (const imp of crossFileData.resolvedImports) {
+          for (const resolvedFile of imp.resolvedFiles) {
+            let fileMap = importMap.get(imp.sourceFile);
+            if (!fileMap) {
+              fileMap = new Map();
+              importMap.set(imp.sourceFile, fileMap);
+            }
+            let symbols = fileMap.get(resolvedFile);
+            if (!symbols) {
+              symbols = new Set();
+              fileMap.set(resolvedFile, symbols);
+            }
+            for (const sym of imp.importedSymbols) {
+              symbols.add(sym);
+            }
+          }
+        }
+      }
+
       // Build an index of all known symbols across files
-      // qualifiedName -> GraphNode
-      const symbolNodes = new Map<string, { nodeId: number; label: NodeLabel }>();
+      // qualifiedName -> GraphNode, plus name+file -> GraphNode for precise matching
+      const qnameIndex = new Map<string, { nodeId: number; label: NodeLabel }>();
+      // file+name -> GraphNode for cross-file resolution
+      const fileSymbolIndex = new Map<string, Map<string, { nodeId: number; label: NodeLabel }>>();
+
       for (const [, node] of ctx.graph.nodes) {
         if (
           node.label === 'Function' ||
@@ -1171,9 +1245,24 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           node.label === 'TypeAlias' ||
           node.label === 'Constructor'
         ) {
-          // Store by simple name (for symbol resolution) and qualified name
-          symbolNodes.set(node.qualifiedName, { nodeId: node.id, label: node.label });
-          symbolNodes.set(node.name, { nodeId: node.id, label: node.label });
+          // Store by qualified name (precise)
+          qnameIndex.set(node.qualifiedName, { nodeId: node.id, label: node.label });
+
+          // Store in per-file index for cross-file resolution
+          if (node.properties?.filePath) {
+            const filePath = String(node.properties.filePath);
+            let fileMap = fileSymbolIndex.get(filePath);
+            if (!fileMap) {
+              fileMap = new Map();
+              fileSymbolIndex.set(filePath, fileMap);
+            }
+            // Store by simple name (in context of this file)
+            if (node.name && !fileMap.has(node.name)) {
+              fileMap.set(node.name, { nodeId: node.id, label: node.label });
+            }
+            // Also store by qualifiedName for full path matching
+            fileMap.set(node.qualifiedName, { nodeId: node.id, label: node.label });
+          }
         }
       }
 
@@ -1181,14 +1270,53 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         const fileNodeId = ctx.graph.fileIndex.get(parsedFile.filePath);
         if (!fileNodeId) continue;
 
+        // Resolve imports for this file
+        const fileImports = importMap.get(parsedFile.filePath);
+
         // Process references — try to resolve CALLS edges
         for (const ref of parsedFile.references) {
           if (ref.referenceKind === 'call') {
-            const target = symbolNodes.get(ref.targetName);
-            if (target && fileNodeId !== target.nodeId) {
-              // Find the source function/method node in the same file
-              // This is a simplified approach — we look for the nearest function
-              // containing this reference
+            let target: { nodeId: number; label: NodeLabel } | undefined;
+
+            // First, try cross-file resolution via imports
+            if (fileImports) {
+              for (const [resolvedFile, importedSymbols] of fileImports) {
+                if (importedSymbols.has(ref.targetName)) {
+                  const fileSymbols = fileSymbolIndex.get(resolvedFile);
+                  if (fileSymbols) {
+                    target = fileSymbols.get(ref.targetName);
+                    if (target) break;
+                  }
+                }
+                // Also try wildcard matching (import * as X from 'y')
+                if (importedSymbols.has('*')) {
+                  const fileSymbols = fileSymbolIndex.get(resolvedFile);
+                  if (fileSymbols) {
+                    target = fileSymbols.get(ref.targetName);
+                    if (target) break;
+                  }
+                }
+              }
+            }
+
+            // Fallback: global name matching (only if unambiguous)
+            if (!target) {
+              // Try qualified name index first
+              target = qnameIndex.get(ref.targetName);
+              // If ambiguous (simple name matches multiple), don't resolve
+              // This prevents incorrect CALLS edges
+              if (target) {
+                // Verify it's in a different file than the reference
+                const targetFilePath = ctx.graph.nodes.get(target.nodeId)?.properties?.filePath;
+                if (targetFilePath === parsedFile.filePath) {
+                  // Same-file reference — skip, this is handled elsewhere
+                  target = undefined;
+                }
+              }
+            }
+
+            if (target) {
+              // Find the source function/method node containing this reference
               for (const symbol of parsedFile.symbols) {
                 if (
                   symbol.startLine <= ref.sourceLine &&
@@ -1224,7 +1352,17 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             const baseClasses = symbol.properties.baseClasses as string | undefined;
             if (baseClasses) {
               for (const baseClass of baseClasses.split(',').map((s) => s.trim()).filter(Boolean)) {
-                const target = symbolNodes.get(baseClass);
+                let target = qnameIndex.get(baseClass);
+                // Try cross-file resolution for extends
+                if (!target && fileImports) {
+                  for (const [resolvedFile] of fileImports) {
+                    const fileSymbols = fileSymbolIndex.get(resolvedFile);
+                    if (fileSymbols) {
+                      target = fileSymbols.get(baseClass);
+                      if (target) break;
+                    }
+                  }
+                }
                 if (target) {
                   const sourceQname = `project:${ctx.projectId}:${symbol.qualifiedName}`;
                   const sourceNodeId = ctx.graph.qnameIndex.get(sourceQname);
@@ -1250,7 +1388,16 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             const interfaces = symbol.properties.interfaces as string | undefined;
             if (interfaces) {
               for (const iface of interfaces.split(',').map((s) => s.trim()).filter(Boolean)) {
-                const target = symbolNodes.get(iface);
+                let target = qnameIndex.get(iface);
+                if (!target && fileImports) {
+                  for (const [resolvedFile] of fileImports) {
+                    const fileSymbols = fileSymbolIndex.get(resolvedFile);
+                    if (fileSymbols) {
+                      target = fileSymbols.get(iface);
+                      if (target) break;
+                    }
+                  }
+                }
                 if (target) {
                   const sourceQname = `project:${ctx.projectId}:${symbol.qualifiedName}`;
                   const sourceNodeId = ctx.graph.qnameIndex.get(sourceQname);

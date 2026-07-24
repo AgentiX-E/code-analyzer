@@ -5,7 +5,7 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage } from './tree-sitter-base.js';
+import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const RUBY_EXTENSIONS = ['.rb'];
 const RUBY_GLOBS = ['**/*.rb'];
@@ -33,6 +33,79 @@ export class RubyProvider extends TreeSitterBaseProvider {
       { nodeType: 'module', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'constant' },
       { nodeType: 'singleton_method', captureTag: CAPTURE_TAGS.METHOD_DEF, nameChildType: 'identifier' },
     ];
+  }
+
+  // ---- Import extraction (tree-sitter AST) ----
+
+  /**
+   * Walk the AST to find and extract Ruby import statements.
+   * Ruby uses `require`, `require_relative`, and `load` calls,
+   * which are parsed as `call` nodes in the tree-sitter AST.
+   *
+   * Syntax handled:
+   *   require 'json'                  // standard library / gem
+   *   require_relative '../lib/foo'   // relative path
+   *   load 'config.rb'                // load a file
+   */
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'call') {
+      this.extractRubyRequireImport(node, imports);
+      return; // Don't recurse into call children
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), imports);
+    }
+  }
+
+  /**
+   * Extract import details from a Ruby `call` AST node.
+   * Checks if the call is to `require`, `require_relative`, or `load`,
+   * then extracts the string argument as the import source.
+   */
+  private extractRubyRequireImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    const lineNumber = node.startPosition.row + 1;
+
+    // Find the method identifier (require, require_relative, load)
+    let methodName = '';
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (child.type === 'identifier') {
+        methodName = child.text;
+        break;
+      }
+    }
+
+    if (methodName !== 'require' && methodName !== 'require_relative' && methodName !== 'load') {
+      return;
+    }
+
+    // Find the string argument
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+
+      if (child.type === 'string') {
+        const raw = child.text;
+        const path = raw.slice(1, -1); // Remove surrounding quotes
+        const name = path.split('/').pop() ?? path;
+        imports.push({ source: path, names: [name], type: 'named', lineNumber });
+        return;
+      }
+
+      // Check inside argument_list for the string
+      if (child.type === 'argument_list') {
+        for (let j = 0; j < child.namedChildCount; j++) {
+          const sub = child.namedChild(j);
+          if (sub.type === 'string') {
+            const raw = sub.text;
+            const path = raw.slice(1, -1);
+            const name = path.split('/').pop() ?? path;
+            imports.push({ source: path, names: [name], type: 'named', lineNumber });
+            return;
+          }
+        }
+      }
+    }
   }
 
   // Fallbacks
@@ -87,17 +160,12 @@ export class RubyProvider extends TreeSitterBaseProvider {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
 
-    // require 'gem_name'
-    const reqRegex = /require\s+['"]([^'"]+)['"]/g;
+    // require, require_relative, load
+    const reqRegex = /(?:require|require_relative|load)\s+['"]([^'"]+)['"]/g;
     while ((m = reqRegex.exec(source)) !== null) {
-      const name = m[1]!.split('/').pop() ?? m[1]!;
-      imports.push({ source: m[1]!, names: [name], type: 'named', lineNumber: this.ln(source, m.index) });
-    }
-
-    // require_relative '../path'
-    const relRegex = /require_relative\s+['"]([^'"]+)['"]/g;
-    while ((m = relRegex.exec(source)) !== null) {
-      imports.push({ source: m[1]!, names: [m[1]!], type: 'named', lineNumber: this.ln(source, m.index) });
+      const path = m[1]!;
+      const name = path.split('/').pop() ?? path;
+      imports.push({ source: path, names: [name], type: 'named', lineNumber: this.ln(source, m.index) });
     }
 
     return imports;
@@ -109,6 +177,30 @@ export class RubyProvider extends TreeSitterBaseProvider {
     // Check if any private/protected keyword comes before the method
     const isPrivate = source.includes('private') && source.indexOf('private') < source.indexOf(`def ${symbolName}`);
     return !isPrivate && new RegExp(`def\\s+(?:self\.)?${s}\\b|class\\s+${s}\\b|module\\s+${s}\\b`).test(source);
+  }
+
+  // ---- Utility helpers ----
+
+  /**
+   * Find the first named child with the given type.
+   */
+  protected findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
+    }
+    return null;
+  }
+
+  /**
+   * Recursively search for a descendant node with the given type.
+   */
+  protected findDeepChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    if (node.type === type) return node;
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const result = this.findDeepChild(node.namedChild(i), type);
+      if (result) return result;
+    }
+    return null;
   }
 
   private ln(source: string, offset: number): number {

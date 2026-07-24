@@ -28,7 +28,7 @@ export function getDefaultConfig(): CodeAnalyzerConfig {
     includePatterns: [],
     maxFileSize: 10 * 1024 * 1024, // 10 MB
     maxFiles: DEFAULT_MAX_FILES,
-    parseWorkers: Math.max(1, Math.floor(os.availableParallelism?.() ?? 4 / 2) / 2),
+    parseWorkers: Math.max(1, Math.floor((os.availableParallelism?.() ?? os.cpus().length) / 2)),
     cacheDir: '.code-analyzer',
     ignorePaths: [
       'node_modules',

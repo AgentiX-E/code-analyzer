@@ -70,9 +70,106 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       }
     }
 
+    // Capture import statements in the unified capture stream
+    if (nodeType === 'import_header') {
+      const parts = this.collectImportPathParts(node);
+      const sourcePath = parts.join('.');
+      if (sourcePath) {
+        captures.push({
+          tag: CAPTURE_TAGS.IMPORT,
+          text: sourcePath,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: sourcePath,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
     for (let i = 0; i < node.childCount; i++) {
       this.walkAndCapture(node.child(i), captures);
     }
+  }
+
+  // ---- Import extraction via AST walking ----
+
+  /**
+   * Walk the AST to find and extract Kotlin import statements.
+   * Kotlin imports are represented as `import_header` nodes in the tree-sitter AST.
+   * 
+   * Syntax handled:
+   *   import kotlin.collections.List           // named import
+   *   import kotlin.collections.*               // wildcard import
+   *   import kotlin.collections.List as MyList  // aliased import
+   */
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'import_header') {
+      this.extractKotlinImport(node, imports);
+      return; // Don't recurse into import children
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), imports);
+    }
+  }
+
+  /**
+   * Extract import details from a Kotlin `import_header` AST node.
+   * Collects identifiers to build the package path, detects wildcard (*) imports,
+   * and extracts alias names from `as` clauses.
+   */
+  private extractKotlinImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    const line = node.startPosition.row + 1;
+    const parts: string[] = [];
+    let aliasName: string | undefined;
+    let isWildcard = false;
+
+    // Collect all identifier children to build the package path
+    // and check for wildcard character
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+
+      if (child.type === 'identifier') {
+        parts.push(child.text);
+      } else if (child.text === '*') {
+        isWildcard = true;
+        parts.push('*');
+      }
+    }
+
+    // Search for 'as' keyword followed by an identifier to extract the alias
+    for (let i = 0; i < node.childCount - 1; i++) {
+      if (node.child(i).text === 'as' && node.child(i + 1).type === 'identifier') {
+        aliasName = node.child(i + 1).text;
+        break;
+      }
+    }
+
+    const sourcePath = parts.join('.');
+    if (!sourcePath) return;
+
+    // Build the import name list:
+    // - Aliased imports use the alias name
+    // - Wildcard imports have an empty names array
+    // - Named imports use the last segment of the path
+    let names: string[];
+    if (aliasName) {
+      names = [aliasName];
+    } else if (isWildcard) {
+      names = [];
+    } else {
+      const lastName = parts[parts.length - 1]!;
+      names = [lastName];
+    }
+
+    imports.push({
+      source: sourcePath,
+      names,
+      type: isWildcard ? 'wildcard' : 'named',
+      lineNumber: line,
+    });
   }
 
   // Fallbacks
@@ -135,10 +232,23 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
-    const regex = /import\s+([\w.]+)(?:\.\*)?/g;
+    // Matches:
+    //   import kotlin.collections.List           -> named
+    //   import kotlin.collections.*               -> wildcard
+    //   import kotlin.collections.List as MyList  -> aliased (named, using alias)
+    const regex = /import\s+([\w.*]+)(?:\s+as\s+(\w+))?/g;
     while ((m = regex.exec(source)) !== null) {
-      const parts = m[1]!.split('.');
-      imports.push({ source: m[1]!, names: [parts[parts.length - 1]!], type: 'named', lineNumber: this.ln(source, m.index) });
+      const fullPath = m[1]!;
+      const alias = m[2];
+      const isWildcard = fullPath.endsWith('.*');
+      const parts = fullPath.split('.');
+
+      imports.push({
+        source: fullPath,
+        names: alias ? [alias] : (isWildcard ? [] : [parts[parts.length - 1]!]),
+        type: isWildcard ? 'wildcard' : 'named',
+        lineNumber: this.ln(source, m.index),
+      });
     }
     return imports;
   }
@@ -148,11 +258,52 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     return new RegExp(`(?:class|interface|object|fun|val|var)\\s+${s}\\b`).test(source);
   }
 
+  // ---- Utility helpers ----
+
+  /**
+   * Find the first named child with the given type.
+   */
+  private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
+    }
+    return null;
+  }
+
+  /**
+   * Recursively search for a descendant node with the given type.
+   */
+  private findDeepChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    if (node.type === type) return node;
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const result = this.findDeepChild(node.namedChild(i), type);
+      if (result) return result;
+    }
+    return null;
+  }
+
   private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       if (node.namedChild(i).type === type) return node.namedChild(i);
     }
     return null;
+  }
+
+  /**
+   * Collect all identifier/namespace segments from an import node
+   * into an ordered array of path parts.
+   */
+  private collectImportPathParts(node: TreeSitterSyntaxNode): string[] {
+    const parts: string[] = [];
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'identifier') {
+        parts.push(child.text);
+      } else if (child.text === '*') {
+        parts.push('*');
+      }
+    }
+    return parts;
   }
 
   private ln(source: string, offset: number): number {

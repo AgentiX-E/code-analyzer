@@ -5,7 +5,7 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage } from './tree-sitter-base.js';
+import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const SWIFT_EXTENSIONS = ['.swift'];
 const SWIFT_GLOBS = ['**/*.swift'];
@@ -35,6 +35,57 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       { nodeType: 'enum_declaration', captureTag: CAPTURE_TAGS.ENUM_DEF, nameChildType: 'type_identifier' },
       { nodeType: 'extension_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'type_identifier' },
     ];
+  }
+
+  // ---- Import extraction (tree-sitter AST) ----
+
+  /**
+   * Walk the AST to find and extract Swift import statements.
+   * Swift imports are parsed as `import_declaration` nodes in the tree-sitter AST.
+   *
+   * Syntax handled:
+   *   import Foundation                     // simple module
+   *   import UIKit.UIViewController          // submodule
+   *   import class UIKit.UIView              // scoped class import
+   *   import func Darwin.sqrt                // scoped function import
+   */
+  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'import_declaration') {
+      this.extractSwiftImport(node, imports);
+      return; // Don't recurse into import children
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), imports);
+    }
+  }
+
+  /**
+   * Extract import details from a Swift `import_declaration` AST node.
+   * Collects identifier parts to build the module path and extracts
+   * the final segment as the import name.
+   */
+  private extractSwiftImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    const lineNumber = node.startPosition.row + 1;
+
+    // Collect all identifier parts (e.g. UIKit, UIViewController for import UIKit.UIViewController)
+    const parts: string[] = [];
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (
+        child.type === 'type_identifier' ||
+        child.type === 'identifier' ||
+        child.type === 'simple_identifier'
+      ) {
+        parts.push(child.text);
+      }
+    }
+
+    if (parts.length === 0) return;
+
+    const sourcePath = parts.join('.');
+    const lastName = parts[parts.length - 1]!;
+    imports.push({ source: sourcePath, names: [lastName], type: 'named', lineNumber });
   }
 
   // Fallbacks
@@ -100,7 +151,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
 
     // import ModuleName
     // import class Module.Submodule
-    const impRegex = /import\s+(?:func\s+|class\s+|struct\s+|enum\s+|protocol\s+|typealias\s+|let\s+|var\s+)?(\w+(?:\.\w+)*)/g;
+    const impRegex = /import\s+(?:class\s+|func\s+|typealias\s+|struct\s+|enum\s+|protocol\s+|let\s+|var\s+)?(\w+(?:\.\w+)*)/g;
     while ((m = impRegex.exec(source)) !== null) {
       const parts = m[1]!.split('.');
       imports.push({ source: m[1]!, names: [parts[parts.length - 1]!], type: 'named', lineNumber: this.ln(source, m.index) });
@@ -113,6 +164,30 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     // Swift: public/internal modifiers; top-level declarations are internal by default
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(?:public|open)\\s+func\\s+${s}\\b|(?:public|open)\\s+class\\s+${s}\\b|(?:public|open)\\s+struct\\s+${s}\\b|(?:public|open)\\s+var\\s+${s}\\b|(?:public|open)\\s+let\\s+${s}\\b`).test(source);
+  }
+
+  // ---- Utility helpers ----
+
+  /**
+   * Find the first named child with the given type.
+   */
+  protected findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
+    }
+    return null;
+  }
+
+  /**
+   * Recursively search for a descendant node with the given type.
+   */
+  protected findDeepChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    if (node.type === type) return node;
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const result = this.findDeepChild(node.namedChild(i), type);
+      if (result) return result;
+    }
+    return null;
   }
 
   private ln(source: string, offset: number): number {
