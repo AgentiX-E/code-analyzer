@@ -1,46 +1,31 @@
-/**
- * Post model — another entity that references User.
- * Demonstrates cross-file type references.
- */
-import { User } from './user';
-
 export interface PostMetadata {
   title: string;
-  tags: string[];
+  authorId: string;
   createdAt: Date;
+  tags: string[];
 }
 
 export class Post {
-  public id: number;
-  public title: string;
-  public content: string;
-  public author: User;
-  public metadata: PostMetadata;
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  createdAt: Date;
 
-  constructor(id: number, title: string, content: string, author: User) {
+  constructor(id: string, title: string, content: string, authorId: string) {
     this.id = id;
     this.title = title;
     this.content = content;
-    this.author = author;
-    this.metadata = {
-      title,
+    this.authorId = authorId;
+    this.createdAt = new Date();
+  }
+
+  getMetadata(): PostMetadata {
+    return {
+      title: this.title,
+      authorId: this.authorId,
+      createdAt: this.createdAt,
       tags: [],
-      createdAt: new Date(),
     };
-  }
-
-  /** Publish this post — verifies author is valid */
-  public publish(): boolean {
-    if (!this.author.validateEmail()) {
-      return false;
-    }
-    return true;
-  }
-
-  /** Add tags to the post */
-  public addTag(tag: string): void {
-    if (!this.metadata.tags.includes(tag)) {
-      this.metadata.tags.push(tag);
-    }
   }
 }

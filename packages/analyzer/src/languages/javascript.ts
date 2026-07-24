@@ -186,6 +186,11 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       }
     }
 
+    // Also capture call expressions (AST-based call sites)
+    if (this.isCallNodeType(nodeType)) {
+      this.emitCallCapture(node, captures);
+    }
+
     for (let i = 0; i < node.childCount; i++) {
       this.walkAndCapture(node.child(i), captures);
     }

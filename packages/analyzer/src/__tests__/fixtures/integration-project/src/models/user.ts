@@ -1,51 +1,35 @@
-/**
- * User model — defines the core User entity for the integration test project.
- * Contains class definition with methods, properties, and JSDoc.
- */
-export class User {
-  public id: number;
-  public name: string;
-  public email: string;
-  private passwordHash: string;
+export interface Identifiable {
+  id: string;
+  getName(): string;
+}
 
-  constructor(id: number, name: string, email: string) {
+export class User implements Identifiable {
+  id: string;
+  name: string;
+
+  constructor(id: string, name: string) {
     this.id = id;
     this.name = name;
-    this.email = email;
-    this.passwordHash = '';
   }
 
-  /** Validate the user's email address format */
-  public validateEmail(): boolean {
-    return this.email.includes('@') && this.email.includes('.');
+  getName(): string {
+    return this.name;
   }
 
-  /** Set a password hash for the user */
-  public setPassword(hash: string): void {
-    this.passwordHash = hash;
-  }
-
-  /** Check if the user is an admin */
-  public isAdmin(): boolean {
-    return this.id === 1;
+  static create(name: string): User {
+    return new User(Math.random().toString(36).slice(2), name);
   }
 }
 
-/**
- * Admin user — extends User with additional privileges.
- */
 export class AdminUser extends User {
-  public permissions: string[];
+  permissions: string[];
 
-  constructor(id: number, name: string, email: string, permissions: string[]) {
-    super(id, name, email);
+  constructor(id: string, name: string, permissions: string[]) {
+    super(id, name);
     this.permissions = permissions;
   }
 
-  /** Grant a new permission to the admin */
-  public grantPermission(permission: string): void {
-    if (!this.permissions.includes(permission)) {
-      this.permissions.push(permission);
-    }
+  hasPermission(permission: string): boolean {
+    return this.permissions.includes(permission);
   }
 }

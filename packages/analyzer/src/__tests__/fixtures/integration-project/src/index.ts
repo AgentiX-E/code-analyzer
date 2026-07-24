@@ -1,26 +1,21 @@
-/**
- * Main entry point for the integration test project.
- * Demonstrates top-level orchestration that ties models, services, and utils together.
- */
-import { UserService } from './services/user-service';
-import { validatePassword } from './services/auth';
+import { UserService, getUserPosts } from './services/user-service';
+import { User, AdminUser } from './models/user';
+import { Post } from './models/post';
+import { formatEmail, slugify } from './utils/formatting';
 
-const service = new UserService();
+function main() {
+  const service = new UserService();
+  const user = service.createUser('John Doe');
+  const email = formatEmail(user.getName(), 'example.com');
+  const slug = slugify('Hello World');
 
-// Create users
-const alice = service.createUser(1, 'Alice', 'Alice@Example.com');
-const bob = service.createAdmin(2, 'Bob', 'bob@example.com', ['manage_users', 'view_reports']);
+  const posts: Post[] = [
+    new Post('1', 'First Post', 'Content here', user.id),
+  ];
 
-// Verify users
-if (alice.validateEmail()) {
-  service.authenticate('alice@example.com', 'securepass');
+  const userPosts = getUserPosts(user.id, posts);
+
+  console.log({ user: user.getName(), email, slug, postCount: userPosts.length });
 }
 
-// Create posts
-const post = service.createPost(1, 'Hello World', 'My first post!');
-if (post) {
-  post.addTag('intro');
-  post.publish();
-}
-
-export { service, validatePassword };
+main();

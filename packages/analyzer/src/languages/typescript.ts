@@ -125,6 +125,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       captures.push(this.buildImportCapture(node));
     }
 
+    // Also capture call expressions (AST-based call sites)
+    if (this.isCallNodeType(nodeType)) {
+      this.emitCallCapture(node, captures);
+    }
+
     // Recursively walk children
     for (let i = 0; i < node.childCount; i++) {
       this.walkAndCapture(node.child(i), captures);

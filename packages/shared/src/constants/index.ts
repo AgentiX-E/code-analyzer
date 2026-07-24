@@ -309,6 +309,12 @@ COMPATIBLE_EDGES.set('USES_TYPE', [
 ]);
 
 // Architectural
+COMPATIBLE_EDGES.set('HANDLES', [
+  ['Function', 'Route'],
+  ['Method', 'Route'],
+  ['Class', 'Route'],
+]);
+
 COMPATIBLE_EDGES.set('HANDLES_ROUTE', [
   ['File', 'Route'],
   ['Class', 'Route'],

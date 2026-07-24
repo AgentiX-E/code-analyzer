@@ -45,7 +45,7 @@ describe('NodeLabel', () => {
 
 describe('RelationshipType', () => {
   it('has exactly the expected number of types', () => {
-    expect(RELATIONSHIP_TYPES).toHaveLength(39);
+    expect(RELATIONSHIP_TYPES).toHaveLength(40);
   });
 
   it.each(RELATIONSHIP_TYPES)('isRelationshipType("%s") returns true', (type) => {

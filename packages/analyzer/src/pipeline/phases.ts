@@ -1363,6 +1363,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                     }
                   }
                 }
+                // Third fallback: same-file lookup — resolve by searching the same file's symbols
+                if (!target) {
+                  const sameFileNodes = fileSymbolIndex.get(parsedFile.filePath);
+                  if (sameFileNodes) {
+                    target = sameFileNodes.get(baseClass);
+                  }
+                }
                 if (target) {
                   const sourceQname = `project:${ctx.projectId}:${symbol.qualifiedName}`;
                   const sourceNodeId = ctx.graph.qnameIndex.get(sourceQname);
@@ -1396,6 +1403,13 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                       target = fileSymbols.get(iface);
                       if (target) break;
                     }
+                  }
+                }
+                // Third fallback: same-file lookup — resolve by searching the same file's symbols
+                if (!target) {
+                  const sameFileNodes = fileSymbolIndex.get(parsedFile.filePath);
+                  if (sameFileNodes) {
+                    target = sameFileNodes.get(iface);
                   }
                 }
                 if (target) {
@@ -1463,6 +1477,22 @@ const ROUTE_PATTERNS: Array<{ regex: RegExp; framework: string; method: string }
   { regex: /router\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'koa', method: '$1' },
   // Hono
   { regex: /app\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'hono', method: '$1' },
+  // Hapi.js
+  { regex: /server\.route\s*\(\s*\{[\s\S]{0,100}method\s*:\s*['"`](GET|POST|PUT|DELETE|PATCH|OPTIONS)['"`][\s\S]{0,100}path\s*:\s*['"`]([^'"`]+)['"`]/g, framework: 'hapi', method: '$1' },
+  // NestJS @Controller + HTTP method decorators
+  { regex: /@(Get|Post|Put|Delete|Patch|Options|All|Head)\s*\(\s*['"`]([^'"`]*)['"`]/g, framework: 'nestjs', method: '$1' },
+  // Echo (Go)
+  { regex: /e\.(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'echo', method: '$1' },
+  // Chi (Go)
+  { regex: /r\.(Get|Post|Put|Delete|Patch|Options|Head)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'chi', method: '$1' },
+  // Fiber (Go)
+  { regex: /app\.(Get|Post|Put|Delete|Patch|Options|Head)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'fiber', method: '$1' },
+  // Rails routes (Ruby)
+  { regex: /(get|post|put|patch|delete|resources|resource)\s+['"`]([^'"`]+)['"`]/g, framework: 'rails', method: '$1' },
+  // Sinatra (Ruby)
+  { regex: /(get|post|put|delete|patch|options)\s+['"`]([^'"`]+)['"`']\s+do/g, framework: 'sinatra', method: '$1' },
+  // Laravel (PHP)
+  { regex: /Route::(get|post|put|delete|patch|options|any|match)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'laravel', method: '$1' },
 ];
 
 interface RouteInfo {
@@ -1571,6 +1601,7 @@ export class RoutesPhase implements ExecutablePhase {
                   const symNodeId = ctx.graph.qnameIndex.get(symQname);
                   if (symNodeId) {
                     builder.addEdge(ctx.graph, symNodeId, node.id, 'BELONGS_TO', ctx.projectId);
+                    builder.addEdge(ctx.graph, symNodeId, node.id, 'HANDLES', ctx.projectId);
                   }
                 }
               }

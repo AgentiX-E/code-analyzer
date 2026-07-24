@@ -4,6 +4,7 @@
 
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag, ImportSemantics } from '@code-analyzer/shared';
+import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Tree-sitter type definitions (avoiding direct import for fallback)
@@ -534,6 +535,172 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Get line number (1-based) for a node */
   protected nodeLine(_source: string, node: TreeSitterSyntaxNode): number {
     return node.startPosition.row + 1;
+  }
+
+  // -----------------------------------------------------------------------
+  // Call site capture — AST-based function/method call extraction
+  // -----------------------------------------------------------------------
+
+  /** Check if a node type represents a call expression */
+  protected isCallNodeType(nodeType: string): boolean {
+    return [
+      'call_expression', 'method_invocation', 'new_expression',
+      'function_call', 'member_call', 'call',
+      'invocation_expression', 'member_access_expression',
+      'postfix_unary_expression', 'binary_expression',
+      'method_call', 'explicit_constructor_invocation',
+      'prefix_expression', 'selector_expression',
+      'send', 'fcall', 'command',
+    ].includes(nodeType);
+  }
+
+  /** Emit a UnifiedCapture for a call site node */
+  protected emitCallCapture(
+    node: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+  ): void {
+    const name = this.extractCallName(node) ?? this.extractNewExpressionName(node);
+    if (!name) return;
+
+    const startLine = node.startPosition.row + 1;
+    const endLine = node.endPosition.row + 1;
+
+    // Find containing function/method
+    let containerName: string | undefined;
+    const parent = this.findContainerNode(node);
+    if (parent) {
+      containerName = this.extractContainerName(parent);
+    }
+
+    const tag = this.getCallTagForNodeType(node.type);
+
+    captures.push({
+      tag,
+      text: node.text,
+      startLine,
+      endLine,
+      startByte: node.startIndex,
+      endByte: node.endIndex,
+      name,
+      containerName,
+      properties: {
+        filePath: this.filePath,
+        callType: this.isMethodCall(node) ? 'method' : 'function',
+      },
+    });
+  }
+
+  /** Determine the capture tag for a call node type */
+  protected getCallTagForNodeType(nodeType: string): CaptureTag {
+    if (nodeType === 'method_invocation' || nodeType === 'member_call' || 
+        nodeType === 'member_access_expression' || nodeType === 'send' ||
+        nodeType === 'method_call') {
+      return CAPTURE_TAGS.METHOD_CALL;
+    }
+    if (nodeType === 'new_expression' || nodeType === 'explicit_constructor_invocation') {
+      return CAPTURE_TAGS.NEW_EXPRESSION;
+    }
+    return CAPTURE_TAGS.FUNCTION_CALL;
+  }
+
+  /** Check if a call node is a method call (has a receiver/object) */
+  protected isMethodCall(node: TreeSitterSyntaxNode): boolean {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (
+        child.type === 'member_expression' ||
+        child.type === 'dot' ||
+        child.type === 'selector' ||
+        child.type === 'field_access' ||
+        child.type === 'scope_resolution'
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Extract the called function/method name from a call expression */
+  protected extractCallName(node: TreeSitterSyntaxNode): string | undefined {
+    // Try function child (function name in call_expression)
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'function' || child.type === 'identifier' || child.type === 'type_identifier') {
+        return child.text;
+      }
+    }
+
+    // Try member_expression → property_identifier (obj.method())
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'member_expression') {
+        for (let j = 0; j < child.childCount; j++) {
+          const prop = child.child(j);
+          if (prop.type === 'property_identifier') return prop.text;
+        }
+      }
+    }
+
+    // Try selector_expression (Go: obj.Method())
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'selector_expression') {
+        for (let j = 0; j < child.childCount; j++) {
+          const field = child.child(j);
+          if (field.type === 'field_identifier') return field.text;
+        }
+      }
+    }
+
+    // Try field_access (Java/Kotlin: obj.method())
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'field_access') {
+        for (let j = 0; j < child.childCount; j++) {
+          const field = child.child(j);
+          if (field.type === 'identifier' || field.type === 'type_identifier') return field.text;
+        }
+      }
+    }
+
+    // Try dot expression (Ruby: obj.method)
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'dot') {
+        // The method name is typically after the dot
+        const nextIdx = i + 1;
+        if (nextIdx < node.childCount) {
+          const next = node.child(nextIdx);
+          if (next.type === 'identifier' || next.type === 'method') return next.text;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  /** Extract the constructor name from a new_expression */
+  protected extractNewExpressionName(node: TreeSitterSyntaxNode): string | undefined {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (
+        child.type === 'identifier' || child.type === 'type_identifier' ||
+        child.type === 'new' || child.type === 'object'
+      ) {
+        // For 'new' keyword, find the type after it
+        if (child.type === 'new') {
+          const nextIdx = i + 1;
+          if (nextIdx < node.childCount) {
+            const next = node.child(nextIdx);
+            if (next.type === 'identifier' || next.type === 'type_identifier') {
+              return next.text;
+            }
+          }
+        }
+        return child.text;
+      }
+    }
+    return undefined;
   }
 
   // -----------------------------------------------------------------------

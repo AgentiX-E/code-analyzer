@@ -73,6 +73,7 @@ export const RELATIONSHIP_TYPES = [
   'INSTANTIATES',
   'USES_TYPE',
   // Architectural
+  'HANDLES',
   'HANDLES_ROUTE',
   'HANDLES_TOOL',
   'EXPOSES',
