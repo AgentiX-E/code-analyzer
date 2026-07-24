@@ -13,6 +13,7 @@ export interface TreeItemData {
   id: string;
   label: string;
   description?: string;
+  tooltip?: string;
   iconPath?: string;
   collapsibleState: 'none' | 'collapsed' | 'expanded';
   contextValue: string;
@@ -167,19 +168,31 @@ export class GraphTreeDataProviderLogic {
   /**
    * Search tree items by name (case-insensitive).
    */
-  searchItems(query: string): TreeItemData[] {
-    const lowerQuery = query.toLowerCase();
-    const results: TreeItemData[] = [];
+  async searchItems(query: string): Promise<TreeItemData[]> {
+    const lowerQuery = query.toLowerCase().trim();
+    if (!lowerQuery) return [];
 
-    // Build a flat list of all items and filter
-    // Since we can't traverse the full tree without the store,
-    // we do a best-effort search using the engine search API
-    // This is a simplified implementation — full search requires
-    // the graph store traversal which is done in the real tree
-    if (!lowerQuery) return results;
+    try {
+      const results = await this.engine.search(lowerQuery);
+      if (results.length === 0) return [];
 
-    // Return a placeholder indicating search is available
-    return results;
+      return results.map((r) => ({
+        id: `symbol:${r.filePath}:${r.name}`,
+        label: r.name,
+        description: r.filePath,
+        iconPath: this.getIconForLabel(r.label ?? r.name),
+        collapsibleState: 'none' as const,
+        contextValue: 'symbol',
+        command: {
+          command: 'code-analyzer.showSymbolDetail',
+          title: 'Show Symbol Detail',
+          arguments: [r.name],
+        },
+        resourceUri: { fsPath: r.filePath },
+      }));
+    } catch {
+      return [];
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -221,7 +221,31 @@
           "group": "navigation"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "code-analyzer.analyze",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      },
+      {
+        "command": "code-analyzer.review",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      },
+      {
+        "command": "code-analyzer.search",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "!searchInputFocus"
+      },
+      {
+        "command": "code-analyzer.showSidebar",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "!sideBarFocus"
+      }
+    ]
   },
   "dependencies": {
     "@code-analyzer/shared": "workspace:*",

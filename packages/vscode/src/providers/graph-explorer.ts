@@ -164,15 +164,46 @@ export class GraphExplorerLogic {
   }
 
   private async buildSummaryGraph(): Promise<GraphData> {
-    // Get related symbols for the project
     const projectId = this.engine.getProjectId();
     if (!projectId) return { nodes: [], edges: [] };
 
     try {
-      // Use search to find top-level symbols
-      const results = await this.engine.search(''); // empty search returns nothing useful
-      // Fallback: return empty graph — real data requires analyzer pipeline
-      return { nodes: [], edges: [] };
+      const results = await this.engine.search('');
+      if (results.length === 0) return { nodes: [], edges: [] };
+
+      const nodes: GraphNodeData[] = results.map((r, i) => ({
+        id: i,
+        name: r.name,
+        label: r.label ?? r.name,
+        filePath: r.filePath,
+      }));
+
+      // Build edges by resolving callers/callees
+      const edges: GraphEdgeData[] = [];
+      const nodeIndex = new Map(results.map((r, i) => [r.name, i]));
+      const maxSymbols = Math.min(results.length, 5);
+
+      for (let i = 0; i < maxSymbols; i++) {
+        const sym = results[i];
+        if (!sym) continue;
+        try {
+          const callees = await this.engine.findCallees(sym.name);
+          for (const callee of callees) {
+            const targetId = nodeIndex.get(callee.name);
+            if (targetId != null) {
+              edges.push({
+                sourceId: i,
+                targetId,
+                type: 'call',
+              });
+            }
+          }
+        } catch {
+          // Skip symbols that fail edge resolution
+        }
+      }
+
+      return { nodes, edges };
     } catch {
       return { nodes: [], edges: [] };
     }

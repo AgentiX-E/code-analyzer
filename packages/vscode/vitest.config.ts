@@ -53,10 +53,10 @@ export default defineConfig({
         'src/extension/commands.ts',
       ],
       thresholds: {
-        lines: 80,
-        branches: 75,
+        lines: 82,
+        branches: 80,
         functions: 95,
-        statements: 80,
+        statements: 82,
       },
     },
     testTimeout: 10000,

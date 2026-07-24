@@ -102,10 +102,12 @@ export class EngineBridge {
   private embedder: EmbeddingEngine;
   private initialized = false;
   private projectId: string | null = null;
+  private workspaceRoot: string | null = null;
   private indexingListeners: IndexingListener[] = [];
   private progressListeners: IndexingProgressListener[] = [];
 
-  constructor(context?: { globalStorageUri?: { fsPath: string } }) {
+  constructor(context?: { globalStorageUri?: { fsPath: string }; workspaceRoot?: string }) {
+    this.workspaceRoot = context?.workspaceRoot ?? null;
     const dbPath =
       context?.globalStorageUri?.fsPath
         ? `${context.globalStorageUri.fsPath}/graph.db`
@@ -531,7 +533,7 @@ export class EngineBridge {
   // -------------------------------------------------------------------------
 
   private getWorkspaceRoot(): string | null {
-    return process.cwd();
+    return this.workspaceRoot ?? process.cwd();
   }
 
   private async getDiffContentSafe(

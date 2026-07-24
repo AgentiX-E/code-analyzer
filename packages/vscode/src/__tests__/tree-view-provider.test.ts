@@ -417,13 +417,13 @@ describe('GraphTreeDataProviderLogic', () => {
   // -------------------------------------------------------------------------
 
   describe('searchItems', () => {
-    it('returns empty array for empty query', () => {
-      const results = logic.searchItems('');
+    it('returns empty array for empty query', async () => {
+      const results = await logic.searchItems('');
       expect(results).toEqual([]);
     });
 
-    it('returns array for non-empty query', () => {
-      const results = logic.searchItems('function');
+    it('returns array for non-empty query', async () => {
+      const results = await logic.searchItems('function');
       expect(Array.isArray(results)).toBe(true);
     });
   });
