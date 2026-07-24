@@ -21,6 +21,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['packages/*/src/**/*.test.ts', 'tests/integration/**/*.test.ts', 'tests/e2e/**/*.test.ts', 'tests/property/**/*.test.ts'],
+    exclude: ['packages/web/**', 'packages/vscode/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

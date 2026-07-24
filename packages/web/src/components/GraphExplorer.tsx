@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useGraphStats } from '../hooks';
+import { searchGraph, type GraphData } from '../api/client';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -18,11 +20,6 @@ interface GraphEdge {
   source: string;
   target: string;
   type: 'import' | 'call' | 'extends' | 'implements';
-}
-
-interface GraphData {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
 }
 
 interface TooltipInfo {
@@ -122,10 +119,59 @@ function simulate(nodes: GraphNode[], edges: GraphEdge[], width: number, height:
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mock data                                                          */
+/*  Data converters                                                    */
 /* ------------------------------------------------------------------ */
 
-function buildGraphData(): GraphData {
+const VALID_NODE_TYPES = new Set(['function', 'class', 'module', 'interface']);
+
+function toGraphNodeType(raw: string): GraphNode['type'] {
+  const lower = raw.toLowerCase();
+  if (VALID_NODE_TYPES.has(lower)) return lower as GraphNode['type'];
+  if (lower.includes('func') || lower === 'method') return 'function';
+  if (lower.includes('interface') || lower === 'type') return 'interface';
+  if (lower.includes('module') || lower === 'file') return 'module';
+  return 'class';
+}
+
+const VALID_EDGE_TYPES = new Set(['import', 'call', 'extends', 'implements']);
+
+function toGraphEdgeType(raw: string): GraphEdge['type'] {
+  const lower = raw.toLowerCase();
+  if (VALID_EDGE_TYPES.has(lower)) return lower as GraphEdge['type'];
+  if (lower.includes('call') || lower.includes('invoke')) return 'call';
+  if (lower.includes('extend') || lower.includes('inherit')) return 'extends';
+  if (lower.includes('implement')) return 'implements';
+  return 'import';
+}
+
+function convertGraphData(data: GraphData): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const nodes: GraphNode[] = (data.nodes ?? []).map((n, i) => ({
+    id: n.id ?? `n-${i}`,
+    label: n.label ?? n.id ?? `Node ${i}`,
+    type: toGraphNodeType(n.type ?? 'class'),
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+  }));
+
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const edges: GraphEdge[] = (data.edges ?? [])
+    .filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+    .map((e) => ({
+      source: e.source,
+      target: e.target,
+      type: toGraphEdgeType(e.type ?? 'import'),
+    }));
+
+  return { nodes, edges };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Fallback mock data (when no API available)                         */
+/* ------------------------------------------------------------------ */
+
+function buildFallbackData(): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const nodes: GraphNode[] = [
     { id: '1', label: 'App', type: 'class', x: 0, y: 0, vx: 0, vy: 0 },
     { id: '2', label: 'Router', type: 'class', x: 0, y: 0, vx: 0, vy: 0 },
@@ -146,7 +192,6 @@ function buildGraphData(): GraphData {
     { id: '17', label: 'sanitize', type: 'function', x: 0, y: 0, vx: 0, vy: 0 },
     { id: '18', label: 'UserModel', type: 'class', x: 0, y: 0, vx: 0, vy: 0 },
   ];
-
   const edges: GraphEdge[] = [
     { source: '1', target: '2', type: 'import' },
     { source: '1', target: '3', type: 'import' },
@@ -170,7 +215,6 @@ function buildGraphData(): GraphData {
     { source: '6', target: '4', type: 'import' },
     { source: '3', target: '4', type: 'import' },
   ];
-
   return { nodes, edges };
 }
 
@@ -182,7 +226,42 @@ const GraphExplorer: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const [graph, setGraph] = useState<GraphData>(() => buildGraphData());
+  // API data hooks
+  const { data: stats, loading: statsLoading, error: statsError } = useGraphStats();
+  const [apiGraphData, setApiGraphData] = useState<GraphData | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // Fetch graph data from API when stats are available
+  useEffect(() => {
+    if (!stats || stats.nodes === 0) return;
+    let cancelled = false;
+    setApiLoading(true);
+    searchGraph('*', { limit: 50 })
+      .then((data) => {
+        if (!cancelled) {
+          setApiGraphData(data);
+          setApiError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setApiError(err instanceof Error ? err.message : 'Failed to load graph');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setApiLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [stats?.nodes]);
+
+  // Determine data source
+  const useApiData = apiGraphData && apiGraphData.nodes.length > 0;
+  const converted = useApiData
+    ? convertGraphData(apiGraphData!)
+    : buildFallbackData();
+
+  const [graph, setGraph] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>(converted);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -193,16 +272,16 @@ const GraphExplorer: React.FC = () => {
 
   // Run force simulation when graph or dimensions change
   useEffect(() => {
-    const nodes = graph.nodes.map((n) => ({
+    const nodes = converted.nodes.map((n) => ({
       ...n,
       x: Math.random() * dimensions.width,
       y: Math.random() * dimensions.height,
       vx: 0,
       vy: 0,
     }));
-    simulate(nodes, graph.edges, dimensions.width, dimensions.height);
-    setGraph((prev) => ({ ...prev, nodes }));
-  }, [dimensions.width, dimensions.height]); // eslint-disable-line react-hooks/exhaustive-deps
+    simulate(nodes, converted.edges, dimensions.width, dimensions.height);
+    setGraph({ nodes, edges: converted.edges });
+  }, [converted.nodes.length, converted.edges.length, dimensions.width, dimensions.height]);
 
   // Observe container size
   useEffect(() => {
@@ -215,7 +294,6 @@ const GraphExplorer: React.FC = () => {
         });
       }
     });
-
     if (wrapperRef.current) observer.observe(wrapperRef.current);
     return () => observer.disconnect();
   }, []);
@@ -299,6 +377,12 @@ const GraphExplorer: React.FC = () => {
     setCollapsed(new Set());
   }, []);
 
+  // Loading state
+  const isLoading = statsLoading || apiLoading;
+
+  // Error state
+  const displayError = statsError ?? apiError;
+
   // Filter visible nodes
   const visibleNodes = graph.nodes.filter((n) => !collapsed.has(n.id));
   const visibleEdges = graph.edges.filter(
@@ -314,66 +398,92 @@ const GraphExplorer: React.FC = () => {
           <button className="btn" onClick={resetView}>
             Reset View
           </button>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-            Scroll to zoom — Drag to pan
-          </span>
+          {useApiData && (
+            <span className="graph-data-source" style={{ fontSize: '0.75rem', color: 'var(--accent)', alignSelf: 'center' }}>
+              Live data — {stats?.nodes ?? '?'} nodes, {stats?.edges ?? '?'} edges
+            </span>
+          )}
+          {!useApiData && !isLoading && !displayError && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+              Demo data — start the server to see live graph
+            </span>
+          )}
         </div>
 
-        <svg
-          ref={svgRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
-        >
-          <g transform={`translate(${zoom.x},${zoom.y}) scale(${zoom.scale})`}>
-            {/* Edges */}
-            {visibleEdges.map((edge, i) => {
-              const s = graph.nodes.find((n) => n.id === edge.source);
-              const t = graph.nodes.find((n) => n.id === edge.target);
-              if (!s || !t) return null;
-              const isSelected =
-                selectedNode === edge.source || selectedNode === edge.target;
-              return (
-                <g key={`edge-${i}`} className={`graph-edge ${edge.type}`}>
-                  <line
-                    x1={s.x}
-                    y1={s.y}
-                    x2={t.x}
-                    y2={t.y}
-                    stroke={isSelected ? EDGE_COLORS[edge.type] : '#30363d'}
-                    strokeOpacity={isSelected ? 0.8 : 0.4}
-                  />
-                </g>
-              );
-            })}
+        {isLoading && (
+          <div className="graph-status-overlay">
+            <div className="spinner" />
+            <p>Loading graph data...</p>
+          </div>
+        )}
 
-            {/* Nodes */}
-            {visibleNodes.map((node) => (
-              <g
-                key={node.id}
-                className={`graph-node ${node.type}`}
-                onClick={() => handleNodeClick(node.id)}
-                onMouseEnter={(e) => handleNodeHover(node, e)}
-                onMouseLeave={handleNodeLeave}
-              >
-                <circle
-                  cx={node.x}
-                  cy={node.y}
-                  r={selectedNode === node.id ? nodeRadius + 3 : nodeRadius}
-                  fill={NODE_COLORS[node.type]}
-                  stroke={selectedNode === node.id ? '#fff' : 'transparent'}
-                  strokeWidth={2}
-                  opacity={selectedNode ? (selectedNode === node.id ? 1 : 0.5) : 1}
-                />
-                <text x={node.x} y={node.y + nodeRadius + 10}>
-                  {node.label}
-                </text>
-              </g>
-            ))}
-          </g>
-        </svg>
+        {displayError && !isLoading && (
+          <div className="graph-status-overlay graph-error">
+            <p>⚠ Failed to load graph</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{displayError}</p>
+            <button className="btn" onClick={() => window.location.reload()}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !displayError && (
+          <svg
+            ref={svgRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+          >
+            <g transform={`translate(${zoom.x},${zoom.y}) scale(${zoom.scale})`}>
+              {/* Edges */}
+              {visibleEdges.map((edge, i) => {
+                const s = graph.nodes.find((n) => n.id === edge.source);
+                const t = graph.nodes.find((n) => n.id === edge.target);
+                if (!s || !t) return null;
+                const isSelected =
+                  selectedNode === edge.source || selectedNode === edge.target;
+                return (
+                  <g key={`edge-${i}`} className={`graph-edge ${edge.type}`}>
+                    <line
+                      x1={s.x}
+                      y1={s.y}
+                      x2={t.x}
+                      y2={t.y}
+                      stroke={isSelected ? EDGE_COLORS[edge.type] : '#30363d'}
+                      strokeOpacity={isSelected ? 0.8 : 0.4}
+                    />
+                  </g>
+                );
+              })}
+
+              {/* Nodes */}
+              {visibleNodes.map((node) => (
+                <g
+                  key={node.id}
+                  className={`graph-node ${node.type}`}
+                  onClick={() => handleNodeClick(node.id)}
+                  onMouseEnter={(e) => handleNodeHover(node, e)}
+                  onMouseLeave={handleNodeLeave}
+                >
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={selectedNode === node.id ? nodeRadius + 3 : nodeRadius}
+                    fill={NODE_COLORS[node.type]}
+                    stroke={selectedNode === node.id ? '#fff' : 'transparent'}
+                    strokeWidth={2}
+                    opacity={selectedNode ? (selectedNode === node.id ? 1 : 0.5) : 1}
+                  />
+                  <text x={node.x} y={node.y + nodeRadius + 10}>
+                    {node.label}
+                  </text>
+                </g>
+              ))}
+            </g>
+          </svg>
+        )}
 
         {/* Tooltip */}
         {tooltip && (

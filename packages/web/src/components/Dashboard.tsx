@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useApiHealth, useGraphStats, useAnalyze } from '../hooks';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -10,13 +11,6 @@ interface IndexStats {
   files: number;
 }
 
-interface RecentAnalysis {
-  id: string;
-  path: string;
-  status: 'completed' | 'running' | 'failed';
-  timestamp: string;
-}
-
 interface SystemInfo {
   nodeVersion: string;
   os: string;
@@ -24,27 +18,23 @@ interface SystemInfo {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mock data                                                          */
+/*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-const MOCK_INDEX: IndexStats = {
-  nodes: 1247,
-  edges: 3892,
-  files: 215,
-};
-
-const MOCK_RECENT: RecentAnalysis[] = [
-  { id: '1', path: 'src/core/engine.ts', status: 'completed', timestamp: '2 minutes ago' },
-  { id: '2', path: 'src/services/api.ts', status: 'completed', timestamp: '15 minutes ago' },
-  { id: '3', path: 'src/components/Editor.tsx', status: 'completed', timestamp: '1 hour ago' },
-  { id: '4', path: 'src/utils/transform.ts', status: 'completed', timestamp: '2 hours ago' },
-  { id: '5', path: 'tests/integration/setup.ts', status: 'running', timestamp: 'just now' },
-  { id: '6', path: 'src/legacy/compat.ts', status: 'failed', timestamp: '5 minutes ago' },
-]; // eslint-disable-line no-unused-vars
 
 const formatBytes = (mb: number): string => {
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
   return `${mb.toFixed(0)} MB`;
+};
+
+const formatUptime = (ms: number): string => {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
 };
 
 /* ------------------------------------------------------------------ */
@@ -52,21 +42,45 @@ const formatBytes = (mb: number): string => {
 /* ------------------------------------------------------------------ */
 
 const Dashboard: React.FC = () => {
-  const [index, setIndex] = useState<IndexStats>(MOCK_INDEX);
-  const [recent, setRecent] = useState<RecentAnalysis[]>(MOCK_RECENT);
-  const [system] = useState<SystemInfo>({
-    nodeVersion: 'v20.11.0',
-    os: 'linux x64',
-    memoryMb: 8192,
-  });
-  const [searchCount, setSearchCount] = useState(342);
+  // Real API data
+  const { data: health, loading: healthLoading, error: healthError } = useApiHealth(15_000);
+  const { data: stats, loading: statsLoading, error: statsError } = useGraphStats();
+  const { analyze, loading: analyzeLoading, error: analyzeError } = useAnalyze();
 
-  // Simulate loading
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 400);
-    return () => clearTimeout(timer);
+  const [searchCount, setSearchCount] = useState(0);
+
+  // Determine loading state
+  const loaded = !healthLoading && !statsLoading;
+
+  // Compute system info from health data or use defaults
+  const system: SystemInfo = health
+    ? {
+        nodeVersion: 'N/A',
+        os: `${health.environment}`,
+        memoryMb: health.checks.memory.rssMB,
+      }
+    : {
+        nodeVersion: 'N/A',
+        os: 'unknown',
+        memoryMb: 0,
+      };
+
+  const index: IndexStats = stats
+    ? { nodes: stats.nodes, edges: stats.edges, files: stats.files }
+    : { nodes: 0, edges: 0, files: 0 };
+
+  const handleNewAnalysis = useCallback(async () => {
+    const path = prompt('Enter repository path to analyze:');
+    if (!path) return;
+    await analyze(path);
+  }, [analyze]);
+
+  const handleSearch = useCallback(() => {
+    setSearchCount((prev) => prev + 1);
   }, []);
+
+  // Error display
+  const displayError = healthError ?? statsError ?? analyzeError;
 
   if (!loaded) {
     return (
@@ -77,23 +91,22 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const handleNewAnalysis = () => {
-    const newAnalysis: RecentAnalysis = {
-      id: String(Date.now()),
-      path: 'src/new-analysis.ts',
-      status: 'running',
-      timestamp: 'just now',
-    };
-    setRecent((prev) => [newAnalysis, ...prev.slice(0, 4)]);
-    setIndex((prev) => ({ ...prev, files: prev.files + 1 }));
-  };
-
-  const handleSearch = () => {
-    setSearchCount((prev) => prev + 1);
-  };
-
   return (
     <div className="dashboard">
+      {/* Connection status banner */}
+      {displayError && (
+        <div className="connection-banner" style={{
+          background: 'var(--error-muted)',
+          color: 'var(--error)',
+          padding: '8px 16px',
+          borderRadius: 'var(--radius)',
+          marginBottom: 16,
+          fontSize: '0.8125rem',
+        }}>
+          ⚠ Cannot connect to server: {displayError}. Showing offline data.
+        </div>
+      )}
+
       {/* Stats grid */}
       <div className="stats-grid">
         <div className="stat-card nodes">
@@ -115,27 +128,36 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="dashboard-grid">
-        {/* Recent analyses */}
+        {/* Recent analyses / Server health */}
         <div className="card">
           <div className="card-header">
-            <h3>Recent Analyses</h3>
-            <span className="badge" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>
-              {recent.length}
-            </span>
+            <h3>Server Status</h3>
+            {health && (
+              <span
+                className="badge"
+                style={{
+                  background: health.status === 'ok' ? 'var(--success-muted, #1a3a2a)' : 'var(--warning-muted, #3a2a1a)',
+                  color: health.status === 'ok' ? 'var(--success, #3fb950)' : 'var(--warning, #d29922)',
+                }}
+              >
+                {health.status}
+              </span>
+            )}
           </div>
-          <ul className="recent-list">
-            {recent.map((item) => (
-              <li key={item.id}>
-                <span className="recent-path" title={item.path}>
-                  {item.path}
-                </span>
-                <div className="recent-meta">
-                  <span className={`recent-status ${item.status}`}>{item.status}</span>
-                  <span className="recent-time">{item.timestamp}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="system-info">
+            <div className="info-item">
+              <span className="info-label">Uptime</span>
+              <span className="info-value">{health ? formatUptime(health.uptime) : 'N/A'}</span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Version</span>
+              <span className="info-value">{health?.version ?? 'N/A'}</span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Environment</span>
+              <span className="info-value">{health?.environment ?? 'N/A'}</span>
+            </div>
+          </div>
         </div>
 
         {/* System info */}
@@ -145,21 +167,29 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="system-info">
             <div className="info-item">
-              <span className="info-label">Node.js</span>
-              <span className="info-value">{system.nodeVersion}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">OS</span>
-              <span className="info-value">{system.os}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Memory</span>
-              <span className="info-value">{formatBytes(system.memoryMb)}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Processed</span>
+              <span className="info-label">Memory (RSS)</span>
               <span className="info-value">
-                {index.files} files
+                {system.memoryMb > 0 ? formatBytes(system.memoryMb) : 'N/A'}
+              </span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Heap Used</span>
+              <span className="info-value">
+                {health ? `${health.checks.memory.heapUsedMB} MB` : 'N/A'}
+              </span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Heap Total</span>
+              <span className="info-value">
+                {health ? `${health.checks.memory.heapTotalMB} MB` : 'N/A'}
+              </span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Memory Status</span>
+              <span className="info-value" style={{
+                color: health?.checks.memory.status === 'warn' ? 'var(--warning, #d29922)' : 'var(--success, #3fb950)',
+              }}>
+                {health?.checks.memory.status ?? 'N/A'}
               </span>
             </div>
           </div>
@@ -171,8 +201,8 @@ const Dashboard: React.FC = () => {
             <h3>Quick Actions</h3>
           </div>
           <div className="quick-actions">
-            <button className="btn btn-primary" onClick={handleNewAnalysis}>
-              New Analysis
+            <button className="btn btn-primary" onClick={handleNewAnalysis} disabled={analyzeLoading}>
+              {analyzeLoading ? 'Analyzing...' : 'New Analysis'}
             </button>
             <button className="btn" onClick={handleSearch}>
               Search Codebase
@@ -180,30 +210,37 @@ const Dashboard: React.FC = () => {
             <button className="btn">View Report</button>
             <button className="btn">Export Data</button>
           </div>
+          {analyzeError && (
+            <p style={{ color: 'var(--error)', fontSize: '0.75rem', marginTop: 8 }}>
+              Analysis error: {analyzeError}
+            </p>
+          )}
         </div>
 
-        {/* Search statistics */}
+        {/* Graph statistics */}
         <div className="card">
           <div className="card-header">
-            <h3>Search Statistics</h3>
+            <h3>Graph Statistics</h3>
           </div>
           <div className="system-info">
             <div className="info-item">
-              <span className="info-label">Total Searches</span>
-              <span className="info-value">{searchCount.toLocaleString()}</span>
+              <span className="info-label">Total Nodes</span>
+              <span className="info-value">{index.nodes.toLocaleString()}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Avg. Time</span>
-              <span className="info-value">12.4 ms</span>
+              <span className="info-label">Total Edges</span>
+              <span className="info-value">{index.edges.toLocaleString()}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Cache Hits</span>
-              <span className="info-value">87.3%</span>
+              <span className="info-label">Files Indexed</span>
+              <span className="info-value">{index.files.toLocaleString()}</span>
             </div>
             <div className="info-item">
-              <span className="info-label">Index Size</span>
+              <span className="info-label">Density</span>
               <span className="info-value">
-                {index.nodes.toLocaleString()} nodes
+                {index.nodes > 0
+                  ? (index.edges / (index.nodes * (index.nodes - 1))).toFixed(4)
+                  : 'N/A'}
               </span>
             </div>
           </div>
