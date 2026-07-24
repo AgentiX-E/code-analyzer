@@ -4,7 +4,14 @@
   "description": "Server for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
-  "keywords": ["code-analysis", "rest-api", "code-review", "knowledge-graph", "server", "code-intelligence"],
+  "keywords": [
+    "code-analysis",
+    "rest-api",
+    "code-review",
+    "knowledge-graph",
+    "server",
+    "code-intelligence"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Lambertyan/code-analyzer.git",
@@ -14,7 +21,9 @@
     "url": "https://github.com/Lambertyan/code-analyzer/issues"
   },
   "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -38,14 +47,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@code-analyzer/shared": "workspace:*",
+    "@code-analyzer/analyzer": "workspace:*",
     "@code-analyzer/core": "workspace:*",
     "@code-analyzer/infra": "workspace:*",
-    "@code-analyzer/analyzer": "workspace:*",
-    "@code-analyzer/intelligence": "workspace:*"
+    "@code-analyzer/intelligence": "workspace:*",
+    "@code-analyzer/mcp": "workspace:^",
+    "@code-analyzer/shared": "workspace:*",
+    "fastify": "^5.0.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^2.1.0"
   }
 }

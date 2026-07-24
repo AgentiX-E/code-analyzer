@@ -1,8 +1,14 @@
-// @code-analyzer/server — HTTP REST API (Stub)
+// @code-analyzer/server — Package Entry
+// HTTP REST API + SSE MCP server for remote code analysis.
 
-export async function createServer(): Promise<{ start: (port: number) => Promise<void>; shutdown: () => Promise<void> }> {
-  return {
-    start: async (_port: number) => { /* stub */ },
-    shutdown: async () => { /* stub */ },
-  };
-}
+export { createServer } from './http-server.js';
+export type { ServerOptions, ServerInstance } from './http-server.js';
+export { resolveConfig, DEFAULT_CONFIG } from './server-config.js';
+export type {
+  ServerConfig,
+  CorsConfig,
+  AuthConfig,
+  LoggingConfig,
+  ServerMetadata,
+} from './server-config.js';
+export type { ErrorResponse } from './middleware/error-handler.js';

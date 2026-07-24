@@ -61,22 +61,24 @@ export class ToolRegistry {
   }
 
   /** List all registered tool definitions (without handlers). */
-  list(): ToolDefinition[] {
-    return Array.from(this.tools.values()).map(({ name, description, inputSchema }) => ({
+  list(): Array<ToolDefinition & { profile: ToolProfile }> {
+    return Array.from(this.tools.values()).map(({ name, description, inputSchema, profile }) => ({
       name,
       description,
       inputSchema,
+      profile,
     }));
   }
 
   /** List tools filtered by profile ('all' returns everything). */
-  listByProfile(profile: ToolProfile): ToolDefinition[] {
+  listByProfile(profile: ToolProfile): Array<ToolDefinition & { profile: ToolProfile }> {
     return Array.from(this.tools.values())
       .filter((t) => profile === 'all' || t.profile === 'all' || t.profile === profile)
-      .map(({ name, description, inputSchema }) => ({
+      .map(({ name, description, inputSchema, profile: p }) => ({
         name,
         description,
         inputSchema,
+        profile: p,
       }));
   }
 
