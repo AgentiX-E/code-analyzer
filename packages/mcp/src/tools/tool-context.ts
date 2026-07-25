@@ -5,6 +5,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import {
   HybridSearchEngine,
   CodeReviewEngine,
+  PRReviewEngine,
   ImpactAnalyzer,
   RepoGroupManager,
   FederatedSearchEngine,
@@ -34,6 +35,9 @@ export interface ToolContext {
 
   /** Code review engine (heuristics-based). Lazy initialized. */
   getReviewEngine(): CodeReviewEngine;
+
+  /** PR review engine (standards + impact + review). Lazy initialized. */
+  getPRReviewEngine(): PRReviewEngine;
 
   /** Impact analyzer (BFS-based dependency traversal). Lazy initialized. */
   getImpactAnalyzer(): ImpactAnalyzer;
@@ -97,6 +101,7 @@ export class ToolContextImpl implements ToolContext {
   public readonly store: InMemoryGraphStore;
   private _searchEngine: HybridSearchEngine | null = null;
   private _reviewEngine: CodeReviewEngine | null = null;
+  private _prReviewEngine: PRReviewEngine | null = null;
   private _impactAnalyzer: ImpactAnalyzer | null = null;
   private _pipeline: PipelineOrchestrator | null = null;
   private _repoGroupManager: RepoGroupManager | null = null;
@@ -122,6 +127,16 @@ export class ToolContextImpl implements ToolContext {
       this._reviewEngine = new CodeReviewEngine(this.store);
     }
     return this._reviewEngine;
+  }
+
+  getPRReviewEngine(): PRReviewEngine {
+    if (!this._prReviewEngine) {
+      this._prReviewEngine = new PRReviewEngine(
+        this.getReviewEngine(),
+        this.store,
+      );
+    }
+    return this._prReviewEngine;
   }
 
   getImpactAnalyzer(): ImpactAnalyzer {
