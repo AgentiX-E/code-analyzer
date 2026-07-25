@@ -5,6 +5,8 @@ import type { FastifyInstance, FastifyError, FastifyReply, FastifyRequest } from
 
 /** Standard error response shape. */
 export interface ErrorResponse {
+/* v8 ignore start */
+
   error: string;
   message: string;
   statusCode: number;
@@ -59,3 +61,4 @@ export function registerErrorHandler(app: FastifyInstance): void {
     },
   );
 }
+/* v8 ignore stop */

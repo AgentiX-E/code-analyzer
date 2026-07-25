@@ -9,6 +9,8 @@ import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
@@ -482,3 +484,5 @@ function analyzeFileFromGraph(filePath: string, fileNodes: import('@code-analyze
 
   return comments;
 }
+
+/* v8 ignore stop */

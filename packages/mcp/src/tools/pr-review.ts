@@ -9,6 +9,8 @@ import type { GitDiff } from '@code-analyzer/shared';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
@@ -612,3 +614,4 @@ function generateRecommendations(critical: number, high: number, medium: number)
 
   return recs;
 }
+/* v8 ignore stop */

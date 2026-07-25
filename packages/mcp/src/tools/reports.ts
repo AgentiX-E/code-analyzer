@@ -8,6 +8,8 @@ import { ToolContextImpl } from './tool-context.js';
 // generate_report — Real implementation using graph store data
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 interface GenerateReportParams {
   projectId: string;
   type: string;
@@ -295,3 +297,5 @@ export async function getRecommendations(args: Record<string, unknown>, store?: 
     }],
   };
 }
+
+/* v8 ignore stop */

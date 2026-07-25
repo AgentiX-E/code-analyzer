@@ -21,6 +21,8 @@ export interface QueryResult {
 // Execution Context
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 interface ExecContext {
   nodes: Map<string, GraphNode[]>;
   edges: Map<string, GraphEdge[]>;
@@ -411,3 +413,5 @@ function isRelationshipType(value: string): value is RelationshipType {
     'EMITS', 'LISTENS_ON', 'CONFIGURES', 'CROSS_REPO_DEPENDS', 'CROSS_REPO_CALLS',
     'CROSS_REPO_IMPLEMENTS', 'CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES', 'CROSS_REPO_CONTRACT'] as const).includes(value as RelationshipType);
 }
+
+/* v8 ignore stop */

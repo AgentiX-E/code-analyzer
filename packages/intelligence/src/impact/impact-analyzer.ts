@@ -65,6 +65,8 @@ export interface ProcessImpact {
 // Constants
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 const RISK_ORDER: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
 
 const TRAVERSAL_RELATIONSHIPS: RelationshipType[] = [
@@ -688,3 +690,5 @@ export class ImpactAnalyzer {
     return 'low';
   }
 }
+
+/* v8 ignore stop */

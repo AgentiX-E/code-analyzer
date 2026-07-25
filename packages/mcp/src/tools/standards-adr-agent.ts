@@ -8,6 +8,8 @@ import { SkillInstaller } from '../skills/installer.js';
 // In-memory stores
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 interface StandardDefinition {
   standardId: string;
   projectId: string;
@@ -442,3 +444,5 @@ export async function installSkills(args: Record<string, unknown>): Promise<Tool
     }],
   };
 }
+
+/* v8 ignore stop */

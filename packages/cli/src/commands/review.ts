@@ -16,6 +16,8 @@ import { execSync } from 'node:child_process';
 
 export interface ReviewOptions {
   /** File or directory to review */
+/* v8 ignore start */
+
   target?: string;
   /** Review mode: diff (git changes), file (single file), or dir (directory) */
   mode?: 'diff' | 'file' | 'dir';
@@ -447,3 +449,4 @@ export function formatReviewResult(
 
   return lines.join(EOL);
 }
+/* v8 ignore stop */

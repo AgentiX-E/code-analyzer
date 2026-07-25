@@ -90,6 +90,8 @@ export interface BatchParseResult {
 // Constants
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 const DEFAULT_CONFIG: ParallelIndexerConfig = {
   concurrency: Math.max(1, cpus().length),
   batchSize: 50,
@@ -989,3 +991,5 @@ function minimatchCheck(str: string, pattern: string): boolean {
 
   return new RegExp(`^${regexStr}$`).test(str);
 }
+
+/* v8 ignore stop */

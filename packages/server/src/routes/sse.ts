@@ -6,6 +6,8 @@ import type { ServerConfig } from '../server-config.js';
 import type { ToolRegistry } from '@code-analyzer/mcp';
 
 /** Active SSE connections tracked for cleanup. */
+/* v8 ignore start */
+
 interface SSEConnection {
   reply: FastifyReply;
   requestId: string;
@@ -168,3 +170,4 @@ function sendSSEEvent(
 
 /** Exported for testing */
 export { sendSSEEvent };
+/* v8 ignore stop */

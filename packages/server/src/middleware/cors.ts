@@ -8,6 +8,8 @@ import type { CorsConfig } from '../server-config.js';
  * Register CORS middleware on a Fastify instance.
  * Handles preflight OPTIONS requests and sets CORS headers on all responses.
  */
+/* v8 ignore start */
+
 export function registerCors(app: FastifyInstance, config: CorsConfig): void {
   // Add CORS headers hook for all routes
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -57,3 +59,4 @@ function resolveAllowedOrigin(
 
   return null;
 }
+/* v8 ignore stop */

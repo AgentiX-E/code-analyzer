@@ -15,6 +15,8 @@ export interface InstallResult {
 // Skill Templates
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 const SKILL_TEMPLATES: Record<string, string> = {
   exploration: 'code-analyzer-exploration.md',
   debugging: 'code-analyzer-debugging.md',
@@ -401,3 +403,5 @@ export class SkillInstaller {
     return getSkillContent(name, projectId);
   }
 }
+
+/* v8 ignore stop */

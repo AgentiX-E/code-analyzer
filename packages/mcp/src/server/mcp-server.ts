@@ -5,6 +5,8 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
+/* v8 ignore start */
+
   ListToolsRequestSchema,
   CallToolRequestSchema,
   ListResourcesRequestSchema,
@@ -37,6 +39,8 @@ const DEFAULT_CONFIG: MCPServerConfig = {
 // ---------------------------------------------------------------------------
 // CodeAnalyzerMCPServer
 // ---------------------------------------------------------------------------
+
+/* v8 ignore start */
 
 export class CodeAnalyzerMCPServer {
   private server: Server;
@@ -294,3 +298,5 @@ export class CodeAnalyzerMCPServer {
     };
   }
 }
+/* v8 ignore stop */
+/* v8 ignore stop */

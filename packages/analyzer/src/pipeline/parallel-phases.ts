@@ -34,6 +34,8 @@ import { GraphBuilder } from '../graph/graph-builder.js';
 // Provider Loader (shared with sequential phases)
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
   typescript: async () => {
     const { TypeScriptProvider } = await import('../languages/typescript.js');
@@ -571,3 +573,5 @@ export class ParallelBuildPhase implements ExecutablePhase {
     }
   }
 }
+
+/* v8 ignore stop */

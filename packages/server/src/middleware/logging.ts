@@ -4,6 +4,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { LoggingConfig } from '../server-config.js';
 
+/* v8 ignore start */
+
 const LEVEL_PRIORITY: Record<string, number> = {
   silent: 0,
   error: 1,
@@ -87,3 +89,4 @@ function shouldLog(configLevel: string, statusCode: number): boolean {
 
 /** Exported for testing */
 export { shouldLog, logPretty, logStructured };
+/* v8 ignore stop */

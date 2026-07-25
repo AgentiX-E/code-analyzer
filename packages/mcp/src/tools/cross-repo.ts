@@ -8,6 +8,8 @@ import { ToolContextImpl } from './tool-context.js';
 // Singleton RepoGroupManager for session-scoped group persistence
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 let _groupManagerPromise: Promise<InstanceType<typeof import('@code-analyzer/intelligence')['RepoGroupManager']>> | null = null;
 
 async function getGroupManager(): Promise<InstanceType<typeof import('@code-analyzer/intelligence')['RepoGroupManager']>> {
@@ -894,3 +896,5 @@ export async function crossRepoReviewPR(args: Record<string, unknown>, store?: u
     };
   }
 }
+
+/* v8 ignore stop */

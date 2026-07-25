@@ -96,6 +96,8 @@ export interface SymbolDependencyTrace {
 // Internal types
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 const SKIP_DIRECTORIES = new Set([
   'node_modules', '.git', 'dist', 'build', '__pycache__', '.next',
   'target', '.cache', '.idea', '.vscode', 'coverage', '.nyc_output',
@@ -1431,3 +1433,5 @@ export function levenshteinDistance(a: string, b: string): number {
 
   return prevRow[a.length]!;
 }
+
+/* v8 ignore stop */

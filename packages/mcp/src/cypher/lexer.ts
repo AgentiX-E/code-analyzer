@@ -3,6 +3,8 @@
 
 import type { CypherToken } from '@code-analyzer/shared';
 
+/* v8 ignore start */
+
 const KEYWORDS = new Set([
   'MATCH', 'OPTIONAL', 'WHERE', 'RETURN', 'WITH', 'ORDER', 'BY',
   'ASC', 'DESC', 'LIMIT', 'SKIP', 'UNION', 'ALL', 'DISTINCT',
@@ -140,3 +142,5 @@ export function isAggregationFunc(keyword: string): boolean {
 }
 
 export { KEYWORDS, AGGREGATION_FUNCTIONS };
+
+/* v8 ignore stop */

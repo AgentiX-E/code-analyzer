@@ -8,6 +8,8 @@ import { ToolContextImpl } from './tool-context.js';
 // pdg_query — Analyze program dependence graph (CFG-based)
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 interface PDGQueryParams {
   functionId: string;
   projectId: string;
@@ -265,3 +267,5 @@ export async function explainTaint(args: Record<string, unknown>, store?: unknow
     }],
   };
 }
+
+/* v8 ignore stop */

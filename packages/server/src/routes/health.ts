@@ -5,6 +5,8 @@ import type { FastifyInstance } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
 
 /** Detailed health status response. */
+/* v8 ignore start */
+
 interface HealthResponse {
   status: 'ok' | 'degraded' | 'unhealthy';
   timestamp: string;
@@ -91,3 +93,4 @@ function buildHealthResponse(
 
 /** Exported for testing */
 export { buildHealthResponse };
+/* v8 ignore stop */

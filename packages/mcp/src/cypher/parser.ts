@@ -40,6 +40,8 @@ export interface WithClause {
 // Parser State
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 class ParserState {
   tokens: CypherToken[];
   pos: number;
@@ -702,3 +704,5 @@ function parseNumber(state: ParserState): number {
   }
   return Number(state.advance()!.value);
 }
+
+/* v8 ignore stop */

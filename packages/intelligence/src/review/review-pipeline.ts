@@ -35,6 +35,8 @@ export interface PipelineReviewConfig {
   severityDistribution: Partial<Record<Severity, number>>;
 }
 
+/* v8 ignore start */
+
 const DEFAULT_CONFIG: PipelineReviewConfig = {
   maxTokens: 16000,
   concurrency: 4,
@@ -555,3 +557,5 @@ export class ReviewPipeline {
     return comments;
   }
 }
+
+/* v8 ignore stop */

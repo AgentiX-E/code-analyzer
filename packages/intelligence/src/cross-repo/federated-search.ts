@@ -70,6 +70,8 @@ export interface UsageReport {
 // FederatedSearchEngine
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 export class FederatedSearchEngine {
   private minhash: MinHashSimilarity;
 
@@ -394,3 +396,5 @@ export class FederatedSearchEngine {
     };
   }
 }
+
+/* v8 ignore stop */

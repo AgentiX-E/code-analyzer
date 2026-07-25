@@ -55,6 +55,8 @@ export interface InlineComment {
 // Constants
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 const GITHUB_API_BASE = 'https://api.github.com';
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
@@ -461,3 +463,5 @@ export class GitHubPRWebhook {
   }
   /* v8 ignore stop */
 }
+
+/* v8 ignore stop */

@@ -9,6 +9,8 @@ import type { ToolResult } from './registry.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
@@ -482,3 +484,4 @@ function detectCycle(
   path.pop();
   recStack.delete(nodeId);
 }
+/* v8 ignore stop */

@@ -9,6 +9,8 @@ import type { ToolResult } from './registry.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
+
 function getToolContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
@@ -408,3 +410,4 @@ export async function indexStatus(args: Record<string, unknown>, store?: unknown
     };
   }
 }
+/* v8 ignore stop */

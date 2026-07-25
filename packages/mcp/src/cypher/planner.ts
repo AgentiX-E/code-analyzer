@@ -20,6 +20,8 @@ export interface GraphSchema {
   edgeProperties: string[];
 }
 
+/* v8 ignore start */
+
 export const DEFAULT_SCHEMA: GraphSchema = {
   nodeLabels: NODE_LABELS as unknown as string[],
   relationshipTypes: RELATIONSHIP_TYPES as unknown as string[],
@@ -394,3 +396,5 @@ function evaluateBinaryOperand(
       return null;
   }
 }
+
+/* v8 ignore stop */

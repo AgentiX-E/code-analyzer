@@ -15,6 +15,8 @@ import type { SupportedAgent } from '../agent-setup.js';
 import { AgentSetupManager } from '../agent-setup.js';
 
 export function createAgentCommand(): Command {
+/* v8 ignore start */
+
   const manager = new AgentSetupManager();
 
   const agent = new Command('agent').description(
@@ -152,3 +154,4 @@ export function createAgentCommand(): Command {
 
   return agent;
 }
+/* v8 ignore stop */

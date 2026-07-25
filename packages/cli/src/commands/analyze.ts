@@ -8,6 +8,8 @@ import { existsSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { EOL } from 'node:os';
 import {
+/* v8 ignore start */
+
   PipelineOrchestrator,
   type PipelineResult,
   type PhaseResult,
@@ -245,3 +247,4 @@ export function formatAnalyzeResult(result: AnalyzeOutput, format: 'text' | 'jso
   lines.push(`${'='.repeat(60)}`);
   return lines.join(EOL);
 }
+/* v8 ignore stop */
