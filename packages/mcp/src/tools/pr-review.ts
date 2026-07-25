@@ -1,6 +1,8 @@
 // @code-analyzer/mcp — PR Review Tools
 
+import { existsSync, readFileSync } from 'node:fs';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { StandardsEngine } from '@code-analyzer/intelligence';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
 import type { GitDiff } from '@code-analyzer/shared';
@@ -418,16 +420,85 @@ export async function checkStandards(args: Record<string, unknown>, store?: unkn
 
   try {
     const ctx = getContext(store);
+    const standardsEngine = new StandardsEngine();
 
     if (ctx) {
       const results: unknown[] = [];
       const summary = { critical: 0, high: 0, medium: 0, low: 0, info: 0, passed: 0 };
 
+      // Collect file paths from graph for auto-detection
+      const filePaths = new Set<string>();
+      const allNodes = ctx.store.getAllNodes().filter(n => n.projectId === projectId);
+      for (const node of allNodes) {
+        if (node.filePath) filePaths.add(node.filePath);
+      }
+
+      // Determine which standards to check
+      let applicableStandardIds: string[];
+      if (standardIds && standardIds.length > 0 && standardIds[0] !== 'all') {
+        applicableStandardIds = standardIds;
+      } else {
+        applicableStandardIds = standardsEngine.detectApplicableStandards([...filePaths]);
+      }
+
+      // Phase 1: Real StandardsEngine checks (file content analysis)
+      if (filePath && existsSync(filePath)) {
+        try {
+          const content = readFileSync(filePath, 'utf-8');
+          for (const sid of applicableStandardIds) {
+            try {
+              const complianceReport = standardsEngine.computeDetailedComplianceReport(
+                [{ path: filePath, content }],
+                sid,
+              );
+
+              for (const v of complianceReport.violations) {
+                results.push({
+                  standard: sid,
+                  ruleId: v.ruleId,
+                  description: v.description,
+                  filePath: v.filePath,
+                  lineNumber: v.lineNumber,
+                  message: v.message,
+                  suggestion: v.suggestion ?? null,
+                  severity: v.severity,
+                  passed: false,
+                  source: 'StandardsEngine',
+                });
+                const sev = v.severity as keyof typeof summary;
+                if (sev in summary) (summary as Record<string, number>)[sev]++;
+              }
+
+              if (complianceReport.passedChecks > 0 && complianceReport.failedChecks === 0) {
+                results.push({
+                  standard: sid,
+                  title: 'All checks passed',
+                  description: `${complianceReport.passedChecks} rule(s) passed for standard "${sid}"`,
+                  severity: 'info',
+                  passed: true,
+                  source: 'StandardsEngine',
+                });
+                summary.passed++;
+              }
+            } catch {
+              // Standard not found — skip gracefully
+            }
+          }
+        } catch {
+          // File read error — fall through to graph checks
+        }
+      }
+
+      // Phase 2: Graph-based heuristic checks (complementary to StandardsEngine)
+      const targetFiles = filePath
+        ? [filePath]
+        : [...filePaths];
+
       if (filePath) {
-        // Check specific file
+        // Specific file: use graph data
         const fileNodes = ctx.getFileSymbols(projectId, filePath);
         for (const node of fileNodes) {
-          // Naming conventions check
+          // Naming conventions
           if (node.label === 'Class' && node.name[0] !== node.name[0]?.toUpperCase()) {
             results.push({
               standard: 'naming-conventions',
@@ -437,70 +508,78 @@ export async function checkStandards(args: Record<string, unknown>, store?: unkn
               startLine: node.startLine,
               severity: 'low',
               passed: false,
+              source: 'GraphHeuristics',
             });
             summary.low++;
-          }
-
-          // Export check
-          if (node.label === 'Function' && !node.isExported && !node.name?.startsWith('_')) {
-            results.push({
-              standard: 'export-conventions',
-              title: 'Consider exporting public function',
-              description: `Function "${node.name}" is not exported. If it should be part of the public API, add the export keyword.`,
-              filePath,
-              startLine: node.startLine,
-              severity: 'info',
-              passed: true,
-            });
-            summary.info++;
           }
 
           // Complexity check
           if (node.complexity && node.complexity > 10) {
             results.push({
               standard: 'complexity-threshold',
-              title: `Function "${node.name}" exceeds complexity threshold`,
+              title: `Symbol "${node.name}" exceeds complexity threshold`,
               description: `Cyclomatic complexity ${node.complexity} exceeds threshold of 10.`,
               filePath,
               startLine: node.startLine,
               severity: node.complexity > 20 ? 'high' : 'medium',
               passed: false,
+              source: 'GraphHeuristics',
             });
             if (node.complexity > 20) summary.high++;
             else summary.medium++;
           }
         }
       } else {
-        // Check all files in project
+        // All files: project-level analysis
         const stats = ctx.getGraphStats(projectId);
-        const highComplexityCount = stats.labelDistribution
-          .filter(l => l.label === 'Function' || l.label === 'Method')
-          .reduce((sum, l) => sum + l.count, 0);
 
-        if (highComplexityCount > 100) {
+        const highComplexityTotal = Object.entries(stats.labelDistribution ?? {})
+          .filter(([label]) => label === 'Function' || label === 'Method')
+          .reduce((sum, [, count]) => sum + (count as number), 0);
+
+        if (highComplexityTotal > 100) {
           results.push({
             standard: 'project-size',
             title: 'Large project detected',
-            description: `Project has ${stats.nodeCount} nodes. Consider modularization if the codebase continues to grow.`,
+            description: `Project has ${stats.nodeCount} nodes across ${Object.keys(stats.labelDistribution ?? {}).length} label types.`,
             severity: 'info',
             passed: true,
+            source: 'GraphHeuristics',
+          });
+          summary.info++;
+        }
+
+        // Add auto-detected standards info for all-files analysis
+        if (applicableStandardIds.length > 0) {
+          results.push({
+            standard: 'standards-detection',
+            title: 'Applicable standards detected',
+            description: `Auto-detected ${applicableStandardIds.length} applicable standard(s): ${applicableStandardIds.join(', ')}`,
+            severity: 'info',
+            passed: true,
+            source: 'StandardsEngine',
           });
           summary.info++;
         }
       }
+
+      const complianceScore = Math.max(0, 100 - summary.critical * 20 - summary.high * 10 - summary.medium * 5 - summary.low);
 
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
             projectId,
-            standardsChecked: standardIds ?? ['all'],
+            standardsChecked: applicableStandardIds,
             filePath: filePath ?? 'all files',
             autoFix,
             results,
-            complianceScore: Math.max(0, 100 - summary.critical * 20 - summary.high * 10 - summary.medium * 5 - summary.low),
+            complianceScore,
+            applicableStandards: applicableStandardIds,
             summary,
-            reviewMethod: 'Graph-backed standards check',
+            reviewMethod: filePath && existsSync(filePath)
+              ? 'StandardsEngine + Graph heuristics'
+              : 'Graph-backed heuristics + StandardsEngine auto-detection',
             note: autoFix ? 'Auto-fix requires configured fix rules' : undefined,
           }, null, 2),
         }],

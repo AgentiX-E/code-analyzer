@@ -16,3 +16,4 @@ reports/
 logs/
 # Code Analyzer
 .code-analyzer/data/
+report_*.json
