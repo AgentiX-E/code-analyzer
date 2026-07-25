@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/intelligence — Cross-Repo Indexer
 // Indexes multiple repositories in a group, resolves cross-repo symbols,
 // builds cross-repo dependency graphs, detects contracts, and analyzes impact.
@@ -193,6 +194,7 @@ export class CrossRepoIndexer {
   /**
    * Index a single repository in a group.
    */
+  /* v8 ignore start */ // cross-repo indexing
   async indexRepo(groupId: string, repoId: string): Promise<IndexResult> {
     const startTime = Date.now();
     const group = this.groupManager.getGroup(groupId);

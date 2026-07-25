@@ -23,7 +23,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const tsGrammar = require('tree-sitter-typescript') as { typescript: TreeSitterLanguage; tsx: TreeSitterLanguage };
       return tsGrammar.typescript;
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return null;
     }
   }
@@ -345,6 +346,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback (regex-based) ----
 
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
 
@@ -501,6 +503,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex = /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
@@ -526,6 +529,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const patterns = [
       new RegExp(`export\\s+(?:default\\s+)?(?:function|class|const|let|var|interface|type|enum|abstract\\s+class)\\s+${escapeRegex(symbolName)}\\b`),

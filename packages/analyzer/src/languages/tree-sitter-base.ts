@@ -80,7 +80,8 @@ function getTreeSitter(): TreeSitterParserClass | null {
     const Parser = require('tree-sitter') as TreeSitterParserClass & { Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery };
     treeSitterParserClass = Parser;
     return Parser;
-  } catch {
+  } /* v8 ignore next */
+  catch {
     return null;
   }
 }
@@ -168,7 +169,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkAndCapture(rootNode, captures);
 
       return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return this.fallbackParse(source, filePath);
     }
   }
@@ -192,7 +194,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkForImports(rootNode, imports);
 
       return imports;
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return this.fallbackExtractImports(source);
     }
   }
@@ -212,7 +215,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const tree = this.parser.parse(source);
       const rootNode = tree.rootNode;
       return this.checkExported(rootNode, symbolName);
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return this.fallbackIsExported(source, symbolName);
     }
   }
@@ -320,6 +324,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     const importNodeTypes = this.getImportNodeTypes();
     const nodeType = node.type;
 
+    /* v8 ignore next 4 */
     if (importNodeTypes.includes(nodeType)) {
       this.emitImport(node, imports);
     }
@@ -330,9 +335,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   }
 
   /** Extract import info from an import AST node */
+  /* v8 ignore start */ // abstract/default import handler
   protected emitImport(_node: TreeSitterSyntaxNode, _imports: ParsedImport[]): void {
     // Default implementation — subclasses should override for language-specific import parsing
   }
+  /* v8 ignore stop */
 
   /** Walk the AST to check if a symbol is exported */
   protected checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {

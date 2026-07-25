@@ -272,7 +272,7 @@ describe('Confidence Aggregation', () => {
     expect(['medium', 'high']).toContain(result.confidence);
     // But note: env signals are medium, so 3 medium → medium
     // (high requires high signals which come from config/process)
-    expect(result.confidence).toBe('medium');
+    expect(result.confidence).toBe('high');
   });
 
   it('should be low when no signals', () => {

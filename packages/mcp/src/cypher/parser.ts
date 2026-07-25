@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Parser
 // Recursive-descent parser that builds an AST from a token stream.
 

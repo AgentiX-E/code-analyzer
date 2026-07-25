@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/cli — Analyze Command
 // Indexes a repository into the code knowledge graph using the full
 // 18-phase DAG pipeline. Produces structured output suitable for

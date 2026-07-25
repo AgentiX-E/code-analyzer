@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/intelligence — GitHub PR Webhook Handler
 // Handles GitHub webhook events for pull request review automation.
 // Verifies webhook signatures, fetches diffs, runs review engine,

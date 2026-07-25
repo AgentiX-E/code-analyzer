@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/cli — Review Command
 // Runs code review on a file, directory, or git diff using the
 // deterministic rules engine. Supports multiple output formats

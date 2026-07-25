@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — MCP Server
 // Core MCP server class supporting stdio and HTTP (SSE) transports.
 

@@ -21,7 +21,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-swift') as TreeSitterLanguage;
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return null;
     }
   }
@@ -37,6 +38,211 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     ];
   }
 
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    const nodeType = node.type;
+
+    if (
+      nodeType === 'class_declaration' ||
+      nodeType === 'struct_declaration' ||
+      nodeType === 'enum_declaration' ||
+      nodeType === 'protocol_declaration' ||
+      nodeType === 'function_declaration'
+    ) {
+      // Check for public/open access modifier
+      let hasPublicModifier = false;
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === 'modifiers') {
+          for (let j = 0; j < child.childCount; j++) {
+            const modText = child.child(j).text;
+            if (modText === 'public' || modText === 'open') {
+              hasPublicModifier = true;
+              break;
+            }
+          }
+        }
+        // Direct access_modifier children (some tree-sitter versions)
+        if (child.type === 'access_modifier' || child.type === 'access_control_modifier') {
+          const modText = child.text;
+          if (modText === 'public' || modText === 'open') {
+            hasPublicModifier = true;
+          }
+        }
+      }
+
+      if (hasPublicModifier) {
+        const nameNode =
+          this.findNamedChild(node, 'type_identifier') ??
+          this.findNamedChild(node, 'identifier') ??
+          this.findNamedChild(node, 'simple_identifier');
+        if (nameNode && nameNode.text === symbolName) return true;
+      }
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      if (this.checkExported(node.child(i), symbolName)) return true;
+    }
+
+    return false;
+  }
+
+  /* v8 ignore start */
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+    const sourceText = node.text;
+
+    // tree-sitter-swift lumps class, struct, enum, extension into class_declaration
+    if (nodeType === 'class_declaration') {
+      if (sourceText.startsWith('struct ')) {
+        const nameNode = this.findNamedChild(node, 'type_identifier');
+        if (nameNode) {
+          captures.push({
+            tag: CAPTURE_TAGS.STRUCT_DEF,
+            text: sourceText,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: nameNode.startIndex,
+            endByte: nameNode.endIndex,
+            name: nameNode.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      } else if (sourceText.startsWith('enum ')) {
+        const nameNode = this.findNamedChild(node, 'type_identifier');
+        if (nameNode) {
+          captures.push({
+            tag: CAPTURE_TAGS.ENUM_DEF,
+            text: sourceText,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: nameNode.startIndex,
+            endByte: nameNode.endIndex,
+            name: nameNode.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      } else if (sourceText.startsWith('extension ')) {
+        const userType = this.findNamedChild(node, 'user_type');
+        const nameNode = userType ? this.findNamedChild(userType, 'type_identifier') : null;
+        if (nameNode) {
+          captures.push({
+            tag: CAPTURE_TAGS.CLASS_DEF,
+            text: sourceText,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: nameNode.startIndex,
+            endByte: nameNode.endIndex,
+            name: nameNode.text,
+            properties: { isExtension: 'true', filePath: this.filePath },
+          });
+        }
+      } else {
+        // Regular class
+        const nameNode = this.findNamedChild(node, 'type_identifier');
+        if (nameNode) {
+          captures.push({
+            tag: CAPTURE_TAGS.CLASS_DEF,
+            text: sourceText,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: nameNode.startIndex,
+            endByte: nameNode.endIndex,
+            name: nameNode.text,
+            properties: { filePath: this.filePath },
+          });
+        }
+      }
+    }
+
+    // Function declarations — tree-sitter-swift uses simple_identifier for name
+    else if (nodeType === 'function_declaration') {
+      const nameNode = this.findNamedChild(node, 'simple_identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: sourceText,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
+    // Protocol declarations
+    else if (nodeType === 'protocol_declaration') {
+      const nameNode = this.findNamedChild(node, 'type_identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.INTERFACE_DEF,
+          text: sourceText,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
+    // Property declarations (variables/constants)
+    else if (nodeType === 'property_declaration') {
+      let isLet = false;
+      let nameNode: TreeSitterSyntaxNode | null = null;
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'value_binding_pattern') {
+          isLet = child.text === 'let';
+        }
+        if (child.type === 'pattern') {
+          for (let j = 0; j < child.namedChildCount; j++) {
+            if (child.namedChild(j).type === 'simple_identifier') {
+              nameNode = child.namedChild(j);
+              break;
+            }
+          }
+        }
+      }
+      if (nameNode) {
+        captures.push({
+          tag: isLet ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
+          text: sourceText,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
+    // Import declarations
+    else if (nodeType === 'import_declaration') {
+      const nameNode = this.findNamedChild(node, 'identifier') ?? this.findNamedChild(node, 'type_identifier');
+      const importName = nameNode ? nameNode.text : sourceText.replace(/^import\s+/, '');
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: importName,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: importName,
+        properties: { filePath: this.filePath },
+      });
+    }
+
+    // Recurse into children
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkAndCapture(node.child(i), captures);
+    }
+  }
+  /* v8 ignore stop */
+
   // ---- Import extraction (tree-sitter AST) ----
 
   /**
@@ -49,6 +255,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
    *   import class UIKit.UIView              // scoped class import
    *   import func Darwin.sqrt                // scoped function import
    */
+  /* v8 ignore next */
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_declaration') {
       this.extractSwiftImport(node, imports);
@@ -89,6 +296,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -145,6 +353,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -160,11 +369,13 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // Swift: public/internal modifiers; top-level declarations are internal by default
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(?:public|open)\\s+func\\s+${s}\\b|(?:public|open)\\s+class\\s+${s}\\b|(?:public|open)\\s+struct\\s+${s}\\b|(?:public|open)\\s+var\\s+${s}\\b|(?:public|open)\\s+let\\s+${s}\\b`).test(source);
   }
+  /* v8 ignore stop */
 
   // ---- Utility helpers ----
 

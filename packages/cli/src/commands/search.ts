@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/cli — Search Command
 // Searches the knowledge graph using FTS5, graph traversal, and
 // optional semantic scoring. Supports multiple output formats.

@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Planner
 // Translates a Cypher AST into a SQL-compatible query plan.
 

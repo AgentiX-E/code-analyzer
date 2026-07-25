@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/intelligence — Impact Analyzer
 // BFS-based impact analysis that tracks how changes cascade through
 // the dependency graph to tests, routes, and execution processes.

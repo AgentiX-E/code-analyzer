@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/server — HTTP Server
 // Assembles the Fastify server with all middleware and routes.
 

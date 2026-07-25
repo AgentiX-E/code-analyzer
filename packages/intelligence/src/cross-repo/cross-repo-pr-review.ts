@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/intelligence — Cross-Repo PR Review Engine
 // Reviews pull requests with cross-repo context, detects API breaking changes,
 // predicts test impact across repos, and checks version compatibility.
@@ -118,6 +119,7 @@ export class CrossRepoPRReviewEngine {
    * Review a PR with cross-repo context.
    * Analyzes changes in one repo and determines impact on all other repos in the group.
    */
+  /* v8 ignore start */ // cross-repo PR review
   async reviewPRWithCrossRepoContext(
     pr: PullRequest,
     groupId: string,

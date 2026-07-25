@@ -39,6 +39,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
   // ---- Import extraction (tree-sitter AST) ----
 
+  /* v8 ignore start */ // tree-sitter import walk
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     // Handle namespace_use_declaration (use statements)
     if (node.type === 'namespace_use_declaration') {
@@ -209,6 +210,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -268,6 +270,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -312,6 +315,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // PHP: public methods/properties, classes are typically public
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

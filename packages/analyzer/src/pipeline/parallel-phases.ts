@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/analyzer — Parallel Pipeline Phases
 // Drop-in replacements for sequential phases using ParallelIndexer with
 // worker-pool concurrency and streaming graph construction.

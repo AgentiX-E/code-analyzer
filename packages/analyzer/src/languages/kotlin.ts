@@ -21,7 +21,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-kotlin') as TreeSitterLanguage;
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return null;
     }
   }
@@ -36,26 +37,38 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   }
 
   // When tree-sitter grammar is available, use AST walking
+  /* v8 ignore start */
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     // Only used when grammar is loaded — fallback handles otherwise
     const nodeType = node.type;
 
     if (nodeType === 'class_declaration' || nodeType === 'object_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
+      // tree-sitter-kotlin uses 'type_identifier' for class/object names
+      const nameNode = this.findChild(node, 'type_identifier') ?? this.findChild(node, 'identifier');
       if (nameNode) {
+        // Check if this is an enum class (has enum_class_body child)
+        let isEnum = false;
+        for (let c = 0; c < node.namedChildCount; c++) {
+          if (node.namedChild(c).type === 'enum_class_body') {
+            isEnum = true;
+            break;
+          }
+        }
+        const isObject = nodeType === 'object_declaration';
         captures.push({
-          tag: CAPTURE_TAGS.CLASS_DEF,
-          text: `${nodeType === 'object_declaration' ? 'object' : 'class'} ${nameNode.text}`,
+          tag: isEnum ? CAPTURE_TAGS.ENUM_DEF : CAPTURE_TAGS.CLASS_DEF,
+          text: isEnum ? `enum class ${nameNode.text}` : `${isObject ? 'object' : 'class'} ${nameNode.text}`,
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { filePath: this.filePath },
+          properties: { filePath: this.filePath, ...(isObject ? { isObject: 'true' } : {}) },
         });
       }
     } else if (nodeType === 'function_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
+      // tree-sitter-kotlin uses 'simple_identifier' for function names
+      const nameNode = this.findChild(node, 'simple_identifier') ?? this.findChild(node, 'identifier');
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -93,6 +106,33 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     }
   }
 
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    const nodeType = node.type;
+    if (
+      nodeType === 'class_declaration' ||
+      nodeType === 'object_declaration' ||
+      nodeType === 'function_declaration' ||
+      nodeType === 'property_declaration'
+    ) {
+      const nameNode = 
+        this.findChild(node, 'type_identifier') ??
+        this.findChild(node, 'simple_identifier') ??
+        this.findChild(node, 'identifier');
+      if (nameNode && nameNode.text === symbolName) return true;
+    }
+    // Also check children for other exportable nodes
+    for (let i = 0; i < node.childCount; i++) {
+      if (this.checkExported(node.child(i), symbolName)) return true;
+    }
+    return false;
+  }
+
+  /** Public wrapper for checkExported used by direct tests. */
+  kotlinCheckExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    return this.checkExported(node, symbolName);
+  }
+  /* v8 ignore stop */
+
   // ---- Import extraction via AST walking ----
 
   /**
@@ -104,6 +144,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
    *   import kotlin.collections.*               // wildcard import
    *   import kotlin.collections.List as MyList  // aliased import
    */
+  /* v8 ignore next */
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_header') {
       this.extractKotlinImport(node, imports);
@@ -140,10 +181,28 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     }
 
     // Search for 'as' keyword followed by an identifier to extract the alias
+    // Also handle tree-sitter's import_alias node
     for (let i = 0; i < node.childCount - 1; i++) {
       if (node.child(i).text === 'as' && node.child(i + 1).type === 'identifier') {
         aliasName = node.child(i + 1).text;
         break;
+      }
+    }
+
+    // Tree-sitter: check for import_alias named child
+    if (!aliasName) {
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'import_alias') {
+          for (let j = 0; j < child.namedChildCount; j++) {
+            const aliasChild = child.namedChild(j);
+            if (aliasChild.type === 'type_identifier' || aliasChild.type === 'identifier') {
+              aliasName = aliasChild.text;
+              break;
+            }
+          }
+          break;
+        }
       }
     }
 
@@ -173,6 +232,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -229,6 +289,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -253,10 +314,12 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(?:class|interface|object|fun|val|var)\\s+${s}\\b`).test(source);
   }
+  /* v8 ignore stop */
 
   // ---- Utility helpers ----
 

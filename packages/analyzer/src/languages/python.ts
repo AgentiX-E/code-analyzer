@@ -22,7 +22,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const py = require('tree-sitter-python') as { python: TreeSitterLanguage };
       return py.python || (py as unknown as TreeSitterLanguage);
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return null;
     }
   }
@@ -241,6 +242,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
   }
 
   // Fallback
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const funcRegex = /(?:async\s+)?def\s+(\w+)/g;
@@ -267,6 +269,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -284,6 +287,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, symbolName: string): boolean {
     if (symbolName.startsWith('_') && !symbolName.startsWith('__')) return false;
     const allMatch = this.source.match(/__all__\s*=\s*\[([\s\S]*?)\]/);

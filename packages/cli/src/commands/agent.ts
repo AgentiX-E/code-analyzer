@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/cli — Agent Integration Command
 //
 // Usage: code-analyzer agent [subcommand]

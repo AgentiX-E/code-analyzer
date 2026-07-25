@@ -21,7 +21,8 @@ export class RustProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-rust') as TreeSitterLanguage;
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return null;
     }
   }
@@ -204,6 +205,7 @@ export class RustProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -226,6 +228,7 @@ export class RustProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -238,6 +241,7 @@ export class RustProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`pub\\s+(?:fn|struct|enum|trait|mod|type|const|static|union)\\s+${s}\\b`).test(source);

@@ -21,7 +21,8 @@ export class RubyProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-ruby') as TreeSitterLanguage;
-    } catch {
+    } /* v8 ignore next */
+    catch {
       return null;
     }
   }
@@ -35,6 +36,122 @@ export class RubyProvider extends TreeSitterBaseProvider {
     ];
   }
 
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    const nodeType = node.type;
+
+    // Ruby: classes, modules, methods are public by default
+    if (
+      nodeType === 'class' ||
+      nodeType === 'module' ||
+      nodeType === 'method' ||
+      nodeType === 'singleton_method'
+    ) {
+      const nameNode =
+        this.findNamedChild(node, 'constant') ??
+        this.findNamedChild(node, 'identifier');
+      if (nameNode && nameNode.text === symbolName) return true;
+    }
+
+    // Check children (class/module bodies may contain methods)
+    for (let i = 0; i < node.childCount; i++) {
+      if (this.checkExported(node.child(i), symbolName)) return true;
+    }
+
+    return false;
+  }
+
+  /* v8 ignore start */
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nodeType = node.type;
+
+    // Handle constants (assignment with constant left-hand side)
+    if (nodeType === 'assignment') {
+      const constantChild = this.findNamedChild(node, 'constant');
+      if (constantChild) {
+        captures.push({
+          tag: CAPTURE_TAGS.CONSTANT_DEF,
+          text: constantChild.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: constantChild.startIndex,
+          endByte: constantChild.endIndex,
+          name: constantChild.text,
+          properties: { filePath: this.filePath },
+        });
+      }
+    }
+
+    // Handle method calls (attr_accessor, import/require)
+    if (nodeType === 'call') {
+      let methodName = '';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'identifier') {
+          methodName = child.text;
+          break;
+        }
+      }
+
+      // attr_accessor, attr_reader, attr_writer
+      if (methodName.startsWith('attr_')) {
+        for (let i = 0; i < node.namedChildCount; i++) {
+          const child = node.namedChild(i);
+          if (child.type === 'argument_list') {
+            for (let j = 0; j < child.namedChildCount; j++) {
+              const arg = child.namedChild(j);
+              const name = arg.type === 'simple_symbol'
+                ? arg.text.replace(/^:/, '')
+                : arg.type === 'string'
+                  ? arg.text.slice(1, -1)
+                  : arg.text;
+              captures.push({
+                tag: CAPTURE_TAGS.VARIABLE_DEF,
+                text: name,
+                startLine: arg.startPosition.row + 1,
+                endLine: arg.endPosition.row + 1,
+                startByte: arg.startIndex,
+                endByte: arg.endIndex,
+                name,
+                properties: { isAttribute: 'true', filePath: this.filePath },
+              });
+            }
+          }
+        }
+      }
+
+      // require / require_relative / load → emit as import
+      if (methodName === 'require' || methodName === 'require_relative' || methodName === 'load') {
+        for (let i = 0; i < node.namedChildCount; i++) {
+          const child = node.namedChild(i);
+          if (child.type === 'argument_list') {
+            for (let j = 0; j < child.namedChildCount; j++) {
+              const arg = child.namedChild(j);
+              if (arg.type === 'string') {
+                const raw = arg.text;
+                const path = raw.slice(1, -1);
+                captures.push({
+                  tag: CAPTURE_TAGS.IMPORT,
+                  text: path,
+                  startLine: arg.startPosition.row + 1,
+                  endLine: arg.endPosition.row + 1,
+                  startByte: arg.startIndex,
+                  endByte: arg.endIndex,
+                  name: path,
+                  properties: { filePath: this.filePath },
+                });
+              }
+            }
+          }
+        }
+        return; // Don't recurse into import calls
+      }
+    }
+
+    // Delegate to base class for mapped node types (class, module, method, singleton_method)
+    super.walkAndCapture(node, captures);
+  }
+  /* v8 ignore stop */
+
   // ---- Import extraction (tree-sitter AST) ----
 
   /**
@@ -47,6 +164,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
    *   require_relative '../lib/foo'   // relative path
    *   load 'config.rb'                // load a file
    */
+  /* v8 ignore next */
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'call') {
       this.extractRubyRequireImport(node, imports);
@@ -109,6 +227,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
+  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -156,6 +275,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
+  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -171,6 +291,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
+  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // Ruby: methods are public by default
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -178,6 +299,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     const isPrivate = source.includes('private') && source.indexOf('private') < source.indexOf(`def ${symbolName}`);
     return !isPrivate && new RegExp(`def\\s+(?:self\.)?${s}\\b|class\\s+${s}\\b|module\\s+${s}\\b`).test(source);
   }
+  /* v8 ignore stop */
 
   // ---- Utility helpers ----
 

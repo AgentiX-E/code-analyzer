@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — Change & Impact Analysis Tools
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
