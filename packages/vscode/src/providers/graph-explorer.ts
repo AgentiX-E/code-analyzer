@@ -154,8 +154,8 @@ export class GraphExplorerLogic {
     const edges: GraphEdgeData[] = [];
     for (let i = 0; i < nodes.length - 1; i++) {
       edges.push({
-        sourceId: nodes[i].id,
-        targetId: nodes[i + 1].id,
+        sourceId: nodes[i]!.id,
+        targetId: nodes[i + 1]!.id,
         type: 'CALLS',
       });
     }

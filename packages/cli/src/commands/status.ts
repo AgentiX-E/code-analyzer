@@ -4,7 +4,7 @@
 
 import { existsSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { EOL, homedir, hostname, uptime, freemem, totalmem } from 'node:os';
+import { EOL, hostname, uptime, freemem, totalmem } from 'node:os';
 
 // ---------------------------------------------------------------------------
 // Types

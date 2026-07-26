@@ -3,12 +3,8 @@
 // Searches the knowledge graph using FTS5, graph traversal, and
 // optional semantic scoring. Supports multiple output formats.
 
-import { existsSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
 import { EOL } from 'node:os';
-import { PipelineOrchestrator } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,31 +71,22 @@ export async function searchGraph(
     }
 
     // Perform FTS search
-    const ftsRaw = graphStore.searchFts(options.query, limit);
+    const ftsRaw = graphStore.searchFts(options.query, { limit });
 
     // Map to structured results
-    const results: SearchResult[] = ftsRaw.map((r: {
-      id: number;
-      name?: string;
-      label?: string;
-      type?: string;
-      file?: string;
-      line?: number;
-      score?: number;
-      content?: string;
-    }) => ({
-      id: r.id,
+    const results: SearchResult[] = (ftsRaw as any[]).map((r: any) => ({
+      id: r.id ?? 0,
       name: r.name ?? 'unknown',
       type: r.type ?? r.label ?? 'unknown',
       file: r.file ?? '',
       line: r.line ?? 1,
       score: r.score ?? 0,
-      snippet: options.verbose ? (r.content ?? '').slice(0, 200) : undefined,
+      snippet: options.verbose ? ((r.content ?? '').slice(0, 200)) : undefined,
     }));
 
     // Filter by type if specified
     const filtered = options.type
-      ? results.filter((r) => r.type.toLowerCase() === options.type.toLowerCase())
+      ? results.filter((r) => r.type.toLowerCase() === (options.type ?? '').toLowerCase())
       : results;
 
     // Sort by score descending
@@ -160,7 +147,7 @@ export function formatSearchResult(
   }
 
   for (let i = 0; i < result.results.length; i++) {
-    const r = result.results[i];
+    const r = result.results[i]!;
     lines.push(`${'─'.repeat(40)}`);
     lines.push(`[${i + 1}] ${r.name}  (${r.type})  score: ${r.score.toFixed(2)}`);
     if (r.file) {

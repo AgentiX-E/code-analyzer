@@ -5,8 +5,7 @@
 // and integration with the standards engine.
 
 import { existsSync, readFileSync } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { resolve, relative, extname } from 'node:path';
+import { resolve, relative } from 'node:path';
 import { EOL } from 'node:os';
 import { execSync } from 'node:child_process';
 
@@ -60,35 +59,6 @@ export interface ReviewOutput {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Map file extension to language for the rules engine.
- */
-function getLanguage(filePath: string): string {
-  const ext = extname(filePath).toLowerCase();
-  const map: Record<string, string> = {
-    '.ts': 'typescript',
-    '.tsx': 'typescript',
-    '.js': 'javascript',
-    '.jsx': 'javascript',
-    '.py': 'python',
-    '.go': 'go',
-    '.java': 'java',
-    '.kt': 'kotlin',
-    '.cs': 'csharp',
-    '.rs': 'rust',
-    '.rb': 'ruby',
-    '.php': 'php',
-    '.swift': 'swift',
-    '.json': 'json',
-    '.md': 'markdown',
-    '.yaml': 'yaml',
-    '.yml': 'yaml',
-    '.sh': 'shell',
-    '.sql': 'sql',
-  };
-  return map[ext] ?? 'text';
-}
 
 /**
  * Collect all files recursively from a directory.
@@ -174,8 +144,8 @@ export async function reviewCode(
 
       for (let i = 0; i < lines.length && issues.length < maxIssues; i++) {
         const line = lines[i];
-        if (!line.startsWith('+') || line.startsWith('+++')) continue;
-        const content = line.slice(1);
+        if (!line?.startsWith('+') || line?.startsWith('+++')) continue;
+        const content = line?.slice(1);
 
         for (const rule of rules) {
           if (issues.length >= maxIssues) break;
@@ -213,7 +183,6 @@ export async function reviewCode(
 
       const content = readFileSync(filePath, 'utf-8');
       const lines = content.split('\n');
-      const language = getLanguage(filePath);
       const rules = loadRules();
 
       for (let i = 0; i < lines.length && issues.length < maxIssues; i++) {
@@ -221,7 +190,7 @@ export async function reviewCode(
           if (issues.length >= maxIssues) break;
           if (severityWeight(rule.severity) < severityWeight(severity)) continue;
 
-          const match = rule.pattern.test(lines[i]);
+          const match = rule.pattern.test(lines[i] ?? '');
           if (match) {
             issues.push({
               ruleId: rule.id,

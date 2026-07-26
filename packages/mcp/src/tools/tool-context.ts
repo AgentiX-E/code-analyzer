@@ -16,9 +16,6 @@ import type { PipelineOrchestrator } from '@code-analyzer/analyzer';
 import type { PipelineResult } from '@code-analyzer/analyzer';
 import type {
   GraphNode,
-  GraphEdge,
-  NodeLabel,
-  RepoGroup,
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -258,7 +255,7 @@ export class ToolContextImpl implements ToolContext {
   // BFS dependency tree
   // -------------------------------------------------------------------------
 
-  getDependencyTree(projectId: string, symbolQname: string, maxDepth: number = 3): DependencyTreeNode | null {
+  getDependencyTree(_projectId: string, symbolQname: string, maxDepth: number = 3): DependencyTreeNode | null {
     const node = this.store.getNodeByQualifiedName(symbolQname);
     if (!node) return null;
 

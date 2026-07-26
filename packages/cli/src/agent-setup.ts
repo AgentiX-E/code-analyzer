@@ -176,9 +176,9 @@ function serializeSimpleJson(
     }
   }
 
-  const mcpServers = (existing.mcpServers ?? {}) as Record<string, unknown>;
+  const mcpServers = (existing['mcpServers'] ?? {}) as Record<string, unknown>;
   mcpServers[MCP_SERVER_NAME] = serverEntry;
-  existing.mcpServers = mcpServers;
+  existing['mcpServers'] = mcpServers;
 
   return JSON.stringify(existing, null, 2) + '\n';
 }
@@ -232,7 +232,7 @@ function serializeYaml(
         continue;
       }
 
-      const key = trimmed.split(':')[0].trim();
+      const key = trimmed.split(':')[0]?.trim() ?? '';
       if (skipKeys.has(key)) {
         skip = true;
         continue;
@@ -256,12 +256,12 @@ function serializeYaml(
   // Build MCP YAML section
   lines.push('mcp_servers:');
   lines.push(`  - name: ${MCP_SERVER_NAME}`);
-  lines.push(`    command: ${serverEntry.command}`);
+  lines.push(`    command: ${serverEntry['command']}`);
   lines.push('    args:');
-  for (const arg of (serverEntry.args as string[])) {
+  for (const arg of (serverEntry['args'] as string[])) {
     lines.push(`      - ${arg}`);
   }
-  const env = serverEntry.env as Record<string, string> | undefined;
+  const env = serverEntry['env'] as Record<string, string> | undefined;
   if (env && Object.keys(env).length > 0) {
     lines.push('    env:');
     for (const [key, value] of Object.entries(env)) {
@@ -290,9 +290,9 @@ function serializeContinueConfig(
     }
   }
 
-  const mcpServers = (config.mcpServers ?? {}) as Record<string, unknown>;
+  const mcpServers = (config['mcpServers'] ?? {}) as Record<string, unknown>;
   mcpServers[MCP_SERVER_NAME] = serverEntry;
-  config.mcpServers = mcpServers;
+  config['mcpServers'] = mcpServers;
 
   return JSON.stringify(config, null, 2) + '\n';
 }
@@ -370,7 +370,7 @@ export class AgentSetupManager {
         return mcp != null && MCP_SERVER_NAME in mcp;
       }
 
-      const mcpServers = parsed.mcpServers as
+      const mcpServers = parsed['mcpServers'] as
         | Record<string, unknown>
         | undefined;
       if (mcpServers == null) return false;

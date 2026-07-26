@@ -2,6 +2,7 @@
 // Uses in-memory stores for standards and ADRs with real data
 
 import type { ToolResult } from './registry.js';
+import type { DetectedAgent } from '@code-analyzer/shared';
 import { SkillInstaller } from '../skills/installer.js';
 
 // ---------------------------------------------------------------------------
@@ -195,7 +196,7 @@ export async function createStandard(args: Record<string, unknown>): Promise<Too
     name,
     category,
     description,
-    rules: rules.map((r, idx) => ({ ...r, id: r.id ?? `rule_${idx}` })),
+    rules: rules.map((r, idx) => ({ ...r, id: r['id'] ?? `rule_${idx}` })),
     version: '1.0.0',
     createdAt: new Date().toISOString(),
   };
@@ -413,7 +414,8 @@ export async function installSkills(args: Record<string, unknown>): Promise<Tool
   const failed: string[] = [];
 
   for (const agent of agents) {
-    const result = installer.installSkills(agent, skillsToInstall);
+    const detectedAgent = { name: agent, type: agent as DetectedAgent['type'], installPath: '', skillFormat: 'markdown' as const };
+    const result = installer.installSkills([detectedAgent], skillsToInstall);
     if (result && result.length > 0) {
       for (const r of result) {
         if (r.skill && r.agent) {

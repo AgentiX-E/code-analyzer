@@ -10,6 +10,7 @@ import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
 import { PRReviewEngine } from '../review/pr-review.js';
+import type { CodeReviewEngine } from '../review/review-engine.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -22,9 +23,9 @@ function createBridge() {
   const checkRunManager = new GitHubCheckRunManager({ client });
   const groupManager = new RepoGroupManager();
   const store = new InMemoryGraphStore();
-  const indexer = new CrossRepoIndexer(groupManager, store);
-  const reviewEngine = new PRReviewEngine(store);
-  const crossRepoReviewEngine = new CrossRepoPRReviewEngine(indexer, groupManager, reviewEngine);
+  const indexer = new CrossRepoIndexer(store, groupManager);
+  const reviewEngine = new PRReviewEngine({} as CodeReviewEngine, store);
+  const crossRepoReviewEngine = new CrossRepoPRReviewEngine(indexer, groupManager, {} as CodeReviewEngine);
 
   return new CrossRepoWebhookBridge(
     client,
@@ -137,9 +138,9 @@ describe('CrossRepoWebhookBridge', () => {
       const checkRunManager = new GitHubCheckRunManager({ client });
       groupManager = new RepoGroupManager();
       const store = new InMemoryGraphStore();
-      const indexer = new CrossRepoIndexer(groupManager, store);
-      const reviewEngine = new PRReviewEngine(store);
-      const crossRepoReviewEngine = new CrossRepoPRReviewEngine(indexer, groupManager, reviewEngine);
+      const indexer = new CrossRepoIndexer(store, groupManager);
+      const reviewEngine = new PRReviewEngine({} as CodeReviewEngine, store);
+      const crossRepoReviewEngine = new CrossRepoPRReviewEngine(indexer, groupManager, {} as CodeReviewEngine);
 
       bridge = new CrossRepoWebhookBridge(
         client, sync, checkRunManager, groupManager,
@@ -157,13 +158,13 @@ describe('CrossRepoWebhookBridge', () => {
       // Will error because repos can't be cloned in CI / no GitHub access
       // But it should find the group and attempt processing
       expect(['completed', 'skipped', 'error']).toContain(result.status);
-    });
+    }, 15_000); // Timeout for git clone attempt
 
     it('should include duration in result', async () => {
       const payload = makePayload({ action: 'synchronize' });
       const result = await bridge.process(payload);
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
-    });
+    }, 15_000);
 
     it('should report error status on failure', async () => {
       const payload = makePayload({

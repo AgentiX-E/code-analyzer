@@ -187,7 +187,6 @@ describe('CrossRepoPRReviewEngine', () => {
   describe('reviewPRWithCrossRepoContext', () => {
     it('should validate required parameters', async () => {
       const pr = createPR();
-      // @ts-expect-error testing missing params
       await expect(engine.reviewPRWithCrossRepoContext(null as never, 'test-group', 'myorg/service-a', [])).rejects.toThrow('required');
     });
 

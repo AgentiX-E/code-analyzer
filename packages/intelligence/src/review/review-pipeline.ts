@@ -526,7 +526,7 @@ export class ReviewPipeline {
 
   private gatherBatchComments(
     diffs: GitDiff[],
-    config: ReviewConfig,
+    _config: ReviewConfig,
   ): ReviewComment[] {
     // The review engine processes diffs through the session store.
     // Comments are generated per-file during analyzePhase.

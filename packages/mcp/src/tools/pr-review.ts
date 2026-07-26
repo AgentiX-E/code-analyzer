@@ -177,8 +177,6 @@ export async function reviewPR(args: Record<string, unknown>, store?: unknown): 
           linesChanged += d.ranges.reduce((sum, r) => sum + Math.abs(r.newEnd - r.newStart + r.oldEnd - r.oldStart), 0);
         }
 
-        const impactAnalyzer = ctx.getImpactAnalyzer();
-
         // Find changed symbols from diffs
         for (const d of diffs) {
           for (const range of d.ranges) {
@@ -224,7 +222,6 @@ export async function reviewPR(args: Record<string, unknown>, store?: unknown): 
         testsImpacted = testNodes.length;
       } else {
         // No diff — analyze general PR risk from graph
-        const stats = ctx.getGraphStats(projectId);
 
         // Find high-risk components
         const allNodes = ctx.store.getAllNodes().filter(n => n.projectId === projectId);
@@ -466,7 +463,7 @@ export async function checkStandards(args: Record<string, unknown>, store?: unkn
                   source: 'StandardsEngine',
                 });
                 const sev = v.severity as keyof typeof summary;
-                if (sev in summary) (summary as Record<string, number>)[sev]++;
+                if (sev in summary) (summary as Record<string, number>)[sev]!++;
               }
 
               if (complianceReport.passedChecks > 0 && complianceReport.failedChecks === 0) {
@@ -490,9 +487,6 @@ export async function checkStandards(args: Record<string, unknown>, store?: unkn
       }
 
       // Phase 2: Graph-based heuristic checks (complementary to StandardsEngine)
-      const targetFiles = filePath
-        ? [filePath]
-        : [...filePaths];
 
       if (filePath) {
         // Specific file: use graph data
@@ -533,9 +527,9 @@ export async function checkStandards(args: Record<string, unknown>, store?: unkn
         // All files: project-level analysis
         const stats = ctx.getGraphStats(projectId);
 
-        const highComplexityTotal = Object.entries(stats.labelDistribution ?? {})
-          .filter(([label]) => label === 'Function' || label === 'Method')
-          .reduce((sum, [, count]) => sum + (count as number), 0);
+        const highComplexityTotal = (stats.labelDistribution ?? [])
+          .filter((d) => d.label === 'Function' || d.label === 'Method')
+          .reduce((sum, d) => sum + d.count, 0);
 
         if (highComplexityTotal > 100) {
           results.push({
@@ -614,7 +608,7 @@ export async function checkStandards(args: Record<string, unknown>, store?: unkn
 // Helpers
 // ---------------------------------------------------------------------------
 
-function parsePrDiff(projectId: string, rawDiff: string): GitDiff[] {
+function parsePrDiff(_projectId: string, rawDiff: string): GitDiff[] {
   const diffs: GitDiff[] = [];
   const fileSections = rawDiff.split(/^diff --git /m).filter(Boolean);
 
@@ -650,19 +644,18 @@ function parsePrDiff(projectId: string, rawDiff: string): GitDiff[] {
             oldEnd: oldStart + oldCount,
             newStart,
             newEnd: newStart + newCount,
-            changeType: (oldCount > 0 && newCount > 0) ? 'modified' : oldCount > 0 ? 'deleted' : 'added',
+            changeType: (oldCount > 0 && newCount > 0) ? 'modified' : oldCount > 0 ? 'removed' : 'added',
           });
         }
       }
 
       diffs.push({
-        id: `diff_${diffs.length}`,
-        repositoryId: projectId,
         filePath,
+        oldHash: '',
+        newHash: '',
         oldPath,
         changeType,
         ranges: ranges.length > 0 ? ranges : [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-        createdAt: new Date().toISOString(),
       });
     }
   }

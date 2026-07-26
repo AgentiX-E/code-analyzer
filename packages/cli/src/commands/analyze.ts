@@ -17,7 +17,6 @@ import {
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
   PipelineContext,
-  KnowledgeGraph,
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -72,8 +71,8 @@ async function loadPhases() {
   }
   // The full phase list is registered inside the analyzer package
   // We create a PipelineOrchestrator with the default phases
-  const { createDefaultPhases } = await import('@code-analyzer/analyzer');
-  return createDefaultPhases();
+  const { createAllPhases } = await import('@code-analyzer/analyzer');
+  return createAllPhases();
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +93,7 @@ export async function analyzeRepository(
   const startTime = Date.now();
   const errors: string[] = [];
 
-  if (!existsSync(repoPath)) {
+  if (!options.path || !existsSync(repoPath)) {
     return {
       success: false,
       projectId,
@@ -117,14 +116,14 @@ export async function analyzeRepository(
       const store = new InMemoryGraphStore();
       const phases = await loadPhases();
 
-      const ctx: PipelineContext = {
+      const ctx = {
         projectId,
         repoPath,
         rootDir: repoPath,
         graph: undefined,
         signal: controller.signal,
         metadata: {},
-      } as PipelineContext;
+      } as unknown as PipelineContext;
 
       const orchestrator = new PipelineOrchestrator(phases as any);
       const result: PipelineResult = await orchestrator.execute(ctx);

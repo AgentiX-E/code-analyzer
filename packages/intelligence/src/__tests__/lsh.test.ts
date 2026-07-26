@@ -346,7 +346,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
     lsh.buildSimilarityEdges(
       store,
       [1, 2],
-      (id) => mh.computeFingerprint(tokenizeCode('function test() {}')),
+      (_id) => mh.computeFingerprint(tokenizeCode('function test() {}')),
       0.5,
     );
 

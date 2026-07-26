@@ -179,7 +179,7 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
     description: 'API contract integrity — breaking changes, missing validation, inconsistent responses, auth gaps',
     mcpTools: ['query_cypher', 'analyze_impact', 'get_architecture'],
     standards: ['api-design'],
-    categories: ['api', 'security'],
+    categories: ['api', 'security'] as any,
     defaultSeverity: 'high',
     priority: 6,
   },
@@ -486,15 +486,17 @@ export function createLensFinding(
  */
 export function lensFindingToReviewComment(finding: LensFinding): ReviewComment {
   return {
-    filePath: finding.evidence.filePath,
+    path: finding.evidence.filePath,
+    content: finding.description,
     startLine: finding.evidence.startLine,
     endLine: finding.evidence.endLine,
     existingCode: finding.evidence.codeSnippet,
     category: finding.category,
     severity: finding.severity,
-    title: `[${finding.lens}] ${finding.title}`,
-    description: finding.description,
-    suggestionCode: finding.suggestion ?? null,
+    suggestionCode: finding.suggestion ?? undefined,
+    filtered: false,
+    id: finding.id,
+    createdAt: new Date().toISOString(),
   };
 }
 

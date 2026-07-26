@@ -246,7 +246,7 @@ export const DEFAULT_STANDARDS: ProjectStandard[] = [
     id: 'std-general',
     name: 'General Quality',
     version: '1.0.0',
-    category: 'general',
+    category: 'custom',
     description: 'General code quality checks not covered by other standards.',
     rules: [
       {

@@ -16,3 +16,5 @@ export { registerRateLimit } from './middleware/rate-limit.js';
 export type { RateLimitConfig } from './middleware/rate-limit.js';
 export { registerWebhookRoutes, verifySignature } from './routes/webhook.js';
 export type { WebhookHandler, WebhookConfig } from './routes/webhook.js';
+export { registerMtls, computeCertFingerprint, isMtlsAuthenticated, getClientFingerprint } from './middleware/mtls.js';
+export type { MtlsConfig } from './middleware/mtls.js';

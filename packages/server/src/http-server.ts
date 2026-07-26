@@ -4,7 +4,6 @@
 // and max connection limits for production readiness.
 
 import Fastify from 'fastify';
-import type { FastifyInstance } from 'fastify';
 
 import { resolveConfig } from './server-config.js';
 import type { ServerConfig } from './server-config.js';
@@ -13,13 +12,13 @@ import { registerAuth } from './middleware/auth.js';
 import { registerLogging } from './middleware/logging.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
 import { registerRateLimit } from './middleware/rate-limit.js';
+import { registerMtls } from './middleware/mtls.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerToolRoutes } from './routes/tools.js';
 import { registerSSERoutes } from './routes/sse.js';
 import { registerWebhookRoutes } from './routes/webhook.js';
 import type { WebhookConfig } from './routes/webhook.js';
 import { GracefulShutdown, HealthCheckRegistry } from '@code-analyzer/core';
-import type { ShutdownResult, HealthReport } from '@code-analyzer/core';
 import type { ToolRegistry } from '@code-analyzer/mcp';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +32,7 @@ export interface ServerOptions {
   registry: ToolRegistry;
   /** Custom Fastify plugins to register */
   plugins?: Array<{
-    plugin: Parameters<FastifyInstance['register']>[0];
+    plugin: any;
     opts?: Record<string, unknown>;
   }>;
   /** Health check registry (creates default if not provided) */
@@ -44,7 +43,7 @@ export interface ServerOptions {
 
 export interface ServerInstance {
   /** The underlying Fastify instance */
-  app: FastifyInstance;
+  app: any;
   /** Start listening */
   start(): Promise<void>;
   /** Graceful shutdown */
@@ -89,8 +88,7 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
     keepAliveTimeout: config.keepAliveTimeout,
     requestIdHeader: 'x-request-id',
     genReqId: () => `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-    maxConnections: config.maxConnections > 0 ? config.maxConnections : undefined,
-  });
+  } as any);
 
   // --- Connection tracking ---
   app.addHook('onRequest', async (_request, _reply) => {
@@ -101,11 +99,12 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   });
 
   // --- Middleware Pipeline ---
-  registerCors(app, config.cors);
-  registerAuth(app, config.auth);
-  registerLogging(app, config.logging);
-  registerRateLimit(app, config.rateLimit);
-  registerErrorHandler(app);
+  registerCors(app as any, config.cors);
+  registerAuth(app as any, config.auth);
+  registerLogging(app as any, config.logging);
+  registerRateLimit(app as any, config.rateLimit);
+  registerMtls(app as any, config.mtls);
+  registerErrorHandler(app as any);
 
   // --- Custom Plugins ---
   if (options.plugins) {
@@ -116,13 +115,16 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
 
   // --- Routes ---
   const healthRegistry = options.healthCheck ?? HealthCheckRegistry.createDefault();
-  registerHealthRoutes(app, config, healthRegistry);
-  registerToolRoutes(app, config, () => options.registry);
-  registerSSERoutes(app, config, () => options.registry);
+  // Fastify with http2:true creates Http2SecureServer which is incompatible
+  // with route functions typed for RawServerDefault. Cast to any to bridge.
+  const routes = app as any;
+  registerHealthRoutes(routes, config, healthRegistry);
+  registerToolRoutes(routes, config, () => options.registry);
+  registerSSERoutes(routes, config, () => options.registry);
 
   // Register webhook endpoint if configured
   if (options.webhook) {
-    registerWebhookRoutes(app, config, options.webhook);
+    registerWebhookRoutes(routes, config, options.webhook);
   }
 
   // --- Lifecycle ---

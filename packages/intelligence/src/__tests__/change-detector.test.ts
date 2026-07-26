@@ -1043,7 +1043,7 @@ describe('ChangeDetector edge cases', () => {
       endLine: 5,
       properties: {
         name: 'GET /api/data',
-        routePath: null,
+        routePath: undefined,
         routeMethod: 'GET',
       },
     });
@@ -1134,7 +1134,7 @@ describe('ChangeDetector edge cases', () => {
       label: 'Function',
       properties: {
         name: 'regularFn',
-        routePath: null,
+        routePath: undefined,
       },
     });
     store.insertNode(changedNode);

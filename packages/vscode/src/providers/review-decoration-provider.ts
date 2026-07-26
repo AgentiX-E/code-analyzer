@@ -45,10 +45,6 @@ export interface FileDecorationGroup {
 // Severity constants
 // ---------------------------------------------------------------------------
 
-const SEVERITY_ORDER: DecorationSeverity[] = [
-  'critical', 'high', 'medium', 'low', 'info',
-];
-
 const SEVERITY_RANK: Record<DecorationSeverity, number> = {
   critical: 4,
   high: 3,

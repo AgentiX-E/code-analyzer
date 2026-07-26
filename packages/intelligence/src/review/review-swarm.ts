@@ -137,7 +137,7 @@ export class ReviewSwarm {
    * Returns synthesized review comments with evidence validation and action plan.
    */
   async review(
-    projectId: string,
+    _projectId: string,
     diffs: GitDiff[],
     sourceContents?: Map<string, string>,
   ): Promise<SwarmResult> {
@@ -300,20 +300,22 @@ Reason: ${result.decision.reason}`;
       crossRepoRefs: [],
     };
 
+    const projectId = 'default-project';
+
     try {
       // Find functions in the same file at nearby lines
-      const fileNodes = this.store.queryNodes({ label: 'File' });
-      const funcNodes = this.store.queryNodes({ label: 'Function' });
+      const fileNodes = this.store.queryNodes({ projectId, label: 'File' });
+      const funcNodes = this.store.queryNodes({ projectId, label: 'Function' });
 
       /* v8 ignore start */
-      for (const func of funcNodes) {
-        const funcPath = (func.properties as Record<string, string>).filePath;
+      for (const func of funcNodes.items) {
+        const funcPath = (func.properties as Record<string, string>)['filePath'];
         if (funcPath === finding.evidence.filePath) {
-          const funcLine = (func.properties as Record<string, number>).lineNumber;
+          const funcLine = (func.properties as Record<string, number>)['lineNumber'];
           if (funcLine && Math.abs(funcLine - finding.evidence.startLine) < 50) {
             // Find callers of this nearby function
-            const edges = this.store.queryEdges({ targetId: func.id, type: 'CALLS' });
-            for (const edge of edges) {
+            const edges = this.store.queryEdges({ projectId, targetId: func.id, type: 'CALLS' });
+            for (const edge of edges.items) {
               const caller = this.store.getNode(edge.sourceId);
               if (caller) {
                 context.callers.push(caller.name ?? caller.id);
@@ -321,8 +323,8 @@ Reason: ${result.decision.reason}`;
             }
 
             // Find what this function calls
-            const outEdges = this.store.queryEdges({ sourceId: func.id, type: 'CALLS' });
-            for (const edge of outEdges) {
+            const outEdges = this.store.queryEdges({ projectId, sourceId: func.id, type: 'CALLS' });
+            for (const edge of outEdges.items) {
               const callee = this.store.getNode(edge.targetId);
               if (callee) {
                 context.callees.push(callee.name ?? callee.id);
@@ -333,11 +335,11 @@ Reason: ${result.decision.reason}`;
 
         // Find test files
         if (funcPath && funcPath.includes('.test.') || funcPath?.includes('.spec.')) {
-          const testEdges = this.store.queryEdges({ sourceId: func.id });
-          for (const edge of testEdges) {
+          const testEdges = this.store.queryEdges({ projectId, sourceId: func.id });
+          for (const edge of testEdges.items) {
             const target = this.store.getNode(edge.targetId);
             if (target) {
-              const targetPath = (target.properties as Record<string, string>).filePath;
+              const targetPath = (target.properties as Record<string, string>)['filePath'];
               if (targetPath === finding.evidence.filePath) {
                 context.relatedTests.push(funcPath);
               }
@@ -346,12 +348,13 @@ Reason: ${result.decision.reason}`;
         }
 
         // Find cross-repo edges
-        if ((func.properties as Record<string, string>).crossRepo) {
+        if ((func.properties as Record<string, string>)['crossRepo']) {
           const crossEdges = this.store.queryEdges({
+            projectId,
             sourceId: func.id,
             type: 'CROSS_REPO_CALLS' as any,
           });
-          for (const edge of crossEdges) {
+          for (const edge of crossEdges.items) {
             context.crossRepoRefs.push(`${edge.sourceId} → ${edge.targetId}`);
           }
         }
@@ -566,7 +569,7 @@ Reason: ${result.decision.reason}`;
             };
             const finding = createLensFinding(
               'testing',
-              'testing',
+              'test',
               pattern.severity,
               pattern.name,
               `${pattern.description}\n\nSuggestion: ${pattern.suggestion}`,
@@ -770,7 +773,7 @@ Reason: ${result.decision.reason}`;
             };
             const finding = createLensFinding(
               'api',
-              'api',
+              'other',
               'high',
               'Missing Input Validation',
               'Route handler appears to lack input validation. Add schema validation middleware (Zod, Joi, Yup) to prevent malformed requests.',

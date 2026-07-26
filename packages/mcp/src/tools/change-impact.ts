@@ -189,7 +189,6 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
   const depth = params.depth ?? 3;
 
   try {
-    const ctx = getContext(store);
     const graphStore = getStore(store);
 
     const result: {
@@ -203,6 +202,7 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
       directDependents: number;
       indirectDependents: number;
       totalImpact: number;
+      note?: string;
     } = {
       range: { from: fromRef, to: toRef },
       changedFiles: [],

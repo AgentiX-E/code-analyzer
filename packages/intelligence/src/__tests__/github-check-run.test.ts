@@ -64,7 +64,7 @@ describe('GitHubCheckRunManager', () => {
       const annotations = manager.formatAnnotations(mockResult());
       const breaking = annotations.filter(a => a.annotation_level === 'failure');
       expect(breaking.length).toBeGreaterThanOrEqual(2);
-      expect(breaking[0].message).toContain('[BREAKING]');
+      expect(breaking[0]!.message).toContain('[BREAKING]');
     });
 
     it('should return annotations for cross-repo impact', () => {
@@ -77,21 +77,21 @@ describe('GitHubCheckRunManager', () => {
       const annotations = manager.formatAnnotations(mockResult());
       const high = annotations.filter(a => a.title?.includes('[high]'));
       expect(high.length).toBeGreaterThanOrEqual(1);
-      expect(high[0].annotation_level).toBe('failure');
+      expect(high[0]!.annotation_level).toBe('failure');
     });
 
     it('should map medium to warning annotation level', () => {
       const annotations = manager.formatAnnotations(mockResult());
       const medium = annotations.filter(a => a.title?.includes('[medium]'));
       expect(medium.length).toBeGreaterThanOrEqual(1);
-      expect(medium[0].annotation_level).toBe('warning');
+      expect(medium[0]!.annotation_level).toBe('warning');
     });
 
     it('should return annotations for test impact', () => {
       const annotations = manager.formatAnnotations(mockResult());
       const test = annotations.filter(a => a.title?.includes('Test Impact'));
       expect(test.length).toBeGreaterThanOrEqual(1);
-      expect(test[0].annotation_level).toBe('notice');
+      expect(test[0]!.annotation_level).toBe('notice');
     });
 
     it('should handle empty result gracefully', () => {

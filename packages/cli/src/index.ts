@@ -109,9 +109,9 @@ program
   .action(async (repoPath: string, opts: Record<string, string>) => {
     const options: AnalyzeOptions = {
       path: repoPath,
-      format: (opts.format as AnalyzeOptions['format']) ?? 'text',
-      projectId: opts.projectId,
-      timeout: parseInt(opts.timeout, 10) || 300_000,
+      format: (opts['format'] as AnalyzeOptions['format']) ?? 'text',
+      projectId: opts['projectId'],
+      timeout: parseInt(opts['timeout'] ?? '300000', 10) || 300_000,
     };
 
     process.stdout.write(`Analyzing ${repoPath}...${EOL}`);
@@ -135,10 +135,10 @@ program
   .action(async (query: string, opts: Record<string, string>) => {
     const options: SearchOptions = {
       query,
-      format: (opts.format as SearchOptions['format']) ?? 'text',
-      limit: parseInt(opts.limit, 10) || 50,
-      type: opts.type,
-      verbose: opts.verbose,
+      format: (opts['format'] as SearchOptions['format']) ?? 'text',
+      limit: parseInt(opts['limit'] ?? '50', 10) || 50,
+      type: opts['type'],
+      verbose: opts['verbose'] !== undefined ? true : undefined,
     };
 
     const result = await searchGraph(options);
@@ -161,10 +161,10 @@ program
   .action(async (target: string, opts: Record<string, string>) => {
     const options: ReviewOptions = {
       target,
-      mode: (opts.mode as ReviewOptions['mode']) ?? 'file',
-      severity: (opts.severity as ReviewOptions['severity']) ?? 'warning',
-      format: (opts.format as ReviewOptions['format']) ?? 'text',
-      maxIssues: parseInt(opts.maxIssues, 10) || 500,
+      mode: (opts['mode'] as ReviewOptions['mode']) ?? 'file',
+      severity: (opts['severity'] as ReviewOptions['severity']) ?? 'warning',
+      format: (opts['format'] as ReviewOptions['format']) ?? 'text',
+      maxIssues: parseInt(opts['maxIssues'] ?? '500', 10) || 500,
     };
 
     const result = await reviewCode(options);
@@ -184,9 +184,9 @@ program
   .option('-v, --verbose', 'Show detailed status')
   .action((opts: Record<string, string>) => {
     const options: StatusOptions = {
-      directory: opts.directory,
-      format: (opts.format as StatusOptions['format']) ?? 'text',
-      verbose: opts.verbose,
+      directory: opts['directory'],
+      format: (opts['format'] as StatusOptions['format']) ?? 'text',
+      verbose: opts['verbose'] !== undefined ? true : undefined,
     };
 
     const report = getStatus(options);

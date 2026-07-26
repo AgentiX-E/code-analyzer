@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
+import type { SupportedLanguage } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,7 +79,7 @@ export async function analyzeRepository(args: Record<string, unknown>, store?: u
         config: {
           projectId,
           rootPath: path,
-          language: language ?? undefined,
+          language: language as SupportedLanguage | undefined,
           excludePatterns: [],
           includePatterns: [],
           maxFileSize: 10 * 1024 * 1024, // 10 MB
@@ -191,8 +192,8 @@ export const listProjectsSchema = {
 
 export async function listProjects(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
   const params = args as Record<string, unknown>;
-  const limit = (params.limit as number) ?? 50;
-  const offset = (params.offset as number) ?? 0;
+  const limit = (params['limit'] as number) ?? 50;
+  const offset = (params['offset'] as number) ?? 0;
 
   try {
     const graphStore = getStore(store);

@@ -244,15 +244,12 @@ export async function explainTaint(args: Record<string, unknown>, store?: unknow
         };
 
         // Trace call path
-        const bfsPath = gstore.bfs(node.id, {
-          direction: 'outgoing',
-          maxDepth: 5,
-          edgeFilter: (e) => ['CALLS', 'IMPORTS'].includes(e.type),
-        });
+        const bfsPath = gstore.bfs(node.id, 5, ['CALLS', 'IMPORTS']);
 
-        explanation.path = bfsPath.map((p) => ({
-          nodeId: p.nodeId,
-          depth: p.depth,
+        explanation.path = bfsPath.nodes.map((p, idx) => ({
+          nodeId: p.id,
+          name: p.name,
+          depth: idx,
         }));
       }
     } catch {

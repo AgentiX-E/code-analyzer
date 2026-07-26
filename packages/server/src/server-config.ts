@@ -1,7 +1,8 @@
 // @code-analyzer/server — Server Configuration
 // Configuration types and defaults for the HTTP + SSE MCP server.
 
-import type { RateLimitConfig } from '../middleware/rate-limit.js';
+import type { RateLimitConfig } from './middleware/rate-limit.js';
+import type { MtlsConfig } from './middleware/mtls.js';
 
 /** Full server configuration. All fields have sensible defaults. */
 export interface ServerConfig {
@@ -19,6 +20,8 @@ export interface ServerConfig {
   logging: LoggingConfig;
   /** Rate limiting configuration */
   rateLimit: RateLimitConfig;
+  /** mTLS (Mutual TLS) configuration */
+  mtls: MtlsConfig;
   /** Server metadata returned by /health */
   metadata: ServerMetadata;
   /** Maximum request body size in bytes (default: 1MB) */
@@ -110,6 +113,13 @@ export const DEFAULT_CONFIG: ServerConfig = {
     maxRequests: 100,
     addHeaders: true,
   },
+  mtls: {
+    enabled: false,
+    caCerts: [],
+    requireCert: false,
+    skipHealthEndpoints: true,
+    failureMode: 'reject',
+  } as MtlsConfig,
   maxBodySize: 1_048_576,
   keepAliveTimeout: 61_000,
   sseHeartbeatMs: 15_000,
@@ -147,6 +157,9 @@ export function resolveConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     rateLimit: overrides.rateLimit
       ? { ...DEFAULT_CONFIG.rateLimit, ...overrides.rateLimit }
       : { ...DEFAULT_CONFIG.rateLimit },
+    mtls: overrides.mtls
+      ? { ...DEFAULT_CONFIG.mtls, ...overrides.mtls }
+      : { ...DEFAULT_CONFIG.mtls },
     metadata: overrides.metadata
       ? { ...DEFAULT_CONFIG.metadata, ...overrides.metadata }
       : { ...DEFAULT_CONFIG.metadata },

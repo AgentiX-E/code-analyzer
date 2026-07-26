@@ -141,7 +141,6 @@ export function initProject(options: InitOptions = {}): InitResult {
   }
 
   const allCreated = filesCreated.length;
-  const allExisting = filesExisting.length;
 
   return {
     success: true,

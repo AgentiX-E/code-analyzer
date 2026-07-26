@@ -44,13 +44,17 @@ export async function generateReport(args: Record<string, unknown>, store?: unkn
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     try {
-      const stats = ctx.getGraphStats();
+      const stats = ctx.getGraphStats(projectId);
       if (stats) {
         nodeCount = typeof stats.nodeCount === 'number' ? stats.nodeCount : 0;
         edgeCount = typeof stats.edgeCount === 'number' ? stats.edgeCount : 0;
-        labelDistribution = stats.labelDistribution ?? {};
-        relationshipDistribution = stats.relationshipDistribution ?? {};
-        projectName = stats.name ?? projectId;
+        labelDistribution = Object.fromEntries(
+          (stats.labelDistribution ?? []).map((e) => [e.label, e.count]),
+        );
+        relationshipDistribution = Object.fromEntries(
+          (stats.relationshipDistribution ?? []).map((e) => [e.type, e.count]),
+        );
+        projectName = stats.projectId ?? projectId;
       }
     } catch {
       // Use defaults on error
@@ -157,21 +161,22 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     try {
-      const stats = ctx.getGraphStats();
+      exportMeta.projectId = reportId.replace(/^report_/, '');
+      const stats = ctx.getGraphStats(exportMeta.projectId);
       const gstore = ctx.store;
 
-      exportMeta.projectId = reportId.replace(/^report_/, '');
       exportMeta.nodeCount = typeof stats.nodeCount === 'number' ? stats.nodeCount : 0;
       exportMeta.edgeCount = typeof stats.edgeCount === 'number' ? stats.edgeCount : 0;
-      exportMeta.type = (stats.labelDistribution && Object.keys(stats.labelDistribution).length > 0)
+      exportMeta.type = (stats.labelDistribution && stats.labelDistribution.length > 0)
         ? 'codebase-audit' : 'architecture-review';
 
       if (gstore) {
         const allNodes = gstore.getAllNodes();
         const nodesByLabel: Record<string, Array<{ name: string; filePath: string | null; complexity: number | null }>> = {};
         for (const node of allNodes) {
-          if (!nodesByLabel[node.label]) nodesByLabel[node.label] = [];
-          nodesByLabel[node.label].push({
+          const label = node.label;
+          if (!nodesByLabel[label]) nodesByLabel[label] = [];
+          nodesByLabel[label].push({
             name: node.name,
             filePath: node.filePath,
             complexity: node.complexity,
@@ -200,9 +205,9 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
             `| Edge-to-Node Ratio | ${exportMeta.nodeCount > 0 ? (exportMeta.edgeCount / exportMeta.nodeCount).toFixed(2) : '0'} |`,
           ];
 
-          if (stats.labelDistribution && Object.keys(stats.labelDistribution).length > 0) {
+          if (stats.labelDistribution && stats.labelDistribution.length > 0) {
             lines.push(``, `## Node Distribution`, ``);
-            for (const [label, count] of Object.entries(stats.labelDistribution)) {
+            for (const { label, count } of stats.labelDistribution) {
               lines.push(`- **${label}**: ${count}`);
             }
           }
@@ -219,8 +224,8 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
         };
 
         const generateHtml = (): string => {
-          const distributionRows = Object.entries(stats.labelDistribution ?? {})
-            .map(([label, count]) => `<tr><td>${label}</td><td>${count}</td></tr>`)
+          const distributionRows = (stats.labelDistribution ?? [])
+            .map(({ label, count }) => `<tr><td>${label}</td><td>${count}</td></tr>`)
             .join('');
           const complexityRows = topComplexity
             .map(sym => `<tr><td><code>${sym.name}</code></td><td>${sym.complexity}</td><td>${sym.filePath ?? 'unknown'}</td></tr>`)
@@ -333,7 +338,6 @@ export async function getRecommendations(args: Record<string, unknown>, store?: 
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     try {
-      const stats = ctx.getGraphStats();
       const gstore = ctx.store;
 
       const filterCategory = (rec: { category: string }) =>

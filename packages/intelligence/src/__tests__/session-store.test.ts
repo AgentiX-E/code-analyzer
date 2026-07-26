@@ -581,6 +581,7 @@ describe('Session Store', () => {
         filePath: '/test.ts',
         fingerprint: 'abc',
         error: 'Something went wrong',
+        duration: 0,
       };
       expect(() => store.recordItemFailed('unknown-session', error)).not.toThrow();
     });

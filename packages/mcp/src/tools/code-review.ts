@@ -274,7 +274,6 @@ export async function reviewFile(args: Record<string, unknown>, store?: unknown)
     if (ctx) {
       // No content provided — analyze from graph data
       const fileNodes = ctx.getFileSymbols(projectId, filePath);
-      const stats = ctx.getGraphStats(projectId);
 
       const fileComments = analyzeFileFromGraph(filePath, fileNodes);
       const filtered = filterComments(fileComments, severity as Severity);
@@ -324,21 +323,8 @@ export async function reviewFile(args: Record<string, unknown>, store?: unknown)
 // Helpers
 // ---------------------------------------------------------------------------
 
-interface ParsedDiff {
-  filePath: string;
-  oldPath?: string;
-  changeType: 'added' | 'modified' | 'deleted' | 'renamed';
-  ranges: Array<{
-    oldStart: number;
-    oldEnd: number;
-    newStart: number;
-    newEnd: number;
-    changeType: 'added' | 'deleted' | 'modified';
-  }>;
-}
-
 /** Parse raw git diff content into GitDiff objects. */
-function parseDiffContent(projectId: string, rawDiff: string): GitDiff[] {
+function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
   const diffs: GitDiff[] = [];
   const fileSections = rawDiff.split(/^diff --git /m).filter(Boolean);
 
@@ -382,15 +368,15 @@ function parseDiffContent(projectId: string, rawDiff: string): GitDiff[] {
             oldEnd: oldStart + oldCount,
             newStart,
             newEnd: newStart + newCount,
-            changeType: (oldCount > 0 && newCount > 0) ? 'modified' : oldCount > 0 ? 'deleted' : 'added',
+            changeType: (oldCount > 0 && newCount > 0) ? 'modified' : oldCount > 0 ? 'removed' : 'added',
           });
         }
       }
 
       diffs.push({
-        id: `diff_${diffs.length}`,
-        repositoryId: projectId,
         filePath,
+        oldHash: '',
+        newHash: '',
         oldPath,
         changeType,
         ranges: ranges.length > 0 ? ranges : [{
@@ -400,7 +386,6 @@ function parseDiffContent(projectId: string, rawDiff: string): GitDiff[] {
           newEnd: 1,
           changeType: 'modified',
         }],
-        createdAt: new Date().toISOString(),
       });
     }
   }
@@ -569,7 +554,7 @@ function generateActionableRecommendations(
     recs.push({
       priority: 'immediate',
       action: 'Do not merge — address critical issues first',
-      detail: `${summary.bySeverity?.critical ?? 0} critical and ${summary.bySeverity?.high ?? 0} high severity findings require resolution before merge.`,
+      detail: `${summary.bySeverity?.['critical'] ?? 0} critical and ${summary.bySeverity?.['high'] ?? 0} high severity findings require resolution before merge.`,
     });
   }
 
@@ -581,7 +566,7 @@ function generateActionableRecommendations(
     });
   }
 
-  const bugCount = summary.byCategory?.bug ?? 0;
+  const bugCount = summary.byCategory?.['bug'] ?? 0;
   if (bugCount > 0) {
     recs.push({
       priority: bugCount > 3 ? 'high' : 'medium',
@@ -590,7 +575,7 @@ function generateActionableRecommendations(
     });
   }
 
-  const securityCount = summary.byCategory?.security ?? 0;
+  const securityCount = summary.byCategory?.['security'] ?? 0;
   if (securityCount > 0) {
     recs.push({
       priority: 'high',
@@ -599,7 +584,7 @@ function generateActionableRecommendations(
     });
   }
 
-  const perfCount = summary.byCategory?.performance ?? 0;
+  const perfCount = summary.byCategory?.['performance'] ?? 0;
   if (perfCount > 0) {
     recs.push({
       priority: 'medium',
@@ -608,7 +593,7 @@ function generateActionableRecommendations(
     });
   }
 
-  const maintCount = summary.byCategory?.maintainability ?? 0;
+  const maintCount = summary.byCategory?.['maintainability'] ?? 0;
   if (maintCount > 5) {
     recs.push({
       priority: 'medium',

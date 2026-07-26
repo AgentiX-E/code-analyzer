@@ -25,6 +25,8 @@ import type { GitDiff, DiffRange } from '@code-analyzer/shared';
 function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
   return {
     filePath: '/src/test.ts',
+    oldHash: '',
+    newHash: '',
     changeType: 'modified',
     ranges: [
       { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' },
@@ -204,11 +206,11 @@ describe('lensFindingToReviewComment', () => {
     )!;
 
     const comment = lensFindingToReviewComment(finding);
-    expect(comment.filePath).toBe('/src/test.ts');
+    expect(comment.path).toBe('/src/test.ts');
     expect(comment.startLine).toBe(5);
     expect(comment.endLine).toBe(10);
     expect(comment.existingCode).toBe('bad code');
-    expect(comment.title).toContain('[security]');
+    expect(comment.category).toBe('security');
     expect(comment.severity).toBe('high');
   });
 });
@@ -272,9 +274,9 @@ describe('ReviewSwarm', () => {
 
       const result = await swarm.review('test-project', diffs, sources);
 
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      const secFindings = result.comments.filter(c => c.category === 'security');
       expect(secFindings.length).toBeGreaterThan(0);
-      expect(secFindings.some(c => c.title.includes('Dynamic Code Execution'))).toBe(true);
+      expect(secFindings.some(c => c.content.includes('severe security risk'))).toBe(true);
     });
 
     it('should detect hardcoded passwords', async () => {
@@ -286,8 +288,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
-      expect(secFindings.some(c => c.title.includes('Hardcoded Password'))).toBe(true);
+      const secFindings = result.comments.filter(c => c.category === 'security');
+      expect(secFindings.some(c => c.content.includes('Hardcoded passwords'))).toBe(true);
     });
   });
 
@@ -301,8 +303,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.title.includes('[performance]'));
-      expect(perfFindings.some(c => c.title.includes('Synchronous I/O'))).toBe(true);
+      const perfFindings = result.comments.filter(c => c.category === 'performance');
+      expect(perfFindings.some(c => c.content.includes('Synchronous file operations'))).toBe(true);
     });
 
     it('should skip performance checks on test files', async () => {
@@ -314,7 +316,7 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.title.includes('[performance]'));
+      const perfFindings = result.comments.filter(c => c.category === 'performance');
       expect(perfFindings.length).toBe(0);
     });
   });
@@ -329,8 +331,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const testFindings = result.comments.filter(c => c.title.includes('[testing]'));
-      expect(testFindings.some(c => c.title.includes('Focused Test'))).toBe(true);
+      const testFindings = result.comments.filter(c => c.category === 'test');
+      expect(testFindings.some(c => c.content.includes('causes other tests to be skipped'))).toBe(true);
     });
 
     it('should detect skipped tests', async () => {
@@ -342,8 +344,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const testFindings = result.comments.filter(c => c.title.includes('[testing]'));
-      expect(testFindings.some(c => c.title.includes('Skipped Test'))).toBe(true);
+      const testFindings = result.comments.filter(c => c.category === 'test');
+      expect(testFindings.some(c => c.content.includes('Skipped tests hide'))).toBe(true);
     });
   });
 
@@ -357,8 +359,8 @@ describe('ReviewSwarm', () => {
       const sources = createSourceMap({ '/src/big.ts': lines.join('\n') });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
-      expect(styleFindings.some(c => c.title.includes('Long Function'))).toBe(true);
+      const styleFindings = result.comments.filter(c => c.category === 'style');
+      expect(styleFindings.some(c => c.content.includes('Consider splitting'))).toBe(true);
     });
 
     it('should detect console.log in production code', async () => {
@@ -368,8 +370,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
-      expect(styleFindings.some(c => c.title.includes('Debug console.log'))).toBe(true);
+      const styleFindings = result.comments.filter(c => c.category === 'style');
+      expect(styleFindings.some(c => c.content.includes('console.log() left'))).toBe(true);
     });
 
     it('should detect deep nesting (>4 levels)', async () => {
@@ -392,8 +394,8 @@ describe('ReviewSwarm', () => {
       const sources = createSourceMap({ '/src/deep.ts': lines.join('\n') });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
-      expect(styleFindings.some(c => c.title.includes('Deep Nesting'))).toBe(true);
+      const styleFindings = result.comments.filter(c => c.category === 'style');
+      expect(styleFindings.some(c => c.content.includes('nesting depth'))).toBe(true);
     });
 
     it('should detect method-style function declarations', async () => {
@@ -420,8 +422,9 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.title.includes('[api]'));
-      expect(apiFindings.some(c => c.title.includes('Missing Input Validation'))).toBe(true);
+      const apiFindings = result.comments.filter(c => c.category === 'other');
+      expect(apiFindings.length).toBeGreaterThan(0);
+      expect(apiFindings.some(c => c.content.includes('lack input validation'))).toBe(true);
     });
   });
 
@@ -433,8 +436,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
-      expect(docsFindings.some(c => c.title.includes('Missing JSDoc'))).toBe(true);
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      expect(docsFindings.some(c => c.content.includes('no JSDoc documentation'))).toBe(true);
     });
   });
 
@@ -517,11 +520,11 @@ function handler(req: any, res: any) {
       // Check that no two findings have the exact same filePath + line
       const seen = new Set<string>();
       for (const c of result.comments) {
-        const key = `${c.filePath}:${c.startLine}`;
+        const key = `${c.path}:${c.startLine}`;
         // Allow multiple findings at same location from different lenses
         // (IoU handles overlapping ranges, not exact duplicates)
         // This checks that we don't have exact duplicates
-        if (c.title.includes('SQL') || c.title.includes('XSS')) {
+        if (c.content.includes('SQL') || c.content.includes('XSS')) {
           // These are different findings at potentially different lines — that's ok
         }
       }
@@ -568,11 +571,11 @@ function handler(req: any, res: any) {
       const result = await specificSwarm.review('test-project', diffs, sources);
       
       // Should only have security and style findings
-      const lensPrefixes = new Set(
-        result.comments.map(c => c.title.split(']')[0]?.replace('[', '')),
+      const lensCategories = new Set(
+        result.comments.map(c => c.category),
       );
-      for (const prefix of lensPrefixes) {
-        expect(['security', 'style']).toContain(prefix);
+      for (const cat of lensCategories) {
+        expect(['security', 'style']).toContain(cat);
       }
     });
 
@@ -603,7 +606,7 @@ function handler(req: any, res: any) {
       const sources = createSourceMap({ '/src/long.ts': longFunc });
 
       const result = await limitedSwarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
+      const styleFindings = result.comments.filter(c => c.category === 'style');
       expect(styleFindings.length).toBeLessThanOrEqual(1);
     });
 
@@ -662,8 +665,8 @@ function handler(req: any, res: any) {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.title.includes('[performance]'));
-      expect(perfFindings.some(c => c.title.includes('Nested Loop'))).toBe(true);
+      const perfFindings = result.comments.filter(c => c.category === 'performance');
+      expect(perfFindings.some(c => c.content.includes('Nested loops can cause'))).toBe(true);
     });
 
     it('should detect setInterval without clearInterval', async () => {
@@ -673,8 +676,8 @@ function handler(req: any, res: any) {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.title.includes('[performance]'));
-      expect(perfFindings.some(c => c.title.includes('Memory Leak'))).toBe(true);
+      const perfFindings = result.comments.filter(c => c.category === 'performance');
+      expect(perfFindings.some(c => c.content.includes('memory leaks'))).toBe(true);
     });
 
     it('should NOT flag route with validation middleware', async () => {
@@ -684,9 +687,9 @@ function handler(req: any, res: any) {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.title.includes('[api]'));
+      const apiFindings = result.comments.filter(c => c.category === 'other');
       // Should still detect missing auth, but NOT missing validation
-      expect(apiFindings.some(c => c.title.includes('Missing Input Validation'))).toBe(false);
+      expect(apiFindings.some(c => c.content.includes('lack input validation'))).toBe(false);
     });
 
     it('should flag exported function WITH JSDoc as clean (no finding)', async () => {
@@ -697,7 +700,7 @@ function handler(req: any, res: any) {
 
       const result = await swarm.review('test-project', diffs, sources);
       // Should not have any docs findings
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
       expect(docsFindings.length).toBe(0);
     });
 
@@ -775,7 +778,7 @@ function handler(req: any, res: any) {
       });
       const result = await swarm.review('test-project', diffs, sources);
       // Security findings on comment lines should be rejected
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      const secFindings = result.comments.filter(c => c.category === 'security');
       expect(secFindings.length).toBe(0);
     });
 
@@ -789,7 +792,7 @@ function handler(req: any, res: any) {
         '/src/commented.ts': '// console.log("debug");\nfunction ok() { return 1; }\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
+      const styleFindings = result.comments.filter(c => c.category === 'style');
       // Style findings on comments are noise and should be rejected
       expect(styleFindings.length).toBe(0);
     });
@@ -838,7 +841,7 @@ function handler(req: any, res: any) {
       // The docs lens flags the commented export function.
       // The adversarial validator sees it's a comment line, but since lens is "docs"
       // (not security/style), it keeps it with low confidence.
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
       // The finding should be kept but with low confidence
       for (const f of docsFindings) {
         expect(f.severity).toBe('low');
@@ -856,7 +859,7 @@ function handler(req: any, res: any) {
         '/webpack.config.js': 'module.exports = {\n  devtool: eval("source-map"),\n};\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      const secFindings = result.comments.filter(c => c.category === 'security');
       // eval in webpack config should be down-ranked to low severity
       for (const f of secFindings) {
         expect(f.severity).toBe('low');
@@ -874,7 +877,7 @@ function handler(req: any, res: any) {
         '/src/__fixtures__/keys.ts': 'const api_key = "sk-test-1234567890abcdef";\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      const secFindings = result.comments.filter(c => c.category === 'security');
       // Hardcoded keys in test fixtures should be down-ranked to info
       for (const f of secFindings) {
         expect(['low', 'info']).toContain(f.severity);
@@ -892,7 +895,7 @@ function handler(req: any, res: any) {
         '/src/mocks/keys.mock.ts': 'const api_key = "sk-test-1234567890abcdef";\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      const secFindings = result.comments.filter(c => c.category === 'security');
       for (const f of secFindings) {
         expect(['low', 'info']).toContain(f.severity);
       }
@@ -909,7 +912,7 @@ function handler(req: any, res: any) {
         '/src/cli/main.ts': 'function main() {\n  console.log("Starting CLI...");\n}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.title.includes('[style]'));
+      const styleFindings = result.comments.filter(c => c.category === 'style');
       // console.log in CLI tools is normal — should be low confidence
       for (const f of styleFindings) {
         expect(f.severity).toBe('low');
@@ -929,7 +932,7 @@ function handler(req: any, res: any) {
       const result = await swarm.review('test-project', diffs, sources);
       // export interface is now flagged by docs lens (no JSDoc),
       // but adversarial check 5 down-ranks Props interfaces to low severity
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
       expect(docsFindings.length).toBeGreaterThanOrEqual(0);
       for (const f of docsFindings) {
         expect(f.severity).toBe('low');
@@ -946,7 +949,7 @@ function handler(req: any, res: any) {
         '/src/real.ts': 'function run(code: string) {\n  eval(code);\n}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.title.includes('[security]'));
+      const secFindings = result.comments.filter(c => c.category === 'security');
       expect(secFindings.length).toBeGreaterThan(0);
     });
   });
@@ -1099,7 +1102,7 @@ function handler(req: any, res: any) {
         '/src/types.ts': 'export type UserId = string;\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
       // export type is excluded from JSDoc requirement
       expect(docsFindings.length).toBe(0);
     });
@@ -1115,7 +1118,7 @@ function handler(req: any, res: any) {
         '/src/config.ts': 'export interface Config { debug: boolean; }\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
       // export interface without JSDoc is now flagged (no longer blanket-excluded)
       expect(docsFindings.length).toBeGreaterThanOrEqual(1);
     });
@@ -1131,7 +1134,7 @@ function handler(req: any, res: any) {
       });
       const result = await swarm.review('test-project', diffs, sources);
       // /// comments should count as documentation
-      const docsFindings = result.comments.filter(c => c.title.includes('[docs]'));
+      const docsFindings = result.comments.filter(c => c.category === 'documentation');
       expect(docsFindings.length).toBe(0);
     });
   });
@@ -1151,7 +1154,7 @@ function handler(req: any, res: any) {
         '/src/utils/helpers.ts': 'export function helper() { return 42; }\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.title.includes('[api]'));
+      const apiFindings = result.comments.filter(c => c.category === 'other' || c.category === 'security');
       expect(apiFindings.length).toBe(0);
     });
 
@@ -1165,7 +1168,7 @@ function handler(req: any, res: any) {
         '/src/controllers/user.ts': 'router.delete("/user/:id", async (req, res) => {\n  await db.remove(req.params.id);\n  res.json({ ok: true });\n});\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.title.includes('[api]'));
+      const apiFindings = result.comments.filter(c => c.category === 'other' || c.category === 'security');
       expect(apiFindings.length).toBeGreaterThan(0);
     });
 
@@ -1179,7 +1182,7 @@ function handler(req: any, res: any) {
         '/src/handlers/auth.ts': 'app.post("/login", async (req, res) => {\n  const token = await auth.login(req.body);\n  res.json({ token });\n});\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.title.includes('[api]'));
+      const apiFindings = result.comments.filter(c => c.category === 'other' || c.category === 'security');
       expect(apiFindings.length).toBeGreaterThan(0);
     });
   });

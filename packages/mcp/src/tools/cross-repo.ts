@@ -288,9 +288,9 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
               if (edge.targetId === node.id) {
                 // Found a caller — check if it's in a different repo
                 if (potentialCaller.projectId !== node.projectId) {
-                  const existing = impactedRepos.find((r) => r.repo === potentialCaller.projectId);
+                  const existing = impactedRepos.find((r) => r['repo'] === potentialCaller.projectId);
                   if (existing) {
-                    (existing.callers as string[]).push(potentialCaller.name);
+                    (existing['callers'] as string[]).push(potentialCaller.name);
                   } else {
                     impactedRepos.push({
                       repo: potentialCaller.projectId,
@@ -322,7 +322,7 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
         riskLevel,
         impactedRepos,
         totalImpactedRepos: impactedRepos.length,
-        totalCallers: impactedRepos.reduce((sum, r) => sum + ((r.callers as string[])?.length ?? 0), 0),
+        totalCallers: impactedRepos.reduce((sum, r) => sum + ((r['callers'] as string[])?.length ?? 0), 0),
         includeConsumers,
       }, null, 2),
     }],

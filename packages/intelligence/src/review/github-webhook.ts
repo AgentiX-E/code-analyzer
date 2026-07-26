@@ -335,7 +335,7 @@ export class GitHubPRWebhook {
     };
 
     if (comments.length > 0) {
-      payload.comments = comments.map((c) => ({
+      payload['comments'] = comments.map((c) => ({
         path: c.path,
         line: c.line,
         body: c.body,

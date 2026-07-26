@@ -3,6 +3,7 @@
 // Provides static analysis without LLM dependency.
 
 import type { Severity, GitDiff, GraphEdge, GraphNode } from '@code-analyzer/shared';
+import type { RuleCategory } from './rule-definitions.js';
 
 // ---------------------------------------------------------------------------
 // Re-exports from sub-modules
@@ -75,16 +76,6 @@ export type { RegisteredRule } from './rules-registry.js';
 // ---------------------------------------------------------------------------
 // Core Rule Types (preserved for backward compatibility)
 // ---------------------------------------------------------------------------
-
-/** Categories for deterministic rules.
- *  Maps to ReviewCategory: correctness→bug, security→security, etc. */
-export type RuleCategory =
-  | 'correctness'
-  | 'security'
-  | 'performance'
-  | 'maintainability'
-  | 'style'
-  | 'architecture';
 
 export interface CodeRule {
   id: string;

@@ -168,7 +168,7 @@ describe('GitHubRepoSync', () => {
       ]);
 
       expect(result.errors.length).toBe(1);
-      expect(result.errors[0].owner).toBe('nonexistent-owner-12345');
+      expect(result.errors[0]!.owner).toBe('nonexistent-owner-12345');
       expect(result.results.length).toBe(0);
     });
   });

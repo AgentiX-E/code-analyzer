@@ -221,42 +221,42 @@ function registerChatParticipantWithCommands(
       const handler = new CodeAnalyzerChatParticipant(eng);
       return handler.handleRequest(request as any, _ctx as any, stream as any, token as any);
     },
-  );
+  ) as any;
 
   // Register all 7 slash commands
-  participant.command('review', async (request, _ctx, stream, token) => {
+  participant.command('review', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('review', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('review', request.prompt, stream, token);
   });
 
-  participant.command('explain', async (request, _ctx, stream, token) => {
+  participant.command('explain', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('explain', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('explain', request.prompt, stream, token);
   });
 
-  participant.command('impact', async (request, _ctx, stream, token) => {
+  participant.command('impact', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('impact', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('impact', request.prompt, stream, token);
   });
 
-  participant.command('find', async (request, _ctx, stream, token) => {
+  participant.command('find', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('find', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('find', request.prompt, stream, token);
   });
 
-  participant.command('deps', async (request, _ctx, stream, token) => {
+  participant.command('deps', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('deps', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('deps', request.prompt, stream, token);
   });
 
-  participant.command('refactor', async (request, _ctx, stream, token) => {
+  participant.command('refactor', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('refactor', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('refactor', request.prompt, stream, token);
   });
 
-  participant.command('test', async (request, _ctx, stream, token) => {
+  participant.command('test', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('test', request.prompt, stream as any, token as any);
+    return handler.handleSlashCommand('test', request.prompt, stream, token);
   });
 
   context.subscriptions.push(participant);
