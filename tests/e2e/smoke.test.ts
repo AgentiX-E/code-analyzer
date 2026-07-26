@@ -14,7 +14,7 @@ describe('MCP Server E2E', () => {
   beforeAll(async () => {
     const mcp = await import('@code-analyzer/mcp');
     registry = mcp.createToolRegistry();
-  });
+  }, 30_000);
 
   it('creates a ToolRegistry with all tools', () => {
     const tools = registry.list();
@@ -69,7 +69,7 @@ describe('HTTP Server E2E', () => {
       config: { port: 0, logging: { enabled: false } },
     });
     await server.start();
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await server.stop();

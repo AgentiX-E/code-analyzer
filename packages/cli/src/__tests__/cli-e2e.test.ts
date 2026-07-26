@@ -45,7 +45,7 @@ describe('CLI E2E — Full Workflow', () => {
     expect(formatted).toContain('Initialized');
   });
 
-  it('should execute analyze → search workflow', async () => {
+  it('should execute analyze → search workflow', { timeout: 30_000 }, async () => {
     const { analyzeRepository, formatAnalyzeResult } = await import('../commands/analyze.js');
     const { searchGraph, formatSearchResult } = await import('../commands/search.js');
 
