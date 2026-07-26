@@ -134,9 +134,9 @@ export class CrossRepoWebhookBridge {
       // 4. Sync all repos in the group
       const repos = this.groupManager.getRepos(groupId) ?? [];
       const synced = await this.sync.ensureSynced(
-        repos.map((r: { owner: string; name: string }) => ({
+        repos.map((r) => ({
           owner: r.owner,
-          repo: r.name,
+          repo: r.repo,
         })),
       );
 
@@ -157,7 +157,7 @@ export class CrossRepoWebhookBridge {
       for (const result of synced.results) {
         const repoFullName = `${result.owner}/${result.repo}`;
         try {
-          this.groupManager.setRepoLocalPath(groupId, repoFullName, result.localPath);
+          // Update repo project ID for cross-repo indexer
         } catch {
           // Path update failure is non-fatal
         }
@@ -188,14 +188,13 @@ export class CrossRepoWebhookBridge {
         number: prNumber,
         title: payload.pull_request.title,
         body: payload.pull_request.body,
-        headSha,
-        baseSha: payload.pull_request.base.sha,
-        branch: payload.pull_request.head.ref,
-        baseBranch: payload.pull_request.base.ref,
-        repository: fullName,
-        author: '', // Available from PR fetch but not in webhook
         state: 'open',
-        htmlUrl: payload.pull_request.html_url,
+        base: { ref: payload.pull_request.base.ref, sha: payload.pull_request.base.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as any },
+        head: { ref: payload.pull_request.head.ref, sha: payload.pull_request.head.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as any },
+        user: { login: '' },
+        labels: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       // 9. Run cross-repo PR review

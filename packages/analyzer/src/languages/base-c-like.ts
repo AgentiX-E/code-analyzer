@@ -89,7 +89,7 @@ export function extractClassLike(
     const implementsMatch = fullLine.match(/implements\s+([\w\s,]+)/);
 
     captures.push({
-      tag,
+      tag: tag as any,
       text: `${keyword} ${name}`,
       startLine,
       endLine,

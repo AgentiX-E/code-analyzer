@@ -165,7 +165,7 @@ export class PRReviewEngine {
         affectedFiles: swarmResult.actionPlan.map(a => a.files).flat(),
         affectedSymbols: [],
         estimatedImpact: swarmResult.summary.totalFindings,
-      } as ImpactResult,
+      } as any,
       summary,
       swarmResult,
       mcpPrompt,

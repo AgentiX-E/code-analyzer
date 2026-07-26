@@ -265,7 +265,7 @@ export class GitHubPRWebhook {
     prNumber: number,
   ): Promise<PRFile[]> {
     const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}/files`;
-    const response = await this.githubRequest<any[]>(url, {
+    const response = await this.githubRequest(url, {
       headers: { Accept: 'application/vnd.github.v3+json' },
       method: 'GET',
     });

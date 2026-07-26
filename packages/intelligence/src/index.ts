@@ -184,7 +184,6 @@ export type {
   CodeRule,
   RuleContext,
   RuleViolation,
-  GraphAnalysisData,
   AnalyzeOptions,
   RulesResult,
 } from './rules/rules-engine.js';

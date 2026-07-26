@@ -22,7 +22,6 @@ import type {
 } from '@code-analyzer/shared';
 
 import { getLanguageFromFilename, CAPTURE_TAGS } from '@code-analyzer/shared';
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { LanguageProvider } from '../languages/provider.js';
 import type { ParsedImport } from '../languages/provider.js';
@@ -106,7 +105,7 @@ function matchesGitignore(
   return false;
 }
 
-function shouldSkipFile(filePath: string, relPath: string): boolean {
+function shouldSkipFile(filePath: string, _relPath: string): boolean {
   const name = basename(filePath);
   for (const pattern of SKIP_FILE_PATTERNS) {
     if (pattern.test(name)) return true;
@@ -2451,7 +2450,7 @@ export class SemanticPhase implements ExecutablePhase {
       }
 
       const funcArray = Array.from(functionCallers.entries()).filter(([id]) => {
-        const node = ctx.graph.nodes.get(id);
+        const node = ctx.graph!.nodes.get(id);
         return node?.label === 'Function' || node?.label === 'Method';
       });
 

@@ -82,8 +82,8 @@ const RepoGroupManager: React.FC = () => {
       ?? newRepoUrl.match(/^([^/]+)\/([^/\s]+)$/);
     if (!match) return;
 
-    const owner = match[1];
-    const name = match[2];
+    const owner = match[1]!;
+    const name = match[2]!;
 
     const repo: RepoInfo = {
       owner,

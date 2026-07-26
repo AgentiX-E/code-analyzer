@@ -1,29 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface RepoNode {
-  id: string;
-  name: string;
-  owner: string;
-  fullName: string;
-  role: string;
-  nodeCount?: number;
-  edgeCount?: number;
-}
-
-interface RepoEdge {
-  source: string;
-  target: string;
-  relationship: string;
-}
-
-interface DependencyGraph {
-  nodes: RepoNode[];
-  edges: RepoEdge[];
-}
 
 interface CrossRepoStats {
   totalRepos: number;
@@ -44,7 +23,7 @@ function fetchCrossRepoStats(): Promise<CrossRepoStats> {
     body: JSON.stringify({ tool: 'cross_repo_search', args: { query: '', limit: 0 } }),
   })
     .then((r) => r.json())
-    .then((data) => ({
+    .then(() => ({
       totalRepos: 0,
       totalSymbols: 0,
       crossRepoEdges: 0,

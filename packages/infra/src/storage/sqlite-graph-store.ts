@@ -1,7 +1,6 @@
 // @code-analyzer/infra — SQLite Graph Store
 // Persisted SQLite-backed graph store with WAL mode, FTS5, and prepared statements.
 
-import { createRequire } from 'node:module';
 import { existsSync, unlinkSync } from 'node:fs';
 import type { Database as DatabaseType, Statement } from 'better-sqlite3';
 import type {
@@ -18,8 +17,9 @@ import type {
 let BetterSqlite3: typeof import('better-sqlite3') | null = null;
 
 try {
-  const req = createRequire(import.meta.url);
-  BetterSqlite3 = req('better-sqlite3');
+  // Dynamic require for optional better-sqlite3 dependency
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
 /* v8 ignore start */
 } catch {
   // better-sqlite3 is optional; SqliteGraphStore throws a clear error on use.

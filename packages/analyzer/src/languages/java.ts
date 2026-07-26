@@ -163,7 +163,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
         const child = node.namedChild(i);
         if (child.type === 'scoped_identifier') {
           const parts: string[] = [];
-          this.collectIdentifiers(child, parts);
+          this._collectIdentifiers(child, parts);
           const path = parts.join('.');
           captures.push({
             tag: CAPTURE_TAGS.IMPORT,
@@ -211,7 +211,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
         if (child.type === 'scoped_identifier') {
-          this.collectIdentifiers(child, parts);
+          this._collectIdentifiers(child, parts);
         }
       }
 
@@ -311,13 +311,13 @@ export class JavaProvider extends TreeSitterBaseProvider {
     return null;
   }
 
-  private collectIdentifiers(node: TreeSitterSyntaxNode, result: string[]): void {
+  private _collectIdentifiers(node: TreeSitterSyntaxNode, result: string[]): void {
     if (node.type === 'identifier') {
       result.push(node.text);
       return;
     }
     for (let i = 0; i < node.namedChildCount; i++) {
-      this.collectIdentifiers(node.namedChild(i), result);
+      this._collectIdentifiers(node.namedChild(i), result);
     }
   }
 

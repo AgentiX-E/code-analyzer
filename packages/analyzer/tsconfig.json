@@ -4,14 +4,18 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "declarationDir": "./dist",
-    "composite": true
+    "composite": true,
+    "noUncheckedIndexedAccess": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUnusedLocals": false
   },
   "include": [
     "src"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/__tests__"
   ],
   "references": [
     {

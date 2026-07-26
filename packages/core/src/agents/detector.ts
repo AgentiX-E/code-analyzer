@@ -194,7 +194,7 @@ function hasPath(filePath: string): boolean {
  */
 function hasBinary(name: string): boolean {
   /* v8 ignore next */
-  const pathDirs = (process.env.PATH ?? '/usr/bin').split(path.delimiter);
+  const pathDirs = (process.env['PATH'] ?? '/usr/bin').split(path.delimiter);
   for (const dir of pathDirs) {
     const full = path.join(dir, name);
     try {
@@ -388,7 +388,7 @@ export function detectAllAgents(): AgentDetectionResult {
 
   const detected = agents.filter((a) => a.detected);
   const primary: AgentId | null =
-    detected.length > 0 ? detected[0].id : null;
+    detected[0]?.id ?? null;
 
   return {
     agents,

@@ -221,13 +221,13 @@ export class GitHubRepoSync {
       );
 
       for (let j = 0; j < batchResults.length; j++) {
-        const result = batchResults[j];
+        const result = batchResults[j]!;
         if (result.status === 'fulfilled') {
           results.push(result.value);
         } else {
           errors.push({
-            owner: batch[j].owner,
-            repo: batch[j].repo,
+            owner: batch[j]!.owner,
+            repo: batch[j]!.repo,
             error: result.reason instanceof Error ? result.reason.message : String(result.reason),
           });
         }

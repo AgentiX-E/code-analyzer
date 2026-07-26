@@ -451,7 +451,7 @@ describe('useAnalyze', () => {
     });
 
     expect(analyzeResult).not.toBeNull();
-    expect((analyzeResult as Record<string, unknown>).status).toBe('completed');
+    expect((analyzeResult as Record<string, unknown>)['status']).toBe('completed');
     expect(result.current.data).not.toBeNull();
     expect(result.current.data!.nodes).toBe(10);
   });

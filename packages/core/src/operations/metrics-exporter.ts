@@ -220,8 +220,8 @@ class HistogramMetricImpl implements HistogramMetric {
 
     // Increment appropriate buckets
     for (let i = 0; i < this.buckets.length; i++) {
-      if (value <= this.buckets[i]) {
-        entry.bucketCounts[i]++;
+      if (value <= this.buckets[i]!) {
+        entry.bucketCounts[i]!++;
       }
     }
   }
@@ -235,7 +235,7 @@ class HistogramMetricImpl implements HistogramMetric {
     }
     const buckets: Record<string, number> = {};
     for (let i = 0; i < this.buckets.length; i++) {
-      buckets[String(this.buckets[i])] = entry.bucketCounts[i];
+      buckets[String(this.buckets[i]!)] = entry.bucketCounts[i]!;
     }
     return { count: entry.count, sum: entry.sum, buckets };
   }
@@ -247,7 +247,7 @@ class HistogramMetricImpl implements HistogramMetric {
     }
     for (const entry of this.entries.values()) {
       for (let i = 0; i < this.buckets.length; i++) {
-        result[String(this.buckets[i])] += entry.bucketCounts[i];
+        result[String(this.buckets[i]!)] = (result[String(this.buckets[i]!)] ?? 0) + (entry.bucketCounts[i]! ?? 0);
       }
     }
     return result;
@@ -420,10 +420,9 @@ export class MetricsRegistry {
         lines.push(`${metric.name}_count 0`);
       } else {
         for (const entry of entries) {
-          const labelStr = serializeLabels(entry.labels);
           let cumulative = 0;
           for (let i = 0; i < metric.buckets.length; i++) {
-            cumulative += entry.bucketCounts[i];
+            cumulative += entry.bucketCounts[i]!;
             const le =
               metric.buckets[i] === Number.POSITIVE_INFINITY
                 ? '+Inf'
@@ -468,7 +467,7 @@ export class MetricsRegistry {
         labels: e.labels,
       }));
     }
-    result.counters = counterData;
+    result['counters'] = counterData;
 
     const gaugeData: Record<string, unknown> = {};
     for (const [name, metric] of this.gauges) {
@@ -477,7 +476,7 @@ export class MetricsRegistry {
         labels: e.labels,
       }));
     }
-    result.gauges = gaugeData;
+    result['gauges'] = gaugeData;
 
     const histogramData: Record<string, unknown> = {};
     for (const [name, metric] of this.histograms) {
@@ -489,7 +488,7 @@ export class MetricsRegistry {
         labels: e.labels,
       }));
     }
-    result.histograms = histogramData;
+    result['histograms'] = histogramData;
 
     return result;
   }

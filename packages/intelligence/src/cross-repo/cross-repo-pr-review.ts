@@ -564,7 +564,7 @@ export class CrossRepoPRReviewEngine {
 
     // Fallback: if no graph-based traces found, try fuzzy symbol matching
     if (dependencyMap.size === 0) {
-      let matches;
+      let matches: any[] = [];
       try {
         matches = await this.indexer.resolveCrossRepoSymbols(groupId);
       } catch {

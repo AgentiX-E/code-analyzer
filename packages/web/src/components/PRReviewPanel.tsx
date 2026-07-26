@@ -212,7 +212,7 @@ const PRReviewPanel: React.FC<PRReviewPanelProps> = ({
               <div className="issue-header">
                 <span
                   className="severity-dot"
-                  style={{ backgroundColor: RISK_COLORS[issue.severity] ?? RISK_COLORS.info }}
+                  style={{ backgroundColor: RISK_COLORS[issue.severity] ?? RISK_COLORS['info'] }}
                 />
                 <span className="issue-title">{issue.title}</span>
                 <span className="issue-location">

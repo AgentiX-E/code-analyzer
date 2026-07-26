@@ -22,7 +22,6 @@ export function getMcpTemplate(
     args?: string[];
   } = {},
 ): McpConfigTemplate | null {
-  const command = options.command ?? 'npx @code-analyzer/mcp';
   const args = options.args ?? [];
 
   switch (agentId) {

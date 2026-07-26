@@ -300,8 +300,8 @@ export class HealthCheckRegistry {
     let hasDegradation = false;
 
     for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const hc = checkEntries[i];
+      const result = results[i]!;
+      const hc = checkEntries[i]!;
       if (result.status === 'fail') {
         if (hc.critical) {
           hasCriticalFailure = true;

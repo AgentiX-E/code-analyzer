@@ -118,7 +118,7 @@ export interface CreateCheckRunParams {
   name: string;
   head_sha: string;
   status?: 'queued' | 'in_progress' | 'completed';
-  conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required';
+  conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null;
   output?: {
     title: string;
     summary: string;
