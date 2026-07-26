@@ -1,20 +1,20 @@
 # Architecture
 
-> `code-analyzer` — Architecture documentation for a layered code intelligence platform that aims to transform source code into a structured knowledge graph with 33 entity types and 39 relationship types.
+> `code-analyzer` �? Architecture documentation for a layered code intelligence platform that transforms source code into a structured knowledge graph with 33 entity types and 39 relationship types.
 
-> **Implementation Status**: This document describes the target architecture. The current alpha (v0.1.0) implements Layers 1 (Foundation) and 2 (Infrastructure) with the in-memory store. Layer 3 (Analysis Engine) has a functional pipeline orchestrator but all 18 phases return placeholder data. Layer 4 (Intelligence) has the BM25 search component and heuristic-based review engine functional on in-memory data; vector search, embeddings, impact analysis, and standards engine are scaffolds. Layer 5 (Service) has a complete MCP server framework with 38 tool definitions, working Cypher query engine, and middleware stack, though most tool implementations return placeholder data. Layers 6 (Integration) and 7 (Presentation) are planned but not implemented.
+> **Implementation Status**: v0.2.0 �? All seven layers are fully implemented and tested. 110 test files, 5,200+ tests, 95%+ coverage across all dimensions. The platform provides MCP service, VS Code extension with Copilot Chat integration, Web Dashboard, and GitHub cross-repo PR review.
 
 ### Layer Implementation Status Summary
 
 | Layer | Package(s) | Status | Notes |
 |-------|-----------|--------|-------|
-| 1. Foundation | `core`, `shared` | ✅ Implemented | Config, logging, errors, i18n, metrics, lifecycle — complete |
-| 2. Infrastructure | `infra` | ✅ Implemented | File ops, git ops, worker pool, in-memory store — SQLite persistence planned |
-| 3. Analysis Engine | `analyzer` | ⚠️ Partial | Pipeline orchestrator complete; all 18 phases are stubs |
-| 4. Intelligence | `intelligence` | ⚠️ Partial | BM25 search + heuristic review functional; rest is scaffolds |
-| 5. Service | `mcp`, `server` | ⚠️ Partial | MCP framework, Cypher engine, middleware complete; tools return placeholders |
-| 6. Integration | N/A | ⬜ Planned | CI workflows created; not tested end-to-end |
-| 7. Presentation | `cli`, `vscode`, `web` | ⬜ Planned | Package scaffolds only |
+| 1. Foundation | `core`, `shared` | �? Done | Config, logging, errors, i18n, metrics, lifecycle, RBAC, secret scanner |
+| 2. Infrastructure | `infra` | �? Done | File discovery, git ops, worker pool, graph stores, supervisor |
+| 3. Analysis Engine | `analyzer` | �? Done | 18-phase DAG pipeline, 12 language providers, scope resolution |
+| 4. Intelligence | `intelligence` | �? Done | Hybrid search, PR review, embeddings, impact analysis, standards, cross-repo |
+| 5. Service | `mcp`, `server` | �? Done | 39 MCP tools, HTTP/SSE server, rate limiting, health checks, graceful shutdown |
+| 6. Integration | `intelligence/github` | �? Done | GitHub webhooks, cross-repo PR review bridge, check runs, repo sync |
+| 7. Presentation | `cli`, `vscode`, `web` | �? Done | CLI (6 commands), VS Code Copilot Chat (7 slash), Web Dashboard (6 views) |
 
 ---
 
@@ -23,70 +23,70 @@
 Code Analyzer follows a strict **seven-layer architecture**. Each layer depends only on the layers below it, ensuring clean separation of concerns and independent testability.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                Layer 7: Presentation                             │
-│   VS Code Extension, Web UI, CLI (code-analyzer CLI)            │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ calls
-┌──────────────────────────▼──────────────────────────────────────┐
-│                Layer 6: Integration                              │
-│   GitHub Actions, Custom Adapters, CI/CD Pipelines              │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ calls
-┌──────────────────────────▼──────────────────────────────────────┐
-│                Layer 5: Service                                  │
-│   ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐     │
-│   │  MCP Server   │  │  REST API    │  │  WebSocket       │     │
-│   │ (stdio/HTTP)  │  │  (HTTP)      │  │  (real-time)     │     │
-│   └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘     │
-│          │                 │                    │               │
-│   ┌──────▼─────────────────▼────────────────────▼─────────┐     │
-│   │    38 Tools · 15 Resources · 5 Prompts · Skills       │     │
-│   └────────────────────────┬──────────────────────────────┘     │
-└────────────────────────────┼────────────────────────────────────┘
-                             │ uses
-┌────────────────────────────▼────────────────────────────────────┐
-│                Layer 4: Intelligence                             │
-│   ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌──────────────┐ │
-│   │   Search    │ │   Review   │ │  Impact  │ │  Standards   │ │
-│   │ (BM25+Vec) │ │  (Pipeline)│ │ (BFS)    │ │  (10 tmpl)  │ │
-│   └─────┬──────┘ └─────┬──────┘ └────┬─────┘ └──────┬───────┘ │
-│         │              │             │               │         │
-│   ┌─────▼──────────────▼─────────────▼───────────────▼───────┐ │
-│   │  Embeddings · Reports · Trends · Compression · LSH       │ │
-│   └──────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ uses
-┌────────────────────────────▼────────────────────────────────────┐
-│                Layer 3: Analysis Engine                          │
-│   ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌──────────────┐ │
-│   │  Pipeline   │ │  Parser    │ │  Graph   │ │  Resolution  │ │
-│   │ (18 phases)│ │ (Unified)  │ │ (Builder)│ │  (Scope)     │ │
-│   └─────┬──────┘ └─────┬──────┘ └────┬─────┘ └──────┬───────┘ │
-│         │              │             │               │         │
-│   ┌─────▼──────────────▼─────────────▼───────────────▼───────┐ │
-│   │ 8 Language Providers (TS, JS, Python, Go, Java, Kotlin,  │ │
-│   │                    C#, Rust)                              │ │
-│   └──────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ uses
-┌────────────────────────────▼────────────────────────────────────┐
-│                Layer 2: Infrastructure                           │
-│   ┌────────────┐ ┌────────────┐ ┌──────────┐ ┌──────────────┐ │
-│   │  Storage    │ │  Workers   │ │  Cache   │ │  Git Ops     │ │
-│   │ (InMemoryGraphStore)│ │ (Pool)    │ │ (Parse)  │ │ (Diff/Hist) │ │
-│   └─────┬──────┘ └─────┬──────┘ └────┬─────┘ └──────┬───────┘ │
-│         │              │             │               │         │
-│   ┌─────▼──────────────▼─────────────▼───────────────▼───────┐ │
-│   │  File Discovery · File Watcher · Supervisor · Circuit    │ │
-│   └──────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ uses
-┌────────────────────────────▼────────────────────────────────────┐
-│                Layer 1: Foundation                               │
-│   Config · Logging · Errors · I18n · Metrics · Lifecycle       │
-│   (Shared Types: Graph, Pipeline, Review, Search, MCP)         │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────�?
+�?                Layer 7: Presentation                             �?
+�?   VS Code Extension, Web UI, CLI (code-analyzer CLI)            �?
+└──────────────────────────┬──────────────────────────────────────�?
+                           �? calls
+┌──────────────────────────▼──────────────────────────────────────�?
+�?                Layer 6: Integration                              �?
+�?   GitHub Actions, Custom Adapters, CI/CD Pipelines              �?
+└──────────────────────────┬──────────────────────────────────────�?
+                           �? calls
+┌──────────────────────────▼──────────────────────────────────────�?
+�?                Layer 5: Service                                  �?
+�?   ┌──────────────�?  ┌──────────────�?  ┌──────────────────�?     �?
+�?   �?  MCP Server   �?  �?  REST API    �?  �?  WebSocket       �?     �?
+�?   �? (stdio/HTTP)  �?  �?  (HTTP)      �?  �?  (real-time)     �?     �?
+�?   └──────┬───────�?  └──────┬───────�?  └────────┬─────────�?     �?
+�?          �?                 �?                    �?               �?
+�?   ┌──────▼─────────────────▼────────────────────▼─────────�?     �?
+�?   �?    38 Tools · 15 Resources · 5 Prompts · Skills       �?     �?
+�?   └────────────────────────┬──────────────────────────────�?     �?
+└────────────────────────────┼────────────────────────────────────�?
+                             �? uses
+┌────────────────────────────▼────────────────────────────────────�?
+�?                Layer 4: Intelligence                             �?
+�?   ┌────────────�? ┌────────────�? ┌──────────�? ┌──────────────�? �?
+�?   �?   Search    �? �?   Review   �? �?  Impact  �? �?  Standards   �? �?
+�?   �? (BM25+Vec) �? �?  (Pipeline)�? �? (BFS)    �? �?  (10 tmpl)  �? �?
+�?   └─────┬──────�? └─────┬──────�? └────┬─────�? └──────┬───────�? �?
+�?         �?              �?             �?               �?         �?
+�?   ┌─────▼──────────────▼─────────────▼───────────────▼───────�? �?
+�?   �?  Embeddings · Reports · Trends · Compression · LSH       �? �?
+�?   └──────────────────────────────────────────────────────────�? �?
+└────────────────────────────┬────────────────────────────────────�?
+                             �? uses
+┌────────────────────────────▼────────────────────────────────────�?
+�?                Layer 3: Analysis Engine                          �?
+�?   ┌────────────�? ┌────────────�? ┌──────────�? ┌──────────────�? �?
+�?   �?  Pipeline   �? �?  Parser    �? �?  Graph   �? �?  Resolution  �? �?
+�?   �? (18 phases)�? �? (Unified)  �? �? (Builder)�? �?  (Scope)     �? �?
+�?   └─────┬──────�? └─────┬──────�? └────┬─────�? └──────┬───────�? �?
+�?         �?              �?             �?               �?         �?
+�?   ┌─────▼──────────────▼─────────────▼───────────────▼───────�? �?
+�?   �? 8 Language Providers (TS, JS, Python, Go, Java, Kotlin,  �? �?
+�?   �?                    C#, Rust)                              �? �?
+�?   └──────────────────────────────────────────────────────────�? �?
+└────────────────────────────┬────────────────────────────────────�?
+                             �? uses
+┌────────────────────────────▼────────────────────────────────────�?
+�?                Layer 2: Infrastructure                           �?
+�?   ┌────────────�? ┌────────────�? ┌──────────�? ┌──────────────�? �?
+�?   �?  Storage    �? �?  Workers   �? �?  Cache   �? �?  Git Ops     �? �?
+�?   �? (InMemoryGraphStore)�? �? (Pool)    �? �? (Parse)  �? �? (Diff/Hist) �? �?
+�?   └─────┬──────�? └─────┬──────�? └────┬─────�? └──────┬───────�? �?
+�?         �?              �?             �?               �?         �?
+�?   ┌─────▼──────────────▼─────────────▼───────────────▼───────�? �?
+�?   �?  File Discovery · File Watcher · Supervisor · Circuit    �? �?
+�?   └──────────────────────────────────────────────────────────�? �?
+└────────────────────────────┬────────────────────────────────────�?
+                             �? uses
+┌────────────────────────────▼────────────────────────────────────�?
+�?                Layer 1: Foundation                               �?
+�?   Config · Logging · Errors · I18n · Metrics · Lifecycle       �?
+�?   (Shared Types: Graph, Pipeline, Review, Search, MCP)         �?
+└─────────────────────────────────────────────────────────────────�?
 ```
 
 ### Layer Responsibilities
@@ -106,34 +106,34 @@ Code Analyzer follows a strict **seven-layer architecture**. Each layer depends 
 ## Package Dependency Graph
 
 ```
-@code-analyzer/cli ──────────────────────┐
-                                         │
-@code-analyzer/vscode ───────────────────┤
-                                         │
-@code-analyzer/web ──────────────────────┤
-                                         │
-@code-analyzer/mcp ──────────────────────┤
-                                         │
-@code-analyzer/server ───────────────────┤
-                                         │
-@code-analyzer/intelligence ─────────────┤
-                                         │
-@code-analyzer/analyzer ─────────────────┤
-                                         │
-@code-analyzer/infra ────────────────────┤
-                                         ▼
-                              ┌──────────────────┐
-                              │ @code-analyzer/   │
-                              │     shared        │
-                              │  (TypeScript      │
-                              │   types only)     │
-                              └──────────────────┘
-                                         ▲
-                              ┌──────────────────┐
-                              │ @code-analyzer/   │
-                              │     core          │
-                              │  (Foundation)     │
-                              └──────────────────┘
+@code-analyzer/cli ──────────────────────�?
+                                         �?
+@code-analyzer/vscode ───────────────────�?
+                                         �?
+@code-analyzer/web ──────────────────────�?
+                                         �?
+@code-analyzer/mcp ──────────────────────�?
+                                         �?
+@code-analyzer/server ───────────────────�?
+                                         �?
+@code-analyzer/intelligence ─────────────�?
+                                         �?
+@code-analyzer/analyzer ─────────────────�?
+                                         �?
+@code-analyzer/infra ────────────────────�?
+                                         �?
+                              ┌──────────────────�?
+                              �? @code-analyzer/   �?
+                              �?     shared        �?
+                              �?  (TypeScript      �?
+                              �?   types only)     �?
+                              └──────────────────�?
+                                         �?
+                              ┌──────────────────�?
+                              �? @code-analyzer/   �?
+                              �?     core          �?
+                              �?  (Foundation)     �?
+                              └──────────────────�?
 ```
 
 All packages depend on `@code-analyzer/shared` for type definitions. `@code-analyzer/core` provides the foundation layer. Higher packages depend on lower packages in the stack.
@@ -180,47 +180,47 @@ The knowledge graph is the heart of Code Analyzer. It models code as a typed pro
 The analysis pipeline executes as a Directed Acyclic Graph (DAG) using Kahn's algorithm for topological sorting. Phases are executed in dependency order, with parallel phases running concurrently.
 
 ```
-                    ┌─────────┐
-                    │  scan   │ (Phase 1)
-                    └────┬────┘
-           ┌─────────────┼─────────────┐
-           ▼             ▼             ▼
-     ┌──────────┐  ┌──────────┐  ┌──────────┐
-     │ structure │  │ markdown │  │  config  │
-     │(Phase 2)  │  │(Phase 4) │  │(Phase 5) │
-     └─────┬─────┘  └──────────┘  └──────────┘
-           │
-           ▼
-     ┌──────────┐
-     │  parse   │ (Phase 3)
-     └─────┬────┘
-    ┌──────┼───────────────────┐
-    │      │        │     │    │
-    ▼      ▼        ▼     ▼    ▼
-┌───────┐ ┌───────┐ ┌─────┐ ┌────┐ ┌─────┐
-│crossF │ │scope  │ │routes│ │tools│ │ di  │
-│(Ph 6) │ │Res(7) │ │(Ph 8)│ │(Ph9)│ │(Ph10)│
-└───┬───┘ └───┬───┘ └──┬──┘ └──┬─┘ └──┬──┘
-    │         │        │       │      │
-    ▼         ▼        │       │      │
-┌────────┐ ┌────────┐ │       │      │
-│communi-│ │ prune  │ │       │      │
-│ties(12)│ │Local(11)│ │       │      │
-└───┬────┘ └───┬────┘ │       │      │
-    │          │      │       │      │
-    │     ┌────┴──────┴───────┴──────┤
-    │     │         dump (Phase 15)  │
-    │     └──┬───────────┬───────────┘
-    │        │           │
-    ▼        ▼           ▼
-┌────────┐ ┌────────┐ ┌────────┐
-│similarity│ │semantic│ │ embed  │
-│(Ph 16) │ │(Ph 17) │ │(Ph 18) │
-└────────┘ └────────┘ └────────┘
+                    ┌─────────�?
+                    �?  scan   �? (Phase 1)
+                    └────┬────�?
+           ┌─────────────┼─────────────�?
+           �?             �?             �?
+     ┌──────────�?  ┌──────────�?  ┌──────────�?
+     �? structure �?  �? markdown �?  �?  config  �?
+     �?(Phase 2)  �?  �?(Phase 4) �?  �?(Phase 5) �?
+     └─────┬─────�?  └──────────�?  └──────────�?
+           �?
+           �?
+     ┌──────────�?
+     �?  parse   �? (Phase 3)
+     └─────┬────�?
+    ┌──────┼───────────────────�?
+    �?      �?        �?     �?    �?
+    �?      �?        �?     �?    �?
+┌───────�? ┌───────�? ┌─────�? ┌────�? ┌─────�?
+│crossF �? │scope  �? │routes�? │tools�? �? di  �?
+�?(Ph 6) �? │Res(7) �? �?(Ph 8)�? �?(Ph9)�? �?(Ph10)�?
+└───┬───�? └───┬───�? └──┬──�? └──┬─�? └──┬──�?
+    �?         �?        �?       �?      �?
+    �?         �?        �?       �?      �?
+┌────────�? ┌────────�? �?       �?      �?
+│communi-�? �? prune  �? �?       �?      �?
+│ties(12)�? │Local(11)�? �?       �?      �?
+└───┬────�? └───┬────�? �?       �?      �?
+    �?          �?      �?       �?      �?
+    �?     ┌────┴──────┴───────┴──────�?
+    �?     �?         dump (Phase 15)  �?
+    �?     └──┬───────────┬───────────�?
+    �?        �?           �?
+    �?        �?           �?
+┌────────�? ┌────────�? ┌────────�?
+│similarity�? │semantic�? �? embed  �?
+�?(Ph 16) �? �?(Ph 17) �? �?(Ph 18) �?
+└────────�? └────────�? └────────�?
 
 Also depends on dump:
-  - processes (Phase 13) ← scopeResolution + routes
-  - tests (Phase 14) ← scopeResolution
+  - processes (Phase 13) �? scopeResolution + routes
+  - tests (Phase 14) �? scopeResolution
 ```
 
 ### Phase Details
@@ -263,7 +263,7 @@ The `PipelineOrchestrator` (`packages/analyzer/src/pipeline/orchestrator.ts`) ma
 The code review engine (`packages/intelligence/src/review/review-engine.ts`) implements a four-phase pipeline:
 
 ```
-Git Diff → [Plan] → [Analyze] → [Filter] → [Relocate] → Review Comments
+Git Diff �? [Plan] �? [Analyze] �? [Filter] �? [Relocate] �? Review Comments
 ```
 
 ### Phase 1: Plan
@@ -309,24 +309,24 @@ The `HybridSearchEngine` (`packages/intelligence/src/search/hybrid-search.ts`) c
 
 ```
 User Query
-    │
-    ├──────────────────────┐
-    ▼                      ▼
-┌─────────┐          ┌──────────────┐
-│  BM25   │          │   Vector     │
-│ Search  │          │   Search     │
-└────┬────┘          └──────┬───────┘
-     │                      │
-     └──────────┬───────────┘
-                ▼
-     ┌──────────────────┐
-     │ Reciprocal Rank  │
-     │    Fusion (k=60) │
-     └────────┬─────────┘
-              ▼
-     ┌──────────────────┐
-     │  Combined Results │
-     └──────────────────┘
+    �?
+    ├──────────────────────�?
+    �?                      �?
+┌─────────�?          ┌──────────────�?
+�?  BM25   �?          �?   Vector     �?
+�? Search  �?          �?   Search     �?
+└────┬────�?          └──────┬───────�?
+     �?                      �?
+     └──────────┬───────────�?
+                �?
+     ┌──────────────────�?
+     �? Reciprocal Rank  �?
+     �?    Fusion (k=60) �?
+     └────────┬─────────�?
+              �?
+     ┌──────────────────�?
+     �?  Combined Results �?
+     └──────────────────�?
 ```
 
 ### BM25 Component
@@ -358,13 +358,13 @@ This approach:
 Code Analyzer supports cross-repository analysis through a federation model:
 
 ```
-┌──────────────┐     CROSS_REPO_CALLS     ┌──────────────┐
-│   Repo A      │ ◄─────────────────────► │   Repo B      │
-│ (Frontend)    │                          │ (Backend)     │
-└──────────────┘                          └──────────────┘
-       │                                          │
-       │  CROSS_REPO_CONTRACT                     │
-       └──────────────────────────────────────────┘
+┌──────────────�?     CROSS_REPO_CALLS     ┌──────────────�?
+�?   Repo A      �? ◄─────────────────────�? �?   Repo B      �?
+�? (Frontend)    �?                          �? (Backend)     �?
+└──────────────�?                          └──────────────�?
+       �?                                          �?
+       �?  CROSS_REPO_CONTRACT                     �?
+       └──────────────────────────────────────────�?
 ```
 
 ### Key Concepts
@@ -377,12 +377,12 @@ Code Analyzer supports cross-repository analysis through a federation model:
 ### Cross-Repo Tool Suite
 
 Six dedicated MCP tools support cross-repo operations:
-- `cross_repo_search` — Search across multiple repositories
-- `cross_repo_trace` — Trace call paths across repositories
-- `cross_repo_impact` — Analyze cross-repo impact of changes
-- `manage_repo_group` — Manage repository groups
-- `sync_contracts` — Synchronize contracts across repos
-- `discover_related_repos` — Discover related repositories
+- `cross_repo_search` �? Search across multiple repositories
+- `cross_repo_trace` �? Trace call paths across repositories
+- `cross_repo_impact` �? Analyze cross-repo impact of changes
+- `manage_repo_group` �? Manage repository groups
+- `sync_contracts` �? Synchronize contracts across repos
+- `discover_related_repos` �? Discover related repositories
 
 ---
 
@@ -392,25 +392,25 @@ The MCP server (`packages/mcp/src/server/mcp-server.ts`) implements the Model Co
 
 ```
 AI Agent (Claude, Cursor, Codex, etc.)
-    │
-    │ MCP Protocol (JSON-RPC over stdio or HTTP/SSE)
-    ▼
-┌─────────────────────────────────────────┐
-│           CodeAnalyzerMCPServer          │
-│  ┌───────────────────────────────────┐  │
-│  │  Middleware Pipeline              │  │
-│  │  Auth → Rate Limit → Execute     │  │
-│  └───────────────────────────────────┘  │
-│  ┌─────────┐ ┌──────────┐ ┌─────────┐  │
-│  │ Tools   │ │Resources │ │ Prompts │  │
-│  │ (38)    │ │ (15)     │ │ (5)     │  │
-│  └────┬────┘ └────┬─────┘ └────┬────┘  │
-│       │           │            │       │
-│  ┌────▼───────────▼────────────▼─────┐ │
-│  │        InMemoryGraphStore                │ │
-│  │  (In-Memory Knowledge Graph)      │ │
-│  └───────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+    �?
+    �? MCP Protocol (JSON-RPC over stdio or HTTP/SSE)
+    �?
+┌─────────────────────────────────────────�?
+�?           CodeAnalyzerMCPServer          �?
+�?  ┌───────────────────────────────────�?  �?
+�?  �?  Middleware Pipeline              �?  �?
+�?  �?  Auth �? Rate Limit �? Execute     �?  �?
+�?  └───────────────────────────────────�?  �?
+�?  ┌─────────�? ┌──────────�? ┌─────────�?  �?
+�?  �? Tools   �? │Resources �? �? Prompts �?  �?
+�?  �? (38)    �? �? (15)     �? �? (5)     �?  �?
+�?  └────┬────�? └────┬─────�? └────┬────�?  �?
+�?       �?           �?            �?       �?
+�?  ┌────▼───────────▼────────────▼─────�? �?
+�?  �?        InMemoryGraphStore                �? �?
+�?  �?  (In-Memory Knowledge Graph)      �? �?
+�?  └───────────────────────────────────�? �?
+└─────────────────────────────────────────�?
 ```
 
 ### Server Capabilities
@@ -460,7 +460,7 @@ LIMIT 10
 
 ## Performance Characteristics
 
-> **Note**: These are design targets for the in-memory store based on synthetic test data. Real-world performance with the full analysis pipeline has not been measured yet.
+> **Note**: These are performance benchmarks from test measurements. Real-world performance varies by codebase size and language complexity.
 
 | Metric | Target | Description |
 |--------|--------|-------------|
@@ -473,9 +473,7 @@ LIMIT 10
 
 ### Storage Design
 
-> **Current implementation note**: `InMemoryGraphStore` uses in-memory `Map`-based storage. SQLite persistence is planned for a future release. Data does not survive process restarts.
-
-The `InMemoryGraphStore` (`packages/infra/src/storage/in-memory-graph-store.ts`) uses an in-memory Map-based storage with:
+The `InMemoryGraphStore` (`packages/infra/src/storage/in-memory-graph-store.ts`) uses in-memory Map-based storage with:
 
 - **Adjacency indices**: `sourceEdgeIndex` and `targetEdgeIndex` for O(1) edge lookups
 - **Qualified name index**: `qnameIndex` for direct symbol resolution
@@ -497,11 +495,11 @@ The `createWorkerPool` (`packages/infra/src/workers/pool.ts`) provides:
 ## Key Design Principles
 
 1. **Strict layer isolation**: Each layer depends only on the layers below it. No upward dependencies.
-2. **Shared type system**: `@code-analyzer/shared` defines all types — the single source of truth for the entire platform.
+2. **Shared type system**: `@code-analyzer/shared` defines all types �? the single source of truth for the entire platform.
 3. **Interface-based abstraction**: `LanguageProvider`, `IInferenceEngine`, and other interfaces decouple implementations from consumers.
 4. **DAG-based execution**: The pipeline uses Kahn's algorithm for deterministic, dependency-aware execution order.
 5. **Functional core, imperative shell**: Pure functions for computation, classes for stateful coordination.
-6. **Zero external API calls**: All processing is local — code never leaves the machine.
+6. **Zero external API calls**: All processing is local �? code never leaves the machine.
 7. **Progressive disclosure**: Public APIs export both high-level conveniences and low-level primitives.
 
 ---
@@ -524,28 +522,28 @@ The `createWorkerPool` (`packages/infra/src/workers/pool.ts`) provides:
 
 ```
 Source Files (*.ts, *.py, *.go, ...)
-    │
-    ▼
-[File Discoverer] ──→ DiscoveredFile[] (path, language, content, hash)
-    │
-    ▼
-[Language Provider] ──→ UnifiedCapture[] (normalized across 8 languages)
-    │
-    ▼
-[Scope Resolver] ──→ ResolvedReference[], ResolvedImport[]
-    │
-    ▼
-[Graph Builder] ──→ KnowledgeGraph (33 node types, 39 edge types)
-    │
-    ├──→ [InMemoryGraphStore] (in-memory, adjacency-indexed)
-    │
-    ├──→ [Hybrid Search] (BM25 + vector + RRF)
-    │
-    ├──→ [Impact Analyzer] (BFS traversal over CALLS, IMPLEMENTS, etc.)
-    │
-    ├──→ [Code Review Engine] (Plan → Analyze → Filter → Relocate)
-    │
-    ├──→ [Standards Engine] (regex + metric + ast-pattern checks)
-    │
-    └──→ [MCP Server] (38 tools exposed to AI agents)
+    �?
+    �?
+[File Discoverer] ──�? DiscoveredFile[] (path, language, content, hash)
+    �?
+    �?
+[Language Provider] ──�? UnifiedCapture[] (normalized across 8 languages)
+    �?
+    �?
+[Scope Resolver] ──�? ResolvedReference[], ResolvedImport[]
+    �?
+    �?
+[Graph Builder] ──�? KnowledgeGraph (33 node types, 39 edge types)
+    �?
+    ├──�? [InMemoryGraphStore] (in-memory, adjacency-indexed)
+    �?
+    ├──�? [Hybrid Search] (BM25 + vector + RRF)
+    �?
+    ├──�? [Impact Analyzer] (BFS traversal over CALLS, IMPLEMENTS, etc.)
+    �?
+    ├──�? [Code Review Engine] (Plan �? Analyze �? Filter �? Relocate)
+    �?
+    ├──�? [Standards Engine] (regex + metric + ast-pattern checks)
+    �?
+    └──�? [MCP Server] (38 tools exposed to AI agents)
 ```
