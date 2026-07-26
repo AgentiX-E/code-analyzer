@@ -777,6 +777,46 @@ describe('validateConfig', () => {
     });
   });
 
+  describe('null sub-configs', () => {
+    it('passes when config.mcp is null', () => {
+      const config = makeValidConfig();
+      (config as any).mcp = null;
+      const errors = validateConfig(config);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes when config.review is null', () => {
+      const config = makeValidConfig();
+      (config as any).review = null;
+      const errors = validateConfig(config);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes when config.embed is null', () => {
+      const config = makeValidConfig();
+      (config as any).embed = null;
+      const errors = validateConfig(config);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes when config.pruner is null', () => {
+      const config = makeValidConfig();
+      (config as any).pruner = null;
+      const errors = validateConfig(config);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes when all sub-configs are null', () => {
+      const config = makeValidConfig();
+      (config as any).mcp = null;
+      (config as any).review = null;
+      (config as any).embed = null;
+      (config as any).pruner = null;
+      const errors = validateConfig(config);
+      expect(errors).toEqual([]);
+    });
+  });
+
   describe('null/undefined edge cases', () => {
     it('rejects null config', () => {
       const errors = validateConfig(null as unknown as CodeAnalyzerConfig);
@@ -1337,6 +1377,42 @@ describe('validateReport', () => {
       }));
       expect(errors.some((e) => e.includes('scope.type'))).toBe(true);
     });
+
+    it('accepts scope.type pr', () => {
+      const report = makeValidReport({
+        scope: { type: 'pr', prNumber: 42, baseRef: 'main', headRef: 'feature' },
+      });
+      const errors = validateReport(report);
+      expect(errors).toEqual([]);
+    });
+
+    it('accepts scope.type repo-group', () => {
+      const report = makeValidReport({
+        scope: { type: 'repo-group', groupId: 'group-1' },
+      });
+      const errors = validateReport(report);
+      expect(errors).toEqual([]);
+    });
+
+    it('accepts all scope types', () => {
+      const scopeTypes = ['project', 'repo-group', 'pr'] as const;
+      for (const scopeType of scopeTypes) {
+        const scope: any = { type: scopeType };
+        if (scopeType === 'pr') {
+          scope.prNumber = 1;
+          scope.baseRef = 'main';
+          scope.headRef = 'feature';
+        }
+        if (scopeType === 'repo-group') {
+          scope.groupId = 'g1';
+        }
+        if (scopeType === 'project') {
+          scope.projectId = 'p1';
+        }
+        const errors = validateReport(makeValidReport({ scope }));
+        expect(errors).toEqual([]);
+      }
+    });
   });
 
   describe('invalid summary', () => {
@@ -1410,6 +1486,47 @@ describe('validateReport', () => {
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('must be a non-null object'))).toBe(true);
     });
+
+    it('passes finding with description field present', () => {
+      const report = makeValidReport({
+        findings: [
+          {
+            id: 'f-2',
+            category: 'security' as ReviewCategory,
+            severity: 'critical' as Severity,
+            title: 'SQL Injection',
+            description: 'User input is directly interpolated into SQL query',
+            filePath: 'src/db.ts',
+            lineRange: [20, 25],
+            evidence: 'query("SELECT * FROM users WHERE id = " + userId)',
+            relatedFindings: [],
+          },
+        ],
+      });
+      const errors = validateReport(report);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes finding with empty description (not validated)', () => {
+      const report = makeValidReport({
+        findings: [
+          {
+            id: 'f-3',
+            category: 'style' as ReviewCategory,
+            severity: 'low' as Severity,
+            title: 'Missing semicolon',
+            description: '',
+            filePath: 'src/app.ts',
+            lineRange: [5, 5],
+            evidence: 'const x = 1',
+            relatedFindings: [],
+          },
+        ],
+      });
+      const errors = validateReport(report);
+      // description is not currently validated by validateReport
+      expect(errors).toEqual([]);
+    });
   });
 
   describe('invalid recommendations', () => {
@@ -1448,6 +1565,76 @@ describe('validateReport', () => {
       });
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('must be a non-null object'))).toBe(true);
+    });
+
+    it('passes recommendation with description field present', () => {
+      const report = makeValidReport({
+        recommendations: [
+          {
+            id: 'rec-2',
+            priority: 2 as 1 | 2 | 3,
+            title: 'Refactor large function',
+            description: 'The function has high cyclomatic complexity and should be split into smaller functions',
+            estimatedEffort: 'medium' as const,
+            affectedFiles: ['src/utils.ts'],
+            actionItems: [{ description: 'Extract helper function' }],
+            risksAddressed: ['Maintainability'],
+            references: [],
+          },
+        ],
+      });
+      const errors = validateReport(report);
+      expect(errors).toEqual([]);
+    });
+
+    it('passes recommendation with empty description (not validated)', () => {
+      const report = makeValidReport({
+        recommendations: [
+          {
+            id: 'rec-3',
+            priority: 3 as 1 | 2 | 3,
+            title: 'Update docs',
+            description: '',
+            estimatedEffort: 'trivial' as const,
+            affectedFiles: [],
+            actionItems: [],
+            risksAddressed: [],
+            references: [],
+          },
+        ],
+      });
+      const errors = validateReport(report);
+      // description is not currently validated by validateReport
+      expect(errors).toEqual([]);
+    });
+
+    it('validates recommendation with all optional fields filled', () => {
+      const report = makeValidReport({
+        recommendations: [
+          {
+            id: 'rec-4',
+            priority: 1 as 1 | 2 | 3,
+            title: 'Add input validation',
+            description: 'Add validation for all user inputs',
+            estimatedEffort: 'large' as const,
+            affectedFiles: ['src/input.ts', 'src/validate.ts'],
+            actionItems: [
+              { description: 'Add validation middleware', file: 'src/validate.ts', lineRange: [10, 20], command: 'npm test', verifiedBy: 'CI' },
+            ],
+            risksAddressed: ['Security', 'Data Integrity'],
+            references: [
+              { type: 'url', label: 'OWASP', value: 'https://owasp.org' },
+              { type: 'file', label: 'Example', value: 'src/example.ts' },
+              { type: 'symbol', label: 'validateInput', value: 'src/validate.ts:validateInput' },
+              { type: 'standard', label: 'OWASP-ASVS', value: 'V5.1' },
+            ],
+            beforeCode: 'const input = req.body;',
+            afterCode: 'const input = validateInput(req.body);',
+          },
+        ],
+      });
+      const errors = validateReport(report);
+      expect(errors).toEqual([]);
     });
   });
 

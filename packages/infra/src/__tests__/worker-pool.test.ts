@@ -278,6 +278,155 @@ describe('WorkerPool', () => {
     expect(result).toBe('ok');
     expect(calls).toBe(1);
   });
+
+  // ── Additional coverage tests ──
+
+  it('handles pool exhaustion — more tasks than workers', async () => {
+    pool = createWorkerPool(2);
+    const order: string[] = [];
+    const startTimes: number[] = [];
+
+    const tasks = Array.from({ length: 6 }, (_, i) => ({
+      id: `exhaust${i}`,
+      execute: async () => {
+        startTimes.push(Date.now());
+        await new Promise((r) => setTimeout(r, 20));
+        order.push(`task${i}`);
+        return i;
+      },
+    }));
+
+    const results = await pool.executeAll(tasks);
+    expect(results).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(order.length).toBe(6);
+  });
+
+  it('tasks are queued when all workers busy', async () => {
+    pool = createWorkerPool(1);
+    let running = false;
+
+    // Start a blocking task
+    const blocker = pool.execute({
+      id: 'blocker2',
+      execute: async () => {
+        running = true;
+        await new Promise((r) => setTimeout(r, 100));
+        running = false;
+        return 'done';
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Queue 3 more tasks
+    const q1 = pool.execute({ id: 'q-a', execute: async () => 'a' });
+    const q2 = pool.execute({ id: 'q-b', execute: async () => 'b' });
+    const q3 = pool.execute({ id: 'q-c', execute: async () => 'c' });
+
+    expect(pool.queuedCount).toBeGreaterThanOrEqual(2);
+
+    await blocker;
+    const results = await Promise.all([q1, q2, q3]);
+    expect(results).toEqual(['a', 'b', 'c']);
+  });
+
+  it('error in one task does not affect other tasks in executeAll', async () => {
+    pool = createWorkerPool(2);
+    await expect(
+      pool.executeAll([
+        { id: 'ok1', execute: async () => 'ok' },
+        {
+          id: 'fail1',
+          execute: async () => {
+            throw new Error('task failed');
+          },
+          retries: 0,
+        },
+        { id: 'ok2', execute: async () => 'ok2' },
+      ]),
+    ).rejects.toThrow('task failed');
+  });
+
+  it('handles task with default timeout (30s)', async () => {
+    pool = createWorkerPool(1);
+    // Default timeout is 30s, this should complete fine
+    const result = await pool.execute({
+      id: 'default-timeout',
+      execute: async () => 'fast',
+    });
+    expect(result).toBe('fast');
+  });
+
+  it('retries with backoff delay', async () => {
+    pool = createWorkerPool(1);
+    let attempts = 0;
+    const startTime = Date.now();
+
+    const result = await pool.execute({
+      id: 'backoff-test',
+      execute: async () => {
+        attempts++;
+        if (attempts < 3) {
+          throw new Error('fail');
+        }
+        return 'done';
+      },
+      retries: 2,
+    });
+
+    const elapsed = Date.now() - startTime;
+    expect(result).toBe('done');
+    expect(attempts).toBe(3);
+    // Should have at least 10ms + 20ms = 30ms of backoff delay
+    expect(elapsed).toBeGreaterThanOrEqual(25);
+  });
+
+  it('throws last error when all retries exhausted', async () => {
+    pool = createWorkerPool(1);
+    await expect(
+      pool.execute({
+        id: 'exhaust-retries',
+        execute: async () => {
+          throw new Error('final error');
+        },
+        retries: 2,
+      }),
+    ).rejects.toThrow('final error');
+  });
+
+  it('activeCount returns to 0 after tasks complete', async () => {
+    pool = createWorkerPool(2);
+    expect(pool.activeCount).toBe(0);
+
+    await pool.executeAll([
+      { id: 'a', execute: async () => 'a' },
+      { id: 'b', execute: async () => 'b' },
+    ]);
+
+    // Wait for slots to be released
+    await new Promise((r) => setTimeout(r, 5));
+    expect(pool.activeCount).toBe(0);
+  });
+
+  it('queuedCount returns to 0 after all tasks complete', async () => {
+    pool = createWorkerPool(1);
+    const blocker = pool.execute({
+      id: 'b',
+      execute: async () => {
+        await new Promise((r) => setTimeout(r, 50));
+        return 'done';
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+
+    const q = pool.execute({ id: 'q', execute: async () => 'queued' });
+    expect(pool.queuedCount).toBeGreaterThanOrEqual(1);
+
+    await blocker;
+    await q;
+    expect(pool.queuedCount).toBe(0);
+  });
 });
 
 describe('CircuitBreaker', () => {

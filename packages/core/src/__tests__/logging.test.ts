@@ -420,6 +420,136 @@ describe('FileTransport', () => {
     logger.flush();
     logger.close();
   });
+
+  it('should handle file transport write failure gracefully', () => {
+    // Logger catches transport write errors internally (try/catch in log method)
+    // FileTransport mkdir happens in constructor, but write failure is handled
+    const logger = createLogger('test-file-fail', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs-write-fail',
+    });
+
+    // Write should not throw — transport errors are caught internally
+    expect(() => {
+      logger.info('should not crash the process');
+    }).not.toThrow();
+
+    logger.close();
+  });
+});
+
+describe('LoggerImpl with format pretty', () => {
+  it('should create a logger with format:pretty explicitly', () => {
+    const transport = new TestTransport();
+    const logger = new LoggerImpl('test-pretty', {
+      minLevel: 'trace',
+      format: 'pretty',
+      transports: [transport],
+    });
+
+    logger.info('pretty format test');
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.message).toBe('pretty format test');
+  });
+});
+
+describe('Multiple simultaneous transports', () => {
+  it('should write to all transports', () => {
+    const t1 = new TestTransport();
+    const t2 = new TestTransport();
+    const logger = createLogger('test-multi', {
+      minLevel: 'trace',
+      transports: [t1, t2],
+    });
+
+    logger.info('broadcast message');
+
+    expect(t1.entries).toHaveLength(1);
+    expect(t2.entries).toHaveLength(1);
+    expect(t1.entries[0]?.message).toBe('broadcast message');
+    expect(t2.entries[0]?.message).toBe('broadcast message');
+  });
+
+  it('should continue writing to other transports if one fails', () => {
+    const t1 = new TestTransport();
+    const badTransport: LogTransport = {
+      write(_formatted: string, _entry: LogEntry): void {
+        throw new Error('write failure');
+      },
+    };
+    const t2 = new TestTransport();
+
+    const logger = createLogger('test-multi', {
+      minLevel: 'trace',
+      transports: [badTransport, t1, t2],
+    });
+
+    logger.info('should still reach good transports');
+    expect(t1.entries).toHaveLength(1);
+    expect(t2.entries).toHaveLength(1);
+  });
+});
+
+describe('Logger close after close', () => {
+  it('should not throw when closing twice', () => {
+    const logger = createLogger('test-double-close', { minLevel: 'trace' });
+    logger.close();
+    expect(() => logger.close()).not.toThrow();
+  });
+
+  it('should not log after close and remain silent', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-silent', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.close();
+    logger.info('should be dropped');
+    logger.close(); // close again
+    logger.info('also dropped');
+
+    expect(transport.entries).toHaveLength(0);
+  });
+});
+
+describe('Trace level logging', () => {
+  it('should log trace messages when minLevel is trace', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-trace', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.trace('very detailed trace');
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.level).toBe('trace');
+    expect(transport.entries[0]?.message).toBe('very detailed trace');
+  });
+
+  it('should log trace with data', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-trace-data', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.trace('trace with data', { detail: 'extra', count: 42 });
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.data).toEqual({ detail: 'extra', count: 42 });
+  });
+
+  it('should not log trace when minLevel is debug', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-trace-filtered', {
+      minLevel: 'debug',
+      transports: [transport],
+    });
+
+    logger.trace('should not appear');
+    expect(transport.entries).toHaveLength(0);
+  });
 });
 
 describe('formatPretty unknown level', () => {

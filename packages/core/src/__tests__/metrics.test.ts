@@ -44,6 +44,24 @@ describe('DefaultMetricsCollector', () => {
     it('should return 0 for non-existent counters', () => {
       expect(metrics.getCounter('nonexistent')).toBe(0);
     });
+
+    it('should increment by zero (no change)', () => {
+      metrics.incrementCounter('zero-inc', 0);
+      expect(metrics.getCounter('zero-inc')).toBe(0);
+    });
+
+    it('should handle negative increment', () => {
+      metrics.incrementCounter('neg-counter', 10);
+      metrics.incrementCounter('neg-counter', -3);
+      expect(metrics.getCounter('neg-counter')).toBe(7);
+    });
+
+    it('should handle large concurrent-style increments', () => {
+      for (let i = 0; i < 1000; i++) {
+        metrics.incrementCounter('concurrent-counter');
+      }
+      expect(metrics.getCounter('concurrent-counter')).toBe(1000);
+    });
   });
 
   describe('gauges', () => {
@@ -68,6 +86,22 @@ describe('DefaultMetricsCollector', () => {
 
     it('should return 0 for non-existent gauges', () => {
       expect(metrics.getGauge('nonexistent')).toBe(0);
+    });
+
+    it('should handle negative gauge values', () => {
+      metrics.setGauge('temperature', -10);
+      expect(metrics.getGauge('temperature')).toBe(-10);
+    });
+
+    it('should handle zero gauge value', () => {
+      metrics.setGauge('zero-gauge', 100);
+      metrics.setGauge('zero-gauge', 0);
+      expect(metrics.getGauge('zero-gauge')).toBe(0);
+    });
+
+    it('should handle fractional gauge values', () => {
+      metrics.setGauge('fraction', 3.14159);
+      expect(metrics.getGauge('fraction')).toBeCloseTo(3.14159);
     });
   });
 
@@ -99,6 +133,46 @@ describe('DefaultMetricsCollector', () => {
       expect(api!.sum).toBeCloseTo(0.3);
       expect(slow!.count).toBe(1);
       expect(slow!.sum).toBe(5.0);
+    });
+
+    it('should handle histogram boundary edge case (value exactly at boundary)', () => {
+      metrics.recordDuration('boundary', 0.005);
+      const hist = metrics.getHistogram('boundary');
+      expect(hist).toBeDefined();
+      expect(hist!.count).toBe(1);
+      expect(hist!.sum).toBeCloseTo(0.005);
+    });
+
+    it('should handle histogram with very large values', () => {
+      metrics.recordDuration('large', 1000000);
+      const hist = metrics.getHistogram('large');
+      expect(hist).toBeDefined();
+      expect(hist!.count).toBe(1);
+      expect(hist!.sum).toBe(1000000);
+    });
+
+    it('should handle histogram with zero duration', () => {
+      metrics.recordDuration('zero-duration', 0);
+      const hist = metrics.getHistogram('zero-duration');
+      expect(hist).toBeDefined();
+      expect(hist!.count).toBe(1);
+      expect(hist!.sum).toBe(0);
+    });
+
+    it('should handle histogram with negative duration', () => {
+      metrics.recordDuration('neg-duration', -1.0);
+      const hist = metrics.getHistogram('neg-duration');
+      expect(hist).toBeDefined();
+      expect(hist!.count).toBe(1);
+      expect(hist!.sum).toBe(-1.0);
+    });
+
+    it('should handle concurrent histogram observations', () => {
+      for (let i = 0; i < 100; i++) {
+        metrics.recordDuration('concurrent-latency', i * 0.01);
+      }
+      const hist = metrics.getHistogram('concurrent-latency');
+      expect(hist!.count).toBe(100);
     });
   });
 

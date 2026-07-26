@@ -554,4 +554,92 @@ describe('parseDiff hunk parsing edge cases', () => {
     expect(diffs.length).toBe(1);
     expect(diffs[0]!.ranges.length).toBe(1);
   });
+
+  it('parses diff with similarity index (copy/rename)', () => {
+    const output = [
+      'diff --git a/old.ts b/new.ts',
+      'similarity index 100%',
+      'rename from old.ts',
+      'rename to new.ts',
+      '--- a/old.ts',
+      '+++ b/new.ts',
+      '@@ -1,5 +1,5 @@',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('renamed');
+  });
+
+  it('parses diff with copy detection', () => {
+    const output = [
+      'diff --git a/original.ts b/copy.ts',
+      'similarity index 95%',
+      'copy from original.ts',
+      'copy to copy.ts',
+      '--- a/original.ts',
+      '+++ b/copy.ts',
+      '@@ -1,5 +1,5 @@',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    // Copy detection produces a diff entry; changeType may be 'modified' since 
+    // the parser only looks for 'rename from' to set 'renamed'
+    expect(diffs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles binary file in diff gracefully', () => {
+    const output = [
+      'diff --git a/image.png b/image.png',
+      'new file mode 100644',
+      'Binary files differ',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('added');
+    expect(diffs[0]!.ranges.length).toBe(0); // No hunks for binary
+  });
+
+  it('handles empty file in diff', () => {
+    const output = [
+      'diff --git a/empty.ts b/empty.ts',
+      'new file mode 100644',
+      '--- /dev/null',
+      '+++ b/empty.ts',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('added');
+  });
+
+  it('parses multiple file diffs in one output', () => {
+    const output = [
+      'diff --git a/file1.ts b/file1.ts',
+      '--- a/file1.ts',
+      '+++ b/file1.ts',
+      '@@ -1,3 +1,3 @@',
+      ' context',
+      'diff --git a/file2.ts b/file2.ts',
+      'new file mode 100644',
+      '--- /dev/null',
+      '+++ b/file2.ts',
+      '@@ -0,0 +1,3 @@',
+      '+new line',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(2);
+    expect(diffs[0]!.filePath).toBe('file1.ts');
+    expect(diffs[1]!.filePath).toBe('file2.ts');
+  });
+
+  it('handles diff with no hunk header (only file headers)', () => {
+    const output = [
+      'diff --git a/config.json b/config.json',
+      'deleted file mode 100644',
+      '--- a/config.json',
+      '+++ /dev/null',
+    ].join('\n');
+    const diffs = gitOps.parseDiff(output);
+    expect(diffs.length).toBe(1);
+    expect(diffs[0]!.changeType).toBe('deleted');
+    expect(diffs[0]!.ranges.length).toBe(0);
+  });
 });

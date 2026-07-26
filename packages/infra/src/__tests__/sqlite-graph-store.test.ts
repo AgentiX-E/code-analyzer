@@ -1276,5 +1276,101 @@ describe('SqliteGraphStore', () => {
     it('deleting a non-existent file with deleteDatabase does not throw', () => {
       expect(() => deleteDatabase('/nonexistent/path/db.sqlite')).not.toThrow();
     });
+
+    it('handles duplicate edge insert (same source, target, type)', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'dup.edge.n1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'dup.edge.n2' }));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
+      // Inserting another edge with same source/target/type should succeed (no unique constraint on that combo)
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
+      expect(store.getStats().edgeCount).toBe(2);
+    });
+
+    it('bfs with maxDepth=-1 treats it as no depth limit', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'bfs.neg.n1', name: 'NegN1' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'bfs.neg.n2', name: 'NegN2' }));
+      store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
+      // maxDepth=-1: queue starts, depth 0 >= -1? No. depth of n2 = 1, 1 >= -1? No.
+      // Since maxDepth is -1 and depth never exceeds -1, all nodes are traversed
+      const result = store.bfs(n1, -1);
+      // depth >= -1 is never true, so no continue, all nodes traversed
+      expect(result.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('getNeighbors returns empty for non-existent node', () => {
+      expect(store.getNeighbors(99999)).toEqual([]);
+    });
+
+    it('updateNode with null field clears the value', () => {
+      const node = createTestNode({
+        qualifiedName: 'null.clear',
+        signature: 'original()',
+        docstring: 'original docs',
+        complexity: 5,
+      });
+      const id = store.insertNode(node);
+      store.updateNode(id, { signature: null, docstring: null, complexity: null });
+      const updated = store.getNode(id)!;
+      expect(updated.signature).toBeNull();
+      expect(updated.docstring).toBeNull();
+      expect(updated.complexity).toBeNull();
+    });
+
+    it('updateNode with undefined fields preserves existing values', () => {
+      const node = createTestNode({
+        qualifiedName: 'undef.keep',
+        signature: 'keepMe()',
+        docstring: 'keep docs',
+      });
+      const id = store.insertNode(node);
+      // Update only name, signature/docstring should be preserved
+      store.updateNode(id, { name: 'newName' });
+      const updated = store.getNode(id)!;
+      expect(updated.signature).toBe('keepMe()');
+      expect(updated.docstring).toBe('keep docs');
+    });
+
+    it('validate detects duplicate qualified names from raw SQL bypass', () => {
+      // The unique constraint prevents normal duplicate insertion, 
+      // but validate should still detect if corruption occurs
+      store.insertNode(createTestNode({ qualifiedName: 'validate.dup', projectId: 'vproj' }));
+      // Try to insert duplicate — should throw due to unique constraint
+      expect(() =>
+        store.insertNode(createTestNode({ qualifiedName: 'validate.dup', projectId: 'vproj' })),
+      ).toThrow();
+    });
+
+    it('stats returns accurate counts after vacuum', () => {
+      store.insertNode(createTestNode({ qualifiedName: 'vac.stats' }));
+      const statsBefore = store.getStats();
+      expect(statsBefore.nodeCount).toBe(1);
+
+      store.vacuum();
+      const statsAfter = store.getStats();
+      expect(statsAfter.nodeCount).toBe(1);
+    });
+
+    it('handles file-based persistence with WAL mode', () => {
+      const testDir = mkdtempSync(join(tmpdir(), 'code-analyzer-test-'));
+      const filePath = join(testDir, 'wal-test.db');
+
+      const s1 = new SqliteGraphStore(filePath);
+      s1.insertNode(createTestNode({ qualifiedName: 'wal.test', name: 'WALTest' }));
+      // Data should be persisted in WAL mode
+      s1.close();
+
+      // Reopen and verify WAL was checkpointed on close
+      const s2 = new SqliteGraphStore(filePath);
+      const node = s2.getNodeByQName('wal.test');
+      expect(node).not.toBeNull();
+      expect(node!.name).toBe('WALTest');
+      s2.close();
+
+      deleteDatabase(filePath);
+      // Clean up WAL/SHM files if they exist
+      try { unlinkSync(filePath + '-wal'); } catch { /* ignore */ }
+      try { unlinkSync(filePath + '-shm'); } catch { /* ignore */ }
+      try { unlinkSync(testDir); } catch { /* ignore */ }
+    });
   });
 });

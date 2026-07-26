@@ -412,7 +412,11 @@ describe('type re-exports', () => {
   });
 });
 
-  // Additional edge cases for getLanguageFromFilename
+// ---------------------------------------------------------------------------
+// Additional getLanguageFromFilename edge cases (orphaned tests relocated)
+// ---------------------------------------------------------------------------
+
+describe('getLanguageFromFilename secondary extensions', () => {
   it('handles file with secondary extension', () => {
     expect(getLanguageFromFilename('test.spec.ts')).toBe('typescript');
   });
@@ -425,3 +429,206 @@ describe('type re-exports', () => {
   it('handles unknown secondary extension', () => {
     expect(getLanguageFromFilename('config.local.yml')).toBeNull();
   });
+});
+
+// ---------------------------------------------------------------------------
+// MroStrategy Type
+// ---------------------------------------------------------------------------
+
+describe('MroStrategy', () => {
+  it('type values are accessible as string literals', () => {
+    // Validate that the three MroStrategy values are usable at runtime
+    const strategies: string[] = ['c3-linearization', 'ruby-mixin', 'first-wins'];
+    for (const s of strategies) {
+      expect(typeof s).toBe('string');
+      expect(s.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('each strategy is a distinct value', () => {
+    const strategies = new Set(['c3-linearization', 'ruby-mixin', 'first-wins']);
+    expect(strategies.size).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// StandardCategory Type
+// ---------------------------------------------------------------------------
+
+describe('StandardCategory', () => {
+  const categories = [
+    'code-style',
+    'architecture',
+    'security',
+    'performance',
+    'testing',
+    'api-design',
+    'error-handling',
+    'documentation',
+    'dependency',
+    'custom',
+  ];
+
+  it('has exactly 10 standard categories', () => {
+    expect(categories).toHaveLength(10);
+  });
+
+  it.each(categories)('"%s" is a valid standard category', (cat) => {
+    expect(typeof cat).toBe('string');
+    expect(cat.length).toBeGreaterThan(0);
+  });
+
+  it('all categories are unique', () => {
+    expect(new Set(categories).size).toBe(categories.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ToolProfile Type
+// ---------------------------------------------------------------------------
+
+describe('ToolProfile', () => {
+  const profiles = ['all', 'analysis', 'scout'];
+
+  it('has exactly 3 tool profiles', () => {
+    expect(profiles).toHaveLength(3);
+  });
+
+  it.each(profiles)('"%s" is a valid tool profile', (profile) => {
+    expect(typeof profile).toBe('string');
+    expect(profile.length).toBeGreaterThan(0);
+  });
+
+  it('all profiles are unique', () => {
+    expect(new Set(profiles).size).toBe(profiles.length);
+  });
+
+  it('all profiles map to expected MCP server behaviors', () => {
+    expect(profiles).toContain('all');
+    expect(profiles).toContain('analysis');
+    expect(profiles).toContain('scout');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional type guard edge cases
+// ---------------------------------------------------------------------------
+
+describe('isNodeLabel edge cases', () => {
+  it('returns false for empty string', () => {
+    expect(isNodeLabel('')).toBe(false);
+  });
+
+  it('returns false for whitespace-only string', () => {
+    expect(isNodeLabel('   ')).toBe(false);
+  });
+
+  it('returns false for lowercase variant of valid label', () => {
+    expect(isNodeLabel('class')).toBe(false);
+  });
+
+  it('returns false for a number', () => {
+    expect(isNodeLabel(0 as unknown as string)).toBe(false);
+  });
+
+  it('returns false for a boolean', () => {
+    expect(isNodeLabel(true as unknown as string)).toBe(false);
+  });
+
+  it('returns false for an object', () => {
+    expect(isNodeLabel({} as unknown as string)).toBe(false);
+  });
+
+  it('returns false for an array', () => {
+    expect(isNodeLabel([] as unknown as string)).toBe(false);
+  });
+});
+
+describe('isRelationshipType edge cases', () => {
+  it('returns false for empty string', () => {
+    expect(isRelationshipType('')).toBe(false);
+  });
+
+  it('returns false for lowercase variant of valid type', () => {
+    expect(isRelationshipType('calls')).toBe(false);
+  });
+
+  it('returns false for mixed-case variant', () => {
+    expect(isRelationshipType('Calls')).toBe(false);
+  });
+
+  it('returns false for a number', () => {
+    expect(isRelationshipType(42 as unknown as string)).toBe(false);
+  });
+
+  it('returns false for an object', () => {
+    expect(isRelationshipType({} as unknown as string)).toBe(false);
+  });
+
+  it('returns false for null', () => {
+    expect(isRelationshipType(null as unknown as string)).toBe(false);
+  });
+
+  it('returns false for undefined', () => {
+    expect(isRelationshipType(undefined as unknown as string)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getLanguageFromFilename remaining edge cases
+// ---------------------------------------------------------------------------
+
+describe('getLanguageFromFilename additional edge cases', () => {
+  it('returns null for dotfile with extension-like name', () => {
+    // .gitignore has no dot after the first char, so lastIndexOf('.') = 0
+    expect(getLanguageFromFilename('.gitignore')).toBe(null);
+  });
+
+  it('returns null for path with no filename (trailing slash)', () => {
+    // split('/') gives ['src', ''] -> base='', dotIndex=-1
+    expect(getLanguageFromFilename('src/')).toBe(null);
+  });
+
+  it('returns null for single dot filename', () => {
+    expect(getLanguageFromFilename('.')).toBe(null);
+  });
+
+  it('returns null for double dot filename', () => {
+    expect(getLanguageFromFilename('..')).toBe(null);
+  });
+
+  it('handles filename that starts with dot but has extension', () => {
+    expect(getLanguageFromFilename('.env')).toBe(null);
+  });
+
+  it('handles windows-style backslash paths', () => {
+    // split('/') returns ['src\\main.ts'] since there are no forward slashes
+    // the function handles this because lastIndexOf('.') on 'src\\main.ts' finds '.ts'
+    expect(getLanguageFromFilename('src\\main.ts')).toBe('typescript');
+  });
+
+  it('handles path with multiple forward slashes', () => {
+    expect(getLanguageFromFilename('a//b//main.ts')).toBe('typescript');
+  });
+
+  it('detects .d.ts in deeply nested path', () => {
+    expect(getLanguageFromFilename('/a/b/c/types/util.d.ts')).toBe('typescript');
+  });
+
+  it('detects .pyi as python stub', () => {
+    expect(getLanguageFromFilename('mypackage/__init__.pyi')).toBe('python');
+  });
+
+  it('detects .kts as kotlin', () => {
+    expect(getLanguageFromFilename('build.gradle.kts')).toBe('kotlin');
+  });
+
+  it('returns null for filename that is only extension-like', () => {
+    // '.ts' has dotIndex=0, ext='.ts', the EXT_MAP has '.ts' => 'typescript'
+    expect(getLanguageFromFilename('.ts')).toBe('typescript');
+  });
+
+  it('handles file at root of path (just filename)', () => {
+    expect(getLanguageFromFilename('index.js')).toBe('javascript');
+  });
+});

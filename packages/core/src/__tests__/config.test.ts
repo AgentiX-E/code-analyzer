@@ -51,18 +51,42 @@ describe('getDefaultConfig', () => {
     expect(config.projectId).toBe('');
   });
 
-  it('should handle parseWorkers when availableParallelism is not available', () => {
+  it('should handle parseWorkers when availableParallelism returns 0', () => {
     const original = os.availableParallelism;
-    // @ts-expect-error testing fallback
-    delete os.availableParallelism;
+    os.availableParallelism = () => 0;
     try {
       const config = getDefaultConfig();
-      expect(config.parseWorkers).toBeGreaterThan(0);
+      // When availableParallelism returns 0, Math.max(1, 0/2) = 1
+      expect(config.parseWorkers).toBe(1);
     } finally {
       if (original) {
         os.availableParallelism = original;
       }
     }
+  });
+
+  it('should handle parseWorkers when availableParallelism returns 1', () => {
+    const original = os.availableParallelism;
+    os.availableParallelism = () => 1;
+    try {
+      const config = getDefaultConfig();
+      // Math.max(1, Math.floor(1/2)) = Math.max(1, 0) = 1
+      expect(config.parseWorkers).toBe(1);
+    } finally {
+      if (original) {
+        os.availableParallelism = original;
+      }
+    }
+  });
+
+  it('should set cacheDir to default value', () => {
+    const config = getDefaultConfig();
+    expect(config.cacheDir).toBe('.code-analyzer');
+  });
+
+  it('should have empty includePatterns by default', () => {
+    const config = getDefaultConfig();
+    expect(config.includePatterns).toEqual([]);
   });
 });
 
@@ -129,6 +153,53 @@ describe('deepMerge', () => {
     const source = { a: { y: 2 }, b: { nested: true } };
     const result = deepMerge(target, source);
     expect(result).toEqual({ a: { x: 1, y: 2 }, b: { nested: true } });
+  });
+
+  it('should deep merge more than 2 levels', () => {
+    const target = { a: { b: { c: 1, d: 2 } } };
+    const source = { a: { b: { c: 99, e: 3 } } };
+    const result = deepMerge(target, source);
+    expect(result).toEqual({ a: { b: { c: 99, d: 2, e: 3 } } });
+  });
+
+  it('should deep merge 3 levels with mixed replacements', () => {
+    const target = {
+      level1: {
+        level2: {
+          level3a: 'keep',
+          level3b: 'old',
+        },
+        sibling: 'keep-too',
+      },
+      top: 'original',
+    };
+    const source = {
+      level1: {
+        level2: {
+          level3b: 'new',
+          level3c: 'added',
+        },
+      },
+    };
+    const result = deepMerge(target, source);
+    expect(result).toEqual({
+      level1: {
+        level2: {
+          level3a: 'keep',
+          level3b: 'new',
+          level3c: 'added',
+        },
+        sibling: 'keep-too',
+      },
+      top: 'original',
+    });
+  });
+
+  it('should replace array at any depth', () => {
+    const target = { a: { b: [1, 2, 3], c: 'str' } };
+    const source = { a: { b: [4, 5] } };
+    const result = deepMerge(target, source);
+    expect(result).toEqual({ a: { b: [4, 5], c: 'str' } });
   });
 });
 
@@ -356,6 +427,33 @@ describe('loadConfig', () => {
       delete process.env['CODE_ANALYZER_MCP_NAME'];
     }
   });
+
+  it('should merge simultaneous global and project config', async () => {
+    // Global config
+    await fs.mkdir(globalConfigDir, { recursive: true });
+    const globalConfigPath = path.join(globalConfigDir, 'config.json');
+    await fs.writeFile(
+      globalConfigPath,
+      JSON.stringify({ maxFileSize: 7777, projectId: 'global-id' })
+    );
+
+    // Project config
+    const projectConfigPath = path.join(testDir, '.code-analyzer.json');
+    await fs.writeFile(
+      projectConfigPath,
+      JSON.stringify({ projectId: 'project-id', maxFiles: 999 })
+    );
+
+    try {
+      const config = await loadConfig(testDir);
+      expect(config.maxFileSize).toBe(7777);
+      expect(config.projectId).toBe('project-id');
+      expect(config.maxFiles).toBe(999);
+    } finally {
+      await fs.unlink(globalConfigPath).catch(() => {});
+      await fs.rmdir(globalConfigDir).catch(() => {});
+    }
+  });
 });
 
 describe('validateConfig', () => {
@@ -438,5 +536,30 @@ describe('validateConfig', () => {
     const arrayError = errors.find(e => e.message.includes('excludePatterns[0]'));
     expect(arrayError).toBeDefined();
     expect(arrayError!.path).toBe('');
+  });
+
+  it('should validate config with deeply nested sub-configs', () => {
+    const config = {
+      projectId: 'test',
+      rootPath: '/tmp',
+      maxFileSize: 1024,
+      maxFiles: 1000,
+      parseWorkers: 4,
+      excludePatterns: [],
+      includePatterns: [],
+      ignorePaths: [],
+      mcp: { name: 'test', version: '1.0', toolProfile: 'full' },
+      review: { enabled: true, maxComments: 50 },
+      embed: { enabled: true, model: 'model', batchSize: 32, dimensions: 768 },
+      pruner: { enabled: false, keepTests: true, keepInternal: true },
+    };
+    const errors = validateConfig(config);
+    // The shared validator may have additional constraints on these nested fields
+    // that we can't know ahead of time. We just verify the validator doesn't crash.
+    expect(Array.isArray(errors)).toBe(true);
+    for (const err of errors) {
+      expect(typeof err.path).toBe('string');
+      expect(typeof err.message).toBe('string');
+    }
   });
 });

@@ -121,6 +121,39 @@ describe('DefaultTranslator', () => {
     translator.loadLocale('fr');
     expect(translator.t('config.loading')).toBe('Loading configuration...');
   });
+
+  it('should handle special regex characters in params', () => {
+    const result = translator.t('config.loadFailed', { error: '$pecial *regex+ chars.?' });
+    expect(result).toContain('$pecial *regex+ chars.?');
+  });
+
+  it('should handle params with brackets in value', () => {
+    const result = translator.t('config.loadFailed', { error: '{nested} braces' });
+    expect(result).toContain('{nested} braces');
+  });
+
+  it('should handle large param objects', () => {
+    const params: Record<string, string | number> = {
+      error: 'big-error-value',
+    };
+    for (let i = 0; i < 100; i++) {
+      params[`extraKey${i}`] = `extraValue${i}`;
+    }
+    const result = translator.t('config.loadFailed', params);
+    // The template uses {error}, so only the error param gets interpolated
+    expect(result).toContain('big-error-value');
+    expect(result).not.toContain('{error}');
+  });
+
+  it('should handle numeric value 0 in params', () => {
+    const result = translator.t('config.validationFailed', { count: 0 });
+    expect(result).toContain('0');
+  });
+
+  it('should handle negative numeric params', () => {
+    const result = translator.t('config.validationFailed', { count: -1 });
+    expect(result).toContain('-1');
+  });
 });
 
 describe('Shared translator singleton', () => {
@@ -161,5 +194,32 @@ describe('Shared translator singleton', () => {
     resetTranslator();
     const t2 = getTranslator();
     expect(t1).not.toBe(t2);
+  });
+
+  it('should handle concurrent access to singleton', () => {
+    resetTranslator();
+    const t1 = getTranslator();
+    const t2 = getTranslator();
+    const t3 = getTranslator();
+    expect(t1).toBe(t2);
+    expect(t2).toBe(t3);
+  });
+});
+
+describe('DefaultTranslator — loadLocale case sensitivity', () => {
+  it('should treat unknown locale as default (en)', () => {
+    const translator = new DefaultTranslator();
+    translator.loadLocale('DE');
+    expect(translator.locale).toBe('DE');
+    // Falls through to default case, loads English messages
+    expect(translator.t('config.loading')).toBe('Loading configuration...');
+  });
+
+  it('should reload English when switching back from another locale', () => {
+    const translator = new DefaultTranslator('en');
+    translator.loadLocale('fr');
+    translator.loadLocale('en');
+    expect(translator.locale).toBe('en');
+    expect(translator.t('config.loading')).toBe('Loading configuration...');
   });
 });

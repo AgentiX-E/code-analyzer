@@ -30,6 +30,34 @@ describe('HealthCheckRegistry', () => {
     });
   });
 
+  describe('all health check types', () => {
+    it('should have memory-usage as critical check', () => {
+      const check = registry.getCheck('memory-usage')!;
+      expect(check.critical).toBe(true);
+    });
+
+    it('should have store-connectivity as critical check', () => {
+      const check = registry.getCheck('store-connectivity')!;
+      expect(check.critical).toBe(true);
+    });
+
+    it('should have worker-pool as non-critical check', () => {
+      const check = registry.getCheck('worker-pool')!;
+      // Worker pool is not critical by default
+      expect(check.critical).toBeUndefined();
+    });
+
+    it('should run all four built-in checks successfully', async () => {
+      const status = await registry.runAll();
+      expect(status.checks).toHaveLength(4);
+      const names = status.checks.map((c) => c.name);
+      expect(names).toContain('memory-usage');
+      expect(names).toContain('store-connectivity');
+      expect(names).toContain('disk-space');
+      expect(names).toContain('worker-pool');
+    });
+  });
+
   describe('registration', () => {
     it('should register a custom health check', () => {
       const check: HealthCheck = {
@@ -192,6 +220,26 @@ describe('HealthCheckRegistry', () => {
       expect(failCheck!.status).toBe('fail');
       expect(failCheck!.message).toContain('Boom string');
     });
+
+    it('should return degraded when non-critical check warns', async () => {
+      const r = new HealthCheckRegistry({
+        memoryThreshold: 100,
+        minDiskSpace: Number.MAX_SAFE_INTEGER,  // disk-space will warn
+      });
+      const status = await r.runAll();
+      // Disk-space is not critical and only warns, so overall is degraded
+      expect(status.status).toBe('degraded');
+    });
+
+    it('should return unhealthy when a critical check fails and non-critical warns', async () => {
+      const r = new HealthCheckRegistry({
+        memoryThreshold: 0,  // memory check will fail (critical)
+        minDiskSpace: Number.MAX_SAFE_INTEGER,  // disk-space will warn
+      });
+      const status = await r.runAll();
+      // Critical failure takes precedence over warn
+      expect(status.status).toBe('unhealthy');
+    });
   });
 
   describe('runOne', () => {
@@ -268,6 +316,28 @@ describe('HealthCheckRegistry', () => {
       });
 
       expect(await registry.readiness()).toBe(true);
+    });
+
+    it('should return false when all critical checks fail (503 scenario)', async () => {
+      // Override the built-in critical checks to fail
+      const r = new HealthCheckRegistry({
+        memoryThreshold: 0,  // Will fail memory check
+        storeCheck: async () => false,  // Will fail store check
+        workerPoolCheck: async () => true,
+        minDiskSpace: Number.MAX_SAFE_INTEGER,  // Will warn disk (non-critical)
+      });
+      const ready = await r.readiness();
+      // Both critical checks fail → unhealthy → readiness false
+      expect(ready).toBe(false);
+    });
+
+    it('should return true for degraded (warn) but not failed state', async () => {
+      const r = new HealthCheckRegistry({
+        memoryThreshold: 100,
+        minDiskSpace: Number.MAX_SAFE_INTEGER,  // disk-space will warn
+      });
+      // Only non-critical warn, no critical failures → ready
+      expect(await r.readiness()).toBe(true);
     });
   });
 

@@ -640,3 +640,153 @@ describe('Edge Cases', () => {
     }
   });
 });
+
+// ── Individual Agent Detection Tests ────────────────────────────
+
+describe('Individual Agent Detection — Claude Code', () => {
+  it('should detect via ANTHROPIC_API_KEY', () => {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const result = detectAgentById('claude-code')!;
+    expect(result.detected).toBe(true);
+  });
+
+  it('should detect via CLAUDE_CODE_CONFIG_DIR', () => {
+    process.env.CLAUDE_CODE_CONFIG_DIR = '/home/user/.claude';
+    const result = detectAgentById('claude-code')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('CLAUDE_CODE_CONFIG_DIR'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Cursor', () => {
+  it('should detect via CURSOR_TRACE_ID', () => {
+    process.env.CURSOR_TRACE_ID = 'test-trace-id';
+    const result = detectAgentById('cursor')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('CURSOR_TRACE_ID'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Windsurf', () => {
+  it('should detect via WINDSURF_API_KEY', () => {
+    process.env.WINDSURF_API_KEY = 'test-key';
+    const result = detectAgentById('windsurf')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('WINDSURF_API_KEY'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Continue.dev', () => {
+  it('should detect via CONTINUE_SERVER_URL', () => {
+    process.env.CONTINUE_SERVER_URL = 'http://localhost:3000';
+    const result = detectAgentById('continue-dev')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('CONTINUE_SERVER_URL'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Aider', () => {
+  it('should detect via AIDER_MODEL', () => {
+    process.env.AIDER_MODEL = 'gpt-4';
+    const result = detectAgentById('aider')!;
+    expect(result.detected).toBe(true);
+  });
+
+  it('should detect via AIDER_API_KEY', () => {
+    process.env.AIDER_API_KEY = 'sk-test';
+    const result = detectAgentById('aider')!;
+    expect(result.detected).toBe(true);
+  });
+
+  it('should detect via AIDER_EDIT_FORMAT', () => {
+    process.env.AIDER_EDIT_FORMAT = 'diff';
+    const result = detectAgentById('aider')!;
+    expect(result.detected).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Cline', () => {
+  it('should detect via CLINE_API_KEY', () => {
+    process.env.CLINE_API_KEY = 'test-key';
+    const result = detectAgentById('cline')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('CLINE_API_KEY'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — GitHub Copilot', () => {
+  it('should detect via COPILOT_API_KEY', () => {
+    process.env.COPILOT_API_KEY = 'test-key';
+    const result = detectAgentById('github-copilot')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('COPILOT_API_KEY'))).toBe(true);
+  });
+
+  it('should detect via GITHUB_COPILOT_TOKEN', () => {
+    process.env.GITHUB_COPILOT_TOKEN = 'test-token';
+    const result = detectAgentById('github-copilot')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('GITHUB_COPILOT_TOKEN'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Codeium', () => {
+  it('should detect via CODEIUM_API_KEY', () => {
+    process.env.CODEIUM_API_KEY = 'test-key';
+    const result = detectAgentById('codeium')!;
+    expect(result.detected).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Tabnine', () => {
+  it('should detect via TABNINE_API_KEY', () => {
+    process.env.TABNINE_API_KEY = 'test-key';
+    const result = detectAgentById('tabnine')!;
+    expect(result.detected).toBe(true);
+  });
+
+  it('should detect via TABNINE_TOKEN', () => {
+    process.env.TABNINE_TOKEN = 'test-token';
+    const result = detectAgentById('tabnine')!;
+    expect(result.detected).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Amazon Q', () => {
+  it('should detect via AMAZON_Q_API_KEY', () => {
+    process.env.AMAZON_Q_API_KEY = 'test-key';
+    const result = detectAgentById('amazon-q')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('AMAZON_Q_API_KEY'))).toBe(true);
+  });
+
+  it('should detect via AWS_PROFILE', () => {
+    process.env.AWS_PROFILE = 'default';
+    const result = detectAgentById('amazon-q')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('AWS_PROFILE'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Roo Code', () => {
+  it('should detect via ROO_CODE_API_KEY', () => {
+    process.env.ROO_CODE_API_KEY = 'test-key';
+    const result = detectAgentById('roo-code')!;
+    expect(result.detected).toBe(true);
+    expect(result.signals.some((s) => s.detail.includes('ROO_CODE_API_KEY'))).toBe(true);
+  });
+});
+
+describe('Individual Agent Detection — Augment Code', () => {
+  it('should detect via AUGMENT_API_KEY', () => {
+    process.env.AUGMENT_API_KEY = 'test-key';
+    const result = detectAgentById('augment-code')!;
+    expect(result.detected).toBe(true);
+  });
+
+  it('should detect via AUGMENT_TOKEN', () => {
+    process.env.AUGMENT_TOKEN = 'test-token';
+    const result = detectAgentById('augment-code')!;
+    expect(result.detected).toBe(true);
+  });
+});

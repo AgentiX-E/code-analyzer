@@ -217,6 +217,89 @@ describe('CodeAnalyzerError.fromJSON', () => {
     const restored = CodeAnalyzerError.fromJSON(json);
     expect(restored.stack).toBeDefined();
   });
+
+  it('should handle malformed code field (non-string)', () => {
+    const restored = CodeAnalyzerError.fromJSON({
+      name: 'CodeAnalyzerError',
+      code: 42,
+      category: 'CONFIG',
+      message: 'test',
+      timestamp: new Date().toISOString(),
+      context: {},
+    });
+    expect(restored.code).toContain('CA_');
+    expect(restored.category).toBe('CONFIG');
+  });
+
+  it('should handle non-string timestamp in fromJSON', () => {
+    const restored = CodeAnalyzerError.fromJSON({
+      name: 'CodeAnalyzerError',
+      code: 'CA_CONFIG_ERR',
+      category: 'CONFIG',
+      message: 'test',
+      timestamp: 12345,
+      context: {},
+    });
+    expect(restored.timestamp).toBeTruthy();
+    // Should fall back to current time ISO string
+    expect(() => new Date(restored.timestamp)).not.toThrow();
+  });
+
+  it('should handle missing name field in fromJSON', () => {
+    const restored = CodeAnalyzerError.fromJSON({
+      code: 'CA_INTERNAL_TEST',
+      category: 'INTERNAL',
+      message: 'no name',
+      timestamp: new Date().toISOString(),
+      context: {},
+    });
+    expect(restored.code).toBe('CA_INTERNAL_TEST');
+    expect(restored.message).toBe('no name');
+  });
+
+  it('should handle empty context', () => {
+    const err = new CodeAnalyzerError('INTERNAL', 'EMPTY', 'test');
+    expect(err.context).toEqual({});
+    const json = err.toJSON();
+    expect(json.context).toEqual({});
+    const restored = CodeAnalyzerError.fromJSON(json);
+    expect(restored.context).toEqual({});
+  });
+
+  it('should handle serialization of error with circular data', () => {
+    const circData: Record<string, unknown> = { key: 'value' };
+    circData['self'] = circData;
+
+    const err = new CodeAnalyzerError('INTERNAL', 'CIRC', 'circular test', circData);
+    const json = err.toJSON();
+    expect(json.code).toBe('CA_INTERNAL_CIRC');
+    // toJSON extracts context directly, circular reference preserved
+    expect(json.context).toBeDefined();
+  });
+
+  it('should handle unknown category in fromJSON', () => {
+    const restored = CodeAnalyzerError.fromJSON({
+      name: 'CodeAnalyzerError',
+      code: 'CA_BAD_BAD',
+      category: 'NONEXISTENT_CATEGORY',
+      message: 'bad category',
+      timestamp: new Date().toISOString(),
+      context: {},
+    });
+    // Unknown category defaults to INTERNAL
+    expect(restored.category).toBe('INTERNAL');
+  });
+
+  it('should handle missing code field completely', () => {
+    const restored = CodeAnalyzerError.fromJSON({
+      name: 'CodeAnalyzerError',
+      category: 'CONFIG',
+      message: 'missing code',
+      timestamp: new Date().toISOString(),
+      context: {},
+    });
+    expect(restored.code).toBe('CA_CONFIG_UNKNOWN');
+  });
 });
 
 describe('Error instanceof checks', () => {

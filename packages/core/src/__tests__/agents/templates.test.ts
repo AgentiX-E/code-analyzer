@@ -153,6 +153,87 @@ describe('getAgentSetupGuide', () => {
   });
 });
 
+describe('getMcpTemplate — edge cases', () => {
+  it('should handle empty env object', () => {
+    const template = getMcpTemplate('claude-code', { env: {} });
+    expect(template).toBeDefined();
+    expect(template!.config).toContain('mcpServers');
+  });
+
+  it('should handle command and args together', () => {
+    const template = getMcpTemplate('cursor', {
+      command: 'npx',
+      args: ['--verbose', '--debug'],
+    });
+    expect(template).toBeDefined();
+    expect(template!.config).toContain('--verbose');
+    expect(template!.config).toContain('--debug');
+  });
+
+  it('should handle agent IDs with hyphens (all IDs)', () => {
+    for (const id of getSupportedAgents()) {
+      expect(id).toMatch(/^[a-z-]+$/);
+      const template = getMcpTemplate(id);
+      expect(template).toBeDefined();
+    }
+  });
+
+  it('should include env in claude-code config when specified', () => {
+    const template = getMcpTemplate('claude-code', {
+      env: { MY_VAR: 'test' },
+    });
+    const parsed = JSON.parse(template!.config);
+    expect(parsed.mcpServers['code-analyzer'].env).toEqual({ MY_VAR: 'test' });
+  });
+
+  it('should default env to empty object when not specified', () => {
+    const template = getMcpTemplate('claude-code');
+    const parsed = JSON.parse(template!.config);
+    expect(parsed.mcpServers['code-analyzer'].env).toEqual({});
+  });
+
+  it('continue-dev template should use array for mcpServers', () => {
+    const template = getMcpTemplate('continue-dev');
+    const parsed = JSON.parse(template!.config);
+    expect(Array.isArray(parsed.mcpServers)).toBe(true);
+    expect(parsed.mcpServers[0].name).toBe('code-analyzer');
+  });
+
+  it('cline template should include disabled and autoApprove fields', () => {
+    const template = getMcpTemplate('cline');
+    const parsed = JSON.parse(template!.config);
+    expect(parsed.mcpServers['code-analyzer'].disabled).toBe(false);
+    expect(parsed.mcpServers['code-analyzer'].autoApprove).toEqual([]);
+  });
+
+  it('roo-code template should include disabled and autoApprove fields', () => {
+    const template = getMcpTemplate('roo-code');
+    const parsed = JSON.parse(template!.config);
+    expect(parsed.mcpServers['code-analyzer'].disabled).toBe(false);
+    expect(parsed.mcpServers['code-analyzer'].autoApprove).toEqual([]);
+  });
+
+  it('github-copilot template should use servers instead of mcpServers', () => {
+    const template = getMcpTemplate('github-copilot');
+    const parsed = JSON.parse(template!.config);
+    expect(parsed.servers).toBeDefined();
+    expect(parsed.servers['code-analyzer'].type).toBe('stdio');
+  });
+
+  it('aider template should not be JSON but YAML-like format', () => {
+    const template = getMcpTemplate('aider');
+    expect(() => JSON.parse(template!.config)).toThrow();
+  });
+
+  it('all non-aider templates should produce valid JSON', () => {
+    for (const id of getSupportedAgents()) {
+      if (id === 'aider') continue;
+      const template = getMcpTemplate(id)!;
+      expect(() => JSON.parse(template.config)).not.toThrow();
+    }
+  });
+});
+
 describe('getQuickSetup', () => {
   it('should return a non-empty string for all agents', () => {
     for (const id of getSupportedAgents()) {

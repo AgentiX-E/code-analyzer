@@ -128,6 +128,46 @@ describe('RetryPolicy', () => {
       expect(policy).toBeDefined();
     });
 
+    it('should handle maxAttempts=1 (no retry)', async () => {
+      const policy = new RetryPolicy({ maxAttempts: 1, jitter: false });
+      // First (and only) attempt succeeds
+      const result = await policy.execute(async () => 'only-one');
+      expect(result).toBe('only-one');
+      expect(policy.getAttempt()).toBe(1);
+    });
+
+    it('should throw immediately with maxAttempts=1 on failure', async () => {
+      const policy = new RetryPolicy({ maxAttempts: 1, jitter: false });
+      await expect(policy.execute(async () => {
+        throw new Error('instant fail');
+      })).rejects.toThrow('instant fail');
+      expect(policy.getAttempt()).toBe(1);
+    });
+
+    it('should handle baseDelay=0', async () => {
+      const policy = new RetryPolicy({ baseDelay: 0, jitter: false, maxAttempts: 2 });
+      let attempts = 0;
+      const result = await policy.execute(async () => {
+        attempts++;
+        if (attempts < 2) throw new Error('first fails');
+        return 'success';
+      });
+      expect(result).toBe('success');
+      expect(attempts).toBe(2);
+    });
+
+    it('should handle baseDelay=0 with jitter', async () => {
+      const policy = new RetryPolicy({ baseDelay: 0, jitter: true, maxAttempts: 2 });
+      let attempts = 0;
+      const result = await policy.execute(async () => {
+        attempts++;
+        if (attempts < 2) throw new Error('first fails');
+        return 'success';
+      });
+      expect(result).toBe('success');
+      expect(attempts).toBe(2);
+    });
+
     it('should apply jitter during retry', async () => {
       let attempts = 0;
       const policy = new RetryPolicy({ maxAttempts: 2, baseDelay: 1 });
@@ -422,6 +462,70 @@ describe('DeadLetterQueue', () => {
       expect(q.size()).toBe(3);
       // id1 should have been evicted
       expect(q.getAll()[0].id).toBe(id2);
+    });
+
+    it('should handle maxSize=0 (evicts on first enqueue)', () => {
+      const q = new DeadLetterQueue({ maxSize: 0 });
+
+      // entries.length (0) >= maxSize (0) → true → shift then push → size 1
+      q.enqueue({ operation: 'a', payload: null, error: 'e', attempts: 1 });
+      expect(q.size()).toBe(1);
+
+      // Second enqueue: entries.length (1) >= maxSize (0) → shift removes first, push adds → size 1
+      q.enqueue({ operation: 'b', payload: null, error: 'e', attempts: 1 });
+      expect(q.size()).toBe(1);
+      expect(q.getAll()[0].operation).toBe('b');
+    });
+
+    it('should handle negative maxSize (always evicts)', () => {
+      const q = new DeadLetterQueue({ maxSize: -1 });
+
+      // entries.length (0) >= -1 → true → shift then push → size 1
+      q.enqueue({ operation: 'a', payload: null, error: 'e', attempts: 1 });
+      expect(q.size()).toBe(1);
+
+      // Second enqueue: entries.length (1) >= -1 → true → shift then push → size 1
+      q.enqueue({ operation: 'b', payload: null, error: 'e', attempts: 1 });
+      expect(q.size()).toBe(1);
+      expect(q.getAll()[0].operation).toBe('b');
+    });
+
+    it('should use default maxSize of 1000', () => {
+      const q = new DeadLetterQueue();
+      // Fill up to 1000
+      for (let i = 0; i < 500; i++) {
+        q.enqueue({ operation: `op${i}`, payload: null, error: 'e', attempts: 1 });
+      }
+      expect(q.size()).toBe(500);
+    });
+  });
+
+  describe('concurrent operations', () => {
+    it('should handle concurrent enqueue operations', () => {
+      const q = new DeadLetterQueue({ maxSize: 100 });
+      for (let i = 0; i < 50; i++) {
+        q.enqueue({ operation: 'concurrent', payload: { index: i }, error: 'e', attempts: 1 });
+      }
+      expect(q.size()).toBe(50);
+    });
+
+    it('should handle concurrent retry with mixed success/failure', async () => {
+      const q = new DeadLetterQueue();
+      for (let i = 0; i < 20; i++) {
+        q.enqueue({ operation: 'op', payload: { index: i }, error: 'e', attempts: 0 });
+      }
+
+      let processed = 0;
+      const result = await q.retryAll(async (entry) => {
+        processed++;
+        const idx = (entry.payload as { index: number }).index;
+        return idx % 2 === 0; // Even indices succeed
+      });
+
+      expect(result.total).toBe(20);
+      expect(result.succeeded).toBe(10);
+      expect(result.failed).toBe(10);
+      expect(q.size()).toBe(10);
     });
   });
 });

@@ -202,4 +202,141 @@ describe('ParseCache', () => {
       expect(defaultCache.size).toBe(100);
     });
   });
+
+  // ── Additional coverage tests ──
+
+  describe('maxSize edge cases', () => {
+    it('handles maxSize=0 (immediate eviction)', () => {
+      const zeroCache = createParseCache(0);
+      zeroCache.set(hash1, file1);
+      // maxSize=0 means cache.size > 0 immediately triggers eviction
+      expect(zeroCache.size).toBe(0);
+      expect(zeroCache.get(hash1)).toBeNull();
+    });
+
+    it('handles maxSize=1 (evicts previous entry)', () => {
+      const singleCache = createParseCache(1);
+      const h1 = computeContentHash('first');
+      const h2 = computeContentHash('second');
+
+      singleCache.set(h1, file1);
+      expect(singleCache.size).toBe(1);
+      expect(singleCache.has(h1)).toBe(true);
+
+      singleCache.set(h2, file2);
+      expect(singleCache.size).toBe(1);
+      expect(singleCache.has(h1)).toBe(false); // evicted
+      expect(singleCache.has(h2)).toBe(true);
+    });
+
+    it('handles maxSize=Infinity (no eviction)', () => {
+      const infiniteCache = createParseCache(Infinity);
+      for (let i = 0; i < 100; i++) {
+        infiniteCache.set(
+          computeContentHash(`inf${i}`),
+          createMockParsedFile(`inf${i}.ts`),
+        );
+      }
+      expect(infiniteCache.size).toBe(100);
+    });
+  });
+
+  describe('unicode content hashes', () => {
+    it('computes hash for unicode content', () => {
+      const hash = computeContentHash('你好世界 🌍');
+      expect(hash).toBeTruthy();
+      expect(hash.length).toBe(64);
+    });
+
+    it('computes hash for emoji-only content', () => {
+      const hash = computeContentHash('🎉🎊🚀💯');
+      expect(hash).toBeTruthy();
+      expect(hash.length).toBe(64);
+    });
+
+    it('different unicode content produces different hashes', () => {
+      const h1 = computeContentHash('你好');
+      const h2 = computeContentHash('世界');
+      expect(h1).not.toBe(h2);
+    });
+  });
+
+  describe('LRU behavior with maxSize=2', () => {
+    it('evicts least recently used entry', () => {
+      const cache = createParseCache(2);
+      const h1 = computeContentHash('a');
+      const h2 = computeContentHash('b');
+      const h3 = computeContentHash('c');
+
+      cache.set(h1, file1); // oldest
+      cache.set(h2, file2); // middle
+      // Access h1 to make it recently used
+      cache.get(h1);
+      // Now h2 is LRU
+      cache.set(h3, createMockParsedFile('f3.ts'));
+
+      expect(cache.has(h1)).toBe(true); // was accessed
+      expect(cache.has(h2)).toBe(false); // LRU, evicted
+      expect(cache.has(h3)).toBe(true); // new
+      expect(cache.size).toBe(2);
+    });
+
+    it('re-setting same key does not change eviction order unfairly', () => {
+      const cache = createParseCache(2);
+      const h1 = computeContentHash('x');
+      const h2 = computeContentHash('y');
+
+      cache.set(h1, file1);
+      cache.set(h2, file2);
+      // Re-set h1 — it becomes MRU
+      cache.set(h1, createMockParsedFile('updated.ts'));
+
+      const h3 = computeContentHash('z');
+      cache.set(h3, createMockParsedFile('z.ts'));
+
+      expect(cache.has(h1)).toBe(true);
+      expect(cache.has(h2)).toBe(false); // evicted (was LRU)
+      expect(cache.has(h3)).toBe(true);
+    });
+  });
+
+  describe('touch behavior', () => {
+    it('get on non-existent key does not corrupt order', () => {
+      const cache = createParseCache(3);
+      cache.set(hash1, file1);
+      cache.get('nonexistent'); // should not affect order
+      cache.set(hash2, file2);
+      expect(cache.size).toBe(2);
+    });
+
+    it('get moves entry to MRU position', () => {
+      const cache = createParseCache(3);
+      const h1 = computeContentHash('c1');
+      const h2 = computeContentHash('c2');
+      const h3 = computeContentHash('c3');
+      const h4 = computeContentHash('c4');
+
+      cache.set(h1, file1);
+      cache.set(h2, file2);
+      cache.set(h3, createMockParsedFile('f3.ts'));
+
+      // Access h1 (oldest) — makes it MRU
+      cache.get(h1);
+
+      // Add h4, should evict h2 (now oldest)
+      cache.set(h4, createMockParsedFile('f4.ts'));
+
+      expect(cache.has(h1)).toBe(true);
+      expect(cache.has(h2)).toBe(false);
+      expect(cache.has(h3)).toBe(true);
+      expect(cache.has(h4)).toBe(true);
+    });
+  });
+
+  describe('invalidation with empty cache', () => {
+    it('invalidate on empty cache does not throw', () => {
+      const cache = createParseCache(10);
+      expect(() => cache.invalidate('nonexistent.ts')).not.toThrow();
+    });
+  });
 });

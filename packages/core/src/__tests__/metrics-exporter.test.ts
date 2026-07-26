@@ -330,6 +330,89 @@ describe('MetricsRegistry', () => {
       expect(g.get()).toBe(0);
       expect(h.get().count).toBe(0);
     });
+
+    it('should handle reset on empty registry', () => {
+      expect(() => registry.reset()).not.toThrow();
+    });
+
+    it('should reset and allow re-accumulation', () => {
+      const c = registry.counter('reset_counter', 'Test');
+      c.inc(5);
+      expect(c.get()).toBe(5);
+
+      registry.reset();
+      expect(c.get()).toBe(0);
+
+      c.inc(3);
+      expect(c.get()).toBe(3);
+    });
+  });
+
+  describe('exportPrometheus edge cases', () => {
+    it('should export empty registry without errors', () => {
+      const output = registry.exportPrometheus();
+      expect(output).toBe('');
+    });
+
+    it('should export counter with multiple label combinations', () => {
+      const c = registry.counter('multi_http', 'Multi HTTP', ['method', 'status']);
+      c.inc(1, { method: 'GET', status: '200' });
+      c.inc(1, { method: 'GET', status: '404' });
+      c.inc(1, { method: 'POST', status: '200' });
+
+      const output = registry.exportPrometheus();
+      expect(output).toContain('multi_http{');
+      expect(output).toContain('method="GET"');
+      expect(output).toContain('status="200"');
+      expect(output).toContain('status="404"');
+      expect(output).toContain('method="POST"');
+    });
+
+    it('should export counter with zero value when no increments', () => {
+      registry.counter('unused_counter', 'Unused');
+      const output = registry.exportPrometheus();
+      expect(output).toContain('unused_counter 0');
+    });
+
+    it('should export gauge with zero value when not set', () => {
+      registry.gauge('unset_gauge', 'Unset');
+      const output = registry.exportPrometheus();
+      expect(output).toContain('unset_gauge 0');
+    });
+  });
+
+  describe('exportJSON edge cases', () => {
+    it('should export empty registry', () => {
+      const json = registry.exportJSON();
+      expect(json.counters).toEqual({});
+      expect(json.gauges).toEqual({});
+      expect(json.histograms).toEqual({});
+    });
+
+    it('should export counters with labels in JSON', () => {
+      const c = registry.counter('json_counter', 'JSON counter', ['key']);
+      c.inc(1, { key: 'val1' });
+      c.inc(2, { key: 'val2' });
+
+      const json = registry.exportJSON();
+      const counters = json.counters as Record<string, Array<{ value: number; labels: Record<string, string> }>>;
+      expect(counters.json_counter).toHaveLength(2);
+    });
+
+    it('should export histograms with bucket data in JSON', () => {
+      const h = registry.histogram('json_hist', 'JSON hist', [0.5, 1.0, 5.0]);
+      h.observe(0.3);
+      h.observe(3.0);
+
+      const json = registry.exportJSON();
+      const histograms = json.histograms as Record<string, Array<{ count: number; sum: number; bucketCounts: number[]; buckets: number[] }>>;
+      const entries = histograms.json_hist;
+      expect(entries).toHaveLength(1);
+      expect(entries[0].count).toBe(2);
+      expect(entries[0].sum).toBeCloseTo(3.3);
+      expect(entries[0].bucketCounts).toEqual([1, 1, 2]);
+      expect(entries[0].buckets).toEqual([0.5, 1.0, 5.0]);
+    });
   });
 });
 
