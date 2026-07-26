@@ -1,34 +1,23 @@
 // @code-analyzer/server — Health Routes
 // Health check, readiness, and liveness endpoints.
+// Integrates with HealthCheckRegistry for comprehensive health monitoring.
 
 import type { FastifyInstance } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
-
-/** Detailed health status response. */
-/* v8 ignore start */
-
-interface HealthResponse {
-  status: 'ok' | 'degraded' | 'unhealthy';
-  timestamp: string;
-  uptime: number;
-  version: string;
-  name: string;
-  environment: string;
-  checks: {
-    server: { status: 'ok'; uptime: number };
-    memory: { status: 'ok' | 'warn'; heapUsedMB: number; heapTotalMB: number; rssMB: number };
-  };
-}
+import type { HealthCheckRegistry } from '@code-analyzer/core';
 
 /**
  * Register health check routes.
  * GET /health — overall health status
- * GET /health/live — liveness probe (always 200)
- * GET /health/ready — readiness probe (200 when server is accepting connections)
+ * GET {prefix}/health — full health status from registry
+ * GET {prefix}/health/live — liveness probe (always 200 if process alive)
+ * GET {prefix}/health/ready — readiness probe (200 if all critical checks pass)
  */
-export function registerHealthRoutes(app: FastifyInstance, config: ServerConfig): void {
-  const startTime = Date.now();
-
+export function registerHealthRoutes(
+  app: FastifyInstance,
+  config: ServerConfig,
+  healthRegistry: HealthCheckRegistry,
+): void {
   // Liveness — always OK if the process is running
   app.get(`${config.apiPrefix}/health/live`, async (_req, reply) => {
     return reply.status(200).send({ status: 'alive' });
@@ -36,18 +25,21 @@ export function registerHealthRoutes(app: FastifyInstance, config: ServerConfig)
 
   // Health alias at root-level for simplicity
   app.get('/health', { config: { skipAuth: true } }, async (_req, reply) => {
-    return reply.status(200).send(buildHealthResponse(config, startTime));
+    const health = await healthRegistry.runAll();
+    return reply.status(200).send(health);
   });
 
-  // Full health check
+  // Full health check via registry
   app.get(`${config.apiPrefix}/health`, async (_req, reply) => {
-    return reply.status(200).send(buildHealthResponse(config, startTime));
+    const health = await healthRegistry.runAll();
+    return reply.status(200).send(health);
   });
 
-  // Readiness — server is accepting requests
+  // Readiness — server is accepting requests and all critical checks pass
   app.get(`${config.apiPrefix}/health/ready`, async (_req, reply) => {
-    const health = buildHealthResponse(config, startTime);
-    const statusCode = health.status === 'unhealthy' ? 503 : 200;
+    const ready = await healthRegistry.readiness();
+    const health = await healthRegistry.runAll();
+    const statusCode = ready ? 200 : 503;
     return reply.status(statusCode).send(health);
   });
 
@@ -62,35 +54,5 @@ export function registerHealthRoutes(app: FastifyInstance, config: ServerConfig)
   });
 }
 
-function buildHealthResponse(
-  config: ServerConfig,
-  startTime: number,
-): HealthResponse {
-  const uptime = Date.now() - startTime;
-  const memUsage = process.memoryUsage();
-  const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
-  const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
-  const rssMB = Math.round(memUsage.rss / 1024 / 1024);
-
-  return {
-    status: heapUsedMB > heapTotalMB * 0.9 ? 'degraded' : 'ok',
-    timestamp: new Date().toISOString(),
-    uptime,
-    version: config.metadata.version,
-    name: config.metadata.name,
-    environment: config.metadata.environment,
-    checks: {
-      server: { status: 'ok', uptime },
-      memory: {
-        status: heapUsedMB > heapTotalMB * 0.9 ? 'warn' : 'ok',
-        heapUsedMB,
-        heapTotalMB,
-        rssMB,
-      },
-    },
-  };
-}
-
-/** Exported for testing */
-export { buildHealthResponse };
-/* v8 ignore stop */
+// Keep backward-compatible exports
+export { buildHealthResponse } from './health-legacy.js';

@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/cli — Agent Integration Command
 //
 // Usage: code-analyzer agent [subcommand]
@@ -15,8 +14,6 @@ import type { SupportedAgent } from '../agent-setup.js';
 import { AgentSetupManager } from '../agent-setup.js';
 
 export function createAgentCommand(): Command {
-/* v8 ignore start */
-
   const manager = new AgentSetupManager();
 
   const agent = new Command('agent').description(
@@ -31,6 +28,7 @@ export function createAgentCommand(): Command {
     .command('detect')
     .description('Detect installed AI coding agents on this system')
     .action(() => {
+      /* v8 ignore next 6 */
       const installed = manager.detectInstalled();
 
       if (installed.length === 0) {
@@ -74,6 +72,7 @@ export function createAgentCommand(): Command {
         agents = manager.detectInstalled();
       }
 
+      /* v8 ignore next 3 */
       if (agents.length === 0) {
         console.log(
           'No agents to configure. Run `code-analyzer agent detect` first.',
@@ -82,6 +81,7 @@ export function createAgentCommand(): Command {
       }
 
       if (options.dryRun) {
+        /* v8 ignore next 5 */
         console.log('[DRY RUN] Would configure the following agents:');
         for (const id of agents) {
           const config = manager.getConfig(id);
@@ -90,6 +90,7 @@ export function createAgentCommand(): Command {
         return;
       }
 
+      /* v8 ignore next 12 */
       console.log(`Configuring ${agents.length} agent(s)...`);
       const results = manager.configureAgents(agents);
 
@@ -119,6 +120,7 @@ export function createAgentCommand(): Command {
     .action(() => {
       const configs = manager.getAllConfigs();
 
+      /* v8 ignore next 12 */
       console.log('Supported AI Coding Agent Integrations');
       console.log('======================================');
       console.log('');
@@ -149,9 +151,9 @@ export function createAgentCommand(): Command {
     .command('status')
     .description('Show configuration status for all agents')
     .action(() => {
+      /* v8 ignore next 1 */
       console.log(manager.getStatusReport());
     });
 
   return agent;
 }
-/* v8 ignore stop */

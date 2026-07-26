@@ -11,6 +11,7 @@ import { registerErrorHandler } from '../middleware/error-handler.js';
 import { resolveConfig } from '../server-config.js';
 import { ToolRegistry } from '@code-analyzer/mcp';
 import type { ToolContext } from '@code-analyzer/mcp';
+import { HealthCheckRegistry } from '@code-analyzer/core';
 
 // ---------------------------------------------------------------------------
 // Health Routes
@@ -22,7 +23,8 @@ describe('registerHealthRoutes', () => {
 
   beforeEach(() => {
     app = Fastify({ logger: false });
-    registerHealthRoutes(app, config);
+    const health = new HealthCheckRegistry();
+    registerHealthRoutes(app, config, health);
   });
 
   afterEach(async () => {
@@ -43,19 +45,17 @@ describe('registerHealthRoutes', () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body.status).toMatch(/^(ok|degraded)$/);
+    expect(body.status).toMatch(/^(healthy|degraded|unhealthy)$/);
     expect(body.uptime).toBeGreaterThan(0);
-    expect(body.checks.server.status).toBe('ok');
-    expect(body.checks.memory).toBeDefined();
+    expect(Array.isArray(body.checks)).toBe(true);
   });
 
   it('GET /api/v1/health should return full health', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/health' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body.name).toBe('code-analyzer');
-    expect(body.version).toBe('0.1.0');
-    expect(body.environment).toBe('production');
+    expect(body.version).toBeDefined();
+    expect(Array.isArray(body.checks)).toBe(true);
   });
 
   it('GET /api/v1/health/live should return alive status', async () => {

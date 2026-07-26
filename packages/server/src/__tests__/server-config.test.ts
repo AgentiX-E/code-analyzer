@@ -96,8 +96,10 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.cors).toBeDefined();
     expect(DEFAULT_CONFIG.auth).toBeDefined();
     expect(DEFAULT_CONFIG.logging).toBeDefined();
+    expect(DEFAULT_CONFIG.rateLimit).toBeDefined();
     expect(DEFAULT_CONFIG.metadata).toBeDefined();
     expect(DEFAULT_CONFIG.maxBodySize).toBeGreaterThan(0);
+    expect(DEFAULT_CONFIG.maxConnections).toBe(0);
   });
 
   it('should have default auth disabled', () => {

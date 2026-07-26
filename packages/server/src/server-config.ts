@@ -1,6 +1,8 @@
 // @code-analyzer/server — Server Configuration
 // Configuration types and defaults for the HTTP + SSE MCP server.
 
+import type { RateLimitConfig } from '../middleware/rate-limit.js';
+
 /** Full server configuration. All fields have sensible defaults. */
 export interface ServerConfig {
   /** Host to bind to (default: '0.0.0.0') */
@@ -15,6 +17,8 @@ export interface ServerConfig {
   auth: AuthConfig;
   /** Logging configuration */
   logging: LoggingConfig;
+  /** Rate limiting configuration */
+  rateLimit: RateLimitConfig;
   /** Server metadata returned by /health */
   metadata: ServerMetadata;
   /** Maximum request body size in bytes (default: 1MB) */
@@ -23,6 +27,8 @@ export interface ServerConfig {
   keepAliveTimeout: number;
   /** SSE heartbeat interval in ms (default: 15000) */
   sseHeartbeatMs: number;
+  /** Maximum concurrent connections (default: 0 = unlimited) */
+  maxConnections: number;
 }
 
 export interface CorsConfig {
@@ -98,9 +104,16 @@ export const DEFAULT_CONFIG: ServerConfig = {
     version: '0.1.0',
     environment: 'production',
   },
+  rateLimit: {
+    enabled: false,
+    windowMs: 60_000,
+    maxRequests: 100,
+    addHeaders: true,
+  },
   maxBodySize: 1_048_576,
   keepAliveTimeout: 61_000,
   sseHeartbeatMs: 15_000,
+  maxConnections: 0,
 };
 
 /**
@@ -113,6 +126,7 @@ export function resolveConfig(overrides?: Partial<ServerConfig>): ServerConfig {
       cors: { ...DEFAULT_CONFIG.cors },
       auth: { ...DEFAULT_CONFIG.auth },
       logging: { ...DEFAULT_CONFIG.logging },
+      rateLimit: { ...DEFAULT_CONFIG.rateLimit },
       metadata: { ...DEFAULT_CONFIG.metadata },
     };
   }
@@ -130,11 +144,15 @@ export function resolveConfig(overrides?: Partial<ServerConfig>): ServerConfig {
     logging: overrides.logging
       ? { ...DEFAULT_CONFIG.logging, ...overrides.logging }
       : { ...DEFAULT_CONFIG.logging },
+    rateLimit: overrides.rateLimit
+      ? { ...DEFAULT_CONFIG.rateLimit, ...overrides.rateLimit }
+      : { ...DEFAULT_CONFIG.rateLimit },
     metadata: overrides.metadata
       ? { ...DEFAULT_CONFIG.metadata, ...overrides.metadata }
       : { ...DEFAULT_CONFIG.metadata },
     maxBodySize: overrides.maxBodySize ?? DEFAULT_CONFIG.maxBodySize,
     keepAliveTimeout: overrides.keepAliveTimeout ?? DEFAULT_CONFIG.keepAliveTimeout,
     sseHeartbeatMs: overrides.sseHeartbeatMs ?? DEFAULT_CONFIG.sseHeartbeatMs,
+    maxConnections: overrides.maxConnections ?? DEFAULT_CONFIG.maxConnections,
   };
 }

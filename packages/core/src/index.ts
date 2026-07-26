@@ -66,6 +66,38 @@ export type {
   LifecycleOptions,
 } from './lifecycle/index.js';
 
+// Operations (Health Check, Graceful Shutdown, Resilience)
+// NOTE: HealthStatus from operations (interface) overrides lifecycle's (string type).
+// Use operations' HealthStatus for health check reports.
+export {
+  HealthCheckRegistry,
+} from './operations/health-check.js';
+export type {
+  HealthStatus as HealthReport,
+  HealthCheckResult as HealthCheckItem,
+  HealthCheck,
+  HealthCheckRegistryOptions,
+} from './operations/health-check.js';
+export {
+  GracefulShutdown,
+} from './operations/graceful-shutdown.js';
+export type {
+  ShutdownSignal,
+  ShutdownHandler,
+  ShutdownResult,
+  GracefulShutdownOptions,
+} from './operations/graceful-shutdown.js';
+export {
+  RetryPolicy,
+  DeadLetterQueue,
+} from './operations/resilience.js';
+export type {
+  RetryConfig,
+  DeadLetterEntry,
+  DeadLetterQueueOptions,
+  RetryResult,
+} from './operations/resilience.js';
+
 // AI Agent Auto-Detection
 export {
   detectAllAgents,

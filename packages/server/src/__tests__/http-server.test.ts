@@ -131,8 +131,8 @@ describe('createServer', () => {
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     expect(res.status).toBe(200);
     const body = await res.json() as Record<string, unknown>;
-    expect(body.status).toMatch(/^(ok|degraded)$/);
-    expect(body.name).toBe('code-analyzer');
+    expect(body.status).toMatch(/^(healthy|degraded|unhealthy)$/);
+    expect(body.version).toBeDefined();
   });
 
   it('should serve tool list', async () => {

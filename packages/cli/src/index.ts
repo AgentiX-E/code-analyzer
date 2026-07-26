@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // @code-analyzer/cli — Command Line Interface
 // Full-featured CLI for Code Analyzer: init, analyze, search, review, status, agent.
+// Includes global error handling and signal handling for production readiness.
 
 import { Command } from 'commander';
 import { EOL } from 'node:os';
@@ -26,6 +27,45 @@ import {
   formatReviewResult,
   type ReviewOptions,
 } from './commands/review.js';
+
+// ---------------------------------------------------------------------------
+// Global Error Handlers
+// ---------------------------------------------------------------------------
+
+function setupGlobalErrorHandlers(): void {
+  process.on('uncaughtException', (error: Error) => {
+    console.error(`[code-analyzer] Uncaught exception: ${error.message}`);
+    if (process.env['CODE_ANALYZER_DEBUG']) {
+      console.error(error.stack);
+    }
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason: unknown) => {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    console.error(`[code-analyzer] Unhandled rejection: ${message}`);
+    if (process.env['CODE_ANALYZER_DEBUG'] && reason instanceof Error) {
+      console.error(reason.stack);
+    }
+    process.exit(1);
+  });
+
+  // Handle SIGINT (Ctrl+C) gracefully for long-running commands
+  process.on('SIGINT', () => {
+    console.error(`${EOL}[code-analyzer] Interrupted by user (SIGINT)`);
+    process.exit(130);
+  });
+
+  // Handle SIGTERM for graceful termination
+  process.on('SIGTERM', () => {
+    console.error(`${EOL}[code-analyzer] Terminated (SIGTERM)`);
+    process.exit(143);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Commander Program
+// ---------------------------------------------------------------------------
 
 const program = new Command();
 
@@ -162,4 +202,5 @@ program.addCommand(createAgentCommand());
 // ---------------------------------------------------------------------------
 // Parse and execute
 // ---------------------------------------------------------------------------
+setupGlobalErrorHandlers();
 program.parse();

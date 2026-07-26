@@ -12,3 +12,5 @@ export type {
   ServerMetadata,
 } from './server-config.js';
 export type { ErrorResponse } from './middleware/error-handler.js';
+export { registerRateLimit } from './middleware/rate-limit.js';
+export type { RateLimitConfig } from './middleware/rate-limit.js';
