@@ -343,3 +343,85 @@ describe('Resilience E2E', () => {
     expect(ids).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cross-Repo & PR Review Smoke
+// ---------------------------------------------------------------------------
+
+describe('Cross-Repo Smoke', () => {
+  it('should create and manage repo groups', async () => {
+    const { RepoGroupManager } = await import('@code-analyzer/intelligence');
+    const mgr = new RepoGroupManager();
+    mgr.createGroup('smoke-group', 'Smoke Test', 'Smoke test group');
+    const group = mgr.getGroup('smoke-group');
+    expect(group).toBeDefined();
+    mgr.deleteGroup('smoke-group');
+    expect(mgr.getGroup('smoke-group')).toBeNull();
+  });
+
+  it('should build version compatibility matrix', async () => {
+    const { VersionCompatibilityMatrix } = await import('@code-analyzer/intelligence');
+    const matrix = new VersionCompatibilityMatrix();
+    const result = matrix.buildMatrix('test', [
+      { repo: 'org/repo-a', dependencies: { 'shared-lib': '^2.0.0' } },
+      { repo: 'org/repo-b', dependencies: { 'shared-lib': '^1.5.0' } },
+    ]);
+    const conflicts = matrix.detectConflicts(result);
+    expect(conflicts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should have federated search available', async () => {
+    const { FederatedSearchEngine } = await import('@code-analyzer/intelligence');
+    const { InMemoryGraphStore } = await import('@code-analyzer/infra');
+    const engine = new FederatedSearchEngine(new InMemoryGraphStore(':memory:'));
+    const result = await engine.search('test', { maxResults: 5 });
+    expect(result.results).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Core Services Smoke
+// ---------------------------------------------------------------------------
+
+describe('Core Services Smoke', () => {
+  it('GracefulShutdown works end-to-end', async () => {
+    const { GracefulShutdown } = await import('@code-analyzer/core');
+    const sd = new GracefulShutdown({ shutdownTimeout: 500, forceExitTimeout: 200 });
+    let called = false;
+    sd.register({ name: 'test', priority: 10, timeout: 100, shutdown: async () => { called = true; } });
+    const result = await sd.shutdown('SIGTERM', true);
+    expect(result.success).toBe(true);
+    expect(called).toBe(true);
+  });
+
+  it('HealthCheckRegistry returns all check types', async () => {
+    const { HealthCheckRegistry } = await import('@code-analyzer/core');
+    const registry = new HealthCheckRegistry({ version: 'test' });
+    const result = await registry.runAll();
+    expect(Array.isArray(result.checks)).toBe(true);
+    expect(result.checks.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('RetryPolicy with exponential backoff', async () => {
+    const { RetryPolicy } = await import('@code-analyzer/core');
+    const policy = new RetryPolicy({ maxAttempts: 3, baseDelay: 10 });
+    let attempts = 0;
+    const result = await policy.execute(async () => {
+      attempts++;
+      if (attempts < 3) throw new Error('temporary');
+      return 'ok';
+    });
+    expect(result).toBe('ok');
+    expect(attempts).toBe(3);
+  });
+
+  it('DeadLetterQueue enqueue and retry', async () => {
+    const { DeadLetterQueue } = await import('@code-analyzer/core');
+    const dlq = new DeadLetterQueue({ maxSize: 10 });
+    dlq.enqueue({ operation: 'test', payload: {}, error: 'err', attempts: 1 });
+    expect(dlq.size()).toBe(1);
+    const retry = await dlq.retryAll(async () => true);
+    expect(retry.succeeded).toBe(1);
+    expect(dlq.size()).toBe(0);
+  });
+});
