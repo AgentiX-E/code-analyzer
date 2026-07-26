@@ -58,7 +58,7 @@
     "@types/node": "^20.19.43",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
-    "@vitest/coverage-v8": "2.1.9",
+    "@vitest/coverage-v8": "4.1.10",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^9.1.2",
     "eslint-import-resolver-typescript": "^4.4.5",
@@ -68,7 +68,7 @@
     "turbo": "^2.10.7",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "tree-sitter": "^0.25.0",
