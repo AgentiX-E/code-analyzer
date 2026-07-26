@@ -298,3 +298,35 @@ export type {
   VersionAlignment,
   UpgradeSafetyReport,
 } from './cross-repo/version-matrix.js';
+
+// GitHub Integration
+export {
+  GitHubApiClient,
+  GitHubApiError,
+  GitHubRateLimitError,
+  GitHubRepoSync,
+  GitHubCheckRunManager,
+  CrossRepoWebhookBridge,
+} from './github/index.js';
+export type {
+  GitHubAuth,
+  GitHubRepo,
+  GitHubPR,
+  GitHubPRFile,
+  GitHubCheckRun,
+  GitHubAnnotation,
+  GitHubBranch,
+  GitHubWebhook,
+  RateLimitInfo,
+  GraphQLResponse,
+  RepoSearchResult,
+  CreateCheckRunParams,
+  UpdateCheckRunParams,
+  SyncOptions,
+  SyncResult,
+  SyncError,
+  CheckRunOptions,
+  CheckRunResult,
+  WebhookPayload,
+  BridgeResult,
+} from './github/index.js';

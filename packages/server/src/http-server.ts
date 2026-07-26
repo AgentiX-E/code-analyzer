@@ -16,6 +16,8 @@ import { registerRateLimit } from './middleware/rate-limit.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerToolRoutes } from './routes/tools.js';
 import { registerSSERoutes } from './routes/sse.js';
+import { registerWebhookRoutes } from './routes/webhook.js';
+import type { WebhookConfig } from './routes/webhook.js';
 import { GracefulShutdown, HealthCheckRegistry } from '@code-analyzer/core';
 import type { ShutdownResult, HealthReport } from '@code-analyzer/core';
 import type { ToolRegistry } from '@code-analyzer/mcp';
@@ -36,6 +38,8 @@ export interface ServerOptions {
   }>;
   /** Health check registry (creates default if not provided) */
   healthCheck?: HealthCheckRegistry;
+  /** GitHub webhook configuration for cross-repo PR review */
+  webhook?: WebhookConfig;
 }
 
 export interface ServerInstance {
@@ -115,6 +119,11 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   registerHealthRoutes(app, config, healthRegistry);
   registerToolRoutes(app, config, () => options.registry);
   registerSSERoutes(app, config, () => options.registry);
+
+  // Register webhook endpoint if configured
+  if (options.webhook) {
+    registerWebhookRoutes(app, config, options.webhook);
+  }
 
   // --- Lifecycle ---
   await app.ready();
