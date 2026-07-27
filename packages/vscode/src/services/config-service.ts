@@ -1,5 +1,5 @@
 // @code-analyzer/vscode — Configuration Service
-// Manages VS Code extension configuration with typed defaults.
+// Manages VS Code extension configuration with typed defaults and profiles.
 
 import type { WorkspaceConfiguration } from './vscode-api.js';
 
@@ -15,6 +15,7 @@ export interface CodeAnalyzerConfig {
   reviewOnSave: boolean;
   showInlineDecorations: boolean;
   maxSearchResults: number;
+  profile: 'strict' | 'balanced' | 'relaxed';
 }
 
 const DEFAULT_CONFIG: CodeAnalyzerConfig = {
@@ -25,6 +26,61 @@ const DEFAULT_CONFIG: CodeAnalyzerConfig = {
   reviewOnSave: false,
   showInlineDecorations: true,
   maxSearchResults: 20,
+  profile: 'balanced',
+};
+
+// ---------------------------------------------------------------------------
+// Configuration Profiles
+//
+// Pre-built configurations that set multiple settings at once:
+//   - strict:   maximum depth, all review lenses, critical feedback
+//   - balanced: standard depth, key lenses (recommended default)
+//   - relaxed:  fast analysis, minimal feedback, focus on critical issues
+// ---------------------------------------------------------------------------
+
+export interface ProfileDefinition {
+  label: string;
+  description: string;
+  overrides: Partial<CodeAnalyzerConfig>;
+}
+
+export const PROFILES: Record<CodeAnalyzerConfig['profile'], ProfileDefinition> = {
+  strict: {
+    label: 'Strict',
+    description: 'Maximum analysis depth, all review lenses, warn on everything. Best for mission-critical codebases.',
+    overrides: {
+      autoIndex: true,
+      indexMode: 'full',
+      maxFileSize: 52428800, // 50 MB
+      reviewOnSave: true,
+      showInlineDecorations: true,
+      maxSearchResults: 100,
+    },
+  },
+  balanced: {
+    label: 'Balanced',
+    description: 'Standard analysis depth, key review lenses. Recommended for most projects.',
+    overrides: {
+      autoIndex: true,
+      indexMode: 'full',
+      maxFileSize: 10485760, // 10 MB
+      reviewOnSave: false,
+      showInlineDecorations: true,
+      maxSearchResults: 20,
+    },
+  },
+  relaxed: {
+    label: 'Relaxed',
+    description: 'Fast analysis, minimal review comments. Focus on critical issues only.',
+    overrides: {
+      autoIndex: false,
+      indexMode: 'fast',
+      maxFileSize: 1048576, // 1 MB
+      reviewOnSave: false,
+      showInlineDecorations: false,
+      maxSearchResults: 10,
+    },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -39,7 +95,20 @@ export class ConfigService {
 
   /** Get a single configuration value with type safety. */
   get<K extends keyof CodeAnalyzerConfig>(key: K): CodeAnalyzerConfig[K] {
+    // First check the profile's override
+    const currentProfile = this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
+    const profileDef = PROFILES[currentProfile];
+    if (profileDef && key in profileDef.overrides) {
+      return profileDef.overrides[key as keyof typeof profileDef.overrides] as CodeAnalyzerConfig[K];
+    }
+
     return this.vsConfig.get<CodeAnalyzerConfig[K]>(key) ?? this.defaults[key];
+  }
+
+  /** Get the current active profile definition. */
+  getCurrentProfile(): ProfileDefinition {
+    const profileKey = this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
+    return PROFILES[profileKey] ?? PROFILES['balanced'];
   }
 
   /** Get all configuration values. */
@@ -52,7 +121,13 @@ export class ConfigService {
       reviewOnSave: this.get('reviewOnSave'),
       showInlineDecorations: this.get('showInlineDecorations'),
       maxSearchResults: this.get('maxSearchResults'),
+      profile: this.get('profile'),
     };
+  }
+
+  /** Get all available profiles. */
+  static getProfiles(): Record<string, ProfileDefinition> {
+    return { ...PROFILES };
   }
 
   /** Get default configuration (useful for UI display). */
@@ -79,7 +154,6 @@ export class ConfigService {
         );
       }
       if (config.maxFileSize > 1073741824) {
-        // 1 GB
         errors.push(`maxFileSize cannot exceed 1 GB`);
       }
     }
@@ -92,6 +166,14 @@ export class ConfigService {
       }
       if (config.maxSearchResults > 100) {
         errors.push(`maxSearchResults cannot exceed 100`);
+      }
+    }
+
+    if (config.profile !== undefined) {
+      if (!['strict', 'balanced', 'relaxed'].includes(config.profile)) {
+        errors.push(
+          `Invalid profile: "${config.profile}". Must be "strict", "balanced", or "relaxed".`,
+        );
       }
     }
 

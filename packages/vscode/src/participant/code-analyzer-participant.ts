@@ -42,7 +42,10 @@ export type SlashCommand =
   | 'find'
   | 'deps'
   | 'refactor'
-  | 'test';
+  | 'test'
+  | 'analyze'
+  | 'coverage'
+  | 'standards';
 
 export const SLASH_COMMANDS = [
   'review',
@@ -52,6 +55,9 @@ export const SLASH_COMMANDS = [
   'deps',
   'refactor',
   'test',
+  'analyze',
+  'coverage',
+  'standards',
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -59,7 +65,7 @@ export const SLASH_COMMANDS = [
 // ---------------------------------------------------------------------------
 
 export type IntentType = 'explore' | 'search' | 'review' | 'impact' | 'debug' | 'refactor'
-  | 'explain' | 'find' | 'deps' | 'test';
+  | 'explain' | 'find' | 'deps' | 'test' | 'analyze' | 'coverage' | 'standards';
 
 export interface ClassifiedIntent {
   type: IntentType;
@@ -314,8 +320,14 @@ export class CodeAnalyzerChatParticipant {
         return this.handleRefactorCommand(trimmedParams, stream, token);
       case 'test':
         return this.handleTestCommand(trimmedParams, stream, token);
+      case 'analyze':
+        return this.handleAnalyzeCommand(trimmedParams, stream, token);
+      case 'coverage':
+        return this.handleCoverageCommand(trimmedParams, stream, token);
+      case 'standards':
+        return this.handleStandardsCommand(trimmedParams, stream, token);
       default:
-        stream.markdown('## Unknown Command\n\nCommand not recognized. Available commands:\n- `/review`\n- `/explain <symbol>`\n- `/impact <symbol>`\n- `/find <query>`\n- `/deps <symbol>`\n- `/refactor <symbol>`\n- `/test <symbol>`\n');
+        stream.markdown('## Unknown Command\n\nCommand not recognized. Available commands:\n- `/review`\n- `/explain <symbol>`\n- `/impact <symbol>`\n- `/find <query>`\n- `/deps <symbol>`\n- `/refactor <symbol>`\n- `/test <symbol>`\n- `/analyze`\n- `/coverage`\n- `/standards`\n');
         return { metadata: { command, error: 'unknown_command' } };
     }
   }
@@ -638,6 +650,215 @@ export class CodeAnalyzerChatParticipant {
         gapsCount: ctx.testCoverage.coverageGaps.length,
       },
     };
+  }
+
+  /**
+   * /analyze — Trigger full workspace analysis and display results.
+   */
+  private async handleAnalyzeCommand(
+    _params: string,
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /analyze\n\n⏳ Running codebase analysis...\n');
+
+    if (token.isCancellationRequested) {
+      return { metadata: { cancelled: true } };
+    }
+
+    try {
+      // Trigger workspace indexing
+      const symbolCount = await this.engine.indexWorkspace('');
+      const changedFiles = await this.engine.getChangedFiles();
+
+      const ctx: AnalysisContext = {
+        changedFiles,
+        searchResults: await this.engine.search(''),
+      };
+
+      const resultCount = ctx.searchResults?.length ?? 0;
+      const fileCount = changedFiles?.length ?? 0;
+
+      stream.markdown(
+        `## /analyze — Results\n\n` +
+        `### Analysis Complete ✅\n\n` +
+        `| Metric | Value |\n` +
+        `|--------|-------|\n` +
+        `| Symbols Indexed | ${symbolCount} |\n` +
+        `| Files Analyzed | ${fileCount} |\n` +
+        `| Results Found | ${resultCount} |\n\n` +
+        `Use \`/review\` to check for issues, or \`/find <query>\` to search the codebase.\n`,
+      );
+
+      return {
+        metadata: {
+          command: 'analyze',
+          symbolCount,
+          fileCount,
+          resultCount,
+        },
+      };
+    } catch {
+      stream.markdown('## /analyze\n\n⚠️ Analysis failed. Make sure you are in a valid workspace.\n');
+      return { metadata: { command: 'analyze', error: 'analysis_failed' } };
+    }
+  }
+
+  /**
+   * /coverage — Show test coverage analysis across the codebase.
+   */
+  private async handleCoverageCommand(
+    params: string,
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    if (!params) {
+      stream.markdown(
+        '## /coverage\n\n**Usage:** `/coverage <symbol|file>`\n\n' +
+        'Analyze test coverage for a symbol or file.\n',
+      );
+      return { metadata: { command: 'coverage', error: 'missing_params' } };
+    }
+
+    if (token.isCancellationRequested) {
+      return { metadata: { cancelled: true } };
+    }
+
+    const ctx: AnalysisContext = {};
+    ctx.relatedTests = await this.engine.findRelatedTests(params);
+    ctx.symbols = await this.engine.findRelatedSymbols(params);
+    ctx.callers = await this.engine.findCallers(params);
+
+    // Build coverage analysis
+    const tests = ctx.relatedTests ?? [];
+    const symbols = ctx.symbols ?? [];
+
+    const testedSymbols = new Set(tests.map((t) => t.name.toLowerCase()));
+    const untested: string[] = [];
+    for (const s of symbols) {
+      if (!testedSymbols.has(s.name.toLowerCase())
+        && !testedSymbols.has(`${s.name}.test`.toLowerCase())) {
+        untested.push(s.name);
+      }
+    }
+
+    const coveragePercent = symbols.length > 0
+      ? Math.round((symbols.length - untested.length) / symbols.length * 100)
+      : 0;
+
+    let msg = '## /coverage — Test Coverage\n\n';
+    msg += `### Coverage Summary\n`;
+    msg += `| Metric | Value |\n|--------|-------|\n`;
+    msg += `| Tested | ${symbols.length - untested.length}/${symbols.length} |\n`;
+    msg += `| Coverage | ${coveragePercent}% |\n\n`;
+
+    if (tests.length > 0) {
+      msg += `### Existing Tests (${tests.length})\n`;
+      for (const t of tests.slice(0, 15)) {
+        msg += `- \`${t.name}\` in \`${t.filePath}\`\n`;
+      }
+      msg += '\n';
+    }
+
+    if (untested.length > 0) {
+      msg += `### Coverage Gaps (${untested.length})\n`;
+      for (const gap of untested.slice(0, 15)) {
+        msg += `- \`${gap}\` — no tests found\n`;
+      }
+      msg += '\n';
+    }
+
+    msg += `**Recommendation:** ${coveragePercent >= 80
+      ? 'Coverage looks good!'
+      : 'Consider adding tests for the uncovered symbols listed above.'
+    }\n`;
+
+    stream.markdown(msg);
+
+    return {
+      metadata: {
+        command: 'coverage',
+        symbol: params,
+        testCount: tests.length,
+        gapCount: untested.length,
+        coveragePercent,
+      },
+    };
+  }
+
+  /**
+   * /standards — Check project standards compliance.
+   */
+  private async handleStandardsCommand(
+    params: string,
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /standards\n\n⏳ Checking standards compliance...\n');
+
+    if (token.isCancellationRequested) {
+      return { metadata: { cancelled: true } };
+    }
+
+    try {
+      const files = params
+        ? [params]
+        : (await this.engine.getChangedFiles())?.map((f) => f.path).slice(0, 10) ?? [];
+
+      if (files.length === 0) {
+        stream.markdown('## /standards\n\nNo files to check. Make changes and try again, or specify a file path.\n');
+        return { metadata: { command: 'standards', fileCount: 0 } };
+      }
+
+      let allViolations: Array<{ ruleId: string; message: string; severity: string }> = [];
+      for (const filePath of files) {
+        const violations = await this.engine.checkStandards(filePath);
+        allViolations.push(
+          ...violations
+            .filter((v) => !v.passed)
+            .map((v) => ({
+              ruleId: v.passed ? 'passed' : 'failed',
+              message: v.message,
+              severity: 'warning',
+            })),
+        );
+      }
+
+      // Compliance ratio
+      const complianceRatio = files.length > 0
+        ? Math.max(0, 100 - Math.min(100, Math.round(allViolations.length / files.length * 100)))
+        : 100;
+
+      let msg = '## /standards — Compliance Report\n\n';
+      msg += `### Summary\n`;
+      msg += `| Metric | Value |\n|--------|-------|\n`;
+      msg += `| Files Checked | ${files.length} |\n`;
+      msg += `| Violations | ${allViolations.length} |\n`;
+      msg += `| Compliance | ${complianceRatio}% |\n\n`;
+
+      if (allViolations.length > 0) {
+        msg += `### Violations\n`;
+        for (const v of allViolations.slice(0, 20)) {
+          msg += `- ${v.message}\n`;
+        }
+        msg += '\n';
+      } else {
+        msg += '✅ All checked files pass standards.\n';
+      }
+
+      stream.markdown(msg);
+
+      return {
+        metadata: {
+          command: 'standards',
+          fileCount: files.length,
+          violationCount: allViolations.length,
+        },
+      };
+    } catch {
+      stream.markdown('## /standards\n\n⚠️ Standards check failed. Ensure the workspace has been analyzed.\n');
+      return { metadata: { command: 'standards', error: 'check_failed' } };
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -259,6 +259,21 @@ function registerChatParticipantWithCommands(
     return handler.handleSlashCommand('test', request.prompt, stream, token);
   });
 
+  participant.command('analyze', async (request: any, _ctx: any, stream: any, token: any) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('analyze', request.prompt, stream, token);
+  });
+
+  participant.command('coverage', async (request: any, _ctx: any, stream: any, token: any) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('coverage', request.prompt, stream, token);
+  });
+
+  participant.command('standards', async (request: any, _ctx: any, stream: any, token: any) => {
+    const handler = new CodeAnalyzerChatParticipant(eng);
+    return handler.handleSlashCommand('standards', request.prompt, stream, token);
+  });
+
   context.subscriptions.push(participant);
 }
 
@@ -412,6 +427,19 @@ function registerConfigWebview(
                   command: 'configDefaults',
                   config: defaults,
                 });
+              } else if (message.command === 'profileChanged') {
+                const profile = message['profile'] as string | undefined;
+                if (profile && ['strict', 'balanced', 'relaxed'].includes(profile)) {
+                  const { PROFILES } = await import('../services/config-service.js');
+                  const profileDef = PROFILES[profile as keyof typeof PROFILES];
+                  if (profileDef) {
+                    webviewView.webview.postMessage({
+                      command: 'profileApplied',
+                      profile,
+                      config: { ...profileDef.overrides, profile },
+                    });
+                  }
+                }
               }
             } catch {
               webviewView.webview.postMessage({
