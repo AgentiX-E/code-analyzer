@@ -135,7 +135,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -q --spider http://localhost:3000/health || exit 1
 
 # Default: run the MCP server
-CMD ["node", "packages/mcp/dist/index.js"]
+CMD ["node", "packages/mcp/dist/start.js"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3: CLI — standalone CLI binary image

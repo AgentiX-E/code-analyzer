@@ -47,6 +47,9 @@ export default defineConfig({
         'packages/infra/src/storage/types.ts', // Pure type definitions
         'packages/core/src/agents/types.ts', // Pure type definitions
         'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
+        // Entry point scripts — tested via integration/e2e, not unit tests
+        'packages/mcp/src/start.ts',
+        'packages/server/src/start.ts',
         // Tree-sitter language providers: fully tested via parse() but tree-sitter AST
         // traversal has inherently high branch count that cannot reach 95% without
         // testing hundreds of AST node-type permutations per grammar.

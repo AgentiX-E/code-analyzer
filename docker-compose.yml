@@ -63,7 +63,7 @@ services:
       target: runner
     image: code-analyzer-server:latest
     container_name: code-analyzer-server
-    command: ["node", "packages/server/dist/index.js"]
+    command: ["node", "packages/server/dist/start.js"]
     environment:
       NODE_ENV: production
       SERVER_API_KEY: ${SERVER_API_KEY:-}

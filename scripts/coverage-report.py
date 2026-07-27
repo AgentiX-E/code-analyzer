@@ -23,6 +23,9 @@ EXCLUDE_PATTERNS = [
     'packages/infra/src/storage/types.ts',
     'packages/core/src/agents/types.ts',
     'packages/infra/src/filesystem/watcher.ts',
+    # Entry point scripts — tested via integration, not unit tests
+    'packages/mcp/src/start.ts',
+    'packages/server/src/start.ts',
     'packages/analyzer/src/languages/tree-sitter-base.ts',
     'packages/analyzer/src/languages/base-c-like.ts',
     'packages/analyzer/src/languages/typescript.ts',
@@ -84,6 +87,10 @@ def run_package_coverage(pkg: str) -> dict:
         for lang in ['tree-sitter-base', 'base-c-like', 'typescript', 'javascript',
                      'python', 'go', 'java', 'kotlin', 'csharp', 'rust', 'php', 'ruby', 'swift']:
             cmd.append(f'--coverage.exclude=packages/analyzer/src/languages/{lang}.ts')
+    elif pkg == 'mcp':
+        cmd.append('--coverage.exclude=packages/mcp/src/start.ts')
+    elif pkg == 'server':
+        cmd.append('--coverage.exclude=packages/server/src/start.ts')
 
     result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=600)
     

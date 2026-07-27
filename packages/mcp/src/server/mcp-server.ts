@@ -211,7 +211,7 @@ export class CodeAnalyzerMCPServer {
   }
 
   /** Start MCP server on HTTP with SSE transport. */
-  async startHTTP(port: number): Promise<void> {
+  async startHTTP(port: number, host?: string): Promise<void> {
     try {
       const http = await import('http');
       const server = http.createServer((_req, res) => {
@@ -220,13 +220,35 @@ export class CodeAnalyzerMCPServer {
       });
 
       this.httpServer = server;
-      server.listen(port);
+      server.listen(port, host ?? '0.0.0.0');
 
       // Also connect via stdio as fallback
       await this.startStdio();
     } catch {
       await this.startStdio();
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Unified Start/Stop API (for container and programmatic usage)
+  // -------------------------------------------------------------------------
+
+  /** Unified start: picks stdio or HTTP based on environment or explicit config. */
+  async start(options?: { transport?: 'stdio' | 'sse'; port?: number; host?: string }): Promise<void> {
+    const transport = options?.transport ?? (process.env['MCP_TRANSPORT'] === 'stdio' ? 'stdio' : 'sse');
+    const port = options?.port ?? parseInt(process.env['MCP_PORT'] ?? '3000', 10);
+    const host = options?.host ?? process.env['MCP_HOST'] ?? '0.0.0.0';
+
+    if (transport === 'stdio') {
+      await this.startStdio();
+    } else {
+      await this.startHTTP(port, host);
+    }
+  }
+
+  /** Unified stop: graceful shutdown of all transports. */
+  async stop(): Promise<void> {
+    await this.shutdown();
   }
 
   /** Graceful shutdown. */
