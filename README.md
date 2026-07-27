@@ -107,6 +107,8 @@ code-analyzer agent configure
 - **[Language Support](docs/language-support.md)** -- 12-language tree-sitter coverage
 - **[Configuration](docs/CONFIGURATION.md)** -- Options, environment variables, tuning
 - **[Integrations](docs/INTEGRATIONS.md)** -- AI agent setup guides
+- **[API Reference](docs/api-spec.md)** -- REST API specification, endpoints, examples
+- **[Troubleshooting](docs/troubleshooting.md)** -- Common issues, performance tuning, debugging
 
 ## Development
 
