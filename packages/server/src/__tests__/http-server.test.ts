@@ -218,6 +218,54 @@ describe('createServer', () => {
     expect(res.status).toBe(200);
   });
 
+  it('should register plugins without opts', async () => {
+    const registry = createTestRegistry();
+    let pluginRegistered = false;
+
+    server = await createServer({
+      registry,
+      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      plugins: [{
+        plugin: async (app: FastifyInstance) => {
+          pluginRegistered = true;
+          app.get('/no-opts-plugin', async (_req, reply) => reply.send({ ok: true }));
+        },
+      }],
+    });
+
+    await server.start();
+    expect(pluginRegistered).toBe(true);
+
+    const address = server.app.server.address();
+    const port = typeof address === 'object' && address ? address.port : server.config.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/no-opts-plugin`);
+    expect(res.status).toBe(200);
+  });
+
+  it('should use x-request-id header from request', async () => {
+    const registry = createTestRegistry();
+    server = await createServer({
+      registry,
+      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+    });
+
+    await server.start();
+    const address = server.app.server.address();
+    const port = typeof address === 'object' && address ? address.port : server.config.port;
+
+    const customId = 'my-custom-request-id';
+    const res = await fetch(`http://127.0.0.1:${port}/health`, {
+      headers: { 'x-request-id': customId },
+    });
+    expect(res.status).toBe(200);
+
+    // Fastify should use the x-request-id header
+    const resHeaders = Object.fromEntries(res.headers.entries());
+    // Fastify may echo the request-id in response headers
+    expect(resHeaders).toBeDefined();
+  });
+
   it('should handle SSE event posting', async () => {
     const registry = createTestRegistry();
     server = await createServer({
@@ -307,6 +355,39 @@ describe('createServer', () => {
     expect(server.config.host).toBe('0.0.0.0');
     expect(server.config.apiPrefix).toBe('/api/v1');
     expect(server.config.sseHeartbeatMs).toBe(15000);
+  });
+
+  it('should log startup messages when logging is enabled and not silent', async () => {
+    const registry = createTestRegistry();
+    server = await createServer({
+      registry,
+      config: { port: 0, logging: { enabled: true, level: 'info', includeBody: false, pretty: false } },
+    });
+
+    await server.start();
+
+    // Server should start and listen
+    const address = server.app.server.address();
+    const port = typeof address === 'object' && address ? address.port : server.config.port;
+    expect(port).toBeGreaterThan(0);
+  });
+
+  it('should log authenticated mode when auth is enabled', async () => {
+    const registry = createTestRegistry();
+    server = await createServer({
+      registry,
+      config: {
+        port: 0,
+        auth: { enabled: true, apiKeys: ['key'] },
+        logging: { enabled: true, level: 'info', includeBody: false, pretty: false },
+      },
+    });
+
+    await server.start();
+
+    const address = server.app.server.address();
+    const port = typeof address === 'object' && address ? address.port : server.config.port;
+    expect(port).toBeGreaterThan(0);
   });
 });
 

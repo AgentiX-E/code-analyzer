@@ -1767,3 +1767,177 @@ describe('Cross-Repo Edge Cases', () => {
     expect(typeof report.orphanSymbols).toBe('number');
   });
 });
+
+// ---------------------------------------------------------------------------
+// CrossRepoIndexer — additional coverage for v8 ignore blocks
+// ---------------------------------------------------------------------------
+
+describe('CrossRepoIndexer — additional coverage', () => {
+  let store: InMemoryGraphStore;
+  let groupManager: RepoGroupManager;
+  let indexer: CrossRepoIndexer;
+  const tmpBaseDir = join(tmpdir(), `cross-repo-extra-${Date.now()}`);
+
+  beforeEach(() => {
+    store = new InMemoryGraphStore();
+    groupManager = new RepoGroupManager();
+    indexer = new CrossRepoIndexer(store, groupManager);
+    mkdirSync(tmpBaseDir, { recursive: true });
+  });
+
+  describe('indexGroup — with language filter and concurrency', () => {
+    it('should filter by language when indexing', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'lang-mixed', {
+        'index.ts': 'export function getData() { return 42; }',
+        'utils.py': 'def helper():\n    return True',
+        'app.go': 'package main\n\nfunc main() {}',
+        'README.md': '# Documentation',
+      });
+
+      groupManager.createGroup('g1', 'Mixed', '');
+      groupManager.addRepo('g1', 'org', 'lang-mixed', 'https://a.example.com', repoDir);
+
+      const result = await indexer.indexGroup('g1', { languages: ['typescript'] });
+      expect(result.groupId).toBe('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('should filter by multiple languages', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'multi-lang', {
+        'main.py': 'def main():\n    pass',
+        'app.ts': 'export function app() { return true; }',
+      });
+
+      groupManager.createGroup('g1', 'Multi', '');
+      groupManager.addRepo('g1', 'org', 'multi-lang', 'https://a.example.com', repoDir);
+
+      const result = await indexer.indexGroup('g1', { languages: ['python', 'typescript'] });
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('should use force option to re-index', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'force-reindex', {
+        'index.ts': 'export function data() { return 42; }',
+      });
+
+      groupManager.createGroup('g1', 'Force', '');
+      groupManager.addRepo('g1', 'org', 'force-reindex', 'https://a.example.com', repoDir);
+
+      const result = await indexer.indexGroup('g1', { force: true });
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('should handle indexing with explicit concurrency', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'concurrent', {
+        'index.ts': 'export const x = 1;',
+      });
+
+      groupManager.createGroup('g1', 'Concurrent', '');
+      groupManager.addRepo('g1', 'org', 'concurrent', 'https://a.example.com', repoDir);
+
+      const result = await indexer.indexGroup('g1', { concurrency: 1 });
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('should handle indexing with default concurrency', async () => {
+      const repoDir = createTestRepoDir(tmpBaseDir, 'default-conc', {
+        'app.ts': 'export default class App {}',
+      });
+
+      groupManager.createGroup('g1', 'Default', '');
+      groupManager.addRepo('g1', 'org', 'default-conc', 'https://a.example.com', repoDir);
+
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('should handle repos with no autoIndex flag', async () => {
+      groupManager.createGroup('g1', 'No AutoIndex', '');
+      // Add a repo but set autoIndex to false
+      const group = groupManager.getGroup('g1')!;
+      (group as any).repos = [{ fullName: 'org/skip', localPath: '/tmp/skip', autoIndex: false }];
+
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(0);
+    });
+  });
+
+  describe('indexRepo — edge cases', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.indexRepo('nonexistent', 'org/repo')).rejects.toThrow('not found');
+    });
+
+    it('should throw for repo not in group', async () => {
+      groupManager.createGroup('g1', 'Test', '');
+      await expect(indexer.indexRepo('g1', 'unknown/repo')).rejects.toThrow('not found in group');
+    });
+  });
+
+  describe('buildCrossRepoGraph — edge cases', () => {
+    it('should return early for groups with < 2 repos', async () => {
+      groupManager.createGroup('g1', 'Solo Graph', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+
+      const report = await indexer.buildCrossRepoGraph('g1');
+      expect(report.crossRepoEdges).toBe(0);
+    });
+
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.buildCrossRepoGraph('nonexistent')).rejects.toThrow('not found');
+    });
+  });
+
+  describe('detectContracts — edge cases', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.detectContracts('nonexistent')).rejects.toThrow('not found');
+    });
+
+    it('should return empty for groups with < 2 repos', async () => {
+      groupManager.createGroup('g1', 'Solo Contract', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+      const contracts = await indexer.detectContracts('g1');
+      expect(contracts).toEqual([]);
+    });
+  });
+
+  describe('checkTypeCompatibility — edge cases', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.checkTypeCompatibility('nonexistent', 'a', 'b')).rejects.toThrow('not found');
+    });
+  });
+
+  describe('analyzeCrossRepoImpact — edge cases', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.analyzeCrossRepoImpact('nonexistent', 'r')).rejects.toThrow('not found');
+    });
+  });
+
+  describe('traceSymbolDependencies — edge cases', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.traceSymbolDependencies('nonexistent', 'r', 's')).rejects.toThrow('not found');
+    });
+
+    it('should throw for repo not in group', async () => {
+      groupManager.createGroup('g1', 'Trace Group', '');
+      await expect(indexer.traceSymbolDependencies('g1', 'unknown', 'fn')).rejects.toThrow('not in group');
+    });
+  });
+
+  describe('resolveCrossRepoSymbols — edge cases', () => {
+    it('should throw for non-existent group', async () => {
+      await expect(indexer.resolveCrossRepoSymbols('nonexistent')).rejects.toThrow('not found');
+    });
+  });
+
+  describe('levenshteinDistance — additional', () => {
+    it('should swap strings when a is longer than b', () => {
+      const result = levenshteinDistance('longstring', 'short');
+      expect(result).toBeGreaterThan(0);
+    });
+
+    it('should handle completely different length strings', () => {
+      const result = levenshteinDistance('a', 'abcdefghij');
+      expect(result).toBe(9);
+    });
+  });
+});

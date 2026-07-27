@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/intelligence — Cross-Repo Indexer
 // Indexes multiple repositories in a group, resolves cross-repo symbols,
 // builds cross-repo dependency graphs, detects contracts, and analyzes impact.
@@ -96,7 +95,6 @@ export interface SymbolDependencyTrace {
 // Internal types
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
 
 const SKIP_DIRECTORIES = new Set([
   'node_modules', '.git', 'dist', 'build', '__pycache__', '.next',
@@ -196,7 +194,6 @@ export class CrossRepoIndexer {
   /**
    * Index a single repository in a group.
    */
-  /* v8 ignore start */ // cross-repo indexing
   async indexRepo(groupId: string, repoId: string): Promise<IndexResult> {
     const startTime = Date.now();
     const group = this.groupManager.getGroup(groupId);
@@ -276,11 +273,9 @@ export class CrossRepoIndexer {
     rootPath: string,
     _options: IndexOptions,
   ): Promise<{ filePath: string; language: string }[]> {
-    /* v8 ignore start */
     const results: { filePath: string; language: string }[] = [];
     await this.walkDirectory(rootPath, rootPath, results);
     return results;
-    /* v8 ignore stop */
   }
 
   private async walkDirectory(
@@ -288,7 +283,6 @@ export class CrossRepoIndexer {
     currentPath: string,
     results: { filePath: string; language: string }[],
   ): Promise<void> {
-    /* v8 ignore start */
     let entries;
     try {
       entries = await readdir(currentPath, { withFileTypes: true });
@@ -326,7 +320,6 @@ export class CrossRepoIndexer {
         results.push({ filePath: fullPath, language });
       }
     }
-    /* v8 ignore stop */
   }
 
   // -----------------------------------------------------------------------
@@ -1433,5 +1426,3 @@ export function levenshteinDistance(a: string, b: string): number {
 
   return prevRow[a.length]!;
 }
-
-/* v8 ignore stop */

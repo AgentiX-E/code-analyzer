@@ -69,6 +69,39 @@ describe('registerHealthRoutes', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/health/ready' });
     expect(res.statusCode).toBe(200);
   });
+
+  it('GET /api/v1/health/ready should return 503 when not ready', async () => {
+    // Create a separate app with a custom health registry where readiness is false
+    const app2 = Fastify({ logger: false });
+    const health2 = new HealthCheckRegistry();
+    // Register a critical check that always fails to force unhealthy status
+    health2.register({
+      name: 'failing_critical',
+      critical: true,
+      timeout: 1000,
+      check: async () => ({ name: 'failing_critical', status: 'fail', message: 'Always fails' }),
+    });
+    registerHealthRoutes(app2, config, health2);
+    await app2.ready();
+
+    const res = await app2.inject({ method: 'GET', url: '/api/v1/health/ready' });
+    expect(res.statusCode).toBe(503);
+
+    await app2.close();
+  });
+
+  it('GET /custom/health/ready should work with custom apiPrefix', async () => {
+    const app2 = Fastify({ logger: false });
+    const customConfig = resolveConfig({ apiPrefix: '/custom' });
+    const health2 = new HealthCheckRegistry();
+    registerHealthRoutes(app2, customConfig, health2);
+    await app2.ready();
+
+    const res = await app2.inject({ method: 'GET', url: '/custom/health/ready' });
+    expect(res.statusCode).toBe(200);
+
+    await app2.close();
+  });
 });
 
 // ---------------------------------------------------------------------------

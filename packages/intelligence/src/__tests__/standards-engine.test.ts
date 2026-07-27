@@ -1576,3 +1576,239 @@ describe('New standards — Quality & Reliability', () => {
     expect(tmpl!.rules.some((r) => r.id === 'cfg-no-secrets-in-vcs')).toBe(true);
   });
 });
+
+// ==========================================================================
+// Additional branch coverage tests
+// ==========================================================================
+
+describe('StandardsEngine — checkFiles with disabled rules', () => {
+  it('should skip disabled rules in checkFiles', () => {
+    const engine = makeEngine();
+    const standard = engine.loadStandard('typescript-coding');
+    // Create a modified standard with disabled rules
+    const modified: import('@code-analyzer/shared').ProjectStandard = {
+      ...standard,
+      config: {
+        includePaths: [],
+        excludePaths: [],
+        severityOverrides: {},
+        disabledRules: ['ts-no-console-log', 'ts-no-any'],
+        ruleParams: {},
+      },
+    };
+    const files = [{ path: 'test.ts', content: 'console.log("test"); const x: any = 5;' }];
+    // Use checkSource to verify disabled rules
+    const results = engine.checkSource('console.log("test"); const x: any = 5;', 'test.ts', modified);
+    const consoleRule = results.find((r) => r.ruleId === 'ts-no-console-log');
+    const anyRule = results.find((r) => r.ruleId === 'ts-no-any');
+    expect(consoleRule).toBeUndefined();
+    expect(anyRule).toBeUndefined();
+  });
+
+  it('should handle checkFiles with all rules disabled', () => {
+    const engine = makeEngine();
+    // Create a new custom standard with all rules disabled
+    const custom: import('@code-analyzer/shared').ProjectStandard = {
+      id: 'all-disabled-std',
+      name: 'All Disabled',
+      version: '1.0',
+      category: 'custom',
+      description: 'All rules disabled',
+      config: {
+        includePaths: [],
+        excludePaths: [],
+        severityOverrides: {},
+        disabledRules: ['r1', 'r2'],
+        ruleParams: {},
+      },
+      rules: [
+        { id: 'r1', description: 'Rule 1', checkType: 'regex', checkConfig: { pattern: 'eval' }, severity: 'high', autoFixable: false },
+        { id: 'r2', description: 'Rule 2', checkType: 'regex', checkConfig: { pattern: 'console' }, severity: 'low', autoFixable: false },
+      ],
+      examples: [],
+    };
+    engine.registerStandard(custom);
+    const result = engine.checkFiles(
+      [{ path: 'test.ts', content: 'eval("x"); console.log("y");' }],
+      'all-disabled-std',
+    );
+    // All rules disabled → 100% compliance
+    expect(result.complianceScore).toBe(100);
+  });
+});
+
+describe('StandardsEngine — composeStandards edge cases', () => {
+  it('should compose standards with examples', () => {
+    const engine = makeEngine();
+    const composed = engine.composeStandards(['typescript-coding', 'python-pep8'], {
+      name: 'Custom Name',
+      description: 'Custom Desc',
+    });
+    expect(composed.id).toBe('composed-typescript-coding-python-pep8');
+    expect(composed.name).toBe('Custom Name');
+    expect(composed.description).toBe('Custom Desc');
+    expect(composed.category).toBe('custom');
+    expect(composed.version).toBe('1.0.0');
+    expect(composed.rules.length).toBeGreaterThan(0);
+    expect(composed.examples.length).toBeGreaterThan(0);
+  });
+
+  it('should compose standards with default options', () => {
+    const engine = makeEngine();
+    const composed = engine.composeStandards(['security-baseline']);
+    expect(composed.id).toBe('composed-security-baseline');
+    expect(composed.name).toContain('Composed');
+    expect(composed.description).toContain('Composed from');
+  });
+
+  it('should compose empty standards list (no standards)', () => {
+    const engine = makeEngine();
+    const composed = engine.composeStandards([], {
+      name: 'Empty',
+      description: 'No standards',
+    });
+    expect(composed.id).toBe('composed-');
+    expect(composed.rules).toHaveLength(0);
+    expect(composed.examples).toHaveLength(0);
+  });
+});
+
+describe('StandardsEngine — detectApplicableStandards edge cases', () => {
+  it('should detect docker-compose.yml for container security', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['docker-compose.yml']);
+    expect(standards).toContain('container-security');
+    expect(standards).toContain('dependency-security');
+  });
+
+  it('should detect docker-compose.yaml for container security', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['docker-compose.yaml']);
+    expect(standards).toContain('container-security');
+  });
+
+  it('should detect requirements.txt for dependency security', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['requirements.txt']);
+    expect(standards).toContain('dependency-security');
+  });
+
+  it('should detect pyproject.toml for dependency security', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['pyproject.toml']);
+    expect(standards).toContain('dependency-security');
+  });
+
+  it('should detect go.mod for dependency security', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['go.mod']);
+    expect(standards).toContain('dependency-security');
+  });
+
+  it('should detect .d.ts compound extension for TypeScript', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['types/types.d.ts']);
+    expect(standards).toContain('typescript-coding');
+    expect(standards).toContain('typescript-best-practices');
+  });
+
+  it('should detect error-handling for any code files', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/main.py']);
+    expect(standards).toContain('error-handling');
+    expect(standards).toContain('error-handling-standard');
+    expect(standards).toContain('logging-standard');
+  });
+
+  it('should detect service directory for architecture layered', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/service/user-service.ts']);
+    expect(standards).toContain('architecture-layered');
+    expect(standards).toContain('clean-architecture');
+  });
+
+  it('should detect repository directory for architecture layered', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/repository/user-repo.ts']);
+    expect(standards).toContain('architecture-layered');
+  });
+
+  it('should detect entity directory for architecture layered', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/entity/user.ts']);
+    expect(standards).toContain('architecture-layered');
+  });
+
+  it('should detect services directory for microservices', () => {
+    const engine = makeEngine();
+    // Need /services/ in the path for the pattern match
+    const standards = engine.detectApplicableStandards(['src/services/payment/main.ts']);
+    expect(standards).toContain('microservices-patterns');
+  });
+
+  it('should detect api-gateway in path for microservices', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/api-gateway/routes.ts']);
+    expect(standards).toContain('microservices-patterns');
+  });
+
+  it('should detect kafka in path for event-driven', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['services/kafka/consumer.ts']);
+    expect(standards).toContain('event-driven-architecture');
+  });
+
+  it('should detect queue in path for event-driven', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['handlers/queue-processor.ts']);
+    expect(standards).toContain('event-driven-architecture');
+  });
+
+  it('should detect training directory for ML', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['training/model.py']);
+    expect(standards).toContain('ml-pipeline-best-practices');
+  });
+
+  it('should detect model keyword for ML', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/model.py']);
+    expect(standards).toContain('ml-pipeline-best-practices');
+  });
+
+  it('should detect agent keyword for AI patterns', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['agents/tool-agent.ts']);
+    expect(standards).toContain('ai-agent-code-patterns');
+  });
+
+  it('should detect mcp keyword for AI patterns', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['tools/mcp-handler.ts']);
+    expect(standards).toContain('ai-agent-code-patterns');
+  });
+
+  it('should detect config.js for configuration management', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['config.js']);
+    expect(standards).toContain('configuration-management');
+  });
+
+  it('should detect settings.py for configuration management', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['settings.py']);
+    expect(standards).toContain('configuration-management');
+  });
+
+  it('should detect .kt and .kts for Java standards', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/Main.kt', 'src/Helper.kts']);
+    expect(standards).toContain('java-best-practices');
+  });
+
+  it('should detect .mjs and .cjs for JavaScript', () => {
+    const engine = makeEngine();
+    const standards = engine.detectApplicableStandards(['src/module.mjs', 'src/lib.cjs']);
+    expect(standards).toContain('javascript-best-practices');
+  });
+});

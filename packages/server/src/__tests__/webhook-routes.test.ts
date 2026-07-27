@@ -276,4 +276,132 @@ describe('registerWebhookRoutes', () => {
     expect(handler.processed.length).toBe(1);
     expect(handler.processed[0]).toEqual(payload);
   });
+
+  it('should handle processing errors when logging is disabled', async () => {
+    const handler: WebhookHandler & { processed: unknown[] } = {
+      processed: [],
+      async process(_payload: unknown) {
+        throw new Error('Processing failed!');
+      },
+    };
+
+    app = Fastify({ logger: false });
+
+    // logging.enabled is false
+    const customConfig = resolveConfig({ logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } });
+    registerWebhookRoutes(app, customConfig, { handler });
+
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/webhook/github',
+      headers: {
+        'content-type': 'application/json',
+        'x-github-event': 'pull_request',
+      },
+      payload: { action: 'opened' },
+    });
+
+    // Response should still be 200
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should log processing errors when logging is enabled', async () => {
+    const handler: WebhookHandler & { processed: unknown[] } = {
+      processed: [],
+      async process(_payload: unknown) {
+        throw new Error('Processing failed!');
+      },
+    };
+
+    app = Fastify({ logger: false });
+
+    // logging.enabled is true
+    const customConfig = resolveConfig({ logging: { enabled: true, level: 'info', includeBody: false, pretty: false } });
+    registerWebhookRoutes(app, customConfig, { handler });
+
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/webhook/github',
+      headers: {
+        'content-type': 'application/json',
+        'x-github-event': 'pull_request',
+      },
+      payload: { action: 'opened' },
+    });
+
+    // Response should still be 200
+    expect(res.statusCode).toBe(200);
+
+    // Wait for async processing to trigger the error
+    await new Promise((r) => setTimeout(r, 100));
+  });
+
+  it('should use "unknown" delivery ID when x-github-delivery header is missing', async () => {
+    const handler = createHandler();
+    app = Fastify({ logger: false });
+
+    registerWebhookRoutes(app, config, { handler });
+
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/webhook/github',
+      headers: {
+        'content-type': 'application/json',
+        'x-github-event': 'pull_request',
+      },
+      payload: { action: 'opened' },
+    });
+
+    const body = JSON.parse(res.body);
+    expect(body.deliveryId).toBe('unknown');
+  });
+
+  it('should work with custom apiPrefix', async () => {
+    const handler = createHandler();
+    app = Fastify({ logger: false });
+
+    const customConfig = resolveConfig({ apiPrefix: '/custom/v2' });
+    registerWebhookRoutes(app, customConfig, { handler });
+
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/custom/v2/webhook/github',
+      headers: {
+        'content-type': 'application/json',
+        'x-github-event': 'pull_request',
+      },
+      payload: { action: 'opened' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.received).toBe(true);
+  });
+
+  it('should serve webhook status with custom apiPrefix', async () => {
+    const handler = createHandler();
+    app = Fastify({ logger: false });
+
+    const customConfig = resolveConfig({ apiPrefix: '/custom/v2' });
+    registerWebhookRoutes(app, customConfig, { handler, secret: 'configured' });
+
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/custom/v2/webhook/github/status',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.configured).toBe(true);
+  });
 });

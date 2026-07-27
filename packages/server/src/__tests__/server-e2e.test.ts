@@ -7,6 +7,7 @@ import { createServer } from '../http-server.js';
 import type { ServerInstance } from '../http-server.js';
 import { ToolRegistry } from '@code-analyzer/mcp';
 import { HealthCheckRegistry } from '@code-analyzer/core';
+import { createHmac } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -376,6 +377,33 @@ describe('Server E2E — Graceful Shutdown', () => {
     await expect(server.stop()).resolves.not.toThrow();
   });
 
+  it('should drain active connections during shutdown', async () => {
+    const registry = createTestRegistry();
+    server = await createServer({ registry, config: makeSilentConfig() });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    // Start a long-running request (SSE endpoint keeps connection open)
+    const controller = new AbortController();
+    const reqPromise = fetch(`http://127.0.0.1:${port}/api/v1/sse`, {
+      signal: controller.signal,
+    }).catch(() => {}); // Ignore abort errors
+
+    // Small delay to let connection register
+    await new Promise((r) => setTimeout(r, 100));
+
+    // Now stop — the drain loop will wait for connections to close
+    await server.stop();
+
+    // Abort the pending request
+    controller.abort();
+    await reqPromise;
+
+    expect(server.app.server.listening).toBe(false);
+  });
+
   it('should expose health check registry', async () => {
     const registry = createTestRegistry();
     server = await createServer({ registry, config: makeSilentConfig() });
@@ -435,5 +463,203 @@ describe('Server E2E — Auth Integration', () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     expect(res.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Webhook E2E Integration
+// ---------------------------------------------------------------------------
+
+describe('Server E2E — Webhook Integration', () => {
+  let server: ServerInstance | null = null;
+
+  afterEach(async () => {
+    if (server) {
+      try { await server.stop(); } catch { /* */ }
+      server = null;
+    }
+  });
+
+  it('should receive webhook events', async () => {
+    const registry = createTestRegistry();
+    const processedPayloads: unknown[] = [];
+
+    server = await createServer({
+      registry,
+      config: makeSilentConfig(),
+      webhook: {
+        handler: {
+          async process(payload: unknown) {
+            processedPayloads.push(payload);
+          },
+        },
+      },
+    });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-github-event': 'pull_request',
+      },
+      body: JSON.stringify({ action: 'opened' }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.received).toBe(true);
+
+    // Wait for async processing
+    await new Promise((r) => setTimeout(r, 100));
+    expect(processedPayloads.length).toBe(1);
+  });
+
+  it('should verify webhook signatures when secret is configured', async () => {
+    const registry = createTestRegistry();
+    const secret = 'my-webhook-secret';
+    const payload = { action: 'opened' };
+    const payloadStr = JSON.stringify(payload);
+
+    const hmac = createHmac('sha256', secret);
+    hmac.update(payloadStr, 'utf-8');
+    const signature = `sha256=${hmac.digest('hex')}`;
+
+    server = await createServer({
+      registry,
+      config: makeSilentConfig(),
+      webhook: {
+        secret,
+        handler: {
+          async process() {},
+        },
+      },
+    });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-github-event': 'pull_request',
+        'x-hub-signature-256': signature,
+      },
+      body: payloadStr,
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('should reject webhook with invalid signature when secret configured', async () => {
+    const registry = createTestRegistry();
+
+    server = await createServer({
+      registry,
+      config: makeSilentConfig(),
+      webhook: {
+        secret: 'my-secret',
+        handler: {
+          async process() {},
+        },
+      },
+    });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-github-event': 'pull_request',
+        'x-hub-signature-256': 'sha256=invalid',
+      },
+      body: JSON.stringify({ action: 'opened' }),
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('should serve webhook status endpoint', async () => {
+    const registry = createTestRegistry();
+
+    server = await createServer({
+      registry,
+      config: makeSilentConfig(),
+      webhook: {
+        secret: 'configured',
+        handler: {
+          async process() {},
+        },
+      },
+    });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github/status`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.configured).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Body Limit & Request ID Tests
+// ---------------------------------------------------------------------------
+
+describe('Server E2E — Request Features', () => {
+  let server: ServerInstance | null = null;
+
+  afterEach(async () => {
+    if (server) {
+      try { await server.stop(); } catch { /* */ }
+      server = null;
+    }
+  });
+
+  it('should enforce bodyLimit from config', async () => {
+    const registry = createTestRegistry();
+    server = await createServer({
+      registry,
+      config: { ...makeSilentConfig(), maxBodySize: 100 },
+    });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    // Send a body larger than 100 bytes
+    const largeBody = 'x'.repeat(200);
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/tools/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: 'hello', args: { name: largeBody } }),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it('should generate request ID when x-request-id header not provided', async () => {
+    const registry = createTestRegistry();
+    server = await createServer({
+      registry,
+      config: { ...makeSilentConfig(), logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+    });
+    await server.start();
+
+    const addr = server.app.server.address();
+    const port = typeof addr === 'object' && addr ? addr.port : server.config.port;
+
+    // Make a request that triggers a 404 - error handler includes requestId
+    const res = await fetch(`http://127.0.0.1:${port}/nonexistent-route-xyz`);
+    expect(res.status).toBe(404);
   });
 });

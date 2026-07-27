@@ -86,6 +86,37 @@ describe('resolveConfig', () => {
     // cors is a plain spread clone, should be different reference
     expect(Object.is(c1.cors, c2.cors)).toBe(false);
   });
+
+  it('should deep-merge rateLimit config', () => {
+    const config = resolveConfig({
+      rateLimit: { enabled: true, maxRequests: 50 },
+    });
+    expect(config.rateLimit.enabled).toBe(true);
+    expect(config.rateLimit.maxRequests).toBe(50);
+    expect(config.rateLimit.windowMs).toBe(60_000); // unchanged
+    expect(config.rateLimit.addHeaders).toBe(true); // unchanged
+  });
+
+  it('should deep-merge mtls config', () => {
+    const config = resolveConfig({
+      mtls: { enabled: true, requireCert: true, failureMode: 'warn' },
+    });
+    expect(config.mtls.enabled).toBe(true);
+    expect(config.mtls.requireCert).toBe(true);
+    expect(config.mtls.failureMode).toBe('warn');
+    expect(config.mtls.skipHealthEndpoints).toBe(true); // unchanged
+  });
+
+  it('should override maxConnections', () => {
+    const config = resolveConfig({ maxConnections: 100 });
+    expect(config.maxConnections).toBe(100);
+  });
+
+  it('should handle empty overrides object', () => {
+    const config = resolveConfig({});
+    expect(config.port).toBe(3000);
+    expect(config.apiPrefix).toBe('/api/v1');
+  });
 });
 
 describe('DEFAULT_CONFIG', () => {
@@ -111,5 +142,65 @@ describe('DEFAULT_CONFIG', () => {
     expect(DEFAULT_CONFIG.cors.origin).toBe('*');
     expect(DEFAULT_CONFIG.cors.methods).toContain('GET');
     expect(DEFAULT_CONFIG.cors.methods).toContain('POST');
+  });
+
+  it('should have correct host default', () => {
+    expect(DEFAULT_CONFIG.host).toBe('0.0.0.0');
+  });
+
+  it('should have correct port default', () => {
+    expect(DEFAULT_CONFIG.port).toBe(3000);
+  });
+
+  it('should have correct apiPrefix default', () => {
+    expect(DEFAULT_CONFIG.apiPrefix).toBe('/api/v1');
+  });
+
+  it('should have correct cors sub-fields', () => {
+    expect(DEFAULT_CONFIG.cors.allowedHeaders).toContain('Content-Type');
+    expect(DEFAULT_CONFIG.cors.allowedHeaders).toContain('Authorization');
+    expect(DEFAULT_CONFIG.cors.exposedHeaders).toContain('x-request-id');
+    expect(DEFAULT_CONFIG.cors.credentials).toBe(false);
+    expect(DEFAULT_CONFIG.cors.maxAge).toBe(86400);
+  });
+
+  it('should have correct auth sub-fields', () => {
+    expect(DEFAULT_CONFIG.auth.headerName).toBe('x-api-key');
+    expect(DEFAULT_CONFIG.auth.apiKeys).toEqual([]);
+    expect(DEFAULT_CONFIG.auth.enabled).toBe(false);
+  });
+
+  it('should have correct logging sub-fields', () => {
+    expect(DEFAULT_CONFIG.logging.enabled).toBe(true);
+    expect(DEFAULT_CONFIG.logging.level).toBe('info');
+    expect(DEFAULT_CONFIG.logging.includeBody).toBe(false);
+    expect(DEFAULT_CONFIG.logging.pretty).toBe(false);
+  });
+
+  it('should have correct rateLimit sub-fields', () => {
+    expect(DEFAULT_CONFIG.rateLimit.enabled).toBe(false);
+    expect(DEFAULT_CONFIG.rateLimit.windowMs).toBe(60_000);
+    expect(DEFAULT_CONFIG.rateLimit.maxRequests).toBe(100);
+    expect(DEFAULT_CONFIG.rateLimit.addHeaders).toBe(true);
+  });
+
+  it('should have correct mtls sub-fields', () => {
+    expect(DEFAULT_CONFIG.mtls.enabled).toBe(false);
+    expect(DEFAULT_CONFIG.mtls.requireCert).toBe(false);
+    expect(DEFAULT_CONFIG.mtls.skipHealthEndpoints).toBe(true);
+    expect(DEFAULT_CONFIG.mtls.failureMode).toBe('reject');
+  });
+
+  it('should have correct metadata sub-fields', () => {
+    expect(DEFAULT_CONFIG.metadata.name).toBe('code-analyzer');
+    expect(DEFAULT_CONFIG.metadata.version).toBe('0.1.0');
+    expect(DEFAULT_CONFIG.metadata.environment).toBe('production');
+  });
+
+  it('should have correct numeric defaults', () => {
+    expect(DEFAULT_CONFIG.maxBodySize).toBe(1_048_576);
+    expect(DEFAULT_CONFIG.keepAliveTimeout).toBe(61_000);
+    expect(DEFAULT_CONFIG.sseHeartbeatMs).toBe(15_000);
+    expect(DEFAULT_CONFIG.maxConnections).toBe(0);
   });
 });

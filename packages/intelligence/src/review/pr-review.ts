@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/intelligence — PR Review Engine
 // Pull request review with enriched knowledge graph context and standards checks.
 

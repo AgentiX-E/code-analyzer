@@ -432,6 +432,148 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
       ]);
       expect(result.sharedDependencies).toEqual({});
     });
+
+    it('should parse semver edge cases — pre-release and build metadata', () => {
+      expect(matrix.parseSemver('1.0.0-alpha')).toEqual({ major: 1, minor: 0, patch: 0 });
+      expect(matrix.parseSemver('1.0.0+build.1')).toEqual({ major: 1, minor: 0, patch: 0 });
+      expect(matrix.parseSemver('1.0.0-alpha+build')).toEqual({ major: 1, minor: 0, patch: 0 });
+    });
+
+    it('should parse semver edge cases — partial versions', () => {
+      expect(matrix.parseSemver('1')).toEqual({ major: 1, minor: 0, patch: 0 });
+      expect(matrix.parseSemver('1.2')).toEqual({ major: 1, minor: 2, patch: 0 });
+      expect(matrix.parseSemver('')).toEqual({ major: 0, minor: 0, patch: 0 });
+    });
+
+    it('should parse semver edge cases — asterisk and x-ranges', () => {
+      expect(matrix.parseSemver('*')).toEqual({ major: 0, minor: 0, patch: 0 });
+      expect(matrix.parseSemver('1.x')).toEqual({ major: 1, minor: 0, patch: 0 });
+    });
+
+    it('should compare semver edge cases — minor version differences', () => {
+      expect(matrix.compareSemver('1.1.0', '1.2.0')).toBeLessThan(0);
+      expect(matrix.compareSemver('1.5.0', '1.2.0')).toBeGreaterThan(0);
+    });
+
+    it('should compare semver edge cases — with pre-release tags stripped', () => {
+      expect(matrix.compareSemver('1.0.0', '1.0.0-beta')).toBe(0);
+      expect(matrix.compareSemver('2.0.0', '2.0.0-alpha')).toBe(0);
+    });
+
+    it('should throw for empty groupId in buildMatrix', () => {
+      expect(() => matrix.buildMatrix('', [])).toThrow('groupId is required');
+    });
+
+    it('should handle buildMatrix with version field', () => {
+      const result = matrix.buildMatrix('g1', [
+        { repo: 'a', version: '1.0.0', dependencies: { lib: '2.0.0' } },
+        { repo: 'b', version: '2.0.0', dependencies: { lib: '2.1.0' } },
+      ]);
+      expect(result.repos).toEqual(['a', 'b']);
+      expect(result.matrix['a']).toEqual({ lib: '2.0.0' });
+      expect(result.matrix['b']).toEqual({ lib: '2.1.0' });
+    });
+
+    it('should handle buildMatrix with repos having empty dependencies', () => {
+      const result = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: {} },
+        { repo: 'b', dependencies: {} },
+      ]);
+      expect(result.sharedDependencies).toEqual({});
+    });
+
+    it('should handle detectConflicts with major_mismatch', () => {
+      const mat = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: { pkg: '1.0.0' } },
+        { repo: 'b', dependencies: { pkg: '2.0.0' } },
+      ]);
+      const conflicts = matrix.detectConflicts(mat);
+      expect(conflicts.length).toBe(1);
+      expect(conflicts[0]!.conflictType).toBe('major_mismatch');
+    });
+
+    it('should handle detectConflicts with minor_mismatch', () => {
+      const mat = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: { pkg: '1.2.0' } },
+        { repo: 'b', dependencies: { pkg: '1.3.0' } },
+      ]);
+      const conflicts = matrix.detectConflicts(mat);
+      expect(conflicts.length).toBe(1);
+      expect(conflicts[0]!.conflictType).toBe('minor_mismatch');
+    });
+
+    it('should handle detectConflicts with patch_mismatch', () => {
+      const mat = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: { pkg: '1.2.1' } },
+        { repo: 'b', dependencies: { pkg: '1.2.2' } },
+      ]);
+      const conflicts = matrix.detectConflicts(mat);
+      expect(conflicts.length).toBe(1);
+      expect(conflicts[0]!.conflictType).toBe('patch_mismatch');
+    });
+
+    it('should handle checkUpgradeSafety — minor version bump recommendations', () => {
+      const mat = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: { pkg: '1.0.0' } },
+      ]);
+      const report = matrix.checkUpgradeSafety('pkg', '1.0.0', '1.5.0', mat);
+      expect(report.safe).toBe(true);
+      expect(report.recommendations.some((r) => r.includes('Minor version bump'))).toBe(true);
+    });
+
+    it('should handle checkUpgradeSafety — major version bump', () => {
+      const mat = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: { pkg: '1.0.0' } },
+      ]);
+      const report = matrix.checkUpgradeSafety('pkg', '1.0.0', '2.0.0', mat);
+      expect(report.safe).toBe(false);
+      expect(report.breakingChanges.some((b) => b.includes('Major version bump'))).toBe(true);
+    });
+
+    it('should handle checkUpgradeSafety — repos already on target version', () => {
+      const mat = matrix.buildMatrix('g1', [
+        { repo: 'a', dependencies: { pkg: '2.0.0' } },
+        { repo: 'b', dependencies: { pkg: '2.0.0' } },
+      ]);
+      const report = matrix.checkUpgradeSafety('pkg', '1.0.0', '2.0.0', mat);
+      expect(report.recommendations.some((r) => r.includes('already on'))).toBe(true);
+    });
+
+    it('should handle suggestAlignments with patch_mismatch (safe risk)', () => {
+      const conflict = {
+        packageName: 'pkg',
+        repos: [{ repo: 'a', version: '1.2.1' }, { repo: 'b', version: '1.2.2' }],
+        conflictType: 'patch_mismatch' as const,
+        recommendedVersion: '1.2.2',
+      };
+      const alignments = matrix.suggestAlignments([conflict]);
+      expect(alignments.length).toBe(1);
+      expect(alignments[0]!.rationale).toContain('safe');
+    });
+
+    it('should handle suggestAlignments with minor_mismatch (moderate risk)', () => {
+      const conflict = {
+        packageName: 'pkg',
+        repos: [{ repo: 'a', version: '1.2.0' }, { repo: 'b', version: '1.3.0' }],
+        conflictType: 'minor_mismatch' as const,
+        recommendedVersion: '1.3.0',
+      };
+      const alignments = matrix.suggestAlignments([conflict]);
+      expect(alignments.length).toBe(1);
+      expect(alignments[0]!.rationale).toContain('moderate risk');
+    });
+
+    it('should handle suggestAlignments with major_mismatch (needs review)', () => {
+      const conflict = {
+        packageName: 'pkg',
+        repos: [{ repo: 'a', version: '1.0.0' }, { repo: 'b', version: '2.0.0' }],
+        conflictType: 'major_mismatch' as const,
+        recommendedVersion: '2.0.0',
+      };
+      const alignments = matrix.suggestAlignments([conflict]);
+      expect(alignments.length).toBe(1);
+      expect(alignments[0]!.rationale).toContain('needs review');
+    });
   });
 
   // =========================================================================

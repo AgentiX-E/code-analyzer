@@ -241,6 +241,107 @@ describe('registerAuth', () => {
     const res = await app.inject({ method: 'OPTIONS', url: '/test' });
     expect(res.statusCode).toBe(204);
   });
+
+  it('should skip auth for /api/v1/health endpoint', async () => {
+    registerAuth(app, {
+      enabled: true,
+      apiKeys: ['key'],
+      headerName: 'x-api-key',
+    });
+
+    app.get('/api/v1/health', async (_req, reply) => reply.send({ status: 'ok' }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/health' });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should use custom headerName for API key extraction', async () => {
+    registerAuth(app, {
+      enabled: true,
+      apiKeys: ['my-custom-key'],
+      headerName: 'x-custom-auth',
+    });
+
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // Reject when key is in default header
+    const res1 = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-api-key': 'my-custom-key' },
+    });
+    expect(res1.statusCode).toBe(401);
+
+    // Accept when key is in custom header
+    const res2 = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-custom-auth': 'my-custom-key' },
+    });
+    expect(res2.statusCode).toBe(200);
+  });
+
+  it('should prioritize custom header over Authorization Bearer', async () => {
+    registerAuth(app, {
+      enabled: true,
+      apiKeys: ['header-key'],
+      headerName: 'x-api-key',
+    });
+
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // Custom header has the valid key, Authorization has an invalid one
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: {
+        'x-api-key': 'header-key',
+        authorization: 'Bearer wrong-key',
+      },
+    });
+    // Should succeed because custom header takes priority and matches
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should reject Authorization header with non-Bearer type', async () => {
+    registerAuth(app, {
+      enabled: true,
+      apiKeys: ['secret-key'],
+      headerName: 'x-api-key',
+    });
+
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { authorization: 'Basic c29tZXRoaW5n' },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('should reject Authorization Bearer with empty token', async () => {
+    registerAuth(app, {
+      enabled: true,
+      apiKeys: ['secret-key'],
+      headerName: 'x-api-key',
+    });
+
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // Bearer with empty token — extractApiKey returns empty string, which is falsy
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { authorization: 'Bearer ' },
+    });
+    expect(res.statusCode).toBe(401);
+  });
 });
 
 // ---------------------------------------------------------------------------

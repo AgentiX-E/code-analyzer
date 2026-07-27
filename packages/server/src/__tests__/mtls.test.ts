@@ -7,6 +7,7 @@ import {
   registerMtls,
   computeCertFingerprint,
   isMtlsAuthenticated,
+  getClientFingerprint,
   DEFAULT_MTLS_CONFIG,
 } from '../middleware/mtls.js';
 import type { MtlsConfig } from '../middleware/mtls.js';
@@ -198,6 +199,320 @@ describe('registerMtls — warn mode', () => {
     const res = await app.inject({ method: 'GET', url: '/test' });
     // In warn mode, traffic is allowed even without cert
     expect(res.statusCode).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// registerMtls — pinned fingerprints
+// ---------------------------------------------------------------------------
+
+describe('registerMtls — pinned fingerprints', () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should reject when fingerprint not in pinned list (reject mode)', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: false,
+      failureMode: 'reject',
+      pinnedFingerprints: ['abc123'],
+      clientCertHeader: 'x-client-cert',
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // Provide a cert via header with a different fingerprint
+    const fakeCert = Buffer.from('fake-cert-data').toString('base64');
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-client-cert': fakeCert },
+    });
+    expect(res.statusCode).toBe(403);
+    const body = JSON.parse(res.body);
+    expect(body.error).toBe('MTLS_PINNED_CERT_MISMATCH');
+  });
+
+  it('should warn but allow when fingerprint not in pinned list (warn mode)', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: false,
+      failureMode: 'warn',
+      pinnedFingerprints: ['abc123'],
+      clientCertHeader: 'x-client-cert',
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    const fakeCert = Buffer.from('fake-cert-data').toString('base64');
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-client-cert': fakeCert },
+    });
+    // Warn mode allows through
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// registerMtls — requireCert=true with cert absent
+// ---------------------------------------------------------------------------
+
+describe('registerMtls — requireCert=true', () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should return 403 when requireCert=true and no cert present (reject mode)', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      skipHealthEndpoints: false,
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/test' });
+    expect(res.statusCode).toBe(403);
+    const body = JSON.parse(res.body);
+    expect(body.error).toBe('MTLS_REQUIRED');
+    expect(body.message).toContain('Client certificate required');
+  });
+
+  it('should warn but allow when requireCert=true and no cert present (warn mode)', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'warn',
+      skipHealthEndpoints: false,
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/test' });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// registerMtls — clientCertHeader reverse proxy path
+// ---------------------------------------------------------------------------
+
+describe('registerMtls — clientCertHeader', () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should extract cert from custom header for reverse proxy', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: false,
+      failureMode: 'reject',
+      clientCertHeader: 'x-forwarded-client-cert',
+    });
+    app.get('/test', async (req, reply) => {
+      const authenticated = isMtlsAuthenticated(req);
+      const fp = getClientFingerprint(req);
+      return reply.send({ authenticated, fingerprint: fp });
+    });
+    await app.ready();
+
+    const fakeCert = Buffer.from('fake-cert-data-for-proxy').toString('base64');
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-forwarded-client-cert': fakeCert },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.authenticated).toBe(true);
+    expect(body.fingerprint).toBeDefined();
+    expect(typeof body.fingerprint).toBe('string');
+    expect(body.fingerprint.length).toBe(64);
+  });
+
+  it('should return null when clientCertHeader has malformed base64', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: false,
+      failureMode: 'reject',
+      clientCertHeader: 'x-client-cert',
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // Malformed base64 should not crash
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-client-cert': '!!!not-valid-base64!!!' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should skip header path when header value is empty', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      clientCertHeader: 'x-client-cert',
+      skipHealthEndpoints: false,
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // Empty header value — should fall through and check TLS socket
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-client-cert': '' },
+    });
+    expect(res.statusCode).toBe(403); // No cert from socket either
+  });
+
+  it('should handle case where socket.getPeerCertificate returns cert without raw', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      skipHealthEndpoints: false,
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    // inject doesn't provide TLS socket, so getPeerCertificate won't be available
+    // The request should be rejected since requireCert=true
+    const res = await app.inject({ method: 'GET', url: '/test' });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// registerMtls — bypassPaths with /api/v1/health/*
+// ---------------------------------------------------------------------------
+
+describe('registerMtls — bypass paths', () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should bypass /api/v1/health/live when skipHealthEndpoints is true', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      skipHealthEndpoints: true,
+    });
+    app.get('/api/v1/health/live', async (_req, reply) => reply.send({ status: 'alive' }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/health/live' });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should bypass /api/v1/health/ready when skipHealthEndpoints is true', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      skipHealthEndpoints: true,
+    });
+    app.get('/api/v1/health/ready', async (_req, reply) => reply.send({ status: 'ready' }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/health/ready' });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should bypass /api/v1/health when skipHealthEndpoints is true', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      skipHealthEndpoints: true,
+    });
+    app.get('/api/v1/health', async (_req, reply) => reply.send({ status: 'ok' }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/health' });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('should not bypass non-health paths', async () => {
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: true,
+      failureMode: 'reject',
+      skipHealthEndpoints: true,
+    });
+    app.get('/api/v1/data', async (_req, reply) => reply.send({ data: true }));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/data' });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isMtlsAuthenticated and getClientFingerprint helpers
+// ---------------------------------------------------------------------------
+
+describe('isMtlsAuthenticated', () => {
+  it('should return false for request without clientFingerprint', () => {
+    const mockReq = {};
+    expect(isMtlsAuthenticated(mockReq as any)).toBe(false);
+  });
+
+  it('should return true when clientFingerprint is set', () => {
+    const mockReq = { clientFingerprint: 'abc123' };
+    expect(isMtlsAuthenticated(mockReq as any)).toBe(true);
+  });
+});
+
+describe('getClientFingerprint', () => {
+  it('should return null when fingerprint is not set', () => {
+    const mockReq = {};
+    expect(getClientFingerprint(mockReq as any)).toBeNull();
+  });
+
+  it('should return the fingerprint string when set', () => {
+    const mockReq = { clientFingerprint: 'abc123def456' };
+    expect(getClientFingerprint(mockReq as any)).toBe('abc123def456');
   });
 });
 
