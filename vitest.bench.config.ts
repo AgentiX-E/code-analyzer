@@ -1,5 +1,9 @@
-// @code-analyzer — Benchmark Configuration
-// Vitest bench config for performance regression detection.
+// @code-analyzer — Vitest config for benchmark tests
+// Separate from main test config because benchmarks:
+// 1. Are long-running (high timeouts)
+// 2. Excluded from normal test runs
+// 3. Should not affect coverage thresholds
+
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'node:path';
 
@@ -13,20 +17,25 @@ export default defineConfig({
       '@code-analyzer/infra': resolve(packagesDir, 'infra/src'),
       '@code-analyzer/analyzer': resolve(packagesDir, 'analyzer/src'),
       '@code-analyzer/intelligence': resolve(packagesDir, 'intelligence/src'),
-      '@code-analyzer/mcp': resolve(packagesDir, 'mcp/src'),
-      '@code-analyzer/server': resolve(packagesDir, 'server/src'),
-      '@code-analyzer/cli': resolve(packagesDir, 'cli/src'),
     },
   },
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/performance/**/*.bench.ts'],
-    testTimeout: 120_000,
+    include: ['packages/*/src/**/*.bench.ts'],
+    exclude: ['packages/web/**', 'packages/vscode/**'],
+    testTimeout: 300_000, // 5 minutes for large benchmark suites
     hookTimeout: 60_000,
-    benchmark: {
-      outputFile: './bench-results.json',
-      include: ['tests/performance/**/*.bench.ts'],
+    coverage: {
+      enabled: false, // Benchmarks don't count toward coverage
     },
+    // Expose garbage collection for cleaner measurements
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        execArgv: ['--expose-gc'],
+      },
+    },
+    reporters: ['verbose'],
   },
 });
