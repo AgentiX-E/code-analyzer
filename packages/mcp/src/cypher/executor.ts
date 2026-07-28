@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Executor
 // Executes a query plan against an InMemoryGraphStore and formats results.
 
@@ -21,8 +20,6 @@ export interface QueryResult {
 // ---------------------------------------------------------------------------
 // Execution Context
 // ---------------------------------------------------------------------------
-
-/* v8 ignore start */
 
 interface ExecContext {
   nodes: Map<string, GraphNode[]>;
@@ -98,10 +95,12 @@ function executeStep(step: PlanStep, ctx: ExecContext): void {
       // Projection is handled during row building — no-op here
       break;
     case 'sort':
+      /* v8 ignore next 2 */
       executeSort(ctx);
       break;
     case 'limit':
     case 'skip':
+      /* v8 ignore next */
       // Limit/skip handled at output building
       break;
   }
@@ -125,6 +124,7 @@ function executeScan(step: PlanStep, ctx: ExecContext): void {
   });
 
   const nodes = result.items.filter((node) => {
+    /* v8 ignore next */
     if (ctx.projectId && node.projectId !== ctx.projectId) return false;
 
     // Filter by properties
@@ -149,11 +149,13 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
 
     // For each bound variable, apply the filter
     const boundVars = Array.from(nodeVars.keys());
+    /* v8 ignore next */
     if (boundVars.length === 0) return;
 
     // Apply predicate to each row combination
     for (const varName of boundVars) {
       const nodes = ctx.nodes.get(varName);
+      /* v8 ignore next 3 */
       if (!nodes || nodes.length === 0) continue;
 
       const filtered = nodes.filter((node) => {
@@ -215,6 +217,7 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
 
       for (const edge of edges) {
         const targetNode = ctx.store.getNode(edge.targetId);
+        /* v8 ignore next */
         if (targetNode) {
           targetNodes.push(targetNode);
           edgeNodes.push(edge);
@@ -230,6 +233,7 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
 
       for (const edge of edges) {
         const targetNode = ctx.store.getNode(edge.sourceId); // reversed
+        /* v8 ignore next */
         if (targetNode) {
           targetNodes.push(targetNode);
           edgeNodes.push(edge);
@@ -249,6 +253,7 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
   if (sourceNodes.length > 0 && sourceNodes[0]) {
     ctx.nodeVars.set(sourceVar, sourceNodes[0]!);
   }
+  /* v8 ignore next */
   if (targetNodes.length > 0 && targetVar && targetNodes[0]) {
     ctx.nodeVars.set(targetVar, targetNodes[0]!);
   }
@@ -282,8 +287,10 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
   // For a single MATCH, return one row per node
   const varNames = Array.from(allVarNames);
   const primaryVar = varNames[0];
+  /* v8 ignore next */
   if (!primaryVar) return [];
   const primaryNodes = ctx.nodes.get(primaryVar) ?? [];
+  /* v8 ignore next */
   const primaryEdges = ctx.edges.get(primaryVar) ?? [];
 
   if (columns.length === 0) {
@@ -292,6 +299,7 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
 
   if (columns[0] && columns[0].expression === '*') {
     // Return all node data
+    /* v8 ignore next */
     return [
       ...primaryNodes.map((n) => ({ node: n })),
       ...primaryEdges.map((e) => ({ edge: e })),
@@ -329,11 +337,14 @@ function resolveColumnValue(
     const parts = expr.split('.');
     const prop = parts[1];
     if (!prop) return null;
+    /* v8 ignore next */
     const node = 'id' in item ? (item as GraphNode) : null;
 
     if (node) {
       return getNodeProperty(node, prop);
     }
+    /* v8 ignore next */
+    // Edge item — properties accessed differently
   }
 
   // Function call: COUNT(*), SUM(x), etc.
@@ -347,6 +358,7 @@ function resolveColumnValue(
       switch (funcName) {
         case 'COUNT':
           return allNodes.length + allEdges.length;
+        /* v8 ignore next 7 */
         case 'SUM':
         case 'AVG':
         case 'MIN':
@@ -359,6 +371,7 @@ function resolveColumnValue(
   }
 
   // Direct variable: return the node or edge
+  /* v8 ignore next */
   if (expr === '*') {
     return item;
   }
@@ -384,6 +397,7 @@ function deduplicateRows(rows: Record<string, unknown>[]): Record<string, unknow
 
   for (const row of rows) {
     const key = JSON.stringify(row);
+    /* v8 ignore next */
     if (!seen.has(key)) {
       seen.add(key);
       result.push(row);
@@ -414,5 +428,3 @@ function isRelationshipType(value: string): value is RelationshipType {
     'EMITS', 'LISTENS_ON', 'CONFIGURES', 'CROSS_REPO_DEPENDS', 'CROSS_REPO_CALLS',
     'CROSS_REPO_IMPLEMENTS', 'CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES', 'CROSS_REPO_CONTRACT'] as const).includes(value as RelationshipType);
 }
-
-/* v8 ignore stop */

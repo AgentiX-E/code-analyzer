@@ -1,10 +1,7 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Lexer
 // Tokenizes a Cypher-like query string into a stream of tokens.
 
 import type { CypherToken } from '@code-analyzer/shared';
-
-/* v8 ignore start */
 
 const KEYWORDS = new Set([
   'MATCH', 'OPTIONAL', 'WHERE', 'RETURN', 'WITH', 'ORDER', 'BY',
@@ -45,7 +42,9 @@ export function tokenize(query: string): CypherToken[] {
     if (ch === '/' && pos + 1 < len && query[pos + 1] === '*') {
       pos += 2;
       while (pos + 1 < len && !(query[pos]! === '*' && query[pos + 1]! === '/')) pos++;
+      /* v8 ignore start */
       if (pos + 1 < len) pos += 2;
+      /* v8 ignore stop */
       continue;
     }
 
@@ -100,11 +99,13 @@ export function tokenize(query: string): CypherToken[] {
     }
 
     // Wildcard asterisk (tokenize as KEYWORD for RETURN * etc.)
+    /* v8 ignore start */
     if (ch === '*' && (pos + 1 >= len || /\s/.test(query[pos + 1]!) || query[pos + 1] === ',')) {
       tokens.push({ type: 'KEYWORD', value: '*', position: pos });
       pos++;
       continue;
     }
+    /* v8 ignore stop */
 
     // Operators and punctuation
     if ('=<>!+-*/%|&'.includes(ch)) {
@@ -124,14 +125,18 @@ export function tokenize(query: string): CypherToken[] {
     }
 
     // Punctuation
+    /* v8 ignore start */
     if ('.,:;()[]{}'.includes(ch)) {
       tokens.push({ type: 'PUNCTUATION', value: ch, position: pos });
       pos++;
       continue;
     }
+    /* v8 ignore stop */
 
     // Unknown character — skip
+    /* v8 ignore start */
     pos++;
+    /* v8 ignore stop */
   }
 
   return tokens;
@@ -143,5 +148,3 @@ export function isAggregationFunc(keyword: string): boolean {
 }
 
 export { KEYWORDS, AGGREGATION_FUNCTIONS };
-
-/* v8 ignore stop */

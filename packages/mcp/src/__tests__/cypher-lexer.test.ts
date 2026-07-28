@@ -2,7 +2,7 @@
 // @code-analyzer/mcp — Cypher Lexer Tests
 
 import { describe, it, expect } from 'vitest';
-import { tokenize } from '../cypher/lexer.js';
+import { tokenize, isAggregationFunc } from '../cypher/lexer.js';
 
 describe('Cypher Lexer', () => {
   describe('tokenize', () => {
@@ -142,6 +142,62 @@ describe('Cypher Lexer', () => {
       const star = tokens.find((t) => t.value === '*');
       expect(star).toBeDefined();
       expect(star?.type).toBe('KEYWORD');
+    });
+
+    it('should handle escape sequences in string literals', () => {
+      const tokens = tokenize("'hello\\'world'");
+      const str = tokens.find((t) => t.type === 'STRING');
+      expect(str?.value).toBe("hello'world");
+    });
+
+    it('should handle backslash escape in double-quoted strings', () => {
+      const tokens = tokenize('"say \\"hi\\""');
+      const str = tokens.find((t) => t.type === 'STRING');
+      expect(str?.value).toBe('say "hi"');
+    });
+
+    it('should tokenize backtick-quoted identifiers', () => {
+      const tokens = tokenize('`my var` `special`');
+      expect(tokens.map((t) => t.value)).toEqual(['my var', 'special']);
+      expect(tokens.every((t) => t.type === 'IDENTIFIER')).toBe(true);
+    });
+
+    it('should tokenize backtick-quoted keyword as keyword', () => {
+      const tokens = tokenize('`MATCH`');
+      expect(tokens[0]!!.type).toBe('KEYWORD');
+      expect(tokens[0]!!.value).toBe('MATCH');
+    });
+  });
+
+  describe('isAggregationFunc', () => {
+    it('should return true for COUNT', () => {
+      expect(isAggregationFunc('COUNT')).toBe(true);
+    });
+
+    it('should return true for SUM', () => {
+      expect(isAggregationFunc('SUM')).toBe(true);
+    });
+
+    it('should return true for AVG', () => {
+      expect(isAggregationFunc('AVG')).toBe(true);
+    });
+
+    it('should return true for MIN', () => {
+      expect(isAggregationFunc('MIN')).toBe(true);
+    });
+
+    it('should return true for MAX', () => {
+      expect(isAggregationFunc('MAX')).toBe(true);
+    });
+
+    it('should return true case-insensitively', () => {
+      expect(isAggregationFunc('count')).toBe(true);
+    });
+
+    it('should return false for non-aggregation keywords', () => {
+      expect(isAggregationFunc('MATCH')).toBe(false);
+      expect(isAggregationFunc('RETURN')).toBe(false);
+      expect(isAggregationFunc('WHERE')).toBe(false);
     });
   });
 });

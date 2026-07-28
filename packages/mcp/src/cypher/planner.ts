@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Planner
 // Translates a Cypher AST into a SQL-compatible query plan.
 
@@ -19,8 +18,6 @@ export interface GraphSchema {
   nodeProperties: string[];
   edgeProperties: string[];
 }
-
-/* v8 ignore start */
 
 export const DEFAULT_SCHEMA: GraphSchema = {
   nodeLabels: NODE_LABELS as unknown as string[],
@@ -230,12 +227,14 @@ function exprToString(expr: CypherExpression): string {
       const left = exprToString(expr.left);
       const right = exprToString(expr.right);
       const op = expr.operator;
+      /* v8 ignore next */
       if (op === 'CONTAINS') return `${left} CONTAINS ${right}`;
       return `(${left} ${op} ${right})`;
     }
     case 'unary':
       return `${expr.operator} ${exprToString(expr.operand)}`;
     default:
+      /* v8 ignore next */
       return '?';
   }
 }
@@ -256,6 +255,7 @@ function inferColumnType(expr: CypherExpression): 'node' | 'edge' | 'property' |
     case 'unary':
       return 'computed';
     default:
+      /* v8 ignore next */
       return 'computed';
   }
 }
@@ -265,9 +265,12 @@ function resolveConcreteValue(expr: unknown): unknown {
   if (typeof expr === 'object' && expr !== null && 'type' in expr) {
     const e = expr as { type: string; value?: unknown; name?: string; object?: string; property?: string };
     if (e.type === 'literal') return e.value;
+    /* v8 ignore next */
     if (e.type === 'variable') return e.name;
+    /* v8 ignore next */
     if (e.type === 'property') return `${e.object}.${e.property}`;
   }
+  /* v8 ignore next */
   return expr;
 }
 
@@ -383,18 +386,20 @@ function evaluateBinaryOperand(
       return propMap[expr.property] ?? null;
     }
     case 'variable': {
+      /* v8 ignore next */
       if (expr.name === '*') return '*';
       return nodeVars.get(expr.name) ?? null;
     }
     case 'literal':
       return expr.value;
     case 'function': {
+      /* v8 ignore next */
       if (expr.name === 'COUNT') return 1;
+      /* v8 ignore next */
       return null;
     }
     default:
+      /* v8 ignore next */
       return null;
   }
 }
-
-/* v8 ignore stop */

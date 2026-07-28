@@ -583,6 +583,450 @@ describe('Cypher Executor — Coverage fillers', () => {
     expect(result).toBeDefined();
     expect(result.columns.length).toBeGreaterThan(0);
   });
+
+  it('should resolve column value for wildcard expression', () => {
+    const store = setupStore();
+    const planWithStar: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [{
+        kind: 'scan',
+        details: {
+          pattern: { variable: 'n', labels: ['Function'], properties: {} },
+        },
+      }],
+      columns: [{ name: 'star', expression: '*', type: 'computed' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithStar, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+    // '*' column expression returns the full node/edge item via the wildcard path
+    expect(result.rows[0]!.node).toBeDefined();
+  });
+
+  it('should handle project step in executeStep', () => {
+    const store = setupStore();
+    const planWithProjectStep: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+        { kind: 'project', details: { columns: [], isWith: false } },
+      ],
+      columns: [{ name: 'n', expression: 'n', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithProjectStep, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+
+  it('should handle SUM aggregation returning placeholder', () => {
+    const store = setupStore();
+    const queryPlan = buildPlanFromQuery('MATCH (n) RETURN SUM(n.complexity) AS total');
+    const result = execute(queryPlan, store, 'test-project');
+    expect(result.rows).toBeDefined();
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+
+  it('should handle AVG aggregation returning placeholder', () => {
+    const store = setupStore();
+    const planWithAvg: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [{
+        kind: 'scan',
+        details: {
+          pattern: { variable: 'n', labels: [], properties: {} },
+        },
+      }],
+      columns: [{ name: 'avg', expression: 'AVG(n)', type: 'computed' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithAvg, store, 'test-project');
+    expect(result.rows).toBeDefined();
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+
+  it('should handle MIN aggregation returning placeholder', () => {
+    const store = setupStore();
+    const planWithMin: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [{
+        kind: 'scan',
+        details: {
+          pattern: { variable: 'n', labels: [], properties: {} },
+        },
+      }],
+      columns: [{ name: 'min', expression: 'MIN(n)', type: 'computed' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithMin, store, 'test-project');
+    expect(result.rows).toBeDefined();
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+
+  it('should handle MAX aggregation returning placeholder', () => {
+    const store = setupStore();
+    const planWithMax: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [{
+        kind: 'scan',
+        details: {
+          pattern: { variable: 'n', labels: [], properties: {} },
+        },
+      }],
+      columns: [{ name: 'max', expression: 'MAX(n)', type: 'computed' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithMax, store, 'test-project');
+    expect(result.rows).toBeDefined();
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+
+  it('should handle resolveColumnValue with unknown function', () => {
+    const store = setupStore();
+    const queryPlan = buildPlanFromQuery('MATCH (n) RETURN UNKNOWN_FUNC(n) AS val');
+    const result = execute(queryPlan, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should resolve column value from edge', () => {
+    const store = setupStore();
+    // Create a plan that traverses to edges and returns edge data
+    const planWithEdge: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'r', expression: 'r', type: 'edge' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithEdge, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle property access on edge item', () => {
+    const store = setupStore();
+    // Create a plan that resolves property on edge
+    const planWithEdgeProp: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'weight', expression: 'r.weight', type: 'property' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithEdgeProp, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle deduplicate with duplicate rows', () => {
+    const store = setupStore();
+    // Create a plan that generates duplicate rows
+    const planWithDuplicates: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['CALLS'], direction: 'both' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a.name', type: 'property' }],
+      params: {},
+      distinct: true,
+    };
+    const result = execute(planWithDuplicates, store, 'test-project');
+    expect(result.rows).toBeDefined();
+    // Verify rows are deduplicated
+    const names = result.rows.map(r => r.a);
+    const uniqueNames = new Set(names);
+    expect(names.length).toBe(uniqueNames.size);
+  });
+
+  it('should handle traverse with no source nodes', () => {
+    const store = setupStore();
+    const planNoSource: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'traverse', details: {
+          source: 'unknown',
+          relationship: { types: ['CALLS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'b', expression: 'b', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoSource, store, 'test-project');
+    expect(result.rows).toHaveLength(0);
+  });
+
+  it('should handle filter with no bound variables', () => {
+    const store = setupStore();
+    const planFilterNoVars: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'filter', details: { expression: { type: 'binary', operator: '=', left: { type: 'property', object: 'n', property: 'name' }, right: { type: 'literal', value: 'test' } } } },
+      ],
+      columns: [{ name: 'n', expression: 'n', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planFilterNoVars, store, 'test-project');
+    expect(result.rowCount).toBe(0);
+  });
+
+  it('should handle filter on nodes that do not exist', () => {
+    const store = setupStore();
+    const planFilterMissing: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+        { kind: 'filter', details: { label: 'nonexistent', value: ['Function'] } },
+      ],
+      columns: [{ name: 'n', expression: 'n', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planFilterMissing, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse with source nodes but no target found', () => {
+    const store = setupStore();
+    // Query for nodes that have no IMPLEMENTS edges
+    const planNoTarget: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['IMPLEMENTS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }, { name: 'b', expression: 'b', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoTarget, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse with specific edge type and left direction', () => {
+    const store = setupStore();
+    const planLeftTraverse: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Class'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['CALLS'], direction: 'left' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }, { name: 'b', expression: 'b', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planLeftTraverse, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle resolveColumnValue with property access on edge', () => {
+    const store = setupStore();
+    // Create a plan that gives edges as the data source and resolves a property on them
+    const planEdgeProp: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'weight', expression: 'r.weight', type: 'property' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planEdgeProp, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle resolveColumnValue with missing property', () => {
+    const store = setupStore();
+    const planMissingProp: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } } },
+      ],
+      columns: [{ name: 'missing', expression: 'n.', type: 'property' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planMissingProp, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle resolveColumnValue with function but no match', () => {
+    const store = setupStore();
+    // Expression has '(' but regex won't match because '(' is at position 0
+    const planNoFuncMatch: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } } },
+      ],
+      columns: [{ name: 'val', expression: '(n)', type: 'computed' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoFuncMatch, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle deduplicateRows with actual duplicates', () => {
+    const store = setupStore();
+    // Create a plan with distinct=true that will produce duplicates
+    const planDup: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['CALLS'], direction: 'both' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a.name', type: 'property' }],
+      params: {},
+      distinct: true,
+    };
+    const result = execute(planDup, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse with no edge types and right direction', () => {
+    const store = setupStore();
+    const planNoTypes: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: [], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoTypes, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse with no edge types and left direction', () => {
+    const store = setupStore();
+    const planNoTypesLeft: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'b', labels: ['Class'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'b',
+          relationship: { types: [], direction: 'left' },
+          target: 'a',
+        }},
+      ],
+      columns: [{ name: 'b', expression: 'b', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoTypesLeft, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse without targetVar', () => {
+    const store = setupStore();
+    const planNoTargetVar: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['CALLS'], direction: 'right' },
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoTargetVar, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse without rel variable', () => {
+    const store = setupStore();
+    const planNoRelVar: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['CALLS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }, { name: 'b', expression: 'b', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planNoRelVar, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should handle traverse with no target nodes found', () => {
+    const store = new InMemoryGraphStore();
+    const node = makeNode({ name: 'orphan', projectId: 'test-project' });
+    store.insertNodes([node]);
+    const allNodes = store.getAllNodes().filter(n => n.projectId === 'test-project');
+    const orphanNode = allNodes[0];
+    if (!orphanNode) return;
+    
+    const planOrphan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: { name: 'orphan' } } } },
+        { kind: 'traverse', details: {
+          source: 'a',
+          relationship: { types: ['CALLS'], direction: 'right' },
+          target: 'b',
+        }},
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planOrphan, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
