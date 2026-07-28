@@ -2109,7 +2109,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
       store.insertEdge({
         id: 0, projectId: 'org/repo-a',
         sourceId: idA, targetId: idB,
-        type: 'USES', properties: {}, weight: 1, createdAt: now,
+        type: 'CROSS_REPO_DEPENDS', properties: {}, weight: 1, createdAt: now,
       });
 
       const report = await indexer.buildCrossRepoGraph('g1');
@@ -2643,11 +2643,11 @@ describe('CrossRepoIndexer — branch coverage', () => {
         nodes[r] = store.insertNode(n);
       });
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: nodes['repo-a'], targetId: nodes['repo-b'],
+      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: nodes['repo-a']!, targetId: nodes['repo-b']!,
         type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
-      store.insertEdge({ id: 0, projectId: 'org/repo-b', sourceId: nodes['repo-b'], targetId: nodes['repo-c'],
+      store.insertEdge({ id: 0, projectId: 'org/repo-b', sourceId: nodes['repo-b']!, targetId: nodes['repo-c']!,
         type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
-      store.insertEdge({ id: 0, projectId: 'org/repo-c', sourceId: nodes['repo-c'], targetId: nodes['repo-d'],
+      store.insertEdge({ id: 0, projectId: 'org/repo-c', sourceId: nodes['repo-c']!, targetId: nodes['repo-d']!,
         type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
 
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
