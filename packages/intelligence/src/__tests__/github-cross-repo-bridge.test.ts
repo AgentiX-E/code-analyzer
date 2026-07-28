@@ -179,6 +179,21 @@ describe('CrossRepoWebhookBridge', () => {
       // Should be 'error' since repos can't be cloned
       expect(result.status).toBe('error');
     });
+
+    it('should skip when repo does not match any group repo', async () => {
+      // Group has service-a, but we process service-b
+      const payload = makePayload({
+        action: 'opened',
+        repository: {
+          full_name: 'org/service-b',
+          name: 'service-b',
+          owner: { login: 'org' },
+        },
+      });
+      const result = await bridge.process(payload);
+      // No group contains service-b, so it's skipped
+      expect(result.status).toBe('skipped');
+    });
   });
 });
 

@@ -213,6 +213,160 @@ describe('GitHubApiClient — auth edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
+// JWT App Authentication Flow
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — JWT App authentication', () => {
+  const TEST_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC+eAKpSTdE6e72
+fGV1Z+8OUZEWSR3gN5P4QfGMHzDkT3WWISkum8CJ+dKZ4vBRqi/dbdi16AhPwtHa
+MYa86Y2G1XS7DcPsUq7p8LQl0LA/4bary7pkCdfWNj718JY1ne7aVRmxdi4VE5K/
+E/lZsQA9lDVGiK+hzwKbHPO5eYnRjPB0HOcLrvZ3Y645Pv6TgZoYZJzySolXqnur
+5P3elbXWkUt/Nies6wFvpOsAovltZN/Cf2tsyYA5dSpDpZDqHIzIfbYdTmSDtu6l
+R2EWp8WbBCqBkcIVgk4EebsOh7V10ausPIw8h9ITKOswnlIu8uH6hAxgCmrdpU0u
+JCORDvdRAgMBAAECggEAKdpDlXC/6w3vYyyq+60yp6YPOEMpRDFaO6E740MgUm7O
+YwaW3sW9PWROnV9zWLKJkYG3bqNVnjcsNyKOXZkBbwkc/RRVgqqZglDQuQV+EQ93
+PRFHe/94tLqXQ6IR06bISyQLgQX7sshqBMAuGMIO0DkuqrjSxP6wryZhvNYCzW9m
+VaPGxv1H+jZWynR95me9Zvwdn6yHEZ6ZPsiAe97F+YMgrU1eGXOwHgpV1yUgwalX
+9YP2Yhp0tYXKKJOpwMUKKocdaVeyy90yTebMt90Avz80D+rupd1hFbNrTLKDueci
+RJoLPaX3bU+6+y2cFm2o8+AIm4RgZzOnGPL7X8+WdQKBgQDq0yS3SGIUq8mXFZyo
+gzwDYg56M5QiFmmIq1t8KjWDoe3rBj+IXpKlmLuhYgt8cxwI0+h+Y/Rl6R7HC37q
+UiaNu1Z25y++BhenYDGgXgY+m/S4qsqX+nTSxqBUi4atPy1NIhicNzPiJxdHnScJ
+gFvuzNpTujdhi4Bm3QAT0OLBlQKBgQDPpOxAOnmtAvLvQYwryHyFygUCVknhVtl/
+zkXsV2BD+jZ2rnZGcVjcFic80g1GYTuiOMBkaMpQyXN/ltDd/MpcFdh7s8zUdeX0
+x3H6HGLjfUJTTz0M7bd9wW7z4CmYhLz+/4h9nnDPVjCA1lYe9GCOC5Se1tyx8j3R
+R9sBmXtnzQKBgQCtMwL3tImzGWnc5/HeUL1o+WAYPgbahZFdXpZhpHhIGJ11Jeyi
+Vq7vORHbXIeASR66XCI1ZuAScrlislXv2pvZGf4SQT5zd+bmawrvb6pHb5w2wLIh
+GngkJqCG+0pgaiKtq6JfRlAcVBzVk1IBrg0guzOlYcoLRmt0czjlZMJ7aQKBgGO0
+cJDiwzxVVyuVkOYRLeHcQI1/u5gNaQDanm6/AgWCJxbT7Q0kLiP4Kz0kK6Wo2Mar
+c46DVup14RTZ6U8+rDiNcNbtXiSCvDnObydG7CEKK4fvW4RSvTIQaOOHttF6o3na
+X8LaCpc0brPet5nDhH2Qh/vBdlWn2REd7MaW2U/dAoGAAeafNUe1QwwUq0QMQ8ES
+CzBqoy5Ru/Wuk+fbqMMcAbTRMq/rrudGyjHIAZ0JXleaP68/vzDYnLp25XYD8AOq
+GqHQkq1SHKbtA5abQGbGrV8sbXgLPxgfiHuzcVXUTaL7QlzPXbkpWw2HHN7MzZoI
+XXBa1zHOQFnZFN5uc2P73yc=
+-----END PRIVATE KEY-----`;
+
+  it('should use JWT app auth flow when installationId and appPrivateKey are set', async () => {
+    const mockFetch = vi.spyOn(globalThis, 'fetch')
+      // First call: POST to get installation token
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          token: 'ghs_installation_token',
+          expires_at: new Date(Date.now() + 3600_000).toISOString(),
+        }), {
+          status: 201,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        }),
+      );
+
+    const client = createClient({
+      token: 'ghp_test',
+      installationId: 12345,
+      appId: 67890,
+      appPrivateKey: TEST_PRIVATE_KEY,
+    });
+
+    const header = await client.getAuthHeader();
+    expect(header).toBe('token ghs_installation_token');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    mockFetch.mockRestore();
+  });
+
+  it('should cache installation token and reuse it before expiry', async () => {
+    const mockFetch = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          token: 'ghs_cached_token',
+          expires_at: new Date(Date.now() + 3600_000).toISOString(),
+        }), {
+          status: 201,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 1, full_name: 'test/repo' }), {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        }),
+      );
+
+    const client = createClient({
+      token: 'ghp_test',
+      installationId: 12345,
+      appId: 67890,
+      appPrivateKey: TEST_PRIVATE_KEY,
+    });
+
+    // First call triggers token generation
+    const header1 = await client.getAuthHeader();
+    expect(header1).toBe('token ghs_cached_token');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // Second call should reuse cached token (only the getRepo call hits fetch)
+    await client.getRepo('test', 'repo');
+    // fetch was called twice: once for token, once for getRepo
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // The second fetch should have the cached token as auth header
+    const authHeader = (mockFetch.mock.calls[1]![1] as any)!.headers!['Authorization'];
+    expect(authHeader).toBe('token ghs_cached_token');
+
+    mockFetch.mockRestore();
+  });
+
+  it('should throw for incomplete GitHub App credentials when no token fallback', async () => {
+    const client = createClient({
+      token: 'ghp_test',
+      installationId: 12345,
+      appPrivateKey: TEST_PRIVATE_KEY,
+      // Missing appId
+    });
+
+    // getAuthHeader triggers JWT flow because installationId + appPrivateKey are set,
+    // but getInstallationToken will throw because appId is missing
+    await expect(client.getAuthHeader()).rejects.toThrow('Incomplete GitHub App credentials');
+  });
+
+  it('should use Bearer token when only installationId is set without appPrivateKey', async () => {
+    const client = createClient({
+      token: 'ghp_bearer',
+      installationId: 12345,
+      // No appPrivateKey
+    });
+
+    const header = await client.getAuthHeader();
+    expect(header).toBe('Bearer ghp_bearer');
+  });
+
+  it('should use Bearer token when only appPrivateKey is set without installationId', async () => {
+    const client = createClient({
+      token: 'ghp_bearer2',
+      appPrivateKey: TEST_PRIVATE_KEY,
+      // No installationId
+    });
+
+    const header = await client.getAuthHeader();
+    expect(header).toBe('Bearer ghp_bearer2');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // HTTP Error Handling
 // ---------------------------------------------------------------------------
 
@@ -1001,6 +1155,420 @@ describe('GitHubApiClient — createWebhook default events', () => {
 
     const hook = await client.createWebhook('test', 'repo', { url: 'https://example.com/hook' });
     expect(hook.events).toEqual(['pull_request', 'push']);
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Options null checks — listRepos with no options
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — listRepos without options', () => {
+  it('should construct URL without query string when no options provided', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.listRepos('myorg');
+    const callArgs = mockFetch.mock.calls[0]!;
+    const url = callArgs[0] as string;
+    expect(url).toBe('https://api.github.com/orgs/myorg/repos');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Options null checks — listPRs with no options
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — listPRs without options', () => {
+  it('should construct URL without query string when no options provided', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.listPRs('test', 'repo');
+    const callArgs = mockFetch.mock.calls[0]!;
+    const url = callArgs[0] as string;
+    expect(url).toBe('https://api.github.com/repos/test/repo/pulls');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getContents without ref
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — getContents without ref', () => {
+  it('should construct URL without ref query param when ref is not provided', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ type: 'file', name: 'test.ts' }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.getContents('test', 'repo', 'src/file.ts');
+    const callArgs = mockFetch.mock.calls[0]!;
+    const url = callArgs[0] as string;
+    expect(url).toBe('https://api.github.com/repos/test/repo/contents/src/file.ts');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GraphQL with no variables
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — GraphQL without variables', () => {
+  it('should execute GraphQL query without variables', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ data: { viewer: { login: 'test' } } }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    const result = await client.graphql<{ viewer: { login: string } }>(
+      'query { viewer { login } }',
+    );
+
+    expect(result.data).toBeDefined();
+    expect(result.data!.viewer.login).toBe('test');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createCheckRun — defaults for status and started_at
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — createCheckRun defaults', () => {
+  it('should default status to in_progress when not provided', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 1, name: 'check', status: 'in_progress' }), {
+        status: 201,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.createCheckRun('test', 'repo', { name: 'check', head_sha: 'abc' });
+    const callArgs = mockFetch.mock.calls[0]!;
+    const body = JSON.parse((callArgs[1] as any).body);
+    expect(body.status).toBe('in_progress');
+
+    mockFetch.mockRestore();
+  });
+
+  it('should use explicit status when provided', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 2, name: 'check', status: 'completed' }), {
+        status: 201,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.createCheckRun('test', 'repo', { name: 'check', head_sha: 'abc', status: 'completed' });
+    const callArgs = mockFetch.mock.calls[0]!;
+    const body = JSON.parse((callArgs[1] as any).body);
+    expect(body.status).toBe('completed');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateCheckRun — without optional fields
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — updateCheckRun minimal', () => {
+  it('should update check run with only status', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 1, name: 'check', status: 'completed' }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.updateCheckRun('test', 'repo', 1, { status: 'completed' });
+    const callArgs = mockFetch.mock.calls[0]!;
+    const body = JSON.parse((callArgs[1] as any).body);
+    expect(body.status).toBe('completed');
+    expect(body.name).toBeUndefined();
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createWebhook with secret
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — createWebhook with secret', () => {
+  it('should include secret in webhook config when provided', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 5, events: ['push'] }), {
+        status: 201,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.createWebhook('test', 'repo', {
+      url: 'https://example.com/hook',
+      secret: 'my-secret',
+    });
+
+    const callArgs = mockFetch.mock.calls[0]!;
+    const body = JSON.parse((callArgs[1] as any).body);
+    expect(body.config.secret).toBe('my-secret');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Raw Fetch verification
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — raw fetch', () => {
+  it('should default method to GET in raw fetch', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 1 }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    // getRepo uses request() which uses authFetch() which uses rawFetch()
+    await client.getRepo('test', 'repo');
+    const callArgs = mockFetch.mock.calls[0]!;
+    expect(callArgs[1]!.method).toBe('GET');
+
+    mockFetch.mockRestore();
+  });
+
+  it('should pass custom headers to raw fetch', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 1 }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    await client.getRepo('test', 'repo');
+    const callArgs = mockFetch.mock.calls[0]!;
+    const headers = (callArgs[1] as any).headers;
+    expect(headers['User-Agent']).toBe('code-analyzer');
+    expect(headers['Accept']).toBe('application/vnd.github.v3+json');
+    expect(headers['Authorization']).toBe('Bearer ghp_test');
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rate limit headers — edge cases with zero values
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — rate limit edge cases', () => {
+  it('should handle rate limit header with zero values', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 1 }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '0',
+          'x-ratelimit-remaining': '0',
+          'x-ratelimit-reset': '0',
+          'x-ratelimit-used': '0',
+        }),
+      }),
+    );
+
+    await client.getRepo('test', 'repo');
+    const rateLimit = client.getRateLimit();
+    // limit uses `|| this.rateLimit.limit` fallback, so 0 from headers falls back to 5000
+    expect(rateLimit.limit).toBe(5000);
+    expect(rateLimit.remaining).toBe(0);
+
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 429 retry-after header edge case
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — 429 with custom retry-after', () => {
+  it('should use custom retry-after value from header', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    vi.spyOn(global, 'setTimeout').mockImplementation((fn: any, ms?: number) => {
+      // Verify the delay matches the retry-after value (in seconds * 1000)
+      if (typeof ms === 'number' && ms > 0) {
+        // Capture that retry-after=5 was used (5*1000 = 5000ms)
+        expect(ms).toBe(5000);
+      }
+      if (typeof fn === 'function') fn();
+      return 0 as any;
+    });
+
+    const mockFetch = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
+        status: 429,
+        headers: new Headers({
+          'retry-after': '5',
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '0',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '5000',
+        }),
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 1 }), {
+        status: 200,
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }));
+
+    await client.getRepo('test', 'repo');
+
+    vi.mocked(global.setTimeout).mockRestore();
+    mockFetch.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAuthHeader — only installationId without appPrivateKey
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — auth with only installationId', () => {
+  it('should fallback to Bearer token when installationId set but no appPrivateKey', async () => {
+    const client = createClient({
+      token: 'ghp_standard',
+      installationId: 99999,
+    });
+    const header = await client.getAuthHeader();
+    expect(header).toBe('Bearer ghp_standard');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAuthHeader — only appPrivateKey without installationId
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — auth with only appPrivateKey', () => {
+  it('should fallback to Bearer token when appPrivateKey set but no installationId', async () => {
+    const client = createClient({
+      token: 'ghp_standard2',
+      appPrivateKey: '-----BEGIN RSA PRIVATE KEY-----\nkey\n-----END RSA PRIVATE KEY-----',
+    });
+    const header = await client.getAuthHeader();
+    expect(header).toBe('Bearer ghp_standard2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error message fallback — response body with null message
+// ---------------------------------------------------------------------------
+
+describe('GitHubApiClient — error body with null message', () => {
+  it('should use default error message when body has no message field', async () => {
+    const client = createClient({ token: 'ghp_test' });
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'something' }), {
+        status: 400,
+        statusText: 'Bad Request',
+        headers: new Headers({
+          'x-ratelimit-limit': '5000',
+          'x-ratelimit-remaining': '4999',
+          'x-ratelimit-reset': '1700000000',
+          'x-ratelimit-used': '1',
+        }),
+      }),
+    );
+
+    try {
+      await client.getRepo('test', 'repo');
+      expect.fail('Should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(GitHubApiError);
+      expect((err as GitHubApiError).message).toContain('GitHub API error 400');
+      expect((err as GitHubApiError).message).toContain('Unknown error');
+    }
 
     mockFetch.mockRestore();
   });

