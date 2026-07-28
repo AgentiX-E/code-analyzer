@@ -44,6 +44,7 @@ export default defineConfig({
         '**/index.ts',                       // Barrel files (tested via consumer tests)
         '**/provider.ts',                     // Pure interface definitions (0% exec code)
         '**/fixtures/**',                     // Test fixtures (no exec code)
+        '**/benchmarks/**',                   // Performance benchmarks (not functional tests)
         'packages/infra/src/storage/types.ts', // Pure type definitions
         'packages/core/src/agents/types.ts', // Pure type definitions
         'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
