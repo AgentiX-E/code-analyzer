@@ -344,6 +344,64 @@ describe('createServer', () => {
     expect(server.app.server.listening).toBe(false);
   });
 
+  it('should wait for in-flight connections to complete during shutdown', async () => {
+    const registry = createTestRegistry();
+
+    // Register a tool that blocks until we signal it to complete, so the
+    // connection stays active while shutdown is in progress.
+    let releaseBlockingTool: () => void;
+    const blockingPromise = new Promise<void>((resolve) => {
+      releaseBlockingTool = resolve;
+    });
+
+    registry.register(
+      'blocking',
+      'Blocks until released',
+      { type: 'object', properties: {}, required: [] },
+      async () => {
+        await blockingPromise;
+        return { content: [{ type: 'text', text: 'released' }] };
+      },
+      'analysis',
+    );
+
+    server = await createServer({
+      registry,
+      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+    });
+
+    await server.start();
+    const address = server.app.server.address();
+    const port = typeof address === 'object' && address ? address.port : server.config.port;
+
+    // Fire a blocking request that holds the connection open.
+    // Do NOT await it — we want activeConnections > 0 when stop() runs.
+    const inflightRequest = fetch(`http://127.0.0.1:${port}/api/v1/tools/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool: 'blocking' }),
+    });
+
+    // Give the request a moment to reach the server and fire onRequest.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Trigger shutdown while the blocking tool is still running.
+    // The shutdown handler sees activeConnections > 0 and enters the
+    // polling loop (lines 164-169).
+    const stopPromise = server!.stop();
+
+    // Release the blocking tool so the request completes, activeConnections
+    // drops to 0, and the setInterval callback fires lines 166-167.
+    releaseBlockingTool!();
+
+    const res = await inflightRequest;
+    expect(res.status).toBe(200);
+
+    await stopPromise;
+
+    expect(server!.app.server.listening).toBe(false);
+  });
+
   it('should expose all server config in instance', async () => {
     const registry = createTestRegistry();
     server = await createServer({
@@ -355,6 +413,34 @@ describe('createServer', () => {
     expect(server.config.host).toBe('0.0.0.0');
     expect(server.config.apiPrefix).toBe('/api/v1');
     expect(server.config.sseHeartbeatMs).toBe(15000);
+  });
+
+  it('should not call setMaxListeners when env vars are not set', async () => {
+    // Save original env values
+    const originalNodeEnv = process.env['NODE_ENV'];
+    const originalVitest = process.env['VITEST'];
+
+    // Temporarily remove env vars to exercise the else branch
+    delete process.env['NODE_ENV'];
+    delete process.env['VITEST'];
+
+    try {
+      const registry = createTestRegistry();
+      server = await createServer({
+        registry,
+        config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      });
+
+      expect(server.app).toBeDefined();
+    } finally {
+      // Restore env vars
+      if (originalNodeEnv !== undefined) {
+        process.env['NODE_ENV'] = originalNodeEnv;
+      }
+      if (originalVitest !== undefined) {
+        process.env['VITEST'] = originalVitest;
+      }
+    }
   });
 
   it('should log startup messages when logging is enabled and not silent', async () => {

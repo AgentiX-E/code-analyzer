@@ -673,6 +673,21 @@ describe('CrossRepoIndexer', () => {
       expect(result.breakingChanges.length).toBeGreaterThan(0);
     });
 
+    it('should report missing symbol when only one symbol exists', async () => {
+      const nodeA = createProjectNode('o/repo-a', 'existingFn', 'Function', 'src/a.ts', true);
+      store.insertNode(nodeA);
+
+      groupManager.createGroup('g1', 'Compat', '');
+      groupManager.addRepo('g1', 'o', 'repo-a', 'u', '');
+      groupManager.addRepo('g1', 'o', 'repo-b', 'u', '');
+
+      // nodeA exists in repo-a, but nonexistentB is not found anywhere
+      const result = await indexer.checkTypeCompatibility('g1', 'existingFn', 'nonexistentB');
+      expect(result.compatible).toBe(false);
+      expect(result.breakingChanges[0]).toContain('Symbol not found');
+      expect(result.breakingChanges[0]).toContain('nonexistentB');
+    });
+
     it('should compare two existing symbols across repos', async () => {
       const nodeA = createProjectNode('o/repo-a', 'UserService', 'Class', 'service.ts', true);
       const nodeB = createProjectNode('o/repo-b', 'UserService', 'Class', 'service.ts', true);
@@ -2827,6 +2842,24 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const result = await indexer.checkTypeCompatibility('g1', 'propFn', 'propFn');
       // 'configurable' and 'cacheable' are in nodeA but not in nodeB → breaking changes
       expect(result.breakingChanges.length).toBeGreaterThan(0);
+    });
+
+    it('should report added required properties as warnings', async () => {
+      groupManager.createGroup('g1', 'AddedProp', '');
+      groupManager.addRepo('g1', 'org', 'repo-a', 'https://a', '/a');
+      groupManager.addRepo('g1', 'org', 'repo-b', 'https://b', '/b');
+
+      const nodeA = createProjectNode('org/repo-a', 'addedPropFn', 'Function', 'src/p.ts', true);
+      const nodeB = createProjectNode('org/repo-b', 'addedPropFn', 'Function', 'src/p.ts', true);
+      // nodeB has a property that nodeA does NOT have → should warn about added required property
+      nodeB.properties = { ...nodeB.properties, newField: 'value' };
+
+      store.insertNode(nodeA);
+      store.insertNode(nodeB);
+
+      const result = await indexer.checkTypeCompatibility('g1', 'addedPropFn', 'addedPropFn');
+      // 'newField' is in nodeB but not in nodeA → warning about added required property
+      expect(result.warnings.some((w) => w.includes('Added required property'))).toBe(true);
     });
   });
 
