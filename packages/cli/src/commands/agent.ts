@@ -28,7 +28,6 @@ export function createAgentCommand(): Command {
     .command('detect')
     .description('Detect installed AI coding agents on this system')
     .action(() => {
-      /* v8 ignore next 6 */
       const installed = manager.detectInstalled();
 
       if (installed.length === 0) {

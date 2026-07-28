@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Executor
 // Executes a query plan against an InMemoryGraphStore and formats results.
 

@@ -1128,6 +1128,17 @@ describe('ReportGenerator — findingsToRecommendations', () => {
     });
     expect(report.recommendations[0]!.priority).toBe(3);
   });
+
+  it('should handle findings without lineRange', () => {
+    const findings = [
+      makeFinding({ severity: 'high', category: 'bug', filePath: 'src/a.ts', lineRange: undefined }),
+    ];
+    const report = generator.generateAuditReport({
+      projectId: 'p', findings, metrics: {}, repository: 'r',
+    });
+    expect(report.recommendations.length).toBe(1);
+    expect(report.recommendations[0]!.actionItems[0]!.lineRange).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

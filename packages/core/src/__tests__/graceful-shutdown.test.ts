@@ -134,6 +134,23 @@ describe('GracefulShutdown', () => {
       expect(result.handlers[0].error).toBe('Shutdown failed');
     });
 
+    it('should handle non-Error throws in handler', async () => {
+      gs.register({
+        name: 'string-throw',
+        priority: 10,
+        timeout: 1000,
+        shutdown: async () => {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          throw 'plain string error';
+        },
+      });
+
+      const result = await gs.shutdown('SIGTERM', true);
+      expect(result.success).toBe(false);
+      expect(result.handlers[0].success).toBe(false);
+      expect(result.handlers[0].error).toBe('plain string error');
+    });
+
     it('should handle handler timeout', async () => {
       gs.register({
         name: 'timeouting',
@@ -357,6 +374,38 @@ describe('GracefulShutdown', () => {
       expect(exitSpy).toHaveBeenCalledWith(0);
 
       exitSpy.mockRestore();
+    });
+
+    it('should trigger force exit when handler does not complete in time', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: false });
+
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+      const g = new GracefulShutdown({ shutdownTimeout: 10, forceExitTimeout: 10 });
+      g.register({
+        name: 'slow-handler',
+        priority: 10,
+        timeout: 1000,
+        shutdown: async () => {
+          // Handler never resolves within the force exit timeout
+          await new Promise(() => {}); // never resolves
+        },
+      });
+
+      // Start shutdown without awaiting — it will hang on the handler
+      const shutdownPromise = g.shutdown('SIGTERM', false);
+
+      // Advance time past the force exit timeout (shutdownTimeout + forceExitTimeout = 20ms)
+      await vi.advanceTimersByTimeAsync(50);
+
+      // The force exit timer should have fired process.exit(1)
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+      vi.useRealTimers();
+
+      // Clean up — the shutdown promise will never resolve, so just ignore it
+      shutdownPromise.catch(() => {});
     });
   });
 });

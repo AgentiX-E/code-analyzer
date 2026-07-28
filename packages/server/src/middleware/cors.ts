@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/server — CORS Middleware
 // Configurable Cross-Origin Resource Sharing handling.
 

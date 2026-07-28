@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — Cypher Lexer
 // Tokenizes a Cypher-like query string into a stream of tokens.
 

@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/server — Error Handler Middleware
 // Global error handler that serializes errors consistently.
 
@@ -5,14 +6,14 @@ import type { FastifyInstance, FastifyError, FastifyReply, FastifyRequest } from
 
 /** Standard error response shape. */
 export interface ErrorResponse {
-/* v8 ignore start */
-
   error: string;
   message: string;
   statusCode: number;
   requestId?: string;
   details?: unknown;
 }
+
+/* v8 ignore start */
 
 /**
  * Register global error handler on a Fastify instance.

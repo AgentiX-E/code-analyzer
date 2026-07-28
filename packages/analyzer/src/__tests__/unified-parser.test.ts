@@ -93,6 +93,19 @@ describe('UnifiedParser', () => {
       const captures = parser.parseFile(file);
       expect(captures.length).toBeGreaterThan(0);
     });
+
+    it('should use cache on subsequent parseFile calls (L48)', () => {
+      const parser = new UnifiedParser(providers);
+      const file = createFile('cache-test.ts', 'function cached() { return 42; }');
+
+      // First call populates the cache
+      const first = parser.parseFile(file);
+      expect(first.length).toBeGreaterThan(0);
+
+      // Second call with same content should hit the cache
+      const second = parser.parseFile(file);
+      expect(second).toEqual(first);
+    });
   });
 
   describe('parseFiles (parallel)', () => {
@@ -121,6 +134,78 @@ describe('UnifiedParser', () => {
       const result = await parser.parseFiles([], pool);
       expect(result.size).toBe(0);
       pool.shutdown();
+    });
+
+    it('should use cache hits in parseFiles (L77-78)', async () => {
+      const parser = new UnifiedParser(providers);
+      const pool = createWorkerPool(2);
+      const file = createFile('cached.ts', 'function cached() {}');
+
+      // First call populates the cache
+      await parser.parseFiles([file], pool);
+
+      // Second call should use the cache (same content)
+      const result = await parser.parseFiles([file], pool);
+      expect(result.size).toBe(1);
+      expect(result.get('cached.ts')).toBeDefined();
+
+      pool.shutdown();
+    });
+
+    it('should handle parseFiles with cache disabled (L84)', async () => {
+      const parser = new UnifiedParser(providers, { cache: false });
+      const pool = createWorkerPool(2);
+
+      const files: DiscoveredFile[] = [
+        createFile('nocache.ts', 'function nocache() {}'),
+      ];
+
+      const result = await parser.parseFiles(files, pool);
+      expect(result.size).toBe(1);
+      expect(result.get('nocache.ts')).toBeDefined();
+
+      pool.shutdown();
+    });
+  });
+
+  describe('cache management', () => {
+    it('should have cache enabled by default (L122)', () => {
+      const parser = new UnifiedParser(providers);
+      expect(parser.isCacheEnabled).toBe(true);
+    });
+
+    it('should report cache disabled when configured (L122)', () => {
+      const parser = new UnifiedParser(providers, { cache: false });
+      expect(parser.isCacheEnabled).toBe(false);
+    });
+
+    it('should return cache stats when cache enabled (L112)', () => {
+      const parser = new UnifiedParser(providers);
+      const file = createFile('stats.ts', 'function stats() {}');
+      parser.parseFile(file);
+
+      const stats = parser.cacheStats;
+      expect(stats).not.toBeNull();
+      expect(stats!.hits).toBe(0);
+      expect(stats!.misses).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should return null cache stats when cache disabled (L112)', () => {
+      const parser = new UnifiedParser(providers, { cache: false });
+      expect(parser.cacheStats).toBeNull();
+    });
+
+    it('should clear cache (L117)', () => {
+      const parser = new UnifiedParser(providers);
+      const file = createFile('clear.ts', 'function clear() {}');
+
+      // Populate cache
+      parser.parseFile(file);
+      expect(parser.cacheStats?.size).toBeGreaterThanOrEqual(1);
+
+      // Clear cache
+      parser.clearCache();
+      expect(parser.cacheStats?.size).toBe(0);
     });
   });
 });

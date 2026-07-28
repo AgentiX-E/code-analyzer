@@ -296,6 +296,47 @@ describe('Agent Command — Commander execution', () => {
     consoleSpy.mockRestore();
   });
 
+  it('should print message when detect finds no agents', () => {
+    vi.spyOn(AgentSetupManager.prototype, 'detectInstalled').mockReturnValue([]);
+
+    const cmd = createAgentCommand();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detectCmd = cmd.commands.find((c) => c.name() === 'detect');
+    expect(detectCmd).toBeDefined();
+    expect(() => detectCmd!.parse(['node', 'test', 'detect'])).not.toThrow();
+
+    expect(logSpy).toHaveBeenCalledWith('No supported AI coding agents detected.');
+
+    logSpy.mockRestore();
+    vi.restoreAllMocks();
+  });
+
+  it('should print detected agents when detect finds agents', () => {
+    vi.spyOn(AgentSetupManager.prototype, 'detectInstalled').mockReturnValue(['cursor']);
+    vi.spyOn(AgentSetupManager.prototype, 'getConfig').mockReturnValue({
+      name: 'cursor',
+      displayName: 'Cursor',
+      configPath: '.cursor/mcp.json',
+      configFormat: 'json',
+      detectionPaths: ['.cursor'],
+    });
+    vi.spyOn(AgentSetupManager.prototype, 'isConfigured').mockReturnValue(false);
+
+    const cmd = createAgentCommand();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detectCmd = cmd.commands.find((c) => c.name() === 'detect');
+    expect(detectCmd).toBeDefined();
+    expect(() => detectCmd!.parse(['node', 'test', 'detect'])).not.toThrow();
+
+    expect(logSpy).toHaveBeenCalledWith('Detected 1 agent(s):');
+    expect(logSpy).toHaveBeenCalledWith('  - Cursor (not configured)');
+
+    logSpy.mockRestore();
+    vi.restoreAllMocks();
+  });
+
   it('should execute list command without crashing', () => {
     const cmd = createAgentCommand();
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -338,5 +379,96 @@ describe('Agent Command — Commander execution', () => {
     expect(() => configCmd!.parse(['node', 'test', 'configure', '--all'])).not.toThrow();
 
     consoleSpy.mockRestore();
+  });
+
+  it('should print message when no agents to configure', () => {
+    // Mock detectInstalled to return empty — simulates no agents detected
+    vi.spyOn(AgentSetupManager.prototype, 'detectInstalled').mockReturnValue([]);
+
+    const cmd = createAgentCommand();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
+    expect(configCmd).toBeDefined();
+
+    // No --all and no --target, falls through to detectInstalled which returns []
+    expect(() => configCmd!.parse(['node', 'test', 'configure'])).not.toThrow();
+    expect(logSpy).toHaveBeenCalledWith(
+      'No agents to configure. Run `code-analyzer agent detect` first.',
+    );
+
+    logSpy.mockRestore();
+    vi.restoreAllMocks();
+  });
+
+  it('should handle failed configuration result in configure action', () => {
+    // Mock getAllConfigs so --all returns agents; mock configureAgents to return a failure
+    vi.spyOn(AgentSetupManager.prototype, 'getAllConfigs').mockReturnValue([
+      {
+        name: 'cursor',
+        displayName: 'Cursor',
+        configPath: '.cursor/mcp.json',
+        configFormat: 'json',
+        detectionPaths: ['.cursor'],
+      },
+    ]);
+    vi.spyOn(AgentSetupManager.prototype, 'configureAgents').mockReturnValue([
+      {
+        agent: 'cursor',
+        detected: false,
+        configured: false,
+        configPath: '/tmp/.cursor/mcp.json',
+        message: 'Failed to configure Cursor: permission denied',
+      },
+    ]);
+
+    const cmd = createAgentCommand();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
+    expect(configCmd).toBeDefined();
+
+    expect(() => configCmd!.parse(['node', 'test', 'configure', '--all'])).not.toThrow();
+
+    // Should have printed the failure via console.error
+    expect(errorSpy).toHaveBeenCalledWith(
+      '  FAIL Failed to configure Cursor: permission denied',
+    );
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+    vi.restoreAllMocks();
+  });
+
+  it('should execute configure command with --target option', () => {
+    vi.spyOn(AgentSetupManager.prototype, 'configureAgents').mockReturnValue([
+      {
+        agent: 'cursor',
+        detected: false,
+        configured: true,
+        configPath: '/tmp/.cursor/mcp.json',
+        message: 'Configured Cursor',
+      },
+    ]);
+
+    const cmd = createAgentCommand();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
+    expect(configCmd).toBeDefined();
+
+    expect(() =>
+      configCmd!.parse(['node', 'test', 'configure', '--target', 'cursor']),
+    ).not.toThrow();
+
+    // Should show configuring and success messages
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Configuring'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('OK'));
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 });

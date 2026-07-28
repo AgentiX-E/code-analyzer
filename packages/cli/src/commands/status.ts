@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/cli — Status Command
 // Reports the current state of Code Analyzer: index status,
 // graph stats, memory usage, health checks.

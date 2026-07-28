@@ -161,6 +161,15 @@ describe('TrendAnalyzer — trackMetric', () => {
     const trend = analyzer.trackMetric(reports, 'nonexistent.path');
     expect(trend.values).toHaveLength(0);
   });
+
+  it('should handle path resolving to a non-number value', () => {
+    const reports = [makeReport()];
+    // summary.mergeRecommendation is a string, not a number
+    const trend = analyzer.trackMetric(reports, 'summary.mergeRecommendation');
+    expect(trend.values).toHaveLength(0);
+    expect(trend.direction).toBe('stable');
+    expect(trend.changeRate).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -205,6 +214,21 @@ describe('TrendAnalyzer — compareReports', () => {
 
     const comparison = analyzer.compareReports(reportA, reportB);
     expect(comparison.metricDeltas['metrics.linesChanged']).toBe(50);
+  });
+
+  it('should skip metric paths where one report has a null value', () => {
+    // reportA has a non-numeric scope (no prNumber), making summary.overallScore unresolvable via normal path
+    // but we just test with a report that has missing metrics fields
+    const baseReport = makeReport({ id: 'a', createdAt: '2025-01-10T00:00:00Z' });
+    const currentReport = makeReport({ id: 'b', createdAt: '2025-01-12T00:00:00Z' });
+
+    // Mutate metrics to remove a field
+    delete (baseReport.metrics as Record<string, unknown>).linesChanged;
+
+    const comparison = analyzer.compareReports(baseReport, currentReport);
+    // metrics.linesChanged should not appear in deltas since baseVal is null
+    expect(comparison.metricDeltas['metrics.linesChanged']).toBeUndefined();
+    expect(comparison.metricDeltas['summary.overallScore']).toBeDefined();
   });
 
   it('should detect improvement when critical findings are removed', () => {
@@ -404,6 +428,13 @@ describe('TrendAnalyzer — edge cases', () => {
     // scope.projectId exists but then hitting non-object
     const reports = [makeReport({ scope: { type: 'pr', prNumber: null } })];
     const trend = analyzer.trackMetric(reports, 'scope.prNumber.x');
+    expect(trend.values).toHaveLength(0);
+  });
+
+  it('should handle getValueAtPath with non-object intermediate', () => {
+    // scope.type is a string, accessing .x on it should fail
+    const reports = [makeReport()];
+    const trend = analyzer.trackMetric(reports, 'scope.type.x');
     expect(trend.values).toHaveLength(0);
   });
 

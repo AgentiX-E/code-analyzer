@@ -103,6 +103,7 @@ export class MockEmbeddingBackend implements EmbeddingBackend {
       norm += vec[i]! * vec[i]!;
     }
     norm = Math.sqrt(norm);
+    /* v8 ignore next — norm can only be 0 for all-zero vectors, unreachable with deterministic RNG -- @preserve */
     if (norm > 0) {
       for (let i = 0; i < vec.length; i++) {
         vec[i] = vec[i]! / norm;
@@ -145,7 +146,7 @@ interface NodeEmbedderInstance {
  * NOTE: This backend requires the ONNX model file and native runtime.
  * Coverage is excluded from CI because the model (~137MB) is not checked in.
  */
-/* v8 ignore next 22 */
+/* v8 ignore start -- @preserve */
 export class RealEmbeddingBackend implements EmbeddingBackend {
   readonly dimensions: number;
   readonly backendType = 'onnx' as const;
@@ -168,6 +169,7 @@ export class RealEmbeddingBackend implements EmbeddingBackend {
     await this.embedder.dispose();
   }
 }
+/* v8 ignore stop -- @preserve */
 
 // ---------------------------------------------------------------------------
 // Backend Factory
@@ -180,7 +182,7 @@ export class RealEmbeddingBackend implements EmbeddingBackend {
  *
  * NOTE: Requires native ONNX runtime + model file (~137MB). Excluded from CI coverage.
  */
-/* v8 ignore next 14 */
+/* v8 ignore start -- @preserve */
 async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBackend | null> {
   try {
     const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
@@ -196,6 +198,7 @@ async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBack
     return null;
   }
 }
+/* v8 ignore stop -- @preserve */
 
 // ---------------------------------------------------------------------------
 // Embedding Engine
@@ -230,12 +233,13 @@ export class EmbeddingEngine {
 
     const realBackend = await createRealBackend(this.config);
     // Only reached when ONNX model is available (excluded from CI coverage)
-    /* v8 ignore next 4 */
+    /* v8 ignore start -- @preserve */
     if (realBackend) {
       // Dispose the mock backend before replacing
       this.backend.dispose();
       this.backend = realBackend;
     }
+    /* v8 ignore stop -- @preserve */
 
     this.initialized = true;
   }
@@ -347,6 +351,7 @@ export class EmbeddingEngine {
 
     for (let i = 0; i < missingIds.length; i++) {
       const vec = vectors[i];
+      /* v8 ignore next -- @preserve */
       if (vec) {
         this.embedStore.set(missingIds[i]!, vec);
       }

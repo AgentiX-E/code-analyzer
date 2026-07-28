@@ -61,8 +61,9 @@ async function withTimeout<T>(
   try {
     return await Promise.race([promise, timeout]);
   } finally {
-    /* v8 ignore next */
+    /* v8 ignore start */
     if (timer) clearTimeout(timer);
+    /* v8 ignore stop */
   }
 }
 
@@ -103,7 +104,7 @@ export class GracefulShutdown {
    */
   listen(): void {
     for (const sig of this.signals) {
-      process.on(sig, () => {
+      process.on(sig, /* v8 ignore next 3 */ () => {
         void this.shutdown(sig);
       });
     }

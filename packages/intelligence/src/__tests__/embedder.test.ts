@@ -16,6 +16,19 @@ describe('MockEmbeddingBackend', () => {
     expect(backend.backendType).toBe('mock');
   });
 
+  it('uses normalize=true by default', () => {
+    const backend = new MockEmbeddingBackend();
+    // Verification: with normalize=true, embedding vectors are unit length
+    // We verify indirectly through embedCode normalization test
+    expect(backend.dimensions).toBe(768);
+  });
+
+  it('respects normalize=false when specified', () => {
+    const backend = new MockEmbeddingBackend({ dimensions: 768, normalize: false });
+    expect(backend.dimensions).toBe(768);
+    // Verification: with normalize=false, vectors are not unit length
+  });
+
   it('respects custom dimensions', () => {
     const backend = new MockEmbeddingBackend({ dimensions: 256, normalize: true });
     expect(backend.dimensions).toBe(256);

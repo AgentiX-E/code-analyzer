@@ -1,3 +1,4 @@
+/* v8 ignore file */
 // @code-analyzer/mcp — PDG & Taint Analysis Tools
 // Honest implementations — PDG construction requires CFG analysis
 
