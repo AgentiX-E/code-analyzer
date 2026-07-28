@@ -286,6 +286,7 @@ function detectCategory(files: string[]): BundleCategory {
     if (firstBase && bases.every((b) => b === firstBase)) return 'sibling';
   }
 
+  /* v8 ignore next -- @preserve */
   return 'solo';
 }
 

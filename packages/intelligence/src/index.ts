@@ -344,6 +344,15 @@ export type {
   IncrementalIndexResult,
 } from './cross-repo/incremental-indexer.js';
 
+export { IncrementalReindexer } from './cross-repo/incremental-reindexer.js';
+export type {
+  ChangedFiles,
+  ReindexResult,
+} from './cross-repo/incremental-reindexer.js';
+
+export { GraphCompressor } from './cross-repo/graph-compressor.js';
+export type { ArtifactMetadata } from './cross-repo/graph-compressor.js';
+
 // GitHub Integration
 export {
   GitHubApiClient,

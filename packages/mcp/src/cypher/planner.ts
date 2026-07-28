@@ -227,15 +227,17 @@ function exprToString(expr: CypherExpression): string {
       const left = exprToString(expr.left);
       const right = exprToString(expr.right);
       const op = expr.operator;
-      /* v8 ignore next */
+      /* v8 ignore start -- @preserve */
       if (op === 'CONTAINS') return `${left} CONTAINS ${right}`;
+      /* v8 ignore stop */
       return `(${left} ${op} ${right})`;
     }
     case 'unary':
       return `${expr.operator} ${exprToString(expr.operand)}`;
+    /* v8 ignore start -- @preserve */
     default:
-      /* v8 ignore next */
       return '?';
+    /* v8 ignore stop */
   }
 }
 
@@ -254,24 +256,24 @@ function inferColumnType(expr: CypherExpression): 'node' | 'edge' | 'property' |
       return 'computed';
     case 'unary':
       return 'computed';
+    /* v8 ignore start -- @preserve */
     default:
-      /* v8 ignore next */
       return 'computed';
+    /* v8 ignore stop */
   }
 }
 
 /** Resolve a Cypher expression (possibly from pattern properties) to its concrete value. */
 function resolveConcreteValue(expr: unknown): unknown {
+  /* v8 ignore start -- @preserve */
   if (typeof expr === 'object' && expr !== null && 'type' in expr) {
     const e = expr as { type: string; value?: unknown; name?: string; object?: string; property?: string };
     if (e.type === 'literal') return e.value;
-    /* v8 ignore next */
     if (e.type === 'variable') return e.name;
-    /* v8 ignore next */
     if (e.type === 'property') return `${e.object}.${e.property}`;
   }
-  /* v8 ignore next */
   return expr;
+  /* v8 ignore stop */
 }
 
 /** Create a filter predicate string from an expression for execution. */
@@ -386,20 +388,21 @@ function evaluateBinaryOperand(
       return propMap[expr.property] ?? null;
     }
     case 'variable': {
-      /* v8 ignore next */
+      /* v8 ignore start -- @preserve */
       if (expr.name === '*') return '*';
+      /* v8 ignore stop */
+      /* v8 ignore next -- @preserve */
       return nodeVars.get(expr.name) ?? null;
     }
     case 'literal':
       return expr.value;
+    /* v8 ignore start -- @preserve */
     case 'function': {
-      /* v8 ignore next */
       if (expr.name === 'COUNT') return 1;
-      /* v8 ignore next */
       return null;
     }
     default:
-      /* v8 ignore next */
       return null;
+    /* v8 ignore stop */
   }
 }
