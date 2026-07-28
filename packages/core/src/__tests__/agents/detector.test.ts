@@ -250,6 +250,19 @@ describe('detectAllAgents', () => {
       expect(['stdio', 'sse', 'both']).toContain(agent.preferredTransport);
     }
   });
+
+  it('should sort agents with same detection status by confidence', () => {
+    // Set 2 env vars on aider (medium) and 1 on claude (medium)
+    // Both detected, aider has more medium signals → higher confidence
+    process.env.AIDER_MODEL = 'gpt-4';
+    process.env.AIDER_API_KEY = 'sk-test';
+    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    const result = detectAllAgents();
+    const aiderIdx = result.agents.findIndex((a) => a.id === 'aider');
+    const claudeIdx = result.agents.findIndex((a) => a.id === 'claude-code');
+    // Both detected, aider should come before claude (2 medium vs 1 medium)
+    expect(aiderIdx).toBeLessThan(claudeIdx);
+  });
 });
 
 // ── detectAgentById Tests ───────────────────────────────────────
@@ -655,7 +668,7 @@ describe('Confidence Aggregation — High', () => {
     }
   });
 
-  it('should return high confidence with 2+ high signals (L305 highCount >= 2)', () => {
+  it('should return high confidence with 1 high + 2+ medium signals', () => {
     // Create an aider config file in home dir to trigger a high-confidence signal
     fs.writeFileSync(aiderConfigPath, 'model: gpt-4');
     // Set env vars for medium signals
@@ -667,6 +680,32 @@ describe('Confidence Aggregation — High', () => {
     // Should have config signal (high) + 3 env signals (medium)
     // 1 high + 3 medium → high (highCount >= 1 && mediumCount >= 2)
     expect(result.confidence).toBe('high');
+  });
+
+  it('should return medium confidence with 1 high + 1 medium signal', () => {
+    fs.writeFileSync(aiderConfigPath, 'model: gpt-4');
+    // Set only 1 env var for 1 medium signal
+    process.env.AIDER_MODEL = 'gpt-4';
+
+    const result = detectAgentById('aider')!;
+    // 1 high + 1 medium → medium (highCount >= 1 on second if)
+    expect(result.confidence).toBe('medium');
+  });
+
+  it('should return medium confidence with 1 high signal only', () => {
+    fs.writeFileSync(aiderConfigPath, 'model: gpt-4');
+
+    const result = detectAgentById('aider')!;
+    // 1 high + 0 medium → medium (highCount >= 1 on second if)
+    expect(result.confidence).toBe('medium');
+  });
+
+  it('should return low confidence with 1 medium signal only', () => {
+    process.env.AIDER_MODEL = 'gpt-4';
+
+    const result = detectAgentById('aider')!;
+    // 0 high + 1 medium → low (falls through both ifs)
+    expect(result.confidence).toBe('low');
   });
 });
 

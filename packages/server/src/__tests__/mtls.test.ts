@@ -260,6 +260,30 @@ describe('registerMtls — pinned fingerprints', () => {
     // Warn mode allows through
     expect(res.statusCode).toBe(200);
   });
+
+  it('should allow when fingerprint matches pinned list', async () => {
+    // SHA-256 of Buffer.from('fake-cert-data') = cc7778005d8d1bb5acad7ba34b56153058c54482c81c28e60c9c8c83c34efbec
+    const matchingFingerprint = 'cc7778005d8d1bb5acad7ba34b56153058c54482c81c28e60c9c8c83c34efbec';
+    app = Fastify({ logger: false });
+    registerMtls(app, {
+      enabled: true,
+      caCerts: TEST_CA_PEM,
+      requireCert: false,
+      failureMode: 'reject',
+      pinnedFingerprints: [matchingFingerprint],
+      clientCertHeader: 'x-client-cert',
+    });
+    app.get('/test', async (_req, reply) => reply.send({ ok: true }));
+    await app.ready();
+
+    const fakeCert = Buffer.from('fake-cert-data').toString('base64');
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { 'x-client-cert': fakeCert },
+    });
+    expect(res.statusCode).toBe(200);
+  });
 });
 
 // ---------------------------------------------------------------------------

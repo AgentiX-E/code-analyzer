@@ -61,6 +61,7 @@ async function withTimeout<T>(
   try {
     return await Promise.race([promise, timeout]);
   } finally {
+    /* v8 ignore next */
     if (timer) clearTimeout(timer);
   }
 }

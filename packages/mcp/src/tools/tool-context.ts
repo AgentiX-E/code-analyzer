@@ -265,6 +265,7 @@ export class ToolContextImpl implements ToolContext {
     const nodeMap = new Map<number, DependencyTreeNode>();
 
     for (const bfsNode of bfs.nodes) {
+      /* v8 ignore next 3 — BFS always sets pathLengths for all visited nodes */
       const depth = bfs.pathLengths.get(bfsNode.id) ?? 0;
       nodeMap.set(bfsNode.id, {
         node: {
@@ -283,12 +284,14 @@ export class ToolContextImpl implements ToolContext {
     for (const bfsEdge of bfs.edges) {
       const parent = nodeMap.get(bfsEdge.sourceId);
       const child = nodeMap.get(bfsEdge.targetId);
+      /* v8 ignore next 3 — BFS only returns edges where both endpoints were visited and exist */
       if (parent && child) {
         parent.children.push(child);
       }
     }
 
     // Return the root
+    /* v8 ignore next — BFS always includes the start node in the result nodes */
     return nodeMap.get(node.id) ?? null;
   }
 

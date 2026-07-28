@@ -80,6 +80,17 @@ describe('GitHubCheckRunManager', () => {
       expect(high[0]!.annotation_level).toBe('failure');
     });
 
+    it('should map critical cross-repo impact to failure annotation level', () => {
+      const result = mockResult({
+        crossRepoImpacts: [
+          { affectedRepo: 'org/service-c', affectedSymbols: ['CoreAPI'], impactLevel: 'critical', description: 'Core API removed', suggestedActions: ['Block merge'] },
+        ],
+      });
+      const annotations = manager.formatAnnotations(result);
+      const critical = annotations.filter(a => a.annotation_level === 'failure' && a.title?.includes('Cross-Repo Impact'));
+      expect(critical.length).toBeGreaterThanOrEqual(1);
+    });
+
     it('should map medium to warning annotation level', () => {
       const annotations = manager.formatAnnotations(mockResult());
       const medium = annotations.filter(a => a.title?.includes('[medium]'));
@@ -180,6 +191,11 @@ describe('GitHubCheckRunManager', () => {
       const summary = manager.formatSummary(mockResult({ apiBreakingChanges: [] }));
       expect(summary).not.toContain('API Breaking Changes');
     });
+
+    it('should handle empty cross-repo impacts', () => {
+      const summary = manager.formatSummary(mockResult({ crossRepoImpacts: [] }));
+      expect(summary).not.toContain('Cross-Repo Impact');
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -199,6 +215,11 @@ describe('GitHubCheckRunManager', () => {
     it('should include test impact section', () => {
       const text = manager.formatDetailedText(mockResult());
       expect(text).toContain('user.test.ts');
+    });
+
+    it('should handle empty test predictions', () => {
+      const text = manager.formatDetailedText(mockResult({ testPredictions: [] }));
+      expect(text).not.toContain('Test Impact');
     });
   });
 });

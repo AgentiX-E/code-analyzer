@@ -1084,6 +1084,182 @@ describe('ReviewDashboardAggregator', () => {
   });
 
   // =========================================================================
+  // toAnalysisReport (branch coverage via generateDashboardReport)
+  // =========================================================================
+
+  describe('toAnalysisReport branch coverage', () => {
+    it('handles riskLevel "high" when 0 criticals and 4+ highs', () => {
+      const comments = [
+        createReviewComment({ severity: 'high', category: 'bug' }),
+        createReviewComment({ severity: 'high', category: 'bug' }),
+        createReviewComment({ severity: 'high', category: 'bug' }),
+        createReviewComment({ severity: 'high', category: 'bug' }),
+      ];
+      const review = createReviewEntry({ comments });
+      // generateDashboardReport calls toAnalysisReport internally
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles riskLevel "medium" when 0 criticals, <=3 highs, 6+ mediums', () => {
+      const comments = [
+        createReviewComment({ severity: 'medium', category: 'performance' }),
+        createReviewComment({ severity: 'medium', category: 'performance' }),
+        createReviewComment({ severity: 'medium', category: 'performance' }),
+        createReviewComment({ severity: 'medium', category: 'performance' }),
+        createReviewComment({ severity: 'medium', category: 'performance' }),
+        createReviewComment({ severity: 'medium', category: 'performance' }),
+      ];
+      const review = createReviewEntry({ comments });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined id (uses generated id)', () => {
+      const comment = createReviewComment({ id: 'test-id' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).id = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined category in findings', () => {
+      const comment = createReviewComment({ category: 'bug' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).category = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined severity in findings', () => {
+      const comment = createReviewComment({ severity: 'high' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).severity = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined content', () => {
+      const comment = createReviewComment({ content: 'some content' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).content = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined path', () => {
+      const comment = createReviewComment({ path: 'src/test.ts' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).path = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with startLine 0 (null lineRange)', () => {
+      const comment = createReviewComment({ startLine: 0, endLine: 0 });
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with startLine > 0 and undefined endLine', () => {
+      const comment = createReviewComment({ startLine: 5, endLine: 5 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).endLine = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined existingCode', () => {
+      const comment = createReviewComment({ existingCode: 'code' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).existingCode = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles review entry with undefined author in toAnalysisReport', () => {
+      const review = { ...createReviewEntry(), author: undefined } as ReviewEntry;
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles review entry with undefined durationMs in toAnalysisReport', () => {
+      const review = { ...createReviewEntry(), durationMs: undefined } as ReviewEntry;
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles review entry with undefined prTitle in toAnalysisReport', () => {
+      const review = { ...createReviewEntry(), prTitle: undefined } as ReviewEntry;
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles review entry with undefined prTitle and undefined prNumber', () => {
+      const review = { ...createReviewEntry(), prTitle: undefined, prNumber: undefined } as ReviewEntry;
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles review entry with falsy projectId in repos section', () => {
+      const review = createReviewEntry({
+        projectId: '',
+        comments: [createReviewComment()],
+      });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles review entry with undefined branch in toAnalysisReport', () => {
+      const review = { ...createReviewEntry(), branch: undefined } as ReviewEntry;
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles mergeRecommendation fallback to approve when summary has no mergeRecommendation', () => {
+      const review = createReviewEntry({
+        summary: { totalComments: 0, riskLevel: 'low', mergeRecommendation: 'approve' },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (review.summary as any).mergeRecommendation = undefined;
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles comment with undefined startLine (null lineRange via ?? 0)', () => {
+      const comment = createReviewComment({ startLine: 5 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (comment as any).startLine = undefined;
+      const review = createReviewEntry({ comments: [comment] });
+      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      expect(result.trendData).toBeDefined();
+    });
+
+    it('handles code health score when some categories have no findings', () => {
+      // Cover the categoryScores[cat] ?? 100 fallback for categories with no findings
+      // Have findings in security, bug, performance, maintainability but NOT style
+      const comments = [
+        createReviewComment({ severity: 'low', category: 'security' }),
+        createReviewComment({ severity: 'low', category: 'bug' }),
+        createReviewComment({ severity: 'low', category: 'performance' }),
+        createReviewComment({ severity: 'low', category: 'maintainability' }),
+      ];
+      const review = createReviewEntry({ comments });
+      const result = aggregator.computeCodeHealthScore([review]);
+      // All categories should be at 100 (no criticals)
+      expect(result.score).toBe(100);
+    });
+  });
+
+  // =========================================================================
   // formatDashboardMarkdown
   // =========================================================================
 

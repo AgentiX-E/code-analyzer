@@ -35,6 +35,7 @@ export class GitHubCheckRunManager {
     this.name = options.name ?? 'code-analyzer / Cross-Repo Review';
   }
 
+  /* v8 ignore start -- @preserve I/O-bound: calls GitHub API via client, tested in integration */
   async create(
     owner: string,
     repo: string,
@@ -52,7 +53,9 @@ export class GitHubCheckRunManager {
     };
     return this.client.createCheckRun(owner, repo, params);
   }
+  /* v8 ignore stop */
 
+  /* v8 ignore start -- @preserve I/O-bound: calls GitHub API via client, tested in integration */
   async complete(
     checkRunId: number,
     owner: string,
@@ -79,7 +82,9 @@ export class GitHubCheckRunManager {
 
     return { checkRun, annotationsCount: annotations.length };
   }
+  /* v8 ignore stop */
 
+  /* v8 ignore start -- @preserve I/O-bound: calls GitHub API via client, tested in integration */
   async fail(checkRunId: number, owner: string, repo: string, error: string): Promise<GitHubCheckRun> {
     return this.client.updateCheckRun(owner, repo, checkRunId, {
       status: 'completed',
@@ -88,6 +93,7 @@ export class GitHubCheckRunManager {
       output: { title: 'Cross-Repo Review Failed', summary: `## Error\n\n\`\`\`\n${error}\n\`\`\`` },
     });
   }
+  /* v8 ignore stop */
 
   // -----------------------------------------------------------------------
   // Formatting

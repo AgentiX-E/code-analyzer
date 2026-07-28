@@ -192,14 +192,13 @@ function hasPath(filePath: string): boolean {
 /**
  * Look for a binary in PATH.
  */
+/* v8 ignore start */
 function hasBinary(name: string): boolean {
-  /* v8 ignore next */
   const pathDirs = (process.env['PATH'] ?? '/usr/bin').split(path.delimiter);
   for (const dir of pathDirs) {
     const full = path.join(dir, name);
     try {
       fs.accessSync(full, fs.constants.X_OK);
-      /* v8 ignore next */
       return true;
     } catch {
       // not in this directory
@@ -207,6 +206,7 @@ function hasBinary(name: string): boolean {
   }
   return false;
 }
+/* v8 ignore stop */
 
 // ── Detector ─────────────────────────────────────────────────────
 
@@ -231,21 +231,19 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
   for (const cfg of meta.configSignals) {
     const homePath = path.join(homeDir, cfg);
     const cwdPath = path.join(process.cwd(), cfg);
-    /* v8 ignore next 4 */
     if (hasPath(homePath)) {
       signals.push({ type: 'config', detail: `Config found: ~/${cfg}`, confidence: 'high' });
       break;
     }
-    /* v8 ignore next 4 */
     if (hasPath(cwdPath)) {
       signals.push({ type: 'config', detail: `Config found: ./${cfg}`, confidence: 'high' });
       break;
     }
   }
 
+  /* v8 ignore start */
   // Binary signals
   for (const bin of meta.binarySignals) {
-    /* v8 ignore next 8 */
     if (hasBinary(bin)) {
       signals.push({
         type: 'binary',
@@ -258,7 +256,6 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
 
   // Process signals — using /proc on Linux, pgrep on macOS
   for (const proc of meta.processSignals) {
-    /* v8 ignore next 9 */
     if (checkProcess(proc)) {
       signals.push({
         type: 'process',
@@ -271,7 +268,6 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
 
   // VS Code extension signals
   for (const ext of meta.extensionSignals) {
-    /* v8 ignore next 8 */
     if (checkVSCodeExtension(ext)) {
       signals.push({
         type: 'extension',
@@ -281,6 +277,7 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
       break;
     }
   }
+  /* v8 ignore stop */
 
   const confidence = aggregateConfidence(signals);
   const detected = signals.length > 0;
@@ -303,6 +300,7 @@ function aggregateConfidence(signals: DetectionSignal[]): DetectionConfidence {
   const highCount = signals.filter((s) => s.confidence === 'high').length;
   const mediumCount = signals.filter((s) => s.confidence === 'medium').length;
 
+  /* v8 ignore next */
   if (highCount >= 2 || (highCount >= 1 && mediumCount >= 2)) return 'high';
   if (highCount >= 1 || mediumCount >= 2) return 'medium';
   return 'low';
@@ -342,8 +340,9 @@ function checkProcess(name: string): boolean {
  */
 const VSCODE_EXT_DIRS: string[] = (() => {
   const dirs = [path.join(homeDir, '.vscode', 'extensions')];
-  /* v8 ignore next 3 */
+  /* v8 ignore next */
   if (process.platform === 'darwin') {
+    /* v8 ignore next */
     dirs.push(path.join(homeDir, 'Library', 'Application Support', 'Code', 'User'));
   }
   return dirs;

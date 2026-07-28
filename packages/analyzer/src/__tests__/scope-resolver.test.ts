@@ -100,6 +100,28 @@ describe('ScopeResolver', () => {
       const trees = resolver.buildScopeTrees([]);
       expect(trees).toHaveLength(0);
     });
+
+    it('should not add duplicate symbols when qualifiedName collides', () => {
+      const symbols: SymbolDefinition[] = [
+        createSymbol('dup', 'Function', 'test.ts'),
+        // Same qualifiedName as the first — should be deduplicated by addSymbol
+        createSymbol('dup', 'Function', 'test.ts'),
+      ];
+
+      const file: ParsedFile = {
+        filePath: 'test.ts',
+        language: 'typescript',
+        symbols,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const trees = resolver.buildScopeTrees([file]);
+      expect(trees).toHaveLength(1);
+      // The file scope should only have 'dup' listed once
+      expect(trees[0]!.symbols.filter(s => s.includes('dup')).length).toBe(1);
+    });
   });
 
   describe('resolveReferences', () => {
@@ -349,6 +371,70 @@ describe('ScopeResolver', () => {
       const resolvedImport = resolved.find((r) => r.importPath === 'src/utils/helper');
       expect(resolvedImport).toBeDefined();
       expect(resolvedImport!.isResolved).toBe(true);
+    });
+
+    it('should resolve import when path includes but does not end with file name', () => {
+      const symbolsB: SymbolDefinition[] = [
+        createSymbol('util', 'Function', 'src/util.ts'),
+      ];
+
+      // importPath is '@scope/util/sub' — endsWith('util') is false, includes('util') is true
+      const referencesA: ReferenceSite[] = [
+        createReference('src/consumer.ts', 1, '@scope/util/sub', { referenceKind: 'import' }),
+      ];
+
+      const fileA: ParsedFile = {
+        filePath: 'src/consumer.ts',
+        language: 'typescript',
+        symbols: [],
+        references: referencesA,
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const fileB: ParsedFile = {
+        filePath: 'src/util.ts',
+        language: 'typescript',
+        symbols: symbolsB,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const model = createSemanticModel();
+      const resolved = resolver.resolveImports([fileA, fileB], model);
+
+      const moduleImport = resolved.find((r) => r.importPath === '@scope/util/sub');
+      expect(moduleImport).toBeDefined();
+      expect(moduleImport!.isResolved).toBe(true);
+    });
+    it('should skip non-import references in resolveImports', () => {
+      const references: ReferenceSite[] = [
+        createReference('test.ts', 1, '@unknown/package', { referenceKind: 'import' }),
+        createReference('test.ts', 2, 'someFunction', { referenceKind: 'call' }),
+      ];
+
+      const file: ParsedFile = {
+        filePath: 'test.ts',
+        language: 'typescript',
+        symbols: [],
+        references,
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const model = createSemanticModel();
+      const resolved = resolver.resolveImports([file], model);
+
+      // Only the import reference should be processed, call reference skipped
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]!.importPath).toBe('@unknown/package');
+    });
+
+    it('should handle empty files array', () => {
+      const model = createSemanticModel();
+      const resolved = resolver.resolveImports([], model);
+      expect(resolved).toEqual([]);
     });
   });
 

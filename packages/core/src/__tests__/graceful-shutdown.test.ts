@@ -302,4 +302,61 @@ describe('GracefulShutdown', () => {
       }
     });
   });
+
+  describe('non-manual shutdown (process.exit mocking)', () => {
+    it('should call process.exit(0) when all handlers succeed (non-manual)', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      
+      const g = new GracefulShutdown({ shutdownTimeout: 100, forceExitTimeout: 50 });
+      g.register({
+        name: 'ok-handler',
+        priority: 10,
+        timeout: 1000,
+        shutdown: async () => {},
+      });
+
+      await g.shutdown('SIGTERM', false);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+
+      exitSpy.mockRestore();
+    });
+
+    it('should call process.exit(1) when a handler fails (non-manual)', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      
+      const g = new GracefulShutdown({ shutdownTimeout: 100, forceExitTimeout: 50 });
+      g.register({
+        name: 'failing',
+        priority: 10,
+        timeout: 1000,
+        shutdown: async () => {
+          throw new Error('fail');
+        },
+      });
+
+      await g.shutdown('SIGTERM', false);
+      expect(exitSpy).toHaveBeenCalledWith(1);
+
+      exitSpy.mockRestore();
+    });
+
+    it('should set up force exit timer in non-manual mode', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      
+      const g = new GracefulShutdown({ shutdownTimeout: 100, forceExitTimeout: 50 });
+      g.register({
+        name: 'handler',
+        priority: 10,
+        timeout: 1000,
+        shutdown: async () => {},
+      });
+
+      const result = await g.shutdown('SIGTERM', false);
+      // Force exit timer was set up but cleared before firing since handler completed
+      expect(result.success).toBe(true);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+
+      exitSpy.mockRestore();
+    });
+  });
 });

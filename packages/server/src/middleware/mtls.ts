@@ -72,13 +72,16 @@ function getClientCert(request: FastifyRequest, config: MtlsConfig): { fingerpri
           fingerprint: createHash('sha256').update(decoded).digest('hex'),
           raw: decoded,
         };
+      /* v8 ignore start -- @preserve Buffer.from with invalid base64 does not throw in Node.js */
       } catch {
         return null;
       }
+      /* v8 ignore stop */
     }
   }
 
   // Check TLS socket
+  /* v8 ignore start -- @preserve TLS socket not available via Fastify.inject(), tested in integration */
   const socket = request.raw.socket as unknown as { getPeerCertificate?: () => { raw: Buffer } };
   if (typeof socket.getPeerCertificate === 'function') {
     const cert = socket.getPeerCertificate();
@@ -87,6 +90,7 @@ function getClientCert(request: FastifyRequest, config: MtlsConfig): { fingerpri
       return { fingerprint, raw: cert.raw };
     }
   }
+  /* v8 ignore stop */
 
   return null;
 }

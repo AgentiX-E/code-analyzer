@@ -313,6 +313,144 @@ describe('ToolContext', () => {
       const store = new InMemoryGraphStore();
       expect(ToolContextImpl.isToolContext(store)).toBe(false);
     });
+
+    it('should lazily initialize federated search engine', () => {
+      const ctx = createTestContext();
+      const engine = ctx.getFederatedSearch();
+      expect(engine).toBeDefined();
+
+      // Same instance on second call
+      expect(ctx.getFederatedSearch()).toBe(engine);
+    });
+
+    it('should lazily initialize PR review engine and return same instance', () => {
+      const ctx = createTestContext();
+      const engine = ctx.getPRReviewEngine();
+      expect(engine).toBeDefined();
+      expect(ctx.getPRReviewEngine()).toBe(engine);
+    });
+
+    it('should lazily initialize cross-repo indexer and return same instance', () => {
+      const ctx = createTestContext();
+      const indexer = ctx.getCrossRepoIndexer();
+      expect(indexer).toBeDefined();
+      expect(ctx.getCrossRepoIndexer()).toBe(indexer);
+    });
+
+    it('should lazily initialize cross-repo PR review engine and return same instance', () => {
+      const ctx = createTestContext();
+      const engine = ctx.getCrossRepoPRReviewEngine();
+      expect(engine).toBeDefined();
+      expect(ctx.getCrossRepoPRReviewEngine()).toBe(engine);
+    });
+
+    it('should lazily initialize repo group manager and return same instance', () => {
+      const ctx = createTestContext();
+      const manager = ctx.getRepoGroupManager();
+      expect(manager).toBeDefined();
+      expect(ctx.getRepoGroupManager()).toBe(manager);
+    });
+
+    it('getStore should return the store when passed a raw InMemoryGraphStore', () => {
+      const store = new InMemoryGraphStore();
+      const result = ToolContextImpl.getStore(store);
+      expect(result).toBe(store);
+    });
+
+    it('getStore should return the store from a ToolContext', () => {
+      const ctx = createTestContext();
+      const result = ToolContextImpl.getStore(ctx);
+      expect(result).toBe(ctx.store);
+    });
+
+    it('getStore should return null for unknown input', () => {
+      expect(ToolContextImpl.getStore(null)).toBeNull();
+      expect(ToolContextImpl.getStore(undefined)).toBeNull();
+      expect(ToolContextImpl.getStore({})).toBeNull();
+      expect(ToolContextImpl.getStore(42)).toBeNull();
+      expect(ToolContextImpl.getStore('string')).toBeNull();
+    });
+
+    it('isToolContext should return false for object without getSearchEngine', () => {
+      expect(ToolContextImpl.isToolContext({ store: {}, getSearchEngine: 'not-a-function' })).toBe(false);
+      expect(ToolContextImpl.isToolContext({ store: {} })).toBe(false);
+    });
+
+    it('findReferences should filter out references from other projects', () => {
+      const ctx = createTestContext();
+      // Create a node in a different project that references doWork
+      const otherStore = new InMemoryGraphStore();
+      // We need to test that nodes with mismatched projectId are filtered
+      // Get the doWork node from the context
+      const doWorkNode = ctx.store.getNodeByQualifiedName('core.MyService.doWork');
+      expect(doWorkNode).toBeDefined();
+
+      // Insert a node in 'other-project' that has an edge to doWork
+      // The findReferences should filter by projectId
+      const refs = ctx.findReferences('test-project', 'core.MyService.doWork');
+      // All returned references should have projectId 'test-project'
+      for (const ref of refs) {
+        expect(ref.projectId).toBe('test-project');
+      }
+    });
+
+    it('findReferences should skip source nodes with mismatched projectId', () => {
+      const store = new InMemoryGraphStore();
+      // Target node
+      store.insertNode({
+        id: 0, projectId: 'proj-a', label: 'Function', name: 'target',
+        qualifiedName: 'proj.target', filePath: '/proj/target.ts',
+        startLine: 1, endLine: 10, language: 'typescript', properties: {},
+        signature: null, docstring: null, complexity: null,
+        isExported: true, fingerprint: null,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+      // Source node with DIFFERENT projectId
+      store.insertNode({
+        id: 0, projectId: 'proj-b', label: 'Function', name: 'caller',
+        qualifiedName: 'other.caller', filePath: '/other/caller.ts',
+        startLine: 1, endLine: 10, language: 'typescript', properties: {},
+        signature: null, docstring: null, complexity: null,
+        isExported: true, fingerprint: null,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+      // Source node with SAME projectId
+      store.insertNode({
+        id: 0, projectId: 'proj-a', label: 'Function', name: 'localCaller',
+        qualifiedName: 'proj.localCaller', filePath: '/proj/local.ts',
+        startLine: 1, endLine: 10, language: 'typescript', properties: {},
+        signature: null, docstring: null, complexity: null,
+        isExported: true, fingerprint: null,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+      const targetNode = store.getNodeByQualifiedName('proj.target')!;
+      const otherCaller = store.getNodeByQualifiedName('other.caller')!;
+      const localCaller = store.getNodeByQualifiedName('proj.localCaller')!;
+      // Both source nodes point to target
+      store.insertEdge({
+        id: 0, projectId: 'proj-a', sourceId: otherCaller.id, targetId: targetNode.id,
+        type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      });
+      store.insertEdge({
+        id: 0, projectId: 'proj-a', sourceId: localCaller.id, targetId: targetNode.id,
+        type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      });
+
+      const ctx = new ToolContextImpl(store);
+      // Find references scoped to proj-a — should only return localCaller
+      const refs = ctx.findReferences('proj-a', 'proj.target');
+      expect(refs.length).toBe(1);
+      expect(refs[0].name).toBe('localCaller');
+    });
+
+    it('getDependencyTree should use default maxDepth of 3', () => {
+      const ctx = createTestContext();
+      // Call without maxDepth to cover the default parameter path
+      const tree = ctx.getDependencyTree('test-project', 'core.MyService.doWork');
+      expect(tree).toBeDefined();
+      expect(tree!.node.name).toBe('doWork');
+      expect(tree!.depth).toBe(0);
+    });
   });
 });
 
