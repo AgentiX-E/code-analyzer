@@ -19,7 +19,8 @@
     "sourceMap": true,
     "incremental": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node"]
   },
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.bench.ts"]
 }
