@@ -77,6 +77,17 @@ export type {
   SessionSummary,
 } from './review/session-store.js';
 
+// Review Dashboard Aggregator
+export { ReviewDashboardAggregator } from './review/dashboard-aggregator.js';
+export type {
+  ReviewEntry,
+  DashboardMetrics,
+  CodeHealthScore,
+  TeamInsights,
+  DashboardReport,
+  DashboardOptions,
+} from './review/dashboard-aggregator.js';
+
 // Heuristics
 export {
   analyzeFileHeuristics,
@@ -101,6 +112,14 @@ export {
   listTemplates,
 } from './standards/templates.js';
 export type { StandardTemplate } from './standards/templates.js';
+
+export { CustomRuleEditor } from './standards/rule-editor.js';
+export type {
+  CreateRuleInput,
+  UpdateRuleInput,
+  RuleValidationResult,
+  RuleTemplate,
+} from './standards/rule-editor.js';
 
 // Report Generator
 export { ReportGenerator } from './report/generator.js';
@@ -297,6 +316,21 @@ export type {
   VersionAlignment,
   UpgradeSafetyReport,
 } from './cross-repo/version-matrix.js';
+
+export { CrossRepoGraphVisualizer } from './cross-repo/graph-visualizer.js';
+export type {
+  CrossRepoEdgeRecord,
+  JsonGraphRepoNode,
+  JsonGraphEdge,
+  JsonGraph,
+  RepoMetrics,
+} from './cross-repo/graph-visualizer.js';
+
+export { IncrementalCrossRepoIndexer } from './cross-repo/incremental-indexer.js';
+export type {
+  ChangeSet,
+  IncrementalIndexResult,
+} from './cross-repo/incremental-indexer.js';
 
 // GitHub Integration
 export {
