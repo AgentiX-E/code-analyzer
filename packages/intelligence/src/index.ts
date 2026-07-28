@@ -99,6 +99,10 @@ export type {
   GraphAnalysisData,
 } from './review/heuristics.js';
 
+// File Bundler
+export { FileBundler } from './review/file-bundler.js';
+export type { FileBundle, BundleCategory } from './review/file-bundler.js';
+
 // Memory Compression
 export { MemoryCompressor, countTokens } from './compression/memory-compressor.js';
 export type { CompressionConfig } from './compression/memory-compressor.js';
@@ -190,6 +194,14 @@ export type {
 // Review Pipeline
 export { ReviewPipeline } from './review/review-pipeline.js';
 export type { PipelineReviewConfig } from './review/review-pipeline.js';
+
+// Comment Positioner
+export { CommentPositioner } from './review/comment-positioner.js';
+export type { PositionedComment, PositionResult } from './review/comment-positioner.js';
+
+// Delegation Mode
+export { DelegationManager } from './review/delegation-mode.js';
+export type { DelegatePreview, ResolvedRule } from './review/delegation-mode.js';
 
 // Rules Engine
 export {
