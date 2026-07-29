@@ -195,6 +195,44 @@ export type {
 export { ReviewPipeline } from './review/review-pipeline.js';
 export type { PipelineReviewConfig } from './review/review-pipeline.js';
 
+// LLM Provider & Review Engine
+export {
+  DeepSeekProvider,
+  LLMError,
+  LLMAuthError,
+  LLMTimeoutError,
+  LLMRateLimitError,
+} from './review/llm/provider.js';
+export type {
+  LLMProvider,
+  CompletionOptions,
+  CompletionResult,
+  ToolDefinition,
+} from './review/llm/provider.js';
+
+export {
+  LANE_PROMPTS,
+  LANE_LABELS,
+  LANE_PRIORITIES,
+  parseLLMResponse,
+  SECURITY_REVIEW_PROMPT,
+  PERFORMANCE_REVIEW_PROMPT,
+  MAINTAINABILITY_REVIEW_PROMPT,
+  TESTING_REVIEW_PROMPT,
+  ARCHITECTURE_REVIEW_PROMPT,
+} from './review/llm/prompts.js';
+export type {
+  LLMFinding,
+  PromptContext,
+  ReviewLane,
+} from './review/llm/prompts.js';
+
+export { LLMReviewEngine } from './review/llm/llm-review-engine.js';
+export type {
+  LLMReviewOptions,
+  LLMReviewResult,
+} from './review/llm/llm-review-engine.js';
+
 // Comment Positioner
 export { CommentPositioner } from './review/comment-positioner.js';
 export type { PositionedComment, PositionResult } from './review/comment-positioner.js';

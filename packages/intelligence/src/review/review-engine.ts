@@ -14,6 +14,9 @@ import {
 } from './heuristics.js';
 import { SessionStore, computeFileFingerprint } from './session-store.js';
 import type { SessionMetadata, ReviewItemResult } from './session-store.js';
+import type { LLMProvider } from './llm/provider.js';
+import { LLMReviewEngine } from './llm/llm-review-engine.js';
+import type { LLMReviewOptions } from './llm/llm-review-engine.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -45,6 +48,7 @@ export interface ReviewContext {
   store: InMemoryGraphStore;
   sessionId: string;
   config: ReviewConfig;
+  fileContext?: string;
 }
 
 export interface ReviewPlan {
@@ -85,14 +89,18 @@ const FILTER_RULES: FilterRule[] = [
 export class CodeReviewEngine {
   private readonly config: ReviewConfig;
   private readonly sessionStore: SessionStore;
+  private readonly llmEngine: LLMReviewEngine | null;
 
   constructor(
     private store: InMemoryGraphStore,
     config?: Partial<ReviewConfig>,
     sessionStore?: SessionStore,
+    llmProvider?: LLMProvider,
+    llmOptions?: LLMReviewOptions,
   ) {
     this.config = { ...DEFAULT_REVIEW_CONFIG, ...config };
     this.sessionStore = sessionStore ?? new SessionStore();
+    this.llmEngine = llmProvider ? new LLMReviewEngine(llmProvider, llmOptions) : null;
   }
 
   // -------------------------------------------------------------------------
@@ -118,6 +126,7 @@ export class CodeReviewEngine {
       store: this.store,
       sessionId: session.id,
       config: this.config,
+      fileContext: this.buildFileContext(diffs),
     };
 
     let totalComments = 0;
@@ -224,11 +233,25 @@ export class CodeReviewEngine {
     // Phase 1: Plan
     const plan = await this.planPhase(ctx, diff);
 
-    // Phase 2: Analyze
-    const comments = await this.analyzePhase(ctx, diff, plan);
+    // Phase 2: Analyze (heuristic)
+    const heuristicComments = await this.analyzePhase(ctx, diff, plan);
+
+    // Phase 2b: LLM Review (if provider is configured)
+    let llmComments: ReviewComment[] = [];
+    if (this.llmEngine) {
+      try {
+        llmComments = await this.llmEngine.reviewDiffAsComments(diff, ctx.fileContext);
+      } catch {
+        // LLM review failure should not block heuristic results
+        llmComments = [];
+      }
+    }
+
+    // Merge and deduplicate
+    const merged = this.mergeAndDeduplicate(heuristicComments, llmComments);
 
     // Phase 3: Filter
-    const filtered = await this.filterPhase(comments, diff);
+    const filtered = await this.filterPhase(merged, diff);
 
     // Phase 4: Relocate
     const relocated = await this.relocatePhase(filtered, diff);
@@ -398,6 +421,43 @@ export class CodeReviewEngine {
   // -------------------------------------------------------------------------
 
   /**
+   * Merge heuristic and LLM review comments, removing duplicates.
+   * A duplicate is defined as two comments with similar line ranges
+   * and matching categories.
+   */
+  private mergeAndDeduplicate(
+    heuristic: ReviewComment[],
+    llm: ReviewComment[],
+  ): ReviewComment[] {
+    if (llm.length === 0) return heuristic;
+    if (heuristic.length === 0) return llm;
+
+    const result = [...heuristic];
+    const overlapThreshold = 3;
+
+    for (const llmComment of llm) {
+      const isDuplicate = result.some((hc) => {
+        // Check category match
+        if (hc.category !== llmComment.category) return false;
+        // Check line range overlap
+        const overlap = Math.max(
+          0,
+          Math.min(hc.endLine, llmComment.endLine) -
+            Math.max(hc.startLine, llmComment.startLine) +
+            1,
+        );
+        return overlap >= overlapThreshold;
+      });
+
+      if (!isDuplicate) {
+        result.push(llmComment);
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Extract the diff content from a GitDiff object.
    * Combines range information to provide a representative content.
    */
@@ -417,6 +477,17 @@ export class CodeReviewEngine {
       );
     }
 
+    return parts.join('\n');
+  }
+
+  /**
+   * Build a summary context string from all diffs for the LLM reviewer.
+   */
+  private buildFileContext(diffs: GitDiff[]): string {
+    const parts: string[] = [];
+    parts.push(`Total files changed: ${diffs.length}`);
+    const fileList = diffs.map((d) => `  ${d.changeType}: ${d.filePath}`).join('\n');
+    parts.push(`Changed files:\n${fileList}`);
     return parts.join('\n');
   }
 

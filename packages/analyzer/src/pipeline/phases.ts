@@ -390,6 +390,54 @@ const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
     const { RustProvider } = await import('../languages/rust.js');
     return new RustProvider();
   },
+  c: async () => {
+    const { CProvider } = await import('../languages/c.js');
+    return new CProvider();
+  },
+  cpp: async () => {
+    const { CppProvider } = await import('../languages/cpp.js');
+    return new CppProvider();
+  },
+  php: async () => {
+    const { PhpProvider } = await import('../languages/php.js');
+    return new PhpProvider();
+  },
+  ruby: async () => {
+    const { RubyProvider } = await import('../languages/ruby.js');
+    return new RubyProvider();
+  },
+  swift: async () => {
+    const { SwiftProvider } = await import('../languages/swift.js');
+    return new SwiftProvider();
+  },
+  dart: async () => {
+    const { DartProvider } = await import('../languages/dart.js');
+    return new DartProvider();
+  },
+  lua: async () => {
+    const { LuaProvider } = await import('../languages/lua.js');
+    return new LuaProvider();
+  },
+  scala: async () => {
+    const { ScalaProvider } = await import('../languages/scala.js');
+    return new ScalaProvider();
+  },
+  zig: async () => {
+    const { ZigProvider } = await import('../languages/zig.js');
+    return new ZigProvider();
+  },
+  elixir: async () => {
+    const { ElixirProvider } = await import('../languages/elixir.js');
+    return new ElixirProvider();
+  },
+  hcl: async () => {
+    const { HclProvider } = await import('../languages/hcl.js');
+    return new HclProvider();
+  },
+  dockerfile: async () => {
+    const { DockerfileProvider } = await import('../languages/dockerfile.js');
+    return new DockerfileProvider();
+  },
 };
 
 const providerCache = new Map<string, LanguageProvider>();

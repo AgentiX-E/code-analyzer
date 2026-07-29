@@ -39,6 +39,18 @@ export type { SupervisorConfig, SupervisorOptions } from './workers/supervisor.j
 export { createParseCache, computeContentHash } from './cache/parse-cache.js';
 export type { ParseCache } from './cache/parse-cache.js';
 
+// Content Cache
+export { ContentCache, computeSha256 } from './cache/content-cache.js';
+export type { ContentCacheEntry, ContentCacheStats } from './cache/content-cache.js';
+
+// Incremental Indexer
+export { IncrementalIndexer } from './cache/incremental-indexer.js';
+export type {
+  ChangeDetectionResult,
+  ChangeDetectionStats,
+  ChangeDetectionOptions,
+} from './cache/incremental-indexer.js';
+
 // Parallel Indexer
 export { ParallelIndexer } from './workers/parallel-indexer.js';
 export type {
