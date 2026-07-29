@@ -116,3 +116,16 @@ export type {
   DetectionConfidence,
   McpConfigTemplate,
 } from './agents/types.js';
+
+// Plugins
+export type {
+  CodeAnalyzerPlugin,
+  PluginRule,
+  PluginRuleResult,
+  PluginLens,
+  PluginLensFinding,
+  PluginStandard,
+  PluginStandardViolation,
+  PluginMCPTool,
+} from './plugins/index.js';
+export { PluginLoader, PluginRegistry } from './plugins/index.js';
