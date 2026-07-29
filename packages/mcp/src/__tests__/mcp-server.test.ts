@@ -3,6 +3,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CodeAnalyzerMCPServer } from '../server/mcp-server.js';
+import { ResourceProvider } from '../resources/index.js';
 import { AuthMiddleware, RateLimiter, ToolPolicy, RequestLogger } from '../middleware/index.js';
 
 describe('CodeAnalyzerMCPServer', () => {
@@ -46,6 +47,14 @@ describe('CodeAnalyzerMCPServer', () => {
     it('should have a store', () => {
       server = new CodeAnalyzerMCPServer();
       expect(server.getStore()).toBeDefined();
+    });
+
+    it('should have a resource provider', () => {
+      server = new CodeAnalyzerMCPServer();
+      const rp = server.getResourceProvider();
+      expect(rp).toBeDefined();
+      expect(rp).toBeInstanceOf(ResourceProvider);
+      expect(rp.listResources()).toHaveLength(15);
     });
   });
 

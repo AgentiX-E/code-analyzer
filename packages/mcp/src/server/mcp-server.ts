@@ -19,7 +19,8 @@ import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-ana
 import type { AutoIndexer as AutoIndexerType } from '@code-analyzer/infra';
 import { createToolRegistry, ToolRegistry } from '../tools/index.js';
 import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
-import { registerResources } from '../resources/index.js';
+import { ResourceProvider, registerResources } from '../resources/index.js';
+import type { ResourceContent, ResourceError } from '../resources/index.js';
 import { registerPrompts } from '../prompts/index.js';
 import { AuthMiddleware, RateLimiter, RequestLogger } from '../middleware/index.js';
 
@@ -55,10 +56,12 @@ export class CodeAnalyzerMCPServer {
   private transport?: StdioServerTransport;
   private httpServer?: unknown;
   private autoIndexer: AutoIndexerType | null = null;
+  private resourceProvider: ResourceProvider;
 
   constructor(config: Partial<MCPServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.store = new InMemoryGraphStore();
+    this.resourceProvider = new ResourceProvider(this.store);
     this.toolContext = new ToolContextImpl(this.store);
     this.registry = createToolRegistry();
     this.auth = new AuthMiddleware();
@@ -158,22 +161,21 @@ export class CodeAnalyzerMCPServer {
     // List resources
     if (this.config.enableResources) {
       this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
-        const resources = registerResources();
+        const resources = this.resourceProvider.listResources();
         return { resources: resources.map((r) => this.formatResource(r)) };
       });
 
       this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
         const { uri } = request.params;
-        const resources = registerResources();
-        const resource = resources.find((r) => r.uri === uri);
-        if (!resource) {
-          throw new Error(`Resource not found: ${uri}`);
+        const result = await this.resourceProvider.getResource(uri);
+        if ('error' in result) {
+          throw new Error(result.error);
         }
         return {
           contents: [{
-            uri: resource.uri,
-            mimeType: resource.mimeType ?? 'application/json',
-            text: JSON.stringify({ uri: resource.uri, name: resource.name, description: resource.description }, null, 2),
+            uri: result.uri,
+            mimeType: result.mimeType,
+            text: result.text,
           }],
         };
       });
@@ -321,6 +323,11 @@ export class CodeAnalyzerMCPServer {
   /** Get the server configuration. */
   getConfig(): MCPServerConfig {
     return { ...this.config };
+  }
+
+  /** Get the ResourceProvider for data retrieval. */
+  getResourceProvider(): ResourceProvider {
+    return this.resourceProvider;
   }
 
   // -------------------------------------------------------------------------
