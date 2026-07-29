@@ -23,6 +23,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'API', link: '/reference/api-spec' },
+      { text: 'Contributing', link: '/contributing/language-provider' },
       { text: 'GitHub', link: 'https://github.com/AgentiX-E/code-analyzer' },
     ],
 
@@ -88,6 +89,14 @@ export default defineConfig({
             { text: 'CLI', link: '/reference/packages/cli' },
             { text: 'VS Code', link: '/reference/packages/vscode' },
             { text: 'Web', link: '/reference/packages/web' },
+          ],
+        },
+      ],
+      '/contributing/': [
+        {
+          text: 'Contributing',
+          items: [
+            { text: 'Language Provider Guide', link: '/contributing/language-provider' },
           ],
         },
       ],

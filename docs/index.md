@@ -16,7 +16,7 @@ hero:
 features:
   - icon: 🔍
     title: Deep Code Understanding
-    details: Parse 12 languages with tree-sitter, build a knowledge graph of 33 entity types and 39 relationship types, and run semantic search across your entire codebase.
+    details: Parse 20 languages with tree-sitter and IaC analyzer, build a knowledge graph of 33 entity types and 40+ relationship types, and run Cypher-powered semantic search across your entire codebase.
   - icon: 🔀
     title: Cross-Repository Analysis
     details: Federated search across multiple repos, version compatibility matrices, cross-repo PR review, and dependency tracing between microservices and shared libraries.
@@ -45,5 +45,5 @@ stats:
     value: '97%+'
   - icon: 🌐
     label: Languages
-    value: '12'
+    value: '20'
 ---

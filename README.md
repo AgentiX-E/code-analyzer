@@ -40,18 +40,19 @@ code-analyzer agent configure
 
 | Capability | Description |
 |---|---|
-| **Knowledge Graph** | Builds a rich property graph of your codebase -- 33 node types, 39 relationship types with in-memory and SQLite storage |
+| **Knowledge Graph** | Builds a rich property graph of your codebase -- 33 node types, 40+ relationship types with in-memory and SQLite storage |
 | **18-Phase Pipeline** | DAG-based analysis pipeline: scan -> parse -> scope resolution -> communities -> embeddings |
-| **PR Review** | 5-stage review pipeline with 50+ rules across 6 categories (security w/ CWE, correctness, performance, maintainability, style, architecture) |
-| **Cross-Repo Analysis** | Multi-repo indexing, federated search, API contract detection, version matrix, cross-repo PR review with GitHub check runs |
-| **12-Language Tree-sitter** | TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, Ruby, PHP, Swift, C-like |
+| **PR Review** | 5-stage review pipeline with 50+ rules across 6 categories (security w/ CWE, correctness, performance, maintainability, style, architecture). Smart file bundling for PR review context, delegation review mode |
+| **Cross-Repo Analysis** | Multi-repo indexing, federated search, API contract detection, version matrix, cross-repo PR review with GitHub check runs. Incremental reindexing with git change detection |
+| **20-Language Support** | TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, Ruby, PHP, Swift, C/C++, C-like + IaC: Dockerfile, HCL/Terraform, YAML, JSON, Markdown, Shell, SQL |
+| **Cypher Query Engine** | Full Cypher query support with 40+ graph relationship types for deep structural queries across the knowledge graph |
 | **MCP Server** | 39 tools, 15 resources, 5 prompts for AI agents -- auth, sliding-window rate limiter, Cypher queries |
 | **VS Code Extension** | Copilot Chat participant with 7 slash commands: /review, /explain, /impact, /find, /deps, /refactor, /test |
 | **Web Dashboard** | 6 interactive views: Graph Explorer, Search, Dashboard, Cross-Repo, PR Review Panel, Repo Group Manager |
 | **GitHub Integration** | Webhook receiver, cross-repo PR review bridge, check runs with annotations, repo sync, REST + GraphQL API client |
 | **AI Agent Integrations** | Auto-detection and one-click setup for 11 agents: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codex, Gemini CLI, Cody, Amazon Q |
 | **Enterprise Security** | RBAC (5 roles/25 permissions), audit logging, 16-pattern secret scanner |
-| **Operational Excellence** | Health checks, graceful shutdown, retry with exponential backoff, dead letter queue, sliding-window rate limiter |
+| **Operational Excellence** | Health checks, graceful shutdown, retry with exponential backoff, dead letter queue, sliding-window rate limiter. Auto-index on project open, auto-watch file changes, comment positioning with precision validation, graph artifact compression and sharing |
 
 ## Architecture
 
@@ -71,7 +72,7 @@ code-analyzer agent configure
 |  50+ Rules (CWE)  |  Cross-Repo  |  Impact  |  Embeddings    |
 +---------------------------------------------------------------+
 |                    Analysis Engine                            |
-|  12 Tree-sitter  |  18-Phase DAG  |  Graph Builder           |
+|  20 Lang (Tree-sitter + IaC)  |  18-Phase DAG  |  Graph Builder           |
 +---------------------------------------------------------------+
 |                   Infrastructure Layer                       |
 |  Graph Store  |  Worker Pool  |  Git Ops  |  Parallel        |
@@ -88,7 +89,7 @@ code-analyzer agent configure
 | `@code-analyzer/shared` | Shared types (33 node labels, 39 edges), constants, protocols |
 | `@code-analyzer/core` | Foundation: config, logging, errors, i18n, metrics, agent detection, security, RBAC, audit |
 | `@code-analyzer/infra` | Infrastructure: graph stores, file discovery, git operations, worker pool |
-| `@code-analyzer/analyzer` | Analysis: 12-language tree-sitter, 18-phase pipeline, scope resolution |
+| `@code-analyzer/analyzer` | Analysis: 20-language tree-sitter + IaC, 18-phase pipeline, scope resolution, auto-index, auto-watch, incremental reindexing |
 | `@code-analyzer/intelligence` | Intelligence: 50+ rules, cross-repo, impact analysis, embeddings, standards, GitHub client |
 | `@code-analyzer/mcp` | MCP server: 39 tools, 15 resources, 5 prompts, Cypher engine, middleware |
 | `@code-analyzer/server` | HTTP REST API server with webhook support, rate limiting, graceful shutdown |
