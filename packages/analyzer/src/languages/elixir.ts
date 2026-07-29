@@ -59,26 +59,35 @@ export class ElixirProvider extends TreeSitterBaseProvider {
               });
             }
           }
-        } else if (target.text === 'def' || target.text === 'defp') {
-          for (let i = 0; i < node.namedChildCount; i++) {
-            const child = node.namedChild(i);
-            if (child.type === 'arguments' || child.type === 'binary_operator') continue;
-            if (child.type === 'identifier' && child !== target) {
-              captures.push({
-                tag: CAPTURE_TAGS.FUNCTION_DEF,
-                text: child.text,
-                startLine: node.startPosition.row + 1,
-                endLine: node.endPosition.row + 1,
-                startByte: child.startIndex,
-                endByte: child.endIndex,
-                name: child.text,
-                properties: { visibility: target.text === 'defp' ? 'private' : 'public', filePath: this.filePath },
-              });
-              break;
+        } else if (target.text === 'def' || target.text === 'defp' || target.text === 'defmacro') {
+          // Extract function name from the arguments child
+          // In tree-sitter-elixir, the function name is nested:
+          //   call > identifier("def") > arguments > call > identifier("func_name")
+          const args = this.findNamedChild(node, 'arguments');
+          if (args) {
+            const innerCall = this.findNamedChild(args, 'call');
+            if (innerCall) {
+              const funcNameNode = this.findNamedChild(innerCall, 'identifier');
+              if (funcNameNode) {
+                captures.push({
+                  tag: CAPTURE_TAGS.FUNCTION_DEF,
+                  text: funcNameNode.text,
+                  startLine: node.startPosition.row + 1,
+                  endLine: node.endPosition.row + 1,
+                  startByte: funcNameNode.startIndex,
+                  endByte: funcNameNode.endIndex,
+                  name: funcNameNode.text,
+                  properties: {
+                    visibility: target.text === 'defp' ? 'private' : 'public',
+                    ...(target.text === 'defmacro' ? { isMacro: 'true' } : {}),
+                    filePath: this.filePath,
+                  },
+                });
+              }
             }
           }
-        } else if (target.text === 'use') {
-          // use Module — treat as import
+        } else if (target.text === 'use' || target.text === 'import' || target.text === 'alias') {
+          // use/import/alias Module — treat as import
           const args = this.findNamedChild(node, 'arguments');
           if (args) {
             const modName = this.extractModuleName(args);
@@ -120,8 +129,9 @@ export class ElixirProvider extends TreeSitterBaseProvider {
             });
           }
         }
+        return; // Don't recurse into import/use/alias/require children
       }
-      return;
+      // For non-import calls (like defmodule), continue recursing into children
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -271,8 +281,18 @@ export class ElixirProvider extends TreeSitterBaseProvider {
       const child = argsNode.namedChild(i);
       if (child.type === 'identifier') parts.push(child.text);
       else if (child.type === 'alias') {
-        for (let j = 0; j < child.namedChildCount; j++) {
-          if (child.namedChild(j).type === 'identifier') parts.push(child.namedChild(j).text);
+        // tree-sitter-elixir 0.3.x: alias children are anonymous (neither namedChildCount nor childCount)
+        // The full module path is available directly via .text
+        if (child.namedChildCount > 0) {
+          for (let j = 0; j < child.namedChildCount; j++) {
+            if (child.namedChild(j).type === 'identifier') parts.push(child.namedChild(j).text);
+          }
+        } else if (child.childCount > 0) {
+          for (let j = 0; j < child.childCount; j++) {
+            if (child.child(j).type === 'identifier') parts.push(child.child(j).text);
+          }
+        } else {
+          parts.push(child.text);
         }
       }
     }

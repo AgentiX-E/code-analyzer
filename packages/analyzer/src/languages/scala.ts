@@ -141,11 +141,20 @@ export class ScalaProvider extends TreeSitterBaseProvider {
         node.type === 'object_definition' || node.type === 'function_definition') {
       const nameNode = this.findNamedChild(node, 'identifier');
       if (nameNode && nameNode.text === symbolName) {
-        // Check for private/protected access modifiers
+        // Check for private/protected access modifiers in modifiers child
+        const modifiers = this.findNamedChild(node, 'modifiers');
+        if (modifiers) {
+          const accessMod = this.findNamedChild(modifiers, 'access_modifier');
+          if (accessMod) {
+            const modText = accessMod.text.trim();
+            if (modText === 'private' || modText === 'protected') return false;
+          }
+        }
+        // Fallback: check source text before node start for older tree-sitter versions
         const prefix = this.source.slice(Math.max(0, node.startIndex - 15), node.startIndex);
         const privateRegex = /private\s*\[.*?\]\s*$/;
         if (privateRegex.test(prefix)) return false;
-        if (/private\s+/.test(prefix)) return false;
+        if (/private\s+/.test(prefix) || /protected\s+/.test(prefix)) return false;
         return true;
       }
     }

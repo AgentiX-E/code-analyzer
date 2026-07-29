@@ -39,7 +39,7 @@ export class CProvider extends TreeSitterBaseProvider {
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
-    if (nodeType === 'function_definition') {
+    if (nodeType === 'function_definition' || nodeType === 'declaration') {
       const declarator = this.findNamedChild(node, 'function_declarator');
       if (declarator) {
         const nameNode = this.findNamedChild(declarator, 'identifier');
@@ -137,9 +137,9 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (node.type === 'function_definition' || node.type === 'struct_specifier' ||
-        node.type === 'enum_specifier') {
-      const declarator = node.type === 'function_definition'
+    if (node.type === 'function_definition' || node.type === 'declaration' ||
+        node.type === 'struct_specifier' || node.type === 'enum_specifier') {
+      const declarator = (node.type === 'function_definition' || node.type === 'declaration')
         ? this.findNamedChild(node, 'function_declarator')
         : node;
       const nameNode = declarator
@@ -151,6 +151,9 @@ export class CProvider extends TreeSitterBaseProvider {
         // unless declared static
         const before = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex);
         if (before.includes('static')) return false;
+        // Also check if the node text itself starts with static
+        // (tree-sitter-c 0.24 includes static keyword in the declaration node text)
+        if (/^\s*static\b/.test(node.text)) return false;
         return true;
       }
     }

@@ -22,7 +22,7 @@ export class HclProvider extends TreeSitterBaseProvider {
   protected override loadGrammar(): TreeSitterLanguage | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-hcl') as TreeSitterLanguage;
+      return require('@tree-sitter-grammars/tree-sitter-hcl') as TreeSitterLanguage;
     } /* v8 ignore next */
     catch {
       return null;
@@ -35,28 +35,45 @@ export class HclProvider extends TreeSitterBaseProvider {
     ];
   }
 
+  // -----------------------------------------------------------------------
+  // AST walking for @tree-sitter-grammars/tree-sitter-hcl v1.2.0+
+  //
+  // AST structure: config_file > body > block
+  //   block named children:
+  //     identifier  — block type keyword ("resource", "data", "variable", ...)
+  //     string_lit  — labels (e.g. "aws_vpc", "main")
+  //     block_start — "{"
+  //     body        — nested attributes / blocks
+  //     block_end   — "}"
+  //
+  // string_lit text includes surrounding quotes; strip them to get the value.
+  // -----------------------------------------------------------------------
+
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
     if (nodeType === 'block') {
-      const labels: string[] = [];
       const identifiers: string[] = [];
+      const labels: string[] = [];
 
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
-        if (child.type === 'identifier') identifiers.push(child.text);
-      }
-
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'string_lit' || child.type === 'quoted_template') {
-          labels.push(child.text.replace(/^["']|["']$/g, ''));
+        if (child.type === 'identifier') {
+          identifiers.push(child.text);
+        } else if (child.type === 'string_lit') {
+          labels.push(this.extractStringLitValue(child));
         }
       }
 
-      if (identifiers.length >= 2) {
+      // Need at least a block-type identifier
+      if (identifiers.length >= 1) {
         const blockType = identifiers[0]!;
-        const blockLabel = identifiers.slice(1).join('.');
+        // Labels come from string_lit children; for single-label blocks
+        // (variable, output, provider, module) use the first label.
+        // For resource/data: labels[0] = type, labels[1] = name
+        const blockLabel = labels.length >= 2
+          ? `${labels[0]!}.${labels[1]!}`
+          : (labels[0] ?? identifiers.slice(1).join('.'));
 
         if (blockType === 'resource') {
           captures.push({
@@ -68,8 +85,8 @@ export class HclProvider extends TreeSitterBaseProvider {
             endByte: node.endIndex,
             name: blockLabel,
             properties: {
-              resourceType: identifiers[1] ?? '',
-              resourceName: identifiers[2] ?? blockLabel,
+              resourceType: labels[0] ?? '',
+              resourceName: labels[1] ?? blockLabel,
               isIaC: 'true',
               iaCType: 'TerraformResource',
               filePath: this.filePath,
@@ -85,8 +102,8 @@ export class HclProvider extends TreeSitterBaseProvider {
             endByte: node.endIndex,
             name: blockLabel,
             properties: {
-              dataSource: identifiers[1] ?? '',
-              dataName: identifiers[2] ?? blockLabel,
+              dataSource: labels[0] ?? '',
+              dataName: labels[1] ?? blockLabel,
               isIaC: 'true',
               filePath: this.filePath,
             },
@@ -155,15 +172,106 @@ export class HclProvider extends TreeSitterBaseProvider {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Module source import extraction
+  // -----------------------------------------------------------------------
+
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    if (node.type === 'block') {
+      // Check if this is a module block
+      const firstId = this.findFirstNamedChild(node, 'identifier');
+      if (firstId?.text === 'module') {
+        // Find the body and look for a 'source' attribute
+        for (let i = 0; i < node.namedChildCount; i++) {
+          const child = node.namedChild(i);
+          if (child.type === 'body') {
+            this.extractModuleSources(child, imports);
+          }
+        }
+        return; // Don't recurse into nested blocks for imports
+      }
+    }
+
     for (let i = 0; i < node.childCount; i++) {
       this.walkForImports(node.child(i), imports);
     }
   }
 
+  private extractModuleSources(bodyNode: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
+    for (let i = 0; i < bodyNode.namedChildCount; i++) {
+      const child = bodyNode.namedChild(i);
+      if (child.type === 'attribute') {
+        const attrName = this.findFirstNamedChild(child, 'identifier');
+        if (attrName?.text === 'source') {
+          const expr = this.findFirstNamedChild(child, 'expression');
+          if (expr) {
+            const value = this.extractExpressionValue(expr);
+            if (value) {
+              imports.push({
+                source: value,
+                names: [value],
+                type: 'named',
+                lineNumber: child.startPosition.row + 1,
+              });
+            }
+          }
+        }
+      } else if (child.type === 'block') {
+        // Nested blocks could have module sources too (unlikely but safe)
+        this.extractModuleSources(child, imports);
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Export detection — IaC resources are always visible
+  // -----------------------------------------------------------------------
+
   protected override checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
     // IaC resources are always "exported" (visible project-wide)
     return true;
+  }
+
+  // -----------------------------------------------------------------------
+  // Helpers for new HCL AST
+  // -----------------------------------------------------------------------
+
+  /** Extract the actual string value from a string_lit node (strips quotes) */
+  private extractStringLitValue(node: TreeSitterSyntaxNode): string {
+    // string_lit.text includes surrounding quotes: "aws_vpc"
+    // Use template_literal named child if available, otherwise strip quotes
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === 'template_literal') {
+        return node.namedChild(i).text;
+      }
+    }
+    return node.text.replace(/^["']|["']$/g, '');
+  }
+
+  /** Find the first named child of a given type */
+  private findFirstNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
+    }
+    return null;
+  }
+
+  /** Extract a string value from an expression node (literal_value > string_lit > template_literal) */
+  private extractExpressionValue(exprNode: TreeSitterSyntaxNode): string | null {
+    // expression > literal_value > string_lit
+    const litVal = this.findFirstNamedChild(exprNode, 'literal_value');
+    if (litVal) {
+      const strLit = this.findFirstNamedChild(litVal, 'string_lit');
+      if (strLit) {
+        return this.extractStringLitValue(strLit);
+      }
+    }
+    // Direct string_lit under expression
+    const strLit = this.findFirstNamedChild(exprNode, 'string_lit');
+    if (strLit) {
+      return this.extractStringLitValue(strLit);
+    }
+    return null;
   }
 
   // Fallbacks
