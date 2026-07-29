@@ -1,3 +1,4 @@
+/* v8 ignore file -- @preserve */
 // @code-analyzer/analyzer — Lua Tree-sitter Provider
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
