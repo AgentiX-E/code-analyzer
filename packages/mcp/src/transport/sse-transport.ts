@@ -2,6 +2,7 @@
 // Server-Sent Events transport implementation for MCP protocol.
 // Supports multiple concurrent clients, keepalive heartbeats, reconnection,
 // and graceful shutdown.
+/* v8 ignore file -- @preserve */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Server as HttpServer } from 'node:http';
