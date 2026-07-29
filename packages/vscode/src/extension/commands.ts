@@ -305,6 +305,29 @@ export function registerCommands(
     }),
   );
 
+  // =====================================================================
+  // Chat Participant Commands (2)
+  // =====================================================================
+
+  // 15. Show chat participant panel
+  disposables.push(
+    api.registerCommand('code-analyzer.showChat', () => {
+      api.executeCommand('workbench.action.chat.open', {
+        query: '@code-analyzer',
+      } as any);
+    }),
+  );
+
+  // 16. Trigger a specific slash command in chat
+  disposables.push(
+    api.registerCommand('code-analyzer.chatCommand', async (command?: string) => {
+      const slashCmd = command ?? '/review';
+      await api.executeCommand('workbench.action.chat.open', {
+        query: `@code-analyzer ${slashCmd}`,
+      } as any);
+    }),
+  );
+
   return { disposables };
 }
 

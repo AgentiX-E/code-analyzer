@@ -31,6 +31,7 @@ import type {
 
 let engine: EngineBridge | null = null;
 let fileWatcher: FileWatcherService | null = null;
+let chatParticipant: vscode.Disposable | null = null;
 
 // ---------------------------------------------------------------------------
 // Extension lifecycle
@@ -50,7 +51,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // 3. Create VS Code API adapter wrapping real vscode module
   const api = createVSCodeAPIAdapter();
 
-  // 4. Register Copilot Chat Participant with all 7 slash commands
+  // 4. Register Copilot Chat Participant with all 10 slash commands
   registerChatParticipantWithCommands(context, engine);
 
   // 5. Register sidebar webview
@@ -113,6 +114,12 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
+  // Dispose chat participant
+  if (chatParticipant) {
+    chatParticipant.dispose();
+    chatParticipant = null;
+  }
+
   // Stop file watcher
   if (fileWatcher) {
     fileWatcher.dispose();
@@ -208,7 +215,7 @@ function startFileWatcher(
 }
 
 // ---------------------------------------------------------------------------
-// Chat Participant Registration with 7 Slash Commands
+// Chat Participant Registration with 10 Slash Commands
 // ---------------------------------------------------------------------------
 
 function registerChatParticipantWithCommands(
@@ -223,7 +230,9 @@ function registerChatParticipantWithCommands(
     },
   ) as any;
 
-  // Register all 7 slash commands
+  chatParticipant = participant;
+
+  // Register all 10 slash commands
   participant.command('review', async (request: any, _ctx: any, stream: any, token: any) => {
     const handler = new CodeAnalyzerChatParticipant(eng);
     return handler.handleSlashCommand('review', request.prompt, stream, token);

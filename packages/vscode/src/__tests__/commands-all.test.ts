@@ -95,8 +95,8 @@ describe('Command Registration', () => {
     registerCommands(api as IVSCodeAPI, engine, {}, diag);
   });
 
-  it('registers all 14 commands', () => {
-    expect(api.registrations.size).toBe(14);
+  it('registers all 16 commands', () => {
+    expect(api.registrations.size).toBe(16);
   });
 
   const expectedCommands = [
@@ -114,6 +114,8 @@ describe('Command Registration', () => {
     'code-analyzer.fixIssue',
     'code-analyzer.ignoreIssue',
     'code-analyzer.explainIssue',
+    'code-analyzer.showChat',
+    'code-analyzer.chatCommand',
   ] as const;
 
   expectedCommands.forEach((cmd) => {

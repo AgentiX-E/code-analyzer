@@ -222,7 +222,7 @@ describe('Extension Activation', () => {
 // Chat Participant Slash Commands Tests
 // ---------------------------------------------------------------------------
 
-describe('Chat Participant — All 7 Slash Commands', () => {
+describe('Chat Participant — All 10 Slash Commands', () => {
   let participant: CodeAnalyzerChatParticipant;
   let engine: EngineBridge;
 
@@ -236,8 +236,8 @@ describe('Chat Participant — All 7 Slash Commands', () => {
     engine.dispose();
   });
 
-  it('has exactly 7 slash commands registered', () => {
-    expect(SLASH_COMMANDS).toHaveLength(7);
+    it('has exactly 10 slash commands registered', () => {
+    expect(SLASH_COMMANDS).toHaveLength(10);
   });
 
   it('contains all required slash command names', () => {
@@ -249,6 +249,9 @@ describe('Chat Participant — All 7 Slash Commands', () => {
     expect(names).toContain('deps');
     expect(names).toContain('refactor');
     expect(names).toContain('test');
+    expect(names).toContain('analyze');
+    expect(names).toContain('coverage');
+    expect(names).toContain('standards');
   });
 
   // -------------------------------------------------------------------------
@@ -278,6 +281,9 @@ describe('Chat Participant — All 7 Slash Commands', () => {
       { command: 'deps', param: 'UserService', expectedMetaKey: 'command', description: '/deps returns command metadata' },
       { command: 'refactor', param: 'UserService', expectedMetaKey: 'command', description: '/refactor returns command metadata' },
       { command: 'test', param: 'UserService', expectedMetaKey: 'command', description: '/test returns command metadata' },
+      { command: 'analyze', param: 'UserService', expectedMetaKey: 'command', description: '/analyze returns command metadata' },
+      { command: 'coverage', param: 'src/', expectedMetaKey: 'command', description: '/coverage returns command metadata' },
+      { command: 'standards', param: 'react', expectedMetaKey: 'command', description: '/standards returns command metadata' },
     ];
 
     for (const tc of testCases) {
@@ -310,6 +316,69 @@ describe('Chat Participant — All 7 Slash Commands', () => {
       );
       expect(result.metadata).toEqual({ cancelled: true });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Chat Participant Registration & Cleanup Tests
+// ---------------------------------------------------------------------------
+
+describe('Chat Participant — Registration & Cleanup', () => {
+  let engine: EngineBridge;
+
+  const mockStreamFn = () => ({
+    markdown: () => {},
+    content: '',
+  });
+
+  function mockTokenFn(cancelled = false) {
+    return { isCancellationRequested: cancelled };
+  }
+
+  beforeEach(() => {
+    engine = new EngineBridge();
+  });
+
+  afterEach(() => {
+    engine.dispose();
+  });
+
+  it('creates participant with engine bridge', () => {
+    const p = new CodeAnalyzerChatParticipant(engine);
+    expect(p).toBeDefined();
+  });
+
+  it('handles handleRequest with no command', async () => {
+    const p = new CodeAnalyzerChatParticipant(engine);
+    const stream = mockStreamFn();
+    const result = await p.handleRequest(
+      { prompt: 'hello', command: undefined } as any,
+      { history: [] } as any,
+      stream as any,
+      mockTokenFn(false),
+    );
+    expect(result).toBeDefined();
+    expect(result.metadata).toBeDefined();
+  });
+
+  it('handles handleRequest with slash command prefix', async () => {
+    const p = new CodeAnalyzerChatParticipant(engine);
+    const stream = mockStreamFn();
+    const result = await p.handleRequest(
+      { prompt: '/review check this code' } as any,
+      { history: [] } as any,
+      stream as any,
+      mockTokenFn(false),
+    );
+    expect(result).toBeDefined();
+  });
+
+  it('handles unknown slash command gracefully', async () => {
+    const p = new CodeAnalyzerChatParticipant(engine);
+    const result = await p.handleSlashCommand(
+      'nonexistent' as SlashCommand, 'test', mockStreamFn() as any, mockTokenFn(false),
+    );
+    expect(result.metadata).toBeDefined();
   });
 });
 
