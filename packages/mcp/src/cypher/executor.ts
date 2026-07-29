@@ -433,7 +433,8 @@ function isNodeLabel(value: string): value is NodeLabel {
     'Function', 'Method', 'Constructor', 'Property', 'Enum', 'TypeAlias', 'Struct',
     'Trait', 'Variable', 'Route', 'Tool', 'Component', 'Test', 'Community', 'Process',
     'Config', 'ADR', 'BasicBlock', 'InfraResource', 'CrossRepoFunction', 'CrossRepoInterface',
-    'CrossRepoModule', 'Contract', 'Event', 'DataSource', 'Sink'] as const).includes(value as NodeLabel);
+    'CrossRepoModule', 'Contract', 'Event', 'DataSource', 'Sink',
+    'DockerImage', 'K8sResource', 'TerraformResource'] as const).includes(value as NodeLabel);
 }
 
 function isRelationshipType(value: string): value is RelationshipType {
@@ -443,5 +444,6 @@ function isRelationshipType(value: string): value is RelationshipType {
     'INJECTS', 'SIMILAR_TO', 'SEMANTICALLY_RELATED', 'TESTS', 'CHANGES_WITH', 'DATA_FLOWS',
     'STEP_IN_PROCESS', 'CFG', 'REACHING_DEF', 'TAINTED', 'SANITIZES', 'TAINT_PATH',
     'EMITS', 'LISTENS_ON', 'CONFIGURES', 'CROSS_REPO_DEPENDS', 'CROSS_REPO_CALLS',
-    'CROSS_REPO_IMPLEMENTS', 'CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES', 'CROSS_REPO_CONTRACT'] as const).includes(value as RelationshipType);
+    'CROSS_REPO_IMPLEMENTS', 'CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES', 'CROSS_REPO_CONTRACT',
+    'BUILDS_FROM', 'DEPLOYS_TO', 'PROVISIONS'] as const).includes(value as RelationshipType);
 }

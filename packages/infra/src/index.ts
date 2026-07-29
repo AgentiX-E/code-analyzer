@@ -48,3 +48,11 @@ export type {
   IndexerError,
   BatchParseResult,
 } from './workers/parallel-indexer.js';
+
+// Project Detection & Auto-Indexing
+export { detectProject, detectToolVersion } from './project/project-detector.js';
+export type { ProjectType, ProjectInfo } from './project/project-detector.js';
+export { AutoIndexer } from './project/auto-indexer.js';
+export type { AutoIndexerOptions, IndexResult, IndexingStatus } from './project/auto-indexer.js';
+export { AutoWatcher } from './project/auto-watcher.js';
+export type { AutoWatcherOptions, ReindexEvent } from './project/auto-watcher.js';

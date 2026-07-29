@@ -50,6 +50,15 @@ export { KotlinProvider } from './languages/kotlin.js';
 export { PhpProvider } from './languages/php.js';
 export { RubyProvider } from './languages/ruby.js';
 export { SwiftProvider } from './languages/swift.js';
+export { CppProvider } from './languages/cpp.js';
+export { CProvider } from './languages/c.js';
+export { DartProvider } from './languages/dart.js';
+export { LuaProvider } from './languages/lua.js';
+export { ScalaProvider } from './languages/scala.js';
+export { ZigProvider } from './languages/zig.js';
+export { ElixirProvider } from './languages/elixir.js';
+export { HclProvider } from './languages/hcl.js';
+export { DockerfileProvider } from './languages/dockerfile.js';
 
 // Parser
 export { UnifiedParser } from './parser/unified-parser.js';

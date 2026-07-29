@@ -15,7 +15,8 @@ import {
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { MCPServerConfig, ToolDefinition, ResourceDefinition, PromptDefinition } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-analyzer/infra';
+import type { AutoIndexer as AutoIndexerType } from '@code-analyzer/infra';
 import { createToolRegistry, ToolRegistry } from '../tools/index.js';
 import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
 import { registerResources } from '../resources/index.js';
@@ -53,6 +54,7 @@ export class CodeAnalyzerMCPServer {
   private logger: RequestLogger;
   private transport?: StdioServerTransport;
   private httpServer?: unknown;
+  private autoIndexer: AutoIndexerType | null = null;
 
   constructor(config: Partial<MCPServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -62,6 +64,12 @@ export class CodeAnalyzerMCPServer {
     this.auth = new AuthMiddleware();
     this.rateLimiter = new RateLimiter();
     this.logger = new RequestLogger();
+
+    // Initialize AutoIndexer with the store
+    const discoverer = createFileDiscoverer();
+    this.autoIndexer = new AutoIndexer(discoverer, this.store, {
+      indexOnConnect: true,
+    });
 
     this.server = new Server(
       {
@@ -204,14 +212,23 @@ export class CodeAnalyzerMCPServer {
   // Transport Methods
   // -------------------------------------------------------------------------
 
-  /** Start MCP server on stdio transport. */
-  async startStdio(): Promise<void> {
+  /** Start MCP server on stdio transport. Optionally auto-index the given project root. */
+  async startStdio(rootPath?: string): Promise<void> {
     this.transport = new StdioServerTransport();
     await this.server.connect(this.transport);
+
+    // Auto-index on first connection if a rootPath is provided
+    if (rootPath && this.autoIndexer) {
+      try {
+        await this.autoIndexer.onProjectOpen(rootPath);
+      } catch {
+        // Indexing failed silently — tools will handle explicit indexing
+      }
+    }
   }
 
   /** Start MCP server on HTTP with SSE transport. */
-  async startHTTP(port: number, host?: string): Promise<void> {
+  async startHTTP(port: number, host?: string, rootPath?: string): Promise<void> {
     try {
       const http = await import('http');
       const server = http.createServer((_req, res) => {
@@ -221,6 +238,15 @@ export class CodeAnalyzerMCPServer {
 
       this.httpServer = server;
       server.listen(port, host ?? '0.0.0.0');
+
+      // Auto-index if a rootPath is provided
+      if (rootPath && this.autoIndexer) {
+        try {
+          await this.autoIndexer.onProjectOpen(rootPath);
+        } catch {
+          // Indexing failed silently
+        }
+      }
 
       // Also connect via stdio as fallback
       await this.startStdio();
@@ -234,15 +260,16 @@ export class CodeAnalyzerMCPServer {
   // -------------------------------------------------------------------------
 
   /** Unified start: picks stdio or HTTP based on environment or explicit config. */
-  async start(options?: { transport?: 'stdio' | 'sse'; port?: number; host?: string }): Promise<void> {
+  async start(options?: { transport?: 'stdio' | 'sse'; port?: number; host?: string; rootPath?: string }): Promise<void> {
     const transport = options?.transport ?? (process.env['MCP_TRANSPORT'] === 'stdio' ? 'stdio' : 'sse');
     const port = options?.port ?? parseInt(process.env['MCP_PORT'] ?? '3000', 10);
     const host = options?.host ?? process.env['MCP_HOST'] ?? '0.0.0.0';
+    const rootPath = options?.rootPath;
 
     if (transport === 'stdio') {
-      await this.startStdio();
+      await this.startStdio(rootPath);
     } else {
-      await this.startHTTP(port, host);
+      await this.startHTTP(port, host, rootPath);
     }
   }
 
@@ -276,9 +303,14 @@ export class CodeAnalyzerMCPServer {
     return this.registry;
   }
 
-  /** Get the in-memory graph store. */
+  /** Get the InMemoryGraphStore backed by auto-indexer data. */
   getStore(): InMemoryGraphStore {
     return this.store;
+  }
+
+  /** Get the AutoIndexer instance. */
+  getAutoIndexer(): AutoIndexerType | null {
+    return this.autoIndexer;
   }
 
   /** Get the ToolContext wrapping all analysis services. */

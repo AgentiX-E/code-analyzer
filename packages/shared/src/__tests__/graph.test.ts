@@ -22,7 +22,7 @@ import {
 
 describe('NodeLabel', () => {
   it('has exactly the expected number of labels', () => {
-    expect(NODE_LABELS).toHaveLength(33);
+    expect(NODE_LABELS).toHaveLength(36);
   });
 
   it.each(NODE_LABELS)('isNodeLabel("%s") returns true', (label) => {
@@ -45,7 +45,7 @@ describe('NodeLabel', () => {
 
 describe('RelationshipType', () => {
   it('has exactly the expected number of types', () => {
-    expect(RELATIONSHIP_TYPES).toHaveLength(40);
+    expect(RELATIONSHIP_TYPES).toHaveLength(43);
   });
 
   it.each(RELATIONSHIP_TYPES)('isRelationshipType("%s") returns true', (type) => {
@@ -92,7 +92,7 @@ describe('PipelinePhaseId', () => {
 
 describe('SupportedLanguage', () => {
   it('has the expected number of languages', () => {
-    expect(SUPPORTED_LANGUAGES).toHaveLength(18);
+    expect(SUPPORTED_LANGUAGES).toHaveLength(20);
   });
 
   it('includes TypeScript first (primary priority)', () => {
@@ -331,7 +331,7 @@ describe('getLanguageFromFilename', () => {
 
   it('returns null for files with no extension', () => {
     expect(getLanguageFromFilename('Makefile')).toBe(null);
-    expect(getLanguageFromFilename('Dockerfile')).toBe(null);
+    expect(getLanguageFromFilename('Dockerfile')).toBe('dockerfile');
   });
 
   it('returns null for unknown extensions', () => {

@@ -482,7 +482,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   }
 
   /** Recursively collect identifier/type_identifier texts from a node */
-  private collectIdentifiers(node: TreeSitterSyntaxNode, parts: string[]): void {
+  protected collectIdentifiers(node: TreeSitterSyntaxNode, parts: string[]): void {
     if (
       node.type === 'identifier' ||
       node.type === 'type_identifier' ||

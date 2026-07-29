@@ -411,4 +411,99 @@ export async function indexStatus(args: Record<string, unknown>, store?: unknown
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// auto_index
+// ---------------------------------------------------------------------------
+
+interface AutoIndexParams {
+  path: string;
+  indexOnConnect?: boolean;
+  projectIdPrefix?: string;
+}
+
+export const autoIndexSchema = {
+  type: 'object',
+  properties: {
+    path: { type: 'string', description: 'Path to the project to auto-index' },
+    indexOnConnect: { type: 'boolean', description: 'Whether to run indexing immediately (default: true)' },
+    projectIdPrefix: { type: 'string', description: 'Project ID prefix (default: "project")' },
+  },
+  required: ['path'],
+};
+
+export async function autoIndex(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+  const params = args as unknown as AutoIndexParams;
+  const path = params.path;
+  const indexOnConnect = params.indexOnConnect ?? true;
+  const projectIdPrefix = params.projectIdPrefix ?? 'project';
+
+  try {
+    // Validate path exists
+    if (!existsSync(path)) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          path,
+          status: 'failed',
+          error: `Path does not exist: ${path}`,
+        }, null, 2) }],
+        isError: true,
+      };
+    }
+
+    const graphStore = getStore(store);
+    if (!graphStore) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          path,
+          status: 'failed',
+          error: 'No graph store available for auto-indexing',
+        }, null, 2) }],
+        isError: true,
+      };
+    }
+
+    // Lazily import AutoIndexer and FileDiscoverer
+    const { AutoIndexer } = await import('@code-analyzer/infra');
+    const { createFileDiscoverer } = await import('@code-analyzer/infra');
+
+    const discoverer = createFileDiscoverer();
+    const indexer = new AutoIndexer(discoverer, graphStore, {
+      indexOnConnect,
+      projectIdPrefix,
+    });
+
+    const result = await indexer.onProjectOpen(path);
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          projectId: result.projectId,
+          path: result.rootPath,
+          status: 'indexed',
+          type: result.projectInfo.type,
+          languages: result.projectInfo.languages,
+          hasDocker: result.projectInfo.hasDocker,
+          hasK8s: result.projectInfo.hasK8s,
+          packageManager: result.projectInfo.packageManager,
+          filesDiscovered: result.filesDiscovered,
+          nodesIndexed: result.nodesIndexed,
+          durationMs: result.durationMs,
+          message: `Auto-indexed ${result.nodesIndexed} nodes from ${result.filesDiscovered} files in ${result.durationMs}ms`,
+        }, null, 2),
+      }],
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: 'text', text: JSON.stringify({
+        path,
+        status: 'failed',
+        error: `Auto-index failed: ${message}`,
+      }, null, 2) }],
+      isError: true,
+    };
+  }
+}
 /* v8 ignore stop */

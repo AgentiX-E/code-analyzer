@@ -44,6 +44,9 @@ export const NODE_LABELS = [
   'Event',
   'DataSource',
   'Sink',
+  'DockerImage',
+  'K8sResource',
+  'TerraformResource',
 ] as const;
 
 /** A node label — determines the type of code entity */
@@ -103,6 +106,10 @@ export const RELATIONSHIP_TYPES = [
   'CROSS_REPO_IMPORTS',
   'CROSS_REPO_EXPOSES',
   'CROSS_REPO_CONTRACT',
+  // IaC
+  'BUILDS_FROM',
+  'DEPLOYS_TO',
+  'PROVISIONS',
 ] as const;
 
 /** A relationship type — defines the semantic meaning of an edge in the graph */
@@ -382,6 +389,8 @@ export const SUPPORTED_LANGUAGES = [
   'scala',
   'zig',
   'elixir',
+  'hcl',
+  'dockerfile',
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -643,6 +652,13 @@ export function isRelationshipType(value: string): value is RelationshipType {
 export function getLanguageFromFilename(filePath: string): SupportedLanguage | null {
   const parts = filePath.split('/');
   const base = parts[parts.length - 1]!;
+
+  // Dockerfile: detected by filename, not extension
+  const nameLower = base.toLowerCase();
+  if (nameLower === 'dockerfile' || nameLower.endsWith('.dockerfile')) {
+    return 'dockerfile';
+  }
+
   const dotIndex = base.lastIndexOf('.');
   if (dotIndex === -1) return null;
 
@@ -673,6 +689,7 @@ export function getLanguageFromFilename(filePath: string): SupportedLanguage | n
     '.cxx': 'cpp',
     '.hpp': 'cpp',
     '.hh': 'cpp',
+    '.hxx': 'cpp',
     '.php': 'php',
     '.phtml': 'php',
     '.rb': 'ruby',
@@ -680,9 +697,13 @@ export function getLanguageFromFilename(filePath: string): SupportedLanguage | n
     '.dart': 'dart',
     '.lua': 'lua',
     '.scala': 'scala',
+    '.sc': 'scala',
     '.zig': 'zig',
     '.ex': 'elixir',
     '.exs': 'elixir',
+    '.hcl': 'hcl',
+    '.tf': 'hcl',
+    '.tfvars': 'hcl',
   };
 
   return EXT_MAP[ext] ?? null;

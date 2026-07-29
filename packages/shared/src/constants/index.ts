@@ -45,6 +45,9 @@ export const NODE_TABLES: Map<NodeLabel, string> = new Map([
   ['Event', 'events'],
   ['DataSource', 'data_sources'],
   ['Sink', 'sinks'],
+  ['DockerImage', 'docker_images'],
+  ['K8sResource', 'k8s_resources'],
+  ['TerraformResource', 'terraform_resources'],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -108,6 +111,10 @@ export const REL_INVERSES: Map<RelationshipType, RelationshipType> = new Map([
   ['CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES'],
   ['CROSS_REPO_EXPOSES', 'CROSS_REPO_IMPORTS'],
   ['CROSS_REPO_CONTRACT', 'CROSS_REPO_CONTRACT'],
+  // IaC
+  ['BUILDS_FROM', 'BUILDS_FROM'],
+  ['DEPLOYS_TO', 'DEPLOYS_TO'],
+  ['PROVISIONS', 'PROVISIONS'],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -133,6 +140,8 @@ export const LANGUAGE_EXTENSIONS: Record<SupportedLanguage, string[]> = {
   scala: ['.scala', '.sc'],
   zig: ['.zig'],
   elixir: ['.ex', '.exs'],
+  hcl: ['.hcl', '.tf', '.tfvars'],
+  dockerfile: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -481,4 +490,23 @@ COMPATIBLE_EDGES.set('CROSS_REPO_CONTRACT', [
   ['Contract', 'Contract'],
   ['Contract', 'CrossRepoInterface'],
   ['Contract', 'File'],
+]);
+
+// IaC
+COMPATIBLE_EDGES.set('BUILDS_FROM', [
+  ['DockerImage', 'DockerImage'],
+  ['DockerImage', 'File'],
+  ['File', 'DockerImage'],
+]);
+
+COMPATIBLE_EDGES.set('DEPLOYS_TO', [
+  ['File', 'K8sResource'],
+  ['DockerImage', 'K8sResource'],
+  ['Module', 'K8sResource'],
+]);
+
+COMPATIBLE_EDGES.set('PROVISIONS', [
+  ['TerraformResource', 'TerraformResource'],
+  ['TerraformResource', 'K8sResource'],
+  ['File', 'TerraformResource'],
 ]);
