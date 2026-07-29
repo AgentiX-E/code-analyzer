@@ -123,6 +123,14 @@ describe('IntegrityVerifier', () => {
       const result = v.audit(new Map());
       expect(result.violations.some((v) => v.category === 'license')).toBe(true);
     });
+
+    it('should detect SLSA level below minimum', () => {
+      const v = new IntegrityVerifier();
+      const manifest = { ...makeManifest(), slsaLevel: 1 };
+      v.loadManifest(manifest);
+      const result = v.audit(new Map());
+      expect(result.violations.some((v) => v.category === 'signature')).toBe(true);
+    });
   });
 });
 

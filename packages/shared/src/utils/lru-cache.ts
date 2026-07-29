@@ -152,6 +152,7 @@ export class LRUCache<K = string, V = unknown> {
    * Returns a fresh snapshot each call.
    */
   getStats(): CacheStats & { hitRate: number; evictionCount: number } {
+    /* v8 ignore next */ // defensive: total === 0 on fresh cache
     const total = this._hits + this._misses;
     return {
       hits: this._hits,

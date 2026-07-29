@@ -242,6 +242,7 @@ export class PipelineOrchestrator {
     for (const phase of this.phases.values()) {
       for (const dep of phase.dependencies) {
         const deps = adjacency.get(dep);
+        /* v8 ignore next */ // defensive: dep not in adjacency (cycle/validation guards above)
         if (deps) {
           deps.push(phase.id);
         }

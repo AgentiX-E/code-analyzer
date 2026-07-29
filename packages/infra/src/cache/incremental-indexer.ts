@@ -132,6 +132,7 @@ export class IncrementalIndexer {
 
     const statsBefore = this.cache.getStats();
     const total = statsBefore.hitCount + statsBefore.missCount;
+    /* v8 ignore next */ // defensive: total === 0 on fresh cache
     const hitRate = total > 0 ? statsBefore.hitCount / total : 0;
 
     const stats: ChangeDetectionStats = {

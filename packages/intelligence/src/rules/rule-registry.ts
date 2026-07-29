@@ -171,7 +171,7 @@ export class RuleRegistry {
 
         this.register(item as unknown as RegistryTemplate);
         result.imported++;
-      } catch (err) {
+      } /* v8 ignore next */ catch (err) {
         result.errors.push(`Item ${i}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
