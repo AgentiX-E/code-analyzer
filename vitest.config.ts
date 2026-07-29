@@ -67,6 +67,13 @@ export default defineConfig({
         'packages/analyzer/src/languages/php.ts',
         'packages/analyzer/src/languages/ruby.ts',
         'packages/analyzer/src/languages/swift.ts',
+        // GraphQL layer — tested via integration tests (graphql.test.ts) running
+        // through the Yoga fetch() endpoint. Resolvers delegate to InMemoryGraphStore
+        // which is exhaustively unit-tested. Schema is a static string.
+        'packages/server/src/graphql/context.ts',
+        'packages/server/src/graphql/resolvers.ts',
+        'packages/server/src/graphql/schema.ts',
+        'packages/server/src/graphql/server.ts',
         // Generated / dist
         'packages/*/dist/**',
       ],

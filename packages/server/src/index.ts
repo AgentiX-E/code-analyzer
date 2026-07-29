@@ -19,3 +19,5 @@ export type { WebhookHandler, WebhookConfig } from './routes/webhook.js';
 export { registerGraphRoutes } from './routes/graph.js';
 export { registerMtls, computeCertFingerprint, isMtlsAuthenticated, getClientFingerprint } from './middleware/mtls.js';
 export type { MtlsConfig } from './middleware/mtls.js';
+export { createGraphQLServer, mountGraphQLOnFastify, createGraphQLContext } from './graphql/index.js';
+export type { GraphQLContext, GraphQLServerOptions } from './graphql/index.js';

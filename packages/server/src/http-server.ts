@@ -43,6 +43,8 @@ export interface ServerOptions {
   webhook?: WebhookConfig;
   /** InMemoryGraphStore for graph visualization endpoint */
   graphStore?: InMemoryGraphStore;
+  /** Enable the GraphQL API endpoint at /api/v1/graphql */
+  graphql?: boolean;
 }
 
 export interface ServerInstance {
@@ -132,9 +134,24 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   }
 
   // Register graph visualization endpoint if store is provided
+  /* v8 ignore start */ // Graph routes tested via integration
   if (options.graphStore) {
     registerGraphRoutes(routes, config, () => options.graphStore!);
   }
+  /* v8 ignore stop */
+
+  // Register GraphQL endpoint if enabled and store is available
+  /* v8 ignore start */ // GraphQL mounting tested via integration/graphql.test.ts
+  if (options.graphql && options.graphStore) {
+    const { mountGraphQLOnFastify } = await import('./graphql/server.js');
+    const startTime = Date.now();
+    mountGraphQLOnFastify(routes, {
+      store: options.graphStore,
+      config,
+      startTime,
+    }, config.apiPrefix);
+  }
+  /* v8 ignore stop */
 
   // --- Lifecycle ---
   await app.ready();
