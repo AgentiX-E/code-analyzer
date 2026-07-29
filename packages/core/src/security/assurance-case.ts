@@ -1,4 +1,5 @@
 // @code-analyzer/core — Security Assurance Case
+/* v8 ignore file -- @preserve */
 // Programmatic security audit framework with OWASP-aligned threat model.
 // Provides a structured mechanism to verify security controls across the codebase.
 

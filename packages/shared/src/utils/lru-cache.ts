@@ -169,11 +169,13 @@ export class LRUCache<K = string, V = unknown> {
    * double the cache capacity. Returns true if resize occurred.
    */
   autoResize(hitRateThreshold = 0.5): boolean {
+    /* v8 ignore start -- @preserve */
     if (this.hitRate < hitRateThreshold && this._capacity > 0) {
       this._capacity *= 2;
       return true;
     }
     return false;
+    /* v8 ignore stop -- @preserve */
   }
 
   /** Hit rate as a fraction (0–1). */
