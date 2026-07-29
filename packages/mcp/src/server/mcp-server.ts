@@ -24,6 +24,8 @@ import type { ResourceContent, ResourceError } from '../resources/index.js';
 import { PromptProvider, registerPrompts } from '../prompts/index.js';
 import type { PromptResult } from '../prompts/index.js';
 import { AuthMiddleware, RateLimiter, RequestLogger } from '../middleware/index.js';
+import { SSETransport } from '../transport/sse-transport.js';
+import type { SSEEvent } from '../transport/sse-transport.js';
 
 // ---------------------------------------------------------------------------
 // Default Configuration
@@ -56,6 +58,7 @@ export class CodeAnalyzerMCPServer {
   private logger: RequestLogger;
   private transport?: StdioServerTransport;
   private httpServer?: unknown;
+  private sseTransport?: SSETransport;
   private autoIndexer: AutoIndexerType | null = null;
   private resourceProvider: ResourceProvider;
   private promptProvider: PromptProvider;
@@ -246,12 +249,66 @@ export class CodeAnalyzerMCPServer {
     }
   }
 
+  /** Start MCP server with SSE transport for real-time streaming. */
+  async startSSE(port: number, host?: string, rootPath?: string): Promise<void> {
+    try {
+      const http = await import('http');
+      const server = http.createServer();
+
+      this.httpServer = server;
+      this.sseTransport = new SSETransport({
+        httpServer: server,
+        path: '/sse',
+      });
+
+      // Forward MCP events via SSE transport
+      this.server.on('notification', (notification: { method: string; params?: unknown }) => {
+        if (this.sseTransport && this.sseTransport.isRunning()) {
+          this.sseTransport.broadcast({
+            event: 'notification',
+            data: notification,
+          });
+        }
+      });
+
+      // Handle tool results via SSE
+      this.server.on('error', (error: Error) => {
+        if (this.sseTransport && this.sseTransport.isRunning()) {
+          this.sseTransport.broadcast({
+            event: 'error',
+            data: { message: error.message },
+          });
+        }
+      });
+
+      this.sseTransport.start();
+
+      server.listen(port, host ?? '0.0.0.0', () => {
+        // SSE transport is ready
+      });
+
+      // Auto-index if a rootPath is provided
+      if (rootPath && this.autoIndexer) {
+        try {
+          await this.autoIndexer.onProjectOpen(rootPath);
+        } catch {
+          // Indexing failed silently
+        }
+      }
+
+      // Also connect via stdio as fallback
+      await this.startStdio();
+    } catch {
+      await this.startStdio();
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Unified Start/Stop API (for container and programmatic usage)
   // -------------------------------------------------------------------------
 
-  /** Unified start: picks stdio or HTTP based on environment or explicit config. */
-  async start(options?: { transport?: 'stdio' | 'sse'; port?: number; host?: string; rootPath?: string }): Promise<void> {
+  /** Unified start: picks stdio, sse, or http based on environment or explicit config. */
+  async start(options?: { transport?: 'stdio' | 'sse' | 'http'; port?: number; host?: string; rootPath?: string }): Promise<void> {
     const transport = options?.transport ?? (process.env['MCP_TRANSPORT'] === 'stdio' ? 'stdio' : 'sse');
     const port = options?.port ?? parseInt(process.env['MCP_PORT'] ?? '3000', 10);
     const host = options?.host ?? process.env['MCP_HOST'] ?? '0.0.0.0';
@@ -259,6 +316,8 @@ export class CodeAnalyzerMCPServer {
 
     if (transport === 'stdio') {
       await this.startStdio(rootPath);
+    } else if (transport === 'sse') {
+      await this.startSSE(port, host, rootPath);
     } else {
       await this.startHTTP(port, host, rootPath);
     }
@@ -273,6 +332,9 @@ export class CodeAnalyzerMCPServer {
   async shutdown(): Promise<void> {
     if (this.transport) {
       await this.server.close();
+    }
+    if (this.sseTransport) {
+      await this.sseTransport.shutdown();
     }
     if (this.httpServer) {
       (this.httpServer as { close: () => void }).close();
@@ -322,6 +384,11 @@ export class CodeAnalyzerMCPServer {
   /** Get the PromptProvider for prompt resolution. */
   getPromptProvider(): PromptProvider {
     return this.promptProvider;
+  }
+
+  /** Get the SSE transport instance (if started with SSE). */
+  getSSETransport(): SSETransport | undefined {
+    return this.sseTransport;
   }
 
   // -------------------------------------------------------------------------
