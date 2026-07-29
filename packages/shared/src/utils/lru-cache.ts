@@ -43,7 +43,7 @@ export class LRUCache<K = string, V = unknown> {
   private _hits = 0;
   private _misses = 0;
   private _evictions = 0;
-  private readonly _capacity: number;
+  private _capacity: number;
 
   constructor(capacity: number = 1000) {
     if (capacity <= 0) {
@@ -145,6 +145,35 @@ export class LRUCache<K = string, V = unknown> {
       size: this.map.size,
       capacity: this._capacity,
     };
+  }
+
+  /**
+   * Get enhanced cache statistics including hit rate and eviction count.
+   * Returns a fresh snapshot each call.
+   */
+  getStats(): CacheStats & { hitRate: number; evictionCount: number } {
+    const total = this._hits + this._misses;
+    return {
+      hits: this._hits,
+      misses: this._misses,
+      evictions: this._evictions,
+      evictionCount: this._evictions,
+      size: this.map.size,
+      capacity: this._capacity,
+      hitRate: total === 0 ? 0 : this._hits / total,
+    };
+  }
+
+  /**
+   * Auto-resize: if hit rate drops below the given threshold,
+   * double the cache capacity. Returns true if resize occurred.
+   */
+  autoResize(hitRateThreshold = 0.5): boolean {
+    if (this.hitRate < hitRateThreshold && this._capacity > 0) {
+      this._capacity *= 2;
+      return true;
+    }
+    return false;
   }
 
   /** Hit rate as a fraction (0–1). */

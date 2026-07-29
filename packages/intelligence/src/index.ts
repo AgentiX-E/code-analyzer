@@ -283,6 +283,8 @@ export { CHECKER_MAP } from './rules/rules-engine.js';
 // Rules Registry
 export { RulesRegistry } from './rules/rules-engine.js';
 export type { RegisteredRule } from './rules/rules-engine.js';
+export { CommunityRuleRegistry } from './rules/community-registry.js';
+export type { CommunityRuleTemplate, CommunityImportResult, RuleSearchQuery } from './rules/community-registry.js';
 
 // Cross-Repo Analysis
 export { RepoGroupManager } from './cross-repo/repo-group-manager.js';
