@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CodeAnalyzerMCPServer } from '../server/mcp-server.js';
 import { ResourceProvider } from '../resources/index.js';
+import { PromptProvider } from '../prompts/index.js';
 import { AuthMiddleware, RateLimiter, ToolPolicy, RequestLogger } from '../middleware/index.js';
 
 describe('CodeAnalyzerMCPServer', () => {
@@ -55,6 +56,14 @@ describe('CodeAnalyzerMCPServer', () => {
       expect(rp).toBeDefined();
       expect(rp).toBeInstanceOf(ResourceProvider);
       expect(rp.listResources()).toHaveLength(15);
+    });
+
+    it('should have a prompt provider', () => {
+      server = new CodeAnalyzerMCPServer();
+      const pp = server.getPromptProvider();
+      expect(pp).toBeDefined();
+      expect(pp).toBeInstanceOf(PromptProvider);
+      expect(pp.listPrompts()).toHaveLength(5);
     });
   });
 

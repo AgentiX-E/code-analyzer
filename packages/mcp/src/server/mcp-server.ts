@@ -21,7 +21,8 @@ import { createToolRegistry, ToolRegistry } from '../tools/index.js';
 import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
 import { ResourceProvider, registerResources } from '../resources/index.js';
 import type { ResourceContent, ResourceError } from '../resources/index.js';
-import { registerPrompts } from '../prompts/index.js';
+import { PromptProvider, registerPrompts } from '../prompts/index.js';
+import type { PromptResult } from '../prompts/index.js';
 import { AuthMiddleware, RateLimiter, RequestLogger } from '../middleware/index.js';
 
 // ---------------------------------------------------------------------------
@@ -57,11 +58,13 @@ export class CodeAnalyzerMCPServer {
   private httpServer?: unknown;
   private autoIndexer: AutoIndexerType | null = null;
   private resourceProvider: ResourceProvider;
+  private promptProvider: PromptProvider;
 
   constructor(config: Partial<MCPServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.store = new InMemoryGraphStore();
     this.resourceProvider = new ResourceProvider(this.store);
+    this.promptProvider = new PromptProvider(this.store);
     this.toolContext = new ToolContextImpl(this.store);
     this.registry = createToolRegistry();
     this.auth = new AuthMiddleware();
@@ -184,28 +187,14 @@ export class CodeAnalyzerMCPServer {
     // List prompts
     if (this.config.enablePrompts) {
       this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
-        const prompts = registerPrompts();
+        const prompts = this.promptProvider.listPrompts();
         return { prompts: prompts.map((p) => this.formatPrompt(p)) };
       });
 
       this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
-        const prompts = registerPrompts();
-        const prompt = prompts.find((p) => p.name === name);
-        if (!prompt) {
-          throw new Error(`Prompt not found: ${name}`);
-        }
-
-        const resolvedArgs = args ?? {};
-        const messages = [{
-          role: 'user' as const,
-          content: {
-            type: 'text' as const,
-            text: `Prompt: ${prompt.name} - ${prompt.description}\n\nArguments: ${JSON.stringify(resolvedArgs, null, 2)}`,
-          },
-        }];
-
-        return { messages };
+        const result = await this.promptProvider.getPrompt(name, args as Record<string, unknown> | undefined);
+        return { messages: result.messages, description: result.description };
       });
     }
   }
@@ -328,6 +317,11 @@ export class CodeAnalyzerMCPServer {
   /** Get the ResourceProvider for data retrieval. */
   getResourceProvider(): ResourceProvider {
     return this.resourceProvider;
+  }
+
+  /** Get the PromptProvider for prompt resolution. */
+  getPromptProvider(): PromptProvider {
+    return this.promptProvider;
   }
 
   // -------------------------------------------------------------------------
