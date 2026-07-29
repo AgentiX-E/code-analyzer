@@ -5,7 +5,6 @@
 export { InMemoryGraphStore } from './storage/in-memory-graph-store.js';
 export { SqliteGraphStore, deleteDatabase } from './storage/sqlite-graph-store.js';
 export { NodeIndex } from './storage/graph-index.js';
-export type { IndexStats } from './storage/graph-index.js';
 export type {
   NodeQuery,
   EdgeQuery,
@@ -58,3 +57,7 @@ export { AutoIndexer } from './project/auto-indexer.js';
 export type { AutoIndexerOptions, IndexResult, IndexingStatus } from './project/auto-indexer.js';
 export { AutoWatcher } from './project/auto-watcher.js';
 export type { AutoWatcherOptions, ReindexEvent } from './project/auto-watcher.js';
+
+// Performance Profiling
+export { PerformanceProfiler } from './performance/profiler.js';
+export type { BenchmarkConfig, BenchmarkResult, QueryLatencyResult } from './performance/profiler.js';

@@ -283,8 +283,6 @@ export { CHECKER_MAP } from './rules/rules-engine.js';
 // Rules Registry
 export { RulesRegistry } from './rules/rules-engine.js';
 export type { RegisteredRule } from './rules/rules-engine.js';
-export { CommunityRuleRegistry } from './rules/community-registry.js';
-export type { CommunityRuleTemplate, CommunityImportResult, RuleSearchQuery } from './rules/community-registry.js';
 
 // Cross-Repo Analysis
 export { RepoGroupManager } from './cross-repo/repo-group-manager.js';
@@ -400,3 +398,11 @@ export type {
   FileContent,
   GroundTruthIssue,
 } from './benchmark/benchmark-data.js';
+
+// Community Rule Registry
+export { RuleRegistry } from './rules/rule-registry.js';
+export type {
+  RegistryTemplate,
+  TemplateRule,
+  RegistryImportResult,
+} from './rules/rule-registry.js';

@@ -3,12 +3,13 @@ export type {
   CodeAnalyzerPlugin,
   PluginRule,
   PluginRuleResult,
+  PluginRuleContext,
   PluginLens,
   PluginLensFinding,
+  PluginLensContext,
   PluginStandard,
-  PluginStandardViolation,
   PluginMCPTool,
 } from './plugin-interface.js';
 
 export { PluginLoader } from './plugin-loader.js';
-export { PluginRegistry } from './plugin-registry.js';
+export { PluginRegistry, getPluginRegistry, resetPluginRegistry } from './plugin-registry.js';

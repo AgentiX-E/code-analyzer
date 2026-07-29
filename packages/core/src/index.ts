@@ -125,7 +125,20 @@ export type {
   PluginLens,
   PluginLensFinding,
   PluginStandard,
-  PluginStandardViolation,
   PluginMCPTool,
 } from './plugins/index.js';
-export { PluginLoader, PluginRegistry } from './plugins/index.js';
+export { PluginLoader, PluginRegistry, getPluginRegistry, resetPluginRegistry } from './plugins/index.js';
+
+// Security
+export {
+  IntegrityVerifier,
+  scanForSecrets,
+  isRestrictedLicense,
+  SECRET_PATTERNS,
+} from './security/supply-chain-integrity.js';
+export type {
+  IntegrityManifest,
+  AuditResult,
+  SecurityViolation,
+  DependencyIntegrity,
+} from './security/supply-chain-integrity.js';

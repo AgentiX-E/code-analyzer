@@ -1,124 +1,153 @@
 // @code-analyzer/core — Plugin Interface
-// Community-contributed plugins can provide custom rules, review lenses,
-// standards checks, and MCP tools.
+// Type definitions for the code-analyzer plugin system.
+// Plugins can contribute analysis rules, review lenses, project standards,
+// and MCP tools without modifying core code.
+
+import type { ReviewCategory, Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
-// Plugin Standard
+// Plugin Rule Types
 // ---------------------------------------------------------------------------
 
-/** A community-contributed standard/check definition. */
-export interface PluginStandard {
-  id: string;
-  name: string;
-  description: string;
-  /** Language(s) the standard applies to (empty = all). */
-  languages?: string[];
-  /** Severity of violations. */
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-  /** Check function — return violations found. */
-  check: (node: unknown, context: unknown) => PluginStandardViolation[];
-}
-
-/** A single violation from a standard check. */
-export interface PluginStandardViolation {
-  filePath: string;
-  line: number;
-  message: string;
-  ruleId: string;
-  suggestion?: string;
-}
-
-// ---------------------------------------------------------------------------
-// Plugin Rule
-// ---------------------------------------------------------------------------
-
-/** Result of a custom plugin rule check. */
 export interface PluginRuleResult {
-  filePath: string;
-  line: number;
+  passed: boolean;
   message: string;
+  lineNumber?: number;
+  filePath?: string;
   suggestion?: string;
 }
 
-/** A custom analysis rule contributed by a plugin. */
+export interface PluginRuleContext {
+  nodeName: string;
+  nodeType: string;
+  filePath: string;
+  language: string;
+  sourceCode: string;
+  lineNumber: number;
+  projectId: string;
+}
+
 export interface PluginRule {
   id: string;
   name: string;
-  category: string;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-  check: (node: unknown, context: unknown) => PluginRuleResult | null;
+  category: ReviewCategory;
+  severity: Severity;
+  description: string;
+  check(context: PluginRuleContext): PluginRuleResult | null;
 }
 
 // ---------------------------------------------------------------------------
-// Plugin Lens Finding
+// Plugin Lens Types
 // ---------------------------------------------------------------------------
 
-/** Result of a plugin lens scan. */
 export interface PluginLensFinding {
-  id: string;
   filePath: string;
   startLine: number;
   endLine: number;
-  title: string;
-  description: string;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  message: string;
+  severity: Severity;
+  category: ReviewCategory;
   suggestion?: string;
-  codeSnippet?: string;
 }
 
-/** A custom review lens contributed by a plugin. */
+export interface PluginLensContext {
+  diff: {
+    filePath: string;
+    beforeContent: string;
+    afterContent: string;
+    language: string;
+  };
+  projectId: string;
+}
+
 export interface PluginLens {
   id: string;
   name: string;
   description: string;
-  scan(diff: unknown, context: unknown): PluginLensFinding[];
+  scan(context: PluginLensContext): PluginLensFinding[];
 }
 
 // ---------------------------------------------------------------------------
-// Plugin MCP Tool
+// Plugin Standard Types
 // ---------------------------------------------------------------------------
 
-/** An MCP tool contributed by a plugin. */
+export interface PluginStandard {
+  id: string;
+  name: string;
+  category: string;
+  rules: PluginRule[];
+}
+
+// ---------------------------------------------------------------------------
+// Plugin MCP Tool Types
+// ---------------------------------------------------------------------------
+
 export interface PluginMCPTool {
   name: string;
   description: string;
   schema: Record<string, unknown>;
-  handler: (args: Record<string, unknown>, store?: unknown) => Promise<unknown>;
+  handler(args: Record<string, unknown>, store?: unknown): Promise<{
+    content: Array<{ type: 'text'; text: string }>;
+    isError?: boolean;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
-// CodeAnalyzerPlugin
+// Plugin Lifecycle
 // ---------------------------------------------------------------------------
 
-/**
- * The main plugin interface.
- *
- * Community plugins implement this interface and export it as their default
- * export or as a named `plugin` export.
- */
 export interface CodeAnalyzerPlugin {
-  /** Unique plugin name (e.g. "@my-org/code-analyzer-plugin-security") */
+  /** Unique plugin identifier (npm-style: @scope/name) */
   readonly name: string;
-  /** Semver version string. */
+  /** Semantic version */
   readonly version: string;
-  /** Human-readable description. */
+  /** Human-readable description */
   readonly description: string;
+  /** Author information */
+  readonly author?: string;
+  /** Minimum code-analyzer version required */
+  readonly engineVersion?: string;
 
-  /** Called when the plugin is loaded. */
+  /** Called when plugin is loaded */
   onLoad?(): void | Promise<void>;
-
-  /** Called when the plugin is unloaded. */
+  /** Called when plugin is unloaded */
   onUnload?(): void | Promise<void>;
 
-  /** Custom analysis rules. */
+  /** Custom analysis rules contributed by this plugin */
   rules?: PluginRule[];
-
-  /** Custom review lenses. */
+  /** Custom review lenses contributed by this plugin */
   lenses?: PluginLens[];
-
-  /** Custom standards. */
+  /** Custom project standards contributed by this plugin */
   standards?: PluginStandard[];
-
-  /** Custom MCP tools. */
+  /** Custom MCP tools contributed by this plugin */
   mcpTools?: PluginMCPTool[];
+}
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+const REQUIRED_PLUGIN_FIELDS = ['name', 'version', 'description'] as const;
+
+export function isValidPlugin(obj: unknown): obj is CodeAnalyzerPlugin {
+  if (!obj || typeof obj !== 'object') return false;
+  const plugin = obj as Record<string, unknown>;
+  return REQUIRED_PLUGIN_FIELDS.every((field) =>
+    typeof plugin[field] === 'string' && (plugin[field] as string).length > 0,
+  );
+}
+
+export function getValidationErrors(obj: unknown): string[] {
+  const errors: string[] = [];
+  if (!obj || typeof obj !== 'object') {
+    errors.push('Plugin must be a non-null object');
+    return errors;
+  }
+  const plugin = obj as Record<string, unknown>;
+  for (const field of REQUIRED_PLUGIN_FIELDS) {
+    if (typeof plugin[field] !== 'string' || (plugin[field] as string).length === 0) {
+      errors.push(`Missing required field: "${field}"`);
+    }
+  }
+  return errors;
 }
