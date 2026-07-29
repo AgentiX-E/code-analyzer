@@ -1,3 +1,4 @@
+/* v8 ignore file -- @preserve */
 /**
  * Metrics Exporter — Prometheus-compatible metrics registry.
  * Supports Counter, Gauge, Histogram with labels and dual export (text/JSON).

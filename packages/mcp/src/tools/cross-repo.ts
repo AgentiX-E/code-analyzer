@@ -4,6 +4,7 @@
 
 import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
+import { buildSearchResponse, buildTraceResponse, buildImpactResponse } from './smart-response.js';
 
 // ---------------------------------------------------------------------------
 // Singleton RepoGroupManager for session-scoped group persistence
@@ -119,6 +120,23 @@ export async function crossRepoSearch(args: Record<string, unknown>, store?: unk
     }
   }
 
+  // Build enriched response if graph store is available
+  let enriched = null;
+  if (store && ToolContextImpl.isToolContext(store)) {
+    const ctx = store as ToolContextImpl;
+    const gstore = ctx.store;
+    const rawItems = items.map(item => ({
+      nodeId: 0,
+      name: item['symbol'] as string,
+      qualifiedName: item['qualifiedName'] as string,
+      label: item['label'] as string,
+      filePath: item['filePath'] as string,
+      rank: (item['relevance'] as number) * 10,
+      snippet: item['snippet'] as string,
+    }));
+    enriched = buildSearchResponse(rawItems, gstore);
+  }
+
   return {
     content: [{
       type: 'text',
@@ -128,6 +146,7 @@ export async function crossRepoSearch(args: Record<string, unknown>, store?: unk
         repoBreakdown,
         items,
         reposSearched: Object.keys(repoBreakdown),
+        enriched,
       }, null, 2),
     }],
   };
@@ -228,6 +247,26 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
     }
   }
 
+  // Build enriched trace response if graph store is available
+  let enrichedTrace = null;
+  if (store && ToolContextImpl.isToolContext(store)) {
+    const ctx = store as ToolContextImpl;
+    const gstore = ctx.store;
+    enrichedTrace = buildTraceResponse(
+      {
+        path: path.map(p => ({
+          symbol: p['symbol'] as string,
+          depth: p['depth'] as number,
+          relationship: 'CALLS',
+          filePath: p['filePath'] as string,
+        })),
+        found: path.length > 1,
+        maxDepthReached: false,
+      },
+      gstore,
+    );
+  }
+
   return {
     content: [{
       type: 'text',
@@ -239,6 +278,7 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
         crossRepoEdges,
         reposVisited: Array.from(reposVisited),
         crossRepoConnections: crossRepoEdges.length,
+        enriched: enrichedTrace,
       }, null, 2),
     }],
   };
@@ -314,6 +354,40 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
     }
   }
 
+  // Build enriched impact response if graph store is available
+  let enrichedImpact = null;
+  if (store && ToolContextImpl.isToolContext(store)) {
+    const ctx = store as ToolContextImpl;
+    const gstore = ctx.store;
+    const impactResult = {
+      changedFiles: [],
+      changedSymbols: [],
+      impactTree: [] as unknown[],
+      riskLevel,
+      processesAffected: [] as unknown[],
+      estimatedEffort: riskLevel === 'high' ? 'high' : riskLevel === 'medium' ? 'medium' : 'low',
+      directDependents: impactedRepos.reduce((sum, r) => sum + ((r['callers'] as string[])?.length ?? 0), 0),
+      indirectDependents: 0,
+      totalImpact: impactedRepos.length,
+    };
+
+    for (const repo of impactedRepos) {
+      const callers = (repo['callers'] as string[]) ?? [];
+      for (const caller of callers) {
+        impactResult.impactTree.push({
+          symbolQname: caller,
+          label: 'Function',
+          filePath: null,
+          impactType: 'direct',
+          depth: 1,
+          children: [],
+        });
+      }
+    }
+
+    enrichedImpact = buildImpactResponse(impactResult, gstore, symbolName);
+  }
+
   return {
     content: [{
       type: 'text',
@@ -325,6 +399,7 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
         totalImpactedRepos: impactedRepos.length,
         totalCallers: impactedRepos.reduce((sum, r) => sum + ((r['callers'] as string[])?.length ?? 0), 0),
         includeConsumers,
+        enriched: enrichedImpact,
       }, null, 2),
     }],
   };

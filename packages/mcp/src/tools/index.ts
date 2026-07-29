@@ -81,11 +81,16 @@ import {
   installSkills, installSkillsSchema,
 } from './standards-adr-agent.js';
 
+// Benchmark
+import {
+  runBenchmark, runBenchmarkSchema,
+} from './benchmark.js';
+
 // ---------------------------------------------------------------------------
 // Register All Tools
 // ---------------------------------------------------------------------------
 
-/** Create and configure a ToolRegistry with all 39 tools. */
+/** Create and configure a ToolRegistry with all 40 tools. */
 export function createToolRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
 
@@ -149,6 +154,9 @@ export function createToolRegistry(): ToolRegistry {
 
   // Agent (1)
   registry.register('install_skills', 'Install agent skills for the project', installSkillsSchema, installSkills, 'all');
+
+  // Benchmark (1)
+  registry.register('run_benchmark', 'Run the review quality benchmark suite to measure precision, recall, and F1 score', runBenchmarkSchema, runBenchmark, 'analysis');
 
   return registry;
 }

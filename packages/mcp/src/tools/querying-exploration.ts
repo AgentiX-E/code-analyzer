@@ -5,6 +5,7 @@ import { tokenize, parse, plan, execute } from '../cypher/index.js';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { NodeLabel } from '@code-analyzer/shared';
 import type { ToolResult } from './registry.js';
+import { buildSearchResponse, buildTraceResponse } from './smart-response.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,22 +65,32 @@ export async function searchGraph(args: Record<string, unknown>, store?: unknown
         labels: (params.labels ?? []) as NodeLabel[],
       });
 
+      const rawItems = results.map(r => ({
+        nodeId: r.nodeId,
+        name: r.node.name,
+        qualifiedName: r.node.qualifiedName,
+        label: r.node.label,
+        filePath: r.node.filePath,
+        rank: r.rank,
+        snippet: r.snippet,
+      }));
+
+      // Build enriched response with pre-computed context
+      const enriched = buildSearchResponse(rawItems, graphStore);
+      enriched.query = query;
+      enriched.hasMore = results.length >= limit;
+
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            items: results.map(r => ({
-              nodeId: r.nodeId,
-              name: r.node.name,
-              qualifiedName: r.node.qualifiedName,
-              label: r.node.label,
-              filePath: r.node.filePath,
-              rank: r.rank,
-              snippet: r.snippet,
-            })),
+            // Legacy flat format (backward compatible)
+            items: rawItems,
             total: results.length,
             returned: results.length,
             hasMore: results.length >= limit,
+            // Enriched context for AI agents
+            enriched,
           }, null, 2),
         }],
       };
@@ -357,16 +368,55 @@ export async function traceCallPath(args: Record<string, unknown>, store?: unkno
           relationship: 'CALLS',
           filePath: n.filePath,
         }));
-        result.path = path;
-        result.found = targetSymbol
-          ? path.some(p => p.symbol === targetSymbol)
-          : path.length > 1;
-        result.maxDepthReached = bfs.maxDepthReached >= maxDepth;
+
+        const traceResult = {
+          path,
+          found: targetSymbol
+            ? path.some(p => p.symbol === targetSymbol)
+            : path.length > 1,
+          maxDepthReached: bfs.maxDepthReached >= maxDepth,
+          nodes: bfs.nodes,
+          edges: bfs.edges,
+        };
+
+        // Build enriched response with pre-computed context
+        const enriched = buildTraceResponse(traceResult, graphStore);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              // Legacy flat format (backward compatible)
+              path,
+              found: traceResult.found,
+              maxDepthReached: traceResult.maxDepthReached,
+              // Enriched context for AI agents
+              enriched,
+            }, null, 2),
+          }],
+        };
       }
+
+      // Source symbol not found
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            path: [] as Array<{ symbol: string; depth: number; relationship: string; filePath: string | null }>,
+            found: false,
+            maxDepthReached: false,
+            enriched: null,
+            message: `Source symbol "${sourceSymbol}" not found in graph`,
+          }, null, 2),
+        }],
+      };
     }
 
     return {
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      content: [{
+        type: 'text',
+        text: JSON.stringify(result, null, 2),
+      }],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

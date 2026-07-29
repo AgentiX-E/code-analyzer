@@ -18,8 +18,10 @@ import { registerToolRoutes } from './routes/tools.js';
 import { registerSSERoutes } from './routes/sse.js';
 import { registerWebhookRoutes } from './routes/webhook.js';
 import type { WebhookConfig } from './routes/webhook.js';
+import { registerGraphRoutes } from './routes/graph.js';
 import { GracefulShutdown, HealthCheckRegistry } from '@code-analyzer/core';
 import type { ToolRegistry } from '@code-analyzer/mcp';
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -39,6 +41,8 @@ export interface ServerOptions {
   healthCheck?: HealthCheckRegistry;
   /** GitHub webhook configuration for cross-repo PR review */
   webhook?: WebhookConfig;
+  /** InMemoryGraphStore for graph visualization endpoint */
+  graphStore?: InMemoryGraphStore;
 }
 
 export interface ServerInstance {
@@ -125,6 +129,11 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   // Register webhook endpoint if configured
   if (options.webhook) {
     registerWebhookRoutes(routes, config, options.webhook);
+  }
+
+  // Register graph visualization endpoint if store is provided
+  if (options.graphStore) {
+    registerGraphRoutes(routes, config, () => options.graphStore!);
   }
 
   // --- Lifecycle ---

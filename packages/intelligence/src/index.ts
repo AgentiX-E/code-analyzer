@@ -384,3 +384,17 @@ export type {
   WebhookPayload,
   BridgeResult,
 } from './github/index.js';
+
+// Benchmark
+export { BenchmarkRunner } from './benchmark/benchmark-runner.js';
+export type {
+  SingleCaseResult,
+  AggregateMetrics,
+  BenchmarkResult,
+} from './benchmark/benchmark-runner.js';
+export { ALL_BENCHMARK_CASES, lines } from './benchmark/benchmark-data.js';
+export type {
+  BenchmarkCase,
+  FileContent,
+  GroundTruthIssue,
+} from './benchmark/benchmark-data.js';

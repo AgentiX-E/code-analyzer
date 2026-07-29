@@ -1,5 +1,5 @@
 // @ts-nocheck
-// @code-analyzer/mcp — E2E Integration Test: All 39 MCP Tools
+// @code-analyzer/mcp — E2E Integration Test: All 40 MCP Tools
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -218,7 +218,7 @@ function populateStore(store: InMemoryGraphStore): void {
 // Test Suite
 // ---------------------------------------------------------------------------
 
-describe('MCP E2E — All 39 Tools Integration', () => {
+describe('MCP E2E — All 40 Tools Integration', () => {
   let store: InMemoryGraphStore;
   let ctx: ToolContext;
   let registry: ToolRegistry;
@@ -241,13 +241,13 @@ describe('MCP E2E — All 39 Tools Integration', () => {
   // =========================================================================
 
   describe('Tool Registry Structure', () => {
-    it('should register exactly 39 tools', () => {
-      expect(registry.size).toBe(39);
+    it('should register exactly 40 tools', () => {
+      expect(registry.size).toBe(40);
     });
 
     it('should list all tools without handlers in output', () => {
       const list = registry.list();
-      expect(list.length).toBe(39);
+      expect(list.length).toBe(40);
       for (const tool of list) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();
@@ -258,9 +258,9 @@ describe('MCP E2E — All 39 Tools Integration', () => {
     it('should filter by profile', () => {
       const all = registry.listByProfile('all');
       const analysis = registry.listByProfile('analysis');
-      expect(all.length).toBe(39);
+      expect(all.length).toBe(40);
       expect(analysis.length).toBeGreaterThan(0);
-      expect(analysis.length).toBeLessThanOrEqual(39);
+      expect(analysis.length).toBeLessThanOrEqual(40);
     });
   });
 
@@ -1011,7 +1011,7 @@ describe('MCP E2E — All 39 Tools Integration', () => {
       expect(result.isError).toBeFalsy();
     });
 
-    it('all 39 tools respond without crashing', async () => {
+    it('all 40 tools respond without crashing', async () => {
       const minimalArgs: Record<string, Record<string, unknown>> = {
         analyze_repository: { path: FIXTURE_DIR },
         list_projects: {},
@@ -1057,6 +1057,7 @@ describe('MCP E2E — All 39 Tools Integration', () => {
         },
         manage_adr: { action: 'list', projectId: PROJECT_ID },
         install_skills: { agents: ['codebuddy'], dryRun: true },
+        run_benchmark: {},
       };
 
       const results: Array<{ name: string; error: boolean; time: number }> = [];
@@ -1071,7 +1072,7 @@ describe('MCP E2E — All 39 Tools Integration', () => {
         }
       }
 
-      expect(results.length).toBe(39);
+      expect(results.length).toBe(40);
 
       const failedTools = results.filter(r => r.error);
       if (failedTools.length > 0) {
@@ -1089,7 +1090,7 @@ describe('MCP E2E — All 39 Tools Integration', () => {
       expect(successRate).toBeGreaterThanOrEqual(0.8);
     });
 
-    it('should have consistent schema definitions for all 39 tools', () => {
+    it('should have consistent schema definitions for all 40 tools', () => {
       const tools = registry.list();
       for (const tool of tools) {
         expect(tool.inputSchema).toBeDefined();

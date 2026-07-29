@@ -4,6 +4,7 @@
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
+import { buildImpactResponse } from './smart-response.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -308,7 +309,14 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
     }
 
     return {
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          ...result,
+          // Enriched context for AI agents (when graph store is available)
+          enriched: graphStore ? buildImpactResponse(result, graphStore, targetSymbol) : null,
+        }, null, 2),
+      }],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
