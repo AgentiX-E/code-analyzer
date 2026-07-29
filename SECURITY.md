@@ -74,3 +74,61 @@ We aim to:
 4. **Tool Policies**: Use the most restrictive tool policy profile that meets your needs
 5. **Regular Updates**: Keep Code Analyzer updated to the latest version
 6. **GitHub Tokens**: Use fine-grained GitHub tokens with minimal scopes
+
+## OWASP Top 10 Compliance
+
+Code Analyzer implements controls aligned with the OWASP Top 10 (2021):
+
+| OWASP Category | Mitigation |
+|----------------|-----------|
+| A01: Broken Access Control | API key authentication, RBAC engine, tool-level access policies, rate limiting |
+| A02: Cryptographic Failures | TLS/mTLS support, credential redaction in logs, no plaintext secrets in source |
+| A03: Injection | Input validation, parameterized Cypher queries, path sanitization |
+| A04: Insecure Design | Security audit framework, threat modeling, countermeasure verification |
+| A05: Security Misconfiguration | Default-deny MCP tool profiles, non-root Docker containers, minimal exposed ports |
+| A06: Vulnerable Components | Pinned dependencies, automated dependency audit, SBOM generation |
+| A07: Auth Failures | API key validation, rate limiting on auth endpoints, audit logging |
+| A08: Software & Data Integrity | SLSA Level 3 provenance, Cosign container signing, lockfile integrity checks |
+| A09: Logging & Monitoring | Structured JSON logging, request audit trails, security event recording |
+| A10: SSRF | File system access scoped to project directories, no arbitrary URL fetching from external input |
+
+## CWE Top 25 Alignment
+
+Countermeasures address the following CWE Top 25 weaknesses:
+
+- **CWE-22**: Path Traversal — Path sanitization in all file operations
+- **CWE-78**: OS Command Injection — No shell execution from external input
+- **CWE-79**: Cross-Site Scripting — Content-type enforcement in HTTP responses
+- **CWE-89**: SQL Injection — Parameterized queries in SQLite graph store
+- **CWE-200**: Sensitive Data Exposure — Secret redaction, local-only processing
+- **CWE-287**: Improper Authentication — API key validation, mTLS support
+- **CWE-798**: Hard-coded Credentials — Secret scanning with 15+ built-in patterns
+- **CWE-918**: Server-Side Request Forgery — Network request scoping
+
+## GPG Key
+
+Releases are signed with the following GPG key:
+
+```
+Key ID: to-be-published
+Fingerprint: to-be-published
+```
+
+To verify a release:
+
+```bash
+gpg --verify code-analyzer-{version}.tar.gz.sig code-analyzer-{version}.tar.gz
+```
+
+## Responsible Disclosure
+
+We follow a coordinated disclosure process:
+
+1. Reporter submits vulnerability via email to **security@agentix.dev**
+2. We acknowledge within 24 hours
+3. We investigate and validate within 72 hours
+4. We develop and test a fix
+5. We coordinate a release date with the reporter
+6. We publish an advisory after the fix is available
+
+We do not offer monetary bounties at this time, but we publicly acknowledge reporters in our security advisories (with permission).
