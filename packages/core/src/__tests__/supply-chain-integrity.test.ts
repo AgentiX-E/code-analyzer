@@ -99,6 +99,17 @@ describe('IntegrityVerifier', () => {
       v.loadManifest(makeManifest());
       expect(v.verifyDependency('typescript', '5.0.0', 'sha512-wrong')).toBe(false);
     });
+
+    it('should return false for non-existent dependency', () => {
+      const v = new IntegrityVerifier();
+      v.loadManifest(makeManifest());
+      expect(v.verifyDependency('nonexistent', '1.0.0', 'sha512-xyz')).toBe(false);
+    });
+
+    it('should return false when no manifest loaded', () => {
+      const v = new IntegrityVerifier();
+      expect(v.verifyDependency('typescript', '5.0.0', 'sha512-abc')).toBe(false);
+    });
   });
 
   describe('audit', () => {
@@ -124,12 +135,30 @@ describe('IntegrityVerifier', () => {
       expect(result.violations.some((v) => v.category === 'license')).toBe(true);
     });
 
+    it('should detect GPL-3.0 as a restricted license in audit', () => {
+      const v = new IntegrityVerifier();
+      v.loadManifest(makeManifest());
+      const result = v.audit(new Map());
+      const licenseViolations = result.violations.filter((v) => v.category === 'license');
+      expect(licenseViolations.length).toBeGreaterThan(0);
+      expect(licenseViolations[0]!.message).toContain('GPL-3.0');
+    });
+
     it('should detect SLSA level below minimum', () => {
       const v = new IntegrityVerifier();
       const manifest = { ...makeManifest(), slsaLevel: 1 };
       v.loadManifest(manifest);
       const result = v.audit(new Map());
       expect(result.violations.some((v) => v.category === 'signature')).toBe(true);
+    });
+
+    it('should handle audit when no manifest loaded', () => {
+      const v = new IntegrityVerifier();
+      const result = v.audit(new Map());
+      expect(result.passed).toBe(true);
+      expect(result.totalFiles).toBe(0);
+      expect(result.totalDeps).toBe(0);
+      expect(result.violations).toHaveLength(0);
     });
   });
 });
