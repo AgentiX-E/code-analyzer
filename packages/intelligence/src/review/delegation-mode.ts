@@ -93,8 +93,8 @@ export class DelegationManager {
             category: standard.category,
             severity: rule.severity,
             pattern:
-              typeof rule.checkConfig.pattern === 'string'
-                ? rule.checkConfig.pattern
+              typeof rule.checkConfig['pattern'] === 'string'
+                ? (rule.checkConfig['pattern'] as string)
                 : JSON.stringify(rule.checkConfig),
             description: rule.description,
             appliesTo,
@@ -164,7 +164,7 @@ export class DelegationManager {
     sections.push('');
 
     for (let i = 0; i < preview.bundles.length; i++) {
-      const bundle = preview.bundles[i];
+      const bundle = preview.bundles[i]!;
       sections.push(`### Bundle ${i + 1} (${bundle.files.length} files)`);
       sections.push('');
       for (const file of bundle.files) {

@@ -272,8 +272,11 @@ export class CommentPositioner {
     let totalScore = 0;
 
     for (let i = 0; i < minLen; i++) {
-      const tokensA = new Set(this.tokenize(a[i]));
-      const tokensB = new Set(this.tokenize(b[i]));
+      const lineA = a[i];
+      const lineB = b[i];
+      if (!lineA || !lineB) continue;
+      const tokensA = new Set(this.tokenize(lineA));
+      const tokensB = new Set(this.tokenize(lineB));
 
       if (tokensA.size === 0 && tokensB.size === 0) {
         totalScore += 1; // Both empty = perfect match on this line
@@ -308,7 +311,8 @@ function findLastIndex<T>(
   predicate: (item: T) => boolean,
 ): number {
   for (let i = arr.length - 1; i >= 0; i--) {
-    if (predicate(arr[i])) {
+    const item = arr[i];
+    if (item && predicate(item)) {
       return i;
     }
   }

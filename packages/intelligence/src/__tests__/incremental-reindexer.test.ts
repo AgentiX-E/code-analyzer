@@ -526,9 +526,9 @@ describe('IncrementalReindexer', () => {
         language: 'TypeScript',
         properties: {
           name: 'noFilePath',
-          filePath: null,
-          startLine: null,
-          endLine: null,
+          filePath: undefined,
+          startLine: undefined,
+          endLine: undefined,
           language: 'TypeScript',
           isExported: true,
         },
