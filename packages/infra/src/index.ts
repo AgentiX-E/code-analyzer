@@ -73,3 +73,9 @@ export type { AutoWatcherOptions, ReindexEvent } from './project/auto-watcher.js
 // Performance Profiling
 export { PerformanceProfiler } from './performance/profiler.js';
 export type { BenchmarkConfig, BenchmarkResult, QueryLatencyResult } from './performance/profiler.js';
+
+// Performance Utilities
+export { AsyncMemoizer } from './performance/memoizer.js';
+export type { MemoizerOptions, MemoizerStats } from './performance/memoizer.js';
+export { BatchProcessor } from './performance/batch-processor.js';
+export type { BatchProcessorOptions, BatchProgress, BatchResult } from './performance/batch-processor.js';
