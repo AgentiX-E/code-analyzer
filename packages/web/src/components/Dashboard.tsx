@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useApiHealth, useGraphStats, useAnalyze } from '../hooks';
+import MetricCards, { type MetricCardData } from './MetricCards';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -43,14 +44,39 @@ const formatUptime = (ms: number): string => {
 
 const Dashboard: React.FC = () => {
   // Real API data
-  const { data: health, loading: healthLoading, error: healthError } = useApiHealth(15_000);
-  const { data: stats, loading: statsLoading, error: statsError } = useGraphStats();
+  const { data: health, loading: healthLoading, error: healthError, refetch: refetchHealth } = useApiHealth(15_000);
+  const { data: stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useGraphStats();
   const { analyze, loading: analyzeLoading, error: analyzeError } = useAnalyze();
 
   const [searchCount, setSearchCount] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+
+  // Track last successful data update
+  const prevStatsRef = useRef<IndexStats | null>(null);
 
   // Determine loading state
   const loaded = !healthLoading && !statsLoading;
+
+  // Compute trends by comparing current stats with previous
+  const nodeTrend: MetricCardData['trend'] = prevStatsRef.current
+    ? (index.nodes > prevStatsRef.current.nodes ? 'up' : index.nodes < prevStatsRef.current.nodes ? 'down' : 'neutral')
+    : 'neutral';
+  const edgeTrend: MetricCardData['trend'] = prevStatsRef.current
+    ? (index.edges > prevStatsRef.current.edges ? 'up' : index.edges < prevStatsRef.current.edges ? 'down' : 'neutral')
+    : 'neutral';
+
+  // Update previous stats when new data arrives
+  useEffect(() => {
+    if (stats) {
+      prevStatsRef.current = { nodes: stats.nodes, edges: stats.edges, files: stats.files };
+      setLastUpdated(Date.now());
+    }
+  }, [stats]);
+
+  const handleRefresh = useCallback(() => {
+    refetchHealth();
+    refetchStats();
+  }, [refetchHealth, refetchStats]);
 
   // Compute system info from health data or use defaults
   const system: SystemInfo = health
@@ -103,29 +129,35 @@ const Dashboard: React.FC = () => {
           marginBottom: 16,
           fontSize: '0.8125rem',
         }}>
-          ⚠ Cannot connect to server: {displayError}. Showing offline data.
+          &#x26A0; Cannot connect to server: {displayError}. Showing offline data.
         </div>
       )}
 
-      {/* Stats grid */}
-      <div className="stats-grid">
-        <div className="stat-card nodes">
-          <div className="stat-label">Nodes</div>
-          <div className="stat-value">{index.nodes.toLocaleString()}</div>
-        </div>
-        <div className="stat-card edges">
-          <div className="stat-label">Edges</div>
-          <div className="stat-value">{index.edges.toLocaleString()}</div>
-        </div>
-        <div className="stat-card files">
-          <div className="stat-label">Files</div>
-          <div className="stat-value">{index.files.toLocaleString()}</div>
-        </div>
-        <div className="stat-card searches">
-          <div className="stat-label">Total Searches</div>
-          <div className="stat-value">{searchCount.toLocaleString()}</div>
+      {/* Header with refresh */}
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ margin: 0 }}>Dashboard</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {lastUpdated && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8b949e)' }}>
+              Updated {new Date(lastUpdated).toLocaleTimeString()}
+            </span>
+          )}
+          <button className="btn btn-secondary" onClick={handleRefresh} type="button" style={{ fontSize: '0.8125rem', padding: '4px 12px' }}>
+            &#x21BB; Refresh
+          </button>
         </div>
       </div>
+
+      {/* Metric Cards with trend indicators */}
+      <MetricCards
+        metrics={[
+          { id: 'nodes', label: 'Nodes', value: index.nodes.toLocaleString(), trend: nodeTrend, icon: '\u25C9' },
+          { id: 'edges', label: 'Edges', value: index.edges.toLocaleString(), trend: edgeTrend, icon: '\u2194' },
+          { id: 'files', label: 'Files', value: index.files.toLocaleString(), trend: 'neutral', icon: '\uD83D\uDCC4' },
+          { id: 'searches', label: 'Total Searches', value: searchCount.toLocaleString(), trend: searchCount > 0 ? 'up' : 'neutral', icon: '\uD83D\uDD0D' },
+        ]}
+        columns={4}
+      />
 
       <div className="dashboard-grid">
         {/* Recent analyses / Server health */}
