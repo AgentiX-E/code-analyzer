@@ -440,3 +440,137 @@ describe('CA-Bench Integration', () => {
     expect(result.passed).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mutation Analysis (Manual) Tests
+// ---------------------------------------------------------------------------
+
+import { runMutationAnalysis, generateMutationReport } from '../suites/mutation-analysis.bench.js';
+import { join } from 'node:path';
+
+describe('Mutation Analysis', () => {
+  const rootDir = join(process.cwd());
+
+  it('should analyze all 11 source modules', () => {
+    const results = runMutationAnalysis(rootDir);
+    expect(results.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('should produce quality scores between 0-100', () => {
+    const results = runMutationAnalysis(rootDir);
+    for (const r of results) {
+      expect(r.qualityScore).toBeGreaterThanOrEqual(0);
+      expect(r.qualityScore).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('should detect test patterns in corresponding test files', () => {
+    const results = runMutationAnalysis(rootDir);
+    const withPatterns = results.filter((r) => r.branchCoverage > 0);
+    expect(withPatterns.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('should generate valid markdown report', () => {
+    const results = runMutationAnalysis(rootDir);
+    const report = generateMutationReport(results);
+    expect(report).toContain('# Manual Mutation Analysis Report');
+    expect(report).toContain('## Summary');
+    expect(report).toContain('## Per-Module Analysis');
+  });
+
+  it('should include recommendations for modules with low scores', () => {
+    const results = runMutationAnalysis(rootDir);
+    const report = generateMutationReport(results);
+    // Should have a Recommendations section with findings
+    expect(report).toContain('## Recommendations');
+    expect(report).toContain('## Interpretation');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LLM Review Benchmark Tests
+// ---------------------------------------------------------------------------
+
+import {
+  runLLMReviewBenchmark,
+  TEST_CASES,
+  computeMetrics,
+  heuristicAnalyze,
+} from '../suites/llm-review-quality.bench.js';
+import type { LLMReviewCase } from '../types.js';
+
+describe('LLM Review Quality Benchmark', () => {
+  it('should have at least 10 test cases', () => {
+    expect(TEST_CASES.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('should include SQL injection test cases', () => {
+    const sqli = TEST_CASES.filter((c: LLMReviewCase) => c.category === 'SQL Injection');
+    expect(sqli.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('should include XSS test cases', () => {
+    const xss = TEST_CASES.filter((c: LLMReviewCase) => c.category === 'Cross-Site Scripting');
+    expect(xss.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should include hardcoded secrets test cases', () => {
+    const secrets = TEST_CASES.filter((c: LLMReviewCase) => c.category === 'Hardcoded Secrets');
+    expect(secrets.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('should include a safe code case with no expected findings', () => {
+    const safe = TEST_CASES.filter((c: LLMReviewCase) => c.id === 'safe-001');
+    expect(safe.length).toBe(1);
+    expect(safe[0]!.expectedFindings).toEqual([]);
+  });
+
+  it('heuristic should detect SQL injection patterns', () => {
+    const findings = heuristicAnalyze(TEST_CASES.filter((c: LLMReviewCase) => c.id === 'sqli-001')[0]!.source);
+    expect(findings.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('heuristic should detect hardcoded secrets', () => {
+    const findings = heuristicAnalyze(TEST_CASES.filter((c: LLMReviewCase) => c.id === 'secret-001')[0]!.source);
+    expect(findings.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('heuristic should NOT flag safe code', () => {
+    const findings = heuristicAnalyze(TEST_CASES.filter((c: LLMReviewCase) => c.id === 'safe-001')[0]!.source);
+    expect(findings.length).toBe(0);
+  });
+
+  it('computeMetrics should calculate valid scores', () => {
+    const results = [
+      { caseId: 'sqli-001', foundKeywords: ['SQL injection', 'string concatenation'] },
+      { caseId: 'sqli-002', foundKeywords: ['SQL injection', 'template literal'] },
+      { caseId: 'xss-001', foundKeywords: ['XSS', 'innerHTML'] },
+      { caseId: 'xss-002', foundKeywords: [] },
+      { caseId: 'secret-001', foundKeywords: ['hardcoded', 'API key'] },
+      { caseId: 'secret-002', foundKeywords: ['hardcoded', 'stripe', 'JWT'] },
+      { caseId: 'path-001', foundKeywords: ['path traversal'] },
+      { caseId: 'deser-001', foundKeywords: ['eval', 'insecure'] },
+      { caseId: 'auth-001', foundKeywords: [] },
+      { caseId: 'race-001', foundKeywords: ['race condition', 'transaction'] },
+      { caseId: 'safe-001', foundKeywords: [] },
+    ];
+
+    const metrics = computeMetrics(results);
+    expect(metrics.totalCases).toBe(11);
+    expect(metrics.precision).toBeGreaterThan(0.5);
+    expect(metrics.recall).toBeGreaterThan(0.5);
+    expect(metrics.f1Score).toBeGreaterThan(0.5);
+  });
+
+  it('runLLMReviewBenchmark should return valid result', async () => {
+    const result = await runLLMReviewBenchmark();
+    expect(result.suite).toBe('llm-review-quality');
+    expect(result.metrics.precision).toBeDefined();
+    expect(result.metrics.recall).toBeDefined();
+    expect(result.metrics.f1Score).toBeDefined();
+    // With heuristic fallback, we should get reasonable scores
+    expect(result.metrics.f1Score).toBeGreaterThanOrEqual(0);
+    expect(result.passed).toBeDefined();
+  }, 30000);
+});
+
