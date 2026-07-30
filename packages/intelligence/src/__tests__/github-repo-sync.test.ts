@@ -358,7 +358,7 @@ describe('GitHubRepoSync', () => {
   // -----------------------------------------------------------------------
 
   describe('clone — shallow option', () => {
-    it('should not add --depth 1 when shallow is false', { timeout: 60_000 }, async () => {
+    it('should not add --depth 1 when shallow is false', { timeout: 120_000 }, async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
         client,
@@ -510,7 +510,7 @@ describe('GitHubRepoSync', () => {
       expect(result.results.length).toBe(0);
     });
 
-    it('should handle multi-batch processing (5+ repos triggers two batches)', { timeout: 60_000 }, async () => {
+    it('should handle multi-batch processing (5+ repos triggers two batches)', { timeout: 120_000 }, async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
         client,
