@@ -1,5 +1,7 @@
 // @code-analyzer/infra — In-Memory Graph Store
 // Typed Map-based in-memory store with full CRUD, FTS, BFS, and integrity checks.
+// Performance optimized with project/label indexes for O(1) pre-filtering
+// and read-through output cache to avoid repeated object copies.
 
 import type {
   NodeQuery,
@@ -51,6 +53,19 @@ interface StoredEdge {
   createdAt: string;
 }
 
+/**
+ * Helper: compute the intersection of two number sets, returning the smaller.
+ * Used by queryNodes to intersect project and label index results.
+ */
+function intersectSets(a: Set<number>, b: Set<number>): Set<number> {
+  const result = new Set<number>();
+  const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
+  for (const id of smaller) {
+    if (larger.has(id)) result.add(id);
+  }
+  return result;
+}
+
 export class InMemoryGraphStore {
   public nodes: Map<number, StoredNode>;
   public edges: Map<number, StoredEdge>;
@@ -61,6 +76,14 @@ export class InMemoryGraphStore {
   private sourceEdgeIndex: Map<number, Set<number>>;
   /** Reverse adjacency: targetNodeId → set of edge IDs */
   private targetEdgeIndex: Map<number, Set<number>>;
+  /** Project → set of node IDs (speeds up queryNodes, searchFts) */
+  private projectNodesIndex: Map<string, Set<number>>;
+  /** Node label → set of node IDs (speeds up queryNodes by label) */
+  private labelNodesIndex: Map<NodeLabel, Set<number>>;
+  /** Project → set of edge IDs (speeds up queryEdges) */
+  private projectEdgesIndex: Map<string, Set<number>>;
+  /** Edge type → set of edge IDs (speeds up queryEdges by type) */
+  private typeEdgesIndex: Map<RelationshipType, Set<number>>;
   private nextNodeId: number;
   private nextEdgeId: number;
   private closed: boolean;
@@ -74,6 +97,10 @@ export class InMemoryGraphStore {
     qnameSnapshot: Map<string, number>;
     sourceEdgeSnapshot: Map<number, Set<number>>;
     targetEdgeSnapshot: Map<number, Set<number>>;
+    projectNodesSnapshot: Map<string, Set<number>>;
+    labelNodesSnapshot: Map<NodeLabel, Set<number>>;
+    projectEdgesSnapshot: Map<string, Set<number>>;
+    typeEdgesSnapshot: Map<RelationshipType, Set<number>>;
     nextNodeIdSnapshot: number;
     nextEdgeIdSnapshot: number;
   }>;
@@ -86,6 +113,10 @@ export class InMemoryGraphStore {
     this.fileIndex = new Map();
     this.sourceEdgeIndex = new Map();
     this.targetEdgeIndex = new Map();
+    this.projectNodesIndex = new Map();
+    this.labelNodesIndex = new Map();
+    this.projectEdgesIndex = new Map();
+    this.typeEdgesIndex = new Map();
     this.nextNodeId = 1;
     this.nextEdgeId = 1;
     this.closed = false;
@@ -111,6 +142,10 @@ export class InMemoryGraphStore {
       }
       this.qnameIndex.set(node.qualifiedName, id);
     }
+
+    // Maintain secondary indexes
+    this.addToProjectNodesIndex(node.projectId, id);
+    this.addToLabelNodesIndex(node.label, id);
 
     return id;
   }
@@ -149,6 +184,9 @@ export class InMemoryGraphStore {
       if (node.qualifiedName) {
         this.qnameIndex.set(node.qualifiedName, id);
       }
+      // Maintain secondary indexes
+      this.addToProjectNodesIndex(node.projectId, id);
+      this.addToLabelNodesIndex(node.label, id);
       ids.push(id);
     }
 
@@ -209,6 +247,9 @@ export class InMemoryGraphStore {
       if (node.qualifiedName) {
         this.qnameIndex.delete(node.qualifiedName);
       }
+      // Remove from secondary indexes
+      this.removeFromProjectNodesIndex(node.projectId, id);
+      this.removeFromLabelNodesIndex(node.label, id);
       this.nodes.delete(id);
 
       // Delete all edges connected to this node via adjacency indices
@@ -258,47 +299,94 @@ export class InMemoryGraphStore {
 
     const results: StoredNode[] = [];
 
-    for (const node of this.nodes.values()) {
-      if (node.projectId !== query.projectId) continue;
-
-      // Label filter
-      if (query.label !== undefined) {
-        const labels = Array.isArray(query.label) ? query.label : [query.label];
-        if (!labels.includes(node.label)) continue;
+    // Use secondary indexes to pre-filter candidates when possible
+    const candidates = this.getCandidateNodeIds(query);
+    if (candidates !== null) {
+      if (candidates.size === 0) {
+        return { items: [], total: 0, offset, limit, hasMore: false };
       }
+      // Iterate only candidate nodes (much faster than full scan)
+      for (const nodeId of candidates) {
+        const node = this.nodes.get(nodeId);
+        if (!node) continue;
 
-      // Name pattern filter
-      if (query.namePattern) {
-        const regex = this.patternToRegex(query.namePattern);
-        if (!regex.test(node.name)) continue;
-      }
+        // Name pattern filter
+        if (query.namePattern) {
+          const regex = this.patternToRegex(query.namePattern);
+          if (!regex.test(node.name)) continue;
+        }
 
-      // Qualified name pattern
-      if (query.qualifiedNamePattern) {
-        const regex = this.patternToRegex(query.qualifiedNamePattern);
-        if (!regex.test(node.qualifiedName)) continue;
-      }
+        // Qualified name pattern
+        if (query.qualifiedNamePattern) {
+          const regex = this.patternToRegex(query.qualifiedNamePattern);
+          if (!regex.test(node.qualifiedName)) continue;
+        }
 
-      // File pattern
-      if (query.filePattern) {
-        const regex = this.patternToRegex(query.filePattern);
-        if (!node.filePath || !regex.test(node.filePath)) continue;
-      }
+        // File pattern
+        if (query.filePattern) {
+          const regex = this.patternToRegex(query.filePattern);
+          if (!node.filePath || !regex.test(node.filePath)) continue;
+        }
 
-      // Line range
-      if (query.minLine !== undefined) {
-        if (node.startLine === null || node.startLine < query.minLine) continue;
-      }
-      if (query.maxLine !== undefined) {
-        if (node.endLine === null || node.endLine > query.maxLine) continue;
-      }
+        // Line range
+        if (query.minLine !== undefined) {
+          if (node.startLine === null || node.startLine < query.minLine) continue;
+        }
+        if (query.maxLine !== undefined) {
+          if (node.endLine === null || node.endLine > query.maxLine) continue;
+        }
 
-      // Export filter
-      if (query.isExported !== undefined) {
-        if (node.isExported !== query.isExported) continue;
-      }
+        // Export filter
+        if (query.isExported !== undefined) {
+          if (node.isExported !== query.isExported) continue;
+        }
 
-      results.push(node);
+        results.push(node);
+      }
+    } else {
+      // Fallback: no usable index, scan all nodes
+      for (const node of this.nodes.values()) {
+        if (node.projectId !== query.projectId) continue;
+
+        // Label filter
+        if (query.label !== undefined) {
+          const labels = Array.isArray(query.label) ? query.label : [query.label];
+          if (!labels.includes(node.label)) continue;
+        }
+
+        // Name pattern filter
+        if (query.namePattern) {
+          const regex = this.patternToRegex(query.namePattern);
+          if (!regex.test(node.name)) continue;
+        }
+
+        // Qualified name pattern
+        if (query.qualifiedNamePattern) {
+          const regex = this.patternToRegex(query.qualifiedNamePattern);
+          if (!regex.test(node.qualifiedName)) continue;
+        }
+
+        // File pattern
+        if (query.filePattern) {
+          const regex = this.patternToRegex(query.filePattern);
+          if (!node.filePath || !regex.test(node.filePath)) continue;
+        }
+
+        // Line range
+        if (query.minLine !== undefined) {
+          if (node.startLine === null || node.startLine < query.minLine) continue;
+        }
+        if (query.maxLine !== undefined) {
+          if (node.endLine === null || node.endLine > query.maxLine) continue;
+        }
+
+        // Export filter
+        if (query.isExported !== undefined) {
+          if (node.isExported !== query.isExported) continue;
+        }
+
+        results.push(node);
+      }
     }
 
     // Sort
@@ -364,6 +452,10 @@ export class InMemoryGraphStore {
     this.addToIndex(this.sourceEdgeIndex, edge.sourceId, id);
     this.addToIndex(this.targetEdgeIndex, edge.targetId, id);
 
+    // Maintain secondary indexes
+    this.addToProjectEdgesIndex(edge.projectId, id);
+    this.addToTypeEdgesIndex(edge.type, id);
+
     return id;
   }
 
@@ -392,6 +484,8 @@ export class InMemoryGraphStore {
       this.edges.set(id, stored);
       this.addToIndex(this.sourceEdgeIndex, edge.sourceId, id);
       this.addToIndex(this.targetEdgeIndex, edge.targetId, id);
+      this.addToProjectEdgesIndex(edge.projectId, id);
+      this.addToTypeEdgesIndex(edge.type, id);
       ids.push(id);
     }
 
@@ -417,12 +511,86 @@ export class InMemoryGraphStore {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Secondary Index Helpers (project/label for nodes; project/type for edges)
+  // -----------------------------------------------------------------------
+
+  private addToProjectNodesIndex(projectId: string, nodeId: number): void {
+    let s = this.projectNodesIndex.get(projectId);
+    if (!s) { s = new Set(); this.projectNodesIndex.set(projectId, s); }
+    s.add(nodeId);
+  }
+
+  private removeFromProjectNodesIndex(projectId: string, nodeId: number): void {
+    const s = this.projectNodesIndex.get(projectId);
+    if (s) { s.delete(nodeId); if (s.size === 0) this.projectNodesIndex.delete(projectId); }
+  }
+
+  private addToLabelNodesIndex(label: NodeLabel, nodeId: number): void {
+    let s = this.labelNodesIndex.get(label);
+    if (!s) { s = new Set(); this.labelNodesIndex.set(label, s); }
+    s.add(nodeId);
+  }
+
+  private removeFromLabelNodesIndex(label: NodeLabel, nodeId: number): void {
+    const s = this.labelNodesIndex.get(label);
+    if (s) { s.delete(nodeId); if (s.size === 0) this.labelNodesIndex.delete(label); }
+  }
+
+  private addToProjectEdgesIndex(projectId: string, edgeId: number): void {
+    let s = this.projectEdgesIndex.get(projectId);
+    if (!s) { s = new Set(); this.projectEdgesIndex.set(projectId, s); }
+    s.add(edgeId);
+  }
+
+  private removeFromProjectEdgesIndex(projectId: string, edgeId: number): void {
+    const s = this.projectEdgesIndex.get(projectId);
+    if (s) { s.delete(edgeId); if (s.size === 0) this.projectEdgesIndex.delete(projectId); }
+  }
+
+  private addToTypeEdgesIndex(type: RelationshipType, edgeId: number): void {
+    let s = this.typeEdgesIndex.get(type);
+    if (!s) { s = new Set(); this.typeEdgesIndex.set(type, s); }
+    s.add(edgeId);
+  }
+
+  private removeFromTypeEdgesIndex(type: RelationshipType, edgeId: number): void {
+    const s = this.typeEdgesIndex.get(type);
+    if (s) { s.delete(edgeId); if (s.size === 0) this.typeEdgesIndex.delete(type); }
+  }
+
+  /**
+   * Determine the candidate node ID set for a query, using indexes when possible.
+   * Falls back to iterating all nodes if neither index can be used.
+   */
+  private getCandidateNodeIds(query: NodeQuery): Set<number> | null {
+    const projectSet = this.projectNodesIndex.get(query.projectId);
+    if (!projectSet) return new Set(); // Project has no nodes
+
+    if (query.label !== undefined) {
+      const labels = Array.isArray(query.label) ? query.label : [query.label];
+      // Union of all label sets
+      const labelSet = new Set<number>();
+      for (const lbl of labels) {
+        const ls = this.labelNodesIndex.get(lbl);
+        if (ls) for (const id of ls) labelSet.add(id);
+      }
+      if (labelSet.size === 0) return new Set(); // No nodes with those labels
+      // Intersect project and label sets
+      return intersectSets(projectSet, labelSet);
+    }
+
+    return projectSet;
+  }
+
   deleteEdge(id: number): void {
     this.ensureOpen();
     const edge = this.edges.get(id);
     if (edge) {
       this.removeFromIndex(this.sourceEdgeIndex, edge.sourceId, id);
       this.removeFromIndex(this.targetEdgeIndex, edge.targetId, id);
+      this.removeFromProjectEdgesIndex(edge.projectId, id);
+      this.removeFromTypeEdgesIndex(edge.type, id);
     }
     this.edges.delete(id);
   }
@@ -434,18 +602,64 @@ export class InMemoryGraphStore {
 
     const results: StoredEdge[] = [];
 
-    for (const edge of this.edges.values()) {
-      if (edge.projectId !== query.projectId) continue;
+    // Use secondary indexes for O(1) candidate selection
+    let candidates: Set<number> | null = null;
 
-      if (query.sourceId !== undefined && edge.sourceId !== query.sourceId) continue;
-      if (query.targetId !== undefined && edge.targetId !== query.targetId) continue;
-
-      if (query.type !== undefined) {
-        const types = Array.isArray(query.type) ? query.type : [query.type];
-        if (!types.includes(edge.type)) continue;
+    if (query.sourceId !== undefined) {
+      // Use sourceEdgeIndex for O(1) lookup
+      const edgeIds = this.sourceEdgeIndex.get(query.sourceId);
+      if (edgeIds) {
+        for (const edgeId of edgeIds) {
+          const edge = this.edges.get(edgeId);
+          if (!edge) continue;
+          if (edge.projectId !== query.projectId) continue;
+          if (query.targetId !== undefined && edge.targetId !== query.targetId) continue;
+          if (query.type !== undefined) {
+            const types = Array.isArray(query.type) ? query.type : [query.type];
+            if (!types.includes(edge.type)) continue;
+          }
+          results.push(edge);
+        }
       }
-
-      results.push(edge);
+    } else if (query.targetId !== undefined) {
+      // Use targetEdgeIndex for O(1) lookup
+      const edgeIds = this.targetEdgeIndex.get(query.targetId);
+      if (edgeIds) {
+        for (const edgeId of edgeIds) {
+          const edge = this.edges.get(edgeId);
+          if (!edge) continue;
+          if (edge.projectId !== query.projectId) continue;
+          if (query.type !== undefined) {
+            const types = Array.isArray(query.type) ? query.type : [query.type];
+            if (!types.includes(edge.type)) continue;
+          }
+          results.push(edge);
+        }
+      }
+    } else if (query.type !== undefined) {
+      // Only type filter: use typeEdgesIndex
+      const types = Array.isArray(query.type) ? query.type : [query.type];
+      for (const t of types) {
+        const edgeIds = this.typeEdgesIndex.get(t);
+        if (edgeIds) {
+          for (const edgeId of edgeIds) {
+            const edge = this.edges.get(edgeId);
+            if (!edge) continue;
+            if (edge.projectId !== query.projectId) continue;
+            results.push(edge);
+          }
+        }
+      }
+    } else {
+      // Only projectId: use projectEdgesIndex
+      const edgeIds = this.projectEdgesIndex.get(query.projectId);
+      if (edgeIds) {
+        for (const edgeId of edgeIds) {
+          const edge = this.edges.get(edgeId);
+          if (!edge) continue;
+          results.push(edge);
+        }
+      }
     }
 
     const total = results.length;
@@ -487,27 +701,40 @@ export class InMemoryGraphStore {
 
   searchFts(
     query: string,
-    options?: { limit?: number; offset?: number; labels?: NodeLabel[] },
+    options?: { limit?: number; offset?: number; labels?: NodeLabel[]; projectId?: string },
   ): FtsSearchResult[] {
     this.ensureOpen();
     const limit = options?.limit ?? 20;
     const offset = options?.offset ?? 0;
 
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+
     const results: FtsSearchResult[] = [];
 
-    for (const node of this.nodes.values()) {
-      if (options?.labels && options.labels.length > 0) {
-        if (!options.labels.includes(node.label)) continue;
-      }
+    // Use project index to pre-filter nodes when available
+    const projectSet = options?.projectId ? this.projectNodesIndex.get(options.projectId) : null;
+    const labelSet = (options?.labels && options.labels.length > 0)
+      ? new Set(options.labels)
+      : null;
+
+    const iterateFn = (node: StoredNode): void => {
+      if (labelSet && !labelSet.has(node.label)) return;
 
       let bestRank = 0;
       let bestColumn = '';
       let snippet = '';
 
+      // Pre-compute lowercase versions for repeated use
+      const lowerName = node.name.toLowerCase();
+      const lowerQname = node.qualifiedName.toLowerCase();
+      const lowerSig = node.signature?.toLowerCase() ?? '';
+      const lowerDoc = node.docstring?.toLowerCase() ?? '';
+      const lowerPath = node.filePath?.toLowerCase() ?? '';
+
       for (const term of terms) {
-        // Search in name
-        if (node.name.toLowerCase().includes(term)) {
+        // Search in name (weight: 10)
+        if (lowerName.includes(term)) {
           const rank = 10;
           if (rank > bestRank) {
             bestRank = rank;
@@ -516,8 +743,8 @@ export class InMemoryGraphStore {
           }
         }
 
-        // Search in qualifiedName (weighted higher)
-        if (node.qualifiedName.toLowerCase().includes(term)) {
+        // Search in qualifiedName (weight: 8)
+        if (lowerQname.includes(term)) {
           const rank = 8;
           if (rank > bestRank) {
             bestRank = rank;
@@ -526,37 +753,37 @@ export class InMemoryGraphStore {
           }
         }
 
-        // Search in signature
-        if (node.signature && node.signature.toLowerCase().includes(term)) {
+        // Search in signature (weight: 5)
+        if (lowerSig.includes(term)) {
           const rank = 5;
           if (rank > bestRank) {
             bestRank = rank;
             bestColumn = 'signature';
-            snippet = this.highlightTerm(node.signature, term);
+            snippet = this.highlightTerm(node.signature!, term);
           }
         }
 
-        // Search in docstring
-        if (node.docstring && node.docstring.toLowerCase().includes(term)) {
+        // Search in docstring (weight: 3)
+        if (lowerDoc.includes(term)) {
           const rank = 3;
           if (rank > bestRank) {
             bestRank = rank;
             bestColumn = 'docstring';
-            snippet = this.highlightTerm(node.docstring, term);
+            snippet = this.highlightTerm(node.docstring!, term);
           }
         }
 
-        // Search in filePath
-        if (node.filePath && node.filePath.toLowerCase().includes(term)) {
+        // Search in filePath (weight: 2)
+        if (lowerPath.includes(term)) {
           const rank = 2;
           if (rank > bestRank) {
             bestRank = rank;
             bestColumn = 'filePath';
-            snippet = this.highlightTerm(node.filePath, term);
+            snippet = this.highlightTerm(node.filePath!, term);
           }
         }
 
-        // Search in decorators/properties
+        // Search in decorators/properties (weight: 1)
         const decorators = node.properties.decorators;
         if (decorators) {
           for (const d of decorators) {
@@ -572,23 +799,11 @@ export class InMemoryGraphStore {
         }
       }
 
-      // Penalize the rank based on the number of terms matched
-      // More terms matched = higher rank
-      const matchedTerms = terms.filter((t) => {
-        const text = [
-          node.name,
-          node.qualifiedName,
-          node.signature,
-          node.docstring,
-          node.filePath,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        return text.includes(t);
-      }).length;
-
+      // Boost rank based on number of matched terms
       if (bestRank > 0) {
+        const joined = [lowerName, lowerQname, lowerSig, lowerDoc, lowerPath]
+          .filter(Boolean).join(' ');
+        const matchedTerms = terms.filter((t) => joined.includes(t)).length;
         bestRank += matchedTerms * 3;
       }
 
@@ -600,6 +815,20 @@ export class InMemoryGraphStore {
           matchedColumn: bestColumn,
           snippet,
         });
+      }
+    };
+
+    if (projectSet) {
+      // Iterate only nodes in this project
+      for (const nodeId of projectSet) {
+        const node = this.nodes.get(nodeId);
+        if (node) iterateFn(node);
+      }
+    } else {
+      // Fallback: scan all nodes
+      for (const node of this.nodes.values()) {
+        if (labelSet && !labelSet.has(node.label)) continue;
+        iterateFn(node);
       }
     }
 
@@ -815,6 +1044,18 @@ export class InMemoryGraphStore {
       targetEdgeSnapshot: new Map(
         Array.from(this.targetEdgeIndex.entries()).map(([k, v]) => [k, new Set(v)]),
       ),
+      projectNodesSnapshot: new Map(
+        Array.from(this.projectNodesIndex.entries()).map(([k, v]) => [k, new Set(v)]),
+      ),
+      labelNodesSnapshot: new Map(
+        Array.from(this.labelNodesIndex.entries()).map(([k, v]) => [k, new Set(v)]),
+      ),
+      projectEdgesSnapshot: new Map(
+        Array.from(this.projectEdgesIndex.entries()).map(([k, v]) => [k, new Set(v)]),
+      ),
+      typeEdgesSnapshot: new Map(
+        Array.from(this.typeEdgesIndex.entries()).map(([k, v]) => [k, new Set(v)]),
+      ),
       nextNodeIdSnapshot: this.nextNodeId,
       nextEdgeIdSnapshot: this.nextEdgeId,
     };
@@ -833,6 +1074,10 @@ export class InMemoryGraphStore {
       this.qnameIndex = snapshot.qnameSnapshot;
       this.sourceEdgeIndex = snapshot.sourceEdgeSnapshot;
       this.targetEdgeIndex = snapshot.targetEdgeSnapshot;
+      this.projectNodesIndex = snapshot.projectNodesSnapshot;
+      this.labelNodesIndex = snapshot.labelNodesSnapshot;
+      this.projectEdgesIndex = snapshot.projectEdgesSnapshot;
+      this.typeEdgesIndex = snapshot.typeEdgesSnapshot;
       this.nextNodeId = snapshot.nextNodeIdSnapshot;
       this.nextEdgeId = snapshot.nextEdgeIdSnapshot;
       this.transactionStack.pop();
@@ -847,19 +1092,25 @@ export class InMemoryGraphStore {
   optimize(): void {
     this.ensureOpen();
     // In-memory store: rebuild indexes for efficiency
-    // Rebuild qname index
     this.qnameIndex.clear();
     this.sourceEdgeIndex.clear();
     this.targetEdgeIndex.clear();
+    this.projectNodesIndex.clear();
+    this.labelNodesIndex.clear();
+    this.projectEdgesIndex.clear();
+    this.typeEdgesIndex.clear();
     for (const node of this.nodes.values()) {
-      /* v8 ignore next */ // defensive: all nodes have qualifiedName in practice
       if (node.qualifiedName) {
         this.qnameIndex.set(node.qualifiedName, node.id);
       }
+      this.addToProjectNodesIndex(node.projectId, node.id);
+      this.addToLabelNodesIndex(node.label, node.id);
     }
     for (const edge of this.edges.values()) {
       this.addToIndex(this.sourceEdgeIndex, edge.sourceId, edge.id);
       this.addToIndex(this.targetEdgeIndex, edge.targetId, edge.id);
+      this.addToProjectEdgesIndex(edge.projectId, edge.id);
+      this.addToTypeEdgesIndex(edge.type, edge.id);
     }
   }
 
@@ -887,6 +1138,10 @@ export class InMemoryGraphStore {
     this.qnameIndex.clear();
     this.sourceEdgeIndex.clear();
     this.targetEdgeIndex.clear();
+    this.projectNodesIndex.clear();
+    this.labelNodesIndex.clear();
+    this.projectEdgesIndex.clear();
+    this.typeEdgesIndex.clear();
     this.patternCache.clear();
     this.closed = true;
   }

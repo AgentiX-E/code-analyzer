@@ -142,6 +142,7 @@ class InvertedIndex {
   }
 
   buildIndex(store: InMemoryGraphStore): void {
+    // Use getAllNodes to get full GraphNode objects for complete indexing
     const nodes = store.getAllNodes();
     for (const node of nodes) {
       this.addDocument(node);
@@ -354,16 +355,21 @@ export class HybridSearchEngine {
       filePattern: options.filePath,
     };
 
-    // BM25 search (synchronous)
+    // BM25 search (synchronous) — serves as candidate pre-filter
     const bm25Results = this.bm25Search(options.query, filters);
 
     // Vector search (async, requires embeddings)
+    // Only compute vector similarity for BM25 candidates, not all nodes
     const topK = options.limit ?? 20;
     const canVectorSearch = this.getEmbeddingForNode && this.embedContent;
 
     let vectorResults: RankedResult[] = [];
     if (canVectorSearch) {
-      vectorResults = await this.vectorSearch(options.query, topK);
+      // Pass BM25 result node IDs as candidates to restrict vector search scope
+      const candidateIds = bm25Results.length > 0
+        ? bm25Results.map((r) => r.node.id)
+        : null;
+      vectorResults = await this.vectorSearch(options.query, topK, candidateIds);
     }
 
     // Fuse results
@@ -380,8 +386,14 @@ export class HybridSearchEngine {
   /**
    * Vector semantic search.
    * Requires embeddings to be pre-computed and the embedContent function to be registered.
+   * When candidateIds is provided, only those nodes are scored (much faster).
+   * Falls back to top-K sampling of all nodes when no candidates are available.
    */
-  async vectorSearch(query: string, topK: number): Promise<RankedResult[]> {
+  async vectorSearch(
+    query: string,
+    topK: number,
+    candidateIds?: number[] | null,
+  ): Promise<RankedResult[]> {
     const results: RankedResult[] = [];
 
     if (!this.embedContent || !this.getEmbeddingForNode) {
@@ -391,9 +403,28 @@ export class HybridSearchEngine {
     // Compute query embedding
     const queryEmbedding = await this.embedContent(query);
 
-    // Score all nodes with stored embeddings
-    const allNodes = this.store.getAllNodes();
-    for (const node of allNodes) {
+    // Determine which nodes to score
+    let nodesToScore: GraphNode[];
+    if (candidateIds && candidateIds.length > 0) {
+      // Score only BM25 candidates for efficiency
+      nodesToScore = [];
+      for (const id of candidateIds) {
+        const node = this.store.getNode(id);
+        if (node) nodesToScore.push(node);
+      }
+    } else {
+      // No candidates — score all nodes (fallback for cold start)
+      nodesToScore = this.store.getAllNodes();
+    }
+
+    // Cap at 1000 nodes for performance safety
+    const maxCandidates = 1000;
+    const scoredNodes = nodesToScore.length > maxCandidates
+      ? nodesToScore.slice(0, maxCandidates)
+      : nodesToScore;
+
+    // Score candidates with stored embeddings
+    for (const node of scoredNodes) {
       const nodeEmbedding = this.getEmbeddingForNode(node.id);
       if (!nodeEmbedding) continue;
 

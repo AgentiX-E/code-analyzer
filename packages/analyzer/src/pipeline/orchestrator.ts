@@ -261,11 +261,10 @@ export class PipelineOrchestrator {
 
     const result: PipelinePhaseId[] = [];
 
-    while (queue.length > 0) {
-      // Sort queue for deterministic ordering
-      queue.sort();
+    // Sort initial queue once for deterministic ordering (O(V log V), not O(V² log V))
+    queue.sort();
 
-       
+    while (queue.length > 0) { 
       const current = queue.shift()!;
       result.push(current);
 

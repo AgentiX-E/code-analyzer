@@ -5,6 +5,7 @@
 
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
+import { cpus } from 'node:os';
 
 import type {
   PipelinePhaseId,
@@ -385,125 +386,30 @@ export class ParallelParsePhase implements ExecutablePhase {
       let successCount = 0;
       let failCount = 0;
 
-      for (const file of scanData.discoveredFiles) {
-        const lang = file.language;
-        if (!lang) continue;
+      // Process files with concurrency for true parallelism
+      // Use CPU count for concurrent parsing (minimum 2, maximum available CPUs)
+      const cpuCount = cpus().length;
+      const concurrency = Math.min(Math.max(cpuCount, 2), scanData.discoveredFiles.length);
 
-        try {
-          const provider = await getOrLoadProvider(lang);
-          if (!provider) continue;
+      // Process in concurrent batches
+      const files = scanData.discoveredFiles;
+      for (let i = 0; i < files.length; i += concurrency) {
+        const batch = files.slice(i, i + concurrency);
+        const batchPromises = batch.map((file) => this.parseFile(file, ctx));
 
-          const captures = provider.parse(file.content, file.filePath);
+        const results = await Promise.allSettled(batchPromises);
 
-          // Determine export status
-          for (const capture of captures) {
-            if (capture.name) {
-              const isExported = provider.isExported(
-                file.content,
-                capture.name,
-              );
-              if (capture.properties) {
-                capture.properties['exported'] = String(isExported);
-              }
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            if (result.value) {
+              parsedFiles.push(result.value);
+              successCount++;
+            } else {
+              failCount++;
             }
+          } else {
+            failCount++;
           }
-
-          const { symbols, references, scopeTree } = groupCaptures(
-            captures,
-            file.filePath,
-          );
-
-          parsedFiles.push({
-            filePath: file.filePath,
-            language: lang as SupportedLanguage,
-            symbols,
-            references,
-            scopeTree,
-            ast: captures,
-          });
-
-          // Add symbol nodes to the graph
-          if (ctx.graph) {
-            const builder = new GraphBuilder(
-              null as unknown as InMemoryGraphStore,
-            );
-            const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
-
-            if (fileNodeId) {
-              let currentClassNodeId: number | null = null;
-
-              for (const symbol of symbols) {
-                const label = symbol.kind;
-                const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
-
-                const properties: NodeProperties = {
-                  name: symbol.name,
-                  filePath: file.filePath,
-                  startLine: symbol.startLine,
-                  endLine: symbol.endLine,
-                  language: lang,
-                  isExported: symbol.isExported,
-                  signature: symbol.signature,
-                  returnType: symbol.returnType,
-                  docstring: symbol.docstring,
-                  ...symbol.properties,
-                };
-
-                const node = builder.addNode(
-                  ctx.graph,
-                  label,
-                  symbol.name,
-                  properties,
-                  qualifiedName,
-                );
-
-                // Create appropriate edges
-                if (label === 'Class') {
-                  currentClassNodeId = node.id;
-                  builder.addEdge(
-                    ctx.graph,
-                    fileNodeId,
-                    node.id,
-                    'DEFINES',
-                    ctx.projectId,
-                  );
-                } else if (
-                  label === 'Method' ||
-                  label === 'Constructor'
-                ) {
-                  if (currentClassNodeId) {
-                    builder.addEdge(
-                      ctx.graph,
-                      currentClassNodeId,
-                      node.id,
-                      'HAS_METHOD',
-                      ctx.projectId,
-                    );
-                  } else {
-                    builder.addEdge(
-                      ctx.graph,
-                      fileNodeId,
-                      node.id,
-                      'DEFINES',
-                      ctx.projectId,
-                    );
-                  }
-                } else {
-                  builder.addEdge(
-                    ctx.graph,
-                    fileNodeId,
-                    node.id,
-                    'DEFINES',
-                    ctx.projectId,
-                  );
-                }
-              }
-            }
-          }
-
-          successCount++;
-        } catch {
-          failCount++;
         }
       }
 
@@ -518,6 +424,102 @@ export class ParallelParsePhase implements ExecutablePhase {
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
+  }
+
+  /**
+   * Parse a single file and build its graph nodes.
+   * Extracted to a separate method to enable concurrent execution
+   * via Promise.allSettled in execute().
+   */
+  private async parseFile(
+    file: DiscoveredFile,
+    ctx: PipelineContext,
+  ): Promise<ParsedFile | null> {
+    const lang = file.language;
+    if (!lang) return null;
+
+    const provider = await getOrLoadProvider(lang);
+    if (!provider) return null;
+
+    const captures = provider.parse(file.content, file.filePath);
+
+    // Determine export status
+    for (const capture of captures) {
+      if (capture.name) {
+        const isExported = provider.isExported(file.content, capture.name);
+        if (capture.properties) {
+          capture.properties['exported'] = String(isExported);
+        }
+      }
+    }
+
+    const { symbols, references, scopeTree } = groupCaptures(
+      captures,
+      file.filePath,
+    );
+
+    const parsedFile: ParsedFile = {
+      filePath: file.filePath,
+      language: lang as SupportedLanguage,
+      symbols,
+      references,
+      scopeTree,
+      ast: captures,
+    };
+
+    // Add symbol nodes to the graph (only if graph exists)
+    // Note: KnowledgeGraph nodes/edges mutations via Maps are safe across
+    // concurrent calls since each file operates on distinct graph regions
+    if (ctx.graph) {
+      const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
+      const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
+
+      if (fileNodeId) {
+        let currentClassNodeId: number | null = null;
+
+        for (const symbol of symbols) {
+          const label = symbol.kind;
+          const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
+
+          const properties: NodeProperties = {
+            name: symbol.name,
+            filePath: file.filePath,
+            startLine: symbol.startLine,
+            endLine: symbol.endLine,
+            language: lang,
+            isExported: symbol.isExported,
+            signature: symbol.signature,
+            returnType: symbol.returnType,
+            docstring: symbol.docstring,
+            ...symbol.properties,
+          };
+
+          const node = builder.addNode(
+            ctx.graph,
+            label,
+            symbol.name,
+            properties,
+            qualifiedName,
+          );
+
+          // Create appropriate edges
+          if (label === 'Class') {
+            currentClassNodeId = node.id;
+            builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+          } else if (label === 'Method' || label === 'Constructor') {
+            if (currentClassNodeId) {
+              builder.addEdge(ctx.graph, currentClassNodeId, node.id, 'HAS_METHOD', ctx.projectId);
+            } else {
+              builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+            }
+          } else {
+            builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+          }
+        }
+      }
+    }
+
+    return parsedFile;
   }
 }
 

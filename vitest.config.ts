@@ -27,6 +27,7 @@ export default defineConfig({
       'tests/property/**/*.test.ts',
       'tests/benchmarks/ca-bench/__tests__/*.test.ts',
       'tests/benchmarks/real-world/__tests__/*.test.ts',
+      'tests/benchmarks/performance/*.bench.ts',
     ],
     exclude: [
       'packages/web/**',
@@ -133,6 +134,8 @@ export default defineConfig({
         'packages/intelligence/src/benchmark/benchmark-data.ts',
         // Performance benchmarks — not functional tests, inherently high branch count
         'packages/intelligence/src/__tests__/benchmarks/**',
+        // Performance benchmarks — not functional code, exempt from coverage
+        'tests/benchmarks/performance/**',
         // Smart response: complex enrichment logic with many graph-traversal branches.
         // Core paths are unit-tested; edge cases (cross-repo refs, alternative paths,
         // side-effect detection) tested via integration/e2e.
