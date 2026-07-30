@@ -1,8 +1,7 @@
 # @code-analyzer — Real-World Source Validation
 #
 # Runs the full code-analyzer pipeline against real open-source projects
-# (React, Vue, Django, Kubernetes, Spring Boot) to validate production
-# readiness on a weekly cadence.
+# (React, Vue, Django) to validate production readiness on a weekly cadence.
 #
 # Triggered:
 #   - Weekly schedule (Sunday at 00:00 UTC)
@@ -17,7 +16,8 @@ on:
   workflow_dispatch:
     inputs:
       projects:
-        description: 'Comma-separated list of projects to validate (react,vue,django,k8s,spring-boot)'
+        description: >-
+          Comma-separated list of projects (react,vue,django)
         required: false
         default: 'react,vue,django'
         type: string
@@ -37,14 +37,28 @@ env:
   NODE_VERSION: '22'
 
 jobs:
+  # ── Matrix Setup ──────────────────────────────────────────────────────────
+  setup-matrix:
+    name: 'Setup Validation Matrix'
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.set-matrix.outputs.projects }}
+    steps:
+      - id: set-matrix
+        run: |
+          INPUT="${{ inputs.projects || 'react,vue,django' }}"
+          echo "projects=[$(echo "$INPUT" | sed 's/, */","/g' | sed 's/^/"/;s/$/"/')]" >> "$GITHUB_OUTPUT"
+
+  # ── Validation ────────────────────────────────────────────────────────────
   validate:
     name: 'Validate: ${{ matrix.project }}'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    needs: [setup-matrix]
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON(github.event.inputs.projects && format('["{0}"]', join(github.event.inputs.projects, '","')) || '["react","vue","django"]') }}
+        project: ${{ fromJSON(needs.setup-matrix.outputs.projects) }}
         include:
           - project: react
             repo: https://github.com/facebook/react.git
@@ -80,14 +94,14 @@ jobs:
       - name: Clone ${{ matrix.project }}
         run: |
           REPO="${{ matrix.repo }}"
-          PROJECT=$(echo "${{ matrix.project }}" | tr '[:lower:]' '[:upper:]')
           echo "Cloning $REPO..."
-          git clone --depth 1 --branch "${{ matrix.branch }}" "$REPO" "/tmp/${{ matrix.project }}-src"
-          echo "Cloned ${{ matrix.project }} to /tmp/${{ matrix.project }}-src"
+          git clone --depth 1 \
+            --branch "${{ matrix.branch }}" \
+            "$REPO" "/tmp/${{ matrix.project }}-src"
+          echo "Cloned to /tmp/${{ matrix.project }}-src"
 
       - name: Run validation benchmark
         run: |
-          echo "Running ${{ matrix.project }} validation..."
           npx vitest run --config vitest.config.ts --reporter=verbose \
             --testNamePattern "${{ matrix.test_pattern }}"
         env:
@@ -97,24 +111,15 @@ jobs:
       - name: Collect report
         if: always()
         run: |
-          REPORT_PATH="tests/benchmarks/real-world/${{ matrix.project }}-analysis-report.json"
-          if [ -f "$REPORT_PATH" ]; then
-            echo "Report found at $REPORT_PATH"
-            # Extract key metrics for summary
-            SUCCESS_RATE=$(jq -r '.parse.successRate // "N/A"' "$REPORT_PATH")
-            FILES=$(jq -r '.parse.totalFiles // "N/A"' "$REPORT_PATH")
-            SYMBOLS=$(jq -r '.symbols.totalCount // "N/A"' "$REPORT_PATH")
-            MEMORY=$(jq -r '.memory.deltaRssMB // "N/A"' "$REPORT_PATH")
-            echo "SUCCESS_RATE=${SUCCESS_RATE}" >> "$GITHUB_ENV"
-            echo "FILES=${FILES}" >> "$GITHUB_ENV"
-            echo "SYMBOLS=${SYMBOLS}" >> "$GITHUB_ENV"
-            echo "MEMORY=${MEMORY}" >> "$GITHUB_ENV"
+          RP="tests/benchmarks/real-world/${{ matrix.project }}-analysis-report.json"
+          if [ -f "$RP" ]; then
+            echo "Report found at $RP"
+            jq -r '"SUCCESS_RATE=\(.parse.successRate)"' "$RP" >> "$GITHUB_ENV"
+            jq -r '"FILES=\(.parse.totalFiles)"' "$RP" >> "$GITHUB_ENV"
+            jq -r '"SYMBOLS=\(.symbols.totalCount)"' "$RP" >> "$GITHUB_ENV"
+            jq -r '"MEMORY=\(.memory.deltaRssMB)"' "$RP" >> "$GITHUB_ENV"
           else
-            echo "No report generated for ${{ matrix.project }}"
-            echo "SUCCESS_RATE=N/A" >> "$GITHUB_ENV"
-            echo "FILES=N/A" >> "$GITHUB_ENV"
-            echo "SYMBOLS=N/A" >> "$GITHUB_ENV"
-            echo "MEMORY=N/A" >> "$GITHUB_ENV"
+            echo "No report for ${{ matrix.project }}"
           fi
 
       - name: Upload validation report
@@ -122,7 +127,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.project }}-validation-report
-          path: |
+          path: >-
             tests/benchmarks/real-world/${{ matrix.project }}-analysis-report.json
           retention-days: 90
           if-no-files-found: ignore
@@ -136,19 +141,10 @@ jobs:
     steps:
       - name: Generate summary
         run: |
-          echo "## 🔬 Real-World Validation Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Project | Status | Files | Parse Rate | Symbols | Memory Δ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---------|--------|-------|------------|---------|----------|" >> "$GITHUB_STEP_SUMMARY"
-
-          RESULTS="${{ needs.validate.result }}"
-          if [ "$RESULTS" = "success" ]; then
-            echo "| All | ✅ Pass | — | — | — | — |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| All | ⚠️ Some Failed | — | — | — | — |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "> Reports available as workflow artifacts (90-day retention)." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## 🔬 Real-World Validation Summary"
+            echo ""
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "> Reports available as workflow artifacts (90-day retention)."
+          } >> "$GITHUB_STEP_SUMMARY"
