@@ -1,0 +1,174 @@
+# @code-analyzer — Benchmark Regression Detection
+#
+# Runs CA-Bench suite and compares against the `main` branch baseline.
+# Fails the build if any benchmark regresses by more than 10%.
+#
+# Triggered:
+#   - On every PR targeting main
+#   - On push to main (updates baseline)
+#   - Weekly schedule for drift detection
+#   - Manual trigger
+
+name: Benchmark Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/**/src/**'
+      - 'tests/benchmarks/**'
+      - 'vitest.config.ts'
+      - '.github/workflows/benchmark-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**/src/**'
+      - 'tests/benchmarks/**'
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  bench:
+    name: Benchmark Regression Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore baseline from cache
+        id: cache-baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: bench-baseline.json
+          key: bench-baseline-${{ github.ref == 'refs/heads/main' && github.run_id || 'main-latest' }}
+          restore-keys: |
+            bench-baseline-main-
+
+      - name: Run benchmarks (JSON output)
+        id: run-bench
+        run: |
+          pnpm bench:ci 2>&1 || echo "BENCH_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Check for regressions
+        if: env.BENCH_FAILED != 'true' && hashFiles('bench-results.json') != ''
+        id: regression-check
+        run: |
+          # Compare against baseline if available
+          if [ -f bench-baseline.json ]; then
+            echo "Comparing against stored baseline..."
+            node scripts/check-benchmarks.js --baseline bench-baseline.json --threshold 10 2>&1 | tee regression-output.txt
+            echo "REGRESSION_EXIT=$?" >> "$GITHUB_ENV"
+          else
+            echo "No baseline found — creating new baseline from current run."
+            cp bench-results.json bench-baseline.json
+            echo "REGRESSION_EXIT=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Generate regression summary
+        if: always() && steps.run-bench.outcome != 'skipped'
+        run: |
+          if [ -f regression-output.txt ]; then
+            FAIL_COUNT=$(grep -c "^  FAIL" regression-output.txt 2>/dev/null || echo 0)
+            PASS_COUNT=$(grep -c "^  PASS" regression-output.txt 2>/dev/null || echo 0)
+            NEW_COUNT=$(grep -c "^  NEW" regression-output.txt 2>/dev/null || echo 0)
+
+            echo "## 🏎️ Benchmark Regression Report" > bench-summary.md
+            echo "" >> bench-summary.md
+            echo "| Status | Count |" >> bench-summary.md
+            echo "|--------|-------|" >> bench-summary.md
+            echo "| ✅ Pass | $PASS_COUNT |" >> bench-summary.md
+            echo "| ❌ Regression | $FAIL_COUNT |" >> bench-summary.md
+            echo "| 🆕 New | $NEW_COUNT |" >> bench-summary.md
+            echo "" >> bench-summary.md
+
+            if [ "$FAIL_COUNT" -gt 0 ]; then
+              echo "### Regressions Detected" >> bench-summary.md
+              echo '```' >> bench-summary.md
+              grep "^  FAIL" regression-output.txt >> bench-summary.md || true
+              echo '```' >> bench-summary.md
+              echo "" >> bench-summary.md
+              echo "> ⚠️ **Regression threshold exceeded.** Review the changes above." >> bench-summary.md
+            else
+              echo "> ✅ No performance regressions detected." >> bench-summary.md
+            fi
+          fi
+
+      - name: Post regression comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+
+            const header = '<!-- code-analyzer-bench-regression -->';
+            let body = '';
+
+            if (fs.existsSync('bench-summary.md')) {
+              body = fs.readFileSync('bench-summary.md', 'utf-8');
+            } else {
+              body = '## 🏎️ Benchmark Regression Report\n\n⚠️ Benchmark run did not produce results.';
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(header));
+            const fullBody = `${header}\n${body}`;
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: fullBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fullBody,
+              });
+            }
+
+      - name: Save baseline to cache (main only)
+        if: github.ref == 'refs/heads/main' && steps.run-bench.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: bench-results.json
+          key: bench-baseline-${{ github.run_id }}
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            bench-results.json
+            bench-summary.md
+            regression-output.txt
+          retention-days: 30

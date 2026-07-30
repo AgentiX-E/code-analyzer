@@ -1,0 +1,33 @@
+# @code-analyzer — Release Drafter
+#
+# Automatically drafts the next release notes based on merged PR labels.
+# Updates the draft on every push to main.
+#
+# Triggered:
+#   - On push to main
+#   - Manually via workflow_dispatch
+
+name: Release Drafter
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  update-release-draft:
+    name: Update Release Draft
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Draft release notes
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter-config.yml
+          disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

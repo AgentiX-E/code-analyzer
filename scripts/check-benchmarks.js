@@ -27,6 +27,12 @@ const BASELINE_FILE = resolve(
     : 'bench-baseline.json',
 );
 
+const REGRESSION_THRESHOLD_PCT = Number(
+  process.argv.includes('--threshold')
+    ? process.argv[process.argv.indexOf('--threshold') + 1]
+    : 20,
+);
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -79,7 +85,7 @@ function main(): void {
         ? ((bench.durationMs - baselineMs) / baselineMs) * 100
         : 0;
 
-    if (increasePercent > 20) {
+    if (increasePercent > REGRESSION_THRESHOLD_PCT) {
       regressions.push({
         name: bench.name,
         baselineMs,

@@ -1,0 +1,154 @@
+# @code-analyzer — Coverage Gate
+#
+# Runs full test suite with coverage and enforces ≥95% threshold on all
+# four dimensions: lines, branches, functions, statements.
+#
+# Triggered:
+#   - On push to main
+#   - On PRs targeting main
+#   - Manually via workflow_dispatch
+
+name: Coverage Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  coverage:
+    name: Coverage ≥95%
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests with coverage
+        id: coverage
+        run: |
+          npx vitest run --config vitest.config.ts --coverage \
+            --coverage.enabled=true \
+            --coverage.provider=v8 \
+            --coverage.reporter=json \
+            --coverage.reporter=json-summary \
+            --coverage.reporter=text \
+            --coverage.reportsDirectory=coverage
+
+      - name: Check coverage thresholds
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "::error::Coverage summary not found — test run may have failed."
+            exit 1
+          fi
+
+          node scripts/coverage-report.js --threshold 95 --json coverage/coverage-summary.json
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+      - name: Post coverage comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+
+            let reportText = '';
+            try {
+              reportText = fs.readFileSync('coverage/coverage-summary.json', 'utf-8');
+            } catch {
+              reportText = 'Coverage report generation failed.';
+            }
+
+            let summary;
+            try {
+              summary = JSON.parse(reportText);
+            } catch {
+              summary = null;
+            }
+
+            let body = '## 📊 Coverage Report\n\n';
+            body += '| Dimension | Covered | Total | % | Status |\n';
+            body += '|-----------|---------|-------|---|--------|\n';
+
+            const threshold = 95;
+            let allPass = true;
+
+            if (summary && summary.total) {
+              const dims = [
+                { key: 'lines', label: 'Lines' },
+                { key: 'branches', label: 'Branches' },
+                { key: 'functions', label: 'Functions' },
+                { key: 'statements', label: 'Statements' },
+              ];
+
+              for (const dim of dims) {
+                const d = summary.total[dim.key];
+                if (d) {
+                  const pct = Number(d.pct || 0).toFixed(1);
+                  const pass = Number(pct) >= threshold;
+                  if (!pass) allPass = false;
+                  body += `| ${dim.label} | ${d.covered || 0} | ${d.total || 0} | ${pct}% | ${pass ? '✅' : '❌'} |\n`;
+                }
+              }
+            } else {
+              body += '| — | — | — | — | ⚠️ No data |\n';
+            }
+
+            body += `\n**Threshold:** ≥${threshold}%\n`;
+            body += allPass ? '\n✅ All coverage dimensions meet the threshold.\n' : '\n❌ Coverage threshold not met — see details above.\n';
+
+            // Post or update comment
+            const header = '<!-- code-analyzer-coverage -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(header));
+            const fullBody = `${header}\n${body}`;
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: fullBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: fullBody,
+              });
+            }
