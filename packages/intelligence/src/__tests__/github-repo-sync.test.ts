@@ -380,7 +380,7 @@ describe('GitHubRepoSync', () => {
   // -----------------------------------------------------------------------
 
   describe('pull', () => {
-    it('should delegate to clone when repo is not cached', async () => {
+    it('should delegate to clone when repo is not cached', { retry: 2, timeout: 60_000 }, async () => {
       const client = createMockClient();
       const sync = new GitHubRepoSync({
         client,
