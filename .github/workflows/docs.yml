@@ -1,0 +1,188 @@
+# @code-analyzer — Documentation CI
+#
+# Validates documentation quality: broken links, README structure,
+# and ensures all doc files are well-formed.
+#
+# Triggered:
+#   - Push to main when documentation changes
+#   - Manual workflow_dispatch
+
+name: Documentation CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.md'
+      - 'docs/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'CHANGELOG.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Link Checker ──────────────────────────────────────────────────────────
+  link-check:
+    name: 'Check Markdown Links'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all links in markdown files
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >
+            --verbose
+            --no-progress
+            --max-retries 3
+            --timeout 30
+            --accept 200,201,202,203,204,206,301,302,304,307,308
+            --exclude '^https://github.com/AgentiX-E/code-analyzer/(issues|pulls)/\d+'
+            --exclude '^https://codecov.io/.*'
+            --exclude '^https://img.shields.io/.*'
+            --exclude '^http://localhost:.*'
+            --exclude '^file://'
+            --exclude '^mailto:'
+            './**/*.md'
+          failIfEmpty: false
+          format: markdown
+
+      - name: Upload link check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-check-report
+          path: lychee-out.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ── README Structure Validator ────────────────────────────────────────────
+  readme-check:
+    name: 'Validate README Structure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check README has required sections
+        run: |
+          if [ ! -f README.md ]; then
+            echo "::error::README.md not found"
+            exit 1
+          fi
+
+          MISSING_SECTIONS=""
+
+          # Required sections for a quality README
+          check_section() {
+            local section="$1"
+            if ! grep -qi "^## .*$section" README.md; then
+              MISSING_SECTIONS="${MISSING_SECTIONS}  - $section\n"
+            fi
+          }
+
+          check_section "Overview"
+          check_section "Features"
+          check_section "Install"
+          check_section "Usage"
+          check_section "Architecture"
+          check_section "Contributing"
+
+          if [ -n "$MISSING_SECTIONS" ]; then
+            echo "::warning::README.md missing recommended sections:"
+            printf "%b" "$MISSING_SECTIONS"
+          else
+            echo "✅ README.md has all recommended sections."
+          fi
+
+          # Check for broken relative links in README
+          echo ""
+          echo "Checking README internal links..."
+          grep -oP '\[.*?\]\(\K[^)]+' README.md | while read -r link; do
+            # Skip external URLs and anchors
+            if echo "$link" | grep -qE '^(https?://|#|mailto:)'; then
+              continue
+            fi
+            # Resolve relative to repo root
+            resolved="./${link}"
+            if [ ! -f "$resolved" ] && [ ! -d "$resolved" ]; then
+              echo "::warning::Broken internal link in README: $link"
+            fi
+          done
+
+  # ── Markdown Lint ─────────────────────────────────────────────────────────
+  markdown-lint:
+    name: 'Lint Markdown Files'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.0'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install markdownlint
+        run: pnpm add -g markdownlint-cli
+
+      - name: Lint markdown files
+        run: |
+          markdownlint '**/*.md' \
+            --ignore node_modules \
+            --ignore packages/*/node_modules \
+            --ignore .git \
+            --disable MD013 MD033 MD041 MD024 \
+            || echo "::warning::Markdown lint issues found (non-blocking)"
+
+  # ── Doc Summary ───────────────────────────────────────────────────────────
+  doc-summary:
+    name: 'Documentation Summary'
+    runs-on: ubuntu-latest
+    needs: [link-check, readme-check, markdown-lint]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 📚 Documentation CI Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          LK="${{ needs.link-check.result }}"
+          RC="${{ needs.readme-check.result }}"
+          ML="${{ needs.markdown-lint.result }}"
+
+          echo "| Check | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$LK" = "success" ]; then
+            echo "| Link Check | ✅ Pass |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Link Check | ⚠️ Issues Found |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$RC" = "success" ]; then
+            echo "| README Structure | ✅ Pass |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| README Structure | ⚠️ Issues Found |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$ML" = "success" ]; then
+            echo "| Markdown Lint | ✅ Pass |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Markdown Lint | ⚠️ Issues Found |" >> "$GITHUB_STEP_SUMMARY"
+          fi
