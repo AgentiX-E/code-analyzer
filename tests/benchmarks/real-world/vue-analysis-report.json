@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-30T23:49:07.392Z",
+  "timestamp": "2026-07-30T23:49:59.192Z",
   "vueSourceSize": {
     "totalFiles": 268,
     "totalLines": 57171,
@@ -7,14 +7,14 @@
   },
   "scan": {
     "filesDiscovered": 268,
-    "scanTimeMs": 9.225776000000224
+    "scanTimeMs": 10.858328000000029
   },
   "parse": {
     "totalFiles": 268,
     "successCount": 268,
     "failCount": 0,
     "successRate": 100,
-    "parseTimeMs": 11292.476956999999,
+    "parseTimeMs": 11582.991834,
     "languageBreakdown": [
       {
         "language": "javascript",
@@ -24,7 +24,7 @@
         "symbolCount": 4,
         "avgSymbolsPerFile": 0,
         "parseRate": 100,
-        "totalTimeMs": 11292.476956999999
+        "totalTimeMs": 11582.991834
       },
       {
         "language": "typescript",
@@ -34,7 +34,7 @@
         "symbolCount": 5668,
         "avgSymbolsPerFile": 23,
         "parseRate": 100,
-        "totalTimeMs": 11292.476956999999
+        "totalTimeMs": 11582.991834
       }
     ],
     "perFileStats": [
@@ -1173,25 +1173,25 @@
     "interPackageImports": 268
   },
   "memory": {
-    "beforeRssMB": 67.50390625,
-    "afterRssMB": 240.66796875,
-    "deltaRssMB": 173.1640625,
-    "heapUsedMB": 19.931549072265625
+    "beforeRssMB": 67.94921875,
+    "afterRssMB": 241.5625,
+    "deltaRssMB": 173.61328125,
+    "heapUsedMB": 20.793609619140625
   },
   "comparison": {
     "react": {
       "files": 1897,
-      "parseRate": 67.2,
+      "parseRate": 63.8,
       "successRate": 100,
       "symbols": 52276,
-      "parseTimeMs": 28244.940434
+      "parseTimeMs": 29724.34278
     },
     "vue": {
       "files": 268,
-      "parseRate": 23.7,
+      "parseRate": 23.1,
       "successRate": 100,
       "symbols": 5672,
-      "parseTimeMs": 11292.476956999999
+      "parseTimeMs": 11582.991834
     },
     "notes": "Direct comparison between React (facebook/react) and Vue (vuejs/core) source code analysis benchmarks."
   }
