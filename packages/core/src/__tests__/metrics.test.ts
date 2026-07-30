@@ -41,6 +41,16 @@ describe('DefaultMetricsCollector', () => {
       expect(metrics.getCounter('requests', { method: 'POST' })).toBe(1);
     });
 
+    it('should support multiple tags (multi-dimensional)', () => {
+      metrics.incrementCounter('http', 1, { method: 'GET', status: '200' });
+      metrics.incrementCounter('http', 1, { method: 'GET', status: '404' });
+      metrics.incrementCounter('http', 1, { method: 'POST', status: '200' });
+
+      expect(metrics.getCounter('http', { method: 'GET', status: '200' })).toBe(1);
+      expect(metrics.getCounter('http', { method: 'GET', status: '404' })).toBe(1);
+      expect(metrics.getCounter('http', { method: 'POST', status: '200' })).toBe(1);
+    });
+
     it('should return 0 for non-existent counters', () => {
       expect(metrics.getCounter('nonexistent')).toBe(0);
     });

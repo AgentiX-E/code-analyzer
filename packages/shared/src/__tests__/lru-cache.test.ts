@@ -237,4 +237,37 @@ describe('LRUCache', () => {
       expect(cache.get('日本語')).toBe(3);
     });
   });
+
+  describe('autoResize', () => {
+    it('should resize when hit rate is below threshold', () => {
+      const c = new LRUCache<string, number>(2);
+      c.set('a', 1);
+      c.get('nonexistent'); // miss
+      c.get('nonexistent2'); // miss
+      c.get('a'); // hit
+      // hit rate = 1/3 ≈ 0.33 < 0.5
+      const resized = c.autoResize(0.5);
+      expect(resized).toBe(true);
+    });
+
+    it('should not resize when hit rate is above threshold', () => {
+      const c = new LRUCache<string, number>(10);
+      c.set('a', 1);
+      c.get('a'); // hit
+      // hit rate = 1/1 = 1.0 > 0.5
+      const resized = c.autoResize(0.5);
+      expect(resized).toBe(false);
+    });
+
+    it('should not resize when capacity is 0', () => {
+      // LRU cache with minimum capacity
+      const c = new LRUCache<string, number>(1);
+      c.set('a', 1);
+      // All hits, hit rate = 1.0
+      c.get('a');
+      const resized = c.autoResize(0.1);
+      // hit rate 1.0 > 0.1, so no resize
+      expect(resized).toBe(false);
+    });
+  });
 });

@@ -170,7 +170,6 @@ export class LRUCache<K = string, V = unknown> {
    * Auto-resize: if hit rate drops below the given threshold,
    * double the cache capacity. Returns true if resize occurred.
    */
-  /* v8 ignore start -- @preserve */ // auto-resize: heuristic tuning tested via integration benchmarks
   autoResize(hitRateThreshold = 0.5): boolean {
     if (this.hitRate < hitRateThreshold && this._capacity > 0) {
       this._capacity *= 2;
@@ -178,7 +177,6 @@ export class LRUCache<K = string, V = unknown> {
     }
     return false;
   }
-  /* v8 ignore stop -- @preserve */
 
   /** Hit rate as a fraction (0–1). */
   get hitRate(): number {

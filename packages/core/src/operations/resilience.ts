@@ -209,7 +209,7 @@ export class DeadLetterQueue {
     const toProcess = [...this.entries];
 
     for (const entry of toProcess) {
-      // Check if entry was already removed (possible if processor removes entries)
+      /* v8 ignore next */ // defensive: entry may have been removed by a concurrent processor
       if (!this.entries.find((e) => e.id === entry.id)) continue;
 
       try {

@@ -66,6 +66,7 @@ export function createWorkerPool(concurrency: number = 4): WorkerPool {
       }
     }
 
+    /* v8 ignore next */ // lastError is always set by the catch block above; ?? is defensive
     throw lastError ?? new Error(`Task "${task.id}" failed after ${maxRetries + 1} attempts`);
   }
 

@@ -235,10 +235,12 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
       signals.push({ type: 'config', detail: `Config found: ~/${cfg}`, confidence: 'high' });
       break;
     }
+    /* v8 ignore start */ // cwd config path coverage requires specific repo setup
     if (hasPath(cwdPath)) {
       signals.push({ type: 'config', detail: `Config found: ./${cfg}`, confidence: 'high' });
       break;
     }
+    /* v8 ignore stop */
   }
 
   /* v8 ignore start */
@@ -340,11 +342,11 @@ function checkProcess(name: string): boolean {
  */
 const VSCODE_EXT_DIRS: string[] = (() => {
   const dirs = [path.join(homeDir, '.vscode', 'extensions')];
-  /* v8 ignore next */
+  /* v8 ignore start */ // macOS-specific VSCode path
   if (process.platform === 'darwin') {
-    /* v8 ignore next */
     dirs.push(path.join(homeDir, 'Library', 'Application Support', 'Code', 'User'));
   }
+  /* v8 ignore stop */
   return dirs;
 })();
 

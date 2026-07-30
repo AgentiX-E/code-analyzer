@@ -127,6 +127,7 @@ export class RBACEngine {
     visited.add(role);
 
     const definition = this.roleDefinitions.get(role);
+    /* v8 ignore next */ // defensive: inherited role without definition (data inconsistency)
     if (!definition) return;
 
     for (const perm of definition.permissions) {

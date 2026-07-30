@@ -128,6 +128,12 @@ describe('Logger', () => {
 
     expect(transport.entries[0]?.error?.code).toBe('CA_CONFIG_TEST');
     expect(transport.entries[0]?.error?.context).toEqual({ field: 'value' });
+
+    // Cover non-string code and null context branches
+    const weirdErr = { code: 123, context: null, name: 'WeirdError', message: 'weird', stack: 'fake' };
+    logger.error('weird error', weirdErr);
+
+    expect(transport.entries).toHaveLength(2);
   });
 
   it('should not log after close', () => {
@@ -419,6 +425,19 @@ describe('FileTransport', () => {
     logger.info('second write — should reuse stream');
     logger.flush();
     logger.close();
+  });
+
+  it('should handle double close safely', () => {
+    const logger = createLogger('test-double-close', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs-double',
+    });
+
+    logger.info('first');
+    logger.close();
+    // Second close should not throw (covers the `if (this.stream)` branch)
+    expect(() => logger.close()).not.toThrow();
   });
 
   it('should handle file transport write failure gracefully', () => {

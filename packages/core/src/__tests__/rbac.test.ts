@@ -107,6 +107,20 @@ describe('RBACEngine', () => {
     it('should handle revoking role from non-existent user', () => {
       expect(() => engine.revokeRole('non-existent', 'viewer')).not.toThrow();
     });
+
+    it('should clean up user entry when all roles are revoked', () => {
+      engine.defineRole('viewer', {
+        name: 'viewer',
+        permissions: ['analysis:read'],
+      });
+
+      engine.assignRole('user-cleanup', 'viewer');
+      expect(engine.hasRole('user-cleanup', 'viewer')).toBe(true);
+
+      engine.revokeRole('user-cleanup', 'viewer');
+      expect(engine.hasRole('user-cleanup', 'viewer')).toBe(false);
+      expect(engine.getRoles('user-cleanup')).toEqual([]);
+    });
   });
 
   // -----------------------------------------------------------------------
