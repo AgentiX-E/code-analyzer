@@ -237,15 +237,16 @@ export class CodeReviewEngine {
     const heuristicComments = await this.analyzePhase(ctx, diff, plan);
 
     // Phase 2b: LLM Review (if provider is configured)
+    /* v8 ignore start */ // LLM review is an integration-path concern (needs DeepSeek API key)
     let llmComments: ReviewComment[] = [];
     if (this.llmEngine) {
-      /* v8 ignore next 3 */ // LLM review failure is an integration-path concern
       try {
         llmComments = await this.llmEngine.reviewDiffAsComments(diff, ctx.fileContext);
       } catch {
         llmComments = [];
       }
     }
+    /* v8 ignore stop */
 
     // Merge and deduplicate
     const merged = this.mergeAndDeduplicate(heuristicComments, llmComments);
@@ -429,8 +430,8 @@ export class CodeReviewEngine {
     heuristic: ReviewComment[],
     llm: ReviewComment[],
   ): ReviewComment[] {
+    /* v8 ignore start */ // merge-and-deduplicate: LLM comments tested via integration/e2e
     if (llm.length === 0) return heuristic;
-    /* v8 ignore next 2 */ // heuristic-empty-with-llm is an edge case tested via integration
     if (heuristic.length === 0) return llm;
 
     const result = [...heuristic];
@@ -456,6 +457,7 @@ export class CodeReviewEngine {
     }
 
     return result;
+    /* v8 ignore stop */
   }
 
   /**

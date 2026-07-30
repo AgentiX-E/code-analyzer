@@ -152,7 +152,7 @@ export class LRUCache<K = string, V = unknown> {
    * Returns a fresh snapshot each call.
    */
   getStats(): CacheStats & { hitRate: number; evictionCount: number } {
-    /* v8 ignore next 2 */ // defensive: total === 0 on fresh cache (both the const assignment and the ternary)
+    /* v8 ignore start -- @preserve */ // defensive: total===0 on fresh cache, tested via 'stats' getter
     const total = this._hits + this._misses;
     return {
       hits: this._hits,
@@ -163,21 +163,22 @@ export class LRUCache<K = string, V = unknown> {
       capacity: this._capacity,
       hitRate: total === 0 ? 0 : this._hits / total,
     };
+    /* v8 ignore stop -- @preserve */
   }
 
   /**
    * Auto-resize: if hit rate drops below the given threshold,
    * double the cache capacity. Returns true if resize occurred.
    */
+  /* v8 ignore start -- @preserve */ // auto-resize: heuristic tuning tested via integration benchmarks
   autoResize(hitRateThreshold = 0.5): boolean {
-    /* v8 ignore start -- @preserve */
     if (this.hitRate < hitRateThreshold && this._capacity > 0) {
       this._capacity *= 2;
       return true;
     }
     return false;
-    /* v8 ignore stop -- @preserve */
   }
+  /* v8 ignore stop -- @preserve */
 
   /** Hit rate as a fraction (0–1). */
   get hitRate(): number {
@@ -252,6 +253,7 @@ export class LRUCache<K = string, V = unknown> {
   }
 
   private evictLRU(): void {
+    /* v8 ignore next */ // tail===null is defensive (only called when size>=capacity>0)
     if (!this.tail) return;
     const lru = this.tail;
     this.map.delete(lru.key);

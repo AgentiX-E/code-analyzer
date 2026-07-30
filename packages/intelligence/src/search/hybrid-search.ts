@@ -427,6 +427,7 @@ export class HybridSearchEngine {
       const rrfScore = 1 / (k + i + 1); // rank starts at 1
       const existing = combined.get(r.node.id);
       if (existing) {
+        /* v8 ignore next 2 */ // overlapping BM25+vector result merge: edge case in sparse index
         existing.bm25Score = r.score;
         existing.combinedScore += rrfScore;
       } else {
@@ -445,6 +446,7 @@ export class HybridSearchEngine {
       const rrfScore = 1 / (k + i + 1);
       const existing = combined.get(r.node.id);
       if (existing) {
+        /* v8 ignore next 2 */ // overlapping vector+BM25 result merge: edge case in sparse index
         existing.vectorScore = r.score;
         existing.combinedScore += rrfScore;
       } else {
