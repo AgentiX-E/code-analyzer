@@ -138,31 +138,44 @@ export class GoProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'import_declaration') {
+      // Handle both single imports (import "fmt") and grouped imports (import ( ... ))
+      const specNodes: TreeSitterSyntaxNode[] = [];
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
         if (child.type === 'import_spec') {
-          let path = '';
-          let alias: string | undefined;
-          for (let j = 0; j < child.childCount; j++) {
-            const sub = child.child(j);
-            if (sub.type === 'interpreted_string_literal') {
-              path = sub.text.slice(1, -1);
-            } else if (sub.type === 'package_identifier') {
-              alias = sub.text;
+          specNodes.push(child);
+        } else if (child.type === 'import_spec_list') {
+          // Grouped imports: import_spec children are inside import_spec_list
+          for (let j = 0; j < child.namedChildCount; j++) {
+            const spec = child.namedChild(j);
+            if (spec.type === 'import_spec') {
+              specNodes.push(spec);
             }
           }
-          if (path) {
-            captures.push({
-              tag: CAPTURE_TAGS.IMPORT,
-              text: path,
-              startLine: node.startPosition.row + 1,
-              endLine: node.endPosition.row + 1,
-              startByte: node.startIndex,
-              endByte: node.endIndex,
-              name: path,
-              properties: { alias: alias ?? '', filePath: this.filePath },
-            });
+        }
+      }
+      for (const spec of specNodes) {
+        let path = '';
+        let alias: string | undefined;
+        for (let j = 0; j < spec.childCount; j++) {
+          const sub = spec.child(j);
+          if (sub.type === 'interpreted_string_literal') {
+            path = sub.text.slice(1, -1);
+          } else if (sub.type === 'package_identifier') {
+            alias = sub.text;
           }
+        }
+        if (path) {
+          captures.push({
+            tag: CAPTURE_TAGS.IMPORT,
+            text: path,
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+            startByte: node.startIndex,
+            endByte: node.endIndex,
+            name: path,
+            properties: { alias: alias ?? '', filePath: this.filePath },
+          });
         }
       }
     } else if (nodeType === 'var_declaration' || nodeType === 'const_declaration') {
