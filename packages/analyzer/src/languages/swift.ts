@@ -154,10 +154,14 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       }
     }
 
-    // Function declarations — tree-sitter-swift uses simple_identifier for name
+    // Function declarations — handle async/throws modifiers
     else if (nodeType === 'function_declaration') {
-      const nameNode = this.findNamedChild(node, 'simple_identifier');
+      let nameNode = this.findNamedChild(node, 'simple_identifier');
+      if (!nameNode) nameNode = this.findNamedChild(node, 'identifier');
       if (nameNode) {
+        // Detect async, throws, and modifier keywords
+        const hasAsync = node.text.includes('async');
+        const hasThrows = node.text.includes('throws') || node.text.includes('rethrows');
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
           text: sourceText,
@@ -166,8 +170,61 @@ export class SwiftProvider extends TreeSitterBaseProvider {
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { filePath: this.filePath },
+          properties: {
+            filePath: this.filePath,
+            isAsync: String(hasAsync),
+            hasThrows: String(hasThrows),
+          },
         });
+      }
+    }
+
+    // Actor declarations (Swift 5.5+ concurrency)
+    else if (nodeType === 'actor_declaration' || sourceText.startsWith('actor ')) {
+      const nameNode = this.findNamedChild(node, 'type_identifier') ?? this.findNamedChild(node, 'identifier');
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: sourceText,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { isActor: 'true', filePath: this.filePath },
+        });
+      }
+    }
+
+    // Result builder attribute (@resultBuilder)
+    else if (nodeType === 'attribute') {
+      if (sourceText.includes('resultBuilder')) {
+        // Find the attributed declaration name (usually the next sibling in parent)
+        const parent = node.parent;
+        if (parent) {
+          for (let i = 0; i < parent.namedChildCount; i++) {
+            const sibling = parent.namedChild(i);
+            if (sibling !== node &&
+                (sibling.type === 'struct_declaration' || sibling.type === 'class_declaration' ||
+                 sibling.type === 'enum_declaration' || sibling.type === 'function_declaration')) {
+              const sibName = this.findNamedChild(sibling, 'type_identifier') ??
+                this.findNamedChild(sibling, 'identifier') ??
+                this.findNamedChild(sibling, 'simple_identifier');
+              if (sibName) {
+                captures.push({
+                  tag: CAPTURE_TAGS.FUNCTION_DEF,
+                  text: `@resultBuilder ${sibName.text}`,
+                  startLine: sibling.startPosition.row + 1,
+                  endLine: sibling.endPosition.row + 1,
+                  startByte: sibName.startIndex,
+                  endByte: sibName.endIndex,
+                  name: sibName.text,
+                  properties: { isResultBuilder: 'true', filePath: this.filePath },
+                });
+              }
+            }
+          }
+        }
       }
     }
 

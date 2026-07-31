@@ -148,22 +148,24 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   parse(source: string, filePath: string): UnifiedCapture[] {
-    this.source = source;
+    // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
+    const sanitized = this.sanitizeSource(source);
+    this.source = sanitized;
     this.filePath = filePath;
 
     if (!this.parser || !this.languageGrammar) {
-      return this.fallbackParse(source, filePath);
+      return this.fallbackParse(sanitized, filePath);
     }
 
     try {
       const captures: UnifiedCapture[] = [];
 
-      const tree = this.parser.parse(source);
+      const tree = this.parser.parse(sanitized);
       const rootNode = tree.rootNode;
 
       if (rootNode.hasError) {
         // If the AST has parse errors, fall back to regex
-        return this.fallbackParse(source, filePath);
+        return this.fallbackParse(sanitized, filePath);
       }
 
       this.walkAndCapture(rootNode, captures);
@@ -171,8 +173,24 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
     } /* v8 ignore next */
     catch {
-      return this.fallbackParse(source, filePath);
+      return this.fallbackParse(sanitized, filePath);
     }
+  }
+
+  /**
+   * Sanitize source text before parsing:
+   * 1. Strip BOM (Byte Order Mark) — \uFEFF at file start
+   * 2. Strip zero-width characters (\u200B, \u200C, \u200D, \uFEFF anywhere)
+   * 3. Normalize line endings to LF
+   * This prevents tree-sitter parse failures on files with invisible characters.
+   */
+  protected sanitizeSource(source: string): string {
+    return source
+      .replace(/^\uFEFF/, '')                    // BOM at start
+      .replace(/[\u200B\u200C\u200D]/g, '')      // zero-width spaces/joiners
+      .replace(/\uFEFF/g, '')                     // BOM anywhere
+      .replace(/\r\n/g, '\n')                     // CRLF → LF
+      .replace(/\r/g, '\n');                       // CR → LF
   }
 
   // -----------------------------------------------------------------------

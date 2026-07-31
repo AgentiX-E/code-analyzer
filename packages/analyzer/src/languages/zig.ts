@@ -40,7 +40,28 @@ export class ZigProvider extends TreeSitterBaseProvider {
     const nodeType = node.type;
 
     if (nodeType === 'function_declaration') {
-      const nameNode = this.findNamedChild(node, 'identifier');
+      // Support generics: fn foo(comptime T: type) ... — the identifier may be after a comptime param
+      let nameNode = this.findNamedChild(node, 'identifier');
+      if (!nameNode) {
+        // Try generic_param_list → generic_param → identifier pattern
+        for (let i = 0; i < node.namedChildCount; i++) {
+          const child = node.namedChild(i);
+          if (child.type === 'generic_param_list' || child.type === 'parameter_list') {
+            nameNode = this.findDeepChild(child, 'identifier');
+            if (nameNode) break;
+          }
+        }
+        // Fallback: check if there's a name in the first non-generic child
+        if (!nameNode) {
+          for (let i = 0; i < node.namedChildCount; i++) {
+            const child = node.namedChild(i);
+            if (child.type === 'identifier' && child.text !== 'fn') {
+              nameNode = child;
+              break;
+            }
+          }
+        }
+      }
       if (nameNode) {
         const isPub = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex).includes('pub');
         captures.push({
@@ -80,6 +101,21 @@ export class ZigProvider extends TreeSitterBaseProvider {
           endByte: nameNode.endIndex,
           name: nameNode.text,
           properties: { filePath: this.filePath },
+        });
+      }
+    } else if (nodeType === 'usingnamespace_declaration' || node.text.startsWith('usingnamespace')) {
+      // Handle `usingnamespace` declarations that import symbols from another namespace
+      const namedChild = this.findDeepChild(node, 'identifier');
+      if (namedChild) {
+        captures.push({
+          tag: CAPTURE_TAGS.IMPORT,
+          text: `usingnamespace ${namedChild.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: namedChild.startIndex,
+          endByte: namedChild.endIndex,
+          name: namedChild.text,
+          properties: { importType: 'usingnamespace', filePath: this.filePath },
         });
       }
     }
@@ -237,6 +273,16 @@ export class ZigProvider extends TreeSitterBaseProvider {
   private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       if (node.namedChild(i).type === type) return node.namedChild(i);
+    }
+    return null;
+  }
+
+  /** Recursively search for the first descendant node of the given type (DFS). */
+  private findDeepChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    if (node.type === type) return node;
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const found = this.findDeepChild(node.namedChild(i), type);
+      if (found) return found;
     }
     return null;
   }

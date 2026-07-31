@@ -40,7 +40,25 @@ export class DartProvider extends TreeSitterBaseProvider {
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
-    if (nodeType === 'class_definition') {
+    // Handle extension declarations (extension on Type { ... })
+    if (nodeType === 'extension_declaration' || node.text.startsWith('extension ')) {
+      const nameNode = this.findNamedChild(node, 'identifier');
+      // Extension can have an optional name: `extension MyExt on SomeType { ... }`
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.CLASS_DEF,
+          text: `extension ${nameNode.text}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { isExtension: 'true', filePath: this.filePath },
+        });
+      }
+    }
+
+    else if (nodeType === 'class_definition') {
       const nameNode = this.findNamedChild(node, 'identifier');
       if (nameNode) {
         let baseClasses = '';
@@ -70,20 +88,24 @@ export class DartProvider extends TreeSitterBaseProvider {
     } else if (nodeType === 'mixin_declaration') {
       const nameNode = this.findNamedChild(node, 'identifier');
       if (nameNode) {
+        // Detect `mixin class` (Dart 3.0+)
+        const isMixinClass = node.text.startsWith('mixin class');
         captures.push({
           tag: CAPTURE_TAGS.INTERFACE_DEF,
-          text: `mixin ${nameNode.text}`,
+          text: isMixinClass ? `mixin class ${nameNode.text}` : `mixin ${nameNode.text}`,
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { filePath: this.filePath },
+          properties: { isMixinClass: String(isMixinClass), filePath: this.filePath },
         });
       }
     } else if (nodeType === 'function_signature') {
       const nameNode = this.findNamedChild(node, 'identifier');
       if (nameNode) {
+        // Detect `late` and `required` modifiers on adjacent nodes
+        const isStatic = node.text.trimStart().startsWith('static');
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
           text: nameNode.text,
@@ -92,7 +114,7 @@ export class DartProvider extends TreeSitterBaseProvider {
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          properties: { filePath: this.filePath },
+          properties: { isStatic: String(isStatic), filePath: this.filePath },
         });
       }
     } else if (nodeType === 'enum_declaration') {

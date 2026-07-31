@@ -79,3 +79,5 @@ export { AsyncMemoizer } from './performance/memoizer.js';
 export type { MemoizerOptions, MemoizerStats } from './performance/memoizer.js';
 export { BatchProcessor } from './performance/batch-processor.js';
 export type { BatchProcessorOptions, BatchProgress, BatchResult } from './performance/batch-processor.js';
+export { BatchFileReader } from './performance/batch-file-reader.js';
+export type { FileReadResult, BatchFileReaderOptions } from './performance/batch-file-reader.js';

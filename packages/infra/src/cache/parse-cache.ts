@@ -11,7 +11,13 @@ export interface ParseCache {
   has(hash: string): boolean;
   invalidate(filePath: string): void;
   clear(): void;
+  /** Pre-warm the cache with frequently accessed file paths and contents.
+   *  Computes hashes and stores entries without full parse results —
+   *  useful for cache-hit optimization before a full pipeline run. */
+  prewarm(entries: Array<{ content: string; filePath: string }>): void;
   readonly size: number;
+  /** Current cache hit rate as a fraction (0–1) */
+  getHitRate(): number;
 }
 
 export function computeContentHash(content: string): string {
@@ -21,6 +27,8 @@ export function computeContentHash(content: string): string {
 export function createParseCache(maxSize: number = 1000): ParseCache {
   const cache = new Map<string, ParsedFile>();
   const accessOrder: string[] = []; // LRU queue
+  let totalGets = 0;
+  let cacheHits = 0;
 
   function evictIfNeeded(): void {
     while (cache.size > maxSize && accessOrder.length > 0) {
@@ -41,8 +49,10 @@ export function createParseCache(maxSize: number = 1000): ParseCache {
 
   return {
     get(hash: string): ParsedFile | null {
+      totalGets++;
       const entry = cache.get(hash);
       if (entry) {
+        cacheHits++;
         touch(hash);
       }
       return entry ?? null;
@@ -69,6 +79,30 @@ export function createParseCache(maxSize: number = 1000): ParseCache {
     clear(): void {
       cache.clear();
       accessOrder.length = 0;
+      totalGets = 0;
+      cacheHits = 0;
+    },
+
+    prewarm(entries: Array<{ content: string; filePath: string }>): void {
+      for (const entry of entries) {
+        const hash = computeContentHash(entry.content);
+        if (!cache.has(hash)) {
+          // Store a lightweight placeholder — actual parse results will overwrite
+          const placeholder: ParsedFile = {
+            filePath: entry.filePath,
+            language: '' as never,
+            symbols: [],
+            references: [],
+            scopeTree: { name: entry.filePath, kind: 'File', startLine: 1, endLine: 1, children: [], symbols: [] },
+            ast: [],
+          };
+          this.set(hash, placeholder);
+        }
+      }
+    },
+
+    getHitRate(): number {
+      return totalGets > 0 ? cacheHits / totalGets : 0;
     },
 
     get size(): number {
