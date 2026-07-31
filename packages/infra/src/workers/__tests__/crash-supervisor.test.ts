@@ -1,0 +1,125 @@
+// @code-analyzer/infra — Crash Supervisor Tests
+import { describe, it, expect } from 'vitest';
+import { CrashSupervisor } from '../crash-supervisor.js';
+
+describe('CrashSupervisor', () => {
+  it('should return task result on success', async () => {
+    const supervisor = new CrashSupervisor();
+    const result = await supervisor.executeWithSupervision(
+      async () => 'success',
+      '/src/file.ts',
+    );
+    expect(result).toBe('success');
+  });
+
+  it('should throw on task failure', async () => {
+    const supervisor = new CrashSupervisor();
+    await expect(
+      supervisor.executeWithSupervision(
+        async () => { throw new Error('task failed'); },
+        '/src/file.ts',
+      ),
+    ).rejects.toThrow('task failed');
+  });
+
+  it('should quarantine file after 3 consecutive failures (default threshold=3)', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 3 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    // Fail 3 times
+    for (let i = 0; i < 3; i++) {
+      await expect(
+        supervisor.executeWithSupervision(failingTask, '/src/bad.ts'),
+      ).rejects.toThrow();
+    }
+
+    expect(supervisor.isQuarantined('/src/bad.ts')).toBe(true);
+  });
+
+  it('should not quarantine after fewer than threshold failures', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 3 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    await expect(
+      supervisor.executeWithSupervision(failingTask, '/src/bad.ts'),
+    ).rejects.toThrow();
+
+    expect(supervisor.isQuarantined('/src/bad.ts')).toBe(false);
+  });
+
+  it('should skip quarantined files with clear error message', async () => {
+    const supervisor = new CrashSupervisor();
+    supervisor.quarantineFile('/src/bad.ts');
+
+    await expect(
+      supervisor.executeWithSupervision(
+        async () => 'should not reach',
+        '/src/bad.ts',
+      ),
+    ).rejects.toThrow('SKIP_QUARANTINED');
+  });
+
+  it('should clear quarantine for a specific file', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 1 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    await expect(
+      supervisor.executeWithSupervision(failingTask, '/src/fixable.ts'),
+    ).rejects.toThrow();
+    expect(supervisor.isQuarantined('/src/fixable.ts')).toBe(true);
+
+    supervisor.clearQuarantine('/src/fixable.ts');
+    expect(supervisor.isQuarantined('/src/fixable.ts')).toBe(false);
+  });
+
+  it('should clear all quarantines', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 1 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/a.ts')).rejects.toThrow();
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/b.ts')).rejects.toThrow();
+
+    supervisor.clearAllQuarantines();
+    expect(supervisor.isQuarantined('/src/a.ts')).toBe(false);
+    expect(supervisor.isQuarantined('/src/b.ts')).toBe(false);
+  });
+
+  it('should return correct crash stats', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 2 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/a.ts')).rejects.toThrow();
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/a.ts')).rejects.toThrow();
+
+    const stats = supervisor.getCrashStats();
+    expect(stats.totalCrashes).toBe(2);
+    expect(stats.quarantinedFiles).toContain('/src/a.ts');
+  });
+
+  it('should reset failure count after successful execution', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 5 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    // Fail twice
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/recovery.ts')).rejects.toThrow();
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/recovery.ts')).rejects.toThrow();
+
+    // Succeed
+    await supervisor.executeWithSupervision(async () => 'ok', '/src/recovery.ts');
+
+    // Should NOT be quarantined (counter reset)
+    expect(supervisor.isQuarantined('/src/recovery.ts')).toBe(false);
+  });
+
+  it('should reset all state', async () => {
+    const supervisor = new CrashSupervisor({ quarantineThreshold: 1 });
+    const failingTask = async () => { throw new Error('fail'); };
+
+    await expect(supervisor.executeWithSupervision(failingTask, '/src/a.ts')).rejects.toThrow();
+
+    supervisor.reset();
+    const stats = supervisor.getCrashStats();
+    expect(stats.totalCrashes).toBe(0);
+    expect(stats.quarantinedFiles).toHaveLength(0);
+  });
+});
