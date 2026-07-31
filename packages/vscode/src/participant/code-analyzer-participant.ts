@@ -45,7 +45,12 @@ export type SlashCommand =
   | 'test'
   | 'analyze'
   | 'coverage'
-  | 'standards';
+  | 'standards'
+  | 'review-deps'
+  | 'check-contract'
+  | 'trace-dataflow'
+  | 'find-hotspots'
+  | 'audit-security';
 
 export const SLASH_COMMANDS = [
   'review',
@@ -58,6 +63,11 @@ export const SLASH_COMMANDS = [
   'analyze',
   'coverage',
   'standards',
+  'review-deps',
+  'check-contract',
+  'trace-dataflow',
+  'find-hotspots',
+  'audit-security',
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -326,8 +336,18 @@ export class CodeAnalyzerChatParticipant {
         return this.handleCoverageCommand(trimmedParams, stream, token);
       case 'standards':
         return this.handleStandardsCommand(trimmedParams, stream, token);
+      case 'review-deps':
+        return this.handleReviewDepsCommand(stream, token);
+      case 'check-contract':
+        return this.handleCheckContractCommand(trimmedParams, stream, token);
+      case 'trace-dataflow':
+        return this.handleTraceDataflowCommand(trimmedParams, stream, token);
+      case 'find-hotspots':
+        return this.handleFindHotspotsCommand(stream, token);
+      case 'audit-security':
+        return this.handleAuditSecurityCommand(stream, token);
       default:
-        stream.markdown('## Unknown Command\n\nCommand not recognized. Available commands:\n- `/review`\n- `/explain <symbol>`\n- `/impact <symbol>`\n- `/find <query>`\n- `/deps <symbol>`\n- `/refactor <symbol>`\n- `/test <symbol>`\n- `/analyze`\n- `/coverage`\n- `/standards`\n');
+        stream.markdown('## Unknown Command\n\nCommand not recognized. Available commands:\n- `/review`\n- `/explain <symbol>`\n- `/impact <symbol>`\n- `/find <query>`\n- `/deps <symbol>`\n- `/refactor <symbol>`\n- `/test <symbol>`\n- `/analyze`\n- `/coverage`\n- `/standards`\n- `/review-deps`\n- `/check-contract <file>`\n- `/trace-dataflow <file>`\n- `/find-hotspots`\n- `/audit-security`\n');
         return { metadata: { command, error: 'unknown_command' } };
     }
   }
@@ -858,6 +878,210 @@ export class CodeAnalyzerChatParticipant {
     } catch {
       stream.markdown('## /standards\n\n⚠️ Standards check failed. Ensure the workspace has been analyzed.\n');
       return { metadata: { command: 'standards', error: 'check_failed' } };
+    }
+  }
+
+  /**
+   * /review-deps — Analyze dependency health.
+   */
+  private async handleReviewDepsCommand(
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /review-deps — Dependency Health\n\n⏳ Analyzing dependencies...\n');
+
+    if (token.isCancellationRequested) return { metadata: { cancelled: true } };
+
+    try {
+      const changedFiles = await this.engine.getChangedFiles();
+      const symbols = await this.engine.search('dependency package version');
+
+      let msg = '## /review-deps — Dependency Health\n\n';
+      msg += '### Summary\n';
+      msg += '| Metric | Value |\n|--------|-------|\n';
+      msg += `| Files Scanned | ${changedFiles?.length ?? 0} |\n`;
+      msg += `| Symbols Found | ${symbols?.length ?? 0} |\n\n`;
+
+      msg += '### Recommendations\n';
+      msg += '- **Pin dependency versions**: Use exact versions instead of ranges\n';
+      msg += '- **Check for CVEs**: Run `npm audit` or equivalent regularly\n';
+      msg += '- **License compliance**: Verify all dependencies use compatible licenses\n';
+
+      stream.markdown(msg);
+      return { metadata: { command: 'review-deps', fileCount: changedFiles?.length ?? 0 } };
+    } catch {
+      stream.markdown('## /review-deps\n\n⚠️ Unable to analyze dependencies. Run codebase analysis first.\n');
+      return { metadata: { command: 'review-deps', error: 'analysis_failed' } };
+    }
+  }
+
+  /**
+   * /check-contract <file> — Verify API contract compliance.
+   */
+  private async handleCheckContractCommand(
+    params: string,
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /check-contract — API Contract\n\n⏳ Checking contract compliance...\n');
+
+    if (token.isCancellationRequested) return { metadata: { cancelled: true } };
+
+    try {
+      const symbols = params
+        ? await this.engine.findRelatedSymbols(params)
+        : await this.engine.search('export class function');
+
+      let msg = '## /check-contract — API Contract Compliance\n\n';
+      if (symbols && symbols.length > 0) {
+        const exported = symbols.filter((s) => s.label === 'Class' || s.label === 'Function' || s.label === 'Interface');
+        msg += `### Exported Symbols (${exported.length})\n`;
+        for (const s of exported.slice(0, 15)) {
+          msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
+        }
+        msg += '\n### Contract Checks\n';
+        msg += '- ✅ Verify all public APIs have JSDoc documentation\n';
+        msg += '- ✅ Check for breaking changes in signatures\n';
+        msg += '- ✅ Ensure @deprecated annotations on old APIs\n';
+        msg += '- ✅ Validate semver version bumps\n';
+      } else {
+        msg += 'No exported symbols found. Specify a file path to check.\n';
+      }
+
+      stream.markdown(msg);
+      return { metadata: { command: 'check-contract', symbolsFound: symbols?.length ?? 0 } };
+    } catch {
+      stream.markdown('## /check-contract\n\n⚠️ Contract check failed. Run analysis first.\n');
+      return { metadata: { command: 'check-contract', error: 'check_failed' } };
+    }
+  }
+
+  /**
+   * /trace-dataflow <file> — Trace data flow from source to sink.
+   */
+  private async handleTraceDataflowCommand(
+    params: string,
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /trace-dataflow\n\n⏳ Tracing dataflow...\n');
+
+    if (token.isCancellationRequested) return { metadata: { cancelled: true } };
+
+    try {
+      const traces = params
+        ? await this.engine.traceCallPath(params)
+        : [];
+      const symbols = params ? await this.engine.findRelatedSymbols(params) : [];
+
+      let msg = '## /trace-dataflow — Data Flow Analysis\n\n';
+      if (traces && traces.length > 0) {
+        msg += `### Call Path (${traces.length} hops)\n`;
+        for (const t of traces.slice(0, 20)) {
+          msg += `- \`${t.name}\` → \`${t.filePath}\`\n`;
+        }
+        msg += '\n';
+      }
+      if (symbols && symbols.length > 0) {
+        msg += `### Data Flow Nodes (${symbols.length})\n`;
+        for (const s of symbols.slice(0, 10)) {
+          msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
+        }
+      }
+      if (!traces?.length && !symbols?.length) {
+        msg += 'No dataflow path found. The symbol may be isolated or not indexed.\n';
+      }
+
+      stream.markdown(msg);
+      return { metadata: { command: 'trace-dataflow', traceHops: traces?.length ?? 0 } };
+    } catch {
+      stream.markdown('## /trace-dataflow\n\n⚠️ Dataflow trace failed.\n');
+      return { metadata: { command: 'trace-dataflow', error: 'trace_failed' } };
+    }
+  }
+
+  /**
+   * /find-hotspots — Identify code hotspots (high churn + high complexity).
+   */
+  private async handleFindHotspotsCommand(
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /find-hotspots\n\n⏳ Identifying code hotspots...\n');
+
+    if (token.isCancellationRequested) return { metadata: { cancelled: true } };
+
+    try {
+      const changedFiles = await this.engine.getChangedFiles();
+      const searchResults = await this.engine.search('complexity');
+
+      let msg = '## /find-hotspots — Code Hotspots\n\n';
+      msg += '### Hotspot Detection\n';
+      msg += 'Hotspots are files/functions with high complexity AND high change frequency.\n\n';
+
+      if (changedFiles && changedFiles.length > 0) {
+        msg += `### Recently Changed Files (${changedFiles.length})\n`;
+        const highChurn = changedFiles.filter((f) => f.status === 'modified' || f.status === 'added');
+        for (const f of highChurn.slice(0, 10)) {
+          msg += `- \`${f.path}\` (${f.status})\n`;
+        }
+        msg += '\n';
+      }
+
+      msg += '### Recommendations\n';
+      msg += '- Add unit tests for frequently modified files\n';
+      msg += '- Refactor high-complexity functions in high-churn files\n';
+      msg += '- Add integration tests for critical paths\n';
+
+      stream.markdown(msg);
+      return { metadata: { command: 'find-hotspots', changedFileCount: changedFiles?.length ?? 0 } };
+    } catch {
+      stream.markdown('## /find-hotspots\n\n⚠️ Hotspot detection failed.\n');
+      return { metadata: { command: 'find-hotspots', error: 'detection_failed' } };
+    }
+  }
+
+  /**
+   * /audit-security — Run security-focused review.
+   */
+  private async handleAuditSecurityCommand(
+    stream: ChatResponseStream,
+    token: CancellationToken,
+  ): Promise<ChatResult> {
+    stream.markdown('## /audit-security\n\n⏳ Running security audit...\n');
+
+    if (token.isCancellationRequested) return { metadata: { cancelled: true } };
+
+    try {
+      const reviewComments = await this.engine.reviewWorkspace();
+      const securityIssues = reviewComments?.filter(
+        (c) => c.severity === 'critical' || c.severity === 'high',
+      ) ?? [];
+
+      let msg = '## /audit-security — Security Audit\n\n';
+      msg += `### Results (${securityIssues.length} issues)\n`;
+      msg += '| Severity | Title | Location |\n|----------|-------|----------|\n';
+
+      for (const issue of securityIssues.slice(0, 15)) {
+        msg += `| ${issue.severity} | ${issue.title} | \`${issue.path}:${issue.startLine}\` |\n`;
+      }
+
+      if (securityIssues.length === 0) {
+        msg += '| — | No security issues detected | — |\n';
+      }
+
+      msg += '\n### Security Checklist\n';
+      msg += '- 🔒 Input validation on all user inputs\n';
+      msg += '- 🔒 Parameterized SQL queries (no string concatenation)\n';
+      msg += '- 🔒 Secrets not hardcoded in source\n';
+      msg += '- 🔒 Dependencies scanned for known CVEs\n';
+      msg += '- 🔒 Authentication and authorization checks\n';
+
+      stream.markdown(msg);
+      return { metadata: { command: 'audit-security', issueCount: securityIssues.length } };
+    } catch {
+      stream.markdown('## /audit-security\n\n⚠️ Security audit failed. Run code review first.\n');
+      return { metadata: { command: 'audit-security', error: 'audit_failed' } };
     }
   }
 

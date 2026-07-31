@@ -1,5 +1,5 @@
 // @ts-nocheck
-// @code-analyzer/mcp — E2E Integration Test: All 40 MCP Tools
+// @code-analyzer/mcp — E2E Integration Test: All 45 MCP Tools
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -218,7 +218,7 @@ function populateStore(store: InMemoryGraphStore): void {
 // Test Suite
 // ---------------------------------------------------------------------------
 
-describe('MCP E2E — All 40 Tools Integration', () => {
+describe('MCP E2E — All 45 Tools Integration', () => {
   let store: InMemoryGraphStore;
   let ctx: ToolContext;
   let registry: ToolRegistry;
@@ -241,13 +241,13 @@ describe('MCP E2E — All 40 Tools Integration', () => {
   // =========================================================================
 
   describe('Tool Registry Structure', () => {
-    it('should register exactly 40 tools', () => {
-      expect(registry.size).toBe(40);
+    it('should register exactly 45 tools', () => {
+      expect(registry.size).toBe(45);
     });
 
     it('should list all tools without handlers in output', () => {
       const list = registry.list();
-      expect(list.length).toBe(40);
+      expect(list.length).toBe(45);
       for (const tool of list) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();
@@ -258,9 +258,9 @@ describe('MCP E2E — All 40 Tools Integration', () => {
     it('should filter by profile', () => {
       const all = registry.listByProfile('all');
       const analysis = registry.listByProfile('analysis');
-      expect(all.length).toBe(40);
+      expect(all.length).toBe(45);
       expect(analysis.length).toBeGreaterThan(0);
-      expect(analysis.length).toBeLessThanOrEqual(40);
+      expect(analysis.length).toBeLessThanOrEqual(45);
     });
   });
 

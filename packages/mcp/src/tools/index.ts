@@ -1,5 +1,5 @@
 // @code-analyzer/mcp — Tools Index
-// Registers all 39 MCP tools into the ToolRegistry.
+// Registers all 44 MCP tools into the ToolRegistry.
 
 import { ToolRegistry } from './registry.js';
 
@@ -86,11 +86,18 @@ import {
   runBenchmark, runBenchmarkSchema,
 } from './benchmark.js';
 
+// Intelligence Tools (Iteration 15)
+import { trendAnalysisTool } from './trend-analysis.js';
+import { hotspotDetectionTool } from './hotspot-detection.js';
+import { refactorSuggestionTool } from './refactor-suggestion.js';
+import { testGenerationTool } from './test-generation.js';
+import { docGenerationTool } from './doc-generation.js';
+
 // ---------------------------------------------------------------------------
 // Register All Tools
 // ---------------------------------------------------------------------------
 
-/** Create and configure a ToolRegistry with all 40 tools. */
+/** Create and configure a ToolRegistry with all 45 tools. */
 export function createToolRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
 
@@ -157,6 +164,13 @@ export function createToolRegistry(): ToolRegistry {
 
   // Benchmark (1)
   registry.register('run_benchmark', 'Run the review quality benchmark suite to measure precision, recall, and F1 score', runBenchmarkSchema, runBenchmark, 'analysis');
+
+  // Intelligence Tools (5) — Iteration 15
+  registry.register('trend_analysis', trendAnalysisTool.description, trendAnalysisTool.inputSchema, trendAnalysisTool.handler, 'analysis');
+  registry.register('hotspot_detection', hotspotDetectionTool.description, hotspotDetectionTool.inputSchema, hotspotDetectionTool.handler, 'analysis');
+  registry.register('refactor_suggestion', refactorSuggestionTool.description, refactorSuggestionTool.inputSchema, refactorSuggestionTool.handler, 'analysis');
+  registry.register('test_generation', testGenerationTool.description, testGenerationTool.inputSchema, testGenerationTool.handler, 'analysis');
+  registry.register('doc_generation', docGenerationTool.description, docGenerationTool.inputSchema, docGenerationTool.handler, 'analysis');
 
   return registry;
 }
