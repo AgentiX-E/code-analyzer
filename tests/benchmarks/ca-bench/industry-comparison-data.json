@@ -1,6 +1,6 @@
 {
   "schema": "industry-comparison-v1",
-  "generatedAt": "2026-07-31T02:16:47.000Z",
+  "generatedAt": "2026-07-31T06:27:59.226Z",
   "dimensions": [
     {
       "key": "language-coverage",
@@ -157,18 +157,18 @@
     {
       "tool": "code-analyzer",
       "dimensions": {
-        "language-coverage": 100,
-        "parse-quality": 100,
-        "review-signal-categories": 100,
-        "search-dimensions": 100,
+        "language-coverage": 66.7,
+        "parse-quality": 97.5,
+        "review-signal-categories": 80,
+        "search-dimensions": 80,
         "cross-repo-capability": 100,
-        "mcp-integration": 100,
-        "graphql-api": 100,
-        "ide-integration": 100,
-        "throughput": 100,
-        "test-coverage": 100
+        "mcp-integration": 91.7,
+        "graphql-api": 93.3,
+        "ide-integration": 80,
+        "throughput": 68.9,
+        "test-coverage": 96
       },
-      "compositeScore": 100.0,
+      "compositeScore": 84.4,
       "confidence": "measured"
     },
     {
@@ -242,14 +242,14 @@
   ],
   "summary": {
     "leaderByDimension": {
-      "language-coverage": "code-analyzer",
-      "parse-quality": "code-analyzer",
+      "language-coverage": "SonarQube",
+      "parse-quality": "CodeQL",
       "review-signal-categories": "code-analyzer",
       "search-dimensions": "code-analyzer",
       "cross-repo-capability": "code-analyzer",
       "mcp-integration": "code-analyzer",
       "graphql-api": "code-analyzer",
-      "ide-integration": "code-analyzer",
+      "ide-integration": "Sourcegraph",
       "throughput": "code-analyzer",
       "test-coverage": "code-analyzer"
     },
@@ -257,7 +257,7 @@
       {
         "rank": 1,
         "tool": "code-analyzer",
-        "compositeScore": 100.0
+        "compositeScore": 84.4
       },
       {
         "rank": 2,
@@ -282,17 +282,18 @@
     ],
     "codeAnalyzerRank": 1,
     "competitiveAdvantages": [
-      "Language Coverage",
-      "Parse Quality",
       "Review Signal Categories",
       "Search Dimensions",
       "Cross-Repository Capabilities",
-      "MCP Integration",
+      "MCP Integration (Tools + Resources)",
       "GraphQL API Maturity",
-      "IDE Integration Depth",
-      "Throughput",
-      "Test Coverage"
+      "Throughput (files/sec on large repo)",
+      "Test Coverage (internal quality)"
     ],
-    "areasForImprovement": []
+    "areasForImprovement": [
+      "Language Coverage (leader: SonarQube)",
+      "Parse Success Rate (avg across languages) (leader: CodeQL)",
+      "IDE Integration Depth (leader: Sourcegraph)"
+    ]
   }
 }

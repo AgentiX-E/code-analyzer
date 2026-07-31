@@ -214,6 +214,7 @@ export const PIPELINE_PHASE_IDS = [
   'config',
   'crossFile',
   'scopeResolution',
+  'typeResolution',
   'routes',
   'tools',
   'di',
@@ -259,6 +260,7 @@ export interface PipelineContext {
   config: CodeAnalyzerConfig;
   graph?: KnowledgeGraph;
   metadata?: ProjectMetadata;
+  typeRegistry?: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +393,16 @@ export const SUPPORTED_LANGUAGES = [
   'elixir',
   'hcl',
   'dockerfile',
+  'yaml',
+  'json',
+  'toml',
+  'sql',
+  'bash',
+  'markdown',
+  'html',
+  'css',
+  'r',
+  'groovy',
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];

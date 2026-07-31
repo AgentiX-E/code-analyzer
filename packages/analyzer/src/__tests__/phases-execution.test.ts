@@ -2194,10 +2194,10 @@ describe('EmbedPhase', () => {
 // ---------------------------------------------------------------------------
 
 describe('createAllPhases', () => {
-  it('should create all 18 phases in the correct order', () => {
+  it('should create all 19 phases in the correct order', () => {
     const phases = createAllPhases();
 
-    expect(phases).toHaveLength(18);
+    expect(phases).toHaveLength(19);
 
     const phaseIds = phases.map((p) => p.id);
     expect(phaseIds).toEqual([
@@ -2208,6 +2208,7 @@ describe('createAllPhases', () => {
       'config',
       'crossFile',
       'scopeResolution',
+      'typeResolution',
       'routes',
       'tools',
       'di',

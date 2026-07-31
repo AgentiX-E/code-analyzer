@@ -67,7 +67,7 @@ describe('RelationshipType', () => {
 
 describe('PipelinePhaseId', () => {
   it('has exactly the expected number of phases', () => {
-    expect(PIPELINE_PHASE_IDS).toHaveLength(18);
+    expect(PIPELINE_PHASE_IDS).toHaveLength(19);
   });
 
   it('contains the core pipeline phases', () => {
@@ -75,6 +75,7 @@ describe('PipelinePhaseId', () => {
     expect(PIPELINE_PHASE_IDS).toContain('parse');
     expect(PIPELINE_PHASE_IDS).toContain('crossFile');
     expect(PIPELINE_PHASE_IDS).toContain('scopeResolution');
+    expect(PIPELINE_PHASE_IDS).toContain('typeResolution');
     expect(PIPELINE_PHASE_IDS).toContain('embed');
   });
 
@@ -92,7 +93,7 @@ describe('PipelinePhaseId', () => {
 
 describe('SupportedLanguage', () => {
   it('has the expected number of languages', () => {
-    expect(SUPPORTED_LANGUAGES).toHaveLength(20);
+    expect(SUPPORTED_LANGUAGES).toHaveLength(30);
   });
 
   it('includes TypeScript first (primary priority)', () => {
