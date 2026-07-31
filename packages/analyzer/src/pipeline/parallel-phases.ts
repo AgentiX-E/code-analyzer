@@ -70,6 +70,46 @@ const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
     const { RustProvider } = await import('../languages/rust.js');
     return new RustProvider();
   },
+  yaml: async () => {
+    const { YamlProvider } = await import('../languages/yaml.js');
+    return new YamlProvider();
+  },
+  json: async () => {
+    const { JsonProvider } = await import('../languages/json.js');
+    return new JsonProvider();
+  },
+  sql: async () => {
+    const { SqlProvider } = await import('../languages/sql.js');
+    return new SqlProvider();
+  },
+  bash: async () => {
+    const { BashProvider } = await import('../languages/bash.js');
+    return new BashProvider();
+  },
+  toml: async () => {
+    const { TomlProvider } = await import('../languages/toml.js');
+    return new TomlProvider();
+  },
+  markdown: async () => {
+    const { MarkdownProvider } = await import('../languages/markdown.js');
+    return new MarkdownProvider();
+  },
+  html: async () => {
+    const { HtmlProvider } = await import('../languages/html.js');
+    return new HtmlProvider();
+  },
+  css: async () => {
+    const { CssProvider } = await import('../languages/css.js');
+    return new CssProvider();
+  },
+  r: async () => {
+    const { RProvider } = await import('../languages/r.js');
+    return new RProvider();
+  },
+  groovy: async () => {
+    const { GroovyProvider } = await import('../languages/groovy.js');
+    return new GroovyProvider();
+  },
 };
 
 const providerCache = new Map<string, LanguageProvider>();

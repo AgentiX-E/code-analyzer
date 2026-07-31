@@ -59,6 +59,16 @@ export { ZigProvider } from './languages/zig.js';
 export { ElixirProvider } from './languages/elixir.js';
 export { HclProvider } from './languages/hcl.js';
 export { DockerfileProvider } from './languages/dockerfile.js';
+export { YamlProvider } from './languages/yaml.js';
+export { JsonProvider } from './languages/json.js';
+export { SqlProvider } from './languages/sql.js';
+export { BashProvider } from './languages/bash.js';
+export { TomlProvider } from './languages/toml.js';
+export { MarkdownProvider } from './languages/markdown.js';
+export { HtmlProvider } from './languages/html.js';
+export { CssProvider } from './languages/css.js';
+export { RProvider } from './languages/r.js';
+export { GroovyProvider } from './languages/groovy.js';
 
 // Parser
 export { UnifiedParser } from './parser/unified-parser.js';
