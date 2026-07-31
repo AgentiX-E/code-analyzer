@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: code-analyzer-config
+  namespace: code-analyzer
+  labels:
+    app.kubernetes.io/name: code-analyzer
+data:
+  NODE_ENV: "production"
+  CODE_ANALYZER_PORT: "3000"
+  CODE_ANALYZER_MCP_PORT: "3001"
+  CODE_ANALYZER_DATA_DIR: "/data"
+  CODE_ANALYZER_MAX_FILE_SIZE: "10485760"
+  CODE_ANALYZER_CONCURRENCY: "4"
