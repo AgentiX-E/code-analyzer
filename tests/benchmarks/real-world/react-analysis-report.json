@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-07-30T23:52:04.307Z",
+  "timestamp": "2026-07-31T00:11:48.016Z",
   "reactSourceSize": {
     "totalFiles": 1897,
     "totalLines": 558741,
@@ -7,14 +7,14 @@
   },
   "scan": {
     "filesDiscovered": 1897,
-    "scanTimeMs": 390.7524790000002
+    "scanTimeMs": 288.4649059999999
   },
   "parse": {
     "totalFiles": 1897,
     "successCount": 1897,
     "failCount": 0,
     "successRate": 100,
-    "parseTimeMs": 30441.250745000005,
+    "parseTimeMs": 30068.718426,
     "languageBreakdown": [
       {
         "language": "javascript",
@@ -24,7 +24,7 @@
         "symbolCount": 51749,
         "avgSymbolsPerFile": 28,
         "parseRate": 100,
-        "totalTimeMs": 30441.250745000005
+        "totalTimeMs": 30068.718426
       },
       {
         "language": "typescript",
@@ -34,7 +34,7 @@
         "symbolCount": 527,
         "avgSymbolsPerFile": 25,
         "parseRate": 100,
-        "totalTimeMs": 30441.250745000005
+        "totalTimeMs": 30068.718426
       }
     ],
     "perFileStats": [
@@ -1170,9 +1170,9 @@
     "interPackageImports": 1897
   },
   "memory": {
-    "beforeRssMB": 68.79296875,
-    "afterRssMB": 1038,
-    "deltaRssMB": 969.20703125,
-    "heapUsedMB": 36.249305725097656
+    "beforeRssMB": 67.515625,
+    "afterRssMB": 1034.8984375,
+    "deltaRssMB": 967.3828125,
+    "heapUsedMB": 26.102066040039062
   }
 }
