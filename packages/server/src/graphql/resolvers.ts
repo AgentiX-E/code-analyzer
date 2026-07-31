@@ -525,6 +525,112 @@ export const resolvers = {
     ) => {
       return null; // Groups managed via manageRepoGroup mutation
     },
+
+    symbolUsage: (
+      _root: unknown,
+      args: { projectId: string; symbolName: string; limit?: number | null },
+      ctx: GraphQLContext,
+    ) => {
+      const store = ctx.store;
+      const limit = args.limit ?? 50;
+
+      const results: Record<string, unknown>[] = [];
+      const nodes = Array.from(store.nodes.values()).filter(
+        (n) => n.projectId === args.projectId &&
+          (n.name === args.symbolName || n.qualifiedName.includes(args.symbolName)),
+      );
+
+      for (const node of nodes.slice(0, limit)) {
+        // Find callers (edges pointing to this node)
+        const edges = Array.from(store.edges.values()).filter((e) => e.targetId === node.id);
+        const callers: string[] = [];
+        const referencedBy: string[] = [];
+        for (const edge of edges) {
+          const caller = store.nodes.get(edge.sourceId);
+          if (caller) {
+            callers.push(caller.qualifiedName ?? caller.name);
+            if (caller.filePath) referencedBy.push(caller.filePath);
+          }
+        }
+
+        results.push({
+          symbolName: node.name,
+          qualifiedName: node.qualifiedName,
+          language: node.language,
+          filePath: node.filePath ?? '',
+          line: node.startLine ?? 0,
+          kind: node.label,
+          referenceCount: edges.length,
+          referencedBy: [...new Set(referencedBy)],
+          callers: [...new Set(callers)],
+        });
+      }
+
+      return results;
+    },
+
+    dependencyGraph: (
+      _root: unknown,
+      args: { projectId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const store = ctx.store;
+      const projectId = args.projectId;
+
+      // Build dependency graph from import edges
+      const packages = new Set<string>();
+      const adjacency: Record<string, string[]> = {};
+      const circularDeps: string[] = [];
+
+      const nodes = Array.from(store.nodes.values()).filter((n) => n.projectId === projectId);
+      const edges = Array.from(store.edges.values()).filter((e) => e.projectId === projectId);
+
+      // Collect all file-level packages (top-level dirs)
+      for (const node of nodes) {
+        if (node.filePath) {
+          const parts = node.filePath.split('/');
+          if (parts.length > 1) packages.add(parts[0]!);
+          else packages.add('.');
+        }
+      }
+
+      // Build adjacency from IMPORT edges
+      for (const edge of edges) {
+        if (edge.type === 'IMPORTS' || edge.type === 'CALLS') {
+          const source = store.nodes.get(edge.sourceId);
+          const target = store.nodes.get(edge.targetId);
+          if (source?.filePath && target?.filePath) {
+            const srcPkg = source.filePath.split('/')[0] ?? '.';
+            const tgtPkg = target.filePath.split('/')[0] ?? '.';
+            if (srcPkg !== tgtPkg) {
+              if (!adjacency[srcPkg]) adjacency[srcPkg] = [];
+              if (!adjacency[srcPkg]!.includes(tgtPkg)) {
+                adjacency[srcPkg]!.push(tgtPkg);
+              }
+              // Check for circular dependency
+              if (adjacency[tgtPkg]?.includes(srcPkg)) {
+                if (!circularDeps.includes(`${srcPkg} ⇄ ${tgtPkg}`)) {
+                  circularDeps.push(`${srcPkg} ⇄ ${tgtPkg}`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Count nodes and edges
+      const graphNodes = Object.keys(adjacency).length;
+      const graphEdges = Object.values(adjacency).reduce((sum, deps) => sum + deps.length, 0);
+
+      return {
+        projectId,
+        nodeCount: graphNodes + packages.size - graphNodes,
+        edgeCount: graphEdges,
+        packages: [...packages],
+        circularDeps,
+        adjacencyList: adjacency,
+      };
+    },
   },
 
   // -----------------------------------------------------------------------

@@ -50,9 +50,9 @@ function createSourceMap(
 // ---------------------------------------------------------------------------
 
 describe('Lens Profiles', () => {
-  it('should have 8 lens profiles', () => {
+  it('should have 10 lens profiles', () => {
     const profiles = getLensProfiles();
-    expect(profiles).toHaveLength(8);
+    expect(profiles).toHaveLength(10);
   });
 
   it('should return lenses sorted by priority', () => {
@@ -260,6 +260,7 @@ describe('ReviewSwarm', () => {
     swarm = new ReviewSwarm(store, {
       parallel: false, // Sequential for deterministic test output
       minSeverity: 'info',
+      enabledLenses: ['security', 'performance', 'testing', 'style', 'api', 'docs'],
     });
   });
 

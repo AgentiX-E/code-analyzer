@@ -3,6 +3,7 @@
 
 import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { DataflowSearchEngine, type DataflowPath } from './dataflow-search.js';
 
 // ---------------------------------------------------------------------------
 // Search-specific interfaces
@@ -529,5 +530,40 @@ export class HybridSearchEngine {
   /** Number of indexed documents */
   get documentCount(): number {
     return this.index.documentCount;
+  }
+
+  // -------------------------------------------------------------------------
+  // Dataflow Search (5th Dimension)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Perform dataflow/taint-tracking search.
+   * Finds paths from sources to sinks in the knowledge graph.
+   * This is the 5th search dimension alongside BM25, Vector, Graph, and Regex.
+   */
+  dataflowSearch(options?: {
+    maxDepth?: number;
+    maxPaths?: number;
+    entryPoints?: string[];
+  }): DataflowPath[] {
+    const engine = new DataflowSearchEngine(this.store);
+
+    if (options?.entryPoints && options.entryPoints.length > 0) {
+      const report = engine.taintAnalysis(options.entryPoints, options.maxDepth ?? 10);
+      return report.paths;
+    }
+
+    return engine.findPaths({
+      maxDepth: options?.maxDepth ?? 10,
+      maxPaths: options?.maxPaths ?? 100,
+    });
+  }
+
+  /**
+   * Find all sinks reachable from a specific source node.
+   */
+  dataflowReachableSinks(sourceNodeId: number, maxDepth: number = 10) {
+    const engine = new DataflowSearchEngine(this.store);
+    return engine.findReachableSinks(sourceNodeId, maxDepth);
   }
 }

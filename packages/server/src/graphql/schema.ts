@@ -277,6 +277,37 @@ export const typeDefs = /* GraphQL */ `
     metrics: JSON!
   }
 
+  """Where and how often a symbol is referenced in the codebase"""
+  type SymbolUsage {
+    symbolName: String!
+    qualifiedName: String!
+    language: String
+    filePath: String!
+    line: Int!
+    kind: String!
+    """Number of times this symbol is called/referenced"""
+    referenceCount: Int!
+    """Files that reference this symbol"""
+    referencedBy: [String!]!
+    """Functions that call this symbol"""
+    callers: [String!]!
+  }
+
+  """Dependency graph for a project — nodes as packages, edges as dependencies"""
+  type DependencyGraph {
+    projectId: String!
+    """Number of nodes in the dependency graph"""
+    nodeCount: Int!
+    """Number of edges (dependency relationships)"""
+    edgeCount: Int!
+    """Top-level packages"""
+    packages: [String!]!
+    """Circular dependencies detected (if any)"""
+    circularDeps: [String!]!
+    """Dependency tree as adjacency list (package -> dependencies)"""
+    adjacencyList: JSON!
+  }
+
   # -------------------------------------------------------------------------
   # Queries
   # -------------------------------------------------------------------------
@@ -352,6 +383,12 @@ export const typeDefs = /* GraphQL */ `
 
     """Get a repository group by ID"""
     repoGroup(id: ID!): RepoGroup
+
+    """Get symbol usage data — where and how a symbol is referenced"""
+    symbolUsage(projectId: ID!, symbolName: String!, limit: Int): [SymbolUsage!]!
+
+    """Get the dependency graph for a project"""
+    dependencyGraph(projectId: ID!): DependencyGraph!
   }
 
   # -------------------------------------------------------------------------

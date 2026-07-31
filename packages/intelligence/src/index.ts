@@ -9,9 +9,29 @@ export {
 } from './search/hybrid-search.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
 
+// Dataflow Search (5th Search Dimension)
+export { DataflowSearchEngine } from './search/dataflow-search.js';
+export type {
+  DataflowNode,
+  DataflowPath,
+  ReachableSink,
+  TaintReport,
+} from './search/dataflow-search.js';
+
 // Embeddings
 export { EmbeddingEngine } from './embeddings/embedder.js';
 export type { EmbeddingConfig, EmbeddingBackend } from './embeddings/embedder.js';
+export {
+  EmbeddingWorkerPool,
+  getEmbeddingWorkerPool,
+  shutdownEmbeddingPool,
+} from './embeddings/worker-pool.js';
+export type {
+  EmbeddingTask,
+  EmbeddingResult,
+  EmbeddingError,
+  WorkerPoolStats,
+} from './embeddings/worker-pool.js';
 
 // Similarity
 export { MinHashSimilarity } from './similarity/minhash.js';
@@ -52,8 +72,11 @@ export {
   SECURITY_PATTERNS,
   PERFORMANCE_PATTERNS,
   TESTING_PATTERNS,
+  KNOWN_CVE_ADVISORIES,
   createLensFinding,
   lensFindingToReviewComment,
+  reviewDependencyHealth,
+  reviewApiContract,
 } from './review/review-lenses.js';
 export type {
   LensId,
@@ -61,6 +84,8 @@ export type {
   LensFinding,
   LensReport,
   EvidenceAnchor,
+  CveAdvisory,
+  ApiContractFinding,
 } from './review/review-lenses.js';
 
 // Session Store

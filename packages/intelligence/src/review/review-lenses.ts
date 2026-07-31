@@ -21,6 +21,8 @@ export type LensId =
   | 'testing'
   | 'style'
   | 'api'
+  | 'deps'
+  | 'contract'
   | 'docs'
   | 'synthesis';
 
@@ -180,6 +182,26 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
     mcpTools: ['query_cypher', 'analyze_impact', 'get_architecture'],
     standards: ['api-design'],
     categories: ['api', 'security'] as any,
+    defaultSeverity: 'high',
+    priority: 6,
+  },
+  deps: {
+    id: 'deps',
+    name: 'Dependency Health Lens',
+    description: 'Supply chain integrity — outdated dependencies, CVE exposure, license compliance, unpinned versions',
+    mcpTools: ['check_standards', 'search_code', 'query_cypher'],
+    standards: ['dependency-management', 'security-baseline'],
+    categories: ['security', 'maintainability'] as any,
+    defaultSeverity: 'high',
+    priority: 5,
+  },
+  contract: {
+    id: 'contract',
+    name: 'API Contract Compliance Lens',
+    description: 'Contract integrity — breaking changes in public APIs, semver violations, missing deprecation notices, signature changes',
+    mcpTools: ['analyze_impact', 'query_cypher', 'get_architecture'],
+    standards: ['api-design', 'architecture-layered'],
+    categories: ['api', 'maintainability'] as any,
     defaultSeverity: 'high',
     priority: 6,
   },
@@ -423,6 +445,473 @@ export const TESTING_PATTERNS: Array<{
     suggestion: 'Add tests for: null, undefined, empty string, empty array, negative numbers.',
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Dependency Health Patterns
+// ---------------------------------------------------------------------------
+
+/** Known CVE advisory entries (local cache for detection) */
+export interface CveAdvisory {
+  /** CVE identifier (e.g., "CVE-2024-1234") */
+  cveId: string;
+  /** Affected package name */
+  packageName: string;
+  /** Vulnerable version range (e.g., "<2.5.0") */
+  vulnerableRange: string;
+  /** CVSS severity */
+  severity: Severity;
+  /** Brief description */
+  description: string;
+}
+
+export const KNOWN_CVE_ADVISORIES: CveAdvisory[] = [
+  {
+    cveId: 'CVE-2024-4068',
+    packageName: 'braces',
+    vulnerableRange: '<3.0.3',
+    severity: 'high',
+    description: 'Regular expression denial of service (ReDoS) in brace expansion.',
+  },
+  {
+    cveId: 'CVE-2024-28849',
+    packageName: 'follow-redirects',
+    vulnerableRange: '<1.15.6',
+    severity: 'high',
+    description: 'Proxy-Authorization header leak across redirects.',
+  },
+  {
+    cveId: 'CVE-2024-27980',
+    packageName: 'express',
+    vulnerableRange: '<4.19.2',
+    severity: 'medium',
+    description: 'Open redirect vulnerability in Express.js path handling.',
+  },
+  {
+    cveId: 'CVE-2023-45857',
+    packageName: 'axios',
+    vulnerableRange: '<1.6.0',
+    severity: 'medium',
+    description: 'Cross-Site Request Forgery (CSRF) protection bypass.',
+  },
+  {
+    cveId: 'CVE-2023-45133',
+    packageName: 'babel-traverse',
+    vulnerableRange: '<7.23.2',
+    severity: 'critical',
+    description: 'Arbitrary code execution during Babel plugin traversal.',
+  },
+  {
+    cveId: 'CVE-2024-22201',
+    packageName: 'jetty-server',
+    vulnerableRange: '<12.0.2',
+    severity: 'high',
+    description: 'Connection leak leading to denial of service.',
+  },
+];
+
+/** License compatibility map */
+export const LICENSE_COMPATIBILITY: Record<string, string[]> = {
+  MIT: ['MIT', 'ISC', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', 'CC0-1.0'],
+  'Apache-2.0': ['Apache-2.0', 'MIT', 'BSD-2-Clause', 'BSD-3-Clause', 'CC0-1.0'],
+  'GPL-3.0': ['GPL-3.0', 'GPL-2.0', 'MIT', 'LGPL-3.0'],
+  'GPL-2.0': ['GPL-2.0', 'MIT', 'LGPL-2.1'],
+  BSD: ['BSD-2-Clause', 'BSD-3-Clause', 'MIT', 'ISC'],
+};
+
+// ---------------------------------------------------------------------------
+// Dependency Health Lens
+// ---------------------------------------------------------------------------
+
+export interface DepCheckResult {
+  depName: string;
+  version: string;
+  line: number;
+  finding: LensFinding | null;
+}
+
+/**
+ * Review dependency health: check for outdated deps, CVEs, license issues,
+ * and unpinned versions.
+ */
+export function reviewDependencyHealth(
+  content: string,
+  filePath: string,
+  manifestType: 'npm' | 'pip' | 'cargo' | 'go',
+): LensFinding[] {
+  const findings: LensFinding[] = [];
+  const lines = content.split('\n');
+
+  switch (manifestType) {
+    case 'npm': {
+      const parsed = parseNpmDeps(lines);
+      for (const dep of parsed) {
+        const f = checkDependency(dep, lines, filePath);
+        if (f) findings.push(f);
+      }
+      break;
+    }
+    case 'pip': {
+      const parsed = parsePipDeps(lines);
+      for (const dep of parsed) {
+        const f = checkDependency(dep, lines, filePath);
+        if (f) findings.push(f);
+      }
+      break;
+    }
+    case 'cargo': {
+      const parsed = parseCargoDeps(lines);
+      for (const dep of parsed) {
+        const f = checkDependency(dep, lines, filePath);
+        if (f) findings.push(f);
+      }
+      break;
+    }
+    case 'go': {
+      const parsed = parseGoDeps(lines);
+      for (const dep of parsed) {
+        const f = checkDependency(dep, lines, filePath);
+        if (f) findings.push(f);
+      }
+      break;
+    }
+  }
+
+  // Check for unpinned versions (npm: ^, ~, >=, *)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (/\s*"[^"]+"\s*:\s*"[~^><=*]/.test(line)) {
+      const match = line.match(/"([^"]+)"\s*:\s*"([~^><=*][^"]+)"/);
+      if (match) {
+        const depName = match[1]!;
+        const version = match[2]!;
+        const evidence: EvidenceAnchor = {
+          filePath,
+          startLine: i + 1,
+          endLine: i + 1,
+          codeSnippet: line.trim().slice(0, 200),
+          lens: 'deps',
+          ruleId: 'deps-unpinned',
+        };
+        const finding = createLensFinding(
+          'deps',
+          'security',
+          'medium',
+          'Unpinned Dependency Version',
+          `Dependency "${depName}" has an unpinned version range "${version}". Pin to a specific version to ensure reproducible builds and prevent supply chain attacks.`,
+          evidence,
+          {
+            ruleId: 'deps-unpinned',
+            suggestion: `Replace "${version}" with a specific version number.`,
+          },
+        );
+        if (finding) findings.push(finding);
+      }
+    }
+  }
+
+  return findings;
+}
+
+interface DepEntry {
+  name: string;
+  version: string;
+  line: number;
+}
+
+function parseNpmDeps(lines: string[]): DepEntry[] {
+  const deps: DepEntry[] = [];
+  let inDeps = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    if (/"dependencies"\s*:/) inDeps = true;
+    if (/"devDependencies"\s*:/) inDeps = true;
+    if (inDeps && line === '},') inDeps = false;
+    if (inDeps) {
+      const match = line.match(/"([^"]+)"\s*:\s*"([^"]+)"/);
+      if (match) {
+        deps.push({ name: match[1]!, version: match[2]!, line: i + 1 });
+      }
+    }
+  }
+  return deps;
+}
+
+function parsePipDeps(lines: string[]): DepEntry[] {
+  const deps: DepEntry[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    const match = line.match(/^([a-zA-Z0-9_-]+)\s*([><=!~]+)\s*([\d.]+)/);
+    if (match) {
+      deps.push({ name: match[1]!, version: match[3]!, line: i + 1 });
+    }
+  }
+  return deps;
+}
+
+function parseCargoDeps(lines: string[]): DepEntry[] {
+  const deps: DepEntry[] = [];
+  let inDeps = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    if (line === '[dependencies]') { inDeps = true; continue; }
+    if (inDeps && line.startsWith('[')) { inDeps = false; continue; }
+    if (inDeps) {
+      const match = line.match(/^(\S+)\s*=\s*"([^"]+)"/);
+      if (match) {
+        deps.push({ name: match[1]!, version: match[2]!, line: i + 1 });
+      }
+    }
+  }
+  return deps;
+}
+
+function parseGoDeps(lines: string[]): DepEntry[] {
+  const deps: DepEntry[] = [];
+  let inRequire = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    if (line.startsWith('require (')) { inRequire = true; continue; }
+    if (inRequire && line === ')') { inRequire = false; continue; }
+    if (inRequire) {
+      const parts = line.split(/\s+/);
+      if (parts.length >= 2 && parts[0] && parts[1]) {
+        deps.push({ name: parts[0], version: parts[1], line: i + 1 });
+      }
+    }
+  }
+  return deps;
+}
+
+function checkDependency(dep: DepEntry, _lines: string[], filePath: string): LensFinding | null {
+  // Check CVE advisories
+  for (const advisory of KNOWN_CVE_ADVISORIES) {
+    if (advisory.packageName === dep.name) {
+      // Basic version range check
+      const cleanVersion = dep.version.replace(/^[\^~>=<]/, '');
+      const vulnVersion = parseFloat(advisory.vulnerableRange.replace(/[<>=~\s]/g, ''));
+      const curVersion = parseFloat(cleanVersion);
+      if (!isNaN(curVersion) && !isNaN(vulnVersion) && curVersion < vulnVersion) {
+        const evidence: EvidenceAnchor = {
+          filePath,
+          startLine: dep.line,
+          endLine: dep.line,
+          codeSnippet: `${dep.name}@${dep.version}`,
+          lens: 'deps',
+          ruleId: `cve-${advisory.cveId}`,
+        };
+        return createLensFinding(
+          'deps',
+          'security',
+          advisory.severity,
+          `CVE: ${advisory.cveId} — ${dep.name}`,
+          `${advisory.description}\nCurrent: ${dep.name}@${dep.version} (vulnerable: ${advisory.vulnerableRange})\nUpgrade to the latest patched version.`,
+          evidence,
+          {
+            ruleId: `cve-${advisory.cveId}`,
+            suggestion: `npm install ${dep.name}@latest (or check npm advisory for patched version)`,
+          },
+        );
+      }
+    }
+  }
+
+  // Check for known deprecated packages (npm)
+  const DEPRECATED_PACKAGES: Record<string, string> = {
+    'request': 'request is deprecated — use node-fetch or axios instead',
+    'core-js@2': 'core-js@2 is end-of-life — migrate to core-js@3',
+    'left-pad': 'left-pad is deprecated — use String.prototype.padStart()',
+    'hoek': 'hoek is deprecated — use @hapi/hoek instead',
+    'rimraf@2': 'rimraf@2 is deprecated — use rimraf@3+ or native fs.rm()',
+  };
+
+  for (const [pkgName, reason] of Object.entries(DEPRECATED_PACKAGES)) {
+    if (pkgName.includes('@') && dep.name === pkgName.split('@')[0] && dep.version.startsWith(pkgName.split('@')[1]!)) {
+      const evidence: EvidenceAnchor = {
+        filePath,
+        startLine: dep.line,
+        endLine: dep.line,
+        codeSnippet: `${dep.name}@${dep.version}`,
+        lens: 'deps',
+        ruleId: 'deps-deprecated',
+      };
+      return createLensFinding(
+        'deps',
+        'maintainability',
+        'high',
+        `Deprecated Dependency: ${dep.name}`,
+        `${reason}\nDetected: ${dep.name}@${dep.version}`,
+        evidence,
+        { ruleId: 'deps-deprecated' },
+      );
+    }
+    if (!pkgName.includes('@') && dep.name === pkgName) {
+      const evidence: EvidenceAnchor = {
+        filePath,
+        startLine: dep.line,
+        endLine: dep.line,
+        codeSnippet: `${dep.name}@${dep.version}`,
+        lens: 'deps',
+        ruleId: 'deps-deprecated',
+      };
+      return createLensFinding(
+        'deps',
+        'maintainability',
+        'high',
+        `Deprecated Dependency: ${dep.name}`,
+        `${reason}\nDetected: ${dep.name}@${dep.version}`,
+        evidence,
+        { ruleId: 'deps-deprecated' },
+      );
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// API Contract Compliance Lens
+// ---------------------------------------------------------------------------
+
+export interface ApiContractFinding {
+  type: 'breaking_change' | 'missing_deprecated' | 'signature_change' | 'removed_export';
+  symbol: string;
+  filePath: string;
+  line: number;
+  previousSignature?: string;
+  newSignature?: string;
+  severity: Severity;
+}
+
+/**
+ * Review API contract compliance: detect breaking changes, missing
+ * @deprecated annotations, and signature modifications.
+ */
+export function reviewApiContract(
+  content: string,
+  filePath: string,
+  previousContent?: string,
+): LensFinding[] {
+  const findings: LensFinding[] = [];
+  const lines = content.split('\n');
+  const prevLines = previousContent?.split('\n') ?? [];
+
+  // Detect removed exports — compare current vs previous
+  if (previousContent) {
+    const currentExports = extractExportedSymbols(lines);
+    const previousExports = extractExportedSymbols(prevLines);
+
+    for (const prevExp of previousExports) {
+      if (!currentExports.has(prevExp.name)) {
+        const evidence: EvidenceAnchor = {
+          filePath,
+          startLine: 1,
+          endLine: 1,
+          codeSnippet: `${prevExp.name} was exported in previous version but removed now`,
+          lens: 'contract',
+          ruleId: 'contract-removed-export',
+        };
+        const finding = createLensFinding(
+          'contract',
+          'api',
+          'critical',
+          'Breaking Change: Removed Export',
+          `Public export "${prevExp.name}" was removed. This is a BREAKING CHANGE.\nIf intentional, bump the major version. If unintentional, restore the export.`,
+          evidence,
+          {
+            ruleId: 'contract-removed-export',
+            suggestion: `Re-add export for "${prevExp.name}" or document removal in CHANGELOG as breaking change.`,
+          },
+        );
+        if (finding) findings.push(finding);
+      }
+    }
+  }
+
+  // Check for missing @deprecated on changed exported functions
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (/\bexport\s+(?:async\s+)?function\s+(\w+)/.test(line)) {
+      const nameMatch = line.match(/export\s+(?:async\s+)?function\s+(\w+)/);
+      if (nameMatch) {
+        const funcName = nameMatch[1]!;
+
+        // Check preceding lines for @deprecated JSDoc tag
+        const precedingLines = lines.slice(Math.max(0, i - 10), i);
+        const hasDeprecated = precedingLines.some(l => /@deprecated/.test(l));
+
+        // Check if signature changed from previous version
+        if (previousContent) {
+          const prevSig = extractFunctionSignature(prevLines, funcName);
+          const curSig = extractFunctionSignature(lines, funcName);
+          // Guard: only flag if content actually differs (prevent false positives
+          // when comparing against the same content from split/join variance)
+          const contentDiffers = previousContent.trim() !== content.trim();
+          if (prevSig && curSig && prevSig !== curSig && !hasDeprecated && contentDiffers) {
+            const evidence: EvidenceAnchor = {
+              filePath,
+              startLine: i + 1,
+              endLine: i + 1,
+              codeSnippet: line.trim().slice(0, 200),
+              lens: 'contract',
+              ruleId: 'contract-signature-change',
+            };
+            const finding = createLensFinding(
+              'contract',
+              'api',
+              'high',
+              `Signature Changed Without @deprecated: ${funcName}`,
+              `Function "${funcName}" signature changed:\n  Previous: ${prevSig}\n  Current:  ${curSig}\nAdd @deprecated annotation if this is a breaking change.`,
+              evidence,
+              {
+                ruleId: 'contract-signature-change',
+                suggestion: `Add JSDoc: /** @deprecated Use newFunction instead */`,
+              },
+            );
+            if (finding) findings.push(finding);
+          }
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+/** Extract exported symbol names from source lines */
+function extractExportedSymbols(lines: string[]): Set<{ name: string; line: number }> {
+  const symbols = new Set<{ name: string; line: number }>();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const match = line.match(/\bexport\s+(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\s+(\w+)/);
+    if (match) {
+      symbols.add({ name: match[1]!, line: i + 1 });
+    }
+  }
+  return symbols;
+}
+
+/** Extract function signature for comparison */
+function extractFunctionSignature(lines: string[], funcName: string): string | null {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line.includes(`function ${funcName}`) || line.includes(`const ${funcName}`)) {
+      // Return normalized signature (remove whitespace variance)
+      return line.trim().replace(/\s+/g, ' ');
+    }
+    // Multi-line function
+    if (line.includes(`function ${funcName}(`)) {
+      let sig = line.trim();
+      if (!line.includes(')')) {
+        for (let j = i + 1; j < Math.min(lines.length, i + 10); j++) {
+          sig += ' ' + lines[j]!.trim();
+          if (lines[j]!.includes(')')) break;
+        }
+      }
+      return sig.replace(/\s+/g, ' ');
+    }
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Lens Helpers

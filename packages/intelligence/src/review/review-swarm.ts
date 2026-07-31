@@ -25,6 +25,8 @@ import {
   TESTING_PATTERNS,
   createLensFinding,
   lensFindingToReviewComment,
+  reviewDependencyHealth,
+  reviewApiContract,
 } from './review-lenses.js';
 
 // ---------------------------------------------------------------------------
@@ -415,7 +417,7 @@ Reason: ${result.decision.reason}`;
       const lines = content.split('\n');
       linesAnalyzed += lines.length;
 
-      const lensFindings = this.executeLensOnDiff(profile, diff, lines);
+      const lensFindings = this.executeLensOnDiff(profile, diff, lines, sourceContents);
       findings.push(...lensFindings);
     }
 
@@ -440,6 +442,7 @@ Reason: ${result.decision.reason}`;
     profile: LensProfile,
     diff: GitDiff,
     lines: string[],
+    sourceContents?: Map<string, string>,
   ): LensFinding[] {
     switch (profile.id) {
       case 'security':
@@ -456,6 +459,10 @@ Reason: ${result.decision.reason}`;
         return this.runApiLens(diff, lines);
       case 'docs':
         return this.runDocsLens(diff, lines);
+      case 'deps':
+        return this.runDepsLens(diff, lines);
+      case 'contract':
+        return this.runContractLens(diff, lines, sourceContents);
       /* v8 ignore next 2 */
       default:
         return [];
@@ -815,6 +822,51 @@ Reason: ${result.decision.reason}`;
         }
       }
     }
+
+    return findings;
+  }
+
+  // -------------------------------------------------------------------------
+  // DEPENDENCY HEALTH LENS
+  // -------------------------------------------------------------------------
+
+  private runDepsLens(diff: GitDiff, lines: string[]): LensFinding[] {
+    const findings: LensFinding[] = [];
+
+    // Determine manifest type from file path
+    const fileName = diff.filePath.split('/').pop() ?? '';
+    let manifestType: 'npm' | 'pip' | 'cargo' | 'go' | null = null;
+
+    if (fileName === 'package.json') manifestType = 'npm';
+    else if (fileName === 'requirements.txt' || fileName.endsWith('.pip')) manifestType = 'pip';
+    else if (fileName === 'Cargo.toml') manifestType = 'cargo';
+    else if (fileName === 'go.mod') manifestType = 'go';
+
+    if (!manifestType) return findings;
+
+    const content = lines.join('\n');
+    const depFindings = reviewDependencyHealth(content, diff.filePath, manifestType);
+    findings.push(...depFindings);
+
+    return findings;
+  }
+
+  // -------------------------------------------------------------------------
+  // API CONTRACT COMPLIANCE LENS
+  // -------------------------------------------------------------------------
+
+  private runContractLens(
+    diff: GitDiff,
+    lines: string[],
+    sourceContents?: Map<string, string>,
+  ): LensFinding[] {
+    const findings: LensFinding[] = [];
+    const content = lines.join('\n');
+
+    // Pass previous content for diff comparison if available
+    const prevContent = sourceContents?.get(diff.filePath);
+    const contractFindings = reviewApiContract(content, diff.filePath, prevContent);
+    findings.push(...contractFindings);
 
     return findings;
   }

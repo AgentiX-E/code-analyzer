@@ -26,6 +26,7 @@ export default defineConfig({
       'tests/e2e/**/*.test.ts',
       'tests/property/**/*.test.ts',
       'tests/benchmarks/ca-bench/__tests__/*.test.ts',
+      'tests/benchmarks/ca-bench/__tests__/*.bench.ts',
       'tests/benchmarks/real-world/__tests__/*.test.ts',
       'tests/benchmarks/performance/*.bench.ts',
     ],
