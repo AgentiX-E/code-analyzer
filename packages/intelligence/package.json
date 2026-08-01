@@ -1,6 +1,6 @@
 {
   "name": "@code-analyzer/intelligence",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Intelligence layer for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",

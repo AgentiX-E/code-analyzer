@@ -4,7 +4,8 @@
 // Implements a Hybrid LSP approach — structural type resolution without
 // external language server processes.
 
-import type { NodeLabel, ParsedImport } from '@code-analyzer/shared';
+import type { NodeLabel } from '@code-analyzer/shared';
+import type { ParsedImport } from '../languages/provider.js';
 
 // ---------------------------------------------------------------------------
 // Type Info
@@ -42,6 +43,7 @@ export interface TypeInfo {
   parameterTypes: string[];
   isExported: boolean;
   isAbstract: boolean;
+  isAsync?: boolean;
   decorators: string[];
   location: { startLine: number; endLine: number };
 }
@@ -120,11 +122,11 @@ export class TypeRegistry {
   /** Build import-aware resolution for a file */
   buildImportMap(filePath: string, imports: ParsedImport[]): void {
     // Store raw imports for later resolution
-    const records: ImportRecord[] = imports.map((imp) => ({
+    const records: ImportRecord[] = imports.map((imp: ParsedImport) => ({
       sourceFile: filePath,
       importPath: imp.source,
       importedNames: imp.names,
-      resolvedFile: null,
+      resolvedFile: null as string | null,
       resolved: false,
     }));
 

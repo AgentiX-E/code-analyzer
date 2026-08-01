@@ -2,7 +2,7 @@
 // Shows active project, last analysis time, review finding count,
 // and provides quick access to the review panel.
 
-import type { EngineBridge, ReviewCommentItem } from '../services/engine-bridge.js';
+import type { EngineBridge } from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------
 // Status bar types (VS Code stubs for testing)

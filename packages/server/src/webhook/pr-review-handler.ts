@@ -61,18 +61,11 @@ export interface PRReviewConfig {
 
 export class PRReviewEventHandler implements EventHandler {
   private reviewedSHAs = new Map<string, PRReviewResult>();
-  private config: PRReviewConfig;
 
   constructor(
     private reviewEngine: CodeReviewEngine,
-    config: Partial<PRReviewConfig> = {},
+    _config: Partial<PRReviewConfig> = {},
   ) {
-    this.config = {
-      autoPostComments: config.autoPostComments ?? false,
-      updateStatusChecks: config.updateStatusChecks ?? false,
-      maxComments: config.maxComments ?? 50,
-      githubToken: config.githubToken,
-    };
   }
 
   /**

@@ -153,7 +153,7 @@ export function synthesizeFindings(
     const existing = titleFreq.get(f.title);
     if (existing) {
       existing.count++;
-      if (SEVERITY_WEIGHT[f.severity] > SEVERITY_WEIGHT[existing.severity]) {
+      if (SEVERITY_WEIGHT[f.severity]! > SEVERITY_WEIGHT[existing.severity!]!) {
         existing.severity = f.severity;
       }
     } else {
@@ -183,7 +183,7 @@ export function synthesizeFindings(
 
 function buildActionPlan(
   findings: LensFinding[],
-  titleFreq: Map<string, { count: number; severity: string }>,
+  _titleFreq: Map<string, { count: number; severity: string }>,
 ): Array<{ priority: number; action: string; findings: string[] }> {
   const actions: Array<{ priority: number; action: string; findings: string[] }> = [];
   const severityOrder = ['critical', 'high', 'medium', 'low'];

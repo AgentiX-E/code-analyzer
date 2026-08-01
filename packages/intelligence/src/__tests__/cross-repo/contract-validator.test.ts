@@ -19,13 +19,22 @@ function nextNodeId(): number {
 function createGraphNode(overrides: Partial<GraphNode> = {}): GraphNode {
   return {
     id: nextNodeId(),
+    projectId: 'test-project',
     label: 'Function',
     name: `fn-${nextNodeId()}`,
     qualifiedName: `fn-${nextNodeId()}()`,
     filePath: 'src/test.ts',
     startLine: 1,
     endLine: 10,
-    properties: {},
+    language: 'typescript',
+    properties: { name: `fn-${nextNodeId()}` },
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: false,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }
@@ -91,9 +100,9 @@ describe('ContractValidator', () => {
 
     it('should infer visibility from node properties', () => {
       const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
-        createGraphNode({ id: 1, name: 'publicFn', label: 'Function', properties: {} }),
-        createGraphNode({ id: 2, name: 'privateFn', label: 'Function', properties: { visibility: 'private' } }),
-        createGraphNode({ id: 3, name: 'protectedFn', label: 'Function', properties: { visibility: 'protected' } }),
+        createGraphNode({ id: 1, name: 'publicFn', label: 'Function', properties: { name: 'publicFn' } }),
+        createGraphNode({ id: 2, name: 'privateFn', label: 'Function', properties: { name: 'privateFn', visibility: 'private' } }),
+        createGraphNode({ id: 3, name: 'protectedFn', label: 'Function', properties: { name: 'protectedFn', visibility: 'protected' } }),
       ]);
 
       const v = new ContractValidator(idx);

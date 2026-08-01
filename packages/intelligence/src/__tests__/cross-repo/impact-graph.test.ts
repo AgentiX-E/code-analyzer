@@ -32,8 +32,8 @@ function createIndexerWithRepos() {
         filePath: `src/${repo.split('/')[1]}/file${i}.ts`,
         startLine: 1,
         endLine: 5,
-        properties: { repoId: repo },
-      });
+        properties: { name: `${repo.split('/')[1]}-fn-${i}`, repoId: repo },
+      } as any);
     }
   }
 

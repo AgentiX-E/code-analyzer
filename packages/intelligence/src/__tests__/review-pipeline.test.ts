@@ -421,6 +421,8 @@ describe('ReviewPipeline - Review Execution', () => {
       planLineThreshold: 200,
       timeout: 30000,
       concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: false,
     };
 
     const comments = await pipeline.executeReview(diffs, engine, config);
@@ -438,6 +440,8 @@ describe('ReviewPipeline - Review Execution', () => {
       planLineThreshold: 200,
       timeout: 30000,
       concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: false,
     };
 
     const comments = await pipeline.executeReview([], engine, config);
@@ -465,6 +469,8 @@ describe('ReviewPipeline - Review Execution', () => {
       planLineThreshold: 200,
       timeout: 30000,
       concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: false,
     };
 
     const comments = await pipeline.executeReview(diffs, engine, config);
@@ -495,6 +501,8 @@ describe('ReviewPipeline - Review Execution', () => {
       planLineThreshold: 200,
       timeout: 30000,
       concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: false,
     };
 
     const comments = await pipeline.executeReview(diffs, engine, config);
@@ -714,6 +722,8 @@ describe('ReviewPipeline - Full Pipeline', () => {
       planLineThreshold: 200,
       timeout: 30000,
       concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: false,
     };
 
     const comments = await pipeline.run(diffs, store, engine, config);
@@ -736,6 +746,8 @@ describe('ReviewPipeline - Full Pipeline', () => {
       planLineThreshold: 200,
       timeout: 30000,
       concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: false,
     };
 
     const comments = await pipeline.run(diffs, store, engine, config);

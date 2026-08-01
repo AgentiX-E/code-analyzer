@@ -51,7 +51,7 @@ interface RefactorSuggestion {
 }
 
 function generateSuggestions(
-  filePath: string,
+  _filePath: string,
   symbolName?: string,
 ): RefactorSuggestion[] {
   return [

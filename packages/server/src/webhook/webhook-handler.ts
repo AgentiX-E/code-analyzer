@@ -220,7 +220,7 @@ export class GitHubWebhookHandler {
  */
 export function parseWebhookEvent(
   headers: Record<string, string | string[] | undefined>,
-  body: string,
+  _body: string,
 ): { eventType: string; deliveryId: string; signature: string } | null {
   const eventType = getHeader(headers, 'x-github-event');
   const deliveryId = getHeader(headers, 'x-github-delivery');

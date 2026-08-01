@@ -440,7 +440,7 @@ ${adrInstruction}`;
     const lines: string[] = [];
     for (const node of this.store.nodes.values()) {
       if (node.projectId !== projectId && projectId !== '*') continue;
-      const isEntry = node.label === 'EntryPoint' || node.properties.isEntrypoint === 'true';
+      const isEntry = (node.label as string) === 'EntryPoint' || node.properties['isEntrypoint'] === 'true';
       if (!isEntry) continue;
       const fileInfo = node.filePath ?? 'unknown file';
       const lineInfo = node.startLine ? `:${node.startLine}` : '';
@@ -463,7 +463,7 @@ ${adrInstruction}`;
     if (node) {
       lines.push(`- Found: \`${node.qualifiedName || node.name}\` (${node.label})`);
       const edges = this.store.getEdgesForNode(node.id, undefined, 'out');
-      const calls = edges.filter((e) => e.type === 'CALLS' || e.type === 'DEPENDS_ON');
+      const calls = edges.filter((e) => e.type === 'CALLS' || (e.type as string) === 'DEPENDS_ON');
       if (calls.length > 0) {
         lines.push(`- Direct calls/dependencies: ${calls.length}`);
         for (const edge of calls.slice(0, 5)) {
@@ -556,7 +556,7 @@ ${adrInstruction}`;
 
     for (const edge of this.store.edges.values()) {
       if (edge.projectId !== projectId && projectId !== '*') continue;
-      if (edge.type === 'DEPENDS_ON' || edge.type === 'IMPORTS') {
+      if ((edge.type as string) === 'DEPENDS_ON' || edge.type === 'IMPORTS') {
         const src = this.store.getNode(edge.sourceId);
         const tgt = this.store.getNode(edge.targetId);
         if (src && tgt) {

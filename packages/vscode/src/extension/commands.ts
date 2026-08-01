@@ -320,7 +320,8 @@ export function registerCommands(
 
   // 16. Trigger a specific slash command in chat
   disposables.push(
-    api.registerCommand('code-analyzer.chatCommand', async (command?: string) => {
+    api.registerCommand('code-analyzer.chatCommand', async (...args: unknown[]) => {
+      const command = typeof args[0] === 'string' ? args[0] : undefined;
       const slashCmd = command ?? '/review';
       await api.executeCommand('workbench.action.chat.open', {
         query: `@code-analyzer ${slashCmd}`,

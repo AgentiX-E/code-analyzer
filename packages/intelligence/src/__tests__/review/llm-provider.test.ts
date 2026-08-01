@@ -186,7 +186,7 @@ describe('DeepSeekProvider — complete()', () => {
 
     // Verify the fetch call
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    const callArgs = mockFetch.mock.calls[0] as [string, RequestInit];
+    const callArgs = (mockFetch as any).mock.calls[0] as [string, RequestInit];
     expect(callArgs[0]).toContain('/chat/completions');
     expect(callArgs[1].method).toBe('POST');
     expect(callArgs[1].headers).toBeDefined();
@@ -203,7 +203,7 @@ describe('DeepSeekProvider — complete()', () => {
       stop: ['END'],
     });
 
-    const callArgs = mockFetch.mock.calls[0] as [string, RequestInit];
+    const callArgs = (mockFetch as any).mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(callArgs[1].body as string);
     expect(body.max_tokens).toBe(100);
     expect(body.temperature).toBe(0.5);
@@ -270,12 +270,12 @@ describe('DeepSeekProvider — completeWithTools()', () => {
       { name: 'get_weather', description: 'Get weather', parameters: { type: 'object', properties: { city: { type: 'string' } } } },
     ]);
 
-    const callArgs = mockFetch.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(callArgs[1].body as string);
-    expect(body.tools).toBeDefined();
-    expect(body.tools).toHaveLength(1);
-    expect(body.tools[0].type).toBe('function');
-    expect(body.tools[0].function.name).toBe('get_weather');
+    const callArgs2 = (mockFetch as any).mock.calls[0] as [string, RequestInit];
+    const body2 = JSON.parse(callArgs2[1].body as string);
+    expect(body2.tools).toBeDefined();
+    expect(body2.tools).toHaveLength(1);
+    expect(body2.tools[0].type).toBe('function');
+    expect(body2.tools[0].function.name).toBe('get_weather');
   });
 
   it('should handle tool call response where content is null', async () => {
@@ -298,10 +298,10 @@ describe('DeepSeekProvider — completeWithTools()', () => {
       { name: 'search', description: 'Search', parameters: {} },
     ], { temperature: 0.1, timeout: 30000 });
 
-    const callArgs = mockFetch.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(callArgs[1].body as string);
-    expect(body.tools).toBeDefined();
-    expect(body.temperature).toBe(0.1);
+    const callArgs3 = (mockFetch as any).mock.calls[0] as [string, RequestInit];
+    const body3 = JSON.parse(callArgs3[1].body as string);
+    expect(body3.tools).toBeDefined();
+    expect(body3.temperature).toBe(0.1);
   });
 });
 

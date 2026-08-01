@@ -57,6 +57,23 @@ const Dashboard: React.FC = () => {
   // Determine loading state
   const loaded = !healthLoading && !statsLoading;
 
+  // Compute system info from health data or use defaults
+  const system: SystemInfo = health
+    ? {
+        nodeVersion: 'N/A',
+        os: `${health.environment}`,
+        memoryMb: health.checks.memory.rssMB,
+      }
+    : {
+        nodeVersion: 'N/A',
+        os: 'unknown',
+        memoryMb: 0,
+      };
+
+  const index: IndexStats = stats
+    ? { nodes: stats.nodes, edges: stats.edges, files: stats.files }
+    : { nodes: 0, edges: 0, files: 0 };
+
   // Compute trends by comparing current stats with previous
   const nodeTrend: MetricCardData['trend'] = prevStatsRef.current
     ? (index.nodes > prevStatsRef.current.nodes ? 'up' : index.nodes < prevStatsRef.current.nodes ? 'down' : 'neutral')
@@ -77,23 +94,6 @@ const Dashboard: React.FC = () => {
     refetchHealth();
     refetchStats();
   }, [refetchHealth, refetchStats]);
-
-  // Compute system info from health data or use defaults
-  const system: SystemInfo = health
-    ? {
-        nodeVersion: 'N/A',
-        os: `${health.environment}`,
-        memoryMb: health.checks.memory.rssMB,
-      }
-    : {
-        nodeVersion: 'N/A',
-        os: 'unknown',
-        memoryMb: 0,
-      };
-
-  const index: IndexStats = stats
-    ? { nodes: stats.nodes, edges: stats.edges, files: stats.files }
-    : { nodes: 0, edges: 0, files: 0 };
 
   const handleNewAnalysis = useCallback(async () => {
     const path = prompt('Enter repository path to analyze:');

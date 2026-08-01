@@ -287,8 +287,8 @@ export class ContractValidator {
     if (node.properties?.visibility === 'private') return 'private';
     if (node.properties?.visibility === 'protected') return 'protected';
     // In the knowledge graph, only explicitly marked private symbols are non-public
-    if (node.properties?.access === 'private') return 'private';
-    if (node.properties?.access === 'protected') return 'protected';
+    if (node.properties?.['access'] === 'private') return 'private';
+    if (node.properties?.['access'] === 'protected') return 'protected';
     return 'public';
   }
 

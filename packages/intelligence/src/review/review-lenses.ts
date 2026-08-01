@@ -623,8 +623,8 @@ function parseNpmDeps(lines: string[]): DepEntry[] {
   let inDeps = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (/"dependencies"\s*:/) inDeps = true;
-    if (/"devDependencies"\s*:/) inDeps = true;
+    if (/"dependencies"\s*:/.test(line)) inDeps = true;
+    if (/"devDependencies"\s*:/.test(line)) inDeps = true;
     if (inDeps && line === '},') inDeps = false;
     if (inDeps) {
       const match = line.match(/"([^"]+)"\s*:\s*"([^"]+)"/);
@@ -801,7 +801,7 @@ export function reviewApiContract(
     const previousExports = extractExportedSymbols(prevLines);
 
     for (const prevExp of previousExports) {
-      if (!currentExports.has(prevExp.name)) {
+      if (![...currentExports].some(e => e.name === prevExp.name)) {
         const evidence: EvidenceAnchor = {
           filePath,
           startLine: 1,

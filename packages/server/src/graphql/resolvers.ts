@@ -520,7 +520,7 @@ export const resolvers = {
 
     repoGroup: (
       _root: unknown,
-      args: { id: string },
+      _args: { id: string },
       _ctx: GraphQLContext,
     ) => {
       return null; // Groups managed via manageRepoGroup mutation
@@ -648,7 +648,7 @@ export const resolvers = {
       const language = args.language ?? null;
 
       // Create a project node to represent the indexing request
-      const nodeId = store.insertNode({
+      store.insertNode({
         id: 0,
         projectId,
         label: 'Project',

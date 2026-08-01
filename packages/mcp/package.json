@@ -1,10 +1,18 @@
 {
   "name": "@code-analyzer/mcp",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "MCP server for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
-  "keywords": ["code-analysis", "mcp", "model-context-protocol", "code-review", "cypher", "agent-tools", "code-intelligence"],
+  "keywords": [
+    "code-analysis",
+    "mcp",
+    "model-context-protocol",
+    "code-review",
+    "cypher",
+    "agent-tools",
+    "code-intelligence"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Lambertyan/code-analyzer.git",
@@ -14,7 +22,9 @@
     "url": "https://github.com/Lambertyan/code-analyzer/issues"
   },
   "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
   },

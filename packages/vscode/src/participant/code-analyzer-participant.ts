@@ -934,7 +934,7 @@ export class CodeAnalyzerChatParticipant {
 
       let msg = '## /check-contract — API Contract Compliance\n\n';
       if (symbols && symbols.length > 0) {
-        const exported = symbols.filter((s) => s.label === 'Class' || s.label === 'Function' || s.label === 'Interface');
+        const exported = symbols.filter((s) => s.name && (s.name.startsWith('class ') || s.name.startsWith('function ') || s.name.startsWith('interface ')));
         msg += `### Exported Symbols (${exported.length})\n`;
         for (const s of exported.slice(0, 15)) {
           msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
@@ -1013,7 +1013,6 @@ export class CodeAnalyzerChatParticipant {
 
     try {
       const changedFiles = await this.engine.getChangedFiles();
-      const searchResults = await this.engine.search('complexity');
 
       let msg = '## /find-hotspots — Code Hotspots\n\n';
       msg += '### Hotspot Detection\n';

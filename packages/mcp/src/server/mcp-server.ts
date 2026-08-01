@@ -29,13 +29,10 @@ import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-ana
 import type { AutoIndexer as AutoIndexerType } from '@code-analyzer/infra';
 import { createToolRegistry, ToolRegistry } from '../tools/index.js';
 import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
-import { ResourceProvider, registerResources } from '../resources/index.js';
-import type { ResourceContent, ResourceError } from '../resources/index.js';
-import { PromptProvider, registerPrompts } from '../prompts/index.js';
-import type { PromptResult } from '../prompts/index.js';
-import { AuthMiddleware, RateLimiter, RequestLogger } from '../middleware/index.js';
+import { ResourceProvider } from '../resources/index.js';
+import { PromptProvider } from '../prompts/index.js';
+import { AuthMiddleware, RateLimiter } from '../middleware/index.js';
 import { SSETransport } from '../transport/sse-transport.js';
-import type { SSEEvent } from '../transport/sse-transport.js';
 import { createLogger, type Logger } from '@code-analyzer/core';
 
 // ---------------------------------------------------------------------------
@@ -188,9 +185,9 @@ export class CodeAnalyzerMCPServer {
           return result;
         } catch (error: unknown) {
           const msg = error instanceof Error ? error.message : String(error);
-          this.logger.error('Tool execution failed', {
+          this.logger.error('Tool execution failed', undefined, {
             toolName: name,
-            error: msg,
+            errorMessage: msg,
             duration: Date.now() - start,
           });
           return {
@@ -282,14 +279,14 @@ export class CodeAnalyzerMCPServer {
       this.logger.info('Auto-indexing completed', { rootPath });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error('Auto-indexing failed', {
+      this.logger.error('Auto-indexing failed', undefined, {
         rootPath,
-        error: msg,
+        errorMessage: msg,
       });
 
       // Send notification to MCP client so the user is aware
       try {
-        this.server.sendNotification({
+        this.server.notification({
           method: 'notifications/message',
           params: {
             level: 'warning',
@@ -352,7 +349,7 @@ export class CodeAnalyzerMCPServer {
 
       // Handle server errors
       server.on('error', (err: Error) => {
-        this.logger.error('HTTP server error', { error: err.message });
+        this.logger.error('HTTP server error', undefined, { errorMessage: err.message });
       });
 
       if (rootPath) {
@@ -362,8 +359,8 @@ export class CodeAnalyzerMCPServer {
       // Connect via stdio as the primary MCP transport
       await this.startStdio();
     } catch (error: unknown) {
-      this.logger.error('Failed to start HTTP transport, falling back to stdio', {
-        error: error instanceof Error ? error.message : String(error),
+      this.logger.error('Failed to start HTTP transport, falling back to stdio', undefined, {
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
       await this.startStdio();
     }
@@ -388,29 +385,6 @@ export class CodeAnalyzerMCPServer {
         path: '/sse',
       });
 
-      // Forward MCP events via SSE transport
-      this.server.on(
-        'notification',
-        (notification: { method: string; params?: unknown }) => {
-          if (this.sseTransport?.isRunning()) {
-            this.sseTransport.broadcast({
-              event: 'notification',
-              data: notification,
-            });
-          }
-        },
-      );
-
-      // Forward MCP errors via SSE transport
-      this.server.on('error', (error: Error) => {
-        if (this.sseTransport?.isRunning()) {
-          this.sseTransport.broadcast({
-            event: 'error',
-            data: { message: error.message },
-          });
-        }
-      });
-
       this.sseTransport.start();
 
       server.listen(port, host ?? '0.0.0.0', () => {
@@ -421,7 +395,7 @@ export class CodeAnalyzerMCPServer {
       });
 
       server.on('error', (err: Error) => {
-        this.logger.error('SSE server error', { error: err.message });
+        this.logger.error('SSE server error', undefined, { errorMessage: err.message });
       });
 
       if (rootPath) {
@@ -431,8 +405,8 @@ export class CodeAnalyzerMCPServer {
       // Connect via stdio as primary MCP transport
       await this.startStdio();
     } catch (error: unknown) {
-      this.logger.error('Failed to start SSE transport, falling back to stdio', {
-        error: error instanceof Error ? error.message : String(error),
+      this.logger.error('Failed to start SSE transport, falling back to stdio', undefined, {
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
       await this.startStdio();
     }
@@ -457,7 +431,7 @@ export class CodeAnalyzerMCPServer {
     const rawPort = options?.port ?? process.env['MCP_PORT'];
     const port =
       rawPort !== undefined && rawPort !== ''
-        ? parseInt(rawPort, 10)
+        ? parseInt(String(rawPort), 10)
         : 3000;
     const host = options?.host ?? process.env['MCP_HOST'] ?? '0.0.0.0';
     const rootPath = options?.rootPath;
@@ -495,8 +469,8 @@ export class CodeAnalyzerMCPServer {
         await this.server.close();
       }
     } catch (error: unknown) {
-      this.logger.error('Error closing MCP server', {
-        error: error instanceof Error ? error.message : String(error),
+      this.logger.error('Error closing MCP server', undefined, {
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     }
 
@@ -505,8 +479,8 @@ export class CodeAnalyzerMCPServer {
         await this.sseTransport.shutdown();
       }
     } catch (error: unknown) {
-      this.logger.error('Error shutting down SSE transport', {
-        error: error instanceof Error ? error.message : String(error),
+      this.logger.error('Error shutting down SSE transport', undefined, {
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     }
 
@@ -515,16 +489,16 @@ export class CodeAnalyzerMCPServer {
         this.httpServer.close();
       }
     } catch (error: unknown) {
-      this.logger.error('Error closing HTTP server', {
-        error: error instanceof Error ? error.message : String(error),
+      this.logger.error('Error closing HTTP server', undefined, {
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     }
 
     try {
       this.store.close();
     } catch (error: unknown) {
-      this.logger.error('Error closing graph store', {
-        error: error instanceof Error ? error.message : String(error),
+      this.logger.error('Error closing graph store', undefined, {
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     }
 

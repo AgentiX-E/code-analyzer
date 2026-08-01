@@ -286,7 +286,7 @@ function groupCaptures(
       kind: s.kind,
       startLine: s.startLine,
       endLine: s.endLine,
-      children: [],
+      children: [] as ScopeTree[],
       symbols: [s.qualifiedName],
     })),
     symbols: symbols.map((s) => s.qualifiedName),

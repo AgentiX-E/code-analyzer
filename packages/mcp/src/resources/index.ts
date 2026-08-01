@@ -52,13 +52,6 @@ export function registerResources(): ResourceDefinition[] {
 // Resource URI Path Helpers
 // ---------------------------------------------------------------------------
 
-const URI_PREFIX = 'code-analyzer://resources/';
-
-function resourceName(uri: string): string {
-  if (!uri.startsWith(URI_PREFIX)) return '';
-  return uri.slice(URI_PREFIX.length);
-}
-
 // ---------------------------------------------------------------------------
 // ResourceProvider
 // ---------------------------------------------------------------------------
@@ -200,7 +193,7 @@ export class ResourceProvider {
     const clusterMap = new Map<string, { name: string; memberCount: number; primaryLanguage: string | null }>();
 
     for (const node of this.store.nodes.values()) {
-      const clusterId = node.properties.clusterId as string | undefined;
+      const clusterId = node.properties['clusterId'] as string | undefined;
       if (!clusterId) continue;
       if (!clusterMap.has(clusterId)) {
         clusterMap.set(clusterId, { name: clusterId, memberCount: 0, primaryLanguage: null });
@@ -223,13 +216,13 @@ export class ResourceProvider {
     const processes: Array<{ name: string; nodeId: number; stepCount: number }> = [];
 
     for (const node of this.store.nodes.values()) {
-      const isProcess = node.label === 'Process' || node.properties.isProcess === 'true';
+      const isProcess = node.label === 'Process' || node.properties['isProcess'] === 'true';
       if (!isProcess) continue;
 
       processes.push({
         name: node.name,
         nodeId: node.id,
-        stepCount: typeof node.properties.stepCount === 'number' ? node.properties.stepCount : 0,
+        stepCount: typeof node.properties['stepCount'] === 'number' ? node.properties['stepCount'] : 0,
       });
     }
 
@@ -268,8 +261,8 @@ export class ResourceProvider {
 
     for (const node of this.store.nodes.values()) {
       const isEntrypoint =
-        node.label === 'EntryPoint' ||
-        node.properties.isEntrypoint === 'true' ||
+        (node.label as string) === 'EntryPoint' ||
+        node.properties['isEntrypoint'] === 'true' ||
         (node.name === 'main' && node.isExported);
       if (!isEntrypoint) continue;
 
@@ -327,14 +320,14 @@ export class ResourceProvider {
     const adrs: Array<{ title: string; nodeId: number; filePath: string | null; status: string }> = [];
 
     for (const node of this.store.nodes.values()) {
-      const isADR = node.label === 'ADR' || node.properties.isADR === 'true';
+      const isADR = node.label === 'ADR' || node.properties['isADR'] === 'true';
       if (!isADR) continue;
 
       adrs.push({
         title: node.name,
         nodeId: node.id,
         filePath: node.filePath,
-        status: (node.properties.status as string) ?? 'proposed',
+        status: (node.properties['status'] as string) ?? 'proposed',
       });
     }
 
@@ -435,8 +428,8 @@ export class ResourceProvider {
     const groupMap = new Map<string, { name: string; repos: string[]; description?: string }>();
 
     for (const node of this.store.nodes.values()) {
-      const groupName = node.properties.repoGroup as string | undefined;
-      const repoName = node.properties.repoName as string | undefined;
+      const groupName = node.properties['repoGroup'] as string | undefined;
+      const repoName = node.properties['repoName'] as string | undefined;
       if (!groupName || !repoName) continue;
       if (!groupMap.has(groupName)) {
         groupMap.set(groupName, { name: groupName, repos: [] });
@@ -461,7 +454,7 @@ export class ResourceProvider {
     const contracts: Array<{ id: number; sourceId: number; targetId: number; projectId: string; weight: number }> = [];
 
     for (const edge of this.store.edges.values()) {
-      if (edge.type === 'CONTRACT' || edge.type === 'DEPENDS_ON_CROSS_REPO') {
+      if ((edge.type as string) === 'CONTRACT' || (edge.type as string) === 'DEPENDS_ON_CROSS_REPO') {
         contracts.push({
           id: edge.id,
           sourceId: edge.sourceId,
@@ -522,14 +515,14 @@ export class ResourceProvider {
     const reports: Array<{ name: string; nodeId: number; createdAt: string; type: string }> = [];
 
     for (const node of this.store.nodes.values()) {
-      const isReport = node.label === 'Report' || node.properties.isReport === 'true';
+      const isReport = (node.label as string) === 'Report' || node.properties['isReport'] === 'true';
       if (!isReport) continue;
 
       reports.push({
         name: node.name,
         nodeId: node.id,
         createdAt: node.createdAt,
-        type: (node.properties.reportType as string) ?? 'analysis',
+        type: (node.properties['reportType'] as string) ?? 'analysis',
       });
     }
 
