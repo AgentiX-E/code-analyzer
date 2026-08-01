@@ -162,6 +162,18 @@ describe('ToolRegistry', () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Handler crashed');
     });
+
+    it('should return success when schema has no properties key', async () => {
+      // Schema without 'properties' — validateArgs should skip validation
+      const schema = { type: 'object', required: [] };
+      const handler = async (args: Record<string, unknown>) => ({
+        content: [{ type: 'text' as const, text: `args: ${JSON.stringify(args)}` }],
+      });
+
+      registry.register('no-props', 'No props', schema, handler);
+      const result = await registry.execute('no-props', { anything: 'goes' });
+      expect(result.isError).toBeFalsy();
+    });
   });
 
   describe('unregister', () => {

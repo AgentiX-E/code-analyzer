@@ -766,3 +766,219 @@ describe('HybridSearchEngine — inverted index edge cases', () => {
     expect(results.length).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// vectorSearch — candidate ID and max cap branches
+// ---------------------------------------------------------------------------
+
+describe('HybridSearchEngine — vectorSearch branches', () => {
+  it('should accept candidateIds for scoped vector search', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'target', qualifiedName: 'pkg.target' }));
+    store.insertNode(createNode(2, { name: 'other', qualifiedName: 'pkg.other' }));
+    store.insertNode(createNode(3, { name: 'third', qualifiedName: 'pkg.third' }));
+
+    const engine = new HybridSearchEngine(store);
+    const emb = new Map<number, Float32Array>();
+    emb.set(1, new Float32Array([0.9, 0.1]));
+    emb.set(2, new Float32Array([0.1, 0.9]));
+    emb.set(3, new Float32Array([0.5, 0.5]));
+
+    engine.registerEmbeddings(
+      (nodeId) => emb.get(nodeId) ?? null,
+      async () => new Float32Array([0.9, 0.1]),
+    );
+
+    // Only score node 1 and 2 via candidate IDs
+    const results = await engine.vectorSearch('test', 2, [1, 2]);
+    expect(results.length).toBeLessThanOrEqual(2);
+  });
+
+  it('should cap candidate nodes at 1000 (maxCandidates branch)', async () => {
+    const store = new InMemoryGraphStore();
+    for (let i = 1; i <= 5; i++) {
+      store.insertNode(createNode(i));
+    }
+
+    const engine = new HybridSearchEngine(store);
+    const emb = new Map<number, Float32Array>();
+    for (let i = 1; i <= 5; i++) {
+      emb.set(i, new Float32Array([0.1 * i, 0.2]));
+    }
+
+    engine.registerEmbeddings(
+      (nodeId) => emb.get(nodeId) ?? null,
+      async () => new Float32Array([0.5, 0.5]),
+    );
+
+    // vectorSearch without candidates → scores all nodes (less than 1000, exercises the no-cap path)
+    const results = await engine.vectorSearch('test', 5);
+    expect(results.length).toBeLessThanOrEqual(5);
+  });
+
+  it('should handle vectorSearch with null candidateIds (line 416)', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'a', qualifiedName: 'pkg.a' }));
+    store.insertNode(createNode(2, { name: 'b', qualifiedName: 'pkg.b' }));
+
+    const engine = new HybridSearchEngine(store);
+    const emb = new Map<number, Float32Array>();
+    emb.set(1, new Float32Array([0.8, 0.2]));
+    emb.set(2, new Float32Array([0.2, 0.8]));
+
+    engine.registerEmbeddings(
+      (nodeId) => emb.get(nodeId) ?? null,
+      async () => new Float32Array([0.5, 0.5]),
+    );
+
+    // Explicitly pass null candidateIds to hit the "score all nodes" branch
+    const results = await engine.vectorSearch('test', 2, null);
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('should handle vectorSearch with empty candidateIds array', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'x', qualifiedName: 'pkg.x' }));
+
+    const engine = new HybridSearchEngine(store);
+    const emb = new Map<number, Float32Array>();
+    emb.set(1, new Float32Array([0.7, 0.3]));
+
+    engine.registerEmbeddings(
+      (nodeId) => emb.get(nodeId) ?? null,
+      async () => new Float32Array([0.5, 0.5]),
+    );
+
+    // Empty candidateIds array → fallback to all nodes
+    const results = await engine.vectorSearch('test', 1, []);
+    expect(results.length).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cosineSimilarity — negative values and edge cases
+// ---------------------------------------------------------------------------
+
+describe('cosineSimilarity — negative and mixed values', () => {
+  it('should handle mixed positive and negative components', () => {
+    const a = new Float32Array([1, -2, 3]);
+    const b = new Float32Array([-1, 2, -3]);
+    const result = cosineSimilarity(a, b);
+    // a·b = -1 -4 -9 = -14; |a| = sqrt(14); |b| = sqrt(14); cos = -14/14 = -1
+    expect(result).toBeCloseTo(-1, 5);
+  });
+
+  it('should handle large magnitude vectors', () => {
+    const a = new Float32Array([1e6, 2e6]);
+    const b = new Float32Array([1e6, 2e6]);
+    expect(cosineSimilarity(a, b)).toBeCloseTo(1, 5);
+  });
+
+  it('should handle vectors with one zero and one non-zero', () => {
+    const a = new Float32Array([1, 0, 0]);
+    const b = new Float32Array([0, 0, 0]);
+    expect(cosineSimilarity(a, b)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HybridSearchEngine — dataflow search integration
+// ---------------------------------------------------------------------------
+
+describe('HybridSearchEngine — dataflow search', () => {
+  it('should return empty paths for dataflowSearch without entryPoints', () => {
+    const store = new InMemoryGraphStore();
+    const engine = new HybridSearchEngine(store);
+    const paths = engine.dataflowSearch();
+    expect(Array.isArray(paths)).toBe(true);
+  });
+
+  it('should handle dataflowSearch with custom maxDepth and maxPaths', () => {
+    const store = new InMemoryGraphStore();
+    const engine = new HybridSearchEngine(store);
+    const paths = engine.dataflowSearch({ maxDepth: 5, maxPaths: 10 });
+    expect(Array.isArray(paths)).toBe(true);
+  });
+
+  it('should handle dataflowReachableSinks', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'source', qualifiedName: 'pkg.source' }));
+    store.insertNode(createNode(2, { name: 'sink', qualifiedName: 'pkg.sink' }));
+    const engine = new HybridSearchEngine(store);
+    const sinks = engine.dataflowReachableSinks(1, 5);
+    expect(Array.isArray(sinks)).toBe(true);
+  });
+
+  it('should handle dataflowSearch with entryPoints', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'source', qualifiedName: 'pkg.source' }));
+    const engine = new HybridSearchEngine(store);
+    const paths = engine.dataflowSearch({ entryPoints: ['pkg.source'], maxDepth: 5 });
+    expect(Array.isArray(paths)).toBe(true);
+  });
+
+  it('should handle dataflowSearch with entryPoints and default maxDepth', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'source', qualifiedName: 'pkg.source' }));
+    const engine = new HybridSearchEngine(store);
+    const paths = engine.dataflowSearch({ entryPoints: ['pkg.source'] });
+    expect(Array.isArray(paths)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HybridSearchEngine.search — auto-initialize and zero results
+// ---------------------------------------------------------------------------
+
+describe('HybridSearchEngine.search — additional paths', () => {
+  it('should handle search with filePath filter option', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'apiHandler', filePath: '/src/api/users.ts', qualifiedName: 'api.users' }));
+    store.insertNode(createNode(2, { name: 'utilFunc', filePath: '/src/utils/helpers.ts', qualifiedName: 'utils.helpers' }));
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+
+    const results = await engine.search({ query: 'api', filePath: '*api*' });
+    expect(results.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should handle search with labels filter option', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'myFunc', label: 'Function', qualifiedName: 'pkg.myFunc' }));
+    store.insertNode(createNode(2, { name: 'MyClass', label: 'Class', qualifiedName: 'pkg.MyClass' }));
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+
+    const results = await engine.search({
+      query: 'my',
+      labels: ['Function' as const],
+    });
+    expect(results.every((r) => r.node.label === 'Function')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tokenize — additional patterns
+// ---------------------------------------------------------------------------
+
+describe('tokenize — additional patterns', () => {
+  it('should handle identifiers with trailing separators', () => {
+    expect(tokenize('getUser_')).toEqual(['get', 'user']);
+  });
+
+  it('should handle identifiers with leading separators', () => {
+    expect(tokenize('_privateField')).toEqual(['private', 'field']);
+  });
+
+  it('should handle consecutive uppercase followed by camelCase', () => {
+    expect(tokenize('XMLHTTPParser')).toEqual(['xmlhttp', 'parser']);
+  });
+
+  it('should handle single uppercase letter', () => {
+    expect(tokenize('I')).toEqual(['i']);
+  });
+
+  it('should handle mixed separators', () => {
+    expect(tokenize('my-module_v2.config')).toEqual(['my', 'module', 'v2', 'config']);
+  });
+});

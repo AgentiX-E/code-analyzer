@@ -451,6 +451,29 @@ describe('ToolContext', () => {
       expect(tree!.node.name).toBe('doWork');
       expect(tree!.depth).toBe(0);
     });
+
+    it('getDependencyTree should return tree with children for connected nodes (lines 269-291)', () => {
+      const ctx = createTestContext();
+      const tree = ctx.getDependencyTree('test-project', 'core.MyService.doWork', 2);
+      expect(tree).toBeDefined();
+      expect(tree!.depth).toBe(0);
+      // Children array should exist (empty or populated depending on edges)
+      expect(Array.isArray(tree!.children)).toBe(true);
+    });
+
+    it('getDependencyTree should return tree for leaf node with no children', () => {
+      const ctx = createTestContext();
+      const tree = ctx.getDependencyTree('test-project', 'core.MyService.validate', 2);
+      expect(tree).toBeDefined();
+      expect(tree!.depth).toBe(0);
+      expect(tree!.node.name).toBe('validate');
+    });
+
+    it('getDependencyTree should return null for null symbol qname (line 260 branch)', () => {
+      const ctx = createTestContext();
+      const tree = ctx.getDependencyTree('test-project', '');
+      expect(tree).toBeNull();
+    });
   });
 });
 

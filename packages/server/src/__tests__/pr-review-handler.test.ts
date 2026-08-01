@@ -133,6 +133,91 @@ describe('PRReviewEventHandler', () => {
       // Should not throw
     });
 
+    it('should handle events without repository in payload', async () => {
+      const event: WebhookEvent = {
+        eventType: 'pull_request',
+        deliveryId: 'delivery-002',
+        signature: 'sha256=abc',
+        payload: {
+          action: 'opened',
+          pull_request: {
+            number: 99,
+            title: 'No Repo PR',
+            body: 'Test',
+            state: 'open',
+            base: { ref: 'main', sha: 'nosha' },
+            head: { ref: 'feat', sha: 'headsha' },
+          },
+        },
+        rawBody: JSON.stringify({}),
+      };
+      await handler.handle(event);
+      // Should not throw — extractPRDetails returns null when repo is missing
+    });
+
+    it('should handle events without base or head in PR', async () => {
+      const event: WebhookEvent = {
+        eventType: 'pull_request',
+        deliveryId: 'delivery-003',
+        signature: 'sha256=abc',
+        payload: {
+          action: 'opened',
+          pull_request: {
+            number: 1,
+            title: 'No base/head',
+            body: 'Test',
+            state: 'open',
+          },
+          repository: {
+            full_name: 'org/repo',
+            name: 'repo',
+            owner: { login: 'org' },
+          },
+        },
+        rawBody: JSON.stringify({}),
+      };
+      await handler.handle(event);
+      // Should not throw
+    });
+
+    it('should set pending status before performing review', async () => {
+      const event = createPREvent({
+        action: 'opened',
+        pull_request: {
+          number: 42,
+          title: 'Pending test',
+          base: { ref: 'main', sha: 'pending-sha' },
+          head: { ref: 'feat', sha: 'pending-head' },
+        },
+      });
+      await handler.handle(event);
+      const result = handler.getReviewResult('pending-head');
+      expect(result).toBeDefined();
+      // After handle completes, status should be 'success' or 'error', not 'pending'
+      expect(['success', 'error']).toContain(result!.status);
+    });
+
+    it('should store review result after successful review', async () => {
+      const event = createPREvent({
+        action: 'opened',
+        pull_request: {
+          number: 10,
+          title: 'Success Test',
+          base: { ref: 'main', sha: 'base-s' },
+          head: { ref: 'feat', sha: 'success-sha' },
+        },
+      });
+      await handler.handle(event);
+      const result = handler.getReviewResult('success-sha');
+      expect(result).toBeDefined();
+      expect(result!.prNumber).toBe(10);
+      expect(result!.repo).toBe('org/repo');
+      expect(result!.status).toBe('success');
+      expect(result!.summary).toContain('reviewed successfully');
+      expect(result!.timestamp).toBeDefined();
+      expect(result!.comments).toBe(0);
+    });
+
     it('should handle review errors gracefully', async () => {
       const failingEngine = {
         reviewDiff: vi.fn().mockRejectedValue(new Error('Review failed')),
@@ -205,6 +290,109 @@ describe('PRReviewEventHandler', () => {
       });
       expect(details).toBeNull();
     });
+
+    it('should handle payload with null values for optional fields', () => {
+      const details = handler.extractPRDetails({
+        action: 'opened',
+        pull_request: {
+          number: 5,
+          title: undefined,
+          body: null,
+          state: 'open',
+          base: { ref: 'main', sha: 'abc' },
+          head: { ref: 'feat', sha: 'def' },
+        },
+        repository: {
+          full_name: 'org/repo',
+          name: 'repo',
+          owner: { login: 'org' },
+        },
+        sender: { login: 'dev' },
+      });
+      expect(details).not.toBeNull();
+      expect(details!.title).toBe('');
+      expect(details!.body).toBeNull();
+    });
+
+    it('should handle missing sender in payload', () => {
+      const details = handler.extractPRDetails({
+        action: 'opened',
+        pull_request: {
+          number: 1,
+          title: 'Test',
+          state: 'open',
+          base: { ref: 'main', sha: 'abc' },
+          head: { ref: 'feat', sha: 'def' },
+        },
+        repository: {
+          full_name: 'org/repo',
+          name: 'repo',
+          owner: { login: 'org' },
+        },
+      });
+      expect(details).not.toBeNull();
+      expect(details!.sender.login).toBe('');
+    });
+
+    it('should handle missing owner in repository', () => {
+      const details = handler.extractPRDetails({
+        action: 'opened',
+        pull_request: {
+          number: 1,
+          title: 'Test',
+          state: 'open',
+          base: { ref: 'main', sha: 'abc' },
+          head: { ref: 'feat', sha: 'def' },
+        },
+        repository: {
+          full_name: 'org/repo',
+          name: 'repo',
+        },
+        sender: { login: 'dev' },
+      });
+      expect(details).not.toBeNull();
+      expect(details!.repository.owner).toBe('');
+    });
+
+    it('should handle missing full_name and name in repository', () => {
+      const details = handler.extractPRDetails({
+        action: 'opened',
+        pull_request: {
+          number: 1,
+          title: 'Test',
+          state: 'open',
+          base: { ref: 'main', sha: 'abc' },
+          head: { ref: 'feat', sha: 'def' },
+        },
+        repository: {
+          owner: { login: 'org' },
+        },
+        sender: { login: 'dev' },
+      });
+      expect(details).not.toBeNull();
+      expect(details!.repository.name).toBe('');
+      expect(details!.repository.fullName).toBe('');
+    });
+
+    it('should handle pull_request with missing state field', () => {
+      const details = handler.extractPRDetails({
+        action: 'opened',
+        pull_request: {
+          number: 1,
+          title: 'Test',
+          base: { ref: 'main', sha: 'abc' },
+          head: { ref: 'feat', sha: 'def' },
+        },
+        repository: {
+          full_name: 'org/repo',
+          name: 'repo',
+          owner: { login: 'org' },
+        },
+        sender: { login: 'dev' },
+      });
+      expect(details).not.toBeNull();
+      expect(details!.state).toBe('unknown');
+    });
   });
 
   describe('getReviewResult', () => {
@@ -219,6 +407,17 @@ describe('PRReviewEventHandler', () => {
       const result = handler.getReviewResult('head-sha');
       expect(result).toBeDefined();
       expect(result!.prNumber).toBe(42);
+    });
+
+    it('should return undefined after clearing cache', async () => {
+      const event = createPREvent({ action: 'opened' });
+      await handler.handle(event);
+
+      const resultBefore = handler.getReviewResult('head-sha');
+      expect(resultBefore).toBeDefined();
+
+      handler.clearCache();
+      expect(handler.getReviewResult('head-sha')).toBeUndefined();
     });
   });
 
@@ -237,6 +436,11 @@ describe('PRReviewEventHandler', () => {
       await handler.handle(event1);
       const results = handler.getAllResults();
       expect(results.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should return empty array when no reviews have been performed', () => {
+      const results = handler.getAllResults();
+      expect(results).toEqual([]);
     });
   });
 

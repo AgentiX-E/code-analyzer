@@ -158,6 +158,7 @@ export class RulesRegistry {
 
     for (const definition of ALL_RULE_DEFINITIONS) {
       const checker = CHECKER_MAP[definition.id];
+      /* v8 ignore next */ // every ALL_RULE_DEFINITIONS entry has a CHECKER_MAP entry by design
       if (checker) {
         registry.register(definition, checker);
       }

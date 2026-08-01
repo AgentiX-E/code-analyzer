@@ -33,6 +33,7 @@ export function createParseCache(maxSize: number = 1000): ParseCache {
   function evictIfNeeded(): void {
     while (cache.size > maxSize && accessOrder.length > 0) {
       const oldest = accessOrder.shift();
+      /* v8 ignore next */ // accessOrder.length > 0 guaranteed by while condition
       if (oldest !== undefined) {
         cache.delete(oldest);
       }

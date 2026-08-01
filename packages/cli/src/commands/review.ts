@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/cli — Review Command
 // Runs code review on a file, directory, or git diff using the
 // deterministic rules engine. Supports multiple output formats
@@ -15,8 +14,6 @@ import { execSync } from 'node:child_process';
 
 export interface ReviewOptions {
   /** File or directory to review */
-/* v8 ignore start */
-
   target?: string;
   /** Review mode: diff (git changes), file (single file), or dir (directory) */
   mode?: 'diff' | 'file' | 'dir';
@@ -241,6 +238,7 @@ export async function reviewCode(
       duration: Date.now() - startTime,
     };
   } catch (err) {
+    /* v8 ignore next -- defensive non-Error catch, rare in practice */
     const message = err instanceof Error ? err.message : String(err);
     return {
       success: false,
@@ -418,4 +416,3 @@ export function formatReviewResult(
 
   return lines.join(EOL);
 }
-/* v8 ignore stop */

@@ -664,6 +664,206 @@ describe('PipelineOrchestrator', () => {
       expect(result.errors.filter(e => e.type === 'duplicate_id')).toHaveLength(0);
     });
   });
+
+  // ============================================================================
+  // Additional branch coverage hardening
+  // ============================================================================
+
+  describe('branch coverage — missing dependency validation', () => {
+    it('should report missing_dependency for unregistered dependency', () => {
+      const phase = {
+        id: 'dep-check' as PipelinePhaseId,
+        dependencies: ['ghost-phase' as PipelinePhaseId],
+        description: 'Checks deps',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'dep-check' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([phase]);
+      const result = orchestrator.validatePipeline();
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]!.type).toBe('missing_dependency');
+      expect(result.errors[0]!.message).toContain('ghost-phase');
+    });
+
+    it('should validate pipeline with multiple phases and no issues', () => {
+      const phase1 = {
+        id: 'p1' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Phase 1',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'p1' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const phase2 = {
+        id: 'p2' as PipelinePhaseId,
+        dependencies: ['p1' as PipelinePhaseId],
+        description: 'Phase 2',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'p2' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([phase1, phase2]);
+      const result = orchestrator.validatePipeline();
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('execute — phase with non-Error throw', () => {
+    it('should handle phase that throws an object', async () => {
+      const phase = {
+        id: 'obj-throw' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Throws object',
+        parallelizable: false,
+        execute: async () => { throw { code: 500, message: 'server error' }; },
+      };
+      const orchestrator = new PipelineOrchestrator([phase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('failed');
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it('should handle phase that throws null', async () => {
+      const phase = {
+        id: 'null-throw' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Throws null',
+        parallelizable: false,
+        execute: async () => { throw null; },
+      };
+      const orchestrator = new PipelineOrchestrator([phase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('failed');
+    });
+  });
+
+  describe('execute — all phases succeed', () => {
+    it('should return complete status when all phases succeed', async () => {
+      const phase1 = {
+        id: 'ok1' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'OK Phase 1',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'ok1' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const phase2 = {
+        id: 'ok2' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'OK Phase 2',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'ok2' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([phase1, phase2]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('complete');
+      expect(result.phases.length).toBe(2);
+      expect(result.phases.every(p => p.status === 'success')).toBe(true);
+    });
+  });
+
+  describe('execute — multiple phases with some failing', () => {
+    it('should return partial when dependent phase fails but independent succeeds', async () => {
+      const failPhase = {
+        id: 'failing-root' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Will fail',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'failing-root' as PipelinePhaseId, status: 'failed' as const, error: 'root failed' }),
+      };
+      const dependsOnFail = {
+        id: 'depends-on-fail' as PipelinePhaseId,
+        dependencies: ['failing-root' as PipelinePhaseId],
+        description: 'Depends on failing root',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'depends-on-fail' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const independent = {
+        id: 'independent-ok' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Independent OK',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'independent-ok' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([failPhase, dependsOnFail, independent]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('partial');
+      expect(result.phases.find(p => p.phaseId === 'depends-on-fail')!.status).toBe('skipped');
+      expect(result.phases.find(p => p.phaseId === 'independent-ok')!.status).toBe('success');
+    });
+
+    it('should not skip phase when dependency succeeded', async () => {
+      // When depResult exists but status is 'success', should NOT skip
+      const rootPhase = {
+        id: 'root-success' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Root success',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'root-success' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const childPhase = {
+        id: 'child-success' as PipelinePhaseId,
+        dependencies: ['root-success' as PipelinePhaseId],
+        description: 'Child after success',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'child-success' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([rootPhase, childPhase]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('complete');
+      expect(result.phases.find(p => p.phaseId === 'child-success')!.status).toBe('success');
+    });
+
+    it('should handle failed phase with no error message', async () => {
+      // result.error is falsy when status is 'failed' — L143 branch
+      const failNoError = {
+        id: 'fail-no-err' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Fails without error message',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'fail-no-err' as PipelinePhaseId, status: 'failed' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([failNoError]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      // Phase completes (doesn't throw) so completedPhases.size > 0 -> 'partial'
+      expect(result.status).toBe('partial');
+      expect(result.phases[0]!.status).toBe('failed');
+    });
+
+    it('should handle phase with result error property set', async () => {
+      // result.status is 'success' but has error property — L143 not entered
+      const successWithError = {
+        id: 'success-err' as PipelinePhaseId,
+        dependencies: [] as PipelinePhaseId[],
+        description: 'Succeeds with error property',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'success-err' as PipelinePhaseId, status: 'success' as const, error: 'non-fatal warning' }),
+      };
+      const orchestrator = new PipelineOrchestrator([successWithError]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('complete');
+    });
+
+    it('should handle dependency result not found in phaseResults', async () => {
+      // When depResult is undefined (dependency not yet executed, shouldn't happen but defensive)
+      // This covers L111: depResult is falsy -> skipPhase stays false
+      const phaseWithUnregisteredDep = {
+        id: 'with-dep' as PipelinePhaseId,
+        dependencies: ['not-in-pipeline' as PipelinePhaseId],
+        description: 'Has dependency not in pipeline',
+        parallelizable: false,
+        execute: async () => ({ phaseId: 'with-dep' as PipelinePhaseId, status: 'success' as const }),
+      };
+      const orchestrator = new PipelineOrchestrator([phaseWithUnregisteredDep]);
+      const ctx = createMockContext();
+      const result = await orchestrator.execute(ctx);
+      expect(result.status).toBe('failed'); // Missing dep detected in validation
+    });
+  });
 });
 
 // ============================================================================

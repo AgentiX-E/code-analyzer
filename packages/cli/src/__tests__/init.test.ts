@@ -112,4 +112,14 @@ describe('initProject', () => {
     expect(result.success).toBe(true);
     expect(existsSync(join(spacedDir, '.code-analyzer'))).toBe(true);
   });
+
+  it('should skip gitignore when .code-analyzer/data/ already present', () => {
+    writeFileSync(join(testDir, '.gitignore'), '.code-analyzer/data/\nnode_modules/\n');
+    const result = initProject({ directory: testDir });
+    const gitignore = readFileSync(join(testDir, '.gitignore'), 'utf-8');
+    // Should not duplicate the entry
+    const matches = (gitignore.match(/\.code-analyzer\/data\//g) || []).length;
+    expect(matches).toBe(1);
+  });
+
 });

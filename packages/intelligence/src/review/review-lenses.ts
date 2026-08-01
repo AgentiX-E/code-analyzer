@@ -894,7 +894,8 @@ function extractExportedSymbols(lines: string[]): Set<{ name: string; line: numb
 function extractFunctionSignature(lines: string[], funcName: string): string | null {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (line.includes(`function ${funcName}`) || line.includes(`const ${funcName}`)) {
+    if ((line.includes(`function ${funcName}`) || line.includes(`const ${funcName}`)) &&
+        line.includes(')')) {
       // Return normalized signature (remove whitespace variance)
       return line.trim().replace(/\s+/g, ' ');
     }

@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/cli — Search Command
 // Searches the knowledge graph using FTS5, graph traversal, and
 // optional semantic scoring. Supports multiple output formats.
@@ -12,8 +11,6 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 export interface SearchOptions {
   /** Search query */
-/* v8 ignore start */
-
   query: string;
   /** Repository path (for auto-index if needed) */
   path?: string;
@@ -160,4 +157,3 @@ export function formatSearchResult(
   lines.push(`${'='.repeat(60)}`);
   return lines.join(EOL);
 }
-/* v8 ignore stop */

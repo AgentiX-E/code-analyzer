@@ -214,6 +214,19 @@ describe('RBACEngine', () => {
     it('should return false for non-existent user', () => {
       expect(engine.hasRole('non-existent', 'viewer')).toBe(false);
     });
+
+    it('should return false when user has different role', () => {
+      engine.defineRole('viewer', {
+        name: 'viewer',
+        permissions: ['analysis:read'],
+      });
+      engine.defineRole('reviewer', {
+        name: 'reviewer',
+        permissions: ['review:read'],
+      });
+      engine.assignRole('user-1', 'viewer');
+      expect(engine.hasRole('user-1', 'reviewer')).toBe(false);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -436,6 +449,106 @@ describe('RBACEngine', () => {
       for (const perm of standardsPerms) {
         expect(engine.hasPermission('user-1', perm)).toBe(true);
       }
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Permission Checking — Negative Cases
+  // -----------------------------------------------------------------------
+
+  describe('hasPermission negative cases', () => {
+    it('should return false when permission prefix does not match wildcard', () => {
+      engine.defineRole('developer', {
+        name: 'developer',
+        permissions: ['analysis:*'],
+      });
+      engine.assignRole('user-1', 'developer');
+      // analysis:* should NOT grant review:read
+      expect(engine.hasPermission('user-1', 'review:read')).toBe(false);
+      // analysis:* should NOT grant search:write
+      expect(engine.hasPermission('user-1', 'search:write')).toBe(false);
+      // analysis:* should NOT grant standards:admin
+      expect(engine.hasPermission('user-1', 'standards:admin')).toBe(false);
+    });
+
+    it('should return false when user has no roles at all', () => {
+      // hasPermission resolves permissions for non-existent user
+      expect(engine.hasPermission('ghost-user', 'analysis:read')).toBe(false);
+      expect(engine.hasPermission('ghost-user', 'admin:*')).toBe(false);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Role Revocation — Additional
+  // -----------------------------------------------------------------------
+
+  describe('revokeRole additional', () => {
+    it('should handle revoking role when user has no roles', () => {
+      expect(() => engine.revokeRole('no-roles', 'viewer')).not.toThrow();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Additional wildcard coverage
+  // -----------------------------------------------------------------------
+
+  describe('hasPermission wildcard branches', () => {
+    it('should handle search:* wildcard permission', () => {
+      engine.defineRole('searcher', {
+        name: 'searcher',
+        permissions: ['search:*'],
+      });
+      engine.assignRole('user-1', 'searcher');
+      expect(engine.hasPermission('user-1', 'search:read')).toBe(true);
+      expect(engine.hasPermission('user-1', 'search:write')).toBe(true);
+      expect(engine.hasPermission('user-1', 'analysis:read')).toBe(false);
+    });
+
+    it('should handle impact:* wildcard permission', () => {
+      engine.defineRole('analyst', {
+        name: 'analyst',
+        permissions: ['impact:*'],
+      });
+      engine.assignRole('user-1', 'analyst');
+      expect(engine.hasPermission('user-1', 'impact:read')).toBe(true);
+      expect(engine.hasPermission('user-1', 'impact:write')).toBe(true);
+      expect(engine.hasPermission('user-1', 'search:read')).toBe(false);
+    });
+
+    it('should handle crossrepo:* wildcard permission', () => {
+      engine.defineRole('cross-repo-user', {
+        name: 'cross-repo-user',
+        permissions: ['crossrepo:*'],
+      });
+      engine.assignRole('user-1', 'cross-repo-user');
+      expect(engine.hasPermission('user-1', 'crossrepo:read')).toBe(true);
+      expect(engine.hasPermission('user-1', 'crossrepo:write')).toBe(true);
+      expect(engine.hasPermission('user-1', 'analysis:read')).toBe(false);
+    });
+
+    it('should handle non-wildcard permission not matching wildcard prefix', () => {
+      engine.defineRole('standards-admin', {
+        name: 'standards-admin',
+        permissions: ['standards:*'],
+      });
+      engine.assignRole('user-1', 'standards-admin');
+      // standards:* should NOT match review:read (different prefix)
+      expect(engine.hasPermission('user-1', 'review:read')).toBe(false);
+      // standards:* should NOT match analysis:write (different prefix)
+      expect(engine.hasPermission('user-1', 'analysis:write')).toBe(false);
+    });
+
+    it('should handle permission check with non-wildcard permission in the list', () => {
+      engine.defineRole('viewer', {
+        name: 'viewer',
+        permissions: ['analysis:read', 'search:read'],
+      });
+      engine.assignRole('user-1', 'viewer');
+      // Non-wildcard permissions are checked directly
+      expect(engine.hasPermission('user-1', 'analysis:read')).toBe(true);
+      expect(engine.hasPermission('user-1', 'search:read')).toBe(true);
+      // Non-wildcard permission not in list
+      expect(engine.hasPermission('user-1', 'impact:read')).toBe(false);
     });
   });
 });

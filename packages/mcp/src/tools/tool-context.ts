@@ -121,7 +121,7 @@ export class ToolContextImpl implements ToolContext {
 
   getReviewEngine(): CodeReviewEngine {
     if (!this._reviewEngine) {
-      this._reviewEngine = new CodeReviewEngine(this.store);
+      this._reviewEngine = new CodeReviewEngine(this.store, { allowMetadataFallback: true });
     }
     return this._reviewEngine;
   }

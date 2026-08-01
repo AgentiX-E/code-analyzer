@@ -679,7 +679,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
     let crPrReview: CrossRepoPRReviewEngine;
 
     beforeAll(() => {
-      reviewEngine = new CodeReviewEngine(storeA);
+      reviewEngine = new CodeReviewEngine(storeA, { allowMetadataFallback: true });
       const indexer = new CrossRepoIndexer(storeA, manager);
       crPrReview = new CrossRepoPRReviewEngine(indexer, manager, reviewEngine);
     });

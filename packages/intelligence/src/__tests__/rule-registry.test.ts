@@ -135,6 +135,14 @@ describe('RuleRegistry', () => {
     it('should return false for unknown id', () => {
       expect(registry.remove('nope')).toBe(false);
     });
+
+    it('should decrement size after remove', () => {
+      registry.register(makeTemplate({ id: 'a' }));
+      registry.register(makeTemplate({ id: 'b' }));
+      expect(registry.size).toBe(2);
+      registry.remove('a');
+      expect(registry.size).toBe(1);
+    });
   });
 
   describe('toProjectStandard', () => {
@@ -192,6 +200,15 @@ describe('RuleRegistry', () => {
       expect(result.imported).toBe(2);
       expect(result.errors).toHaveLength(1);
     });
+
+    // Cover the non-array single-object import path (line 154 in source)
+    it('should import a single template (not wrapped in array)', () => {
+      const tpl = makeTemplate({ id: 'single-obj', name: 'Solo', version: '1.0.0' });
+      const json = JSON.stringify(tpl); // Not an array
+      const result = registry.importTemplates(json);
+      expect(result.imported).toBe(1);
+      expect(result.skipped).toBe(0);
+    });
   });
 
   describe('exportTemplates', () => {
@@ -201,6 +218,11 @@ describe('RuleRegistry', () => {
       const parsed = JSON.parse(exported);
       expect(parsed).toHaveLength(1);
       expect(parsed[0].id).toBe('e');
+    });
+
+    it('should export empty array when no templates', () => {
+      const exported = registry.exportTemplates();
+      expect(exported).toBe('[]');
     });
   });
 
@@ -234,6 +256,164 @@ describe('RuleRegistry', () => {
     it('should return sorted tags', () => {
       registry.register(makeTemplate({ id: 'a', tags: ['z', 'a', 'm'] }));
       expect(registry.getTags()).toEqual(['a', 'm', 'z']);
+    });
+
+    it('should return empty array when no templates registered', () => {
+      expect(registry.getTags()).toEqual([]);
+    });
+  });
+
+  describe('listByTags — edge cases', () => {
+    it('should return empty array when no tags match', () => {
+      registry.register(makeTemplate({ id: 'a', tags: ['security'] }));
+      expect(registry.listByTags(['nonexistent'])).toEqual([]);
+    });
+
+    it('should handle empty tags array', () => {
+      registry.register(makeTemplate({ id: 'a', tags: ['security'] }));
+      expect(registry.listByTags([])).toEqual([]);
+    });
+
+    it('should handle template with empty tags', () => {
+      registry.register(makeTemplate({ id: 'a', tags: [] }));
+      expect(registry.listByTags(['security'])).toEqual([]);
+    });
+  });
+
+  describe('search — additional edge cases', () => {
+    it('should match when query appears in middle of name', () => {
+      registry.register(makeTemplate({ id: 'a', name: 'Advanced Security Rules' }));
+      expect(registry.search('security')).toHaveLength(1);
+    });
+
+    it('should match when query appears in middle of tag', () => {
+      registry.register(makeTemplate({ id: 'a', tags: ['typescript-eslint'] }));
+      expect(registry.search('eslint')).toHaveLength(1);
+    });
+
+    it('should not return duplicates when query matches both name and tag', () => {
+      registry.register(makeTemplate({ id: 'a', name: 'security', tags: ['security'] }));
+      expect(registry.search('security')).toHaveLength(1);
+    });
+  });
+
+  describe('register — version tracking', () => {
+    it('should increment version when re-registering same id', () => {
+      registry.register(makeTemplate({ id: 'v1', version: '1.0.0' }));
+      registry.register(makeTemplate({ id: 'v1', version: '2.0.0' }));
+      const stored = registry.get('v1');
+      expect(stored).toBeDefined();
+      expect(stored!.version).toBe('2.0.0');
+    });
+
+    it('should preserve provided checksum', () => {
+      const tpl = makeTemplate({ id: 'chk', checksum: 'custom-checksum-1' });
+      registry.register(tpl);
+      const stored = registry.get('chk');
+      expect(stored!.checksum).toBe('custom-checksum-1');
+    });
+  });
+
+  describe('toProjectStandard — category fallback', () => {
+    it('should use tags[0] as category', () => {
+      const tpl = makeTemplate({ id: 'cat-test', tags: ['performance', 'optimization'] });
+      const std = registry.toProjectStandard(tpl);
+      expect(std.category).toBe('performance');
+    });
+
+    it('should default category to code-quality when tags are empty', () => {
+      const tpl = makeTemplate({ id: 'no-tags', tags: [] });
+      const std = registry.toProjectStandard(tpl);
+      // tags[0] ?? 'code-quality' → 'code-quality' when tags is empty
+      expect(std.category).toBe('code-quality');
+    });
+
+    it('should convert template with multiple rules to project standard', () => {
+      const tpl = makeTemplate({
+        id: 'multi-rule',
+        rules: [
+          { id: 'r1', name: 'Rule 1', description: 'D1', category: 'sec', severity: 'high', pattern: 'p1', suggestion: 's1', appliesTo: ['*.ts'] },
+          { id: 'r2', name: 'Rule 2', description: 'D2', category: 'style', severity: 'low', pattern: 'p2', suggestion: 's2', appliesTo: ['*.js'] },
+        ],
+      });
+      const std = registry.toProjectStandard(tpl);
+      expect(std.rules).toHaveLength(2);
+      expect(std.rules[0]!.id).toBe('r1');
+      expect(std.rules[1]!.id).toBe('r2');
+    });
+  });
+
+  describe('importTemplates — duplicate handling', () => {
+    it('should import template with updated content when checksum differs', () => {
+      const tpl1 = makeTemplate({ id: 'update-test', name: 'V1', checksum: 'aaa' });
+      registry.register(tpl1);
+      const tpl2 = makeTemplate({ id: 'update-test', name: 'V2', checksum: '' }); // Auto-compute different checksum
+      const json = JSON.stringify(tpl2);
+      const result = registry.importTemplates(json);
+      expect(result.imported).toBe(1);
+      expect(registry.get('update-test')!.name).toBe('V2');
+    });
+
+    it('should handle non-array item without required fields', () => {
+      const result = registry.importTemplates(JSON.stringify({ id: 'bare' }));
+      expect(result.errors).toHaveLength(1);
+    });
+  });
+
+  describe('importTemplates — existing template with different checksum', () => {
+    it('should re-import when existing template has different checksum', () => {
+      // Register a template with a known checksum
+      const tpl1 = makeTemplate({ id: 'reimport', name: 'Original', checksum: 'old-checksum-here' });
+      registry.register(tpl1);
+
+      // Import a modified version (auto-computed checksum will differ)
+      const tpl2 = makeTemplate({ id: 'reimport', name: 'Updated' });
+      // Remove checksum so it gets auto-computed
+      const result = registry.importTemplates(JSON.stringify(tpl2));
+
+      expect(result.imported).toBe(1);
+      expect(registry.get('reimport')!.name).toBe('Updated');
+    });
+
+    it('should handle import when checksum matches exactly', () => {
+      const tpl = makeTemplate({ id: 'match', name: 'Same', checksum: '' });
+      registry.register(tpl);
+      const stored = registry.get('match')!;
+      // Re-import with same checksum
+      const result = registry.importTemplates(JSON.stringify({ ...tpl, checksum: stored.checksum }));
+      expect(result.skipped).toBe(1);
+    });
+  });
+
+  describe('search — comprehensive matching', () => {
+    it('should match when query appears in description but not name or tags', () => {
+      registry.register(makeTemplate({
+        id: 'desc-only',
+        name: 'Helper',
+        description: 'Contains specificKeyword for testing purposes',
+        tags: ['misc'],
+      }));
+      expect(registry.search('specificKeyword')).toHaveLength(1);
+    });
+
+    it('should match when query appears in tags but not name or description', () => {
+      registry.register(makeTemplate({
+        id: 'tag-only',
+        name: 'Helper',
+        description: 'Some description here',
+        tags: ['uniqueTag123'],
+      }));
+      expect(registry.search('uniqueTag123')).toHaveLength(1);
+    });
+
+    it('should match when query appears only in name', () => {
+      registry.register(makeTemplate({
+        id: 'name-only',
+        name: 'MyUniqueFunction',
+        description: 'Some description',
+        tags: ['misc'],
+      }));
+      expect(registry.search('MyUniqueFunction')).toHaveLength(1);
     });
   });
 });

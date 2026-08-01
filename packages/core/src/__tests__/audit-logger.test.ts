@@ -297,6 +297,22 @@ describe('AuditLogger', () => {
       expect(() => logger.flush()).not.toThrow();
       expect(logger.getCount()).toBe(1);
     });
+
+    it('should reuse writeStream on subsequent flush calls', () => {
+      const persistLogger = new AuditLogger({
+        persistToFile: TEST_PERSIST_PATH,
+        bufferSize: 5,
+      });
+
+      persistLogger.log({ actor: 'a', action: 'x', resource: 'r', outcome: 'success' });
+      persistLogger.flush();
+
+      // Second flush reuses the existing writeStream
+      persistLogger.log({ actor: 'b', action: 'y', resource: 'r2', outcome: 'success' });
+      persistLogger.flush();
+
+      expect(persistLogger.getCount()).toBe(2);
+    });
   });
 
   // -----------------------------------------------------------------------

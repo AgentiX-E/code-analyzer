@@ -1068,6 +1068,134 @@ function handler(req: any, res: any) {
   });
 
   // -----------------------------------------------------------------------
+  // runDepsLens — branch coverage for manifest type detection
+  // -----------------------------------------------------------------------
+
+  describe('deps lens', () => {
+    it('should handle non-manifest files (null manifestType)', async () => {
+      const depsSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['deps'],
+      });
+      const diffs = [createDiff({ filePath: '/src/not-a-manifest.ts' })];
+      const sources = createSourceMap({
+        '/src/not-a-manifest.ts': 'import foo from "bar";\n',
+      });
+      const result = await depsSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+      expect(result.comments).toHaveLength(0);
+    });
+
+    it('should handle package.json manifest', async () => {
+      const depsSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['deps'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/package.json' })];
+      const sources = createSourceMap({
+        '/package.json': JSON.stringify({
+          dependencies: { express: '^4.17.0' },
+          devDependencies: { vitest: '^1.0.0' },
+        }),
+      });
+      const result = await depsSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle requirements.txt manifest', async () => {
+      const depsSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['deps'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/requirements.txt' })];
+      const sources = createSourceMap({
+        '/requirements.txt': 'requests==2.28.0\nflask==2.0.0\n',
+      });
+      const result = await depsSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle .pip manifest file', async () => {
+      const depsSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['deps'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/deps.pip' })];
+      const sources = createSourceMap({
+        '/deps.pip': 'numpy==1.24.0\npandas==2.0.0\n',
+      });
+      const result = await depsSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle Cargo.toml manifest', async () => {
+      const depsSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['deps'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/Cargo.toml' })];
+      const sources = createSourceMap({
+        '/Cargo.toml': '[dependencies]\nserde = "1.0"\ntokio = "1.0"\n',
+      });
+      const result = await depsSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle go.mod manifest', async () => {
+      const depsSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['deps'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/go.mod' })];
+      const sources = createSourceMap({
+        '/go.mod': 'module example.com/app\n\ngo 1.21\n\nrequire github.com/gin-gonic/gin v1.9.0\n',
+      });
+      const result = await depsSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // runContractLens — branch coverage
+  // -----------------------------------------------------------------------
+
+  describe('contract lens', () => {
+    it('should handle contract lens with previous content', async () => {
+      const contractSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['contract'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/src/api-types.ts' })];
+      const sources = createSourceMap({
+        '/src/api-types.ts': 'export interface User {\n  id: string;\n  name: string;\n  email?: string;\n}\n',
+      });
+      const result = await contractSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+
+    it('should handle contract lens without previous content (null prevContent)', async () => {
+      const contractSwarm = new ReviewSwarm(store, {
+        parallel: false,
+        enabledLenses: ['contract'],
+        minSeverity: 'info',
+      });
+      const diffs = [createDiff({ filePath: '/src/new-api.ts' })];
+      // sourceContents only has the current file, so prevContent for other files is undefined
+      const sources = createSourceMap({
+        '/src/new-api.ts': 'export function newHandler() { return 42; }\n',
+      });
+      const result = await contractSwarm.review('test-project', diffs, sources);
+      expect(result).toBeDefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // runStructureLens — branch coverage
   // -----------------------------------------------------------------------
 

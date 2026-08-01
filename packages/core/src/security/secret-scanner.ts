@@ -151,8 +151,9 @@ export class SecretScanner {
   // -----------------------------------------------------------------------
 
   private calculateEntropy(text: string): number {
-    /* v8 ignore next */ // tested via 'should handle empty string' in secret-scanner test
+    /* v8 ignore start */ // guarded by isLikelySecret length >= 8 check; empty never reaches here
     if (text.length === 0) return 0;
+    /* v8 ignore stop */
 
     const frequencies = new Map<string, number>();
     for (const char of text) {

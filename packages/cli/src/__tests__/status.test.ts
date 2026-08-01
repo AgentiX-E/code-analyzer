@@ -73,6 +73,14 @@ describe('getStatus', () => {
     expect(report).toBeDefined();
     expect(report.system).toBeDefined();
   });
+
+  it('should read dataDir size when data directory exists', () => {
+    mkdirSync(join(testDir, '.code-analyzer'), { recursive: true });
+    mkdirSync(join(testDir, '.code-analyzer', 'data'), { recursive: true });
+    const report = getStatus({ directory: testDir });
+    expect(report.project.initialized).toBe(true);
+    expect(report.project.dataDir).toBeTruthy();
+  });
 });
 
 describe('formatStatusReport', () => {

@@ -74,6 +74,12 @@ describe('SecretScanner', () => {
       const scanner = new SecretScanner();
       expect(scanner.isLikelySecret('')).toBe(false);
     });
+
+    it('should return false for 8-char string with entropy below threshold', () => {
+      const scanner = new SecretScanner({ entropyThreshold: 4.0 });
+      // "aaaaaaaa" has very low entropy (< 4.0)
+      expect(scanner.isLikelySecret('aaaaaaaa')).toBe(false);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -340,6 +346,15 @@ GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r`;
       const results = scanner.scanFile('/app/clean.ts', content);
       expect(results).toEqual([]);
     });
+
+    it('should skip empty lines during scan', () => {
+      const scanner = new SecretScanner();
+      const content = 'line1\n\napi_key="abcdefghijklmnopqrst1234567890"\n\nline4';
+      const results = scanner.scanFile('/app/gaps.ts', content);
+      // Should still detect the api_key on line 3, skipping empty lines 2 and 4
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0]!.line).toBe(3);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -354,6 +369,35 @@ GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r`;
       const results = scanner.scanText("my_custom_secret = 'some-hash-value-here'");
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('api_key');
+    });
+
+    it('should handle multiple custom patterns', () => {
+      const scanner = new SecretScanner({
+        customPatterns: [
+          /custom_pattern_1\s*=\s*['"]([^'"]+)['"]/gi,
+          /custom_pattern_2\s*=\s*['"]([^'"]+)['"]/gi,
+        ],
+      });
+
+      const results = scanner.scanText("custom_pattern_1 = 'value1'\ncustom_pattern_2 = 'value2'");
+      expect(results.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Entropy threshold edge cases
+  // -----------------------------------------------------------------------
+
+  describe('entropy threshold edge cases', () => {
+    it('should use default entropy threshold when options is empty', () => {
+      const scanner = new SecretScanner({});
+      // Default threshold is 3.5
+      expect(scanner.isLikelySecret('abcdefghijkl')).toBe(true);
+    });
+
+    it('should use default entropy threshold when no options provided', () => {
+      const scanner = new SecretScanner();
+      expect(scanner.isLikelySecret('abcdefghijkl')).toBe(true);
     });
   });
 
@@ -415,6 +459,38 @@ GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r`;
       for (const result of results) {
         expect(result.match).toBe('[REDACTED]');
       }
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // isLikelySecret — boundary coverage
+  // -----------------------------------------------------------------------
+
+  describe('isLikelySecret boundary', () => {
+    it('should return false for exactly 7-character string', () => {
+      const scanner = new SecretScanner();
+      // 7 chars is < 8 threshold
+      expect(scanner.isLikelySecret('abcdefg')).toBe(false);
+    });
+
+    it('should calculate entropy for exactly 8-character string', () => {
+      const scanner = new SecretScanner();
+      // 8 chars is >= 8 threshold, entropy calculation runs
+      const result = scanner.isLikelySecret('abcdefgh');
+      // "abcdefgh" has relatively low entropy (~3.0), threshold is 3.5
+      expect(result).toBe(false);
+    });
+
+    it('should return true for string with entropy above threshold', () => {
+      const scanner = new SecretScanner();
+      // 12 unique chars yields entropy ~3.58 > 3.5 threshold
+      expect(scanner.isLikelySecret('abcdefghijkl')).toBe(true);
+    });
+
+    it('should handle custom entropy threshold at boundary', () => {
+      // Entropy threshold of 0 means everything passes
+      const scanner = new SecretScanner({ entropyThreshold: 0 });
+      expect(scanner.isLikelySecret('abcdefgh')).toBe(true);
     });
   });
 });

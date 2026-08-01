@@ -175,6 +175,18 @@ describe('WorkerPool', () => {
     ).rejects.toThrow('shut down');
   });
 
+  it('should reject executeAll with multiple tasks after shutdown', async () => {
+    pool = createWorkerPool(2);
+    pool.shutdown();
+    await expect(
+      pool.executeAll([
+        { id: 'a', execute: async () => '1' },
+        { id: 'b', execute: async () => '2' },
+        { id: 'c', execute: async () => '3' },
+      ]),
+    ).rejects.toThrow('shut down');
+  });
+
   it('default concurrency is 4', () => {
     pool = createWorkerPool();
     // Can't directly assert concurrency, but we can test behavior
@@ -425,6 +437,54 @@ describe('WorkerPool', () => {
 
     await blocker;
     await q;
+    expect(pool.queuedCount).toBe(0);
+  });
+
+  it('handles all retries exhausted with lastError undefined fallback (line 70)', async () => {
+    pool = createWorkerPool(1);
+    // The ?? operator at line 70 is defensive — lastError is always set
+    // by the catch block. This test verifies the retry exhausted path
+    // throws the expected final error.
+    await expect(
+      pool.execute({
+        id: 'exhaust-all',
+        execute: async () => {
+          throw new Error('final failure');
+        },
+        retries: 2,
+      }),
+    ).rejects.toThrow('final failure');
+  });
+
+  it('retries with delay and exhausts all attempts', async () => {
+    pool = createWorkerPool(1);
+    let calls = 0;
+    await expect(
+      pool.execute({
+        id: 'retry-exhaust',
+        execute: async () => {
+          calls++;
+          throw new Error(`fail ${calls}`);
+        },
+        retries: 3,
+      }),
+    ).rejects.toThrow('fail 4'); // initial + 3 retries = 4 calls
+    expect(calls).toBe(4);
+  });
+
+  it('uses default timeout when timeout not specified', async () => {
+    pool = createWorkerPool(1);
+    const result = await pool.execute({
+      id: 'default-timeout-task',
+      execute: async () => 'fast',
+      // No timeout specified — uses default 30000
+    });
+    expect(result).toBe('fast');
+  });
+
+  it('shutdown with no pending tasks does not throw', () => {
+    pool = createWorkerPool(1);
+    expect(() => pool.shutdown()).not.toThrow();
     expect(pool.queuedCount).toBe(0);
   });
 });

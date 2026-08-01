@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/cli — Analyze Command
 // Indexes a repository into the code knowledge graph using the full
 // 18-phase DAG pipeline. Produces structured output suitable for
@@ -8,8 +7,6 @@ import { existsSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { EOL } from 'node:os';
 import {
-/* v8 ignore start */
-
   PipelineOrchestrator,
   type PipelineResult,
   type PhaseResult,
@@ -61,16 +58,9 @@ export interface AnalyzeOutput {
 // Phase factory (lazy-loaded to avoid tsc overhead)
 // ---------------------------------------------------------------------------
 
-let _phases: Array<{ create: () => Promise<{ default: unknown }> }> | null = null;
-
 async function loadPhases() {
-  if (!_phases) {
-    _phases = [
-      { create: () => import('@code-analyzer/analyzer') },
-    ];
-  }
-  // The full phase list is registered inside the analyzer package
-  // We create a PipelineOrchestrator with the default phases
+  // The full phase list is registered inside the analyzer package.
+  // We dynamically import createAllPhases to generate the default phases.
   const { createAllPhases } = await import('@code-analyzer/analyzer');
   return createAllPhases();
 }
@@ -246,4 +236,3 @@ export function formatAnalyzeResult(result: AnalyzeOutput, format: 'text' | 'jso
   lines.push(`${'='.repeat(60)}`);
   return lines.join(EOL);
 }
-/* v8 ignore stop */

@@ -24,7 +24,7 @@ function createEngineAndPR(): {
   prEngine: PRReviewEngine;
 } {
   const store = createStore();
-  const reviewEngine = new CodeReviewEngine(store);
+  const reviewEngine = new CodeReviewEngine(store, { allowMetadataFallback: true });
   const prEngine = new PRReviewEngine(reviewEngine, store);
   return { store, reviewEngine, prEngine };
 }

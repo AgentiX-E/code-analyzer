@@ -17,7 +17,7 @@ function createStore(): InMemoryGraphStore {
 }
 
 function createEngine(store: InMemoryGraphStore): CodeReviewEngine {
-  return new CodeReviewEngine(store);
+  return new CodeReviewEngine(store, { allowMetadataFallback: true });
 }
 
 function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {

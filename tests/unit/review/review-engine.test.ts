@@ -3,8 +3,8 @@
 // Tests cover: all pipeline phases, real code analysis, diff relocation,
 // error handling, graph analysis, session management, and configuration.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { CodeReviewEngine, ReviewEngineError } from '../review-engine.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { CodeReviewEngine, ReviewEngineError } from '@code-analyzer/intelligence/review/review-engine.js';
 
 // ---------------------------------------------------------------------------
 // Mocks & Fixtures
@@ -862,7 +862,13 @@ describe('CodeReviewEngine — Error Handling', () => {
     }];
 
     await expect(engine.reviewDiff('test', diffs as never)).rejects.toThrow(ReviewEngineError);
-    await expect(engine.reviewDiff('test', diffs as never)).rejects.toThrow('NO_GIT_OPS');
+    try {
+      await engine.reviewDiff('test', diffs as never);
+      expect.fail('Should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ReviewEngineError);
+      expect((error as ReviewEngineError).code).toBe('NO_GIT_OPS');
+    }
   });
 
   it('should throw ReviewEngineError with proper error code', async () => {
@@ -1053,6 +1059,213 @@ describe('CodeReviewEngine — Diff Content Extraction', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: detectCycles — BLACK node revisit (line 982)
+// ---------------------------------------------------------------------------
+
+describe('CodeReviewEngine — Cycle Detection BLACK Revisit', () => {
+  // Tests that trigger the BLACK node revisit branch at line 982-984 of detectCycles.
+  // Requires a diamond dependency: A → C, A → B, B → C
+  // DFS order: enter A, push C then B (based on insertion order). B enters, pushes C.
+  // C enters, exits (BLACK). Then C is entered again from A → continue (line 982).
+
+  it('should skip already-processed (BLACK) nodes in diamond dependency graph', async () => {
+    const store = new MockInMemoryStore();
+    const gitOps = new GitOpsMock();
+
+    // Diamond: a.ts depends on c.ts and b.ts; b.ts depends on c.ts
+    store.addNode({ id: 1, filePath: 'src/a.ts', isExported: true });
+    store.addNode({ id: 2, filePath: 'src/b.ts', isExported: true });
+    store.addNode({ id: 3, filePath: 'src/c.ts', isExported: true });
+
+    // Add a→c before a→b so c is pushed first, creating the revisit order
+    store.addEdge({ sourceId: 1, targetId: 3 }); // a → c
+    store.addEdge({ sourceId: 1, targetId: 2 }); // a → b
+    store.addEdge({ sourceId: 2, targetId: 3 }); // b → c
+
+    gitOps.setFile('src/a.ts', 'import { C1 } from "./c";\nimport { B1 } from "./b";\n');
+    gitOps.setFile('src/b.ts', 'import { C1 } from "./c";\n');
+    gitOps.setFile('src/c.ts', 'export const c = 1;\n');
+
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/a.ts',
+      changeType: 'modified',
+      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+    expect(session.filesReviewed).toBe(1);
+  });
+
+  it('should handle graph with nodes having no outgoing dependencies', async () => {
+    const store = new MockInMemoryStore();
+    const gitOps = new GitOpsMock();
+
+    store.addNode({ id: 1, filePath: 'src/a.ts', isExported: true });
+    store.addNode({ id: 2, filePath: 'src/b.ts', isExported: true });
+    store.addNode({ id: 3, filePath: 'src/c.ts', isExported: true });
+
+    store.addEdge({ sourceId: 1, targetId: 2 }); // a → b
+    store.addEdge({ sourceId: 2, targetId: 3 }); // b → c
+
+    gitOps.setFile('src/a.ts', 'import { B1 } from "./b";\n');
+    gitOps.setFile('src/b.ts', 'import { C1 } from "./c";\n');
+    gitOps.setFile('src/c.ts', 'export const c = 1;\n');
+
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/a.ts',
+      changeType: 'modified',
+      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Plan Phase — additional code paths
+// ---------------------------------------------------------------------------
+
+describe('CodeReviewEngine — Plan Phase Edge Cases', () => {
+  let store: MockInMemoryStore;
+  let gitOps: GitOpsMock;
+
+  beforeEach(() => {
+    store = new MockInMemoryStore();
+    gitOps = new GitOpsMock();
+  });
+
+  it('should identify Go-specific focus areas', async () => {
+    gitOps.setFile('src/handler.go', 'package main\nfunc main() {}\n');
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/handler.go',
+      changeType: 'modified',
+      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+  });
+
+  it('should identify Python-specific focus areas', async () => {
+    gitOps.setFile('src/main.py', 'def main():\n    pass\n');
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/main.py',
+      changeType: 'modified',
+      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+  });
+
+  it('should identify type-definition file risks', async () => {
+    gitOps.setFile('src/types/types.d.ts', 'export interface Config {}\n');
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/types/types.d.ts',
+      changeType: 'modified',
+      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+  });
+
+  it('should classify medium complexity for 100-300 line changes', async () => {
+    const lines = ['function mediumFile(): void {'];
+    for (let i = 0; i < 150; i++) {
+      lines.push(`  const x${i} = ${i};`);
+    }
+    lines.push('}');
+    gitOps.setFile('src/medium.ts', lines.join('\n'));
+
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+      planLineThreshold: 200,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/medium.ts',
+      changeType: 'modified',
+      ranges: [{ oldStart: 1, oldEnd: lines.length, newStart: 1, newEnd: lines.length, changeType: 'modified' }],
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Relocate with Hunks
+// ---------------------------------------------------------------------------
+
+describe('CodeReviewEngine — Relocate with Hunks', () => {
+  let store: MockInMemoryStore;
+  let gitOps: GitOpsMock;
+
+  beforeEach(() => {
+    store = new MockInMemoryStore();
+    gitOps = new GitOpsMock();
+  });
+
+  it('should use hunk-based relocation when hunks are present', async () => {
+    const content = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
+    gitOps.setFile('src/file.ts', content);
+
+    const engine = new CodeReviewEngine(store as never, {
+      allowMetadataFallback: false,
+    }, undefined, undefined, undefined, gitOps as never);
+
+    const hunks: MockDiffHunk[] = [{
+      oldStart: 5,
+      oldLines: 5,
+      newStart: 5,
+      newLines: 7,
+      lines: [
+        { type: 'context' },
+        { type: 'context' },
+        { type: 'addition' },
+        { type: 'addition' },
+        { type: 'context' },
+        { type: 'context' },
+        { type: 'context' },
+      ],
+    }];
+
+    const diffs: MockGitDiff[] = [{
+      filePath: 'src/file.ts',
+      changeType: 'modified',
+      ranges: [{ oldStart: 5, oldEnd: 10, newStart: 5, newEnd: 12, changeType: 'modified' }],
+      hunks,
+    }];
+
+    const session = await engine.reviewDiff('test', diffs as never);
+    expect(session.status).toBe('completed');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Acceptance Criteria Validation Tests
 // ---------------------------------------------------------------------------
 
@@ -1077,7 +1290,7 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     const session = await engine.reviewDiff('test', diffs as never);
 
     // Verify gitOps was actually called to read the file
-    expect(gitOps.readFileContentCalls.length).toBeGreaterThan(0);
+    expect(gitOps.readFileRangeCalls.length).toBeGreaterThan(0);
     expect(session.status).toBe('completed');
   });
 

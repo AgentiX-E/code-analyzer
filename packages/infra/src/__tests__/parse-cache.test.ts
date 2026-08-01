@@ -339,4 +339,177 @@ describe('ParseCache', () => {
       expect(() => cache.invalidate('nonexistent.ts')).not.toThrow();
     });
   });
+
+  describe('prewarm', () => {
+    it('should insert lightweight placeholders', () => {
+      const cache = createParseCache(100);
+      cache.prewarm([{ content: 'const x = 1;', filePath: '/src/test.ts' }]);
+
+      const hash = computeContentHash('const x = 1;');
+      expect(cache.has(hash)).toBe(true);
+      const entry = cache.get(hash);
+      expect(entry).toBeDefined();
+      expect(entry!.filePath).toBe('/src/test.ts');
+    });
+
+    it('should handle empty entries array', () => {
+      const cache = createParseCache(100);
+      expect(() => cache.prewarm([])).not.toThrow();
+      expect(cache.getHitRate()).toBe(0);
+    });
+
+    it('should not duplicate entries with same hash', () => {
+      const cache = createParseCache(100);
+      cache.prewarm([
+        { content: 'const x = 1;', filePath: '/src/a.ts' },
+        { content: 'const x = 1;', filePath: '/src/b.ts' }, // same content = same hash
+      ]);
+      const hash = computeContentHash('const x = 1;');
+      expect(cache.has(hash)).toBe(true);
+    });
+
+    it('should insert multiple unique entries', () => {
+      const cache = createParseCache(100);
+      cache.prewarm([
+        { content: 'const a = 1;', filePath: '/src/a.ts' },
+        { content: 'const b = 2;', filePath: '/src/b.ts' },
+      ]);
+      expect(cache.has(computeContentHash('const a = 1;'))).toBe(true);
+      expect(cache.has(computeContentHash('const b = 2;'))).toBe(true);
+    });
+
+    it('should allow entries to be overwritten by subsequent set', () => {
+      const cache = createParseCache(100);
+      cache.prewarm([{ content: 'const x = 1;', filePath: '/src/placeholder.ts' }]);
+
+      const hash = computeContentHash('const x = 1;');
+      const realFile = createMockParsedFile('/src/real.ts');
+      cache.set(hash, realFile);
+
+      const retrieved = cache.get(hash);
+      expect(retrieved!.filePath).toBe('/src/real.ts');
+    });
+
+    it('should trigger eviction when prewarming exceeds maxSize', () => {
+      const cache = createParseCache(3);
+      cache.prewarm([
+        { content: 'a', filePath: '/a.ts' },
+        { content: 'b', filePath: '/b.ts' },
+        { content: 'c', filePath: '/c.ts' },
+        { content: 'd', filePath: '/d.ts' },
+      ]);
+      // Should evict the oldest entry ('a')
+      expect(cache.has(computeContentHash('a'))).toBe(false);
+      expect(cache.has(computeContentHash('d'))).toBe(true);
+    });
+
+    it('should skip existing hash during prewarm', () => {
+      const cache = createParseCache(100);
+      const hash = computeContentHash('same');
+      const file = createMockParsedFile('/existing.ts');
+      cache.set(hash, file);
+
+      // Prewarm with same content — should skip
+      cache.prewarm([{ content: 'same', filePath: '/should-not-overwrite.ts' }]);
+      const entry = cache.get(hash);
+      expect(entry!.filePath).toBe('/existing.ts'); // Not overwritten
+    });
+
+    it('should not set entry when hash already exists (prewarm skip branch)', () => {
+      const cache = createParseCache(100);
+      const hash = computeContentHash('skip-me');
+      cache.set(hash, createMockParsedFile('/original.ts'));
+
+      // Prewarm with same content - should hit the `if (!cache.has(hash))` false branch
+      cache.prewarm([{ content: 'skip-me', filePath: '/should-be-skipped.ts' }]);
+      const entry = cache.get(hash);
+      expect(entry!.filePath).toBe('/original.ts');
+      expect(cache.size).toBe(1);
+    });
+  });
+
+  describe('getHitRate', () => {
+    it('should return 0 when no gets have occurred', () => {
+      const cache = createParseCache({ maxSize: 100 });
+      expect(cache.getHitRate()).toBe(0);
+    });
+
+    it('should return 1.0 when all gets hit', () => {
+      const cache = createParseCache(100);
+      const file = createMockParsedFile('/src/test.ts');
+      const hash = computeContentHash('test');
+      cache.set(hash, file);
+      cache.get(hash);
+      cache.get(hash);
+      expect(cache.getHitRate()).toBe(1);
+    });
+
+    it('should return 0 when all gets miss', () => {
+      const cache = createParseCache(100);
+      cache.get('nonexistent-hash-1');
+      cache.get('nonexistent-hash-2');
+      expect(cache.getHitRate()).toBe(0);
+    });
+
+    it('should return correct fraction for mixed hits and misses', () => {
+      const cache = createParseCache(100);
+      const file = createMockParsedFile('/src/test.ts');
+      const hash = computeContentHash('test');
+      cache.set(hash, file);
+      cache.get(hash); // hit
+      cache.get('missing-1'); // miss
+      cache.get(hash); // hit
+      cache.get('missing-2'); // miss
+      // 2 hits out of 4 gets = 0.5
+      expect(cache.getHitRate()).toBe(0.5);
+    });
+
+    it('should reflect cache clear reset', () => {
+      const cache = createParseCache(100);
+      const hash = computeContentHash('test');
+      cache.set(hash, createMockParsedFile('/src/test.ts'));
+      cache.get(hash); // hit
+      expect(cache.getHitRate()).toBe(1);
+
+      cache.clear();
+      expect(cache.getHitRate()).toBe(0);
+    });
+  });
+
+  describe('eviction edge case — single entry at maxSize', () => {
+    it('should not evict when exactly at maxSize', () => {
+      const cache = createParseCache(1);
+      const hash = computeContentHash('single');
+      cache.set(hash, createMockParsedFile('/single.ts'));
+      expect(cache.size).toBe(1);
+      expect(cache.has(hash)).toBe(true);
+    });
+
+    it('should evict the single entry when adding second entry at maxSize=1', () => {
+      const cache = createParseCache(1);
+      const h1 = computeContentHash('first');
+      const h2 = computeContentHash('second');
+      cache.set(h1, createMockParsedFile('/first.ts'));
+      cache.set(h2, createMockParsedFile('/second.ts'));
+      expect(cache.size).toBe(1);
+      expect(cache.has(h1)).toBe(false);
+      expect(cache.has(h2)).toBe(true);
+    });
+  });
+
+  describe('get with null return', () => {
+    it('should return null for non-existent hash (?? null branch)', () => {
+      const cache = createParseCache(10);
+      const result = cache.get('nonexistent-hash-that-is-not-cached');
+      expect(result).toBeNull();
+    });
+
+    it('should return null after invalidation', () => {
+      const cache = createParseCache(10);
+      const hash = computeContentHash('temp');
+      cache.set(hash, createMockParsedFile('/temp.ts'));
+      cache.invalidate('/temp.ts');
+      expect(cache.get(hash)).toBeNull();
+    });
+  });
 });

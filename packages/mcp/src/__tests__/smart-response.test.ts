@@ -306,6 +306,57 @@ describe('computeConfidence', () => {
     expect(result.score).toBeGreaterThanOrEqual(0.92);
     expect(result.label).toBe('high');
   });
+
+  it('should handle proximity line range match exactly at 5 lines (line 80 branch)', () => {
+    // Line 10-12 finding, target at line 15 — exactly 5 lines apart from end
+    const result = computeConfidence(
+      { startLine: 10, endLine: 10 },
+      { lineNumber: 15 },
+    );
+    // |10 - 15| = 5, which is <= 5, triggers proximity heuristic
+    expect(result.label).toBe('medium');
+    expect(result.factors).toContain('proximity-based line match');
+  });
+
+  it('should handle same project without direct edge (line 126 branch)', () => {
+    const result = computeConfidence(
+      { projectId: 'shared-project' },
+      { projectId: 'shared-project', hasDirectEdge: false },
+    );
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.factors).toContain('same project (no direct edge)');
+  });
+
+  it('should NOT add same project factor when hasDirectEdge is true', () => {
+    const result = computeConfidence(
+      { projectId: 'shared-project' },
+      { projectId: 'shared-project', hasDirectEdge: true },
+    );
+    // hasDirectEdge is true, so line 126 branch should NOT trigger
+    const projectFactor = result.factors.find(f => f.includes('same project'));
+    expect(projectFactor).toBeUndefined();
+  });
+
+  it('should handle same label type with expectedLabel (line 141 branch)', () => {
+    const result = computeConfidence(
+      { label: 'Class' },
+      { expectedLabel: 'Class' },
+    );
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.factors).toContain('same label type');
+  });
+
+  it('should boost score when heuristic and inferred both present (line 178 branch)', () => {
+    // heuristic from proximity match + inferred from label match
+    const result = computeConfidence(
+      { startLine: 10, endLine: 10, label: 'Function' },
+      { lineNumber: 15, expectedLabel: 'Function' },
+    );
+    // Should have both heuristic (proximity) and inferred (label) matches
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.factors).toContain('proximity-based line match');
+    expect(result.factors).toContain('same label type');
+  });
 });
 
 describe('getConfidenceLabel', () => {

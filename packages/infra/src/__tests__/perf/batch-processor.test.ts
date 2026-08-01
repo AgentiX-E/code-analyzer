@@ -165,6 +165,22 @@ describe('BatchProcessor', () => {
     expect(result.errors.size).toBe(1);
   });
 
+  it('should stop concurrent batches on error when continueOnError is false', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 3,
+      continueOnError: false,
+      concurrency: 3,
+    });
+    const items = makeItems(12);
+    const handler = vi.fn(async (item: number): Promise<number> => {
+      if (item === 2) throw new Error('concurrent failure');
+      return item;
+    });
+
+    const result = await processor.process(items, handler);
+    expect(result.success).toBe(false);
+  });
+
   it('should report failedCount correctly', async () => {
     const processor = new BatchProcessor<number>({
       batchSize: 5,
@@ -310,5 +326,30 @@ describe('BatchProcessor', () => {
 
     const result = await processor.process(makeItems(13), handler);
     expect(result.totalProcessed).toBe(13);
+  });
+
+  // -------------------------------------------------------------------
+  // Non-Error throwable
+  // -------------------------------------------------------------------
+
+  it('should handle handler that throws a non-Error value', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 5,
+      continueOnError: true,
+      concurrency: 1,
+    });
+    const items = makeItems(5);
+    const handler = vi.fn(async (item: number): Promise<number> => {
+      if (item === 2) {
+        // eslint-disable-next-line no-throw-literal
+        throw 'raw string error';
+      }
+      return item;
+    });
+
+    const result = await processor.process(items, handler);
+    // The batch containing item 2 should fail with a non-Error reason
+    expect(result.success).toBe(false);
+    expect(result.errors.size).toBeGreaterThan(0);
   });
 });

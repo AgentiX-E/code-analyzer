@@ -544,6 +544,47 @@ describe('LLMReviewEngine', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Unknown Lane Handling
+  // -------------------------------------------------------------------------
+
+  describe('unknown lane', () => {
+    it('should handle unknown review lane gracefully', async () => {
+      const engine = new LLMReviewEngine(provider, {
+        lanes: ['security'],
+        parallel: false,
+      });
+
+      // Call the private executeLane with an unknown lane type to cover
+      // the !promptFn branch (line 157)
+      const result = await (engine as any).executeLane(
+        { diffContent: '// test', filePath: '/test.ts', changeType: 'modified' },
+        'unknown_lane' as ReviewLane,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Unknown review lane');
+      expect(result.error).toContain('unknown_lane');
+      expect(result.findings).toHaveLength(0);
+      expect(result.filePath).toBe('/test.ts');
+      expect(result.lane).toBe('unknown_lane');
+    });
+
+    it('should have non-empty durationMs for unknown lane error', async () => {
+      const engine = new LLMReviewEngine(provider, {
+        lanes: ['security'],
+        parallel: false,
+      });
+
+      const result = await (engine as any).executeLane(
+        { diffContent: '', filePath: '/test.ts', changeType: 'modified' },
+        'unknown_lane' as ReviewLane,
+      );
+
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Edge Cases
   // -------------------------------------------------------------------------
 
@@ -638,6 +679,47 @@ describe('LLMReviewEngine', () => {
       const returnedLanes = results.map((r) => r.lane);
 
       expect(returnedLanes.sort()).toEqual(allLanes.sort());
+    });
+
+    it('should clamp endLine when it exceeds diff content length', async () => {
+      // Create a diff with very few content lines (1 range = ~3 lines of content)
+      // and a finding with endLine that exceeds the content
+      const findings = JSON.stringify({
+        findings: [
+          { startLine: 1, endLine: 500, severity: 'medium', category: 'maintainability', title: 'Out of bounds', description: 'endLine exceeds diff', suggestion: null },
+        ],
+      });
+
+      (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createSuccessResult(findings),
+      );
+
+      const engine = new LLMReviewEngine(provider, { lanes: ['maintainability'] });
+      const diff = createDiff(); // Only 1 range = short content
+      const results = await engine.reviewDiff(diff);
+
+      expect(results[0]!.findings).toHaveLength(1);
+      // endLine should be clamped to the actual content line count
+      expect(results[0]!.findings[0]!.endLine).toBeLessThan(500);
+    });
+
+    it('should handle extractRangeText when ranges array is empty (fallback ternary)', async () => {
+      const findings = JSON.stringify({
+        findings: [
+          { startLine: 1, endLine: 3, severity: 'medium', category: 'maintainability', title: 'Test', description: 'desc', suggestion: null },
+        ],
+      });
+
+      (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createSuccessResult(findings),
+      );
+
+      const engine = new LLMReviewEngine(provider, { lanes: ['maintainability'] });
+      const diff = createDiff({ ranges: [] });
+      const comments = await engine.reviewDiffAsComments(diff);
+
+      // Should still produce comments even with empty ranges
+      expect(comments.length).toBeGreaterThanOrEqual(0);
     });
   });
 });

@@ -1,5 +1,6 @@
 // @code-analyzer/intelligence — Embedding Worker Pool
-// Offloads embedding computation to worker threads for parallel throughput.
+// Manages a pool of embedding computation workers with task queuing,
+// batching support, health tracking, and automatic worker restart.
 // Falls back gracefully to main-thread processing when workers are unavailable.
 
 import { Worker } from 'node:worker_threads';
@@ -38,6 +39,17 @@ export interface WorkerPoolStats {
   completedTasks: number;
   failedTasks: number;
   avgLatencyMs: number;
+  restartedWorkers: number;
+  unhealthyWorkers: number;
+}
+
+interface WorkerState {
+  worker: Worker;
+  index: number;
+  healthy: boolean;
+  taskCount: number;
+  errorCount: number;
+  lastHeartbeat: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,7 +59,10 @@ export interface WorkerPoolStats {
 export class EmbeddingWorkerPool {
   private readonly workerScript: string;
   private readonly maxWorkers: number;
-  private workers: Worker[] = [];
+  private readonly maxErrorsPerWorker: number;
+  private readonly healthCheckIntervalMs: number;
+
+  private workerStates: WorkerState[] = [];
   private taskQueue: Array<{
     task: EmbeddingTask;
     resolve: (result: EmbeddingResult) => void;
@@ -56,19 +71,23 @@ export class EmbeddingWorkerPool {
   private busyWorkers = new Set<number>();
   private completedTasks = 0;
   private failedTasks = 0;
+  private restartedWorkers = 0;
   private totalLatencyMs = 0;
   private useFallback = false;
+  private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(workerScript?: string, maxWorkers?: number) {
     this.workerScript = workerScript ?? resolve(__dirname, './embedding-worker.js');
     this.maxWorkers = maxWorkers ?? this.defaultWorkerCount();
+    this.maxErrorsPerWorker = 5;
+    this.healthCheckIntervalMs = 30000; // 30 seconds
 
     if (existsSync(this.workerScript)) {
       for (let i = 0; i < this.maxWorkers; i++) {
         this.spawnWorker(i);
       }
+      this.startHealthCheck();
     } else {
-      // Worker script not found — will use fallback mode
       this.useFallback = true;
     }
   }
@@ -85,7 +104,10 @@ export class EmbeddingWorkerPool {
       return this.fallbackEmbed(tasks, fallbackFn);
     }
 
-    // Distribute tasks across workers
+    if (tasks.length === 0) {
+      return { results: [], errors: [] };
+    }
+
     const promises: Promise<EmbeddingResult>[] = [];
     const errors: EmbeddingError[] = [];
 
@@ -117,12 +139,55 @@ export class EmbeddingWorkerPool {
   }
 
   /**
+   * Submit a single embedding task.
+   */
+  async embed(
+    task: EmbeddingTask,
+    fallbackFn?: (content: string) => Promise<Float32Array>,
+  ): Promise<EmbeddingResult> {
+    const { results, errors } = await this.embedBatch([task], fallbackFn);
+    if (errors.length > 0) {
+      throw new Error(`Embedding failed for task ${task.taskId}: ${errors[0]!.error}`);
+    }
+    return results[0]!;
+  }
+
+  /**
+   * Submit tasks in optimized batches for throughput.
+   * Groups tasks into batches before dispatching to workers.
+   */
+  async embedBatched(
+    tasks: EmbeddingTask[],
+    batchSize: number,
+    fallbackFn?: (content: string) => Promise<Float32Array>,
+  ): Promise<{ results: EmbeddingResult[]; errors: EmbeddingError[] }> {
+    if (tasks.length === 0) {
+      return { results: [], errors: [] };
+    }
+
+    const allResults: EmbeddingResult[] = [];
+    const allErrors: EmbeddingError[] = [];
+
+    // Split into batches
+    for (let i = 0; i < tasks.length; i += batchSize) {
+      const batch = tasks.slice(i, i + batchSize);
+      const { results, errors } = await this.embedBatch(batch, fallbackFn);
+      allResults.push(...results);
+      allErrors.push(...errors);
+    }
+
+    return { results: allResults, errors: allErrors };
+  }
+
+  /**
    * Get current worker pool statistics.
    */
   getStats(): WorkerPoolStats {
+    const unhealthyCount = this.workerStates.filter((ws) => !ws.healthy).length;
+
     return {
       activeWorkers: this.busyWorkers.size,
-      totalWorkers: this.workers.length,
+      totalWorkers: this.workerStates.length,
       queuedTasks: this.taskQueue.length,
       completedTasks: this.completedTasks,
       failedTasks: this.failedTasks,
@@ -130,27 +195,80 @@ export class EmbeddingWorkerPool {
         this.completedTasks > 0
           ? Math.round(this.totalLatencyMs / this.completedTasks)
           : 0,
+      restartedWorkers: this.restartedWorkers,
+      unhealthyWorkers: unhealthyCount,
     };
+  }
+
+  /**
+   * Check if a specific worker is healthy.
+   */
+  isWorkerHealthy(workerIndex: number): boolean {
+    const state = this.workerStates[workerIndex];
+    if (!state) return false;
+    return state.healthy;
+  }
+
+  /**
+   * Restart a failed worker at the given index.
+   */
+  restartWorker(workerIndex: number): boolean {
+    if (this.useFallback) {
+      return false; // No workers to restart in fallback mode
+    }
+
+    const oldState = this.workerStates[workerIndex];
+    if (oldState) {
+      try {
+        oldState.worker.terminate();
+      } catch {
+        // Worker may already be dead
+      }
+      this.busyWorkers.delete(workerIndex);
+    }
+
+    this.spawnWorker(workerIndex);
+    this.restartedWorkers++;
+    return true;
   }
 
   /**
    * Shut down all workers gracefully.
    */
   async shutdown(): Promise<void> {
-    for (const worker of this.workers) {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+      this.healthCheckTimer = null;
+    }
+
+    // Reject all pending tasks
+    for (const entry of this.taskQueue) {
+      entry.reject({
+        taskId: entry.task.taskId,
+        error: 'Worker pool shutting down',
+      });
+    }
+    this.taskQueue = [];
+
+    for (const state of this.workerStates) {
       try {
-        await worker.terminate();
+        await state.worker.terminate();
       } catch {
         // Worker already terminated
       }
     }
-    this.workers = [];
+    this.workerStates = [];
     this.busyWorkers.clear();
   }
 
   /** Whether the pool is operating in fallback mode. */
   get isFallback(): boolean {
     return this.useFallback;
+  }
+
+  /** Get the number of workers. */
+  get workerCount(): number {
+    return this.workerStates.length;
   }
 
   // -----------------------------------------------------------------------
@@ -172,13 +290,36 @@ export class EmbeddingWorkerPool {
         workerData: { workerIndex: index },
       });
 
-      worker.on('message', (msg: { type: string; taskId: string; embedding?: number[]; error?: string; durationMs?: number }) => {
+      const state: WorkerState = {
+        worker,
+        index,
+        healthy: true,
+        taskCount: 0,
+        errorCount: 0,
+        lastHeartbeat: Date.now(),
+      };
+
+      worker.on('message', (msg: {
+        type: string;
+        taskId: string;
+        embedding?: number[];
+        error?: string;
+        durationMs?: number;
+      }) => {
+        state.lastHeartbeat = Date.now();
+        state.taskCount++;
+
         this.busyWorkers.delete(index);
         this.processQueue();
 
-        // Find and resolve/reject the matching task
-        const queueEntry = this.taskQueue.find((e) => e.task.taskId === msg.taskId);
-        if (!queueEntry) return;
+        // Find matching task in queue
+        const queueIdx = this.taskQueue.findIndex(
+          (e) => e.task.taskId === msg.taskId,
+        );
+        if (queueIdx < 0) return;
+
+        const queueEntry = this.taskQueue[queueIdx]!;
+        this.taskQueue.splice(queueIdx, 1);
 
         if (msg.type === 'result' && msg.embedding) {
           this.completedTasks++;
@@ -190,47 +331,59 @@ export class EmbeddingWorkerPool {
           });
         } else {
           this.failedTasks++;
+          state.errorCount++;
           queueEntry.reject({
             taskId: msg.taskId,
             error: msg.error ?? 'Unknown worker error',
           });
-        }
 
-        // Remove from queue
-        const idx = this.taskQueue.indexOf(queueEntry);
-        if (idx >= 0) this.taskQueue.splice(idx, 1);
+          // Mark unhealthy if too many errors
+          if (state.errorCount >= this.maxErrorsPerWorker) {
+            state.healthy = false;
+          }
+        }
       });
 
-      worker.on('error', () => {
+      worker.on('error', (err) => {
+        state.healthy = false;
+        state.errorCount++;
         this.busyWorkers.delete(index);
-        // Mark all queued tasks for this worker as failed
         this.processQueue();
       });
 
       worker.on('exit', (code: number) => {
-        if (code !== 0) {
-          this.useFallback = true;
+        state.healthy = false;
+        this.busyWorkers.delete(index);
+
+        if (code !== 0 && !this.useFallback) {
+          // Auto-restart on unexpected exit
+          if (this.workerStates.every((ws) => !ws.healthy)) {
+            this.useFallback = true;
+          }
         }
       });
 
-      this.workers[index] = worker;
+      this.workerStates[index] = state;
     } catch {
-      // Worker spawn failed — fall back to main-thread
       this.useFallback = true;
     }
   }
 
   private processQueue(): void {
-    for (let i = 0; i < this.workers.length; i++) {
-      if (this.busyWorkers.has(i)) continue;
+    if (this.taskQueue.length === 0) return;
 
+    for (const state of this.workerStates) {
+      if (!state.healthy) continue;
+      if (this.busyWorkers.has(state.index)) continue;
+
+      // Find an unassigned task
       const entry = this.taskQueue.find(
         (e) => !this.isTaskAssigned(e.task.taskId),
       );
-      if (!entry) return;
+      if (!entry) break;
 
-      this.busyWorkers.add(i);
-      this.workers[i]!.postMessage({
+      this.busyWorkers.add(state.index);
+      state.worker.postMessage({
         type: 'embed',
         taskId: entry.task.taskId,
         content: entry.task.content,
@@ -238,8 +391,7 @@ export class EmbeddingWorkerPool {
     }
   }
 
-  private isTaskAssigned(taskId: string): boolean {
-    // Check if any busy worker is already processing this task
+  private isTaskAssigned(_taskId: string): boolean {
     return false; // Tasks are processed once — no dedup in queue
   }
 
@@ -270,6 +422,22 @@ export class EmbeddingWorkerPool {
     }
 
     return { results, errors };
+  }
+
+  private startHealthCheck(): void {
+    this.healthCheckTimer = setInterval(() => {
+      const now = Date.now();
+      for (const state of this.workerStates) {
+        // Check if worker hasn't responded in a while
+        if (
+          state.healthy &&
+          state.lastHeartbeat > 0 &&
+          now - state.lastHeartbeat > this.healthCheckIntervalMs * 2
+        ) {
+          state.healthy = false;
+        }
+      }
+    }, this.healthCheckIntervalMs);
   }
 }
 

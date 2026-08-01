@@ -2,10 +2,11 @@
  * Tests for the review command.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execSync } from 'node:child_process';
 import {
   reviewCode,
   formatReviewResult,
@@ -83,6 +84,15 @@ describe('reviewCode — file mode', () => {
     expect(anyIssues.length).toBeGreaterThan(0);
   });
 
+  it('should detect SQL injection pattern', async () => {
+    const filePath = join(testDir, 'db.ts');
+    writeFileSync(filePath, 'db.query("SELECT * FROM users WHERE id = ${userId}");\n');
+    const result = await reviewCode({ target: filePath, mode: 'file' });
+    const sqlIssues = result.issues.filter((i) => i.ruleId === 'no-sql-injection-raw');
+    expect(sqlIssues.length).toBeGreaterThan(0);
+    expect(sqlIssues[0].severity).toBe('critical');
+  });
+
   it('should not report for clean code', async () => {
     const filePath = join(testDir, 'clean.ts');
     writeFileSync(filePath, 'const x = 1;\nconst y = 2;\nconst sum = x + y;\n');
@@ -126,11 +136,48 @@ describe('reviewCode — file mode', () => {
 });
 
 describe('reviewCode — other modes', () => {
-  it('should handle diff mode', async () => {
+  it('should handle diff mode with no staged changes', async () => {
     const result = await reviewCode({ mode: 'diff' });
     // May succeed with 0 issues if not in a git repo with staged changes
     expect(result.success).toBe(true);
     expect(result.mode).toBe('diff');
+  });
+
+  it('should handle diff mode with staged changes', async () => {
+    const repoDir = resolve(tmpdir(), `review-diff-${Date.now()}`);
+    mkdirSync(repoDir, { recursive: true });
+    const prevCwd = process.cwd();
+
+    try {
+      execSync('git init', { cwd: repoDir, stdio: 'pipe' });
+      execSync('git config user.email "test@test.com"', { cwd: repoDir, stdio: 'pipe' });
+      execSync('git config user.name "Test User"', { cwd: repoDir, stdio: 'pipe' });
+
+      // Create and commit an initial file
+      writeFileSync(join(repoDir, 'index.ts'), 'const x = 1;\n');
+      execSync('git add index.ts', { cwd: repoDir, stdio: 'pipe' });
+      execSync('git commit -m "initial"', { cwd: repoDir, stdio: 'pipe' });
+
+      // Modify the file with violations and stage the change
+      writeFileSync(join(repoDir, 'index.ts'), 'console.log("debug");\neval("code");\nconst x = 1;\n');
+      execSync('git add index.ts', { cwd: repoDir, stdio: 'pipe' });
+
+      // Switch to the repo dir so that git diff works
+      process.chdir(repoDir);
+      const result = await reviewCode({ mode: 'diff', severity: 'warning' });
+      process.chdir(prevCwd);
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe('diff');
+    } catch (err) {
+      process.chdir(prevCwd);
+      throw err;
+    } finally {
+      if (process.cwd() !== prevCwd) {
+        process.chdir(prevCwd);
+      }
+      try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* */ }
+    }
   });
 
   it('should handle dir mode', async () => {
@@ -140,6 +187,23 @@ describe('reviewCode — other modes', () => {
     writeFileSync(join(testDir, 'b.ts'), 'const x = 1;\n');
 
     const result = await reviewCode({ target: testDir, mode: 'dir' });
+    expect(result.success).toBe(true);
+
+    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+  });
+
+  it('should handle dir mode with subdirectories', async () => {
+    const testDir = resolve(tmpdir(), `review-dir-sub-${Date.now()}`);
+    mkdirSync(join(testDir, 'src'), { recursive: true });
+    mkdirSync(join(testDir, 'lib'), { recursive: true });
+    writeFileSync(join(testDir, 'src', 'index.ts'), 'const x = 1;\n');
+    writeFileSync(join(testDir, 'lib', 'utils.ts'), 'debugger;\n');
+
+    const result = await reviewCode({
+      target: testDir,
+      mode: 'dir',
+      severity: 'error',
+    });
     expect(result.success).toBe(true);
 
     try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
@@ -158,6 +222,31 @@ describe('reviewCode — other modes', () => {
     expect(result.issues.length).toBeLessThanOrEqual(5);
 
     try { rmSync(filePath); } catch { /* */ }
+  });
+
+  it('should skip excluded directories in dir mode', async () => {
+    const testDir = resolve(tmpdir(), `review-dir-excl-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+    mkdirSync(join(testDir, 'node_modules'), { recursive: true });
+    mkdirSync(join(testDir, 'dist'), { recursive: true });
+    mkdirSync(join(testDir, 'build'), { recursive: true });
+    mkdirSync(join(testDir, '.hidden'), { recursive: true });
+    writeFileSync(join(testDir, 'node_modules', 'dep.js'), 'console.log("test");\n');
+    writeFileSync(join(testDir, 'dist', 'bundle.js'), 'eval("code");\n');
+    writeFileSync(join(testDir, 'build', 'output.js'), 'debugger;\n');
+    writeFileSync(join(testDir, '.hidden', 'config.ts'), 'const password = "secret";\n');
+    writeFileSync(join(testDir, 'main.ts'), 'const x = 1;\n');
+
+    const result = await reviewCode({
+      target: testDir,
+      mode: 'dir',
+      severity: 'warning',
+    });
+    expect(result.success).toBe(true);
+    // Only main.ts should be reviewed; excluded dirs should be skipped
+    expect(result.totalIssues).toBe(0);
+
+    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
   });
 });
 
@@ -218,5 +307,79 @@ describe('formatReviewResult', () => {
     const output = formatReviewResult(sampleOutput, 'text');
     expect(output).toContain('Critical: 1');
     expect(output).toContain('Warning: 1');
+  });
+
+  it('should show error in text format', () => {
+    const errorOutput: ReviewOutput = {
+      ...sampleOutput,
+      success: false,
+      error: 'Review engine crashed',
+    };
+    const output = formatReviewResult(errorOutput, 'text');
+    expect(output).toContain('Error: Review engine crashed');
+  });
+
+  it('should format markdown with info severity', () => {
+    const infoOutput: ReviewOutput = {
+      ...sampleOutput,
+      issues: [{
+        ruleId: 'todo-fixme',
+        category: 'maintainability',
+        severity: 'info',
+        file: 'src/utils.ts',
+        line: 1,
+        message: 'TODO found.',
+      }],
+      totalIssues: 1,
+      summary: { critical: 0, error: 0, warning: 0, info: 1 },
+    };
+    const output = formatReviewResult(infoOutput, 'markdown');
+    expect(output).toContain('🔵');
+  });
+
+  it('should handle issues without suggestion', () => {
+    const noSuggestion: ReviewOutput = {
+      ...sampleOutput,
+      issues: [{
+        ruleId: 'no-debugger',
+        category: 'quality',
+        severity: 'error',
+        file: 'src/utils.ts',
+        line: 5,
+        message: 'Remove debugger statements.',
+      }],
+      totalIssues: 1,
+      summary: { critical: 0, error: 1, warning: 0, info: 0 },
+    };
+    const text = formatReviewResult(noSuggestion, 'text');
+    expect(text).toContain('no-debugger');
+    expect(text).not.toContain('Suggestion:');
+  });
+
+  it('should show suggestions in markdown', () => {
+    const output = formatReviewResult(sampleOutput, 'markdown');
+    expect(output).toContain('Replace with structured logging');
+    expect(output).toContain('💡');
+  });
+
+  it('should format with error field present', () => {
+    const errorOutput: ReviewOutput = {
+      ...sampleOutput,
+      success: false,
+      error: 'Something went wrong',
+    };
+    const text = formatReviewResult(errorOutput, 'text');
+    expect(text).toContain('Something went wrong');
+    expect(text).toContain('Error:');
+  });
+});
+
+describe('reviewCode — error handling', () => {
+  it('should handle file mode without target gracefully', async () => {
+    // file mode without target should still return a result
+    const result = await reviewCode({ mode: 'file' });
+    // Should return an error result or empty result
+    expect(result).toBeDefined();
+    expect(result.mode).toBe('file');
   });
 });

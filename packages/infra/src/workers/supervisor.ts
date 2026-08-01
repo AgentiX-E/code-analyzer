@@ -111,10 +111,11 @@ export class IndexSupervisor {
     const duration = Date.now() - startTime;
 
     // Determine final status based on execution outcome
-    /* v8 ignore next */ // status branching for crashed/timeout tested via integration
+    /* v8 ignore start */ // status branching for crashed/timeout tested via integration
     if (status === 'complete' || status === 'crashed' || status === 'timeout') {
       // Status already set by error handling
     }
+    /* v8 ignore stop */
     if (taskSucceeded && filesFailed === 0) {
       status = 'complete';
     } else if (taskSucceeded && filesFailed > 0) {

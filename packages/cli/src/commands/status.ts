@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/cli — Status Command
 // Reports the current state of Code Analyzer: index status,
 // graph stats, memory usage, health checks.
@@ -13,8 +12,6 @@ import { EOL, hostname, uptime, freemem, totalmem } from 'node:os';
 
 export interface StatusOptions {
   /** Project directory to check */
-/* v8 ignore start */
-
   directory?: string;
   /** Output format */
   format?: 'text' | 'json';
@@ -185,4 +182,3 @@ export function formatStatusReport(
   lines.push(`${'='.repeat(60)}`);
   return lines.join(EOL);
 }
-/* v8 ignore stop */

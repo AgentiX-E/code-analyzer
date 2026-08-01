@@ -76,7 +76,9 @@ async function withTimeout<T>(
   try {
     return await Promise.race([promise, timeout]);
   } finally {
+    /* v8 ignore start */ // timer always assigned in setTimeout callback before use
     if (timer) clearTimeout(timer);
+    /* v8 ignore stop */
   }
 }
 

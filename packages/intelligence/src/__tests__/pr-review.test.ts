@@ -136,7 +136,7 @@ describe('PR Review Engine', () => {
     store = createStore();
     tempDir = getTempDir();
     sessionStore = new SessionStore(tempDir);
-    reviewEngine = new CodeReviewEngine(store, {}, sessionStore);
+    reviewEngine = new CodeReviewEngine(store, { allowMetadataFallback: true }, sessionStore);
     prEngine = new PRReviewEngine(reviewEngine, store, sessionStore);
   });
 

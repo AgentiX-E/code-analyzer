@@ -527,6 +527,98 @@ describe('ProjectDetector', () => {
   // Project type language inference (no source files)
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // hasMarker nested directory scan
+  // -------------------------------------------------------------------------
+
+  it('detects K8s in subdirectory via hasMarker nested scan', () => {
+    rootPath = setup(['infra', 'k8s'], {
+      'package.json': '{}',
+      'infra/deployment.yaml': 'apiVersion: apps/v1',
+      'k8s/service.yaml': 'apiVersion: v1',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.hasK8s).toBe(true);
+  });
+
+  it('handles Kubernetes service.yaml at root', () => {
+    rootPath = setup([], {
+      'service.yaml': 'apiVersion: v1',
+      'package.json': '{}',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.hasK8s).toBe(true);
+  });
+
+  it('handles Kubernetes service.yml at root', () => {
+    rootPath = setup([], {
+      'service.yml': 'apiVersion: v1',
+      'package.json': '{}',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.hasK8s).toBe(true);
+  });
+
+  it('handles Kubernetes deployment.yml at root', () => {
+    rootPath = setup([], {
+      'deployment.yml': 'apiVersion: apps/v1',
+      'package.json': '{}',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.hasK8s).toBe(true);
+  });
+
+  it('handles kubernetes directory name', () => {
+    rootPath = setup(['kubernetes'], {
+      'package.json': '{}',
+      'kubernetes/deployment.yaml': 'apiVersion: apps/v1',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.hasK8s).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Monorepo without language markers
+  // -------------------------------------------------------------------------
+
+  it('handles monorepo marker with no language files', () => {
+    rootPath = setup([], {
+      'lerna.json': '{}',
+      'README.md': '# Monorepo',
+    });
+
+    const info = detectProject(rootPath);
+    // Monorepo marker exists but no languages detected
+    expect(info.type).toBe('unknown');
+  });
+
+  // -------------------------------------------------------------------------
+  // Unrecognized file extension
+  // -------------------------------------------------------------------------
+
+  it('skips unrecognized file extensions', () => {
+    rootPath = setup([], {
+      'package.json': JSON.stringify({ name: 'test' }),
+      'README.md': '# docs',
+      'notes.txt': 'some notes',
+      '.gitignore': 'node_modules',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.type).toBe('node');
+    // Should not add unknown extensions to languages
+    expect(info.languages).not.toContain('unknown');
+  });
+
+  // -------------------------------------------------------------------------
+  // Type inference
+  // -------------------------------------------------------------------------
+
   it('infers language from project type when no source files found', () => {
     rootPath = setup([], {
       'go.mod': 'module example\n\ngo 1.21',
@@ -536,5 +628,50 @@ describe('ProjectDetector', () => {
     const info = detectProject(rootPath);
     expect(info.type).toBe('go');
     expect(info.languages).toContain('go');
+  });
+
+  // -------------------------------------------------------------------------
+  // Directory with known extension (should not be added as language)
+  // -------------------------------------------------------------------------
+
+  it('skips directories with known extensions during language detection', () => {
+    rootPath = setup(['node_modules'], {
+      'package.json': JSON.stringify({ name: 'test' }),
+      'index.ts': 'const x = 1;',
+    });
+    // Create a directory that looks like a file extension but is a dir
+    // node_modules is a dir but has no extension — let's create a dir with .ts extension
+    fs.mkdirSync(path.join(rootPath, 'types.ts'));
+
+    const info = detectProject(rootPath);
+    // Should only have typescript once (from index.ts, not from types.ts dir)
+    expect(info.languages).toContain('typescript');
+  });
+
+  // -------------------------------------------------------------------------
+  // detectToolVersion — Rust without toolchain but with Cargo.toml
+  // -------------------------------------------------------------------------
+
+  it('returns null for Rust when rust-toolchain.toml does not exist', () => {
+    rootPath = setup([], {
+      'Cargo.toml': '[package]\nname = "test"',
+    });
+    const version = detectToolVersion(rootPath, 'rust');
+    // Cargo.toml exists but no rust-toolchain.toml — should return null
+    expect(version).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // hasMarker nested directory scan for k8s yaml
+  // -------------------------------------------------------------------------
+
+  it('detects K8s yaml in subdirectory via hasMarker scan', () => {
+    rootPath = setup(['deploy'], {
+      'package.json': '{}',
+      'deploy/deployment.yaml': 'apiVersion: apps/v1',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.hasK8s).toBe(true);
   });
 });

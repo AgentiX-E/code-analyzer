@@ -582,6 +582,65 @@ describe('Memory Compressor', () => {
       expect(compressed.length).toBeGreaterThan(0);
     });
 
+    it('should handle unknown role when currentTurn is not null', () => {
+      // When role is unknown AND currentTurn exists, should be treated as assistant
+      const messages: TestMessage[] = [
+        { content: 'User: Question 0. First user question here.' },
+        { content: 'Assistant: Answer 0. First assistant answer here.' },
+        { content: 'Some unknown message without prefix.' }, // unknown, currentTurn exists -> assistant
+        { content: 'User: Question 1. Another user question.' },
+        { content: 'Assistant: Answer 1. Another answer.' },
+        { content: 'User: Question 2. Yet another question.' },
+        { content: 'Assistant: Answer 2. Yet another answer.' },
+        { content: 'User: Question 3. More padding here.' },
+        { content: 'Assistant: Answer 3. More padding.' },
+        { content: 'User: Question 4. Final question.' },
+        { content: 'Assistant: Answer 4. Final answer.' },
+      ];
+      const tokens = compressor.countMessageTokens(messages);
+      const compressed = compressor.compress(messages, tokens);
+      expect(compressed.length).toBeGreaterThan(0);
+    });
+
+    it('should handle unknown role when currentTurn is null', () => {
+      // When role is unknown AND currentTurn is null, should be treated as user
+      const messages: TestMessage[] = [
+        { content: 'First unknown message without prefix.' }, // unknown, no currentTurn -> user
+        { content: 'Second unknown message also no prefix.' }, // unknown, currentTurn exists -> assistant
+        { content: 'Third unknown message no prefix.' }, // unknown, currentTurn exists -> assistant
+        { content: 'User: Question 0. Explicit user message.' },
+        { content: 'Assistant: Answer 0. Explicit assistant.' },
+        { content: 'User: Question 1. More user text.' },
+        { content: 'Assistant: Answer 1. More assistant text.' },
+        { content: 'User: Question 2. Padding the count.' },
+        { content: 'Assistant: Answer 2. Padding response.' },
+        { content: 'User: Question 3. Building up messages.' },
+        { content: 'Assistant: Answer 3. Final response here.' },
+      ];
+      const tokens = compressor.countMessageTokens(messages);
+      const compressed = compressor.compress(messages, tokens);
+      expect(compressed.length).toBeGreaterThan(0);
+    });
+
+    it('should handle availableSummaryTokens exceeding the 100 minimum', () => {
+      // Large maxTokens so availableSummaryTokens = maxTokens - frozen - active - 200 > 100
+      const customCompressor = new MemoryCompressor({
+        frozenZoneSize: 2,
+        activeTurns: 1,
+        maxTokens: 200000,
+      });
+      const messages = createMessages(30);
+      const tokens = customCompressor.countMessageTokens(messages);
+      const compressed = customCompressor.compress(messages, tokens);
+
+      // Should still compress and include summary
+      expect(compressed.length).toBeLessThan(messages.length);
+      const hasSummary = compressed.some(
+        (m) => m.content.includes('[Summarized context:'),
+      );
+      expect(hasSummary).toBe(true);
+    });
+
     it('should handle compress with exactly frozenZoneSize messages', () => {
       // frozenZoneSize = 2, activeTurns = 4
       const messages = createMessages(6);
@@ -634,6 +693,26 @@ describe('Memory Compressor', () => {
       const result = customCompressor.needsCompression(100, 50);
       expect(result.needed).toBe(true);
       expect(result.urgent).toBe(true);
+    });
+
+    it('should handle function keyword without matching regex pattern', () => {
+      // Content contains "function" but not followed by a word character (e.g. at end of slice)
+      const messages: TestMessage[] = [];
+      for (let i = 0; i < 30; i++) {
+        if (i % 2 === 0) {
+          messages.push({
+            content: `User: test function`,
+          });
+        } else {
+          messages.push({
+            content: `Assistant: test class`,
+          });
+        }
+      }
+      const tokens = compressor.countMessageTokens(messages);
+      const compressed = compressor.compress(messages, tokens);
+      expect(compressed.length).toBeGreaterThan(0);
+      expect(compressed.length).toBeLessThan(messages.length);
     });
 
     it('should truncate summary when it exceeds the maxSummaryTokens budget', () => {

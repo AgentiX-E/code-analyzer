@@ -159,7 +159,7 @@ describe('PR Review Pipeline — E2E Integration', () => {
     setupFixture();
     store = new InMemoryGraphStore();
     populateStore(store);
-    reviewEngine = new CodeReviewEngine(store);
+    reviewEngine = new CodeReviewEngine(store, { allowMetadataFallback: true });
     prEngine = new PRReviewEngine(reviewEngine, store);
   });
 
@@ -379,7 +379,7 @@ function riskyFunction(userInput) {
       });
       ifaceStore.insertEdge({ sourceId: consumerId, targetId: txIfaceId, type: 'IMPLEMENTS', projectId: PROJECT_ID });
 
-      const ifaceReviewEngine = new CodeReviewEngine(ifaceStore);
+      const ifaceReviewEngine = new CodeReviewEngine(ifaceStore, { allowMetadataFallback: true });
       const ifacePrEngine = new PRReviewEngine(ifaceReviewEngine, ifaceStore);
 
       const result = await ifacePrEngine.reviewPR(PROJECT_ID, {
@@ -662,7 +662,7 @@ diff --git a/src/b.ts b/src/b.ts
 
     it('should handle review with no store data', async () => {
       const emptyStore = new InMemoryGraphStore();
-      const emptyReviewEngine = new CodeReviewEngine(emptyStore);
+      const emptyReviewEngine = new CodeReviewEngine(emptyStore, { allowMetadataFallback: true });
       const emptyPrEngine = new PRReviewEngine(emptyReviewEngine, emptyStore);
 
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);

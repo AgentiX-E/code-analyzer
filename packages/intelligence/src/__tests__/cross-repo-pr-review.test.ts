@@ -176,7 +176,7 @@ describe('CrossRepoPRReviewEngine', () => {
     groupManager = new RepoGroupManager();
     setupGroup(groupManager);
     indexer = new CrossRepoIndexer(store, groupManager);
-    reviewEngine = new CodeReviewEngine(store);
+    reviewEngine = new CodeReviewEngine(store, { allowMetadataFallback: true });
     engine = new CrossRepoPRReviewEngine(indexer, groupManager, reviewEngine);
   });
 
@@ -698,7 +698,7 @@ describe('CrossRepoPRReviewEngine', () => {
 
       const singleStore = new InMemoryGraphStore();
       const singleIndexer = new CrossRepoIndexer(singleStore, singleManager);
-      const singleRevEngine = new CodeReviewEngine(singleStore);
+      const singleRevEngine = new CodeReviewEngine(singleStore, { allowMetadataFallback: true });
       const singleEngine = new CrossRepoPRReviewEngine(singleIndexer, singleManager, singleRevEngine);
 
       const pr = createPR();
@@ -717,7 +717,7 @@ describe('CrossRepoPRReviewEngine', () => {
       emptyManager.createGroup('empty', 'Empty Group', '');
       const emptyStore = new InMemoryGraphStore();
       const emptyIndexer = new CrossRepoIndexer(emptyStore, emptyManager);
-      const emptyRevEngine = new CodeReviewEngine(emptyStore);
+      const emptyRevEngine = new CodeReviewEngine(emptyStore, { allowMetadataFallback: true });
       const emptyEngine = new CrossRepoPRReviewEngine(emptyIndexer, emptyManager, emptyRevEngine);
 
       const pr = createPR();

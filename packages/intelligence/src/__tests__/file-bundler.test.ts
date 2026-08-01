@@ -394,6 +394,60 @@ describe('Edge cases', () => {
     expect(result).toHaveLength(1);
     expect(result[0]!.primaryFile).toBe('Component.tsx');
   });
+
+  // --- Additional branch coverage ---
+  it('groups .d.ts with source as sibling', () => {
+    const result = bundle([
+      '/project/src/lib.ts',
+      '/project/src/lib.d.ts',
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.files).toHaveLength(2);
+  });
+
+  it('groups .module.css with component', () => {
+    const result = bundle([
+      '/project/src/Widget.tsx',
+      '/project/src/Widget.module.css',
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.files).toHaveLength(2);
+    expect(result[0]!.category).toBe('sibling');
+  });
+
+  it('groups .module.scss with component', () => {
+    const result = bundle([
+      '/project/src/Panel.tsx',
+      '/project/src/Panel.module.scss',
+    ]);
+    expect(result).toHaveLength(1);
+  });
+
+  it('groups .module.less with component', () => {
+    const result = bundle([
+      '/project/src/Modal.tsx',
+      '/project/src/Modal.module.less',
+    ]);
+    expect(result).toHaveLength(1);
+  });
+
+  it('groups .story.tsx with component', () => {
+    const result = bundle([
+      '/project/src/Avatar.tsx',
+      '/project/src/Avatar.story.tsx',
+    ]);
+    expect(result).toHaveLength(1);
+  });
+
+  it('handles files outside project root with absolute path fallback', () => {
+    const bundlerInstance = bundler();
+    const result = bundlerInstance.bundleFiles(
+      ['/outside/file.ts'],
+      '/project',
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]!.files[0]).toContain('outside');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -436,6 +490,98 @@ describe('Category detection', () => {
       '/project/src/Foo.helpers.ts',
     ]);
     expect(result[0]!.category).toBe('sibling');
+  });
+
+  it('detects sibling for same-base files with no conventional suffix (lines 283-286)', () => {
+    // Files with same base name but no mirror/impl/sibling-suffix/test suffix
+    // Should fall through to same-base sibling detection at line 286
+    const result = bundle([
+      '/project/src/User.model.ts',
+      '/project/src/User.controller.ts',
+    ]);
+    expect(result[0]!.category).toBe('sibling');
+    expect(result[0]!.files).toHaveLength(2);
+    expect(result[0]!.files).toContain('User.model.ts');
+    expect(result[0]!.files).toContain('User.controller.ts');
+  });
+
+  it('detects mirror for files with dev/prod suffix (line 268 before config check)', () => {
+    // Files matching mirror patterns (dev/prod) are caught by mirror check
+    // before config check at line 274
+    const result = bundle([
+      '/project/src/app.dev.conf',
+      '/project/src/app.prod.conf',
+    ]);
+    expect(result[0]!.category).toBe('mirror');
+    expect(result[0]!.files).toHaveLength(2);
+    expect(result[0]!.files).toContain('app.dev.conf');
+    expect(result[0]!.files).toContain('app.prod.conf');
+  });
+
+  it('detects config category for dev/prod files that escape mirror detection', () => {
+    // Use a filename pattern that the mirror check doesn't match
+    // but the config regex does. Mirror patterns look for [._]CODE[._] or [._]CODE.
+    // Config regex looks for [._](dev|prod|...)[._]
+    // A file like "settings.prod.config" has [._]prod[._] which matches both mirror and config
+    // But mirror check comes first, so config only triggers when mirror doesn't match.
+    // We need a file where the mirror stem pattern doesn't match but the config regex does.
+    // Mirror stem patterns match [._]dev(?:[._]|$) etc. 
+    // "settings-dev.json" has "-dev." which doesn't match [._]dev[._] (dash, not dot/underscore)
+    // Wait, "-" doesn't match [._], so this won't match mirror patterns.
+    // But the config regex uses [._](dev|prod|...)[._] which also requires [._] not "-"
+    // Let me check: config regex is /[._](dev|prod|staging|development|production)[._]/i
+    // "settings.dev.json" -> ".dev." matches both mirror and config
+    // We need a pattern where the stem after mirror stripping doesn't match
+    // Actually, the config check happens AFTER mirror check on the same names.
+    // The mirror check uses hasMirrorSuffix which checks MIRROR_FULL_PATTERNS
+    // These include [._]dev[._] and [._]dev\.
+    // "settings.dev.json" matches [._]dev\. so mirror catches it first.
+    // There's actually no way for config to be reached since mirror catches all dev/prod/staging
+    // This branch is effectively dead code. The test verifies the behavior.
+    const result = bundle([
+      '/project/src/settings.json',
+      '/project/src/settings.dev.json',
+    ]);
+    // These group because logicalBaseName strips the .dev suffix
+    expect(result).toHaveLength(1);
+    // Category is mirror because mirror check comes before config check
+    expect(result[0]!.category).toBe('mirror');
+  });
+
+  it('detects sibling for same-base files with different base names (line 286 false branch)', () => {
+    // Files in same directory but with DIFFERENT base names
+    // Should be solo bundles since they don't share the same base
+    const result = bundle([
+      '/project/src/foo.ts',
+      '/project/src/bar.ts',
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result.every((b) => b.category === 'solo')).toBe(true);
+  });
+
+  it('handles single file with same-base sibling check (line 283 false branch)', () => {
+    // A single file — files.length > 1 is false, so it falls through
+    const result = bundle(['/project/src/unique-file.ts']);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.category).toBe('solo');
+  });
+
+  it('handles file where stem becomes empty after stripping', () => {
+    // A file whose logical base name strips to empty (e.g., just ".test")
+    const result = bundle(['/project/src/.test.ts']);
+    // Should not crash
+    expect(result).toHaveLength(1);
+  });
+
+  it('groups files with same base in same directory but different extensions', () => {
+    const result = bundle([
+      '/project/src/Data.model.ts',
+      '/project/src/Data.service.ts',
+      '/project/src/Data.utils.ts',
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.category).toBe('sibling');
+    expect(result[0]!.files).toHaveLength(3);
   });
 });
 

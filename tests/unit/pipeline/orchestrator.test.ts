@@ -713,8 +713,8 @@ describe('Pipeline — Cycle Detection (Iterative DFS)', () => {
       if (i > 0) deps.push(`P${i - 1}`);
       phases.push({ id: `P${i}`, deps });
     }
-    // Create a cycle: P15 → P5 → P15
-    phases[15]!.deps.push('P5');
+    // Create a cycle: P5 also depends on P15 (P5→P6→...→P15→P5)
+    phases[5]!.deps.push('P15');
 
     const cycles = detectCyclesIterative(phases);
     expect(cycles.length).toBeGreaterThan(0);

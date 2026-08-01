@@ -561,11 +561,12 @@ export class InMemoryGraphStore {
 
   /**
    * Determine the candidate node ID set for a query, using indexes when possible.
-   * Falls back to iterating all nodes if neither index can be used.
+   * Returns null when no usable index exists (no projectId in index),
+   * triggering a full scan of all nodes.
    */
   private getCandidateNodeIds(query: NodeQuery): Set<number> | null {
     const projectSet = this.projectNodesIndex.get(query.projectId);
-    if (!projectSet) return new Set(); // Project has no nodes
+    if (!projectSet) return null; // No project index — fall back to full scan
 
     if (query.label !== undefined) {
       const labels = Array.isArray(query.label) ? query.label : [query.label];
