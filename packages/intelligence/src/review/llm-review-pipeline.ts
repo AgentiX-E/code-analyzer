@@ -139,7 +139,7 @@ export class LLMReviewPipeline {
     heuristicComments: ReviewComment[],
   ): ReviewComment[] {
     const result = [...heuristicComments];
-    const overlapThreshold = 3;
+    const overlapThreshold = 1;
 
     for (const llmComment of llmComments) {
       // Skip low-confidence positioned comments

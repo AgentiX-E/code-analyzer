@@ -101,6 +101,37 @@ export class CommentReflectionModule {
     fileContent: string,
     filePath: string,
   ): ReflectionReport {
+    const fileLines = fileContent.split('\n');
+    const totalLines = fileLines.length;
+
+    // Pre-position: run raw bounds and inverted-range checks on original comments
+    // BEFORE CommentPositioner clamps them — so we catch genuine out-of-bounds.
+    const preIssues: Map<number, ReflectionIssue[]> = new Map();
+    for (let i = 0; i < comments.length; i++) {
+      const c = comments[i]!;
+      const raw: ReflectionIssue[] = [];
+
+      if (c.startLine > c.endLine) {
+        raw.push({
+          type: 'position_out_of_bounds',
+          message: `Inverted line range: startLine ${c.startLine} > endLine ${c.endLine}`,
+          severity: 'error',
+        });
+      }
+
+      if (c.startLine > totalLines || c.endLine < 1) {
+        raw.push({
+          type: 'position_out_of_bounds',
+          message: `startLine ${c.startLine} exceeds file length ${totalLines}`,
+          severity: 'error',
+        });
+      }
+
+      if (raw.length > 0) {
+        preIssues.set(i, raw);
+      }
+    }
+
     const positioned = comments.map((c) =>
       this.positioner.positionComment(c, fileContent),
     );
@@ -111,8 +142,9 @@ export class CommentReflectionModule {
     let relocatedComments = 0;
     const issueBreakdown: Record<string, number> = {};
 
-    for (const comment of positioned) {
-      const issues: ReflectionIssue[] = [];
+    for (let i = 0; i < positioned.length; i++) {
+      const comment = positioned[i]!;
+      const issues: ReflectionIssue[] = [...(preIssues.get(i) ?? [])];
 
       // Check 1: Position validity
       const posResult = this.positioner.validatePosition(comment, fileContent);
@@ -120,16 +152,6 @@ export class CommentReflectionModule {
         issues.push({
           type: 'position_invalid',
           message: posResult.reason ?? 'Invalid comment position',
-          severity: 'error',
-        });
-      }
-
-      // Check 2: Position bounds
-      const fileLines = fileContent.split('\n');
-      if (comment.startLine > fileLines.length) {
-        issues.push({
-          type: 'position_out_of_bounds',
-          message: `startLine ${comment.startLine} exceeds file length ${fileLines.length}`,
           severity: 'error',
         });
       }
@@ -306,7 +328,7 @@ export class CommentReflectionModule {
    */
   private detectDuplicates(results: ReflectionResult[]): ReflectionResult[] {
     const duplicates: ReflectionResult[] = [];
-    const overlapThreshold = 3;
+    const overlapThreshold = 1;
 
     for (let i = 0; i < results.length; i++) {
       for (let j = i + 1; j < results.length; j++) {

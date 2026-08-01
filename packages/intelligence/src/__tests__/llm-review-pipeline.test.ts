@@ -1,6 +1,6 @@
 // @code-analyzer/intelligence — LLM Review Pipeline Integration Tests
 import { describe, it, expect, beforeEach } from 'vitest';
-import { LLMReviewPipeline } from '../llm-review-pipeline.js';
+import { LLMReviewPipeline } from '../review/llm-review-pipeline.js';
 import type { LLMFinding } from '../llm/prompts.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
@@ -21,7 +21,7 @@ function makeLLMFinding(
     suggestion: 'Use parameterized queries instead',
     severity: 'critical',
     category: 'security',
-    snippet: 'const query = `SELECT * FROM users WHERE id = \\'${userId}\\'`;',
+    snippet: 'const query = `SELECT * FROM users WHERE id = USERID`;',
     ...overrides,
   };
 }
@@ -34,7 +34,7 @@ function makeHeuristicComment(
     path: 'src/test.ts',
     content: 'SQL injection detected',
     thinking: 'Found SQL injection pattern',
-    existingCode: "const q = `SELECT * FROM users WHERE id = '${id}'`",
+    existingCode: 'const q = `SELECT * FROM users WHERE id = ID`',
     startLine: 10,
     endLine: 11,
     category: 'security',
@@ -83,11 +83,11 @@ describe('LLMReviewPipeline — Exact Match Positioning', () => {
   });
 
   it('positions a finding with exact content match', () => {
-    const content = 'const x = 1;\nconst query = `SELECT * FROM users WHERE id = \\'${userId}\\'`;\nconst y = 2;\n';
+    const content = "const x = 1;\nconst query = `SELECT * FROM users WHERE id = USERID`;\nconst y = 2;\n";
     const finding = makeLLMFinding({
       startLine: 2,
       endLine: 2,
-      snippet: "const query = `SELECT * FROM users WHERE id = '${userId}'`;",
+      snippet: 'const query = `SELECT * FROM users WHERE id = USERID`;',
     });
 
     const result = pipeline.processFindings([finding], content, 'src/test.ts');
@@ -100,11 +100,11 @@ describe('LLMReviewPipeline — Exact Match Positioning', () => {
   });
 
   it('detects position drift and uses heuristic match', () => {
-    const content = 'line1\nline2\nconst query = `SELECT * FROM users WHERE id = \\'${userId}\\'`;\nline4\nline5\n';
+    const content = "line1\nline2\nconst query = `SELECT * FROM users WHERE id = USERID`;\nline4\nline5\n";
     const finding = makeLLMFinding({
       startLine: 1,  // Wrong! Actually at line 3
       endLine: 2,
-      snippet: "const query = `SELECT * FROM users WHERE id = '${userId}'`;",
+      snippet: 'const query = `SELECT * FROM users WHERE id = USERID`;',
     });
 
     const result = pipeline.processFindings([finding], content, 'src/test.ts');
@@ -157,10 +157,10 @@ describe('LLMReviewPipeline — Merge with Heuristic', () => {
   });
 
   it('deduplicates overlapping comments in same category', () => {
-    const content = 'const q = `SELECT * FROM users WHERE id = \\'${id}\\'`;\n';
+    const content = "const q = `SELECT * FROM users WHERE id = ID`;\n";
     const llmFinding = makeLLMFinding({
       startLine: 1, endLine: 1, category: 'security',
-      snippet: "const q = `SELECT * FROM users WHERE id = '${id}'`;",
+      snippet: 'const q = `SELECT * FROM users WHERE id = ID`;',
     });
     const llmResult = pipeline.processFindings([llmFinding], content, 'src/test.ts');
 
@@ -317,11 +317,11 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
   });
 
   it('AC-2: Position drift is corrected by heuristic match', () => {
-    const content = '// comment\n// another comment\nconst BAD = `SELECT * FROM users WHERE id = \\'${id}\\'`;\n// more\n';
+    const content = "// comment\n// another comment\nconst BAD = `SELECT * FROM users WHERE id = ID`;\n// more\n";
     const finding = makeLLMFinding({
       startLine: 1, endLine: 2,  // WRONG — actual is line 3
       category: 'security',
-      snippet: "const BAD = `SELECT * FROM users WHERE id = '${id}'`;",
+      snippet: 'const BAD = `SELECT * FROM users WHERE id = ID`;',
     });
     const result = new LLMReviewPipeline().processFindings([finding], content, 'src/app.ts');
     if (result.comments.length > 0 && result.comments[0]) {
@@ -344,10 +344,10 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
   });
 
   it('AC-4: Pipeline produces meaningful reflection report', () => {
-    const content = 'function bad(): void {\n  const q = "SELECT * FROM users WHERE id = \\'${x}\\'";\n}\n';
+    const content = "function bad(): void {\n  const q = `SELECT * FROM users WHERE id = X`;\n}\n";
     const findings = [
       makeLLMFinding({ startLine: 2, endLine: 2, category: 'security',
-        snippet: "const q = \"SELECT * FROM users WHERE id = '${x}'\";" }),
+        snippet: 'const q = "SELECT * FROM users WHERE id = X";' }),
     ];
     const result = new LLMReviewPipeline().processFindings(findings, content, 'src/app.ts');
     expect(result.reflection.totalComments).toBeGreaterThanOrEqual(0);
