@@ -1,0 +1,78 @@
+# Release Drafter Configuration
+#
+# Automatically categorizes PRs based on labels and generates
+# structured release notes with changelog sections.
+
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'feat'
+      - 'feature'
+      - 'enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bug'
+      - 'bugfix'
+  - title: '⚡ Performance'
+    labels:
+      - 'perf'
+      - 'performance'
+      - 'optimization'
+  - title: '🧪 Testing'
+    labels:
+      - 'test'
+      - 'testing'
+      - 'tests'
+  - title: '📝 Documentation'
+    labels:
+      - 'docs'
+      - 'documentation'
+  - title: '🔧 Maintenance'
+    labels:
+      - 'chore'
+      - 'refactor'
+      - 'ci'
+      - 'build'
+      - 'dependencies'
+  - title: '🔒 Security'
+    labels:
+      - 'security'
+
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ## Contributors
+  $CONTRIBUTORS
+
+  **Full Changelog:** https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+version-resolver:
+  major:
+    labels:
+      - 'breaking'
+      - 'major'
+  minor:
+    labels:
+      - 'feat'
+      - 'feature'
+      - 'enhancement'
+  patch:
+    labels:
+      - 'fix'
+      - 'bug'
+      - 'bugfix'
+      - 'perf'
+      - 'docs'
+      - 'chore'
+      - 'refactor'
+      - 'test'
+      - 'security'
+  default: patch

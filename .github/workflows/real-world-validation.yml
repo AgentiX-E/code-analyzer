@@ -1,0 +1,150 @@
+# @code-analyzer — Real-World Source Validation
+#
+# Runs the full code-analyzer pipeline against real open-source projects
+# (React, Vue, Django) to validate production readiness on a weekly cadence.
+#
+# Triggered:
+#   - Weekly schedule (Sunday at 00:00 UTC)
+#   - Manual workflow_dispatch (with project selection)
+#   - Push to main when benchmark files change
+
+name: Real-World Validation
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at 00:00 UTC
+  workflow_dispatch:
+    inputs:
+      projects:
+        description: >-
+          Comma-separated list of projects (react,vue,django)
+        required: false
+        default: 'react,vue,django'
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'tests/benchmarks/real-world/**'
+      - 'packages/analyzer/src/languages/**'
+      - '.github/workflows/real-world-validation.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  PNPM_VERSION: '9.15.0'
+  NODE_VERSION: '22'
+
+jobs:
+  # ── Matrix Setup ──────────────────────────────────────────────────────────
+  setup-matrix:
+    name: 'Setup Validation Matrix'
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.set-matrix.outputs.projects }}
+    steps:
+      - id: set-matrix
+        run: |
+          INPUT="${{ inputs.projects || 'react,vue,django' }}"
+          echo "projects=[$(echo "$INPUT" | sed 's/, */","/g' | sed 's/^/"/;s/$/"/')]" >> "$GITHUB_OUTPUT"
+
+  # ── Validation ────────────────────────────────────────────────────────────
+  validate:
+    name: 'Validate: ${{ matrix.project }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [setup-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.setup-matrix.outputs.projects) }}
+        include:
+          - project: react
+            repo: https://github.com/facebook/react.git
+            branch: main
+            test_pattern: 'React Source Code Analysis'
+          - project: vue
+            repo: https://github.com/vuejs/core.git
+            branch: main
+            test_pattern: 'Vue.js Source Code Analysis'
+          - project: django
+            repo: https://github.com/django/django.git
+            branch: main
+            test_pattern: 'Django Source Code Analysis'
+
+    steps:
+      - name: Checkout code-analyzer
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Clone ${{ matrix.project }}
+        run: |
+          REPO="${{ matrix.repo }}"
+          echo "Cloning $REPO..."
+          git clone --depth 1 \
+            --branch "${{ matrix.branch }}" \
+            "$REPO" "/tmp/${{ matrix.project }}-src"
+          echo "Cloned to /tmp/${{ matrix.project }}-src"
+
+      - name: Run validation benchmark
+        run: |
+          npx vitest run --config vitest.config.ts --reporter=verbose \
+            --testNamePattern "${{ matrix.test_pattern }}"
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        continue-on-error: true
+
+      - name: Collect report
+        if: always()
+        run: |
+          RP="tests/benchmarks/real-world/${{ matrix.project }}-analysis-report.json"
+          if [ -f "$RP" ]; then
+            echo "Report found at $RP"
+            jq -r '"SUCCESS_RATE=\(.parse.successRate)"' "$RP" >> "$GITHUB_ENV"
+            jq -r '"FILES=\(.parse.totalFiles)"' "$RP" >> "$GITHUB_ENV"
+            jq -r '"SYMBOLS=\(.symbols.totalCount)"' "$RP" >> "$GITHUB_ENV"
+            jq -r '"MEMORY=\(.memory.deltaRssMB)"' "$RP" >> "$GITHUB_ENV"
+          else
+            echo "No report for ${{ matrix.project }}"
+          fi
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.project }}-validation-report
+          path: >-
+            tests/benchmarks/real-world/${{ matrix.project }}-analysis-report.json
+          retention-days: 90
+          if-no-files-found: ignore
+
+  # ── Aggregate Summary ─────────────────────────────────────────────────────
+  summary:
+    name: 'Validation Summary'
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          {
+            echo "## 🔬 Real-World Validation Summary"
+            echo ""
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "> Reports available as workflow artifacts (90-day retention)."
+          } >> "$GITHUB_STEP_SUMMARY"

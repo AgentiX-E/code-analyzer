@@ -1,0 +1,147 @@
+# CircleCI Configuration for Code Analyzer
+version: 2.1
+
+orbs:
+  node: circleci/node@5.2.0
+  pnpm: pnpm/pnpm@1.0.0
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:22.13
+
+jobs:
+  # ── Code Analysis ──────────────────────────────────────────────────────────
+
+  code-analysis:
+    executor: node-executor
+    steps:
+      - checkout
+      - pnpm/install
+      - run:
+          name: Install Code Analyzer CLI
+          command: pnpm add -g @code-analyzer/cli
+      - run:
+          name: Analyze Codebase
+          command: |
+            npx code-analyzer analyze --repo . --output analysis.json
+            npx code-analyzer graph build --repo . --output graph.db
+      - persist_to_workspace:
+          root: .
+          paths:
+            - analysis.json
+            - graph.db
+
+  # ── PR Review ──────────────────────────────────────────────────────────────
+
+  pr-review:
+    executor: node-executor
+    steps:
+      - checkout
+      - pnpm/install
+      - run:
+          name: Install Code Analyzer CLI
+          command: pnpm add -g @code-analyzer/cli
+      - run:
+          name: Automated PR Review
+          command: |
+            npx code-analyzer review pr \
+              --repo . \
+              --target-branch << pipeline.git.base_revision >> \
+              --source-branch << pipeline.git.revision >> \
+              --format markdown \
+              --output review-report.md
+      - store_artifacts:
+          path: review-report.md
+          destination: code-review
+
+  # ── Standards Check ────────────────────────────────────────────────────────
+
+  standards-check:
+    executor: node-executor
+    steps:
+      - checkout
+      - pnpm/install
+      - run:
+          name: Install Code Analyzer CLI
+          command: pnpm add -g @code-analyzer/cli
+      - run:
+          name: Check Project Standards
+          command: |
+            npx code-analyzer standards check \
+              --repo . \
+              --standard .code-analyzer-standards.yml \
+              --format markdown \
+              --output standards-report.md
+      - store_artifacts:
+          path: standards-report.md
+          destination: standards
+
+  # ── Report Generation ──────────────────────────────────────────────────────
+
+  generate-report:
+    executor: node-executor
+    steps:
+      - checkout
+      - pnpm/install
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install Code Analyzer CLI
+          command: pnpm add -g @code-analyzer/cli
+      - run:
+          name: Generate Reports
+          command: |
+            npx code-analyzer report generate \
+              --input analysis.json \
+              --format html \
+              --output codebase-report.html
+            npx code-analyzer report recommend \
+              --input analysis.json \
+              --format markdown \
+              --output recommendations.md
+      - store_artifacts:
+          path:
+            - codebase-report.html
+            - recommendations.md
+          destination: reports
+
+  # ── Security Audit ─────────────────────────────────────────────────────────
+
+  security-audit:
+    executor: node-executor
+    steps:
+      - checkout
+      - pnpm/install
+      - run:
+          name: Run Security Audit
+          command: npm audit --audit-level=high || true
+      - run:
+          name: Generate SBOM
+          command: npx @cyclonedx/cyclonedx-npm --output-file sbom.json
+      - store_artifacts:
+          path: sbom.json
+          destination: security
+
+# ── Workflows ────────────────────────────────────────────────────────────────
+
+workflows:
+  version: 2
+
+  # Main pipeline: runs on every push
+  main-pipeline:
+    jobs:
+      - code-analysis
+      - security-audit
+      - generate-report:
+          requires:
+            - code-analysis
+
+  # PR pipeline: runs on pull requests
+  pr-pipeline:
+    when:
+      not:
+        equal: [main, << pipeline.git.branch >>]
+    jobs:
+      - pr-review
+      - standards-check

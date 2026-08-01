@@ -1,0 +1,101 @@
+{
+  "name": "code-analyzer",
+  "version": "0.1.0",
+  "description": "Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
+  "author": "Lambertyan",
+  "license": "MIT",
+  "keywords": [
+    "code-analysis",
+    "knowledge-graph",
+    "mcp",
+    "code-review",
+    "tree-sitter",
+    "static-analysis",
+    "ai-agent",
+    "copilot",
+    "cross-repo",
+    "pr-review"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgentiX-E/code-analyzer.git"
+  },
+  "homepage": "https://github.com/AgentiX-E/code-analyzer",
+  "bugs": {
+    "url": "https://github.com/AgentiX-E/code-analyzer/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "packages/*/dist",
+    "packages/*/package.json"
+  ],
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "test:unit": "vitest run",
+    "test:coverage": "python3 scripts/coverage-report.py",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:property": "vitest run --config vitest.property.config.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "lint": "turbo lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean",
+    "bench": "vitest bench",
+    "bench:ci": "vitest bench --run --reporter=json > bench-results.json",
+    "check:perf": "node scripts/check-benchmarks.js",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "turbo build && changeset publish",
+    "publish": "turbo build && pnpm -r publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "@vitest/coverage-istanbul": "^4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.1",
+    "turbo": "^2.10.7",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "adm-zip": ">=0.6.0",
+      "fast-uri": ">=3.1.4",
+      "@hono/node-server": ">=2.0.5"
+    }
+  },
+  "dependencies": {
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-c-sharp": "^0.21.3",
+    "tree-sitter-go": "^0.21.2",
+    "tree-sitter-java": "^0.23.5",
+    "tree-sitter-javascript": "^0.21.4",
+    "tree-sitter-kotlin": "^0.3.8",
+    "tree-sitter-php": "^0.24.2",
+    "tree-sitter-python": "^0.25.0",
+    "tree-sitter-ruby": "^0.23.1",
+    "tree-sitter-rust": "^0.24.0",
+    "tree-sitter-swift": "^0.7.1",
+    "tree-sitter-typescript": "^0.21.2"
+  },
+  "optionalDependencies": {
+    "tree-sitter-json": "0.24.8",
+    "tree-sitter-toml": "0.5.1",
+    "tree-sitter-yaml": "0.5.0"
+  }
+}

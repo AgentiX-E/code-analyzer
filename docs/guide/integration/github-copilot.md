@@ -1,0 +1,1 @@
+../../integration/github-copilot.md

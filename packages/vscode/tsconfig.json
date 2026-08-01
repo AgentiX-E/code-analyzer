@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declarationDir": "./dist",
+    "composite": true
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/__tests__"
+  ],
+  "references": [
+    {
+      "path": "../shared"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../analyzer"
+    },
+    {
+      "path": "../intelligence"
+    }
+  ]
+}

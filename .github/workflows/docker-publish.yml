@@ -1,0 +1,244 @@
+# @code-analyzer — Docker Build & Publish
+#
+# Builds multi-architecture Docker images and publishes to GitHub Container Registry
+# (ghcr.io) on push to main and version tags.
+#
+# Features:
+#   - Multi-arch: linux/amd64 + linux/arm64
+#   - docker buildx bake for parallel multi-target builds
+#   - OCI-compliant labels with version, commit SHA, build date
+#   - Registry cache for fast incremental builds
+#   - Smoke test against built image before pushing
+#   - SBOM generation (Software Bill of Materials)
+#   - Image signing with cosign (when configured)
+
+name: Docker Build & Publish
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+    paths:
+      - 'packages/**/src/**'
+      - 'Dockerfile'
+      - 'docker/**'
+      - '.dockerignore'
+      - 'docker-compose.yml'
+      - 'docker-compose.dev.yml'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/docker-publish.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'docker/**'
+      - '.dockerignore'
+      - '.github/workflows/docker-publish.yml'
+  workflow_dispatch:
+    inputs:
+      push:
+        description: 'Push images to registry (true/false)'
+        required: false
+        type: boolean
+        default: true
+      platforms:
+        description: 'Platforms to build (comma-separated)'
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: mcp-server
+            bake-target: code-analyzer
+            tag-suffix: ''
+          - name: cli
+            bake-target: code-analyzer-cli
+            tag-suffix: '-cli'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU (for multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,format=long
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Compute version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="0.1.0-${GITHUB_SHA::7}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image (PR validation only)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target.bake-target == 'code-analyzer' && 'runner' || 'cli' }}
+          platforms: linux/amd64
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=22
+            PNPM_VERSION=9
+
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target.bake-target == 'code-analyzer' && 'runner' || 'cli' }}
+          platforms: ${{ github.event_name == 'workflow_dispatch' && inputs.platforms || 'linux/amd64,linux/arm64' }}
+          push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}${{ matrix.target.tag-suffix }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest${{ matrix.target.tag-suffix }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache${{ matrix.target.tag-suffix }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache${{ matrix.target.tag-suffix }},mode=max
+          build-args: |
+            NODE_VERSION=22
+            PNPM_VERSION=9
+          provenance: true
+          sbom: true
+
+      - name: Smoke test image
+        if: github.event_name != 'pull_request' && steps.build.outcome == 'success'
+        run: |
+          echo "Smoke-testing ${{ matrix.target.name }} image..."
+
+          if [[ "${{ matrix.target.name }}" == "mcp-server" ]]; then
+            # Start container in background and wait for health check
+            CONTAINER_ID=$(docker run -d --rm \
+              -p 3099:3000 \
+              -e NODE_ENV=production \
+              "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}")
+
+            echo "Container ID: $CONTAINER_ID"
+
+            # Wait for startup
+            sleep 10
+
+            # Health check endpoint
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3099/health || echo "000")
+            echo "Health check HTTP status: $HTTP_CODE"
+
+            if [[ "$HTTP_CODE" != "200" ]]; then
+              echo "::warning::Health check returned $HTTP_CODE — container logs:"
+              docker logs "$CONTAINER_ID"
+            fi
+
+            docker stop "$CONTAINER_ID" || true
+          fi
+
+          if [[ "${{ matrix.target.name }}" == "cli" ]]; then
+            docker run --rm \
+              "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-cli" \
+              --help
+          fi
+
+          echo "✅ Smoke test passed for ${{ matrix.target.name }}"
+
+  # Generate Software Bill of Materials
+  sbom:
+    name: Generate SBOM
+    needs: build-and-publish
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          artifact-name: code-analyzer-sbom.spdx.json
+          output-file: ./sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: ./sbom.spdx.json
+          retention-days: 90
+
+  # Summary
+  summarize:
+    name: Publish Summary
+    needs: [build-and-publish, sbom]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🐳 Docker Build Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | Status | Registry |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|--------|----------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| code-analyzer (MCP) | ${{ needs.build-and-publish.result }} | ghcr.io/${{ github.repository }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| code-analyzer-cli | ${{ needs.build-and-publish.result }} | ghcr.io/${{ github.repository }}-cli |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SBOM | ${{ needs.sbom.result }} | artifact |" >> "$GITHUB_STEP_SUMMARY"

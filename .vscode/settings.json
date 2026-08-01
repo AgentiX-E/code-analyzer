@@ -1,0 +1,50 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.strict": true,
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+
+  "editor.rulers": [100],
+
+  "search.exclude": {
+    "**/dist": true,
+    "**/node_modules": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    "**/pnpm-lock.yaml": true,
+    "**/*.tsbuildinfo": true
+  },
+
+  "files.exclude": {
+    "**/.turbo": true,
+    "**/*.tsbuildinfo": true
+  },
+
+  "eslint.useFlatConfig": true,
+
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}

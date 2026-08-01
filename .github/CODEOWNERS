@@ -1,0 +1,34 @@
+# Code Analyzer — Code Owners
+
+# Default owner for everything in the repo
+* @Lambertyan
+
+# Core packages
+/packages/shared/          @Lambertyan
+/packages/core/            @Lambertyan
+/packages/infra/           @Lambertyan
+/packages/analyzer/        @Lambertyan
+/packages/intelligence/    @Lambertyan
+
+# Service packages
+/packages/mcp/             @Lambertyan
+/packages/server/          @Lambertyan
+/packages/cli/             @Lambertyan
+
+# Frontend & editor
+/packages/web/             @Lambertyan
+/packages/vscode/          @Lambertyan
+
+# Documentation
+/docs/                     @Lambertyan
+/README.md                 @Lambertyan
+
+# CI/CD and workflows
+/.github/                  @Lambertyan
+
+# Root configuration
+/package.json              @Lambertyan
+/pnpm-workspace.yaml       @Lambertyan
+/vitest.config.ts          @Lambertyan
+/tsconfig.json             @Lambertyan
+/turbo.json                @Lambertyan

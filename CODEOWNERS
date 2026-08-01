@@ -1,0 +1,41 @@
+# Code Owners for Code Analyzer
+
+# Core architecture
+/packages/shared/     @Lambertyan
+/packages/core/       @Lambertyan
+/pnpm-workspace.yaml  @Lambertyan
+/turbo.json           @Lambertyan
+/vitest.config.ts     @Lambertyan
+
+# Infrastructure
+/packages/infra/      @Lambertyan
+
+# Analysis Engine
+/packages/analyzer/   @Lambertyan
+
+# Intelligence Layer
+/packages/intelligence/ @Lambertyan
+
+# Integration & MCP
+/packages/integration/  @Lambertyan
+/packages/mcp/          @Lambertyan
+
+# CLI & Server
+/packages/cli/          @Lambertyan
+/packages/server/       @Lambertyan
+
+# VS Code Extension
+/packages/vscode/       @Lambertyan
+
+# Web Interface
+/packages/web/          @Lambertyan
+
+# CI/CD
+/.github/               @Lambertyan
+
+# Documentation
+/docs/                  @Lambertyan
+/README.md              @Lambertyan
+/SECURITY.md            @Lambertyan
+/CONTRIBUTING.md        @Lambertyan
+/LICENSE                @Lambertyan

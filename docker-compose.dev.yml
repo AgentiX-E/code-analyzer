@@ -1,0 +1,72 @@
+#
+# Code Analyzer — Development Docker Compose
+#
+# Features:
+#   - Hot-reload via mounted source volumes (tsc --watch in container)
+#   - Exposed debug ports for Node.js inspector
+#   - Local SQLite persistence with host-mounted volume
+#   - No resource limits (for profiling and debugging)
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+
+services:
+  code-analyzer-mcp:
+    build:
+      target: builder                    # Use builder stage with all dev deps
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      # Enable Node.js inspector for debugging
+      NODE_OPTIONS: "--inspect=0.0.0.0:9229"
+    ports:
+      - "3000:3000"
+      - "9229:9229"                      # Node.js debugger
+    volumes:
+      # Mount source for hot-reload (tsc --watch)
+      - .:/app:rw
+      # Exclude node_modules from host to prevent conflicts
+      - /app/node_modules
+      - /app/packages/*/node_modules
+      - graph-data:/app/data/graph
+    command: >
+      sh -c "pnpm turbo build && node packages/mcp/dist/start.js"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+    restart: "no"                        # Don't restart during development
+
+  code-analyzer-server:
+    build:
+      target: builder
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      NODE_OPTIONS: "--inspect=0.0.0.0:9230"
+    ports:
+      - "3001:3001"
+      - "9230:9230"                      # Node.js debugger for server
+    volumes:
+      - .:/app:rw
+      - /app/node_modules
+      - /app/packages/*/node_modules
+    command: >
+      sh -c "pnpm turbo build && node packages/server/dist/start.js"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+    restart: "no"
+
+networks:
+  analyzer-net:
+    driver: bridge
+
+volumes:
+  graph-data:
+    driver: local

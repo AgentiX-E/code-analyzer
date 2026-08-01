@@ -1,8 +1,31 @@
+# Build outputs
 node_modules/
 dist/
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# Environment & secrets
 .env
+.env.local
 *.log
+
+# OS files
 .DS_Store
+
+# Test & coverage
 coverage/
+benchmark-results/
+reports/
+
+# Code Analyzer runtime
 .code-analyzer/
+.code-analyzer/data/
 .codebuddy/
+*.db
+*.db-wal
+*.db-shm
+
+# Generated
+report_*.json
+logs/

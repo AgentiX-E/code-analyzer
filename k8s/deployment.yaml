@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-analyzer
+  namespace: code-analyzer
+  labels:
+    app.kubernetes.io/name: code-analyzer
+    app.kubernetes.io/version: "0.1.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: code-analyzer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: code-analyzer
+        app.kubernetes.io/version: "0.1.0"
+    spec:
+      containers:
+        - name: code-analyzer
+          image: code-analyzer:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: graphql
+              protocol: TCP
+            - containerPort: 3001
+              name: mcp-sse
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: code-analyzer-config
+          env:
+            - name: DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: code-analyzer-secrets
+                  key: deepseek-api-key
+                  optional: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: repos
+              mountPath: /data/repos
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: repos
+          persistentVolumeClaim:
+            claimName: code-analyzer-repos
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-analyzer-repos
+  namespace: code-analyzer
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi

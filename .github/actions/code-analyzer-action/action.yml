@@ -1,0 +1,112 @@
+name: 'Code Analyzer'
+description: 'AI-powered code review and analysis for pull requests'
+author: 'Lambertyan'
+branding:
+  icon: 'search'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  standards:
+    description: 'Path to project standards JSON file'
+    required: false
+    default: '.code-analyzer/standards.json'
+  severity:
+    description: 'Minimum severity level (info, warning, error, critical)'
+    required: false
+    default: 'warning'
+  fail-on:
+    description: 'Fail the check on this severity or higher (off, warning, error, critical)'
+    required: false
+    default: 'error'
+  max-files:
+    description: 'Maximum files to analyze per PR'
+    required: false
+    default: '100'
+  exclude-patterns:
+    description: 'Comma-separated glob patterns to exclude'
+    required: false
+    default: '**/node_modules/**,**/dist/**,**/*.min.*'
+  languages:
+    description: 'Comma-separated list of languages to analyze (empty=auto-detect)'
+    required: false
+    default: ''
+
+outputs:
+  findings:
+    description: 'JSON string of review findings'
+    value: ${{ steps.review.outputs.findings }}
+  summary:
+    description: 'Markdown summary of the review'
+    value: ${{ steps.review.outputs.summary }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Code Analyzer
+      shell: bash
+      run: npm install -g @code-analyzer/cli
+
+    - name: Run Analysis
+      id: review
+      shell: bash
+      run: |
+        LANG_FLAG=""
+        if [ -n "${{ inputs.languages }}" ]; then
+          LANG_FLAG="--languages ${{ inputs.languages }}"
+        fi
+
+        code-analyzer review-pr \
+          --token "${{ inputs.github-token }}" \
+          --repo "${{ github.repository }}" \
+          --pr "${{ github.event.pull_request.number }}" \
+          --standards "${{ inputs.standards }}" \
+          --severity "${{ inputs.severity }}" \
+          --fail-on "${{ inputs.fail-on }}" \
+          --max-files "${{ inputs.max-files }}" \
+          --exclude "${{ inputs.exclude-patterns }}" \
+          ${LANG_FLAG} \
+          --format json > findings.json
+
+        FINDINGS=$(cat findings.json)
+        echo "findings<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$FINDINGS" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Findings
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-analyzer-findings
+        path: findings.json
+
+    - name: Post PR Comment
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        SUMMARY=$(code-analyzer review-pr \
+          --token "${{ inputs.github-token }}" \
+          --repo "${{ github.repository }}" \
+          --pr "${{ github.event.pull_request.number }}" \
+          --format markdown 2>/dev/null || echo "Analysis completed")
+
+        cat >> comment.md << 'COMMENT_EOF'
+### 🤖 Code Analyzer Review
+
+COMMENT_EOF
+        echo "$SUMMARY" >> comment.md
+        echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+
+        gh pr comment "${{ github.event.pull_request.number }}" \
+          --repo "${{ github.repository }}" \
+          --body-file comment.md
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}

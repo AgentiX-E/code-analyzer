@@ -1,0 +1,390 @@
+{
+  "name": "@code-analyzer/vscode",
+  "displayName": "Code Analyzer",
+  "version": "0.1.0",
+  "description": "World-class code intelligence for VS Code — AI-powered code exploration, review, and analysis",
+  "author": "Lambertyan",
+  "license": "MIT",
+  "keywords": ["code-analysis", "vscode-extension", "code-review", "knowledge-graph", "copilot-chat", "ai-assisted", "code-intelligence"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "directory": "packages/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+  },
+  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "qna": "https://github.com/Lambertyan/code-analyzer/discussions",
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "publisher": "agentix",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=20.0.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension/extension.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/extension/extension.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "code-analyzer",
+        "name": "Code Analyzer",
+        "description": "Explore, search, and review code with AI assistance"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "code-analyzer-sidebar",
+          "title": "Code Analyzer",
+          "icon": "$(search)"
+        }
+      ]
+    },
+    "views": {
+      "code-analyzer-sidebar": [
+        {
+          "id": "code-analyzer.sidebar",
+          "name": "Code Intelligence"
+        },
+        {
+          "id": "code-analyzer.graphExplorer",
+          "name": "Graph Explorer"
+        },
+        {
+          "id": "code-analyzer.config",
+          "name": "Configuration"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "code-analyzer.showSidebar",
+        "title": "Show Code Analyzer"
+      },
+      {
+        "command": "code-analyzer.analyze",
+        "title": "Analyze Codebase"
+      },
+      {
+        "command": "code-analyzer.review",
+        "title": "Review Changes"
+      },
+      {
+        "command": "code-analyzer.search",
+        "title": "Search Codebase"
+      },
+      {
+        "command": "code-analyzer.showConfig",
+        "title": "Configure Code Analyzer"
+      },
+      {
+        "command": "code-analyzer.config.focus",
+        "title": "Focus Config View"
+      },
+      {
+        "command": "code-analyzer.graphExplorer.focus",
+        "title": "Focus Graph Explorer"
+      },
+      {
+        "command": "code-analyzer.fixIssue",
+        "title": "Fix Issue"
+      },
+      {
+        "command": "code-analyzer.ignoreIssue",
+        "title": "Ignore Issue"
+      },
+      {
+        "command": "code-analyzer.explainIssue",
+        "title": "Explain Issue"
+      },
+      {
+        "command": "code-analyzer.findCallers",
+        "title": "Find Callers"
+      },
+      {
+        "command": "code-analyzer.findCallees",
+        "title": "Find Callees"
+      },
+      {
+        "command": "code-analyzer.traceImpact",
+        "title": "Trace Impact"
+      },
+      {
+        "command": "code-analyzer.showSymbolDetail",
+        "title": "Show Symbol Details"
+      }
+    ],
+    "configuration": {
+      "title": "Code Analyzer",
+      "properties": {
+        "codeAnalyzer.analysis": {
+          "type": "object",
+          "title": "Analysis",
+          "description": "Code analysis configuration",
+          "properties": {
+            "codeAnalyzer.analysis.autoIndex": {
+              "type": "boolean",
+              "default": true,
+              "description": "Automatically index the workspace on project open"
+            },
+            "codeAnalyzer.analysis.indexMode": {
+              "type": "string",
+              "default": "full",
+              "enum": ["full", "moderate", "fast"],
+              "enumDescriptions": [
+                "Full analysis: parse all files, build complete knowledge graph",
+                "Moderate: skip test files and generated code",
+                "Fast: surface-level analysis only, skip deep dependency tracing"
+              ],
+              "description": "Analysis depth for workspace indexing"
+            },
+            "codeAnalyzer.analysis.maxFileSize": {
+              "type": "number",
+              "default": 10485760,
+              "minimum": 1024,
+              "description": "Maximum file size in bytes to analyze (default: 10MB)"
+            },
+            "codeAnalyzer.analysis.excludePatterns": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["node_modules/**", "dist/**", ".git/**", "build/**", "coverage/**"],
+              "description": "File glob patterns to exclude from analysis"
+            },
+            "codeAnalyzer.analysis.includePatterns": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py"],
+              "description": "File glob patterns to include in analysis"
+            },
+            "codeAnalyzer.analysis.parallelWorkers": {
+              "type": "number",
+              "default": 4,
+              "minimum": 1,
+              "maximum": 32,
+              "description": "Number of parallel workers for parsing"
+            }
+          }
+        },
+        "codeAnalyzer.review": {
+          "type": "object",
+          "title": "Code Review",
+          "description": "Code review and PR analysis configuration",
+          "properties": {
+            "codeAnalyzer.review.reviewOnSave": {
+              "type": "boolean",
+              "default": false,
+              "description": "Run code review automatically when saving a file"
+            },
+            "codeAnalyzer.review.showInlineDecorations": {
+              "type": "boolean",
+              "default": true,
+              "description": "Display review comments as inline decorations and squiggly underlines"
+            },
+            "codeAnalyzer.review.severityFilter": {
+              "type": "string",
+              "default": "warning",
+              "enum": ["error", "warning", "info", "all"],
+              "description": "Minimum severity level for displaying review comments"
+            },
+            "codeAnalyzer.review.lenses": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["bug", "security", "performance", "maintainability", "test", "style", "documentation", "architecture"]
+              },
+              "default": ["bug", "security", "performance", "maintainability"],
+              "description": "Review lenses to enable (8-lens swarm subset)"
+            },
+            "codeAnalyzer.review.maxCommentsPerFile": {
+              "type": "number",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Maximum number of review comments per file"
+            }
+          }
+        },
+        "codeAnalyzer.search": {
+          "type": "object",
+          "title": "Search",
+          "description": "Code search configuration",
+          "properties": {
+            "codeAnalyzer.search.maxResults": {
+              "type": "number",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Maximum number of search results to return"
+            },
+            "codeAnalyzer.search.minRelevanceScore": {
+              "type": "number",
+              "default": 0.1,
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Minimum relevance score threshold for search results"
+            },
+            "codeAnalyzer.search.enableVectorSearch": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable vector semantic search (requires embeddings)"
+            }
+          }
+        },
+        "codeAnalyzer.graph": {
+          "type": "object",
+          "title": "Graph",
+          "description": "Knowledge graph visualization configuration",
+          "properties": {
+            "codeAnalyzer.graph.maxNodes": {
+              "type": "number",
+              "default": 500,
+              "minimum": 50,
+              "maximum": 5000,
+              "description": "Maximum nodes to display in the graph explorer"
+            },
+            "codeAnalyzer.graph.layout": {
+              "type": "string",
+              "default": "force-directed",
+              "enum": ["force-directed", "radial", "hierarchical", "circular"],
+              "description": "Graph layout algorithm"
+            },
+            "codeAnalyzer.graph.showEdgeLabels": {
+              "type": "boolean",
+              "default": false,
+              "description": "Show relationship labels on graph edges"
+            }
+          }
+        },
+        "codeAnalyzer.ui": {
+          "type": "object",
+          "title": "User Interface",
+          "description": "UI customization settings",
+          "properties": {
+            "codeAnalyzer.ui.statusBarMode": {
+              "type": "string",
+              "default": "compact",
+              "enum": ["hidden", "compact", "detailed"],
+              "description": "Status bar display mode"
+            },
+            "codeAnalyzer.ui.showProgressNotifications": {
+              "type": "boolean",
+              "default": true,
+              "description": "Show progress notifications during long operations"
+            }
+          }
+        },
+        "codeAnalyzer.profile": {
+          "type": "string",
+          "title": "Configuration Profile",
+          "default": "balanced",
+          "enum": ["strict", "balanced", "relaxed"],
+          "enumDescriptions": [
+            "Strict: maximum analysis depth, all review lenses, warn on everything",
+            "Balanced: standard analysis depth, key review lenses (recommended)",
+            "Relaxed: fast analysis, minimal review comments, focus on critical issues"
+          ],
+          "description": "Pre-built configuration profile that configures multiple settings at once"
+        }
+      }
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "code-analyzer.analyze",
+          "when": "view == code-analyzer.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.review",
+          "when": "view == code-analyzer.sidebar",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "code-analyzer.findCallers",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.findCallees",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.traceImpact",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        },
+        {
+          "command": "code-analyzer.showSymbolDetail",
+          "when": "viewItem == symbol",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "code-analyzer.analyze",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      },
+      {
+        "command": "code-analyzer.review",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      },
+      {
+        "command": "code-analyzer.search",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "!searchInputFocus"
+      },
+      {
+        "command": "code-analyzer.showSidebar",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "!sideBarFocus"
+      }
+    ]
+  },
+  "dependencies": {
+    "@code-analyzer/shared": "workspace:*",
+    "@code-analyzer/analyzer": "workspace:*",
+    "@code-analyzer/intelligence": "workspace:*",
+    "@code-analyzer/infra": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,586 @@
+import { describe, it, expect } from 'vitest';
+
+import {
+  createLogger,
+  createNoopLogger,
+  LoggerImpl,
+  formatJson,
+  formatPretty,
+  createLevelFilter,
+} from '../logging/index.js';
+
+import type { LogLevel, LogEntry, LogTransport } from '../logging/index.js';
+
+class TestTransport implements LogTransport {
+  entries: LogEntry[] = [];
+
+  write(_formatted: string, entry: LogEntry): void {
+    this.entries.push(entry);
+  }
+
+  flush(): void {
+    // no-op
+  }
+
+  close(): void {
+    // no-op
+  }
+}
+
+describe('Logger', () => {
+  it('should create a logger with default level (info)', () => {
+    const logger = createLogger('test');
+    expect(logger.component).toBe('test');
+    expect(logger.isLevelEnabled('info')).toBe(true);
+    expect(logger.isLevelEnabled('debug')).toBe(false);
+    expect(logger.isLevelEnabled('trace')).toBe(false);
+    expect(logger.isLevelEnabled('warn')).toBe(true);
+    expect(logger.isLevelEnabled('error')).toBe(true);
+    expect(logger.isLevelEnabled('fatal')).toBe(true);
+  });
+
+  it('should create a logger with custom level', () => {
+    const logger = createLogger('test', { minLevel: 'debug' });
+    expect(logger.isLevelEnabled('info')).toBe(true);
+    expect(logger.isLevelEnabled('debug')).toBe(true);
+    expect(logger.isLevelEnabled('trace')).toBe(false);
+  });
+
+  it('should log messages to a transport', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.info('hello world', { key: 'value' });
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.message).toBe('hello world');
+    expect(transport.entries[0]?.level).toBe('info');
+    expect(transport.entries[0]?.component).toBe('test');
+    expect(transport.entries[0]?.data).toEqual({ key: 'value' });
+  });
+
+  it('should log to all log levels', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    const levels: LogLevel[] = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'];
+    for (const level of levels) {
+      const logMethod = level === 'fatal' || level === 'error'
+        ? (msg: string) => (logger as LoggerImpl)[level](msg, new Error('test'))
+        : (msg: string) => (logger as LoggerImpl)[level](msg);
+
+      logMethod(`test ${level}`);
+    }
+
+    expect(transport.entries).toHaveLength(6);
+    const loggedLevels = transport.entries.map((e) => e.level);
+    expect(loggedLevels).toEqual(levels);
+  });
+
+  it('should filter out messages below minimum level', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'error',
+      transports: [transport],
+    });
+
+    logger.info('should not appear');
+    logger.debug('should not appear');
+    logger.trace('should not appear');
+    logger.warn('should not appear');
+    logger.error('should appear', new Error('test'));
+
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.level).toBe('error');
+  });
+
+  it('should include error details in log entry', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    const error = new Error('something bad');
+    logger.error('error occurred', error);
+
+    expect(transport.entries[0]?.error).toBeDefined();
+    expect(transport.entries[0]?.error?.name).toBe('Error');
+    expect(transport.entries[0]?.error?.message).toBe('something bad');
+    expect(transport.entries[0]?.error?.stack).toBeDefined();
+  });
+
+  it('should extract code and context from CodeAnalyzerError', async () => {
+    const { CodeAnalyzerError } = await import('../errors/hierarchy.js');
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    const err = new CodeAnalyzerError('CONFIG', 'TEST', 'config error', { field: 'value' });
+    logger.error('bad config', err);
+
+    expect(transport.entries[0]?.error?.code).toBe('CA_CONFIG_TEST');
+    expect(transport.entries[0]?.error?.context).toEqual({ field: 'value' });
+
+    // Cover non-string code and null context branches
+    const weirdErr = { code: 123, context: null, name: 'WeirdError', message: 'weird', stack: 'fake' };
+    logger.error('weird error', weirdErr);
+
+    expect(transport.entries).toHaveLength(2);
+  });
+
+  it('should not log after close', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.close();
+    logger.info('after close');
+
+    expect(transport.entries).toHaveLength(0);
+  });
+
+  it('should apply custom filters', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+      filters: [
+        (entry: LogEntry) => !entry.message.includes('secret'),
+      ],
+    });
+
+    logger.info('public message');
+    logger.info('secret data should not appear');
+
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.message).toBe('public message');
+  });
+
+  it('should handle transport write errors gracefully', () => {
+    const badTransport: LogTransport = {
+      write(_formatted: string, _entry: LogEntry): void {
+        throw new Error('write failure');
+      },
+    };
+
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [badTransport],
+    });
+
+    // Should not throw
+    expect(() => logger.info('should not crash')).not.toThrow();
+  });
+
+  it('should flush transports on flush call', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.info('test');
+    expect(() => logger.flush()).not.toThrow();
+  });
+
+  it('should call transport close on logger close', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    expect(() => logger.close()).not.toThrow();
+  });
+
+  it('should support JSON format option', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+      format: 'json',
+    });
+
+    logger.info('json test');
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.message).toBe('json test');
+  });
+
+  it('should handle error with Error object', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    const err = new Error('test error');
+    logger.fatal('fatal error', err, { severity: 'critical' });
+
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.error).toBeDefined();
+    expect(transport.entries[0]?.data).toEqual({ severity: 'critical' });
+  });
+
+  it('should write error and fatal levels to stderr via console transport', () => {
+    // Create logger with default console transport (no custom transports)
+    const logger = createLogger('test-stderr', { minLevel: 'error' });
+
+    // Just verify it doesn't crash — default transport writes to stderr
+    logger.error('error to stderr', new Error('test'));
+    logger.fatal('fatal to stderr', new Error('critical'));
+    expect(logger.isLevelEnabled('error')).toBe(true);
+    expect(logger.isLevelEnabled('fatal')).toBe(true);
+  });
+});
+
+describe('createNoopLogger', () => {
+  it('should create a noop logger that never writes', () => {
+    const transport = new TestTransport();
+    const logger = createNoopLogger('noop');
+    // Noop logger has minLevel 'fatal' and no transports passed, so nothing should log
+    logger.info('should not be logged');
+    logger.error('also not logged', new Error('test'));
+    // All should be silent — no crash
+    expect(transport.entries).toHaveLength(0);
+  });
+
+  it('should support isLevelEnabled on noop logger', () => {
+    const logger = createNoopLogger('noop');
+    expect(logger.isLevelEnabled('fatal')).toBe(true);
+    expect(logger.isLevelEnabled('error')).toBe(false);
+  });
+});
+
+describe('formatJson', () => {
+  it('should format a log entry as valid JSON string', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'info',
+      component: 'test',
+      message: 'hello',
+    };
+    const json = formatJson(entry);
+    const parsed = JSON.parse(json);
+    expect(parsed.level).toBe('info');
+    expect(parsed.message).toBe('hello');
+    expect(parsed.component).toBe('test');
+  });
+
+  it('should include optional fields when present', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'error',
+      component: 'test',
+      message: 'error msg',
+      data: { meta: 'value' },
+      error: { name: 'Error', message: 'fail', stack: 'some-stack' },
+    };
+    const json = formatJson(entry);
+    const parsed = JSON.parse(json);
+    expect(parsed.data).toEqual({ meta: 'value' });
+    expect(parsed.error).toBeDefined();
+    expect(parsed.error?.name).toBe('Error');
+  });
+});
+
+describe('formatPretty', () => {
+  it('should return a string with level and component', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'info',
+      component: 'test',
+      message: 'hello world',
+    };
+    const output = formatPretty(entry);
+    expect(output).toContain('INFO');
+    expect(output).toContain('[test]');
+    expect(output).toContain('hello world');
+  });
+
+  it('should include error details', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'error',
+      component: 'test',
+      message: 'fail',
+      error: { name: 'Error', message: 'boom', code: 'CA_CONFIG_ERROR' },
+    };
+    const output = formatPretty(entry);
+    expect(output).toContain('Error:');
+    expect(output).toContain('boom');
+    expect(output).toContain('CA_CONFIG_ERROR');
+  });
+
+  it('should include data when present', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'info',
+      component: 'test',
+      message: 'with data',
+      data: { key: 'value' },
+    };
+    const output = formatPretty(entry);
+    expect(output).toContain('Data:');
+    expect(output).toContain('"key": "value"');
+  });
+
+  it('should handle circular data gracefully', () => {
+    const circData: Record<string, unknown> = { key: 'value' };
+    circData['self'] = circData;
+
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'info',
+      component: 'test',
+      message: 'with circular data',
+      data: circData,
+    };
+    const output = formatPretty(entry);
+    // Should not crash on circular data
+    expect(output).toContain('with circular data');
+    expect(output).toContain('[unserializable]');
+  });
+
+  it('should include error stack in pretty format', () => {
+    const entry: LogEntry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'error',
+      component: 'test',
+      message: 'fail',
+      error: {
+        name: 'Error',
+        message: 'boom',
+        stack: 'Error: boom\n  at Test (test.ts:1:1)',
+      },
+    };
+    const output = formatPretty(entry);
+    expect(output).toContain('Error:');
+    expect(output).toContain('boom');
+    expect(output).toContain('test.ts');
+  });
+});
+
+describe('createLevelFilter', () => {
+  it('should allow entries at or above the minimum level', () => {
+    const filter = createLevelFilter('warn');
+    const makeEntry = (level: LogLevel): LogEntry => ({
+      timestamp: '',
+      level,
+      component: '',
+      message: '',
+    });
+
+    expect(filter(makeEntry('trace'))).toBe(false);
+    expect(filter(makeEntry('debug'))).toBe(false);
+    expect(filter(makeEntry('info'))).toBe(false);
+    expect(filter(makeEntry('warn'))).toBe(true);
+    expect(filter(makeEntry('error'))).toBe(true);
+    expect(filter(makeEntry('fatal'))).toBe(true);
+  });
+});
+
+describe('FileTransport', () => {
+  it('should create logger with file transport option', () => {
+    const logger = createLogger('test-file', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs',
+    });
+
+    expect(logger.component).toBe('test-file');
+    logger.info('file log test');
+    logger.flush();
+    logger.close();
+  });
+
+  it('should use default logDir when not specified', () => {
+    const logger = createLogger('test-default', {
+      minLevel: 'trace',
+      enableFile: true,
+    });
+
+    logger.info('default dir test');
+    logger.flush();
+    logger.close();
+  });
+
+  it('should reuse existing stream on second write', () => {
+    const logger = createLogger('test-reuse', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs-reuse',
+    });
+
+    logger.info('first write');
+    logger.info('second write — should reuse stream');
+    logger.flush();
+    logger.close();
+  });
+
+  it('should handle double close safely', () => {
+    const logger = createLogger('test-double-close', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs-double',
+    });
+
+    logger.info('first');
+    logger.close();
+    // Second close should not throw (covers the `if (this.stream)` branch)
+    expect(() => logger.close()).not.toThrow();
+  });
+
+  it('should handle file transport write failure gracefully', () => {
+    // Logger catches transport write errors internally (try/catch in log method)
+    // FileTransport mkdir happens in constructor, but write failure is handled
+    const logger = createLogger('test-file-fail', {
+      minLevel: 'trace',
+      enableFile: true,
+      logDir: '/tmp/test-logs-write-fail',
+    });
+
+    // Write should not throw — transport errors are caught internally
+    expect(() => {
+      logger.info('should not crash the process');
+    }).not.toThrow();
+
+    logger.close();
+  });
+});
+
+describe('LoggerImpl with format pretty', () => {
+  it('should create a logger with format:pretty explicitly', () => {
+    const transport = new TestTransport();
+    const logger = new LoggerImpl('test-pretty', {
+      minLevel: 'trace',
+      format: 'pretty',
+      transports: [transport],
+    });
+
+    logger.info('pretty format test');
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.message).toBe('pretty format test');
+  });
+});
+
+describe('Multiple simultaneous transports', () => {
+  it('should write to all transports', () => {
+    const t1 = new TestTransport();
+    const t2 = new TestTransport();
+    const logger = createLogger('test-multi', {
+      minLevel: 'trace',
+      transports: [t1, t2],
+    });
+
+    logger.info('broadcast message');
+
+    expect(t1.entries).toHaveLength(1);
+    expect(t2.entries).toHaveLength(1);
+    expect(t1.entries[0]?.message).toBe('broadcast message');
+    expect(t2.entries[0]?.message).toBe('broadcast message');
+  });
+
+  it('should continue writing to other transports if one fails', () => {
+    const t1 = new TestTransport();
+    const badTransport: LogTransport = {
+      write(_formatted: string, _entry: LogEntry): void {
+        throw new Error('write failure');
+      },
+    };
+    const t2 = new TestTransport();
+
+    const logger = createLogger('test-multi', {
+      minLevel: 'trace',
+      transports: [badTransport, t1, t2],
+    });
+
+    logger.info('should still reach good transports');
+    expect(t1.entries).toHaveLength(1);
+    expect(t2.entries).toHaveLength(1);
+  });
+});
+
+describe('Logger close after close', () => {
+  it('should not throw when closing twice', () => {
+    const logger = createLogger('test-double-close', { minLevel: 'trace' });
+    logger.close();
+    expect(() => logger.close()).not.toThrow();
+  });
+
+  it('should not log after close and remain silent', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-silent', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.close();
+    logger.info('should be dropped');
+    logger.close(); // close again
+    logger.info('also dropped');
+
+    expect(transport.entries).toHaveLength(0);
+  });
+});
+
+describe('Trace level logging', () => {
+  it('should log trace messages when minLevel is trace', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-trace', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.trace('very detailed trace');
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.level).toBe('trace');
+    expect(transport.entries[0]?.message).toBe('very detailed trace');
+  });
+
+  it('should log trace with data', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-trace-data', {
+      minLevel: 'trace',
+      transports: [transport],
+    });
+
+    logger.trace('trace with data', { detail: 'extra', count: 42 });
+    expect(transport.entries).toHaveLength(1);
+    expect(transport.entries[0]?.data).toEqual({ detail: 'extra', count: 42 });
+  });
+
+  it('should not log trace when minLevel is debug', () => {
+    const transport = new TestTransport();
+    const logger = createLogger('test-trace-filtered', {
+      minLevel: 'debug',
+      transports: [transport],
+    });
+
+    logger.trace('should not appear');
+    expect(transport.entries).toHaveLength(0);
+  });
+});
+
+describe('formatPretty unknown level', () => {
+  it('should handle invalid log level gracefully', () => {
+    const entry = {
+      timestamp: '2025-01-01T00:00:00.000Z',
+      level: 'unknown_level' as LogLevel,
+      component: 'test',
+      message: 'test message',
+    };
+    const output = formatPretty(entry);
+    // Should not crash, fallback to empty color
+    expect(output).toContain('test message');
+  });
+});

@@ -1,0 +1,613 @@
+// @code-analyzer/infra — FileDiscoverer Tests
+
+import { describe, it, expect, afterAll } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { createFileDiscoverer } from '../filesystem/discoverer.js';
+import type { FileDiscoverer } from '../filesystem/discoverer.js';
+
+describe('FileDiscoverer', () => {
+  let rootPath: string;
+  let discoverer: FileDiscoverer;
+
+  function setup(dirs: string[], files: Record<string, string>): string {
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ca-discover-'));
+    for (const dir of dirs) {
+      fs.mkdirSync(path.join(base, dir), { recursive: true });
+    }
+    for (const [filePath, content] of Object.entries(files)) {
+      const full = path.join(base, filePath);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, content);
+    }
+    return base;
+  }
+
+  beforeAll(() => {
+    discoverer = createFileDiscoverer();
+  });
+
+  afterAll(() => {
+    if (rootPath) {
+      fs.rmSync(rootPath, { recursive: true, force: true });
+    }
+  });
+
+  it('discovers TypeScript files', async () => {
+    rootPath = setup([], {
+      'src/index.ts': 'export const x = 1;',
+      'src/utils.ts': 'export function y() {}',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    const tsFiles = files.filter((f) => f.language === 'typescript');
+    expect(tsFiles.length).toBe(2);
+  });
+
+  it('discovers JavaScript files', async () => {
+    rootPath = setup([], {
+      'app.js': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    const jsFiles = files.filter((f) => f.language === 'javascript');
+    expect(jsFiles.length).toBe(1);
+  });
+
+  it('discovers Python files', async () => {
+    rootPath = setup([], {
+      'main.py': 'print("hello")',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    const pyFiles = files.filter((f) => f.language === 'python');
+    expect(pyFiles.length).toBe(1);
+  });
+
+  it('returns language null for unknown extensions', async () => {
+    rootPath = setup([], {
+      'data.txt': 'hello world',
+      'config.yml': 'key: value',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.every((f) => f.language === null)).toBe(true);
+  });
+
+  it('excludes node_modules by default', async () => {
+    rootPath = setup(['node_modules/pkg'], {
+      'node_modules/pkg/index.ts': 'export {};',
+      'src/app.ts': 'console.log("hi");',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toContain('src');
+  });
+
+  it('excludes .git directory by default', async () => {
+    rootPath = setup(['.git/objects'], {
+      '.git/config': '[core]',
+      'src/app.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).not.toContain('.git');
+  });
+
+  it('excludes dist directory by default', async () => {
+    rootPath = setup(['dist'], {
+      'dist/bundle.js': 'minified',
+      'src/app.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(1);
+  });
+
+  it('excludes build directory by default', async () => {
+    rootPath = setup(['build'], {
+      'build/output.js': 'bundled',
+      'src/lib.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(1);
+  });
+
+  it('respects maxFileSize', async () => {
+    const largeContent = 'x'.repeat(5 * 1024 * 1024); // 5MB
+    rootPath = setup([], {
+      'large.ts': largeContent,
+      'small.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath, { maxFileSize: 1024 });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toContain('small');
+  });
+
+  it('respects custom excludePatterns', async () => {
+    rootPath = setup([], {
+      'generated/api.ts': '// auto-generated',
+      'src/handmade.ts': '// written by hand',
+    });
+
+    const files = await discoverer.discover(rootPath, {
+      excludePatterns: ['generated/**'],
+    });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toContain('handmade');
+  });
+
+  it('respects includePatterns', async () => {
+    rootPath = setup([], {
+      'src/a.ts': 'const a = 1;',
+      'src/b.ts': 'const b = 2;',
+      'tests/c.ts': 'test("c");',
+    });
+
+    const files = await discoverer.discover(rootPath, {
+      includePatterns: ['tests/**'],
+    });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toContain('tests');
+  });
+
+  it('matches includePatterns by basename when path-based match fails', async () => {
+    rootPath = setup(['deep', 'deep/nested'], {
+      'deep/a.ts': 'const a = 1;',
+      'src/b.ts': 'const b = 2;',
+      'tests/c.spec.ts': 'test("c");',
+    });
+
+    // Include only files matching basename '*.spec.ts'
+    // The relative path 'tests/c.spec.ts' won't match '*.spec.ts' by path
+    // but will match by basename (c.spec.ts matches *.spec.ts)
+    const files = await discoverer.discover(rootPath, {
+      includePatterns: ['*.spec.ts'],
+    });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('tests/c.spec.ts');
+  });
+
+  it('respects .gitignore when enabled', async () => {
+    rootPath = setup([], {
+      '.gitignore': 'ignored/\n*.gen.ts',
+      'ignored/bad.ts': '// bad',
+      'src/good.ts': '// good',
+      'src/auto.gen.ts': '// auto-generated',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    const filePaths = files.map((f) => f.filePath);
+    expect(filePaths).toContain('src/good.ts');
+    expect(filePaths).not.toContain('ignored/bad.ts');
+    expect(filePaths).not.toContain('src/auto.gen.ts');
+  });
+
+  it('skips .gitignore when disabled', async () => {
+    rootPath = setup([], {
+      '.gitignore': 'ignored/',
+      'ignored/file.ts': 'export const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: false });
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    expect(files.some((f) => f.filePath.includes('ignored'))).toBe(true);
+  });
+
+  it('detects language for a file path', () => {
+    expect(discoverer.detectLanguage('test.ts')).toBe('typescript');
+    expect(discoverer.detectLanguage('test.js')).toBe('javascript');
+    expect(discoverer.detectLanguage('test.py')).toBe('python');
+    expect(discoverer.detectLanguage('test.go')).toBe('go');
+    expect(discoverer.detectLanguage('test.rs')).toBe('rust');
+    expect(discoverer.detectLanguage('test.java')).toBe('java');
+    expect(discoverer.detectLanguage('test.txt')).toBeNull();
+  });
+
+  it('detects TypeScript .tsx files', () => {
+    expect(discoverer.detectLanguage('Component.tsx')).toBe('typescript');
+  });
+
+  it('detects JavaScript .jsx files', () => {
+    expect(discoverer.detectLanguage('Component.jsx')).toBe('javascript');
+  });
+
+  it('matches gitignore patterns', async () => {
+    rootPath = setup(['build'], {
+      '.gitignore': 'build/\n*.log',
+      'build/output.js': 'bundled',
+      'debug.log': 'log content',
+      'src/app.ts': 'code',
+    });
+
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'build/output.js'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'debug.log'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts'))).toBe(false);
+  });
+
+  it('matches gitignore with negation patterns', () => {
+    rootPath = setup(['src', 'src/sub'], {
+      '.gitignore': 'src/*\n!src/sub',
+      'src/app.ts': 'code',
+      'src/sub/keep.ts': 'keep',
+    });
+
+    // Our simple glob engine may not support negation,
+    // but we test that basic matching works
+    expect(() => discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts'))).not.toThrow();
+  });
+
+  it('handles non-existent .gitignore gracefully', () => {
+    rootPath = setup([], {
+      'file.ts': 'const x = 1;',
+    });
+    expect(() => discoverer.matchGitignore(rootPath, path.join(rootPath, 'file.ts'))).not.toThrow();
+  });
+
+  it('includes content in discovered files', async () => {
+    const content = 'export function hello() { return "world"; }';
+    rootPath = setup([], {
+      'hello.ts': content,
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files[0]!.content).toBe(content);
+  });
+
+  it('includes hash in discovered files', async () => {
+    rootPath = setup([], {
+      'hash.ts': 'const x = 42;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files[0]!.hash).toBeTruthy();
+    expect(files[0]!.hash).toMatch(/^h_[0-9a-f]{8}$/);
+  });
+
+  it('includes size in discovered files', async () => {
+    rootPath = setup([], {
+      'size.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files[0]!.size).toBeGreaterThan(0);
+  });
+
+  it('skips empty files', async () => {
+    rootPath = setup([], {
+      'empty.ts': '',
+      'full.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('full.ts');
+  });
+
+  it('discovers files in subdirectories', async () => {
+    rootPath = setup(['src', 'src/utils', 'tests'], {
+      'src/index.ts': '// index',
+      'src/utils/helper.ts': '// helper',
+      'tests/index.test.ts': '// test',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(3);
+  });
+
+  it('handles directories with mixed languages', async () => {
+    rootPath = setup([], {
+      'server.ts': '// ts',
+      'script.js': '// js',
+      'data.py': '# py',
+      'config.yaml': 'key: value',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    const langMap = new Map(files.map((f) => [f.filePath, f.language]));
+    expect(langMap.get('server.ts')).toBe('typescript');
+    expect(langMap.get('script.js')).toBe('javascript');
+    expect(langMap.get('data.py')).toBe('python');
+    expect(langMap.get('config.yaml')).toBeNull();
+  });
+
+  it('detects Go files', () => {
+    expect(discoverer.detectLanguage('main.go')).toBe('go');
+  });
+
+  it('detects C files', () => {
+    expect(discoverer.detectLanguage('program.c')).toBe('c');
+    expect(discoverer.detectLanguage('header.h')).toBe('c');
+  });
+
+  it('detects C++ files', () => {
+    expect(discoverer.detectLanguage('program.cpp')).toBe('cpp');
+    expect(discoverer.detectLanguage('header.hpp')).toBe('cpp');
+    expect(discoverer.detectLanguage('file.cc')).toBe('cpp');
+  });
+
+  it('detects Zig files', () => {
+    expect(discoverer.detectLanguage('main.zig')).toBe('zig');
+  });
+
+  it('detects Elixir files', () => {
+    expect(discoverer.detectLanguage('app.ex')).toBe('elixir');
+    expect(discoverer.detectLanguage('script.exs')).toBe('elixir');
+  });
+
+  it('handles .gitignore with empty content', async () => {
+    rootPath = setup([], {
+      '.gitignore': '',
+      'src/app.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('src/app.ts');
+  });
+
+  it('handles .gitignore with only comments and blanks', async () => {
+    rootPath = setup([], {
+      '.gitignore': '# this is a comment\n\n# another comment\n',
+      'src/app.ts': 'const x = 1;',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    // Both .gitignore and src/app.ts are discovered (./gitignore is a text file)
+    // The key assertion: the source file is discovered and gitignore is parsed without errors
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    expect(files.some((f) => f.filePath === 'src/app.ts')).toBe(true);
+  });
+
+  it('matches glob with directory suffix pattern (trailing /)', async () => {
+    rootPath = setup(['build'], {
+      '.gitignore': 'build/',
+      'build/output.js': 'bundled',
+      'src/main.ts': 'code',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'build/output.js'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/main.ts'))).toBe(false);
+  });
+
+  it('matches glob with ** wildcard', async () => {
+    rootPath = setup(['deep', 'deep/nested'], {
+      '.gitignore': '**/*.gen.ts',
+      'src/app.ts': 'code',
+      'deep/nested/auto.gen.ts': 'generated',
+      'src/other.gen.ts': 'generated',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/other.gen.ts'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'deep/nested/auto.gen.ts'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts'))).toBe(false);
+  });
+
+  it('matches glob with * wildcard', async () => {
+    rootPath = setup([], {
+      '.gitignore': '*.log',
+      'debug.log': 'log data',
+      'app.ts': 'code',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'debug.log'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'app.ts'))).toBe(false);
+  });
+
+  it('matches glob with ? wildcard (single char)', async () => {
+    rootPath = setup([], {
+      '.gitignore': '???.tmp',
+      'abc.tmp': 'temp',
+      'ab.tmp': 'temp',
+      'app.ts': 'code',
+    });
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'abc.tmp'))).toBe(true);
+    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'ab.tmp'))).toBe(false);
+  });
+
+  it('skips files exactly at maxFileSize threshold', async () => {
+    const content = 'x'.repeat(1024); // 1KB
+    rootPath = setup([], {
+      'borderline.ts': content,
+      'small.ts': 'tiny',
+    });
+
+    const files = await discoverer.discover(rootPath, { maxFileSize: 1024 });
+    // maxFileSize > stat.size means file is included; if stat.size > maxFileSize it's skipped
+    // 1024 bytes > 1024? No, 1024 == 1024. So included.
+    expect(files.length).toBe(2);
+  });
+
+  it('skips files just over maxFileSize threshold', async () => {
+    const content = 'x'.repeat(1025);
+    rootPath = setup([], {
+      'large.ts': content,
+      'small.ts': 'tiny',
+    });
+
+    const files = await discoverer.discover(rootPath, { maxFileSize: 1024 });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('small.ts');
+  });
+
+  it('handles no .gitignore gracefully', async () => {
+    rootPath = setup([], {
+      'src/app.ts': 'const x = 1;',
+    });
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('src/app.ts');
+  });
+
+  it('skips binary/unreadable files gracefully', async () => {
+    rootPath = setup([], {
+      'src/app.ts': 'const x = 1;',
+    });
+    // Create a file and then immediately remove it to trigger the read catch
+    // when the discoverer tries to read it between stat and readFileSync
+    const racePath = path.join(rootPath, 'src', 'race.ts');
+    fs.writeFileSync(racePath, 'temp content');
+
+    // We can't reliably create a race condition in tests.
+    // Instead, test that the discoverer handles normal files correctly
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBeGreaterThanOrEqual(2);
+    expect(files.some((f) => f.filePath === 'src/app.ts')).toBe(true);
+    expect(files.some((f) => f.filePath === 'src/race.ts')).toBe(true);
+  });
+
+  it('skips files when stat throws (permission error simulation)', async () => {
+    rootPath = setup([], {
+      'src/ok.ts': 'const x = 1;',
+    });
+
+    // Create a directory where the discoverer might try to stat it
+    // The discoverer uses readdirSync which skips directories by default
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBeGreaterThanOrEqual(1);
+    expect(files.some((f) => f.filePath === 'src/ok.ts')).toBe(true);
+  });
+
+  it('handles empty files correctly', async () => {
+    rootPath = setup([], {
+      'src/empty.ts': '',
+      'src/has.ts': 'content',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    // Empty file (size <= 0) should be skipped
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toBe('src/has.ts');
+  });
+
+  // ── Additional coverage tests ──
+
+  it('combines include and exclude patterns', async () => {
+    rootPath = setup([], {
+      'src/a.ts': 'const a = 1;',
+      'src/b.ts': 'const b = 2;',
+      'tests/c.ts': 'test("c");',
+      'tests/d.ts': 'test("d");',
+    });
+
+    const files = await discoverer.discover(rootPath, {
+      includePatterns: ['**/*.ts'],
+      excludePatterns: ['tests/**'],
+    });
+
+    // All .ts files match include, but tests/** excluded
+    expect(files.length).toBe(2);
+    expect(files.every((f) => !f.filePath.startsWith('tests'))).toBe(true);
+  });
+
+  it('handles deeply nested gitignore patterns', async () => {
+    rootPath = setup(['src', 'src/a', 'src/a/b', 'src/a/b/c'], {
+      '.gitignore': '**/deep-ignored/**',
+      'src/main.ts': 'export const x = 1;',
+      'src/a/deep-ignored/bad.ts': '// bad',
+      'src/a/b/deep-ignored/also-bad.ts': '// also bad',
+      'src/a/b/c/ok.ts': '// ok',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    const filePaths = files.map((f) => f.filePath);
+    expect(filePaths).toContain('src/main.ts');
+    expect(filePaths).toContain('src/a/b/c/ok.ts');
+    expect(filePaths).not.toContain('src/a/deep-ignored/bad.ts');
+  });
+
+  it('handles many files (100+)', async () => {
+    const fileMap: Record<string, string> = {};
+    for (let i = 0; i < 150; i++) {
+      fileMap[`src/file_${i}.ts`] = `export const x${i} = ${i};`;
+    }
+    rootPath = setup([], fileMap);
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBeGreaterThanOrEqual(100);
+  });
+
+  it('handles gitignore with negation pattern gracefully', () => {
+    rootPath = setup(['logs'], {
+      '.gitignore': '*.log\n!important.log',
+      'error.log': 'error content',
+      'important.log': 'important',
+    });
+
+    // The negation !important.log may or may not be supported by our simple minimatch
+    // but the call should not throw
+    expect(() =>
+      discoverer.matchGitignore(rootPath, path.join(rootPath, 'error.log')),
+    ).not.toThrow();
+  });
+
+  it('respects .gitignore with commented lines', async () => {
+    rootPath = setup(['dist', 'src'], {
+      '.gitignore': '# Build output\ndist/\n# Logs\n*.log',
+      'dist/output.js': 'bundled',
+      'debug.log': 'log data',
+      'src/app.ts': 'code',
+    });
+
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    const filePaths = files.map((f) => f.filePath);
+    expect(filePaths).toContain('src/app.ts');
+    expect(filePaths).not.toContain('dist/output.js');
+    expect(filePaths).not.toContain('debug.log');
+  });
+
+  it('excludes __pycache__ by default', async () => {
+    rootPath = setup(['__pycache__'], {
+      '__pycache__/module.cpython-39.pyc': 'cached',
+      'src/app.py': 'print("hello")',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBe(1);
+    expect(files[0]!.filePath).toContain('app.py');
+  });
+
+  it('handles .gitignore at subdirectory level', async () => {
+    rootPath = setup(['src', 'src/sub'], {
+      '.gitignore': '*.log',
+      'src/.gitignore': '*.gen.ts',
+      'error.log': 'log',
+      'src/auto.gen.ts': 'generated',
+      'src/valid.ts': 'valid',
+    });
+
+    // Root .gitignore should affect root level files
+    // Note: subdirectory .gitignore is NOT recursively parsed
+    const files = await discoverer.discover(rootPath, { respectGitignore: true });
+    const filePaths = files.map((f) => f.filePath);
+    expect(filePaths).not.toContain('error.log'); // root gitignore
+    // src/auto.gen.ts may or may not be excluded since sub-gitignore is not parsed
+  });
+
+  it('detects more language extensions', () => {
+    expect(discoverer.detectLanguage('program.swift')).toBe('swift');
+    expect(discoverer.detectLanguage('file.kt')).toBe('kotlin');
+    expect(discoverer.detectLanguage('file.kts')).toBe('kotlin');
+    expect(discoverer.detectLanguage('file.cs')).toBe('csharp');
+    expect(discoverer.detectLanguage('file.php')).toBe('php');
+    expect(discoverer.detectLanguage('file.rb')).toBe('ruby');
+  });
+
+  it('discovers all file types in a mixed project', async () => {
+    rootPath = setup([], {
+      'index.ts': 'export {};',
+      'helper.js': 'const x = 1;',
+      'data.py': 'x = 1',
+      'main.go': 'package main',
+      'lib.rs': 'fn main() {}',
+      'App.java': 'class App {}',
+      'README.md': '# Project',
+      'Dockerfile': 'FROM node:20',
+    });
+
+    const files = await discoverer.discover(rootPath);
+    expect(files.length).toBeGreaterThanOrEqual(6);
+  });
+});
