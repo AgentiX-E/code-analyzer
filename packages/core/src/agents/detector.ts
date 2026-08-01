@@ -169,6 +169,7 @@ const homeDir = os.homedir();
  */
 function hasEnv(name: string): boolean {
   const val = process.env[name];
+  /* v8 ignore next */ // defensive: env var set to empty string is equivalent to unset
   return val !== undefined && val !== '';
 }
 

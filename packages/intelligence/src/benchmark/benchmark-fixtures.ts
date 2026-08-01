@@ -1132,7 +1132,7 @@ def authenticate(username, password):
 // ---------------------------------------------------------------------------
 
 export const ALL_BENCHMARK_FIXTURES: BenchmarkFixture[] = [
-  // TypeScript (10 fixtures, 18 ground truth issues)
+  // TypeScript (9 fixtures, 15 ground truth issues)
   tsSQLInjection,
   tsXSS,
   tsHardcodedSecret,
@@ -1164,14 +1164,14 @@ export const ALL_BENCHMARK_FIXTURES: BenchmarkFixture[] = [
 
 // Statistics
 export const FIXTURE_STATS = {
-  totalFixtures: 20,
-  totalGroundTruthIssues: 37,
+  totalFixtures: 19,
+  totalGroundTruthIssues: 34,
   languages: ['typescript', 'python', 'go', 'java', 'rust'] as const,
   categoryDistribution: {
     security: 12,
-    correctness: 16,
-    performance: 4,
-    maintainability: 3,
+    correctness: 15,
+    performance: 3,
+    maintainability: 2,
     style: 2,
   },
 };

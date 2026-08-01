@@ -382,4 +382,72 @@ describe('reviewCode — error handling', () => {
     expect(result).toBeDefined();
     expect(result.mode).toBe('file');
   });
+
+  it('should handle severity filter at critical level', async () => {
+    const testDir = resolve(tmpdir(), `review-crit-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+    try {
+      const filePath = join(testDir, 'mixed.ts');
+      writeFileSync(filePath, 'console.log("hello");\neval("code");\n// TODO: fix\n');
+      const result = await reviewCode({ target: filePath, mode: 'file', severity: 'critical' });
+      // Only critical issues should appear
+      const evalIssues = result.issues.filter(i => i.ruleId === 'no-eval');
+      const consoleIssues = result.issues.filter(i => i.ruleId === 'no-console-log');
+      const todoIssues = result.issues.filter(i => i.ruleId === 'todo-fixme');
+      expect(evalIssues.length).toBeGreaterThan(0);
+      expect(consoleIssues.length).toBe(0);
+      expect(todoIssues.length).toBe(0);
+      expect(result.success).toBe(true);
+    } finally {
+      try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    }
+  });
+
+  it('should handle severity filter at info level (all issues)', async () => {
+    const testDir = resolve(tmpdir(), `review-info-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+    try {
+      const filePath = join(testDir, 'all.ts');
+      writeFileSync(filePath, 'console.log("test");\neval("code");\ndebugger;\n// TODO: fix\nconst x: any = 1;\n');
+      const result = await reviewCode({ target: filePath, mode: 'file', severity: 'info' });
+      expect(result.success).toBe(true);
+      // With info threshold, many issues should appear
+      expect(result.issues.length).toBeGreaterThan(0);
+    } finally {
+      try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    }
+  });
+
+  it('should handle maxIssues cap in file mode', async () => {
+    const filePath = resolve(tmpdir(), `max-issues-file-${Date.now()}.ts`);
+    try {
+      // Create many lines that trigger the same rule
+      const lines = Array.from({ length: 50 }, () => 'console.log("test");');
+      writeFileSync(filePath, lines.join('\n'));
+      const result = await reviewCode({ target: filePath, mode: 'file', maxIssues: 3 });
+      expect(result.issues.length).toBeLessThanOrEqual(3);
+      expect(result.success).toBe(true);
+    } finally {
+      try { rmSync(filePath); } catch { /* */ }
+    }
+  });
+
+  it('should return summary with correct counts', async () => {
+    const testDir = resolve(tmpdir(), `review-summary-${Date.now()}`);
+    mkdirSync(testDir, { recursive: true });
+    try {
+      const filePath = join(testDir, 'summary.ts');
+      writeFileSync(filePath, "const password = 'mySecret123';\neval('danger');\nconsole.log('hello');\n// TODO: something\n");
+      const result = await reviewCode({ target: filePath, mode: 'file', severity: 'info' });
+      expect(result.summary.critical).toBeGreaterThanOrEqual(0);
+    } finally {
+      try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    }
+  });
+
+  it('should handle dir mode with no target gracefully', async () => {
+    const result = await reviewCode({ mode: 'dir' });
+    // Should not crash when target is missing
+    expect(result).toBeDefined();
+  });
 });

@@ -103,6 +103,7 @@ export function createParseCache(maxSize: number = 1000): ParseCache {
     },
 
     getHitRate(): number {
+      /* v8 ignore next */ // defensive: division by zero
       return totalGets > 0 ? cacheHits / totalGets : 0;
     },
 

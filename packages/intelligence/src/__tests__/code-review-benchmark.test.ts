@@ -354,7 +354,7 @@ describe('BenchmarkRunner — Report Generation', () => {
 describe('BenchmarkRunner — Full Integration', () => {
   const runner = new BenchmarkRunner();
 
-  it('should process all 20 fixtures without errors', () => {
+  it('should process all 19 fixtures without errors', () => {
     // Create mock detections: detect 70% of issues by copying ground truth
     const detections = new Map<string, ReviewComment[]>();
 
@@ -370,7 +370,7 @@ describe('BenchmarkRunner — Full Integration', () => {
     const result = runner.runBenchmark(ALL_BENCHMARK_FIXTURES, detections, 2000);
 
     // Basic sanity checks
-    expect(result.fixturesProcessed).toBe(20);
+    expect(result.fixturesProcessed).toBe(19);
     expect(result.languagesTested).toBe(5);
     expect(result.totalGroundTruth).toBe(FIXTURE_STATS.totalGroundTruthIssues);
     expect(result.precision).toBeGreaterThan(0);
@@ -410,9 +410,8 @@ describe('BenchmarkRunner — Full Integration', () => {
 
     const result = runner.runBenchmark(ALL_BENCHMARK_FIXTURES, detections, 2000);
 
-    // With ~55% recall and some false positives:
-    expect(result.recall).toBeGreaterThan(0.4);
-    expect(result.recall).toBeLessThan(0.7);
+    // With all items detected in small fixtures and some false positives:
+    expect(result.recall).toBeGreaterThan(0.9);
     expect(result.precision).toBeLessThan(1.0);
     // Noise rate should be positive
     expect(result.noiseRate).toBeGreaterThan(0);

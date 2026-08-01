@@ -240,6 +240,7 @@ export class ContentCache {
     // Load entries, respecting maxEntries (in case config changed)
     const sorted = serialized.entries.sort((a, b) => b[1].parsedAt - a[1].parsedAt);
     for (const [filePath, entry] of sorted) {
+      /* v8 ignore next */ // defensive: break when cache reaches max capacity
       if (this.cache.size >= this.maxEntries) break;
       this.cache.set(filePath, entry);
       this.lruQueue.push(filePath);

@@ -2403,4 +2403,286 @@ describe('Code Review Engine', () => {
       expect(store.getNode(idD)).not.toBeNull();
     });
   });
+
+  // ==========================================================================
+  // Branch Coverage: planPhase — .py, .go, .d.ts file types
+  // ==========================================================================
+
+  describe('planPhase — Python, Go, and .d.ts file detection', () => {
+    it('should add Python conventions focus for .py files', async () => {
+      const diffs = [createDiff({ filePath: '/src/app.py', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should add Go idioms focus for .go files', async () => {
+      const diffs = [createDiff({ filePath: '/src/main.go', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should add type definition risk for .d.ts files', async () => {
+      const diffs = [createDiff({ filePath: '/src/globals.d.ts', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should add API contract risk for files in /api/ directory', async () => {
+      const diffs = [createDiff({ filePath: '/src/api/handlers.ts', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should add API contract risk for files in /routes/ directory', async () => {
+      const diffs = [createDiff({ filePath: '/src/routes/users.ts', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should add public type change risk for files in /types/ directory', async () => {
+      const diffs = [createDiff({ filePath: '/src/types/User.ts', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: error instanceof Error check (L273)
+  // ==========================================================================
+
+  describe('reviewDiff — non-Error thrown during review', () => {
+    it('should handle non-Error thrown from getDiffContent', async () => {
+      const mockGitOps = {
+        readFileContent: async () => { throw 'string error from plan'; },
+        readFileRange: async () => { throw new Error('range error'); },
+        getFileDiff: async () => { throw new Error('diff error'); },
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/string.ts', changeType: 'added' })]);
+      expect(session.status).toBe('completed');
+      expect(session.filesReviewed).toBe(1);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: getDiffContent rethrow ReviewEngineError
+  // ==========================================================================
+
+  describe('getDiffContent — ReviewEngineError rethrow', () => {
+    it('should let ReviewEngineError propagate from getDiffContent and be caught per-file', async () => {
+      const mockGitOps = {
+        readFileContent: async () => { throw new ReviewEngineError('parse failure', 'PARSE_ERROR'); },
+        readFileRange: async () => { throw new Error('range'); },
+        getFileDiff: async () => { throw new Error('diff'); },
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/parse-error.ts', changeType: 'added' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: LLM Review fallback
+  // ==========================================================================
+
+  describe('LLM Review path', () => {
+    it('should handle LLM engine provider set but llm review error caught', async () => {
+      const mockGitOps = {
+        readFileContent: async () => 'code',
+        readFileRange: async () => 'code',
+        getFileDiff: async () => { throw new Error('fail'); },
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const llmProvider: any = {
+        complete: async () => { throw new Error('LLM failure'); },
+        model: 'test',
+        maxTokens: 1000,
+        temperature: 0,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/llm-fail.ts', changeType: 'modified' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: mergeAndDeduplicate — non-empty LLM results
+  // ==========================================================================
+
+  describe('mergeAndDeduplicate — overlapping comments', () => {
+    it('should merge llm comments when both heuristic and llm have results', async () => {
+      const mockGitOps = {
+        readFileContent: async () => [
+          'export function longFunc() {',
+          ...Array(60).fill('  const x = db.query("SELECT 1");'),
+          '}',
+        ].join('\n'),
+        readFileRange: async () => 'code',
+        getFileDiff: async () => 'diff',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const llmProvider: any = {
+        complete: async () => '{"comments":[{"path":"/src/test.ts","content":"Test","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"bug","severity":"high","filtered":false,"id":"llm-1","createdAt":"2024-01-01T00:00:00Z"}]}',
+        model: 'test',
+        maxTokens: 1000,
+        temperature: 0,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/merge.ts', changeType: 'modified' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: Filter rules — inverted line range and style on comment
+  // ==========================================================================
+
+  describe('Filter rules — inverted range and style+comment', () => {
+    it('should pass comments with valid inverted range to filter phase', async () => {
+      // Create a diff that triggers a heuristic finding
+      const diffs = [createDiff({
+        filePath: '/src/routes/filter.ts',
+        changeType: 'added',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 30, changeType: 'added' }],
+      })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should filter comments with empty content', async () => {
+      const comment: any = {
+        path: '/src/test.ts', content: '   ', existingCode: 'code',
+        startLine: 1, endLine: 1, category: 'style', severity: 'low',
+        filtered: false, id: 'test-empty-content', createdAt: new Date().toISOString(),
+      };
+      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
+      expect(filtered).toHaveLength(0);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: planPhase — changeType renamed risk
+  // ==========================================================================
+
+  describe('planPhase — renamed file risk', () => {
+    it('should flag renamed files with file rename risk area', async () => {
+      const diffs = [createDiff({
+        filePath: '/src/new.ts',
+        oldPath: '/src/old.ts',
+        changeType: 'renamed',
+        ranges: [],
+      })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: relocatePhase — fallback to ranges (no hunks)
+  // ==========================================================================
+
+  describe('relocatePhase — range fallback (no hunks)', () => {
+    it('should use range-based relocation when ranges exist but no hunks', async () => {
+      const content = '// TODO: improve\nfunction test() {\n  return 1;\n}\n';
+      const mockGitOps = {
+        readFileContent: async () => content,
+        readFileRange: async () => content,
+        getFileDiff: async () => content,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const diff = createDiff({
+        filePath: '/src/ranges-only.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' }],
+      });
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: mapLineThroughHunks — line before first hunk
+  // ==========================================================================
+
+  describe('mapLineThroughHunks — line before first hunk (no offset)', () => {
+    it('should return original line when it is before first hunk', async () => {
+      const code = '// header\n// more header\n\nasync function fetchData() {\n  const x = 1;\n}\n';
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 5, oldLines: 2, newStart: 5, newLines: 2,
+        lines: [{ type: 'addition' as const }, { type: 'context' as const }],
+      }];
+      const diff = { ...createDiff({ filePath: '/src/before-hunk.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: Config with contextLines
+  // ==========================================================================
+
+  describe('Config — contextLines', () => {
+    it('should accept contextLines in custom config', async () => {
+      const eng = new CodeReviewEngine(store, {
+        contextLines: 10,
+        allowMetadataFallback: true,
+      }, sessionStore);
+      const diffs = [createDiff({ filePath: '/src/ctx.ts' })];
+      const session = await eng.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: planPhase — test file with .spec. pattern
+  // ==========================================================================
+
+  describe('planPhase — .spec. test file detection', () => {
+    it('should detect .spec. test files for test quality focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/module.spec.ts', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: getDiffContent — line after last hunk (cumulative offset)
+  // ==========================================================================
+
+  describe('relocatePhase — cumulative offset for line after all hunks', () => {
+    it('should apply cumulative offset when line is after all hunks', async () => {
+      const code = ['import x;', '', 'function old() {', '  return 1;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 1, oldLines: 1, newStart: 1, newLines: 3,
+        lines: [{ type: 'context' as const }, { type: 'addition' as const }, { type: 'addition' as const }],
+      }];
+      const diff = { ...createDiff({ filePath: '/src/after-all.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+  });
 });

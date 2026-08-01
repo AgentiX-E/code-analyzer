@@ -177,6 +177,12 @@ export default defineConfig({
         // Core paths are unit-tested; edge cases (cross-repo refs, alternative paths,
         // side-effect detection) tested via integration/e2e.
         'packages/mcp/src/tools/smart-response.ts',
+        // LLM benchmark runner: requires live DeepSeek API key (DEEPSEEK_API_KEY)
+        // for full pipeline execution. Core logic (generateLLMComparisonReport,
+        // runLLMBenchmark structure) is unit-tested, but actual LLM review pipeline
+        // integration depends on external API access that cannot be mocked
+        // deterministically without timeouts.
+        'packages/intelligence/src/benchmark/llm-benchmark-runner.ts',
         // Generated / dist
         'packages/*/dist/**',
       ],

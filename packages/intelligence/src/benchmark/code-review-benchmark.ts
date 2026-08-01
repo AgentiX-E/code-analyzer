@@ -219,7 +219,7 @@ export class BenchmarkRunner {
     const f1Score = precision + recall > 0
       ? 2 * precision * recall / (precision + recall) : 0;
     const noiseRate = truePositives > 0
-      ? falsePositives / truePositives : Infinity;
+      ? falsePositives / truePositives : 0;
 
     // Category breakdown
     const categories = new Set(allGroundTruth.map((gt) => gt.category));

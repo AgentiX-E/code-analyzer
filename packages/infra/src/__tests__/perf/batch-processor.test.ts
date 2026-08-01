@@ -352,4 +352,159 @@ describe('BatchProcessor', () => {
     expect(result.success).toBe(false);
     expect(result.errors.size).toBeGreaterThan(0);
   });
+
+  // -------------------------------------------------------------------
+  // processMap Advanced
+  // -------------------------------------------------------------------
+
+  it('should handle processMap with errors and continueOnError', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 5,
+      continueOnError: true,
+    });
+    const items = makeItems(15);
+    const handler = vi.fn(async (item: number): Promise<string> => {
+      if (item === 3 || item === 8) throw new Error(`map error ${item}`);
+      return `val-${item}`;
+    });
+
+    const result = await processor.processMap(items, handler);
+    expect(result.success).toBe(false);
+    expect(result.errors.size).toBeGreaterThan(0);
+    expect(result.results.length).toBeLessThan(15);
+  });
+
+  it('should handle processMap stop on error when continueOnError is false', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 5,
+      continueOnError: false,
+      concurrency: 1,
+    });
+    const items = makeItems(15);
+    const handler = vi.fn(async (item: number): Promise<string> => {
+      if (item === 4) throw new Error('abort map');
+      return `val-${item}`;
+    });
+
+    const result = await processor.processMap(items, handler);
+    expect(result.success).toBe(false);
+    expect(result.errors.size).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should handle processMap with abort mid-processing', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 2,
+      concurrency: 1,
+    });
+    const items = makeItems(10);
+    let callCount = 0;
+    const handler = vi.fn(async (item: number): Promise<string> => {
+      callCount++;
+      if (callCount === 4) processor.abort();
+      await delay(5);
+      return `val-${item}`;
+    });
+
+    const result = await processor.processMap(items, handler);
+    expect(processor.isAborted).toBe(true);
+    expect(result.results.length).toBeLessThanOrEqual(10);
+  });
+
+  it('should report progress during processMap', async () => {
+    const progressReports: number[] = [];
+    const processor = new BatchProcessor<number>({
+      batchSize: 3,
+      concurrency: 1,
+      onProgress: (p) => progressReports.push(p.percentComplete),
+    });
+    const items = makeItems(9);
+    const handler = vi.fn(async (item: number): Promise<string> => `item-${item}`);
+
+    await processor.processMap(items, handler);
+
+    expect(progressReports.length).toBeGreaterThan(0);
+    expect(progressReports[progressReports.length - 1]).toBe(100);
+  });
+
+  it('should handle processMap with non-Error throw', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 5,
+      continueOnError: true,
+      concurrency: 1,
+    });
+    const items = makeItems(5);
+    const handler = vi.fn(async (item: number): Promise<string> => {
+      if (item === 1) throw 'raw error in map';
+      return `ok-${item}`;
+    });
+
+    const result = await processor.processMap(items, handler);
+    expect(result.success).toBe(false);
+    expect(result.errors.size).toBeGreaterThan(0);
+  });
+
+  it('should track failedCount in processMap correctly', async () => {
+    const processor = new BatchProcessor<number>({
+      batchSize: 5,
+      continueOnError: true,
+    });
+    const items = makeItems(15);
+    const handler = vi.fn(async (item: number): Promise<string> => {
+      if (item < 3) throw new Error('early fail');
+      return `val-${item}`;
+    });
+
+    const result = await processor.processMap(items, handler);
+    expect(result.failedCount).toBeGreaterThan(0);
+  });
+
+  it('should process all batches with batchSize larger than items', async () => {
+    const processor = new BatchProcessor<number>({ batchSize: 100 });
+    const items = makeItems(5);
+    const handler = vi.fn(async (item: number): Promise<number> => item);
+
+    const result = await processor.process(items, handler);
+    expect(result.results).toHaveLength(5);
+    expect(result.success).toBe(true);
+  });
+
+  it('should report correct completedBatches and totalBatches in progress', async () => {
+    const progressData: { completedBatches: number; totalBatches: number }[] = [];
+    const processor = new BatchProcessor<number>({
+      batchSize: 3,
+      concurrency: 1,
+      onProgress: (p) => progressData.push({ completedBatches: p.completedBatches, totalBatches: p.totalBatches }),
+    });
+    const items = makeItems(9);
+    const handler = vi.fn(async (item: number): Promise<number> => item);
+
+    await processor.process(items, handler);
+
+    expect(progressData.length).toBeGreaterThan(0);
+    expect(progressData[progressData.length - 1]!.completedBatches).toBe(3);
+    expect(progressData[0]!.totalBatches).toBe(3);
+  });
+
+  it('should set isAborted to false initially', () => {
+    const processor = new BatchProcessor<number>();
+    expect(processor.isAborted).toBe(false);
+  });
+
+  it('should handle concurrency 1 processing sequentially', async () => {
+    const executionOrder: number[] = [];
+    const processor = new BatchProcessor<number>({
+      batchSize: 2,
+      concurrency: 1,
+    });
+    const items = makeItems(6);
+    const handler = vi.fn(async (item: number): Promise<number> => {
+      executionOrder.push(item);
+      await delay(5);
+      return item;
+    });
+
+    await processor.process(items, handler);
+    // With concurrency=1, items should be processed in order
+    expect(executionOrder).toEqual([0, 1, 2, 3, 4, 5]);
+  });
 });

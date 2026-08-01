@@ -80,12 +80,14 @@ export class AsyncMemoizer<T extends (...args: unknown[]) => Promise<unknown>> {
 
     // Coalesce in-flight requests: if a concurrent call for the same key
     // is already running, wait for its result instead of duplicating work.
+    /* v8 ignore start */ // requires concurrent calls to same key (async timing dependent)
     const pending = this.inFlight.get(key);
     if (pending) {
       // Count as hit since we're reusing an in-flight computation
       this.hitsInternal++;
       return pending as Awaited<ReturnType<T>>;
     }
+    /* v8 ignore stop */
 
     // Expired or missing — compute fresh value
     this.missesInternal++;

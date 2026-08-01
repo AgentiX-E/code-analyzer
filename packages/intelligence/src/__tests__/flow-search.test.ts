@@ -814,4 +814,155 @@ describe('FlowSearchEngine', () => {
     });
     expect(Array.isArray(results)).toBe(true);
   });
+
+  // ==========================================================================
+  // Branch Coverage: depth exactly at max (not continuing deeper)
+  // ==========================================================================
+
+  it('should stop traversal at exactly maxDepth', () => {
+    const a = createNode(store, 'A', 'Function', '/test/a.ts', 1);
+    const b = createNode(store, 'B', 'Function', '/test/b.ts', 1);
+    const c = createNode(store, 'C', 'Function', '/test/c.ts', 1);
+    const d = createNode(store, 'D', 'Function', '/test/d.ts', 1);
+
+    createEdge(store, a.id, b.id, 'CALLS');
+    createEdge(store, b.id, c.id, 'CALLS');
+    createEdge(store, c.id, d.id, 'CALLS');
+
+    const results = engine.search([a.id], { maxDepth: 2 });
+    // Should find b (depth 1) and c (depth 2), but not d (depth 3, exceeds maxDepth)
+    const nodeIds = results.map(r => r.node.nodeId);
+    expect(nodeIds).toContain(b.id);
+    expect(nodeIds).toContain(c.id);
+    expect(nodeIds).not.toContain(d.id);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: maxResults * startNodeIds early return
+  // ==========================================================================
+
+  it('should return early when results exceed maxResults per start node', () => {
+    const a = createNode(store, 'A', 'Function', '/test/a.ts', 1);
+    // Create many children from a so the result limit triggers
+    for (let i = 0; i < 10; i++) {
+      const child = createNode(store, `Child${i}`, 'Function', `/test/child${i}.ts`, 1);
+      createEdge(store, a.id, child.id, 'CALLS');
+    }
+
+    const results = engine.search([a.id], { maxDepth: 3, maxResults: 3 });
+    expect(results.length).toBeLessThanOrEqual(3);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: score below minScore filter
+  // ==========================================================================
+
+  it('should filter results below minScore at deep depth', () => {
+    const a = createNode(store, 'A', 'Function', '/test/a.ts', 1);
+    // Deep chain where score drops below threshold
+    const nodes = [a];
+    for (let i = 0; i < 8; i++) {
+      const prev = nodes[nodes.length - 1]!;
+      const next = createNode(store, `N${i}`, 'Function', `/test/n${i}.ts`, 1);
+      createEdge(store, prev.id, next.id, 'IMPORTS'); // IMPORTS has penalty
+      nodes.push(next);
+    }
+
+    const results = engine.search([a.id], { maxDepth: 10, minScore: 50 });
+    // Deeper nodes with IMPORTS penalty should be filtered
+    for (const r of results) {
+      expect(r.score).toBeGreaterThanOrEqual(50);
+    }
+  });
+
+  // ==========================================================================
+  // Branch Coverage: rankResults with equal scores sorts by depth
+  // ==========================================================================
+
+  it('should sort by depth ascending when scores are equal', () => {
+    const a = createNode(store, 'A', 'Function', '/test/a.ts', 1);
+    const b = createNode(store, 'B', 'Function', '/test/b.ts', 1);
+    const c = createNode(store, 'C', 'Function', '/test/c.ts', 1);
+
+    // Same edge type so scores should be close
+    createEdge(store, a.id, b.id, 'DATA_FLOWS');
+    createEdge(store, a.id, c.id, 'DATA_FLOWS'); // both at depth 1
+
+    const results = engine.search([a.id], { maxDepth: 2 });
+    // Both should appear, ranking is stable
+    expect(results.length).toBe(2);
+    expect(results[0]!.score).toBeGreaterThanOrEqual(results[1]!.score);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: findShortestPath with maxDepth exceeded
+  // ==========================================================================
+
+  it('should return null when path exceeds maxDepth in findShortestPath', () => {
+    const nodes = [];
+    for (let i = 0; i < 6; i++) {
+      nodes.push(createNode(store, `node${i}`, 'Function', `/test/n${i}.ts`, 1));
+    }
+    for (let i = 0; i < 5; i++) {
+      createEdge(store, nodes[i]!.id, nodes[i + 1]!.id, 'CALLS');
+    }
+
+    const path = engine.findShortestPath(nodes[0]!.id, nodes[5]!.id, 2);
+    expect(path).toBeNull();
+  });
+
+  // ==========================================================================
+  // Branch Coverage: filePattern with ** globstar
+  // ==========================================================================
+
+  it('should handle filePattern with ** globstar matching any depth', () => {
+    const a = createNode(store, 'A', 'Function', '/src/deep/nested/file.ts', 1);
+    const b = createNode(store, 'B', 'Function', '/src/deep/util.ts', 1);
+
+    createEdge(store, a.id, b.id, 'CALLS');
+
+    const results = engine.search([a.id], {
+      maxDepth: 2,
+      filePattern: '**/deep/**',
+    });
+    // Should match nodes under deep/ directory
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.every(r => r.node.filePath.includes('deep'))).toBe(true);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: edge type filtering — backward direction
+  // ==========================================================================
+
+  it('should traverse backward through edges correctly', () => {
+    const main = createNode(store, 'main', 'Function', '/test/main.ts', 1);
+    const helper = createNode(store, 'helper', 'Function', '/test/helper.ts', 1);
+    const util = createNode(store, 'util', 'Function', '/test/util.ts', 1);
+
+    createEdge(store, main.id, helper.id, 'CALLS');
+    createEdge(store, helper.id, util.id, 'CALLS');
+
+    const results = engine.search([util.id], { maxDepth: 3, direction: 'backward' });
+    expect(results.some(r => r.node.nodeId === helper.id)).toBe(true);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: score clamped with deep depth
+  // ==========================================================================
+
+  it('should clamp score to 0 for deeply nested nodes with penalty edge', () => {
+    const nodes: any[] = [];
+    for (let i = 0; i < 12; i++) {
+      nodes.push(createNode(store, `node${i}`, 'Function', `/test/d${i}.ts`, 1));
+    }
+    for (let i = 0; i < 11; i++) {
+      createEdge(store, nodes[i]!.id, nodes[i + 1]!.id, 'IMPORTS');
+    }
+
+    const results = engine.search([nodes[0]!.id], { maxDepth: 12 });
+    for (const r of results) {
+      expect(r.score).toBeGreaterThanOrEqual(0);
+      expect(r.score).toBeLessThanOrEqual(100);
+    }
+  });
 });

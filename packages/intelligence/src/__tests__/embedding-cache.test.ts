@@ -225,5 +225,222 @@ describe('EmbeddingCache', () => {
       const entry = cache.get('k')!;
       expect(entry.accessCount).toBeGreaterThanOrEqual(2);
     });
+    it('does not increment access count when tracking disabled', () => {
+      cache = new EmbeddingCache({ trackAccessCounts: false });
+      cache.set('k', vec1, 'h');
+      cache.get('k');
+      cache.get('k');
+      const entry = cache.get('k')!;
+      expect(entry.accessCount).toBe(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Additional Tests: TTL Expiry with get()
+  // -----------------------------------------------------------------------
+
+  describe('TTL Expiry via get()', () => {
+    it('expires entry and returns undefined after TTL via get()', async () => {
+      const c = new EmbeddingCache({ ttl: 10 });
+      c.set('k', vec1, 'h');
+      // Wait longer than TTL
+      await new Promise((r) => setTimeout(r, 20));
+      expect(c.get('k')).toBeUndefined();
+    });
+
+    it('counts TTL expiry as a miss in get()', async () => {
+      const c = new EmbeddingCache({ ttl: 10 });
+      c.set('k', vec1, 'h');
+      await new Promise((r) => setTimeout(r, 20));
+      c.get('k');
+      expect(c.getStats().misses).toBeGreaterThanOrEqual(1);
+    });
+
+    it('counts TTL expiry as an eviction in get()', async () => {
+      const c = new EmbeddingCache({ ttl: 10 });
+      c.set('k', vec1, 'h');
+      await new Promise((r) => setTimeout(r, 20));
+      c.get('k');
+      expect(c.getStats().evictions).toBe(1);
+    });
+
+    it('returns false for has() after TTL expiry', async () => {
+      const c = new EmbeddingCache({ ttl: 10 });
+      c.set('k', vec1, 'h');
+      await new Promise((r) => setTimeout(r, 20));
+      expect(c.has('k')).toBe(false);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Additional Tests: Edge Cases
+  // -----------------------------------------------------------------------
+
+  describe('Edge Cases', () => {
+    it('iterates over empty cache without error', () => {
+      const c = new EmbeddingCache();
+      const entries = [...c];
+      expect(entries).toEqual([]);
+    });
+
+    it('returns stats with zero values for empty cache', () => {
+      const c = new EmbeddingCache();
+      const stats = c.getStats();
+      expect(stats.size).toBe(0);
+      expect(stats.hits).toBe(0);
+      expect(stats.misses).toBe(0);
+      expect(stats.hitRate).toBe(0);
+      expect(stats.estimatedMemoryBytes).toBe(0);
+    });
+
+    it('keys() returns empty array for empty cache', () => {
+      const c = new EmbeddingCache();
+      expect(c.keys()).toEqual([]);
+    });
+
+    it('tracks sourceLength in set and get', () => {
+      const c = new EmbeddingCache();
+      c.set('k', vec1, 'hash1', 500);
+      const entry = c.get('k')!;
+      expect(entry.sourceLength).toBe(500);
+    });
+
+    it('defaults sourceLength to 0 when not provided', () => {
+      cache = new EmbeddingCache();
+      cache.set('k', vec1, 'hash1');
+      const entry = cache.get('k')!;
+      expect(entry.sourceLength).toBe(0);
+    });
+
+    it('resetStats preserves cache data', () => {
+      cache = new EmbeddingCache();
+      cache.set('a', vec1, 'h1');
+      cache.set('b', vec2, 'h2');
+      cache.get('a');
+      cache.resetStats();
+      expect(cache.size).toBe(2);
+      expect(cache.has('a')).toBe(true);
+      expect(cache.has('b')).toBe(true);
+      const stats = cache.getStats();
+      expect(stats.hits).toBe(0);
+      expect(stats.misses).toBe(0);
+    });
+
+    it('invalidateByPrefix does not match partial non-prefix keys', () => {
+      cache = new EmbeddingCache();
+      cache.set('prefix:key1', vec1, 'h1');
+      cache.set('not prefix:key2', vec2, 'h2');
+      const count = cache.invalidateByPrefix('prefix:');
+      expect(count).toBe(1);
+      expect(cache.has('prefix:key1')).toBe(false);
+      expect(cache.has('not prefix:key2')).toBe(true);
+    });
+
+    it('LRU evicts properly when adding duplicate key already at front', () => {
+      const small = new EmbeddingCache({ maxEntries: 2 });
+      small.set('a', vec1, 'h1');
+      small.set('b', vec2, 'h2');
+      small.set('a', vec3, 'h3'); // update 'a' — should move to front
+      small.get('b'); // 'b' now MRU
+      small.set('c', vec1, 'h4'); // should evict 'a' (now LRU)
+      expect(small.get('a')).toBeUndefined();
+      expect(small.get('b')).toBeDefined();
+      expect(small.get('c')).toBeDefined();
+    });
+
+    it('get with hash mismatch evicts entry and records miss', () => {
+      cache = new EmbeddingCache();
+      cache.set('k', vec1, 'hash1');
+      const result = cache.get('k', 'different_hash');
+      expect(result).toBeUndefined();
+      expect(cache.has('k')).toBe(false);
+      const stats = cache.getStats();
+      expect(stats.misses).toBe(1);
+      expect(stats.evictions).toBe(1);
+    });
+
+    it('delete after eviction does nothing', () => {
+      cache = new EmbeddingCache({ maxEntries: 1 });
+      cache.set('a', vec1, 'h1');
+      cache.set('b', vec2, 'h2'); // evicts 'a'
+      expect(cache.delete('a')).toBe(false);
+      expect(cache.delete('b')).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: has() with hash mismatch
+  // ==========================================================================
+
+  describe('Has — hash mismatch', () => {
+    it('returns false when hash does not match', () => {
+      const c = new EmbeddingCache();
+      c.set('k', vec1, 'original-hash');
+      expect(c.has('k', 'wrong-hash')).toBe(false);
+      // The entry should still exist (has() doesn't remove)
+      expect(c.has('k')).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: invalidateByHash edge cases
+  // ==========================================================================
+
+  describe('Invalidation by hash — more coverage', () => {
+    it('invalidateByHash removes only matching entries', () => {
+      const c = new EmbeddingCache();
+      c.set('a', vec1, 'hashA');
+      c.set('b', vec2, 'hashB');
+      c.set('c', vec3, 'hashA');
+      expect(c.invalidateByHash('hashA')).toBe(2);
+      expect(c.has('b')).toBe(true);
+    });
+
+    it('invalidateByHash returns 0 when no hash matches', () => {
+      const c = new EmbeddingCache();
+      c.set('a', vec1, 'hashA');
+      expect(c.invalidateByHash('nonexistent')).toBe(0);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: set when cache is exactly at capacity
+  // ==========================================================================
+
+  describe('Set — at capacity eviction', () => {
+    it('evicts LRU when adding to full cache', () => {
+      const c = new EmbeddingCache({ maxEntries: 3 });
+      c.set('a', vec1, 'h1');
+      c.set('b', vec2, 'h2');
+      c.set('c', vec3, 'h3');
+      // Access 'a' to make 'b' the LRU
+      c.get('a');
+      c.set('d', vec1, 'h4');
+      // 'b' should be evicted (LRU)
+      expect(c.has('a')).toBe(true);
+      expect(c.has('b')).toBe(false);
+      expect(c.has('c')).toBe(true);
+      expect(c.has('d')).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: get() with TTL expiry (real time)
+  // ==========================================================================
+
+  describe('TTL expiry — real-time', () => {
+    it('evicts entry after TTL expires', async () => {
+      const c = new EmbeddingCache({ ttl: 5 });
+      c.set('k', vec1, 'h');
+      await new Promise(r => setTimeout(r, 15));
+      expect(c.get('k')).toBeUndefined();
+      expect(c.size).toBe(0);
+    });
+
+    it('does not evict entry before TTL expires', () => {
+      const c = new EmbeddingCache({ ttl: 60000 });
+      c.set('k', vec1, 'h');
+      expect(c.get('k')).toBeDefined();
+    });
   });
 });

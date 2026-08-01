@@ -378,7 +378,7 @@ describe('BinaryFileDetector — Edge Cases', () => {
   });
 
   it('should handle non-existent files safely', () => {
-    const result = detector.detectFile('/nonexistent/path/file.txt');
+    const result = detector.detectFile('/nonexistent/path/file.bin');
     expect(result.isBinary).toBe(true);
     expect(result.reason).toContain('Unable to read');
   });
@@ -525,6 +525,201 @@ describe('BinaryFileDetector — Acceptance Criteria', () => {
     const filePath = createTempFile(utf8Bom, '.txt');
     const result = detector.detectFile(filePath);
     expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Unicode BOM — UTF-16 BE (uncovered branch)
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — UTF-16 BE BOM', () => {
+  let detector: BinaryFileDetector;
+
+  beforeEach(() => {
+    detector = new BinaryFileDetector();
+  });
+
+  it('should classify UTF-16 BE BOM (FE FF) file as text', () => {
+    const buf = Buffer.from([0xfe, 0xff, 0x00, 0x48, 0x00, 0x65]);
+    const filePath = createTempFile(buf, '.txt');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Empty buffer via detectBuffer (uncovered branch)
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Empty Buffer via detectBuffer', () => {
+  it('should classify empty buffer as not binary', () => {
+    const detector = new BinaryFileDetector();
+    const result = detector.detectBuffer(Buffer.alloc(0));
+    expect(result.isBinary).toBe(false);
+    expect(result.format).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Large files exceeding maxBytesToRead (uncovered branch)
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Large Files', () => {
+  it('should only read up to maxBytesToRead when file is larger', () => {
+    const detector = new BinaryFileDetector({ maxBytesToRead: 256 });
+    // Create a file larger than 256 bytes with all printable content
+    const content = 'A'.repeat(1000);
+    const filePath = createTempFile(content, '.dat');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Null byte at position 0 (non-WASM, uncovered branch)
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Null Byte at Position 0', () => {
+  it('should detect null byte at the very beginning as binary', () => {
+    const detector = new BinaryFileDetector();
+    // Starts with 0x00 but not followed by WASM signature (0x61 0x73 0x6D)
+    const buf = Buffer.alloc(50);
+    buf[0] = 0x00;
+    buf[1] = 0x48; // 'H'
+    const filePath = createTempFile(buf, '.dat');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(true);
+    expect(result.reason).toContain('null byte');
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Non-printable threshold — boundary and printable exclusions
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Non-Printable Boundary Conditions', () => {
+  it('should classify 10% exact non-printable ratio as text (not binary)', () => {
+    const detector = new BinaryFileDetector();
+    // 10 out of 100 = 10% — not strictly > 10%
+    const buf = Buffer.alloc(100);
+    for (let i = 0; i < 10; i++) {
+      buf[i] = 0x01; // non-printable
+    }
+    for (let i = 10; i < 100; i++) {
+      buf[i] = 0x41; // 'A'
+    }
+    const filePath = createTempFile(buf, '.dat');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+
+  it('should not count tab, newline, and CR as non-printable', () => {
+    const detector = new BinaryFileDetector();
+    // Buffer with only whitespace chars: tab(9), newline(10), CR(13), space(32)
+    // These are all considered printable, so file should be text
+    const buf = Buffer.from([
+      0x09, 0x0a, 0x0d, 0x20, // \t \n \r space
+      0x48, 0x65, 0x6c, 0x6c, 0x6f, // Hello
+    ]);
+    // Fill the rest with printable to reach 100+ bytes
+    const full = Buffer.alloc(200, 0x41); // fill with 'A'
+    buf.copy(full, 0, 0, buf.length);
+    const filePath = createTempFile(full, '.dat');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Buffer too short for signature offset (uncovered branch)
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Short Buffer vs Signature Offsets', () => {
+  it('should skip signatures that require more bytes than available', () => {
+    const detector = new BinaryFileDetector();
+    // Buffer of only 2 bytes: signature check at offset 0 with 3-byte sig
+    // would fail length check. Falls through to non-printable check.
+    const buf = Buffer.from([0x41, 0x42]); // 'AB'
+    const filePath = createTempFile(buf, '.dat');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Encoding detection boundaries (scan range limits)
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Scan Boundary Conditions', () => {
+  it('should handle buffer exactly at 8192 byte null byte scan boundary', () => {
+    const detector = new BinaryFileDetector();
+    // 8193 bytes: null byte at position 8192 is outside the null byte scan range (0-8191)
+    const buf = Buffer.alloc(8193, 0x41); // all 'A'
+    buf[8192] = 0x00; // null byte at position 8192 (beyond scan range)
+    const filePath = createTempFile(buf, '.dat');
+    const result = detector.detectFile(filePath);
+    // The null byte at 8192 is beyond scan range (sampleSize = min(8193, 8192) = 8192, indices 0-8191)
+    // But 0x00 IS within the non-printable check range (first 4096 bytes)...
+    // Actually position 8192 is beyond both scan ranges. So this should be classified as text.
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: BOM detection with non-text extensions (critical uncovered branches)
+// Previous BOM tests used .txt which is short-circuited by text-extension check.
+// These tests use .bin to ensure the BOM detection code paths are reached.
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — BOM Detection via Non-Text Extensions', () => {
+  it('should classify UTF-8 BOM file with non-text extension as text', () => {
+    const detector = new BinaryFileDetector();
+    const buf = Buffer.from([0xef, 0xbb, 0xbf, 0x48, 0x65, 0x6c, 0x6c, 0x6f]);
+    const filePath = createTempFile(buf, '.bin');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+
+  it('should classify UTF-16 LE BOM file with non-text extension as text', () => {
+    const detector = new BinaryFileDetector();
+    const buf = Buffer.from([0xff, 0xfe, 0x48, 0x00, 0x65, 0x00]);
+    const filePath = createTempFile(buf, '.bin');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+
+  it('should classify UTF-16 BE BOM file with non-text extension as text', () => {
+    const detector = new BinaryFileDetector();
+    const buf = Buffer.from([0xfe, 0xff, 0x00, 0x48, 0x00, 0x65]);
+    const filePath = createTempFile(buf, '.bin');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    cleanupTempFile(filePath);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: Empty file with non-text extension
+// Previous empty-file test used .txt which is short-circuited.
+// ---------------------------------------------------------------------------
+
+describe('BinaryFileDetector — Empty File with Non-Text Extension', () => {
+  it('should classify empty file with non-text extension as not binary', () => {
+    const detector = new BinaryFileDetector();
+    const filePath = createTempFile('', '.bin');
+    const result = detector.detectFile(filePath);
+    expect(result.isBinary).toBe(false);
+    expect(result.format).toBeNull();
     cleanupTempFile(filePath);
   });
 });

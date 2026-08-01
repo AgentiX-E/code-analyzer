@@ -121,6 +121,27 @@ describe('RBACEngine', () => {
       expect(engine.hasRole('user-cleanup', 'viewer')).toBe(false);
       expect(engine.getRoles('user-cleanup')).toEqual([]);
     });
+
+    it('should not clean up user entry when user still has other roles', () => {
+      engine.defineRole('viewer', {
+        name: 'viewer',
+        permissions: ['analysis:read'],
+      });
+      engine.defineRole('reviewer', {
+        name: 'reviewer',
+        permissions: ['review:read'],
+      });
+
+      engine.assignRole('multi-role', 'viewer');
+      engine.assignRole('multi-role', 'reviewer');
+      expect(engine.hasRole('multi-role', 'viewer')).toBe(true);
+      expect(engine.hasRole('multi-role', 'reviewer')).toBe(true);
+
+      engine.revokeRole('multi-role', 'viewer');
+      expect(engine.hasRole('multi-role', 'viewer')).toBe(false);
+      expect(engine.hasRole('multi-role', 'reviewer')).toBe(true);
+      expect(engine.getRoles('multi-role')).toContain('reviewer');
+    });
   });
 
   // -----------------------------------------------------------------------

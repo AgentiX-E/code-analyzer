@@ -1465,6 +1465,88 @@ export function compute(x: number): number {
     const findings = analyzeDocs(content, '/src/math.ts');
     expect(findings.length).toBe(0);
   });
+
+  // ==========================================================================
+  // Branch Coverage: non-exported async function with JSDoc
+  // ==========================================================================
+
+  it('should skip non-exported function that already has JSDoc', () => {
+    const content = `
+/**
+ * Internal helper
+ * @param {string} value
+ */
+async function internalHelper(value: string): Promise<void> {
+  return;
+}
+`;
+    const findings = analyzeDocs(content, '/src/internal.ts');
+    // Non-exported with docs → returns early, no findings
+    expect(findings.length).toBe(0);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: function with arrow return type syntax
+  // ==========================================================================
+
+  it('should detect exported arrow-style return type function', () => {
+    const content = `
+export function transform(input: string): Promise<Result> => {
+  return process(input);
+}
+`;
+    const findings = analyzeDocs(content, '/src/transform.ts');
+    const jsdocFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    expect(jsdocFindings.length).toBe(1);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: package.json with readme field present
+  // ==========================================================================
+
+  it('should not flag package.json when readme field exists', () => {
+    const content = JSON.stringify({
+      name: 'test-pkg',
+      version: '1.0.0',
+      readme: 'README.md',
+    }, null, 2);
+    const findings = analyzeDocs(content, '/project/package.json');
+    expect(findings.length).toBe(0);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: non-exported function with params (no findings)
+  // ==========================================================================
+
+  it('should not flag non-exported function even with params', () => {
+    const content = `
+function helper(a: string, b: number): boolean {
+  return a.length > b;
+}
+`;
+    const findings = analyzeDocs(content, '/src/helper.ts');
+    // Non-exported functions are not checked
+    expect(findings.length).toBe(0);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: exported async function with params and return type
+  // ==========================================================================
+
+  it('should detect missing JSDoc on exported async function with params and return type', () => {
+    const content = `
+export async function fetchResource(id: string, options: RequestInit): Promise<object> {
+  const res = await fetch(id, options);
+  return res.json();
+}
+`;
+    const findings = analyzeDocs(content, '/src/fetch.ts');
+    const jsdocFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    expect(jsdocFindings.length).toBe(1);
+    // Also should have missing params since no @param found
+    const paramFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-params');
+    expect(paramFindings.length).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1840,6 +1922,76 @@ describe('synthesizeFindings', () => {
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     expect(result.summary.topIssues.length).toBe(2);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: health score with large totalLines (minimal penalty)
+  // ==========================================================================
+
+  it('should compute health score near 100 for few findings in many lines', () => {
+    const finding = createLensFinding(
+      'style', 'style', 'low', 'Minor Issue', 'desc',
+      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
+    )!;
+    const report = makeReport({ findings: [finding] });
+    const result = synthesizeFindings([report], 10000);
+    // Low severity (weight 1) with many lines → penalty is minimal
+    expect(result.summary.healthScore).toBeGreaterThanOrEqual(90);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: health score with zero totalLines returns 100
+  // ==========================================================================
+
+  it('should return health score 100 when totalLines is 0 regardless of findings', () => {
+    const finding = createLensFinding(
+      'security', 'security', 'critical', 'Critical', 'desc',
+      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
+    )!;
+    const report = makeReport({ findings: [finding] });
+    const result = synthesizeFindings([report], 0);
+    expect(result.summary.healthScore).toBe(100);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: dedup union=0 edge case (same-line findings)
+  // ==========================================================================
+
+  it('should handle deduplication when union is 0 (single-line identical range)', () => {
+    const f1 = createLensFinding(
+      'security', 'security', 'low', 'Line Issue', 'desc',
+      { filePath: '/test.ts', startLine: 3, endLine: 3, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
+    )!;
+    const f2 = createLensFinding(
+      'style', 'style', 'high', 'Same Line Issue', 'desc',
+      { filePath: '/test.ts', startLine: 3, endLine: 3, codeSnippet: 'y', lens: 'style', ruleId: 'sty' },
+    )!;
+    const report = makeReport({ findings: [f1, f2] });
+    const result = synthesizeFindings([report], 100);
+    // On same line, IoU=1, both overlap → higher severity kept
+    expect(result.summary.totalFindings).toBe(1);
+    expect(result.summary.high).toBe(1);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: top issues with severity comparison edge case
+  // ==========================================================================
+
+  it('should upgrade severity in top issues when higher severity variant exists', () => {
+    const f1 = createLensFinding(
+      'style', 'style', 'low', 'Consistent Issue', 'desc',
+      { filePath: '/a.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
+    )!;
+    const f2 = createLensFinding(
+      'security', 'security', 'critical', 'Consistent Issue', 'desc',
+      { filePath: '/b.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
+    )!;
+    const report = makeReport({ findings: [f1, f2] });
+    const result = synthesizeFindings([report], 200);
+    const topIssue = result.summary.topIssues.find(i => i.title === 'Consistent Issue');
+    expect(topIssue).toBeDefined();
+    expect(topIssue!.severity).toBe('critical');
+    expect(topIssue!.count).toBe(2);
   });
 });
 

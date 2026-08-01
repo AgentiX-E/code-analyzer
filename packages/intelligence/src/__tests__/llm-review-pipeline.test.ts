@@ -369,3 +369,218 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
     expect(merged.filter((c) => c.id.startsWith('h')).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Additional Tests: Pipeline Error Handling & Edge Cases
+// ---------------------------------------------------------------------------
+
+describe('LLMReviewPipeline — Error Handling', () => {
+  it('handles finding with missing category by defaulting to style', () => {
+    const content = 'const x = 1;\n';
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'const x = 1;',
+      category: '' as any,
+      lane: '' as any,
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles finding with unknown category mapping', () => {
+    const content = 'some code here\nmore code\n';
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'some code here',
+      category: 'unknown_category' as any,
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments).toBeDefined();
+    if (result.comments[0]) {
+      expect(result.comments[0].category).toBe('style'); // default
+    }
+  });
+
+  it('handles finding with lane field instead of category', () => {
+    const content = 'code line 1\ncode line 2\n';
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'code line 1',
+      lane: 'performance',
+      category: undefined as any,
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments).toBeDefined();
+    if (result.comments[0]) {
+      expect(result.comments[0].category).toBe('performance');
+    }
+  });
+
+  it('handles finding with unknown severity defaulting to medium', () => {
+    const content = 'some code\n';
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'some code',
+      severity: 'unknown_severity' as any,
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments).toBeDefined();
+    if (result.comments[0]) {
+      expect(result.comments[0].severity).toBe('medium');
+    }
+  });
+
+  it('handles finding with empty title and description', () => {
+    const content = 'test line\n';
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'test line',
+      title: '',
+      description: '',
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments).toBeDefined();
+  });
+
+  it('handles finding with null suggestion', () => {
+    const content = 'line a\n';
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'line a',
+      suggestion: null,
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments).toBeDefined();
+  });
+
+  it('handles finding with endLine less than startLine', () => {
+    const content = 'line1\nline2\nline3\n';
+    const finding = makeLLMFinding({
+      startLine: 3, endLine: 1,
+      snippet: 'line3',
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional Tests: Merge Edge Cases
+// ---------------------------------------------------------------------------
+
+describe('LLMReviewPipeline — Merge Edge Cases', () => {
+  it('handles merge with empty LLM comments', () => {
+    const pipeline = new LLMReviewPipeline();
+    const heuristic = [
+      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' }),
+    ];
+    const merged = pipeline.mergeWithHeuristic([], heuristic);
+    expect(merged.length).toBe(1);
+  });
+
+  it('handles merge with empty heuristic list', () => {
+    const content = 'test content\n';
+    const pipeline = new LLMReviewPipeline();
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1, category: 'style',
+      snippet: 'test content',
+    });
+    const llmResult = pipeline.processFindings([finding], content, 'file.ts');
+    const merged = pipeline.mergeWithHeuristic(llmResult.comments, []);
+    expect(merged.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('does not deduplicate comments with different categories but overlapping lines', () => {
+    const content = 'shared line here\nanother line\n';
+    const finding1 = makeLLMFinding({
+      startLine: 1, endLine: 1, category: 'security',
+      snippet: 'shared line here',
+    });
+    const finding2 = makeLLMFinding({
+      startLine: 1, endLine: 1, category: 'performance',
+      snippet: 'shared line here',
+    });
+    const pipeline = new LLMReviewPipeline();
+    const result1 = pipeline.processFindings([finding1], content, 'file.ts');
+    const result2 = pipeline.processFindings([finding2], content, 'file.ts');
+    const heuristic = [
+      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security', id: 'h1' }),
+    ];
+
+    const merged = pipeline.mergeWithHeuristic([...result1.comments, ...result2.comments], heuristic);
+    // Performance comment should NOT be deduplicated with security
+    const perfComments = merged.filter(
+      (c) => c.category === 'performance' && !c.id.startsWith('h'),
+    );
+    expect(perfComments.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('filters all LLM comments when minConfidence is 1.0', () => {
+    const content = 'content line\n';
+    const strictPipeline = new LLMReviewPipeline({ minConfidence: 1.0 });
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1, category: 'style',
+      snippet: 'almost match',
+    });
+    const llmResult = strictPipeline.processFindings([finding], content, 'file.ts');
+    const heuristic = [
+      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' }),
+    ];
+    const merged = strictPipeline.mergeWithHeuristic(llmResult.comments, heuristic);
+    expect(merged.length).toBe(1); // only heuristic remains
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional Tests: Pipeline Metrics
+// ---------------------------------------------------------------------------
+
+describe('LLMReviewPipeline — Pipeline Metrics', () => {
+  it('reports rawCount matching findings length', () => {
+    const content = 'a\nb\nc\nd\ne\n';
+    const pipeline = new LLMReviewPipeline();
+    const findings = Array.from({ length: 5 }, (_, i) =>
+      makeLLMFinding({
+        startLine: i + 1, endLine: i + 1,
+        snippet: String.fromCharCode(97 + i),
+        category: 'style',
+      }),
+    );
+    const result = pipeline.processFindings(findings, content, 'file.ts');
+    expect(result.rawCount).toBe(5);
+  });
+
+  it('reports finalCount equal to comments length', () => {
+    const content = 'line1\nline2\n';
+    const pipeline = new LLMReviewPipeline();
+    const finding = makeLLMFinding({
+      startLine: 1, endLine: 1,
+      snippet: 'line1', category: 'style',
+    });
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.finalCount).toBe(result.comments.length);
+  });
+
+  it('calculates noiseReduction of 0 for empty findings', () => {
+    const pipeline = new LLMReviewPipeline({ filterLowConfidence: true });
+    const result = pipeline.processFindings([], 'content', 'file.ts');
+    expect(result.noiseReduction).toBe(0);
+  });
+
+  it('calculates noiseReduction for all-filtered findings', () => {
+    const pipeline = new LLMReviewPipeline({ filterLowConfidence: true, minConfidence: 0.99 });
+    const findings = [
+      makeLLMFinding({ startLine: 1, endLine: 1, snippet: 'missing content', category: 'style' }),
+      makeLLMFinding({ startLine: 2, endLine: 2, snippet: 'also missing', category: 'style' }),
+    ];
+    const result = pipeline.processFindings(findings, 'real different content here', 'file.ts');
+    expect(result.noiseReduction).toBeGreaterThanOrEqual(0);
+  });
+});

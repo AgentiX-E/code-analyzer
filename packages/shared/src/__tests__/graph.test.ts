@@ -114,7 +114,7 @@ describe('SupportedLanguage', () => {
 
 describe('ReviewCategory', () => {
   it('has exactly the expected number of categories', () => {
-    expect(REVIEW_CATEGORIES).toHaveLength(9);
+    expect(REVIEW_CATEGORIES).toHaveLength(10);
   });
 
   it.each(REVIEW_CATEGORIES)('"%s" is a valid review category', (cat) => {

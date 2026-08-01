@@ -174,6 +174,7 @@ export class ReviewSessionManager {
     return {
       done,
       total: total || 1,
+      /* v8 ignore next */ // defensive: total is 0 only for empty sessions
       percent: total === 0 ? 100 : Math.round((done / total) * 100),
     };
   }

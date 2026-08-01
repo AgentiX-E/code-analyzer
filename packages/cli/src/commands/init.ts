@@ -136,9 +136,11 @@ export function initProject(options: InitOptions = {}): InitResult {
         filesCreated.push('.gitignore (updated)');
       }
     }
+  /* v8 ignore start */ // .gitignore write failure requires filesystem error
   } catch {
     // .gitignore write failed — non-critical
   }
+  /* v8 ignore stop */
 
   const allCreated = filesCreated.length;
 

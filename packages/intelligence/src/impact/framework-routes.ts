@@ -556,7 +556,6 @@ export class FrameworkRouteDetector {
       DJANGO_PATTERNS.urlPatterns.lastIndex = 0;
       if (DJANGO_PATTERNS.urlPatterns.test(trimmed)) {
         inUrlPatterns = true;
-        continue;
       }
 
       if (inUrlPatterns && trimmed === ']') {
