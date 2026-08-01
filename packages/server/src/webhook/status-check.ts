@@ -60,7 +60,7 @@ export interface CheckRunResult {
 export class StatusCheckManager {
   private activeChecks = new Map<string, CheckRun>();
 
-  constructor(private config?: CheckRunConfig) {}
+  constructor(_config?: CheckRunConfig) {}
 
   /**
    * Create a new check run for a PR.

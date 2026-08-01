@@ -56,7 +56,7 @@ export interface SSETransportOptions {
 export class SSETransport extends EventEmitter {
   private clients: Map<string, SSEClient>;
   private httpServer: HttpServer | null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private heartbeatInterval: number;
   private retryInterval: number;
   private maxClients: number;

@@ -190,10 +190,11 @@ export class FrameworkRouteDetector {
     for (const route of routes) {
       // Create route node
       const routeNodeId = graph.nodes.size + 1;
-      const routeNode: GraphNode = {
+      const routeNode = {
         id: routeNodeId,
-        labels: ['Route' as NodeLabel],
+        label: 'Route' as NodeLabel,
         properties: {
+          name: route.path,
           method: route.method,
           path: route.path,
           filePath: route.filePath,
@@ -207,21 +208,19 @@ export class FrameworkRouteDetector {
         startLine: route.line,
         endLine: route.line,
         isExported: false,
-      };
+      } as unknown as GraphNode;
 
       graph.nodes.set(routeNodeId, routeNode);
       nodesAdded++;
 
       // Create HANDLES edge from file to route
-      const edge: GraphEdge = {
+      const edge = {
         id: graph.edges.size + 1,
         sourceId: fileNodeId,
         targetId: routeNodeId,
-        edgeType: 'HANDLES',
-        sourceLabel: 'File',
-        targetLabel: 'Route',
+        type: 'HANDLES' as any,
         properties: { method: route.method, path: route.path },
-      };
+      } as unknown as GraphEdge;
 
       graph.edges.set(edge.id, edge);
       edgesAdded++;
@@ -231,15 +230,13 @@ export class FrameworkRouteDetector {
         for (const [id, node] of graph.nodes) {
           const name = (node.properties as Record<string, unknown>)['name'];
           if (name === route.handlerName) {
-            const handlerEdge: GraphEdge = {
+            const handlerEdge = {
               id: graph.edges.size + 1,
               sourceId: routeNodeId,
               targetId: id,
-              edgeType: 'HANDLES',
-              sourceLabel: 'Route',
-              targetLabel: node.labels[0] ?? 'Symbol',
+              type: 'HANDLES' as any,
               properties: { method: route.method, path: route.path },
-            };
+            } as unknown as GraphEdge;
             graph.edges.set(handlerEdge.id, handlerEdge);
             edgesAdded++;
             break;

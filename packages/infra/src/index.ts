@@ -5,6 +5,7 @@
 export { InMemoryGraphStore } from './storage/in-memory-graph-store.js';
 export { SqliteGraphStore, deleteDatabase } from './storage/sqlite-graph-store.js';
 export { NodeIndex } from './storage/graph-index.js';
+export type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 export type {
   NodeQuery,
   EdgeQuery,

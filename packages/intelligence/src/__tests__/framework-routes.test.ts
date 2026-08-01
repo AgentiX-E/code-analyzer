@@ -1,6 +1,6 @@
 // @code-analyzer/intelligence — Framework Route Detection Tests
 import { describe, it, expect } from 'vitest';
-import { FrameworkRouteDetector } from '../framework-routes.js';
+import { FrameworkRouteDetector } from '../impact/framework-routes.js';
 
 describe('FrameworkRouteDetector', () => {
   const detector = new FrameworkRouteDetector();
@@ -54,7 +54,7 @@ describe('FrameworkRouteDetector', () => {
       const code = '@app.websocket("/ws")\nasync def websocket_endpoint(ws): pass';
       const result = detector.detectFile('src/ws.py', code, 'python');
       expect(result.routes.length).toBeGreaterThanOrEqual(1);
-      const wsRoute = result.routes.find(r => r.routeType === 'websocket');
+      const wsRoute = result.routes.find((r: any) => r.routeType === 'websocket');
       expect(wsRoute).toBeDefined();
     });
 
@@ -98,7 +98,7 @@ export class UserResolver {
   createUser() {}
 }`;
       const result = detector.detectFile('src/user.resolver.ts', code, 'typescript');
-      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      const gqlRoutes = result.routes.filter((r: any) => r.routeType === 'graphql');
       expect(gqlRoutes.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -109,14 +109,14 @@ export class ChatGateway {
   handleMessage() {}
 }`;
       const result = detector.detectFile('src/chat.gateway.ts', code, 'typescript');
-      const wsRoutes = result.routes.filter(r => r.routeType === 'websocket');
+      const wsRoutes = result.routes.filter((r: any) => r.routeType === 'websocket');
       expect(wsRoutes.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should not detect NestJS patterns in Python', () => {
       const code = '@decorator\ndef foo(): pass';
       const result = detector.detectFile('src/test.py', code, 'python');
-      const nestRoutes = result.routes.filter(r => r.framework === 'nestjs');
+      const nestRoutes = result.routes.filter((r: any) => r.framework === 'nestjs');
       expect(nestRoutes.length).toBe(0);
     });
   });
@@ -143,7 +143,7 @@ export class ChatGateway {
     it('detects include() calls', () => {
       const code = `urlpatterns = [include('api.urls')]`;
       const result = detector.detectFile('src/urls.py', code, 'python');
-      const includes = result.routes.filter(r => r.method === 'INCLUDE');
+      const includes = result.routes.filter((r: any) => r.method === 'INCLUDE');
       expect(includes.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -160,7 +160,7 @@ export class ChatGateway {
       const nestjsOnly = new FrameworkRouteDetector({ frameworks: ['nestjs'] });
       const tsCode = "app.get('/test', handler);\n@Controller('api')\nclass C {}";
       const result = nestjsOnly.detectFile('src/app.ts', tsCode, 'typescript');
-      const expressRoutes = result.routes.filter(r => r.framework === 'express');
+      const expressRoutes = result.routes.filter((r: any) => r.framework === 'express');
       expect(expressRoutes.length).toBe(0);
     });
   });
@@ -207,7 +207,7 @@ app.use(express.json());
       const result = detector.detectFile('src/utils.ts', code, 'typescript');
       // "get" as function name should not trigger route detection
       // "app.use" without a string path should not trigger
-      const routes = result.routes.filter(r => r.path);
+      const routes = result.routes.filter((r: any) => r.path);
       expect(routes.length).toBe(0);
     });
   });

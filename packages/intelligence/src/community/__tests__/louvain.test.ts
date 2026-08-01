@@ -18,7 +18,7 @@ function addNode(g: KnowledgeGraph, id: number, label: string, name: string): Gr
     id, projectId: g.projectId, label: label as any, name,
     qualifiedName: `${label}:${name}`,
     filePath: null, startLine: null, endLine: null, language: null,
-    properties: {}, signature: null, docstring: null, complexity: null,
+    properties: { name }, signature: null, docstring: null, complexity: null,
     isExported: false, fingerprint: null,
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };

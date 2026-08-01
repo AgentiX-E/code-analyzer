@@ -74,6 +74,7 @@ export async function runBenchmark(args: Record<string, unknown>, _store?: unkno
 
 async function runCaBenchAll(format: string): Promise<ToolResult> {
   try {
+    // @ts-expect-error - dynamic import for optional benchmark runner
     const { CaBenchRunner } = await import('../../../../../tests/benchmarks/ca-bench/runner.js');
     const runner = new CaBenchRunner();
     const result = await runner.runAll();
@@ -97,16 +98,16 @@ async function runCaBenchAll(format: string): Promise<ToolResult> {
 
 async function runCaBenchSuite(suite: string, format: string): Promise<ToolResult> {
   try {
+    // @ts-expect-error - dynamic import for optional benchmark runner
     const { CaBenchRunner } = await import('../../../../../tests/benchmarks/ca-bench/runner.js');
     const runner = new CaBenchRunner();
-
     const suiteResult = await runner.runSuite(suite as 'parse-accuracy' | 'search-quality' | 'review-quality' | 'embedding-quality' | 'cross-repo' | 'throughput');
 
     let text: string;
     if (format === 'json') {
       text = JSON.stringify(suiteResult, null, 2);
     } else {
-      const measurements = suiteResult.measurements.map(m => `| ${m.name} | ${m.value} | ${m.unit} |`).join('\n');
+      const measurements = suiteResult.measurements.map((m: { name: string; value: number; unit: string }) => `| ${m.name} | ${m.value} | ${m.unit} |`).join('\n');
       const status = suiteResult.passed ? '✅ PASSED' : '❌ FAILED';
       text = [
         `# CA-Bench: ${suiteResult.suiteName} ${status}`,

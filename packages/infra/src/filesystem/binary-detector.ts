@@ -23,9 +23,9 @@ export interface BinaryDetectionResult {
 
 export interface BinaryDetectorOptions {
   /** Maximum bytes to read for magic byte detection (default: 4096). */
-  maxBytesToRead: number;
+  maxBytesToRead?: number;
   /** Whether to fall back to encoding detection (default: true). */
-  useEncodingDetection: boolean;
+  useEncodingDetection?: boolean;
   /** Additional custom binary signatures. */
   customSignatures?: BinarySignature[];
 }
@@ -267,7 +267,7 @@ export class BinaryFileDetector {
     const sampleSize = Math.min(bytesRead, 8000);
 
     for (let i = 0; i < sampleSize; i++) {
-      const byte = buffer[i];
+      const byte = buffer[i]!;
       if (byte === 0x00) {
         nullCount++;
       } else if (byte < 0x07 || (byte > 0x0d && byte < 0x20)) {

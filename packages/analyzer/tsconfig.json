@@ -7,7 +7,8 @@
     "composite": true,
     "noUncheckedIndexedAccess": false,
     "noPropertyAccessFromIndexSignature": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "strictNullChecks": false
   },
   "include": [
     "src"

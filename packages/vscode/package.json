@@ -1,11 +1,19 @@
 {
   "name": "@code-analyzer/vscode",
   "displayName": "Code Analyzer",
-  "version": "0.1.0",
-  "description": "World-class code intelligence for VS Code — AI-powered code exploration, review, and analysis",
+  "version": "1.0.0",
+  "description": "World-class code intelligence for VS Code \u2014 AI-powered code exploration, review, and analysis",
   "author": "Lambertyan",
   "license": "MIT",
-  "keywords": ["code-analysis", "vscode-extension", "code-review", "knowledge-graph", "copilot-chat", "ai-assisted", "code-intelligence"],
+  "keywords": [
+    "code-analysis",
+    "vscode-extension",
+    "code-review",
+    "knowledge-graph",
+    "copilot-chat",
+    "ai-assisted",
+    "code-intelligence"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Lambertyan/code-analyzer.git",
@@ -21,7 +29,9 @@
     "color": "#1e1e2e",
     "theme": "dark"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "publisher": "agentix",
   "engines": {
@@ -158,7 +168,11 @@
             "codeAnalyzer.analysis.indexMode": {
               "type": "string",
               "default": "full",
-              "enum": ["full", "moderate", "fast"],
+              "enum": [
+                "full",
+                "moderate",
+                "fast"
+              ],
               "enumDescriptions": [
                 "Full analysis: parse all files, build complete knowledge graph",
                 "Moderate: skip test files and generated code",
@@ -174,14 +188,30 @@
             },
             "codeAnalyzer.analysis.excludePatterns": {
               "type": "array",
-              "items": { "type": "string" },
-              "default": ["node_modules/**", "dist/**", ".git/**", "build/**", "coverage/**"],
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "node_modules/**",
+                "dist/**",
+                ".git/**",
+                "build/**",
+                "coverage/**"
+              ],
               "description": "File glob patterns to exclude from analysis"
             },
             "codeAnalyzer.analysis.includePatterns": {
               "type": "array",
-              "items": { "type": "string" },
-              "default": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py"],
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "**/*.ts",
+                "**/*.tsx",
+                "**/*.js",
+                "**/*.jsx",
+                "**/*.py"
+              ],
               "description": "File glob patterns to include in analysis"
             },
             "codeAnalyzer.analysis.parallelWorkers": {
@@ -211,16 +241,35 @@
             "codeAnalyzer.review.severityFilter": {
               "type": "string",
               "default": "warning",
-              "enum": ["error", "warning", "info", "all"],
+              "enum": [
+                "error",
+                "warning",
+                "info",
+                "all"
+              ],
               "description": "Minimum severity level for displaying review comments"
             },
             "codeAnalyzer.review.lenses": {
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["bug", "security", "performance", "maintainability", "test", "style", "documentation", "architecture"]
+                "enum": [
+                  "bug",
+                  "security",
+                  "performance",
+                  "maintainability",
+                  "test",
+                  "style",
+                  "documentation",
+                  "architecture"
+                ]
               },
-              "default": ["bug", "security", "performance", "maintainability"],
+              "default": [
+                "bug",
+                "security",
+                "performance",
+                "maintainability"
+              ],
               "description": "Review lenses to enable (8-lens swarm subset)"
             },
             "codeAnalyzer.review.maxCommentsPerFile": {
@@ -273,7 +322,12 @@
             "codeAnalyzer.graph.layout": {
               "type": "string",
               "default": "force-directed",
-              "enum": ["force-directed", "radial", "hierarchical", "circular"],
+              "enum": [
+                "force-directed",
+                "radial",
+                "hierarchical",
+                "circular"
+              ],
               "description": "Graph layout algorithm"
             },
             "codeAnalyzer.graph.showEdgeLabels": {
@@ -291,7 +345,11 @@
             "codeAnalyzer.ui.statusBarMode": {
               "type": "string",
               "default": "compact",
-              "enum": ["hidden", "compact", "detailed"],
+              "enum": [
+                "hidden",
+                "compact",
+                "detailed"
+              ],
               "description": "Status bar display mode"
             },
             "codeAnalyzer.ui.showProgressNotifications": {
@@ -305,7 +363,11 @@
           "type": "string",
           "title": "Configuration Profile",
           "default": "balanced",
-          "enum": ["strict", "balanced", "relaxed"],
+          "enum": [
+            "strict",
+            "balanced",
+            "relaxed"
+          ],
           "enumDescriptions": [
             "Strict: maximum analysis depth, all review lenses, warn on everything",
             "Balanced: standard analysis depth, key review lenses (recommended)",

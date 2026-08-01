@@ -603,7 +603,7 @@ export class InMemoryGraphStore {
     const results: StoredEdge[] = [];
 
     // Use secondary indexes for O(1) candidate selection
-    let candidates: Set<number> | null = null;
+    // (candidates variable reserved for future index-based filtering)
 
     if (query.sourceId !== undefined) {
       // Use sourceEdgeIndex for O(1) lookup

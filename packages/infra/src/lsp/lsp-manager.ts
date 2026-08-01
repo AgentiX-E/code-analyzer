@@ -17,8 +17,6 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { createHash } from 'node:crypto';
-import * as path from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,7 +135,7 @@ const DEFAULT_SERVER_ARGS: Record<LSPServerType, string[]> = {
 
 interface JSONRPCMessage {
   jsonrpc: '2.0';
-  id?: number | string;
+  id?: number;
   method?: string;
   params?: unknown;
   result?: unknown;
@@ -508,7 +506,7 @@ class LSPClient {
     const headerMatch = this.buffer.match(/Content-Length: (\d+)\r\n\r\n/);
     if (!headerMatch || headerMatch.index === undefined) return;
 
-    const contentLength = parseInt(headerMatch[1], 10);
+    const contentLength = parseInt(headerMatch[1]!, 10);
     const headerEnd = headerMatch.index + headerMatch[0].length;
     const contentStart = headerEnd;
     const contentEnd = contentStart + contentLength;
@@ -575,7 +573,7 @@ class LSPClient {
     // "(property) User.name: string" -> "string"
     // "function foo(): void" -> "void"
     const match = content.match(/:\s*([^\n(]+?)(?:\s*$|\s*\n|$)/);
-    if (match) return match[1].trim();
+    if (match && match[1]) return match[1].trim();
     return content.split('\n')[0]?.trim() ?? 'unknown';
   }
 
@@ -656,7 +654,7 @@ export class LSPManager {
     const serverType = LANGUAGE_TO_SERVER_TYPE[language];
     const cacheKey = this.computeCacheKey(filePath, line, character);
     const cached = this.contentTypeCache.get(cacheKey);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined && cached !== null) return cached;
 
     try {
       const client = await this.ensureClient(serverType);

@@ -51,6 +51,12 @@ export interface LLMReviewResult {
   error?: string;
   /** Execution time in milliseconds. */
   durationMs: number;
+  /** Optional token usage tracking. */
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 // ---------------------------------------------------------------------------

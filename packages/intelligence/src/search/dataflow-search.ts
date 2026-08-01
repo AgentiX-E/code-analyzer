@@ -304,16 +304,21 @@ export class DataflowSearchEngine {
     const nodes: DataflowNode[] = [];
     const allNodes = this.store.getAllNodes();
 
+    // Determine whether these are sources or sinks based on the category value
+    const sinkCategories = new Set(this.sinks.map(s => s.category));
+
     for (const node of allNodes) {
       const searchText = `${node.name} ${node.qualifiedName} ${node.signature ?? ''}`;
       for (const pattern of patterns) {
         if (pattern.namePattern.test(searchText)) {
+          const isSink = sinkCategories.has((pattern as TaintSink).category as any);
           nodes.push({
             nodeId: node.id,
             name: node.name,
             filePath: node.filePath ?? '',
             line: node.startLine ?? 0,
-            kind: 'category' in pattern ? this.mapSourceCategory(pattern.category) : this.mapSinkCategory(pattern.category),
+            kind: isSink ? (this.mapSinkCategory as (c: TaintSink['category']) => DataflowNode['kind'])((pattern as TaintSink).category)
+                         : (this.mapSourceCategory as (c: TaintSource['category']) => DataflowNode['kind'])((pattern as TaintSource).category),
           });
           break;
         }
@@ -439,11 +444,11 @@ export class DataflowSearchEngine {
     return Math.min(100, score);
   }
 
-  private mapSourceCategory(cat: TaintSource['category']): DataflowNode['kind'] {
+  private mapSourceCategory(_cat: TaintSource['category']): DataflowNode['kind'] {
     return 'source';
   }
 
-  private mapSinkCategory(cat: TaintSink['category']): DataflowNode['kind'] {
+  private mapSinkCategory(_cat: TaintSink['category']): DataflowNode['kind'] {
     return 'sink';
   }
 }

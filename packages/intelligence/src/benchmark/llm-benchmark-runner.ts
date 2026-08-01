@@ -6,12 +6,12 @@
 // IMPORTANT: DEEPSEEK_API_KEY must be set in .env (NOT committed to git).
 // The provider reads from process.env['DEEPSEEK_API_KEY'].
 
-import { DeepSeekProvider, type LLMProvider } from '../../review/llm/provider.js';
-import { LLMReviewEngine } from '../../review/llm/llm-review-engine.js';
-import { CodeReviewEngine, type GitOperations } from '../../review/review-engine.js';
-import { BenchmarkRunner } from '../code-review-benchmark.js';
-import { ALL_BENCHMARK_FIXTURES } from '../benchmark-fixtures.js';
-import type { BenchmarkResult } from '../code-review-benchmark.js';
+import { DeepSeekProvider, type LLMProvider } from '../review/llm/provider.js';
+import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
+import { CodeReviewEngine, type GitOperations } from '../review/review-engine.js';
+import { BenchmarkRunner } from './code-review-benchmark.js';
+import { ALL_BENCHMARK_FIXTURES } from './benchmark-fixtures.js';
+import type { BenchmarkResult } from './code-review-benchmark.js';
 import type { ReviewComment, GitDiff } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
@@ -50,7 +50,7 @@ export interface LLMBenchmarkResult {
 export async function runLLMBenchmark(
   provider: LLMProvider,
   store: InMemoryGraphStore,
-  gitOps: GitOperations,
+  _gitOps: GitOperations,
 ): Promise<LLMBenchmarkResult> {
   const runner = new BenchmarkRunner();
   const startTime = Date.now();
@@ -84,7 +84,7 @@ export async function runLLMBenchmark(
 
   // Phase 2: LLM-enhanced analysis with provider
   const llmEngine = new LLMReviewEngine(provider, {
-    lanes: ['security', 'correctness', 'performance', 'maintainability', 'style'],
+    lanes: ['security' as const, 'performance' as const, 'maintainability' as const, 'testing' as const, 'architecture' as const],
     parallel: false,
     maxTokensPerLane: 2048,
     temperature: 0.2,
@@ -100,23 +100,24 @@ export async function runLLMBenchmark(
 
   for (const fixture of ALL_BENCHMARK_FIXTURES) {
     try {
-      const gitDiff: GitDiff = {
+      const gitDiff = {
         filePath: fixture.filePath,
-        changeType: 'modified',
+        changeType: 'modified' as const,
         ranges: [
           {
             oldStart: 1,
             oldEnd: fixture.content.split('\n').length,
             newStart: 1,
             newEnd: fixture.content.split('\n').length,
-            changeType: 'modified',
+            changeType: 'modified' as const,
           },
         ],
         content: fixture.content,
-      };
+      } as GitDiff & { content: string };
 
-      const llmResult = await llmEngine.reviewDiff(gitDiff, fixture.content);
-      const llmComments = toReviewComments(llmResult.findings, fixture.filePath);
+      const llmResults = await llmEngine.reviewDiff(gitDiff, fixture.content);
+      const allFindings = llmResults.flatMap((r) => r.findings);
+      const llmComments = toReviewComments(allFindings, fixture.filePath);
 
       // Merge with heuristic detections
       const merged = deduplicateComments(
@@ -126,11 +127,20 @@ export async function runLLMBenchmark(
       llmDetections.set(fixture.filePath, merged);
       fixturesWithLLM++;
 
-      if (llmResult.tokenUsage) {
-        totalPromptTokens += llmResult.tokenUsage.promptTokens;
-        totalCompletionTokens += llmResult.tokenUsage.completionTokens;
-        totalTokens += llmResult.tokenUsage.totalTokens;
-      }
+      const totalUsage = llmResults.reduce(
+        (acc, r) => {
+          if (r.tokenUsage) {
+            acc.promptTokens += r.tokenUsage.promptTokens;
+            acc.completionTokens += r.tokenUsage.completionTokens;
+            acc.totalTokens += r.tokenUsage.totalTokens;
+          }
+          return acc;
+        },
+        { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      );
+      totalPromptTokens += totalUsage.promptTokens;
+      totalCompletionTokens += totalUsage.completionTokens;
+      totalTokens += totalUsage.totalTokens;
     } catch (err) {
       // LLM review failed for this fixture — use heuristic-only results
       llmDetections.set(
@@ -265,8 +275,8 @@ function deltaStr(a: number, b: number): string {
 
 function toReviewComments(
   findings: Array<{
-    id: string;
-    lane: string;
+    id?: string;
+    lane?: string;
     title: string;
     description: string;
     startLine: number;
@@ -277,8 +287,8 @@ function toReviewComments(
   }>,
   filePath: string,
 ): ReviewComment[] {
-  return findings.map((f) => ({
-    id: `llm-${f.id}`,
+  return findings.map((f, i) => ({
+    id: `llm-${f.id ?? i}`,
     path: filePath,
     content: f.title,
     thinking: f.description,

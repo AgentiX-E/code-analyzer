@@ -118,7 +118,7 @@ export class ReviewSessionManager {
   }
 
   /** List all sessions for a repository. */
-  listSessions(repoPath: string): ReviewCheckpoint[] {
+  listSessions(_repoPath: string): ReviewCheckpoint[] {
     if (!fs.existsSync(this.sessionsDir)) return [];
 
     const sessions: ReviewCheckpoint[] = [];

@@ -29,6 +29,13 @@ export interface PaginatedToolResult<T> {
 
 export type ToolHandler = (args: Record<string, unknown>, store?: unknown) => Promise<ToolResult>;
 
+export interface McpToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  handler: ToolHandler;
+}
+
 export interface RegisteredTool extends ToolDefinition {
   handler: ToolHandler;
   profile: ToolProfile;

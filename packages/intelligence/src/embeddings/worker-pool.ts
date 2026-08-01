@@ -238,7 +238,7 @@ export class EmbeddingWorkerPool {
     }
   }
 
-  private isTaskAssigned(taskId: string): boolean {
+  private isTaskAssigned(_taskId: string): boolean {
     // Check if any busy worker is already processing this task
     return false; // Tasks are processed once — no dedup in queue
   }
@@ -281,7 +281,7 @@ let defaultPool: EmbeddingWorkerPool | null = null;
 
 /** Get or create the singleton embedding worker pool. */
 export function getEmbeddingWorkerPool(
-  fallbackFn?: (content: string) => Promise<Float32Array>,
+  _fallbackFn?: (content: string) => Promise<Float32Array>,
 ): EmbeddingWorkerPool {
   if (!defaultPool) {
     defaultPool = new EmbeddingWorkerPool();

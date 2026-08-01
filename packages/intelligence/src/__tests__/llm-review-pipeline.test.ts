@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — LLM Review Pipeline Integration Tests
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LLMReviewPipeline } from '../review/llm-review-pipeline.js';
-import type { LLMFinding } from '../llm/prompts.js';
+import type { LLMFinding } from '../review/llm/prompts.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ describe('LLMReviewPipeline — Reflection Quality', () => {
   it('produces valid reflection report', () => {
     const content = 'function real(): string { return "real"; }\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'correctness',
+      startLine: 1, endLine: 1, category: 'bug' as const,
       snippet: 'function real(): string { return "real"; }',
     });
 
@@ -278,7 +278,7 @@ describe('LLMReviewPipeline — Edge Cases', () => {
   it('handles findings with out-of-bounds line numbers', () => {
     const content = 'short file\n';
     const finding = makeLLMFinding({
-      startLine: 999, endLine: 1000, category: 'correctness',
+      startLine: 999, endLine: 1000, category: 'bug' as const,
       snippet: 'short file',
     });
     const result = pipeline.processFindings([finding], content, 'file.ts');

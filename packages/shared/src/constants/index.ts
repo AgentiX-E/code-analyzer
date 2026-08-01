@@ -142,6 +142,16 @@ export const LANGUAGE_EXTENSIONS: Record<SupportedLanguage, string[]> = {
   elixir: ['.ex', '.exs'],
   hcl: ['.hcl', '.tf', '.tfvars'],
   dockerfile: [],
+  yaml: ['.yaml', '.yml'],
+  json: ['.json', '.jsonc'],
+  toml: ['.toml'],
+  sql: ['.sql', '.psql'],
+  bash: ['.sh', '.bash', '.zsh'],
+  markdown: ['.md', '.mdx', '.markdown'],
+  html: ['.html', '.htm'],
+  css: ['.css', '.scss', '.less'],
+  r: ['.r', '.R'],
+  groovy: ['.groovy', '.gvy', '.gy', '.gsh'],
 };
 
 // ---------------------------------------------------------------------------

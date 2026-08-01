@@ -366,7 +366,7 @@ export interface ResolvedImport {
 // ---------------------------------------------------------------------------
 
 /** Import resolution strategies per language */
-export type ImportSemantics = 'named' | 'wildcard-leaf' | 'wildcard-transitive' | 'namespace';
+export type ImportSemantics = 'named' | 'wildcard-leaf' | 'wildcard-transitive' | 'namespace' | 'none';
 
 /** Method resolution order strategy */
 export type MroStrategy = 'c3-linearization' | 'ruby-mixin' | 'first-wins';
@@ -421,6 +421,7 @@ export const REVIEW_CATEGORIES = [
   'style',
   'documentation',
   'architecture',
+  'api',
   'other',
 ] as const;
 

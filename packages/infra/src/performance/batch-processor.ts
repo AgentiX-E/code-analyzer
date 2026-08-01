@@ -149,7 +149,81 @@ export class BatchProcessor<T> {
     items: I[],
     handler: (item: I, index: number) => Promise<O>,
   ): Promise<BatchResult<O>> {
-    return this.process(items as unknown as O[], handler as unknown as (item: O, index: number) => Promise<O>);
+    if (items.length === 0) {
+      return {
+        results: [],
+        errors: new Map(),
+        totalProcessed: 0,
+        failedCount: 0,
+        success: true,
+      };
+    }
+
+    const allResults: O[] = [];
+    const batchErrors = new Map<number, Error[]>();
+    let processedItems = 0;
+
+    const batches = this.createBatchesGeneric(items);
+    const totalBatches = batches.length;
+
+    for (let i = 0; i < batches.length; i += this.concurrency) {
+      if (this.aborted) break;
+
+      const concurrentBatches = batches.slice(i, i + this.concurrency);
+      const batchPromises = concurrentBatches.map((batch, batchIndex) =>
+        this.processMapBatch(batch, handler, i + batchIndex),
+      );
+
+      const results = await Promise.allSettled(batchPromises);
+
+      for (let j = 0; j < results.length; j++) {
+        const batchIndex = i + j;
+        const result = results[j]!;
+        const batch = batches[batchIndex]!;
+
+        if (result.status === 'fulfilled') {
+          allResults.push(...result.value);
+          processedItems += batch.length;
+        } else {
+          const errors = result.reason instanceof Error
+            ? [result.reason]
+            : [new Error(String(result.reason))];
+          batchErrors.set(batchIndex, errors);
+          if (!this.continueOnError) break;
+        }
+
+        if (this.onProgress) {
+          this.onProgress({
+            totalItems: items.length,
+            processedItems,
+            completedBatches: batchIndex + 1,
+            totalBatches,
+            percentComplete: Math.round((processedItems / items.length) * 100),
+          });
+        }
+      }
+    }
+
+    return {
+      results: allResults,
+      errors: batchErrors,
+      totalProcessed: allResults.length,
+      failedCount: Array.from(batchErrors.values()).reduce((sum, errs) => sum + errs.length, 0),
+      success: batchErrors.size === 0,
+    };
+  }
+
+  private async processMapBatch<I, O>(
+    batch: I[],
+    handler: (item: I, index: number) => Promise<O>,
+    batchIndex: number,
+  ): Promise<O[]> {
+    const results: O[] = [];
+    for (let i = 0; i < batch.length; i++) {
+      const globalIndex = batchIndex * this.batchSize + i;
+      results.push(await handler(batch[i]!, globalIndex));
+    }
+    return results;
   }
 
   /**
@@ -176,6 +250,14 @@ export class BatchProcessor<T> {
 
   private createBatches(items: T[]): T[][] {
     const batches: T[][] = [];
+    for (let i = 0; i < items.length; i += this.batchSize) {
+      batches.push(items.slice(i, i + this.batchSize));
+    }
+    return batches;
+  }
+
+  private createBatchesGeneric<U>(items: U[]): U[][] {
+    const batches: U[][] = [];
     for (let i = 0; i < items.length; i += this.batchSize) {
       batches.push(items.slice(i, i + this.batchSize));
     }

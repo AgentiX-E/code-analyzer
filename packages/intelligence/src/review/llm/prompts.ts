@@ -23,6 +23,12 @@ export interface LLMFinding {
   description: string;
   /** Suggested fix or remediation code. May be null if no specific fix is available. */
   suggestion: string | null;
+  /** Optional unique identifier for the finding. */
+  id?: string;
+  /** Optional review lane that produced this finding. */
+  lane?: string;
+  /** Optional code snippet showing the problematic code. */
+  snippet?: string;
 }
 
 /** Parameters passed to each review prompt template. */
@@ -393,11 +399,11 @@ export function parseLLMResponse(raw: string): LLMFinding[] {
         if (!f || typeof f !== 'object') return false;
         const finding = f as Record<string, unknown>;
         return (
-          typeof finding.startLine === 'number' &&
-          typeof finding.endLine === 'number' &&
-          typeof finding.severity === 'string' &&
-          typeof finding.category === 'string' &&
-          typeof finding.title === 'string'
+          typeof finding['startLine'] === 'number' &&
+          typeof finding['endLine'] === 'number' &&
+          typeof finding['severity'] === 'string' &&
+          typeof finding['category'] === 'string' &&
+          typeof finding['title'] === 'string'
         );
       })
       .map((f: LLMFinding) => ({

@@ -99,7 +99,7 @@ export class AsyncMemoizer<T extends (...args: unknown[]) => Promise<unknown>> {
       }
     })();
 
-    this.inFlight.set(key, promise);
+    this.inFlight.set(key, promise as Promise<Awaited<ReturnType<T>>>);
 
     try {
       const result = await promise;

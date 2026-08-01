@@ -347,7 +347,7 @@ function groupCaptures(
       kind: s.kind,
       startLine: s.startLine,
       endLine: s.endLine,
-      children: [],
+      children: [] as ScopeTree[],
       symbols: [s.qualifiedName],
     })),
     symbols: symbols.map((s) => s.qualifiedName),
@@ -2765,6 +2765,7 @@ export class EmbedPhase implements ExecutablePhase {
 export class TypeResolutionPhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'typeResolution';
   readonly dependencies: PipelinePhaseId[] = ['parse', 'scopeResolution'];
+  readonly parallelizable = true;
   readonly description =
     'Extract type information from parsed ASTs and build cross-file type registry';
 

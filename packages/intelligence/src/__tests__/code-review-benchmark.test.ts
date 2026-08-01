@@ -1,7 +1,7 @@
 // @code-analyzer/intelligence — Code Review Benchmark Tests
 import { describe, it, expect } from 'vitest';
-import { BenchmarkRunner } from '../code-review-benchmark.js';
-import { ALL_BENCHMARK_FIXTURES, FIXTURE_STATS } from '../benchmark-fixtures.js';
+import { BenchmarkRunner } from '../benchmark/code-review-benchmark.js';
+import { ALL_BENCHMARK_FIXTURES, FIXTURE_STATS } from '../benchmark/benchmark-fixtures.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

@@ -549,6 +549,7 @@ export class PRReviewEngine {
       style: 0,
       documentation: 0,
       architecture: 0,
+      api: 0,
       other: 0,
     };
 
@@ -626,6 +627,8 @@ export class PRReviewEngine {
         planLineThreshold: 200,
         timeout: 30000,
         concurrency: 4,
+        contextLines: 3,
+        allowMetadataFallback: true,
       },
     };
   }

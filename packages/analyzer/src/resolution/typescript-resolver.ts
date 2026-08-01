@@ -245,7 +245,7 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractTypeAlias(node: SyntaxNode, source: string): TypeInfo | null {
+  private extractTypeAlias(node: SyntaxNode, _source: string): TypeInfo | null {
     const name = this.findChildText(node, 'type_identifier') || this.findChildText(node, 'identifier');
     if (!name) return null;
 
@@ -276,7 +276,7 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractEnumDeclaration(node: SyntaxNode, source: string): TypeInfo | null {
+  private extractEnumDeclaration(node: SyntaxNode, _source: string): TypeInfo | null {
     const name = this.findChildText(node, 'type_identifier') || this.findChildText(node, 'identifier');
     if (!name) return null;
 
@@ -480,7 +480,7 @@ export class TypeScriptTypeResolver {
         const isStatic = this.hasModifier(child, 'static');
         const isAsync = this.hasModifier(child, 'async');
         const visibility = this.getVisibility(child);
-        const isOptional = child.type === 'optional_parameter' || child.text.includes('?:');
+        const isOptional = (child.type as string) === 'optional_parameter' || child.text.includes('?:');
 
         // Parameter types
         const paramTypes: string[] = [];
@@ -560,7 +560,7 @@ export class TypeScriptTypeResolver {
           this.findChildText(child, 'identifier');
         if (!name) continue;
 
-        const isOptional = child.type === 'optional_parameter' ||
+        const isOptional = (child.type as string) === 'optional_parameter' ||
           child.text.includes('?:') || child.text.includes('?():');
 
         // Parameter types
@@ -640,7 +640,7 @@ export class TypeScriptTypeResolver {
     const params: string[] = [];
     for (let i = 0; i < tparams.childCount; i++) {
       const child = tparams.child(i);
-      if (child.type === 'type_parameter' || child.type === 'required_type_parameter') {
+      if (child && (child.type === 'type_parameter' || child.type === 'required_type_parameter')) {
         const name = this.findChildText(child, 'type_identifier') || this.findChildText(child, 'identifier');
         if (name) params.push(name);
       }
@@ -654,7 +654,7 @@ export class TypeScriptTypeResolver {
     if (parent) {
       for (let i = 0; i < parent.childCount; i++) {
         const child = parent.child(i);
-        if (child.type === 'decorator') {
+        if (child && child.type === 'decorator') {
           decorators.push(child.text);
         }
       }
@@ -689,14 +689,17 @@ export class TypeScriptTypeResolver {
     // Check for `export` keyword before the node
     for (let i = 0; i < parent.childCount; i++) {
       const child = parent.child(i);
+      if (!child) continue;
       if (child === node) {
         // Check preceding sibling
-        if (i > 0 && parent.child(i - 1).type === 'export') return true;
+        const prev = parent.child(i - 1);
+        if (i > 0 && prev && prev.type === 'export') return true;
       }
       if (child.type === 'export') {
         // Check if this export wraps our node
         for (let j = 0; j < child.childCount; j++) {
-          if (child.child(j) === node) return true;
+          const exportChild = child.child(j);
+          if (exportChild && exportChild === node) return true;
         }
       }
     }
@@ -705,10 +708,15 @@ export class TypeScriptTypeResolver {
 
   private hasModifier(node: SyntaxNode, modifier: string): boolean {
     for (let i = 0; i < node.childCount; i++) {
-      if (node.child(i).type === modifier) return true;
+      const c = node.child(i);
+      if (c && c.type === modifier) return true;
     }
-    for (let i = 0; i < node.parent?.childCount ?? 0; i++) {
-      if (node.parent?.child(i).type === modifier) return true;
+    const parent = node.parent;
+    if (parent) {
+      for (let i = 0; i < parent.childCount; i++) {
+        const pc = parent.child(i);
+        if (pc && pc.type === modifier) return true;
+      }
     }
     return false;
   }
@@ -719,6 +727,7 @@ export class TypeScriptTypeResolver {
 
     for (let i = 0; i < parent.childCount; i++) {
       const child = parent.child(i);
+      if (!child) continue;
       if (child.type === 'public' || child.type === 'public_keyword') return 'public';
       if (child.type === 'protected' || child.type === 'protected_keyword') return 'protected';
       if (child.type === 'private' || child.type === 'private_keyword') return 'private';

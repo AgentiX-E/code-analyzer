@@ -99,7 +99,7 @@ export class CommentReflectionModule {
   reflect(
     comments: ReviewComment[],
     fileContent: string,
-    filePath: string,
+    _filePath: string,
   ): ReflectionReport {
     const fileLines = fileContent.split('\n');
     const totalLines = fileLines.length;
@@ -390,7 +390,7 @@ export class CommentReflectionModule {
    */
   private calculateQualityScore(
     passed: number,
-    failed: number,
+    _failed: number,
     total: number,
   ): number {
     if (total === 0) return 1;

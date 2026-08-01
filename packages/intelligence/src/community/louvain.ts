@@ -224,7 +224,7 @@ export class LouvainDetector {
   /** Build final CommunityResult */
   private buildResult(
     nodeToCommunity: Map<number, number>,
-    adjacency: Map<number, Map<number, number>>,
+    _adjacency: Map<number, Map<number, number>>,
     graph: KnowledgeGraph,
     modularity: number,
   ): CommunityResult {

@@ -8,6 +8,8 @@ import type {
   RelationshipType,
 } from '@code-analyzer/shared';
 
+export type { GraphNode, GraphEdge };
+
 // ---------------------------------------------------------------------------
 // Query Types
 // ---------------------------------------------------------------------------

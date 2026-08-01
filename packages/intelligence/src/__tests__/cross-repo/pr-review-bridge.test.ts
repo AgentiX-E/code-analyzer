@@ -50,7 +50,7 @@ function createPR(overrides: Partial<PullRequest> = {}): PullRequest {
         description: 'Service A',
       },
     },
-    user: { login: 'dev1', id: 1 },
+    user: { login: 'dev1' },
     labels: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -63,6 +63,8 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     filePath: 'src/api.ts',
     changeType: 'modified',
     oldPath: 'src/api.ts',
+    oldHash: 'abc123',
+    newHash: 'def456',
     ranges: [],
     ...overrides,
   };
@@ -86,8 +88,8 @@ function createSetup() {
       filePath: `src/file${i}.ts`,
       startLine: 1,
       endLine: 5,
-      properties: { repoId: 'myorg/service-a' },
-    });
+      properties: { name: `fn-${i}`, repoId: 'myorg/service-a' },
+    } as any);
   }
 
   const indexer = new CrossRepoIndexer(store, groupManager);
@@ -291,7 +293,7 @@ describe('PRReviewBridge', () => {
           transitiveImpact: [],
           totalAffected: 1,
           criticalPaths: [['myorg/service-a', 'myorg/service-b']],
-          severityRankings: new Map([['myorg/service-b', 'high']]),
+          severityRankings: new Map([['myorg/service-b', 'high' as const]]),
         },
         dependencyChains: [],
         affectedRepos: ['myorg/service-b'],

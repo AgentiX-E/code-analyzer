@@ -16,7 +16,6 @@ import type {
   ReviewComment,
   ReviewSession,
   GitDiff,
-  DiffHunk,
 } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { analyzeFileHeuristics, toReviewComment, type GraphAnalysisData } from './heuristics.js';
@@ -29,6 +28,18 @@ import type { LLMReviewOptions } from './llm/llm-review-engine.js';
 // ---------------------------------------------------------------------------
 // Git Operations Interface
 // ---------------------------------------------------------------------------
+
+/** A parsed diff hunk from git output. */
+export interface DiffHunk {
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  header: string;
+  lines: string[];
+  oldLines: string[];
+  newLines: string[];
+}
 
 /**
  * Abstraction for reading file contents from git history.
@@ -239,7 +250,7 @@ export class CodeReviewEngine {
       try {
         const comments = await this.reviewFileItem(ctx, diff);
         totalComments += comments.length;
-        const content = await this.getDiffContent(diff, effectiveGitOps, options?.baseSha, options?.targetSha);
+        const content = await this.getDiffContent(diff, effectiveGitOps ?? undefined, options?.baseSha, options?.targetSha);
         const fingerprint = computeFileFingerprint('diff', diff.filePath, content);
         const duration = Date.now() - fileStartTime;
 
@@ -281,7 +292,7 @@ export class CodeReviewEngine {
    * Used for ad-hoc file review without git diff context.
    */
   async reviewFile(
-    projectId: string,
+    _projectId: string,
     filePath: string,
     content: string,
   ): Promise<ReviewComment[]> {
@@ -354,10 +365,10 @@ export class CodeReviewEngine {
     if (this.llmEngine && ctx.gitOps) {
       try {
         const diffContent = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
-        const actualDiff: GitDiff = {
+        const actualDiff = {
           ...diff,
           content: diffContent,
-        };
+        } as GitDiff;
         llmComments = await this.llmEngine.reviewDiffAsComments(actualDiff, ctx.fileContext);
       } catch {
         // LLM review failed — continue with heuristic results only
@@ -540,15 +551,15 @@ export class CodeReviewEngine {
     }
 
     // If we have parsed hunks, use the precise hunk-based mapping
-    if (diff.hunks && diff.hunks.length > 0) {
+    if ((diff as any).hunks && (diff as any).hunks.length > 0) {
       return comments.map((comment) => {
         const newStartLine = this.mapLineThroughHunks(
           comment.startLine,
-          diff.hunks!,
+          (diff as any).hunks!,
         );
         const newEndLine = this.mapLineThroughHunks(
           comment.endLine,
-          diff.hunks!,
+          (diff as any).hunks!,
         );
         const clampedStart = Math.max(1, newStartLine);
         const clampedEnd = Math.max(clampedStart, newEndLine);
@@ -583,30 +594,33 @@ export class CodeReviewEngine {
     const sorted = [...hunks].sort((a, b) => a.oldStart - b.oldStart);
 
     for (const hunk of sorted) {
-      const oldEnd = hunk.oldStart + hunk.oldLines;
+      const oldEnd = hunk.oldStart + hunk.oldCount;
       if (oldLine >= hunk.oldStart && oldLine <= oldEnd) {
         let newLine = hunk.newStart;
         let oldLineCounter = hunk.oldStart;
 
-        for (const line of hunk.lines) {
-          if (oldLineCounter >= oldLine || line.type === 'context') {
+        for (const rawLine of hunk.lines) {
+          const lineType = rawLine.startsWith('+') ? 'addition' as const
+            : rawLine.startsWith('-') ? 'removal' as const
+            : 'context' as const;
+          if (oldLineCounter >= oldLine || lineType === 'context') {
             // For context lines after the target, we've gone past it
-            if (oldLineCounter > oldLine && line.type !== 'addition') {
+            if (oldLineCounter > oldLine && lineType !== 'addition') {
               break;
             }
           }
 
-          if (line.type === 'context') {
+          if (lineType === 'context') {
             if (oldLineCounter === oldLine) return newLine;
             oldLineCounter++;
             newLine++;
-          } else if (line.type === 'removal') {
+          } else if (lineType === 'removal') {
             if (oldLineCounter === oldLine) {
               // The line was removed — return the nearest new line
               return newLine;
             }
             oldLineCounter++;
-          } else if (line.type === 'addition') {
+          } else if (lineType === 'addition') {
             newLine++;
           }
         }
@@ -630,9 +644,9 @@ export class CodeReviewEngine {
   private applyCumulativeOffset(oldLine: number, hunks: DiffHunk[]): number {
     let offset = 0;
     for (const hunk of hunks) {
-      const oldEnd = hunk.oldStart + hunk.oldLines;
+      const oldEnd = hunk.oldStart + hunk.oldCount;
       if (oldLine > oldEnd) {
-        offset += (hunk.newLines - hunk.oldLines);
+        offset += (hunk.newCount - hunk.oldCount);
       }
     }
     return oldLine + offset;
@@ -912,7 +926,11 @@ export class CodeReviewEngine {
     }
 
     // Detect circular dependencies using DFS with cycle tracking
-    const cyclicPaths = this.detectCycles(allNodes, allEdges, filePath);
+    const cyclicPaths = this.detectCycles(
+      allNodes.map(n => ({ id: n.id, filePath: n.filePath ?? undefined })),
+      allEdges,
+      filePath,
+    );
 
     const edgeCounts = new Map<string, number>();
 

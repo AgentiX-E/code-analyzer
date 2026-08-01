@@ -197,12 +197,12 @@ export class PRReviewBridge {
             const targetNodes = this.indexer.getRepoNodes(repo.fullName);
             const sourceImports = new Set(
               sourceNodes
-                .filter((n) => n.label === 'Import')
+                .filter((n) => (n.label as string) === 'Import')
                 .map((n) => n.name),
             );
             const targetImports = new Set(
               targetNodes
-                .filter((n) => n.label === 'Import')
+                .filter((n) => (n.label as string) === 'Import')
                 .map((n) => n.name),
             );
             for (const imp of sourceImports) {
@@ -404,7 +404,7 @@ export class PRReviewBridge {
 
   private buildSummary(
     sourceRepo: string,
-    affectedCount: number,
+    _affectedCount: number,
     contractValidation: ContractValidationResult,
     blastRadius: BlastRadiusResult,
   ): string {
