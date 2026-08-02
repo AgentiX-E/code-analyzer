@@ -328,8 +328,10 @@ export class ContentCache {
 
   private evictIfNeeded(): void {
     while (this.cache.size > this.maxEntries && this.lruQueue.length > 0) {
-      const oldest = this.lruQueue.shift();
-      if (oldest !== undefined && this.cache.has(oldest)) {
+      // lruQueue.length > 0 is guaranteed by the while condition,
+      // so shift() always returns a defined value.
+      const oldest = this.lruQueue.shift()!;
+      if (this.cache.has(oldest)) {
         this.cache.delete(oldest);
         this.evictionCount++;
       }

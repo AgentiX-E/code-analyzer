@@ -83,7 +83,7 @@ export async function searchGraph(
 
     // Filter by type if specified
     const filtered = options.type
-      ? results.filter((r) => r.type.toLowerCase() === (options.type ?? '').toLowerCase())
+      ? results.filter((r) => r.type.toLowerCase() === (options.type!).toLowerCase())
       : results;
 
     // Sort by score descending

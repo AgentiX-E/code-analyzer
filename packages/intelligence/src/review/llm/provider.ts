@@ -137,6 +137,7 @@ export class LLMRateLimitError extends LLMError {
 interface DeepSeekChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  type?: string;
 }
 
 interface DeepSeekTool {
@@ -282,7 +283,7 @@ export class DeepSeekProvider implements LLMProvider {
 
         const body: Record<string, unknown> = {
           model: this.model,
-          messages,
+          messages: messages.map((m) => ({ ...m, type: m.type ?? 'text' })),
           max_tokens: options?.maxTokens ?? 4096,
           temperature: options?.temperature ?? 0.3,
           top_p: options?.topP ?? 1.0,

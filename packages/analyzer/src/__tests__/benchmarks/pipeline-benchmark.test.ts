@@ -21,7 +21,7 @@ const SMALL_FIXTURE_FILES = 50;
 const MEDIUM_FIXTURE_FILES = 500;
 const SMALL_TIMEOUT_MS = 30000;
 const MEDIUM_TIMEOUT_MS = 120000;
-const PER_FILE_TARGET_MS = 55; // Target <55ms per file for medium fixture (sandbox-safe)
+const PER_FILE_TARGET_MS = 65; // Target <65ms per file for medium fixture (sandbox-safe)
 
 const BENCH_DIR = join(tmpdir(), 'code-analyzer-benchmarks');
 

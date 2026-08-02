@@ -20,43 +20,43 @@ import type { RepoGroup, GroupRepo, GitDiff } from '@code-analyzer/shared';
 
 function createMockClient() {
   return {
-    getPRDiff: vi.fn(),
-    createCheckRun: vi.fn(),
-    updateCheckRun: vi.fn(),
+    getPRDiff: vi.fn().mockResolvedValue(''),
+    createCheckRun: vi.fn().mockResolvedValue({ id: 0 }),
+    updateCheckRun: vi.fn().mockResolvedValue({ id: 0 }),
   } as unknown as GitHubApiClient;
 }
 
 function createMockSync() {
   return {
-    ensureSynced: vi.fn(),
+    ensureSynced: vi.fn().mockResolvedValue({ results: [], errors: [] }),
   } as unknown as GitHubRepoSync;
 }
 
 function createMockCheckRunManager() {
   return {
-    create: vi.fn(),
-    complete: vi.fn(),
-    fail: vi.fn(),
+    create: vi.fn().mockResolvedValue({ id: 0 }),
+    complete: vi.fn().mockResolvedValue({ checkRun: { id: 0 }, annotationsCount: 0 }),
+    fail: vi.fn().mockResolvedValue({ id: 0 }),
   } as unknown as GitHubCheckRunManager;
 }
 
 function createMockGroupManager() {
   return {
-    listGroups: vi.fn(),
-    getRepos: vi.fn(),
-    getGroup: vi.fn(),
+    listGroups: vi.fn().mockReturnValue([]),
+    getRepos: vi.fn().mockReturnValue([]),
+    getGroup: vi.fn().mockReturnValue(null),
   } as unknown as RepoGroupManager;
 }
 
 function createMockIndexer() {
   return {
-    indexGroup: vi.fn(),
+    indexGroup: vi.fn().mockResolvedValue(undefined),
   } as unknown as CrossRepoIndexer;
 }
 
 function createMockReviewEngine() {
   return {
-    reviewPRWithCrossRepoContext: vi.fn(),
+    reviewPRWithCrossRepoContext: vi.fn().mockResolvedValue(makeReviewResult()),
   } as unknown as CrossRepoPRReviewEngine;
 }
 

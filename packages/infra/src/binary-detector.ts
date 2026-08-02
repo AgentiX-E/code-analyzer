@@ -202,7 +202,8 @@ export class BinaryFileDetector {
   }
 
   private getExtension(filePath: string): string | null {
-    const base = filePath.split('/').pop() ?? filePath;
+    // String.split('/') always returns at least one element, so pop() is safe.
+    const base = filePath.split('/').pop()!;
     const dotIndex = base.lastIndexOf('.');
     if (dotIndex === -1) return null;
     return base.slice(dotIndex + 1).toLowerCase();
