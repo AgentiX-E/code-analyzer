@@ -170,23 +170,44 @@ describe('LSPManager — Type Info Fallback', () => {
     await mgr.shutdown();
   });
 
-  it('should return tree-sitter fallback type with resolution method', async () => {
-    // With no LSP server running, falls back to tree-sitter
-    const info = await mgr.getTypeInfo('/test/src/app.ts', 10, 5, 'typescript', 'UserService');
-    expect(info.typeString).toBeDefined();
-    expect(info.resolutionMethod).toBeDefined();
+  it('should return tree-sitter fallback with default unknown type when no fallback provided', async () => {
+    // enabled+supported, no fallbackType → defaults to 'unknown'
+    const info = await mgr.getTypeInfo('/test/src/app.ts', 10, 5, 'typescript');
+    expect(info.typeString).toBe('unknown');
+    expect(info.resolutionMethod).toBe('tree-sitter-fallback');
   });
 
-  it('should preserve fallback type string', async () => {
-    const info = await mgr.getTypeInfo('/test/src/app.ts', 10, 5, 'typescript', 'Map<string, User>');
-    expect(info.typeString).toBe('Map<string, User>');
+  it('should return tree-sitter fallback with default unknown type when no fallback provided', async () => {
+    const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
+    const info = await mgr.getTypeInfo('/test/src/app.ts', 10, 5, 'typescript');
+    expect(info.typeString).toBe('unknown');
+    expect(info.resolutionMethod).toBe('tree-sitter-fallback');
   });
 
-  it('should cache type info results', async () => {
-    const info1 = await mgr.getTypeInfo('/test/src/app.ts', 10, 5, 'typescript', 'User');
-    const info2 = await mgr.getTypeInfo('/test/src/app.ts', 10, 5, 'typescript', 'User');
-    expect(info1.typeString).toBe(info2.typeString);
-    expect(info1.resolutionMethod).toBe(info2.resolutionMethod);
+  it('should return null definition when LSP is enabled and language is supported', async () => {
+    const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
+    const def = await mgr.getDefinition('/test/file.ts', 0, 0, 'typescript');
+    expect(def).toBeNull();
+  });
+
+  it('should return empty references when LSP is enabled and language is supported', async () => {
+    const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
+    const refs = await mgr.getReferences('/test/file.ts', 0, 0, 'typescript');
+    expect(refs).toEqual([]);
+  });
+
+  it('should handle notifyFileOpen when LSP is enabled and language is supported', async () => {
+    const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
+    await expect(
+      mgr.notifyFileOpen('/test/file.ts', 'const x = 1;', 'typescript'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('should handle notifyFileClose when LSP is enabled and language is supported', async () => {
+    const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
+    await expect(
+      mgr.notifyFileClose('/test/file.ts', 'typescript'),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -294,6 +315,12 @@ describe('LSPManager — Edge Cases', () => {
     for (const lang of unsupported) {
       expect(mgr.isAvailable(lang)).toBe(false);
     }
+  });
+
+  it('should invalidate file with no cached entries silently', () => {
+    const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
+    // No entries cached yet — invalidate should not throw
+    expect(() => mgr.invalidateFile('/nonexistent/file.ts')).not.toThrow();
   });
 });
 

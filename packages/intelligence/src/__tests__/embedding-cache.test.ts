@@ -443,4 +443,43 @@ describe('EmbeddingCache', () => {
       expect(c.get('k')).toBeDefined();
     });
   });
+
+  // ==========================================================================
+  // Branch Coverage: moveToFront with node already at head
+  // ==========================================================================
+
+  describe('moveToFront — node already at head', () => {
+    it('returns early when get is called on head node', () => {
+      const c = new EmbeddingCache({ maxEntries: 3 });
+      c.set('a', vec1, 'h1'); // a is head
+      expect(c.get('a')).toBeDefined();
+      expect(c.get('a')).toBeDefined();
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: has() with TTL set and entry still valid
+  // ==========================================================================
+
+  describe('has() — TTL with valid entry', () => {
+    it('returns true when TTL is set and entry is not expired', () => {
+      const c = new EmbeddingCache({ ttl: 60000 });
+      c.set('k', vec1, 'h');
+      expect(c.has('k')).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: get with expectedHash=undefined (no hash check)
+  // ==========================================================================
+
+  describe('get() — no hash validation', () => {
+    it('returns entry when expectedHash is not provided', () => {
+      const c = new EmbeddingCache();
+      c.set('k', vec1, 'hash');
+      const entry = c.get('k'); // no expectedHash arg
+      expect(entry).toBeDefined();
+      expect(entry!.contentHash).toBe('hash');
+    });
+  });
 });

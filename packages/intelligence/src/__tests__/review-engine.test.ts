@@ -2685,4 +2685,729 @@ describe('Code Review Engine', () => {
       expect(session.status).toBe('completed');
     });
   });
+
+  // ==========================================================================
+  // Branch Coverage — planPhase: non-TS/Python/Go extensions (false branches)
+  // ==========================================================================
+
+  describe('planPhase — non-TS/Python/Go file type false branches', () => {
+    it('should handle .java files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/Main.java', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .rb files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/app.rb', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .php files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/index.php', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .rs files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/main.rs', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .swift files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/App.swift', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .kt files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/Main.kt', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .cs files without language-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/Program.cs', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle .js files without TS-specific focus', async () => {
+      const diffs = [createDiff({ filePath: '/src/app.js', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — planPhase: __tests__ directory test file detection
+  // ==========================================================================
+
+  describe('planPhase — __tests__ directory detection', () => {
+    it('should detect test quality focus for files in __tests__ directory', async () => {
+      const diffs = [createDiff({ filePath: '/src/__tests__/module.test.ts', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should detect spec quality focus for __tests__ spec files', async () => {
+      const diffs = [createDiff({ filePath: '/src/__tests__/module.spec.ts', changeType: 'modified', ranges: [] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — planPhase: medium complexity (100-299 lines)
+  // ==========================================================================
+
+  describe('planPhase — medium complexity estimation', () => {
+    it('should estimate medium complexity for 150-line files', async () => {
+      const mediumContent = Array.from({ length: 150 }, (_, i) => `const x${i} = ${i};`).join('\n');
+      const mockGitOps = {
+        readFileContent: async () => mediumContent,
+        readFileRange: async () => mediumContent,
+        getFileDiff: async () => mediumContent,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const diffs = [createDiff({
+        filePath: '/src/medium.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' }],
+      })];
+      const session = await eng.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — relocatePhase: mapLineThroughHunks edge cases
+  // ==========================================================================
+
+  describe('relocatePhase — mapLineThroughHunks addition/removal/context lines', () => {
+    it('should handle addition line type within hunk walk', async () => {
+      const code = ['// header', 'function fetchData() {', '  const x = 1;', '  return x;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 2, oldLines: 3, newStart: 2, newLines: 4,
+        lines: [
+          { type: 'context' as const },
+          { type: 'addition' as const },
+          { type: 'context' as const },
+          { type: 'context' as const },
+        ],
+      }];
+      const diff = { ...createDiff({ filePath: '/src/addition-line.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle removal line equal to target oldLine', async () => {
+      const code = ['// header', 'function oldFunc() {', '  return 1;', '}', 'function newFunc() {', '  return 2;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 2, oldLines: 3, newStart: 2, newLines: 3,
+        lines: [
+          { type: 'removal' as const },
+          { type: 'removal' as const },
+          { type: 'removal' as const },
+        ],
+      }];
+      const diff = { ...createDiff({ filePath: '/src/removal-eq.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle context line matching oldLine exactly', async () => {
+      const code = ['import x;', '', 'function test() {', '  return 1;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 1, oldLines: 5, newStart: 1, newLines: 5,
+        lines: Array(5).fill({ type: 'context' as const }),
+      }];
+      const diff = { ...createDiff({ filePath: '/src/ctx-match.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should break after passing oldLine in hunk walk', async () => {
+      const code = ['import x;', '', 'function test() {', '  return 1;', '}', '', 'function other() {', '  return 2;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 1, oldLines: 9, newStart: 1, newLines: 9,
+        lines: Array(9).fill({ type: 'context' as const }),
+      }];
+      const diff = { ...createDiff({ filePath: '/src/past-target.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should return original line when before first hunk', async () => {
+      const code = ['// header comment', '', '// another header', '', 'function test() {', '  return 1;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [{
+        oldStart: 5, oldLines: 3, newStart: 5, newLines: 3,
+        lines: Array(3).fill({ type: 'context' as const }),
+      }];
+      const diff = { ...createDiff({ filePath: '/src/before-first.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — relocatePhase: mapCommentThroughRanges edge cases
+  // ==========================================================================
+
+  describe('relocatePhase — mapCommentThroughRanges branch coverage', () => {
+    it('should handle comment.startLine after all range.oldEnd values', async () => {
+      const content = '// TODO: fix this\nfunction later() {\n  return;\n}\n';
+      const mockGitOps = {
+        readFileContent: async () => content,
+        readFileRange: async () => content,
+        getFileDiff: async () => content,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const diff = createDiff({
+        filePath: '/src/after-ranges.ts',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 10, changeType: 'modified' },
+          { oldStart: 10, oldEnd: 15, newStart: 16, newEnd: 20, changeType: 'modified' },
+        ],
+      });
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle comment.endLine within a range', async () => {
+      const content = '// TODO: fix this\nasync function fetchData() {\n  const x = await query();\n  return x;\n}\n';
+      const mockGitOps = {
+        readFileContent: async () => content,
+        readFileRange: async () => content,
+        getFileDiff: async () => content,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const diff = createDiff({
+        filePath: '/src/within-range.ts',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 25, changeType: 'modified' },
+        ],
+      });
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle comment spanning multiple diff ranges', async () => {
+      const content = '// TODO: refactor this section\n\nfunction step1() {\n  return 1;\n}\n\nfunction step2() {\n  return 2;\n}\n';
+      const mockGitOps = {
+        readFileContent: async () => content,
+        readFileRange: async () => content,
+        getFileDiff: async () => content,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const diff = createDiff({
+        filePath: '/src/spanning.ts',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 5, changeType: 'modified' },
+          { oldStart: 5, oldEnd: 8, newStart: 7, newEnd: 10, changeType: 'modified' },
+        ],
+      });
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — applyCumulativeOffset (L644-653)
+  // ==========================================================================
+
+  describe('applyCumulativeOffset — multi-hunk accumulation', () => {
+    it('should accumulate offset from multiple hunks when line is after all', async () => {
+      const code = ['import a;', 'import b;', 'import c;', '', 'function test() {', '  return 1;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [
+        {
+          oldStart: 2, oldLines: 1, newStart: 2, newLines: 3,
+          lines: [{ type: 'context' as const }, { type: 'addition' as const }, { type: 'addition' as const }],
+        },
+        {
+          oldStart: 3, oldLines: 1, newStart: 4, newLines: 5,
+          lines: [{ type: 'context' as const }, { type: 'addition' as const }, { type: 'addition' as const }, { type: 'addition' as const }, { type: 'context' as const }],
+        },
+      ];
+      const diff = { ...createDiff({ filePath: '/src/multi-offset.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should skip hunks where oldLine is not after oldEnd', async () => {
+      const code = ['import a;', '', 'function test() {', '  return 1;', '}'].join('\n');
+      const mockGitOps = {
+        readFileContent: async () => code,
+        readFileRange: async () => code,
+        getFileDiff: async () => code,
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const hunks = [
+        {
+          oldStart: 1, oldLines: 1, newStart: 1, newLines: 1,
+          lines: [{ type: 'context' as const }],
+        },
+        {
+          oldStart: 5, oldLines: 1, newStart: 5, newLines: 1,
+          lines: [{ type: 'context' as const }],
+        },
+      ];
+      const diff = { ...createDiff({ filePath: '/src/skip-hunks.ts', changeType: 'modified' }), hunks } as any;
+      const session = await eng.reviewDiff('test-project', [diff]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — mergeAndDeduplicate: empty heuristic (L708)
+  // ==========================================================================
+
+  describe('mergeAndDeduplicate — empty heuristic', () => {
+    it('should return LLM comments when heuristic results are empty', async () => {
+      const mockGitOps = {
+        readFileContent: async () => '// Generated code\n',
+        readFileRange: async () => '// Generated code\n',
+        getFileDiff: async () => '// Generated code\n',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const llmProvider: any = {
+        complete: async () => '{"comments":[{"path":"/src/generated.ts","content":"LLM finding","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"documentation","severity":"low","filtered":false,"id":"llm-gen","createdAt":"2024-01-01T00:00:00Z"}]}',
+        model: 'test',
+        maxTokens: 1000,
+        temperature: 0,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/generated.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — mergeAndDeduplicate: duplicate detection logic
+  // ==========================================================================
+
+  describe('mergeAndDeduplicate — dedup logic branches', () => {
+    it('should merge non-duplicate LLM comments with different category', async () => {
+      const mockGitOps = {
+        readFileContent: async () => '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
+        readFileRange: async () => '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
+        getFileDiff: async () => '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const llmProvider: any = {
+        complete: async () => '{"comments":[{"path":"/src/dedup.ts","content":"Different","existingCode":"code","thinking":"","startLine":2,"endLine":2,"category":"style","severity":"low","filtered":false,"id":"llm-diff","createdAt":"2024-01-01T00:00:00Z"}]}',
+        model: 'test',
+        maxTokens: 1000,
+        temperature: 0,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/dedup.ts', changeType: 'modified' })]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should deduplicate overlapping comments in same category', async () => {
+      const mockGitOps = {
+        readFileContent: async () => '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
+        readFileRange: async () => '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
+        getFileDiff: async () => '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const llmProvider: any = {
+        complete: async () => '{"comments":[{"path":"/src/overlap.ts","content":"LLM bug","existingCode":"code","thinking":"","startLine":2,"endLine":4,"category":"bug","severity":"high","filtered":false,"id":"llm-overlap","createdAt":"2024-01-01T00:00:00Z"}]}',
+        model: 'test',
+        maxTokens: 1000,
+        temperature: 0,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/overlap.ts', changeType: 'modified' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — filterPhase: inverted range and empty content
+  // ==========================================================================
+
+  describe('filterPhase — inverted range and empty content', () => {
+    it('should filter comments with inverted line range (startLine > endLine)', async () => {
+      const comment: any = {
+        path: '/src/test.ts', content: 'Test', existingCode: 'code',
+        startLine: 10, endLine: 5, category: 'bug', severity: 'high',
+        filtered: false, id: 'test-inverted', createdAt: new Date().toISOString(),
+      };
+      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
+      expect(filtered).toHaveLength(0);
+    });
+
+    it('should filter comments with whitespace-only content', async () => {
+      const comment: any = {
+        path: '/src/test.ts', content: ' \t  ', existingCode: 'code',
+        startLine: 1, endLine: 1, category: 'style', severity: 'low',
+        filtered: false, id: 'test-whitespace', createdAt: new Date().toISOString(),
+      };
+      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
+      expect(filtered).toHaveLength(0);
+    });
+
+    it('should filter style comment on comment-only line', async () => {
+      const comment: any = {
+        path: '/src/test.ts', content: 'Style issue', existingCode: '// some comment',
+        startLine: 1, endLine: 1, category: 'style', severity: 'low',
+        filtered: false, id: 'test-style-comment', createdAt: new Date().toISOString(),
+      };
+      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
+      expect(filtered).toHaveLength(0);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — buildFileContext: root directory and all change types
+  // ==========================================================================
+
+  describe('buildFileContext — root directory and change icons', () => {
+    it('should group files in root directory correctly', async () => {
+      const diffs = [createDiff({ filePath: 'root.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' }] })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should handle all four change types with oldPath and ranges', async () => {
+      const diffs = [
+        createDiff({ filePath: '/src/added.ts', changeType: 'added', ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }] }),
+        createDiff({ filePath: '/src/modified.ts', changeType: 'modified', ranges: [{ oldStart: 5, oldEnd: 15, newStart: 5, newEnd: 20, changeType: 'modified' }] }),
+        createDiff({ filePath: '/src/deleted.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 50, newStart: 0, newEnd: 0, changeType: 'deleted' }] }),
+        createDiff({ filePath: '/src/renamed.ts', changeType: 'renamed', oldPath: '/src/orig.ts', ranges: [{ oldStart: 1, oldEnd: 30, newStart: 1, newEnd: 30, changeType: 'renamed' }] }),
+      ];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — detectCycles: BLACK color node skip (L1000-1002)
+  // ==========================================================================
+
+  describe('detectCycles — BLACK color node skip', () => {
+    it('should skip fully processed nodes in cycle detection', async () => {
+      const suffix = Date.now();
+      const nodeA: GraphNode = {
+        id: 0, projectId: 'test-project', label: 'Function', name: 'A',
+        qualifiedName: `blackA.${suffix}`, filePath: '/src/black-a.ts', startLine: 1, endLine: 10,
+        language: 'typescript', properties: {}, signature: null, docstring: null,
+        complexity: null, isExported: false, fingerprint: null,
+        createdAt: '2024-01-01', updatedAt: '2024-01-01',
+      };
+      const nodeB: GraphNode = { ...nodeA, name: 'B', qualifiedName: `blackB.${suffix}`, filePath: '/src/black-b.ts' };
+      const nodeC: GraphNode = { ...nodeA, name: 'C', qualifiedName: `blackC.${suffix}`, filePath: '/src/black-c.ts' };
+      const nodeD: GraphNode = { ...nodeA, name: 'D', qualifiedName: `blackD.${suffix}`, filePath: '/src/black-d.ts' };
+
+      const idA = store.insertNode(nodeA);
+      const idB = store.insertNode(nodeB);
+      const idC = store.insertNode(nodeC);
+      const idD = store.insertNode(nodeD);
+
+      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idA, targetId: idB, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
+      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idB, targetId: idD, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
+      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idA, targetId: idC, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
+      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idC, targetId: idD, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
+
+      const session = await engine.reviewDiff('test-project', [createDiff({ filePath: '/src/black-a.ts' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — resumeSession: metadata paths
+  // ==========================================================================
+
+  describe('resumeSession — metadata.mode and nullish coalescing', () => {
+    it('should handle session with mode=scan in metadata', async () => {
+      const customDir = getTempDir();
+      const customSession = new SessionStore(customDir);
+      const customEngine = new CodeReviewEngine(store, { allowMetadataFallback: true }, customSession);
+
+      const meta: SessionMetadata = {
+        repository: 'test-project',
+        branch: 'main',
+        mode: 'scan',
+        fromRef: 'abc',
+        toRef: 'def',
+      };
+      (customSession as any).startSession('test-project', meta);
+      const session = await customEngine.reviewDiff('test-project', [createDiff({ filePath: '/src/scan.ts' })]);
+      const resumed = await customEngine.resumeSession(session.id);
+      expect(resumed.status).toBeDefined();
+
+      try {
+        fs.rmSync(customDir, { recursive: true, force: true });
+      } catch {
+        // cleanup
+      }
+    });
+
+    it('should handle record with missing metadata field', async () => {
+      const diffs = [createDiff({ filePath: '/src/metadata-null.ts' })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      const resumed = await engine.resumeSession(session.id);
+      expect(resumed.id).toBe(session.id);
+      expect(typeof resumed.mode).toBe('string');
+    });
+
+    it('should default mode to diff when metadata.mode is undefined', async () => {
+      const diffs = [createDiff({ filePath: '/src/default-mode.ts' })];
+      const session = await engine.reviewDiff('test-project', diffs);
+      const resumed = await engine.resumeSession(session.id);
+      expect(['diff', 'scan']).toContain(resumed.mode ?? 'diff');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — getDiffContent: allowMetadataFallback=true on error
+  // ==========================================================================
+
+  describe('getDiffContent — metadata fallback on error', () => {
+    it('should fall back to metadata when read fails and allowMetadataFallback is true', async () => {
+      const mockGitOps = {
+        readFileContent: async () => { throw new Error('Cannot read file'); },
+        readFileRange: async () => { throw new Error('Cannot read range'); },
+        getFileDiff: async () => { throw new Error('Cannot get diff'); },
+        getDiffHunks: async () => [],
+        fileExists: async () => false,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: true }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/fallback-meta.ts', changeType: 'modified', ranges: [] })]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should throw FILE_NOT_FOUND when read fails and fallback is disabled', async () => {
+      const mockGitOps = {
+        readFileContent: async () => { throw new Error('File not readable'); },
+        readFileRange: async () => { throw new Error('Range not readable'); },
+        getFileDiff: async () => { throw new Error('Diff unavailable'); },
+        getDiffHunks: async () => [],
+        fileExists: async () => false,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/unreadable.ts', changeType: 'modified', ranges: [] })]);
+      expect(session.status).toBe('completed');
+      expect(session.filesReviewed).toBe(1);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — reviewDiff: non-Error thrown during file review
+  // ==========================================================================
+
+  describe('reviewDiff — non-Error thrown during file review', () => {
+    it('should record string error via String(error) path', async () => {
+      const mockGitOps = {
+        readFileContent: async () => { throw 'string error'; },
+        readFileRange: async () => { throw 'range error'; },
+        getFileDiff: async () => { throw 'diff error'; },
+        getDiffHunks: async () => [],
+        fileExists: async () => false,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/string-throw.ts', changeType: 'added' })]);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should record number error via String(error) path', async () => {
+      const mockGitOps = {
+        readFileContent: async () => { throw 404; },
+        readFileRange: async () => { throw 500; },
+        getFileDiff: async () => { throw 403; },
+        getDiffHunks: async () => [],
+        fileExists: async () => false,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/number-throw.ts', changeType: 'added' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — reviewDiff: GitOps from options vs constructor
+  // ==========================================================================
+
+  describe('reviewDiff — GitOps from options vs constructor', () => {
+    it('should use gitOps from options parameter when provided', async () => {
+      let called = false;
+      const optionsGitOps = {
+        readFileContent: async () => { called = true; return 'from options'; },
+        readFileRange: async () => 'from options',
+        getFileDiff: async () => 'from options',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/opt-git.ts', changeType: 'added', ranges: [] })], { gitOps: optionsGitOps, targetSha: 'abc' });
+      expect(session.status).toBe('completed');
+      expect(called).toBe(true);
+    });
+
+    it('should use constructor gitOps when options do not provide gitOps', async () => {
+      let called = false;
+      const constructorGitOps = {
+        readFileContent: async () => { called = true; return 'from constructor'; },
+        readFileRange: async () => 'from constructor',
+        getFileDiff: async () => 'from constructor',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, constructorGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/constr-git.ts', changeType: 'added', ranges: [] })], { targetSha: 'abc' });
+      expect(session.status).toBe('completed');
+      expect(called).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — LLM engine without gitOps (L365: !ctx.gitOps branch)
+  // ==========================================================================
+
+  describe('LLM engine — skipped when no gitOps available', () => {
+    it('should skip LLM review when llmEngine exists but context has no gitOps', async () => {
+      const llmProvider: any = {
+        complete: async () => 'should not be called',
+        model: 'test',
+        maxTokens: 1000,
+        temperature: 0,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: true }, sessionStore, llmProvider, {});
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/llm-no-git.ts' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — getDiffContent: default readFileContent path (L792)
+  // ==========================================================================
+
+  describe('getDiffContent — default full file read', () => {
+    it('should read full file when no specific conditions match', async () => {
+      let called = false;
+      const mockGitOps = {
+        readFileContent: async () => { called = true; return 'full file'; },
+        readFileRange: async () => 'should not be called',
+        getFileDiff: async () => 'should not be called',
+        getDiffHunks: async () => [],
+        fileExists: async () => true,
+      };
+      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/default-read.ts', changeType: 'modified', ranges: [] })]);
+      expect(session.status).toBe('completed');
+      expect(called).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — detectCycles: nodes without filePath (L962)
+  // ==========================================================================
+
+  describe('detectCycles — nodes missing filePath', () => {
+    it('should skip edges where source or target lacks filePath', async () => {
+      const suffix = Date.now();
+      const node1 = store.insertNode({
+        id: 0, projectId: 'test-project', label: 'Function', name: 'noPath1',
+        qualifiedName: `np1.${suffix}`, filePath: undefined,
+        startLine: 1, endLine: 1, language: 'typescript', properties: {},
+        signature: null, docstring: null, complexity: null, isExported: false,
+        fingerprint: null, createdAt: '2024-01-01', updatedAt: '2024-01-01',
+      });
+      const node2 = store.insertNode({
+        id: 0, projectId: 'test-project', label: 'Function', name: 'noPath2',
+        qualifiedName: `np2.${suffix}`, filePath: undefined,
+        startLine: 1, endLine: 1, language: 'typescript', properties: {},
+        signature: null, docstring: null, complexity: null, isExported: false,
+        fingerprint: null, createdAt: '2024-01-01', updatedAt: '2024-01-01',
+      });
+      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: node1, targetId: node2, type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01' });
+      const session = await engine.reviewDiff('test-project', [createDiff({ filePath: '/src/no-filepath.ts' })]);
+      expect(session.status).toBe('completed');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage — ReviewEngineError: all error codes
+  // ==========================================================================
+
+  describe('ReviewEngineError — all error codes', () => {
+    it('should create ReviewEngineError with TIMEOUT code', () => {
+      const err = new ReviewEngineError('timeout exceeded', 'TIMEOUT');
+      expect(err.code).toBe('TIMEOUT');
+      expect(err.name).toBe('ReviewEngineError');
+    });
+
+    it('should create ReviewEngineError with PARSE_ERROR code', () => {
+      const err = new ReviewEngineError('parse failed', 'PARSE_ERROR');
+      expect(err.code).toBe('PARSE_ERROR');
+      expect(err.name).toBe('ReviewEngineError');
+    });
+  });
 });

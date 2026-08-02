@@ -721,5 +721,25 @@ describe('LLMReviewEngine', () => {
       // Should still produce comments even with empty ranges
       expect(comments.length).toBeGreaterThanOrEqual(0);
     });
+
+    it('should filter findings where startLine exceeds maxLine of diff content', async () => {
+      const findings = JSON.stringify({
+        findings: [
+          { startLine: 1, endLine: 2, severity: 'high', category: 'bug', title: 'Valid', description: 'd', suggestion: null },
+          { startLine: 9999, endLine: 9999, severity: 'high', category: 'bug', title: 'OutOfBounds', description: 'd', suggestion: null },
+        ],
+      });
+
+      (provider.complete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createSuccessResult(findings),
+      );
+
+      const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
+      const diff = createDiff(); // newEnd: 15, so maxLine ≈ 15
+      const results = await engine.reviewDiff(diff);
+
+      expect(results[0]!.findings).toHaveLength(1);
+      expect(results[0]!.findings[0]!.title).toBe('Valid');
+    });
   });
 });

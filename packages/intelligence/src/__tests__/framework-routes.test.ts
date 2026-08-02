@@ -649,4 +649,395 @@ class ProxyController {
       expect(result.framework).toBe('django');
     });
   });
+
+  // ==========================================================================
+  // Branch Coverage: Express handler extraction — handler on next line
+  // ==========================================================================
+
+  describe('Express — handler extraction edge cases', () => {
+    it('should extract handler from next line when pattern matches', () => {
+      const code = `app.get('/users',
+  listUsers)
+app.post('/items', createItem);`;
+      const result = detector.detectFile('src/routes.ts', code, 'typescript');
+      // First route should have handler extracted from next line
+      const firstRoute = result.routes.find(r => r.path === '/users');
+      expect(firstRoute).toBeDefined();
+      expect(firstRoute!.handlerName).toBe('listUsers');
+    });
+
+    it('should return null handler for route on last line with no next line', () => {
+      const code = `const x = 1;
+app.get('/path',`;
+      const result = detector.detectFile('src/lastline.ts', code, 'javascript');
+      expect(result.routes.length).toBe(1);
+      // Handler cannot be extracted because there's no next line
+      expect(result.routes[0]!.handlerName).toBeNull();
+    });
+
+    it('should detect handler from same line when present in Express', () => {
+      const code = 'router.use("/middleware", authMiddleware);';
+      const result = detector.detectFile('src/mw.ts', code, 'javascript');
+      expect(result.routes.length).toBe(1);
+      expect(result.routes[0]!.handlerName).toBe('authMiddleware');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: FastAPI handler extraction — break / no handler
+  // ==========================================================================
+
+  describe('FastAPI — handler extraction edge cases', () => {
+    it('should return null handler when next line is not a function definition', () => {
+      const code = '@app.get("/health")\nhealth_check = None';
+      const result = detector.detectFile('src/health.py', code, 'python');
+      expect(result.routes.length).toBeGreaterThanOrEqual(1);
+      const healthRoute = result.routes.find(r => r.path === '/health');
+      expect(healthRoute).toBeDefined();
+      // Non-decorator/non-comment line breaks handler extraction → null
+      expect(healthRoute!.handlerName).toBeNull();
+    });
+
+    it('should return null handler when no function follows decorator', () => {
+      const code = `@app.post("/submit")
+
+# Empty line then decorator again
+@app.get("/list")
+def list_items(): pass`;
+      const result = detector.detectFile('src/submit.py', code, 'python');
+      const submitRoute = result.routes.find(r => r.path === '/submit');
+      expect(submitRoute).toBeDefined();
+      // After the empty line, break → handlerName is null
+      expect(submitRoute!.handlerName).toBeNull();
+    });
+
+    it('should detect sync handler function in FastAPI', () => {
+      const code = '@app.patch("/update")\ndef update_resource():\n    pass';
+      const result = detector.detectFile('src/patch.py', code, 'python');
+      expect(result.routes.length).toBeGreaterThanOrEqual(1);
+      expect(result.routes[0]!.handlerName).toBe('update_resource');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: NestJS handler extraction — comment skip / no handler
+  // ==========================================================================
+
+  describe('NestJS — handler extraction edge cases', () => {
+    it('should skip comment lines when extracting NestJS handler', () => {
+      const code = `@Controller('users')
+class UsersController {
+  @Get(':id')
+  // Find a user by ID
+  // Returns the user object
+  async findById(@Param('id') id: string) {}
+}`;
+      const result = detector.detectFile('src/users.controller.ts', code, 'typescript');
+      const getRoute = result.routes.find(r => r.path === 'users/:id');
+      expect(getRoute).toBeDefined();
+      // Should extract handler despite comment lines between decorator and method
+      expect(getRoute!.handlerName).toBe('findById');
+    });
+
+    it('should return null handler when no method follows NestJS decorator', () => {
+      const code = `@Controller('empty')
+class EmptyController {
+  @Get()
+  // only a comment, no actual method
+}
+`;
+      const result = detector.detectFile('src/empty.controller.ts', code, 'typescript');
+      // The Get route should be detected but handler name is null
+      expect(result.routes.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should extract handler via funcMatch pattern in NestJS', () => {
+      const code = `@Controller('items')
+class ItemsController {
+  @Post()
+  createItem(dto: CreateItemDto) {}
+}`;
+      const result = detector.detectFile('src/items.controller.ts', code, 'typescript');
+      const postRoute = result.routes.find(r => r.method === 'POST');
+      expect(postRoute).toBeDefined();
+      // Should detect createItem via funcMatch regex
+      expect(postRoute!.handlerName).toBe('createItem');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: joinPaths — trailing/leading slash normalization
+  // ==========================================================================
+
+  describe('NestJS — joinPaths slash normalization', () => {
+    it('should normalize controller prefix with trailing slash', () => {
+      const code = `@Controller('api/v1/')
+class V1Controller {
+  @Get('users')
+  getUsers() {}
+}`;
+      const result = detector.detectFile('src/v1.controller.ts', code, 'typescript');
+      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
+      // Trailing slash on prefix should be removed: 'api/v1/users' not 'api/v1//users'
+      expect(httpRoutes[0]!.path).not.toContain('//');
+    });
+
+    it('should normalize subPath with leading slash', () => {
+      const code = `@Controller('api')
+class ApiController {
+  @Get('/health')
+  health() {}
+}`;
+      const result = detector.detectFile('src/api.controller.ts', code, 'typescript');
+      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
+      // Leading slash on subPath should be handled: 'api/health' not 'api//health'
+      expect(httpRoutes[0]!.path).not.toContain('//');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: addToGraph — handler name not found in graph
+  // ==========================================================================
+
+  describe('addToGraph — handler name mismatch edge cases', () => {
+    it('should not add handler edge when handler name is not found in graph', () => {
+      const routes = [
+        {
+          method: 'GET',
+          path: '/orphan',
+          filePath: 'src/orphan.ts',
+          line: 1,
+          handlerName: 'nonExistentHandler',
+          framework: 'express' as const,
+          routeType: 'http' as const,
+        },
+      ];
+      const graph = {
+        nodes: new Map([
+          [10, { id: 10, label: 'Function', properties: { name: 'someOtherFunction' } }],
+        ]),
+        edges: new Map(),
+      } as any;
+
+      const result = detector.addToGraph(routes, graph, 1);
+      expect(result.nodesAdded).toBe(1);
+      // Only the file→route edge, no route→handler edge since handler not found
+      expect(result.edgesAdded).toBe(1);
+    });
+
+    it('should include controllerName in route node properties', () => {
+      const routes = [
+        {
+          method: 'GET',
+          path: '/admin/dashboard',
+          filePath: 'src/admin.controller.ts',
+          line: 10,
+          handlerName: 'dashboard',
+          framework: 'nestjs' as const,
+          routeType: 'http' as const,
+          controllerName: 'AdminController',
+        },
+      ];
+      const graph = {
+        nodes: new Map(),
+        edges: new Map(),
+      } as any;
+
+      const result = detector.addToGraph(routes, graph, 1);
+      expect(result.nodesAdded).toBe(1);
+      // Verify controllerName is stored in the node properties
+      const routeNode = graph.nodes.get(1);
+      expect(routeNode.properties.controllerName).toBe('AdminController');
+    });
+
+    it('should store null controllerName when not provided', () => {
+      const routes = [
+        {
+          method: 'POST',
+          path: '/data',
+          filePath: 'src/data.ts',
+          line: 1,
+          handlerName: null,
+          framework: 'express' as const,
+          routeType: 'http' as const,
+        },
+      ];
+      const graph = {
+        nodes: new Map(),
+        edges: new Map(),
+      } as any;
+
+      const result = detector.addToGraph(routes, graph, 1);
+      const routeNode = graph.nodes.get(1);
+      expect(routeNode.properties.controllerName).toBeNull();
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: NestJS methodNoPath without controller prefix
+  // ==========================================================================
+
+  describe('NestJS — method without path, controller without prefix', () => {
+    it('should use "/" when both controller prefix and method path are empty', () => {
+      const code = `@Controller()
+class HomeController {
+  @Get()
+  index() {}
+}`;
+      const result = detector.detectFile('src/home.controller.ts', code, 'typescript');
+      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
+      // No prefix, no subPath → defaults to '/'
+      const getRoute = httpRoutes.find(r => r.method === 'GET');
+      expect(getRoute).toBeDefined();
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: detectFile — all frameworks disabled
+  // ==========================================================================
+
+  describe('detectFile — framework selection', () => {
+    it('should detect only FastAPI in Python with fastapi-only config', () => {
+      const fastapiOnly = new FrameworkRouteDetector({ frameworks: ['fastapi'] });
+      const code = `urlpatterns = [path('a/', view_a)]
+@app.get("/api/data")
+def get_data(): pass`;
+      const result = fastapiOnly.detectFile('src/mixed.py', code, 'python');
+      // Django patterns should not be detected
+      const djangoRoutes = result.routes.filter(r => r.framework === 'django');
+      expect(djangoRoutes.length).toBe(0);
+      // FastAPI patterns should be detected
+      const fastapiRoutes = result.routes.filter(r => r.framework === 'fastapi');
+      expect(fastapiRoutes.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should return "none" framework for Go files regardless of content', () => {
+      const code = 'app.get("/test", handler)';
+      const result = detector.detectFile('src/main.go', code, 'go');
+      expect(result.framework).toBe('none');
+      expect(result.routes).toEqual([]);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: Express — chained route without sub-methods
+  // ==========================================================================
+
+  describe('Express — chained route edge cases', () => {
+    it('should detect chained routes without following method calls', () => {
+      const code = `app.route('/prefix')
+  .get('/list', handler1)
+  .post('/create', handler2);`;
+      const result = detector.detectFile('src/chained.ts', code, 'typescript');
+      // The chained methods .get and .post should be detected
+      expect(result.routes.filter(r => r.framework === 'express').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should detect app.route without subsequent method chains', () => {
+      const code = `app.route('/base')
+// no methods chained
+app.get('/other', handler);`;
+      const result = detector.detectFile('src/partial.ts', code, 'javascript');
+      // app.route is detected, but no chained methods → only the app.get count
+      const expressRoutes = result.routes.filter(r => r.framework === 'express');
+      expect(expressRoutes.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: NestJS — GraphQL with explicit name
+  // ==========================================================================
+
+  describe('NestJS — GraphQL named operations', () => {
+    it('should detect @Query with explicit string name', () => {
+      const code = `@Resolver()
+class UserResolver {
+  @Query('getUser')
+  getUser() {}
+}`;
+      const result = detector.detectFile('src/user.resolver.ts', code, 'typescript');
+      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      expect(gqlRoutes.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should detect @Mutation without explicit name using operationType fallback', () => {
+      const code = `@Resolver()
+class ProductResolver {
+  @Mutation()
+  createProduct() {}
+}`;
+      const result = detector.detectFile('src/product.resolver.ts', code, 'typescript');
+      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      expect(gqlRoutes.length).toBeGreaterThanOrEqual(1);
+      // Without explicit name, falls back to operationType.toLowerCase() = 'mutation'
+      expect(gqlRoutes[0]!.path).toBe('graphql:mutation');
+    });
+
+    it('should detect @Subscription with explicit name', () => {
+      const code = `@Resolver()
+class EventResolver {
+  @Subscription('commentAdded')
+  commentAdded() {}
+}`;
+      const result = detector.detectFile('src/event.resolver.ts', code, 'typescript');
+      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      expect(gqlRoutes.length).toBeGreaterThanOrEqual(1);
+      expect(gqlRoutes[0]!.path).toBe('graphql:commentAdded');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: extractNestJSHandler — empty line between decorator and method
+  // ==========================================================================
+
+  describe('NestJS — handler extraction with blank lines', () => {
+    it('should skip empty lines between decorator and handler', () => {
+      const code = `@Controller('items')
+class ItemsController {
+  @Get(':id')
+
+  getItem(id: string) {}
+}`;
+      const result = detector.detectFile('src/items.controller.ts', code, 'typescript');
+      const getRoute = result.routes.find(r => r.method === 'GET');
+      expect(getRoute).toBeDefined();
+      // Handler should be extracted despite empty line between decorator and method
+      expect(getRoute!.handlerName).toBe('getItem');
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: joinPaths with empty subPath (methodDecorator empty string)
+  // ==========================================================================
+
+  describe('NestJS — joinPaths edge cases via route detection', () => {
+    it('should handle joinPaths with non-empty prefix and empty subPath', () => {
+      // @Get('') triggers methodDecorator with empty subPath, not methodNoPath
+      const code = `@Controller('api')
+class ApiController {
+  @Get('')
+  index() {}
+}`;
+      const result = detector.detectFile('src/api.controller.ts', code, 'typescript');
+      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should handle joinPaths with empty prefix and empty subPath', () => {
+      // @Controller() + @Get('') — both empty in joinPaths
+      const code = `@Controller()
+class RootController {
+  @Get('')
+  home() {}
+}`;
+      const result = detector.detectFile('src/root.controller.ts', code, 'typescript');
+      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
+      // joinPaths('', '') should return '/'
+      expect(httpRoutes[0]!.path).toBe('/');
+    });
+  });
 });

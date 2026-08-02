@@ -225,4 +225,117 @@ describe('Structure Lens', () => {
     expect(Array.isArray(report.findings)).toBe(true);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: class not a god class (<500 lines, <20 methods)
+  // -----------------------------------------------------------------------
+  it('should not flag a normal class as a god class', () => {
+    const content = [
+      'class NormalClass {',
+      '  constructor() {}',
+      '  method1() { return 1; }',
+      '  method2() { return 2; }',
+      '}',
+    ].join('\n');
+    const findings = analyzeStructure(content, '/src/normal.ts');
+    const godFinding = findings.find(f => f.title.includes('God Class'));
+    expect(godFinding).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: nesting depth <= 4
+  // -----------------------------------------------------------------------
+  it('should not flag nesting depth of 4 or less', () => {
+    const content = [
+      'function shallow() {',
+      '  if (a) {',
+      '    if (b) {',
+      '      return 1;',
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
+    const findings = analyzeStructure(content, '/src/shallow.ts');
+    const nestFinding = findings.find(f => f.title.includes('Deep Nesting'));
+    expect(nestFinding).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: function <= 50 lines (no long method)
+  // -----------------------------------------------------------------------
+  it('should not flag methods with exactly 50 lines', () => {
+    const lines = ['function mediumMethod() {'];
+    for (let i = 0; i < 47; i++) {
+      lines.push(`  const x${i} = ${i};`);
+    }
+    lines.push('  return 1;');
+    lines.push('}');
+    const content = lines.join('\n');
+    const findings = analyzeStructure(content, '/src/medium.ts');
+    const longFinding = findings.find(f => f.title.includes('Long Method'));
+    expect(longFinding).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: low cohesion when totalLines <= 100
+  // -----------------------------------------------------------------------
+  it('should not flag low cohesion when total lines <= 100', () => {
+    // Only 3 lines → totalLines <= 100, cohesion short-circuits
+    const content = [
+      'import { a } from "./x";',
+      'import { b } from "./y";',
+      'export function foo() { return a + b; }',
+    ].join('\n');
+    const findings = analyzeStructure(content, '/src/small.ts');
+    const cohesionFinding = findings.find(f => f.title.includes('Low Module Cohesion'));
+    expect(cohesionFinding).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: file with imports <= 30 (no coupling finding)
+  // -----------------------------------------------------------------------
+  it('should not flag normal import counts', () => {
+    const content = [
+      'import { a } from "./a";',
+      'import { b } from "./b";',
+      'export function foo() { return a + b; }',
+    ].join('\n');
+    const findings = analyzeStructure(content, '/src/normal-imports.ts');
+    const couplingFinding = findings.find(f => f.title.includes('High Coupling'));
+    expect(couplingFinding).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: class exactly at 500 lines boundary
+  // -----------------------------------------------------------------------
+  it('should not flag class exactly at 500 lines as god class', () => {
+    const lines = ['class BoundedClass {'];
+    for (let i = 0; i < 498; i++) {
+      lines.push(`  method${i}() { return ${i}; }`);
+    }
+    lines.push('}');
+    const content = lines.join('\n');
+    const findings = analyzeStructure(content, '/src/bounded.ts');
+    const godFindingByLines = findings.find(f => f.title.includes('God Class') && f.title.includes('lines'));
+    expect(godFindingByLines).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Branch Coverage: generateStructureReport with findings
+  // -----------------------------------------------------------------------
+  it('should generate a report with multiple findings', () => {
+    const lines = ['import { a } from "./a";'];
+    for (let i = 0; i < 35; i++) {
+      lines.push(`import { x${i} } from "./m${i}";`);
+    }
+    lines.push('function longFunc() {');
+    for (let i = 0; i < 55; i++) lines.push(`  const v${i} = ${i};`);
+    lines.push('  return 1;');
+    lines.push('}');
+    const content = lines.join('\n');
+    const report = generateStructureReport(content, '/src/multi-report.ts');
+    expect(report.lens).toBe('structure');
+    expect(report.findings.length).toBeGreaterThan(0);
+    expect(report.linesAnalyzed).toBeGreaterThan(0);
+  });
 });

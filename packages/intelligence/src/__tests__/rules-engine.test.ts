@@ -2112,4 +2112,12 @@ describe('Rule Executor — Edge Cases', () => {
       expect(getFileLanguage('test.cjs')).toBe('javascript');
     });
   });
+
+  it('RulesRegistry createDefault should skip rules without checkers', () => {
+    const registry = RulesRegistry.createDefault();
+    expect(registry.size).toBeGreaterThan(0);
+    // All built-in rules should have checkers, so size should be reasonable
+    expect(registry.getAll().length).toBe(registry.size);
+  });
+
 });

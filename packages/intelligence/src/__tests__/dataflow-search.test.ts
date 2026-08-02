@@ -1147,5 +1147,28 @@ describe('DataflowSearchEngine', () => {
       // sanitizer is present on the line, risk should be halved
       expect(paths.length).toBeGreaterThanOrEqual(0);
     });
+    it('should return medium risk for sanitized paths with moderate scores', () => {
+      // source → middle → sanitizer → sink: 4 nodes, base 40, +source 20, +sink 30 = 90
+      // With sanitizer: 90 * 0.5 = 45 → medium (40-70 range)
+      const store = createMockStore();
+      const sourceNode = makeGraphNode({ id: 1, name: 'customInput' });
+      const mid = makeGraphNode({ id: 2, name: 'step1' });
+      const sanitizerNode = makeGraphNode({ id: 3, name: 'escapeHtml' });
+      const sinkNode = makeGraphNode({ id: 4, name: 'res.send' });
+      setupNodes(store, [sourceNode, mid, sanitizerNode, sinkNode]);
+      setupGetNode(store, new Map([[2, mid], [3, sanitizerNode], [4, sinkNode]]));
+
+      (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
+        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 3) return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
+        return { items: [], total: 0, limit: 20, offset: 0 };
+      });
+
+      const engine = new DataflowSearchEngine(store);
+      const report = engine.taintAnalysis(['customInput']);
+      expect(report.overallRisk).toBe('medium');
+      expect(report.sanitizersPresent).toBe(true);
+    });
   });
 });
