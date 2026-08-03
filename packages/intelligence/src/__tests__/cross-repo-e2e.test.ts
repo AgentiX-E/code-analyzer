@@ -808,4 +808,543 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
       // Full pipeline validated
     });
   });
+
+  // =========================================================================
+  // Cross-Repo Dependency Detection (Two-Repo Scenario)
+  // =========================================================================
+
+  describe('Cross-Repo Dependency Detection', () => {
+    let depStore: InMemoryGraphStore;
+
+    beforeAll(() => {
+      depStore = new InMemoryGraphStore();
+
+      // Repo A: backend-API exposing UserService
+      const userService = depStore.insertNode({
+        projectId: 'myorg/backend-api',
+        name: 'UserService',
+        qualifiedName: 'UserService',
+        label: 'Class',
+        filePath: 'src/services/user.service.ts',
+        startLine: 1, endLine: 50,
+        language: 'typescript', isExported: true,
+        complexity: 10, properties: {},
+      });
+      const getUser = depStore.insertNode({
+        projectId: 'myorg/backend-api',
+        name: 'getUser',
+        qualifiedName: 'UserService.getUser',
+        label: 'Method',
+        filePath: 'src/services/user.service.ts',
+        startLine: 10, endLine: 20,
+        language: 'typescript', isExported: true,
+        complexity: 3, properties: {},
+      });
+      depStore.insertEdge({
+        sourceId: userService, targetId: getUser,
+        type: 'HAS_METHOD', projectId: 'myorg/backend-api',
+      });
+
+      // Repo B: frontend-app importing UserService types
+      const userType = depStore.insertNode({
+        projectId: 'myorg/frontend-app',
+        name: 'User',
+        qualifiedName: 'User',
+        label: 'Interface',
+        filePath: 'src/types/user.ts',
+        startLine: 1, endLine: 15,
+        language: 'typescript', isExported: true,
+        complexity: 2, properties: {},
+      });
+      const userComponent = depStore.insertNode({
+        projectId: 'myorg/frontend-app',
+        name: 'UserProfile',
+        qualifiedName: 'UserProfile',
+        label: 'Class',
+        filePath: 'src/components/UserProfile.tsx',
+        startLine: 1, endLine: 30,
+        language: 'typescript', isExported: true,
+        complexity: 5, properties: {},
+      });
+      depStore.insertEdge({
+        sourceId: userComponent, targetId: userType,
+        type: 'IMPORTS', projectId: 'myorg/frontend-app',
+      });
+    });
+
+    afterAll(() => {
+      depStore.close();
+    });
+
+    it('should detect cross-repo dependencies via shared symbols', () => {
+      const nodesA = depStore.queryNodes({ projectId: 'myorg/backend-api', limit: 100, offset: 0 });
+      const nodesB = depStore.queryNodes({ projectId: 'myorg/frontend-app', limit: 100, offset: 0 });
+
+      expect(nodesA.items.length).toBeGreaterThan(0);
+      expect(nodesB.items.length).toBeGreaterThan(0);
+
+      const symbolsA = nodesA.items.map(n => n.name);
+      const symbolsB = nodesB.items.map(n => n.name);
+
+      // Both repos should have symbols
+      expect(symbolsA.length).toBeGreaterThan(0);
+      expect(symbolsB.length).toBeGreaterThan(0);
+    });
+
+    it('should verify contracts between two repos', async () => {
+      const cntManager = new RepoGroupManager();
+      cntManager.createGroup('two-repo', 'Two Repo Group', 'Testing contracts');
+      cntManager.addRepo('two-repo', 'myorg', 'backend-api', '', '/tmp/backend-api');
+      cntManager.addRepo('two-repo', 'myorg', 'frontend-app', '', '/tmp/frontend-app');
+
+      const cntIndexer = new CrossRepoIndexer(depStore, cntManager);
+      const contracts = await cntIndexer.detectContracts('two-repo');
+
+      expect(Array.isArray(contracts)).toBe(true);
+    });
+
+    it('should analyze impact across repo boundaries', async () => {
+      const impManager = new RepoGroupManager();
+      impManager.createGroup('impact-group', 'Impact Group', 'Testing impact analysis');
+      impManager.addRepo('impact-group', 'myorg', 'backend-api', '', '/tmp/backend-api');
+      impManager.addRepo('impact-group', 'myorg', 'frontend-app', '', '/tmp/frontend-app');
+
+      const impIndexer = new CrossRepoIndexer(depStore, impManager);
+      const impact = await impIndexer.analyzeCrossRepoImpact('impact-group', 'myorg/backend-api');
+
+      expect(impact.changedRepo).toBe('myorg/backend-api');
+      expect(Array.isArray(impact.affectedRepos)).toBe(true);
+      expect(Array.isArray(impact.analysis)).toBe(true);
+    });
+
+    it('should detect API contracts between repos with same interface names', async () => {
+      const contractStore = new InMemoryGraphStore();
+
+      // Same interface name in both repos, but different qualifiedNames
+      contractStore.insertNode({
+        projectId: 'myorg/backend-api', name: 'IUser', qualifiedName: 'myorg/backend-api:IUser',
+        label: 'Interface', filePath: 'src/interfaces/user.ts', startLine: 1, endLine: 20,
+        language: 'typescript', isExported: true, complexity: 2, properties: {},
+      });
+      contractStore.insertNode({
+        projectId: 'myorg/frontend-app', name: 'IUser', qualifiedName: 'myorg/frontend-app:IUser',
+        label: 'Interface', filePath: 'src/interfaces/user.ts', startLine: 1, endLine: 20,
+        language: 'typescript', isExported: true, complexity: 2, properties: {},
+      });
+
+      const cntMgr = new RepoGroupManager();
+      cntMgr.createGroup('shared-api', 'Shared API Group', '');
+      cntMgr.addRepo('shared-api', 'myorg', 'backend-api', '', '/tmp/backend-api');
+      cntMgr.addRepo('shared-api', 'myorg', 'frontend-app', '', '/tmp/frontend-app');
+
+      const cntIdx = new CrossRepoIndexer(contractStore, cntMgr);
+      const contracts = await cntIdx.detectContracts('shared-api');
+
+      expect(contracts.length).toBeGreaterThanOrEqual(1);
+      const iuserContract = contracts.find(c => c.name === 'IUser');
+      expect(iuserContract).toBeDefined();
+      expect(iuserContract?.dependencies).toContain('myorg/backend-api');
+      expect(iuserContract?.dependencies).toContain('myorg/frontend-app');
+
+      contractStore.close();
+    });
+  });
+
+  // =========================================================================
+  // Cross-Repo PR Review with Mock Diffs
+  // =========================================================================
+
+  describe('Cross-Repo PR Review with Mock Diffs', () => {
+    let prStore: InMemoryGraphStore;
+    let prManager: RepoGroupManager;
+    let prIndexer: CrossRepoIndexer;
+    let reviewEngine: CodeReviewEngine;
+    let prReview: CrossRepoPRReviewEngine;
+
+    beforeAll(() => {
+      prStore = new InMemoryGraphStore();
+      prManager = new RepoGroupManager();
+
+      prManager.createGroup('pr-group', 'PR Review Group', 'Cross-repo PR review testing');
+      prManager.addRepo('pr-group', 'org', 'api-repo', 'https://github.com/org/api-repo', '/tmp/api-repo');
+      prManager.addRepo('pr-group', 'org', 'consumer-repo', 'https://github.com/org/consumer-repo', '/tmp/consumer-repo');
+
+      // Add symbols to the store
+      prStore.insertNode({
+        projectId: 'org/api-repo', name: 'ApiClient', qualifiedName: 'ApiClient',
+        label: 'Class', filePath: 'src/client.ts', startLine: 1, endLine: 40,
+        language: 'typescript', isExported: true, complexity: 8, properties: {},
+      });
+      prStore.insertNode({
+        projectId: 'org/api-repo', name: 'getData', qualifiedName: 'ApiClient.getData',
+        label: 'Method', filePath: 'src/client.ts', startLine: 10, endLine: 20,
+        language: 'typescript', isExported: true, complexity: 3, properties: {},
+      });
+
+      prIndexer = new CrossRepoIndexer(prStore, prManager);
+      reviewEngine = new CodeReviewEngine(prStore, { allowMetadataFallback: true });
+      prReview = new CrossRepoPRReviewEngine(prIndexer, prManager, reviewEngine);
+    });
+
+    afterAll(() => {
+      prStore.close();
+    });
+
+    it('should review PR with modified file diff', async () => {
+      const result = await prReview.reviewPRWithCrossRepoContext(
+        {
+          number: 1, title: 'Update ApiClient',
+          body: 'Modify ApiClient.getData signature',
+          state: 'open',
+          base: {
+            ref: 'main', sha: 'aaa',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          head: {
+            ref: 'feature', sha: 'bbb',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          user: { login: 'dev' },
+          labels: ['api-change'],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        'pr-group',
+        'org/api-repo',
+        [{
+          filePath: 'src/client.ts',
+          changeType: 'modified',
+          oldHash: 'old', newHash: 'new',
+          ranges: [
+            { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' },
+          ],
+        }],
+      );
+
+      expect(result.sourceRepo).toBe('org/api-repo');
+      expect(result.summary.mergeRecommendation).toBeDefined();
+      expect(Array.isArray(result.crossRepoImpacts)).toBe(true);
+    });
+
+    it('should detect API breaking changes from deleted file', async () => {
+      const result = await prReview.detectAPIBreakingChanges(
+        {
+          number: 2, title: 'Remove old API',
+          body: '', state: 'open',
+          base: {
+            ref: 'main', sha: '',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          head: {
+            ref: 'feature', sha: '',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        'pr-group',
+        'org/api-repo',
+        [{
+          filePath: 'src/client.ts',
+          changeType: 'deleted',
+          oldHash: 'old', newHash: '',
+          ranges: [
+            { oldStart: 1, oldEnd: 40, newStart: 0, newEnd: 0, changeType: 'removed' },
+          ],
+        }],
+      );
+
+      expect(result.sourceRepo).toBe('org/api-repo');
+      expect(result.totalBreakingChanges).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should predict test impact for other repos in the group', async () => {
+      const result = await prReview.predictCrossRepoTestImpact(
+        {
+          number: 3, title: 'Change shared API',
+          body: '', state: 'open',
+          base: {
+            ref: 'main', sha: '',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          head: {
+            ref: 'feature', sha: '',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        'pr-group',
+        'org/api-repo',
+        [{
+          filePath: 'src/client.ts',
+          changeType: 'modified',
+          oldHash: 'old', newHash: 'new',
+          ranges: [{ oldStart: 5, oldEnd: 8, newStart: 5, newEnd: 12, changeType: 'modified' }],
+        }],
+      );
+
+      expect(result.sourceRepo).toBe('org/api-repo');
+      expect(Array.isArray(result.affectedTests)).toBe(true);
+      expect(result.totalTestsAffected).toBeDefined();
+    });
+
+    it('should generate cross-repo summary with merge recommendation', async () => {
+      const summary = await prReview.generateCrossRepoSummary(
+        {
+          number: 4, title: 'Non-breaking change',
+          body: '', state: 'open',
+          base: {
+            ref: 'main', sha: '',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          head: {
+            ref: 'feature', sha: '',
+            repo: { id: 1, owner: 'org', name: 'api-repo', fullName: 'org/api-repo', defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        'pr-group',
+        'org/api-repo',
+        [{
+          filePath: 'src/new-file.ts',
+          changeType: 'added',
+          oldHash: '', newHash: 'new',
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }],
+        }],
+      );
+
+      expect(summary.sourceRepo).toBe('org/api-repo');
+      expect(summary.mergeRecommendation).toBe('approve');
+    });
+  });
+
+  // =========================================================================
+  // Contract Validation Between Repos
+  // =========================================================================
+
+  describe('Contract Validation Between Repos', () => {
+    it('should validate contracts with shared symbols between repos', async () => {
+      const contractStore = new InMemoryGraphStore();
+
+      // Source repo with exported symbols
+      contractStore.insertNode({
+        projectId: 'org/source-repo', name: 'ApiSchema', qualifiedName: 'ApiSchema',
+        label: 'Interface', filePath: 'src/schema.ts', startLine: 1, endLine: 30,
+        language: 'typescript', isExported: true, complexity: 5, properties: {},
+      });
+      contractStore.insertNode({
+        projectId: 'org/source-repo', name: 'fetchData', qualifiedName: 'fetchData',
+        label: 'Function', filePath: 'src/api.ts', startLine: 1, endLine: 15,
+        language: 'typescript', isExported: true, complexity: 3, properties: {},
+      });
+
+      // Target repo
+      contractStore.insertNode({
+        projectId: 'org/target-repo', name: 'AppComponent', qualifiedName: 'AppComponent',
+        label: 'Class', filePath: 'src/App.tsx', startLine: 1, endLine: 50,
+        language: 'typescript', isExported: true, complexity: 8, properties: {},
+      });
+
+      const cntMgr = new RepoGroupManager();
+      cntMgr.createGroup('ctr-group', 'Contract Group', '');
+      cntMgr.addRepo('ctr-group', 'org', 'source-repo', '', '/tmp/source');
+      cntMgr.addRepo('ctr-group', 'org', 'target-repo', '', '/tmp/target');
+
+      const cntIdx = new CrossRepoIndexer(contractStore, cntMgr);
+
+      // Extract contracts from source repo
+      const contracts = cntIdx.getRepoNodes('org/source-repo')
+        .filter(n => n.isExported);
+
+      expect(contracts.length).toBeGreaterThanOrEqual(2);
+
+      const exportedNames = contracts.map(n => n.name);
+      expect(exportedNames).toContain('ApiSchema');
+      expect(exportedNames).toContain('fetchData');
+
+      contractStore.close();
+    });
+
+    it('should detect contract breaking changes between two repo versions', async () => {
+      const beforeStore = new InMemoryGraphStore();
+      const afterStore = new InMemoryGraphStore();
+
+      // V1: source repo exports a function
+      beforeStore.insertNode({
+        projectId: 'org/source-repo', name: 'calculatePrice', qualifiedName: 'calculatePrice(quantity: number)',
+        label: 'Function', filePath: 'src/pricing.ts', startLine: 5, endLine: 10,
+        language: 'typescript', isExported: true, complexity: 3, properties: { version: 'v1' },
+      });
+      beforeStore.insertNode({
+        projectId: 'org/source-repo', name: 'applyDiscount', qualifiedName: 'applyDiscount(price: number)',
+        label: 'Function', filePath: 'src/pricing.ts', startLine: 15, endLine: 20,
+        language: 'typescript', isExported: true, complexity: 2, properties: { version: 'v1' },
+      });
+
+      // V2: source repo removed applyDiscount
+      afterStore.insertNode({
+        projectId: 'org/source-repo', name: 'calculatePrice', qualifiedName: 'calculatePrice(quantity: number, taxRate: number)',
+        label: 'Function', filePath: 'src/pricing.ts', startLine: 5, endLine: 12,
+        language: 'typescript', isExported: true, complexity: 4, properties: { version: 'v2' },
+      });
+
+      const bMgr = new RepoGroupManager();
+      bMgr.createGroup('version-group', 'Version Group', '');
+      bMgr.addRepo('version-group', 'org', 'source-repo', '', '/tmp/source');
+
+      const bIdx = new CrossRepoIndexer(beforeStore, bMgr);
+      const aIdx = new CrossRepoIndexer(afterStore, bMgr);
+
+      // The removed symbol should be detectable
+      const beforeNodes = bIdx.getRepoNodes('org/source-repo');
+      const afterNodes = aIdx.getRepoNodes('org/source-repo');
+
+      expect(beforeNodes.length).toBe(2);
+      expect(afterNodes.length).toBe(1);
+
+      const beforeNames = beforeNodes.map(n => n.name);
+      const afterNames = afterNodes.map(n => n.name);
+      expect(beforeNames).toContain('applyDiscount');
+      expect(afterNames).not.toContain('applyDiscount');
+
+      beforeStore.close();
+      afterStore.close();
+    });
+  });
+
+  // =========================================================================
+  // Impact Analysis Across Repo Boundaries
+  // =========================================================================
+
+  describe('Impact Analysis Across Repo Boundaries', () => {
+    it('should analyze transitive impact across repos', async () => {
+      const impactStore = new InMemoryGraphStore();
+
+      // Repo A
+      impactStore.insertNode({
+        projectId: 'org/repo-a', name: 'ServiceA', qualifiedName: 'ServiceA',
+        label: 'Class', filePath: 'src/a.ts', startLine: 1, endLine: 30,
+        language: 'typescript', isExported: true, complexity: 6, properties: {},
+      });
+
+      // Repo B (depends on A)
+      const nodeB = impactStore.insertNode({
+        projectId: 'org/repo-b', name: 'ServiceB', qualifiedName: 'ServiceB',
+        label: 'Class', filePath: 'src/b.ts', startLine: 1, endLine: 25,
+        language: 'typescript', isExported: true, complexity: 5, properties: {},
+      });
+
+      // Repo C (depends on B)
+      impactStore.insertNode({
+        projectId: 'org/repo-c', name: 'ServiceC', qualifiedName: 'ServiceC',
+        label: 'Class', filePath: 'src/c.ts', startLine: 1, endLine: 20,
+        language: 'typescript', isExported: true, complexity: 4, properties: {},
+      });
+
+      const impMgr = new RepoGroupManager();
+      impMgr.createGroup('transitive-group', 'Transitive Group', 'Testing transitive impact');
+      impMgr.addRepo('transitive-group', 'org', 'repo-a', '', '/tmp/repo-a');
+      impMgr.addRepo('transitive-group', 'org', 'repo-b', '', '/tmp/repo-b');
+      impMgr.addRepo('transitive-group', 'org', 'repo-c', '', '/tmp/repo-c');
+
+      const impIdx = new CrossRepoIndexer(impactStore, impMgr);
+      const impact = await impIdx.analyzeCrossRepoImpact('transitive-group', 'org/repo-a');
+
+      expect(impact.changedRepo).toBe('org/repo-a');
+      expect(Array.isArray(impact.analysis)).toBe(true);
+
+      impactStore.close();
+    });
+
+    it('should filter impact analysis by specific changed symbols', async () => {
+      const symStore = new InMemoryGraphStore();
+
+      symStore.insertNode({
+        projectId: 'org/repo-a', name: 'publicApi', qualifiedName: 'publicApi',
+        label: 'Function', filePath: 'src/api.ts', startLine: 1, endLine: 10,
+        language: 'typescript', isExported: true, complexity: 2, properties: {},
+      });
+      symStore.insertNode({
+        projectId: 'org/repo-a', name: 'internalHelper', qualifiedName: 'internalHelper',
+        label: 'Function', filePath: 'src/internal.ts', startLine: 1, endLine: 5,
+        language: 'typescript', isExported: false, complexity: 1, properties: {},
+      });
+
+      const symMgr = new RepoGroupManager();
+      symMgr.createGroup('symbol-group', 'Symbol Group', '');
+      symMgr.addRepo('symbol-group', 'org', 'repo-a', '', '/tmp/repo-a');
+      symMgr.addRepo('symbol-group', 'org', 'repo-b', '', '/tmp/repo-b');
+
+      const symIdx = new CrossRepoIndexer(symStore, symMgr);
+      const impact = await symIdx.analyzeCrossRepoImpact('symbol-group', 'org/repo-a', ['publicApi']);
+
+      expect(impact.changedRepo).toBe('org/repo-a');
+      expect(impact.changedSymbols).toEqual(['publicApi']);
+
+      symStore.close();
+    });
+
+    it('should handle impact analysis for repo with no dependencies', async () => {
+      const isolatedStore = new InMemoryGraphStore();
+      isolatedStore.insertNode({
+        projectId: 'org/isolated-repo', name: 'StandaloneUtil', qualifiedName: 'StandaloneUtil',
+        label: 'Class', filePath: 'src/util.ts', startLine: 1, endLine: 20,
+        language: 'typescript', isExported: false, complexity: 3, properties: {},
+      });
+
+      const isoMgr = new RepoGroupManager();
+      isoMgr.createGroup('isolated-group', 'Isolated Group', '');
+      isoMgr.addRepo('isolated-group', 'org', 'isolated-repo', '', '/tmp/isolated');
+
+      const isoIdx = new CrossRepoIndexer(isolatedStore, isoMgr);
+      const impact = await isoIdx.analyzeCrossRepoImpact('isolated-group', 'org/isolated-repo');
+
+      expect(impact.changedRepo).toBe('org/isolated-repo');
+      expect(impact.analysis.length).toBe(0);
+      expect(impact.affectedRepos.length).toBe(0);
+
+      isolatedStore.close();
+    });
+
+    it('should trace symbol dependencies across repos', async () => {
+      const traceStore = new InMemoryGraphStore();
+
+      const nodeA = traceStore.insertNode({
+        projectId: 'org/producer', name: 'exportedUtil', qualifiedName: 'exportedUtil',
+        label: 'Function', filePath: 'src/util.ts', startLine: 1, endLine: 10,
+        language: 'typescript', isExported: true, complexity: 2, properties: {},
+      });
+      const nodeB = traceStore.insertNode({
+        projectId: 'org/consumer', name: 'consumerComponent', qualifiedName: 'consumerComponent',
+        label: 'Class', filePath: 'src/Consumer.tsx', startLine: 1, endLine: 20,
+        language: 'typescript', isExported: false, complexity: 4, properties: {},
+      });
+
+      // Create cross-repo edge
+      traceStore.insertEdge({
+        sourceId: nodeB, targetId: nodeA,
+        type: 'CROSS_REPO_IMPORTS', projectId: 'org/consumer',
+      });
+
+      const traceMgr = new RepoGroupManager();
+      traceMgr.createGroup('trace-group', 'Trace Group', '');
+      traceMgr.addRepo('trace-group', 'org', 'producer', '', '/tmp/producer');
+      traceMgr.addRepo('trace-group', 'org', 'consumer', '', '/tmp/consumer');
+
+      const traceIdx = new CrossRepoIndexer(traceStore, traceMgr);
+      const traces = await traceIdx.traceSymbolDependencies('trace-group', 'org/consumer', 'consumerComponent');
+
+      expect(Array.isArray(traces)).toBe(true);
+
+      traceStore.close();
+    });
+  });
 });

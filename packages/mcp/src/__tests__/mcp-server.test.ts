@@ -309,3 +309,337 @@ describe('Middleware', () => {
     });
   });
 });
+
+describe('MCP Server Integration Tests', () => {
+  let server: CodeAnalyzerMCPServer;
+
+  afterEach(async () => {
+    if (server) {
+      await server.shutdown();
+    }
+  });
+
+  describe('tool listing and invocation', () => {
+    it('should list all 45 tools via registry', () => {
+      server = new CodeAnalyzerMCPServer();
+      const tools = server.getRegistry().list();
+      expect(tools.length).toBe(45);
+    });
+
+    it('should list tools filtered by analysis profile', () => {
+      server = new CodeAnalyzerMCPServer({ toolProfile: 'analysis' });
+      const tools = server.getRegistry().listByProfile('analysis');
+      expect(tools.length).toBeGreaterThan(0);
+    });
+
+    it('should list all tools with "all" profile', () => {
+      server = new CodeAnalyzerMCPServer({ toolProfile: 'all' });
+      const tools = server.getRegistry().listByProfile('all');
+      expect(tools.length).toBe(45);
+    });
+
+    it('should list tools filtered by scout profile', () => {
+      server = new CodeAnalyzerMCPServer({ toolProfile: 'scout' });
+      const tools = server.getRegistry().listByProfile('scout');
+      expect(Array.isArray(tools)).toBe(true);
+    });
+
+    it('should execute search_graph with valid arguments', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'search_graph',
+        { query: 'getUser' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+    });
+
+    it('should execute list_projects tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute('list_projects', {}, server.getToolContext());
+      expect(result).toBeDefined();
+    });
+
+    it('should execute index_status tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute('index_status', {}, server.getToolContext());
+      expect(result).toBeDefined();
+    });
+
+    it('should execute search_code tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute('search_code', { query: 'test' }, server.getToolContext());
+      expect(result).toBeDefined();
+    });
+
+    it('should execute trace_call_path tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'trace_call_path',
+        { symbol: 'test', projectId: 'test-project' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute find_implementations tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'find_implementations',
+        { symbol: 'test', projectId: 'test-project' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute explore_symbol tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'explore_symbol',
+        { symbol: 'test', projectId: 'test-project' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute check_cycles tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'check_cycles',
+        { projectId: 'test-project' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute route_map tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'route_map',
+        { projectId: 'test-project' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute list_standards tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute('list_standards', {}, server.getToolContext());
+      expect(result).toBeDefined();
+    });
+
+    it('should execute cross_repo_search tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'cross_repo_search',
+        { query: 'test', groupId: 'test-group' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute cross_repo_trace tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'cross_repo_trace',
+        { symbol: 'test', groupId: 'test-group', sourceRepo: 'org/repo-a' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute manage_adr tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'manage_adr',
+        { action: 'list', projectId: 'test-project' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should execute install_skills tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute(
+        'install_skills',
+        { action: 'list' },
+        server.getToolContext(),
+      );
+      expect(result).toBeDefined();
+    });
+
+    it('should handle tool execution with empty args', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute('search_graph', {}, server.getToolContext());
+      expect(result.isError).toBe(true);
+    });
+
+    it('should return error for nonexistent tool', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const result = await server.getRegistry().execute('made_up_tool_xyz', {}, server.getToolContext());
+      expect(result.isError).toBe(true);
+    });
+  });
+
+  describe('resource and prompt providers', () => {
+    it('should list all 15 resources', () => {
+      server = new CodeAnalyzerMCPServer();
+      const rp = server.getResourceProvider();
+      const resources = rp.listResources();
+      expect(resources).toHaveLength(15);
+    });
+
+    it('should have expected resource URIs', () => {
+      server = new CodeAnalyzerMCPServer();
+      const rp = server.getResourceProvider();
+      const resources = rp.listResources();
+      const uris = resources.map(r => r.uri);
+
+      // Verify at least the expected resource URI patterns exist
+      expect(uris.some(uri => uri.includes('graph'))).toBe(true);
+      expect(uris.some(uri => uri.includes('project'))).toBe(true);
+      expect(uris.some(uri => uri.includes('stat'))).toBe(true);
+    });
+
+    it('should list all 5 prompts', () => {
+      server = new CodeAnalyzerMCPServer();
+      const pp = server.getPromptProvider();
+      const prompts = pp.listPrompts();
+      expect(prompts).toHaveLength(5);
+    });
+
+    it('should get a specific prompt by name', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const pp = server.getPromptProvider();
+      const prompts = pp.listPrompts();
+      if (prompts.length > 0) {
+        const result = await pp.getPrompt(prompts[0]!.name, {});
+        expect(result).toBeDefined();
+        expect(Array.isArray(result.messages)).toBe(true);
+      }
+    });
+
+    it('should get resource by URI', async () => {
+      server = new CodeAnalyzerMCPServer();
+      const rp = server.getResourceProvider();
+      const result = await rp.getResource('code-analyzer://stats/summary');
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('store integration', () => {
+    it('should support inserting and querying nodes', () => {
+      server = new CodeAnalyzerMCPServer();
+      const store = server.getStore();
+
+      const nodeId = store.insertNode({
+        projectId: 'test-integration',
+        name: 'TestService',
+        qualifiedName: 'TestService',
+        label: 'Class',
+        filePath: 'src/service.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        isExported: true,
+        complexity: 5,
+        properties: {},
+      });
+
+      expect(nodeId).toBeGreaterThan(0);
+
+      const nodes = store.queryNodes({ projectId: 'test-integration', limit: 100, offset: 0 });
+      expect(nodes.items.length).toBe(1);
+      expect(nodes.items[0]!.name).toBe('TestService');
+    });
+
+    it('should support edge insertion between project nodes', () => {
+      server = new CodeAnalyzerMCPServer();
+      const store = server.getStore();
+
+      const id1 = store.insertNode({
+        projectId: 'test-edges', name: 'ClassA', qualifiedName: 'ClassA',
+        label: 'Class', filePath: 'src/a.ts', startLine: 1, endLine: 10,
+        language: 'typescript', isExported: true, complexity: 3, properties: {},
+      });
+      const id2 = store.insertNode({
+        projectId: 'test-edges', name: 'methodB', qualifiedName: 'ClassA.methodB',
+        label: 'Method', filePath: 'src/a.ts', startLine: 3, endLine: 7,
+        language: 'typescript', isExported: false, complexity: 2, properties: {},
+      });
+
+      store.insertEdge({
+        sourceId: id1, targetId: id2, type: 'HAS_METHOD',
+        projectId: 'test-edges', properties: {}, weight: 1,
+      });
+
+      const edges = store.getEdgesForNode(id1);
+      expect(edges.length).toBeGreaterThan(0);
+      expect(edges[0]!.type).toBe('HAS_METHOD');
+    });
+
+    it('should support store lifecycle', () => {
+      server = new CodeAnalyzerMCPServer();
+      const store = server.getStore();
+
+      store.insertNode({
+        projectId: 'lifecycle-test', name: 'fn', qualifiedName: 'fn',
+        label: 'Function', filePath: 'src/fn.ts', startLine: 1, endLine: 5,
+        language: 'typescript', isExported: false, complexity: 1, properties: {},
+      });
+
+      const nodes = store.queryNodes({ projectId: 'lifecycle-test', limit: 100, offset: 0 });
+      expect(nodes.items.length).toBe(1);
+
+      store.close();
+    });
+  });
+
+  describe('server config', () => {
+    it('should disable resources when configured', () => {
+      server = new CodeAnalyzerMCPServer({ enableResources: false });
+      const config = server.getConfig();
+      expect(config.enableResources).toBe(false);
+    });
+
+    it('should disable prompts when configured', () => {
+      server = new CodeAnalyzerMCPServer({ enablePrompts: false });
+      const config = server.getConfig();
+      expect(config.enablePrompts).toBe(false);
+    });
+
+    it('should configure maxResults', () => {
+      server = new CodeAnalyzerMCPServer({ maxResults: 50 });
+      const config = server.getConfig();
+      expect(config.maxResults).toBe(50);
+    });
+
+    it('should configure enableStreaming', () => {
+      server = new CodeAnalyzerMCPServer({ enableStreaming: true });
+      const config = server.getConfig();
+      expect(config.enableStreaming).toBe(true);
+    });
+  });
+
+  describe('auto-indexer', () => {
+    it('should have auto-indexer initialized', () => {
+      server = new CodeAnalyzerMCPServer();
+      const autoIndexer = server.getAutoIndexer();
+      expect(autoIndexer).toBeDefined();
+    });
+  });
+
+  describe('server accessors', () => {
+    it('should return underlying Server instance', () => {
+      server = new CodeAnalyzerMCPServer();
+      expect(server.getServer()).toBeDefined();
+    });
+
+    it('should return SSE transport (undefined when not started)', () => {
+      server = new CodeAnalyzerMCPServer();
+      expect(server.getSSETransport()).toBeUndefined();
+    });
+  });
+});

@@ -404,6 +404,66 @@ describe('RepoGroupManager', () => {
         'must contain an array',
       );
     });
+
+    it('should load config with multiple groups and contracts', () => {
+      manager.createGroup('g1', 'Group 1', 'Desc');
+      manager.addRepo('g1', 'owner', 'repo1', 'url1', '/path/1');
+      manager.createGroup('g2', 'Group 2', 'Desc 2');
+      manager.addRepo('g2', 'owner', 'repo2', 'url2', '/path/2');
+
+      const configPath = join(tmpDir, 'multi-group.json');
+      manager.saveConfig(configPath);
+
+      const manager2 = new RepoGroupManager();
+      manager2.loadConfig(configPath);
+      expect(manager2.listGroups().length).toBe(2);
+      expect(manager2.hasGroup('g1')).toBe(true);
+      expect(manager2.hasGroup('g2')).toBe(true);
+    });
+
+    it('should load config with null indexedAt', () => {
+      manager.createGroup('g1', 'Group', '');
+      manager.markIndexed('g1');
+      const configPath = join(tmpDir, 'indexed.json');
+      manager.saveConfig(configPath);
+
+      const manager2 = new RepoGroupManager();
+      manager2.loadConfig(configPath);
+      const loaded = manager2.getGroup('g1')!;
+      expect(loaded.indexedAt).toBeTruthy();
+    });
+
+    it('should handle loadConfig with non-object items in array', () => {
+      const configPath = join(tmpDir, 'with-null.json');
+      writeFileSync(configPath, JSON.stringify([null, 'string', 123]), 'utf-8');
+      const mgr = new RepoGroupManager();
+      // Should not throw — non-object items are skipped
+      mgr.loadConfig(configPath);
+      expect(mgr.listGroups().length).toBe(0);
+    });
+
+    it('should handle addRepo with default role', () => {
+      manager.createGroup('g1', 'Group', '');
+      manager.addRepo('g1', 'owner', 'my-repo', 'https://example.com/repo', '/path');
+      const repos = manager.getRepos('g1');
+      expect(repos[0]!.role).toBe('dependency');
+      expect(repos[0]!.autoIndex).toBe(true);
+    });
+
+    it('should handle markIndexed for group with existing indexedAt', () => {
+      manager.createGroup('g1', 'Group', '');
+      const before = manager.getGroup('g1')!;
+      expect(before.indexedAt).toBeNull();
+
+      manager.markIndexed('g1');
+      const after = manager.getGroup('g1')!;
+      expect(after.indexedAt).not.toBeNull();
+
+      // Mark again — indexedAt should always be set
+      manager.markIndexed('g1');
+      const second = manager.getGroup('g1')!.indexedAt;
+      expect(second).not.toBeNull();
+    });
   });
 });
 

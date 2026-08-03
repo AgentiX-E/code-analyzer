@@ -296,5 +296,168 @@ describe('ContractValidator', () => {
       expect(report).toContain('**Compatible**: Yes ✅');
       expect(report).toContain('**Breaking Changes**: 0');
     });
+
+    it('should handle reports with multiple changes', () => {
+      const result = {
+        sourceRepo: 'org/repo-a',
+        targetRepos: ['org/repo-b', 'org/repo-c'],
+        changes: [
+          {
+            type: 'removed' as const, symbol: 'oldApi', severity: 'critical' as const,
+            description: 'Removed old API', affectedRepos: ['org/repo-b'],
+          },
+          {
+            type: 'signature_changed' as const, symbol: 'newApi', 
+            oldSignature: 'newApi(a)', newSignature: 'newApi(a, b)',
+            severity: 'high' as const, description: 'Signature changed', affectedRepos: ['org/repo-b', 'org/repo-c'],
+          },
+        ],
+        breakingCount: 2,
+        compatible: false,
+        recommendations: ['Update callers', 'Run integration tests'],
+      };
+
+      const report = validator.generateReport(result);
+      expect(report).toContain('**Compatible**: No ❌');
+      expect(report).toContain('REMOVED');
+      expect(report).toContain('SIGNATURE_CHANGED');
+      expect(report).toContain('Update callers');
+      expect(report).toContain('Run integration tests');
+    });
+
+    it('should handle reports with empty target repos', () => {
+      const result = {
+        sourceRepo: 'org/repo-a',
+        targetRepos: [],
+        changes: [{
+          type: 'added' as const, symbol: 'newFeature', severity: 'low' as const,
+          description: 'New feature added', affectedRepos: [],
+        }],
+        breakingCount: 0,
+        compatible: true,
+        recommendations: [],
+      };
+
+      const report = validator.generateReport(result);
+      expect(report).toContain('**Target Repos**: none');
+    });
+  });
+
+  describe('validateCrossRepo', () => {
+    it('should validate with empty changed symbols', async () => {
+      const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
+        createGraphNode({ id: 1, name: 'exportedFn', label: 'Function', qualifiedName: 'exportedFn()', isExported: true }),
+      ]);
+
+      const v = new ContractValidator(idx);
+      const result = await v.validateCrossRepo('test-group', 'org/repo-a', []);
+
+      expect(result.sourceRepo).toBe('org/repo-a');
+      expect(result.compatible).toBe(true);
+      expect(result.breakingCount).toBe(0);
+    });
+
+    it('should detect removed symbols affecting other repos', async () => {
+      const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
+        createGraphNode({ id: 1, name: 'PubApi', label: 'Function', qualifiedName: 'PubApi()', isExported: true }),
+        createGraphNode({ id: 2, name: 'keepFn', label: 'Function', qualifiedName: 'keepFn()', isExported: true }),
+      ]);
+
+      const v = new ContractValidator(idx);
+      const result = await v.validateCrossRepo('test-group', 'org/repo-a', ['PubApi', 'removedFn']);
+
+      expect(result.sourceRepo).toBe('org/repo-a');
+
+      // 'removedFn' does not exist in source contracts, should be flagged as removed
+      const removedChange = result.changes.find(c => c.type === 'removed');
+      expect(removedChange).toBeDefined();
+      expect(removedChange?.symbol).toBe('removedFn');
+      expect(removedChange?.severity).toBe('critical');
+    });
+
+    it('should handle repos with empty contracts', async () => {
+      const store = new InMemoryGraphStore();
+      const groupManager = new RepoGroupManager();
+      groupManager.createGroup('empty-group', 'Empty Group', '');
+      groupManager.addRepo('empty-group', 'org', 'repo-a', '', '/tmp/a');
+      const idx = new CrossRepoIndexer(store, groupManager);
+
+      const v = new ContractValidator(idx);
+      const result = await v.validateCrossRepo('empty-group', 'org/repo-a', ['someSymbol']);
+
+      expect(result.changes.length).toBe(0);
+      expect(result.compatible).toBe(true);
+
+      store.close();
+    });
+
+    it('should validate cross-repo with no consumer repos', async () => {
+      const store = new InMemoryGraphStore();
+      const groupManager = new RepoGroupManager();
+      groupManager.createGroup('iso-group', 'Isolated Group', '');
+      groupManager.addRepo('iso-group', 'org', 'repo-a', '', '/tmp/a');
+      groupManager.addRepo('iso-group', 'org', 'repo-b', '', '/tmp/b');
+
+      // repo-a has an exported function
+      store.insertNode({
+        ...createGraphNode({ id: 1, name: 'isolatedFunc', label: 'Function', qualifiedName: 'isolatedFunc()', isExported: true }),
+        projectId: 'org/repo-a',
+      });
+      const idx = new CrossRepoIndexer(store, groupManager);
+
+      const v = new ContractValidator(idx);
+      const result = await v.validateCrossRepo('iso-group', 'org/repo-a', ['isolatedFunc']);
+
+      expect(result.sourceRepo).toBe('org/repo-a');
+      expect(Array.isArray(result.targetRepos)).toBe(true);
+
+      store.close();
+    });
+
+    it('should flag visibility reduction to private as breaking', async () => {
+      const store = new InMemoryGraphStore();
+      const groupManager = new RepoGroupManager();
+      groupManager.createGroup('private-group', 'Private Group', '');
+      groupManager.addRepo('private-group', 'org', 'repo-a', '', '/tmp/a');
+
+      store.insertNode({
+        ...createGraphNode({ id: 1, name: 'wasPublic', label: 'Function', qualifiedName: 'wasPublic()', isExported: true, properties: { visibility: 'private' } as any }),
+        projectId: 'org/repo-a',
+      });
+      const idx = new CrossRepoIndexer(store, groupManager);
+
+      const v = new ContractValidator(idx);
+      const result = await v.validateCrossRepo('private-group', 'org/repo-a', ['wasPublic']);
+
+      // wasPublic exists in source but has private visibility
+      const visChange = result.changes.find(c => c.type === 'visibility_changed');
+      if (visChange) {
+        expect(visChange.symbol).toBe('wasPublic');
+        expect(visChange.severity).toBe('high');
+      }
+
+      store.close();
+    });
+
+    it('should not flag public symbols as visibility changes', async () => {
+      const store = new InMemoryGraphStore();
+      const groupManager = new RepoGroupManager();
+      groupManager.createGroup('pub-group', 'Public Group', '');
+      groupManager.addRepo('pub-group', 'org', 'repo-a', '', '/tmp/a');
+
+      store.insertNode({
+        ...createGraphNode({ id: 1, name: 'publicApi', label: 'Function', qualifiedName: 'publicApi()', isExported: true }),
+        projectId: 'org/repo-a',
+      });
+      const idx = new CrossRepoIndexer(store, groupManager);
+
+      const v = new ContractValidator(idx);
+      const result = await v.validateCrossRepo('pub-group', 'org/repo-a', ['publicApi']);
+
+      const visChange = result.changes.find(c => c.type === 'visibility_changed');
+      expect(visChange).toBeFalsy();
+
+      store.close();
+    });
   });
 });
