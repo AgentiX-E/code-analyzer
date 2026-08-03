@@ -481,6 +481,10 @@ const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
     const { GroovyProvider } = await import('../languages/groovy.js');
     return new GroovyProvider();
   },
+  svelte: async () => {
+    const { SvelteProvider } = await import('../languages/svelte.js');
+    return new SvelteProvider();
+  },
 };
 
 const providerCache = new Map<string, LanguageProvider>();

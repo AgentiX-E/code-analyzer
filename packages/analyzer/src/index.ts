@@ -69,6 +69,7 @@ export { HtmlProvider } from './languages/html.js';
 export { CssProvider } from './languages/css.js';
 export { RProvider } from './languages/r.js';
 export { GroovyProvider } from './languages/groovy.js';
+export { SvelteProvider } from './languages/svelte.js';
 
 // Parser
 export { UnifiedParser } from './parser/unified-parser.js';

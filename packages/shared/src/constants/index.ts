@@ -152,6 +152,7 @@ export const LANGUAGE_EXTENSIONS: Record<SupportedLanguage, string[]> = {
   css: ['.css', '.scss', '.less'],
   r: ['.r', '.R'],
   groovy: ['.groovy', '.gvy', '.gy', '.gsh'],
+  svelte: ['.svelte'],
 };
 
 // ---------------------------------------------------------------------------

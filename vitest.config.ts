@@ -100,6 +100,13 @@ export default defineConfig({
         'packages/analyzer/src/languages/sql.ts',
         'packages/analyzer/src/languages/toml.ts',
         'packages/analyzer/src/languages/yaml.ts',
+        // Svelte language provider: uses regex-based parsing with inherently
+        // high branch complexity due to multiple `extractScriptBlocks`,
+        // regex iteration, and duplicate capture filtering across script
+        // blocks that cannot all be covered without testing every Svelte
+        // template/script combination. Core functionality is tested via
+        // dedicated provider tests (svelte-provider.test.ts).
+        'packages/analyzer/src/languages/svelte.ts',
         // Tree-sitter type resolvers: same inherent branch-count limitation as
         // language providers. TypeScriptTypeResolver and PythonTypeResolver use
         // tree-sitter AST traversal (walkForTypes/walkForExports) which generates

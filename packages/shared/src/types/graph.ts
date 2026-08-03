@@ -403,6 +403,7 @@ export const SUPPORTED_LANGUAGES = [
   'css',
   'r',
   'groovy',
+  'svelte',
 ] as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -717,6 +718,7 @@ export function getLanguageFromFilename(filePath: string): SupportedLanguage | n
     '.hcl': 'hcl',
     '.tf': 'hcl',
     '.tfvars': 'hcl',
+    '.svelte': 'svelte',
   };
 
   return EXT_MAP[ext] ?? null;

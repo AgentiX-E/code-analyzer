@@ -93,7 +93,7 @@ describe('PipelinePhaseId', () => {
 
 describe('SupportedLanguage', () => {
   it('has the expected number of languages', () => {
-    expect(SUPPORTED_LANGUAGES).toHaveLength(30);
+    expect(SUPPORTED_LANGUAGES).toHaveLength(31);
   });
 
   it('includes TypeScript first (primary priority)', () => {
