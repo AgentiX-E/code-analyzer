@@ -1,4 +1,6 @@
 // @code-analyzer/intelligence — Embedding Engine Tests
+// Comprehensive tests for MockEmbeddingBackend (n-gram based) and EmbeddingEngine.
+// RealEmbeddingBackend tests require ONNX runtime and are excluded from CI coverage.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
@@ -7,86 +9,239 @@ import {
 } from '../embeddings/embedder.js';
 
 // ---------------------------------------------------------------------------
-// MockEmbeddingBackend — direct tests
+// MockEmbeddingBackend — n-gram content-based deterministic backend
 // ---------------------------------------------------------------------------
 
 describe('MockEmbeddingBackend', () => {
-  it('has backendType "mock"', () => {
-    const backend = new MockEmbeddingBackend();
-    expect(backend.backendType).toBe('mock');
+  describe('Basic properties', () => {
+    it('has backendType "mock"', () => {
+      const backend = new MockEmbeddingBackend();
+      expect(backend.backendType).toBe('mock');
+    });
+
+    it('uses normalize=true by default with 768 dimensions', () => {
+      const backend = new MockEmbeddingBackend();
+      expect(backend.dimensions).toBe(768);
+    });
+
+    it('respects custom dimensions', () => {
+      const b256 = new MockEmbeddingBackend({ dimensions: 256, normalize: true });
+      const b512 = new MockEmbeddingBackend({ dimensions: 512, normalize: true });
+      const b1024 = new MockEmbeddingBackend({ dimensions: 1024, normalize: true });
+
+      expect(b256.dimensions).toBe(256);
+      expect(b512.dimensions).toBe(512);
+      expect(b1024.dimensions).toBe(1024);
+    });
+
+    it('respects normalize option', () => {
+      const backend = new MockEmbeddingBackend({ dimensions: 768, normalize: false });
+      expect(backend.dimensions).toBe(768);
+    });
+
+    it('dispose is a no-op', () => {
+      const backend = new MockEmbeddingBackend();
+      expect(() => backend.dispose()).not.toThrow();
+    });
   });
 
-  it('uses normalize=true by default', () => {
-    const backend = new MockEmbeddingBackend();
-    // Verification: with normalize=true, embedding vectors are unit length
-    // We verify indirectly through embedCode normalization test
-    expect(backend.dimensions).toBe(768);
+  describe('Determinism', () => {
+    it('produces identical vectors for identical input', async () => {
+      const backend = new MockEmbeddingBackend();
+      const v1 = await backend.embedCode('function add(a, b) { return a + b; }');
+      const v2 = await backend.embedCode('function add(a, b) { return a + b; }');
+
+      expect(v1.length).toBe(768);
+      expect(v2.length).toBe(768);
+      for (let i = 0; i < v1.length; i++) {
+        expect(v1[i]).toBe(v2[i]);
+      }
+    });
+
+    it('produces deterministic output across separate instances', async () => {
+      const b1 = new MockEmbeddingBackend();
+      const b2 = new MockEmbeddingBackend();
+      const v1 = await b1.embedCode('function hello() { return "world"; }');
+      const v2 = await b2.embedCode('function hello() { return "world"; }');
+
+      for (let i = 0; i < v1.length; i++) {
+        expect(v1[i]).toBe(v2[i]);
+      }
+    });
+
+    it('produces different vectors for different inputs', async () => {
+      const backend = new MockEmbeddingBackend();
+      const v1 = await backend.embedCode('function alpha() {}');
+      const v2 = await backend.embedCode('class BetaWidget extends Component {}');
+
+      let differences = 0;
+      for (let i = 0; i < v1.length; i++) {
+        if (Math.abs(v1[i]! - v2[i]!) > 1e-10) {
+          differences++;
+        }
+      }
+      expect(differences).toBeGreaterThan(0);
+    });
   });
 
-  it('respects normalize=false when specified', () => {
-    const backend = new MockEmbeddingBackend({ dimensions: 768, normalize: false });
-    expect(backend.dimensions).toBe(768);
-    // Verification: with normalize=false, vectors are not unit length
+  describe('Normalization', () => {
+    it('produces L2-normalized vectors by default', async () => {
+      const backend = new MockEmbeddingBackend({ dimensions: 768, normalize: true });
+
+      const testCases = [
+        'function short() {}',
+        'class VeryLongClassNameWithManyMethodsAndProperties { constructor() { this.init(); } }',
+        '',
+      ];
+
+      for (const code of testCases) {
+        const vec = await backend.embedCode(code);
+        let norm = 0;
+        for (let i = 0; i < vec.length; i++) {
+          norm += vec[i]! * vec[i]!;
+        }
+        expect(Math.sqrt(norm)).toBeCloseTo(1.0, 5);
+      }
+    });
+
+    it('skips normalization when normalize=false', async () => {
+      const backend = new MockEmbeddingBackend({ dimensions: 128, normalize: false });
+      const vec = await backend.embedCode('function test() {}');
+      let norm = 0;
+      for (let i = 0; i < vec.length; i++) {
+        norm += vec[i]! * vec[i]!;
+      }
+      // Without normalization, norm should not be close to 1.0
+      expect(Math.sqrt(norm)).not.toBeCloseTo(1.0, 3);
+    });
+
+    it('produces unit-length normalized vectors for empty input', async () => {
+      const backend = new MockEmbeddingBackend();
+      const vec = await backend.embedCode('');
+      let norm = 0;
+      for (let i = 0; i < vec.length; i++) {
+        norm += vec[i]! * vec[i]!;
+      }
+      expect(Math.sqrt(norm)).toBeCloseTo(1.0, 5);
+    });
   });
 
-  it('respects custom dimensions', () => {
-    const backend = new MockEmbeddingBackend({ dimensions: 256, normalize: true });
-    expect(backend.dimensions).toBe(256);
+  describe('n-gram semantic approximation', () => {
+    it('similar tokens produce overlapping activation patterns', async () => {
+      // n-gram approach: tokens like 'function', 'return', '{' will match
+      const backend = new MockEmbeddingBackend();
+      const v1 = await backend.embedCode('function add(a, b) { return a + b; }');
+      const v2 = await backend.embedCode('function subtract(a, b) { return a - b; }');
+
+      // These should have some structural similarity due to shared tokens
+      const engine = new EmbeddingEngine();
+      const sim = engine.cosineSimilarity(v1, v2);
+      // Similar structure → similarity should NOT be near zero
+      expect(sim).toBeGreaterThan(0.02);
+    });
+
+    it('very different code produces low similarity', async () => {
+      const backend = new MockEmbeddingBackend();
+      const v1 = await backend.embedCode(
+        'function renderButton(label: string): JSX.Element { return <button>{label}</button>; }',
+      );
+      const v2 = await backend.embedCode(
+        'async function connectDatabase(url: string): Promise<Connection> { const conn = await pg.connect(url); return conn; }',
+      );
+
+      const engine = new EmbeddingEngine();
+      const sim = engine.cosineSimilarity(v1, v2);
+      // Very different code → lower similarity (but not zero with n-gram overlap)
+      expect(Math.abs(sim)).toBeLessThan(0.5);
+    });
+
+    it('camelCase naming produces overlapping token activation', async () => {
+      const backend = new MockEmbeddingBackend();
+      // 'handleUserInput' tokenizes into ['handle', 'user', 'input']
+      const v1 = await backend.embedCode('function handleUserInput() {}');
+      // 'processUserRequest' tokenizes into ['process', 'user', 'request']
+      const v2 = await backend.embedCode('function processUserRequest() {}');
+      // Both share n-grams from 'user'
+      // They are somewhat related (both are user-handling functions)
+      // but not identical
+
+      let differences = 0;
+      for (let i = 0; i < v1.length; i++) {
+        if (Math.abs(v1[i]! - v2[i]!) > 1e-10) {
+          differences++;
+        }
+      }
+      expect(differences).toBeGreaterThan(0);
+    });
   });
 
-  it('embedCode returns normalized vectors by default', async () => {
-    const backend = new MockEmbeddingBackend({ dimensions: 768, normalize: true });
-    const vec = await backend.embedCode('test');
-    let norm = 0;
-    for (let i = 0; i < vec.length; i++) norm += vec[i]! * vec[i]!;
-    expect(Math.sqrt(norm)).toBeCloseTo(1.0, 5);
+  describe('Batch embedding', () => {
+    it('returns correct count', async () => {
+      const backend = new MockEmbeddingBackend();
+      const vecs = await backend.embedBatch(['a', 'b', 'c']);
+      expect(vecs.length).toBe(3);
+      expect(vecs[0]!.length).toBe(768);
+      expect(vecs[1]!.length).toBe(768);
+      expect(vecs[2]!.length).toBe(768);
+    });
+
+    it('handles empty batch', async () => {
+      const backend = new MockEmbeddingBackend();
+      const vecs = await backend.embedBatch([]);
+      expect(vecs).toEqual([]);
+    });
+
+    it('handles single item batch', async () => {
+      const backend = new MockEmbeddingBackend();
+      const vecs = await backend.embedBatch(['single']);
+      expect(vecs.length).toBe(1);
+      expect(vecs[0]!.length).toBe(768);
+    });
+
+    it('produces same results as individual embedCode calls', async () => {
+      const backend = new MockEmbeddingBackend();
+      const codes = [
+        'function alpha() { return 1; }',
+        'function beta() { return 2; }',
+        'function gamma() { return 3; }',
+      ];
+
+      const batch = await backend.embedBatch(codes);
+      const individual = await Promise.all(codes.map((c) => backend.embedCode(c)));
+
+      for (let i = 0; i < codes.length; i++) {
+        for (let j = 0; j < batch[i]!.length; j++) {
+          expect(batch[i]![j]).toBe(individual[i]![j]);
+        }
+      }
+    });
+
+    it('handles large batch efficiently', async () => {
+      const backend = new MockEmbeddingBackend();
+      const codes = Array.from({ length: 500 }, (_, i) => `function f${i}() { return ${i}; }`);
+      const vecs = await backend.embedBatch(codes);
+
+      expect(vecs.length).toBe(500);
+      expect(vecs[0]!.length).toBe(768);
+      expect(vecs[499]!.length).toBe(768);
+
+      // Verify determinism within batch
+      const vFirst = await backend.embedCode(codes[0]!);
+      for (let i = 0; i < 768; i++) {
+        expect(vecs[0]![i]).toBe(vFirst[i]);
+      }
+    });
   });
 
-  it('embedCode skips normalization when disabled', async () => {
-    const backend = new MockEmbeddingBackend({ dimensions: 128, normalize: false });
-    const vec = await backend.embedCode('test');
-    let norm = 0;
-    for (let i = 0; i < vec.length; i++) norm += vec[i]! * vec[i]!;
-    // Without normalization, norm is unlikely to be 1.0
-    expect(Math.sqrt(norm)).not.toBeCloseTo(1.0, 3);
-  });
-
-  it('embedBatch returns correct count', async () => {
-    const backend = new MockEmbeddingBackend();
-    const vecs = await backend.embedBatch(['a', 'b', 'c']);
-    expect(vecs.length).toBe(3);
-    expect(vecs[0]!.length).toBe(768);
-  });
-
-  it('embedBatch with empty array', async () => {
-    const backend = new MockEmbeddingBackend();
-    const vecs = await backend.embedBatch([]);
-    expect(vecs).toEqual([]);
-  });
-
-  it('dispose is a no-op', () => {
-    const backend = new MockEmbeddingBackend();
-    expect(() => backend.dispose()).not.toThrow();
-  });
-
-  it('produces deterministic output for same input', async () => {
-    const backend = new MockEmbeddingBackend();
-    const v1 = await backend.embedCode('hello');
-    const v2 = await backend.embedCode('hello');
-    for (let i = 0; i < v1.length; i++) {
-      expect(v1[i]).toBe(v2[i]);
-    }
-  });
-
-  it('produces different output for different input', async () => {
-    const backend = new MockEmbeddingBackend();
-    const v1 = await backend.embedCode('alpha');
-    const v2 = await backend.embedCode('beta');
-    let diff = 0;
-    for (let i = 0; i < v1.length; i++) {
-      if (v1[i] !== v2[i]) diff++;
-    }
-    expect(diff).toBeGreaterThan(0);
+  describe('Interface conformance', () => {
+    it('implements EmbeddingBackend interface', () => {
+      const backend = new MockEmbeddingBackend();
+      expect(backend.backendType).toBeDefined();
+      expect(typeof backend.embedCode).toBe('function');
+      expect(typeof backend.embedBatch).toBe('function');
+      expect(typeof backend.dimensions).toBe('number');
+      expect(typeof backend.dispose).toBe('function');
+    });
   });
 });
 
@@ -104,6 +259,26 @@ describe('EmbeddingEngine activeBackend', () => {
   it('reports "mock" before initialization', () => {
     const engine = new EmbeddingEngine();
     expect(engine.activeBackend).toBe('mock');
+  });
+
+  it('provides initWarning when real backend is unavailable', async () => {
+    const engine = new EmbeddingEngine();
+    const warning = await engine.initialize();
+    // In CI/test environment without ONNX runtime, should have a warning
+    expect(warning).toBeDefined();
+    expect(warning).toContain('ONNX');
+  });
+
+  it('initWarning is null before initialize', () => {
+    const engine = new EmbeddingEngine();
+    expect(engine.initWarning).toBeNull();
+  });
+
+  it('initWarning is set after initialize with mock backend', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+    expect(engine.initWarning).not.toBeNull();
+    expect(typeof engine.initWarning).toBe('string');
   });
 });
 
@@ -130,9 +305,7 @@ describe('EmbeddingEngine.importEmbeddings', () => {
   });
 
   it('imports embeddings from number[] entries', () => {
-    engine.importEmbeddings([
-      { nodeId: 3, embedding: [0.7, 0.8, 0.9] },
-    ]);
+    engine.importEmbeddings([{ nodeId: 3, embedding: [0.7, 0.8, 0.9] }]);
     const retrieved = engine.getEmbedding(3);
     expect(retrieved).not.toBeNull();
     expect(retrieved![0]).toBeCloseTo(0.7, 5);
@@ -149,17 +322,26 @@ describe('EmbeddingEngine.importEmbeddings', () => {
     expect(engine.getEmbedding(2)![0]).toBe(4);
   });
 
-  it('importEmbeddings does not modify original array', () => {
+  it('does not modify original Float32Array', () => {
     const original = new Float32Array([1, 2, 3]);
     engine.importEmbeddings([{ nodeId: 1, embedding: original }]);
     original[0] = 999;
     const retrieved = engine.getEmbedding(1);
-    expect(retrieved![0]).toBe(1); // Copy was made, original unchanged
+    expect(retrieved![0]).toBe(1);
   });
 
-  it('importEmbeddings with empty array is a no-op', () => {
+  it('empty array is a no-op', () => {
     engine.importEmbeddings([]);
     expect(engine.embeddingCount).toBe(0);
+  });
+
+  it('imports large number of embeddings', () => {
+    const entries = Array.from({ length: 1000 }, (_, i) => ({
+      nodeId: i,
+      embedding: new Float32Array([i / 1000, (i % 256) / 256, 0.5]),
+    }));
+    engine.importEmbeddings(entries);
+    expect(engine.embeddingCount).toBe(1000);
   });
 });
 
@@ -175,10 +357,9 @@ describe('EmbeddingEngine.createEmbeddingLookup', () => {
     await engine.initialize();
   });
 
-  it('returns a lookup function that finds stored embeddings', () => {
+  it('finds stored embeddings', () => {
     const vec = new Float32Array([0.5, 0.5, 0.5]);
     engine.storeEmbedding(42, vec);
-
     const lookup = engine.createEmbeddingLookup();
     const result = lookup(42);
     expect(result).not.toBeNull();
@@ -190,7 +371,7 @@ describe('EmbeddingEngine.createEmbeddingLookup', () => {
     expect(lookup(999)).toBeNull();
   });
 
-  it('lookup function works with importEmbeddings data', () => {
+  it('works with importEmbeddings data', () => {
     engine.importEmbeddings([
       { nodeId: 10, embedding: [0.1, 0.2] },
       { nodeId: 20, embedding: [0.3, 0.4] },
@@ -199,6 +380,15 @@ describe('EmbeddingEngine.createEmbeddingLookup', () => {
     expect(lookup(10)).not.toBeNull();
     expect(lookup(20)).not.toBeNull();
     expect(lookup(30)).toBeNull();
+  });
+
+  it('lookup functions from different engines are independent', () => {
+    const engine2 = new EmbeddingEngine();
+    engine.storeEmbedding(1, new Float32Array([1, 2]));
+    engine2.storeEmbedding(2, new Float32Array([3, 4]));
+    const lookup1 = engine.createEmbeddingLookup();
+    expect(lookup1(1)).not.toBeNull();
+    expect(lookup1(2)).toBeNull();
   });
 });
 
@@ -248,34 +438,10 @@ describe('EmbeddingEngine.embeddingCount', () => {
 });
 
 // ---------------------------------------------------------------------------
-// EmbeddingBackend type guards
+// EmbeddingEngine.cosineSimilarity
 // ---------------------------------------------------------------------------
 
-describe('EmbeddingBackend interface conformance', () => {
-  it('MockEmbeddingBackend implements EmbeddingBackend', () => {
-    const backend = new MockEmbeddingBackend();
-    expect(backend.backendType).toBeDefined();
-    expect(typeof backend.embedCode).toBe('function');
-    expect(typeof backend.embedBatch).toBe('function');
-    expect(typeof backend.dimensions).toBe('number');
-    expect(typeof backend.dispose).toBe('function');
-  });
-
-  it('MockEmbeddingBackend dimensions matches config', () => {
-    const b768 = new MockEmbeddingBackend({ dimensions: 768, normalize: true });
-    const b512 = new MockEmbeddingBackend({ dimensions: 512, normalize: true });
-    const b256 = new MockEmbeddingBackend({ dimensions: 256, normalize: true });
-    expect(b768.dimensions).toBe(768);
-    expect(b512.dimensions).toBe(512);
-    expect(b256.dimensions).toBe(256);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Deterministic Output Tests
-// ---------------------------------------------------------------------------
-
-describe('EmbeddingEngine — Mock Backend', () => {
+describe('EmbeddingEngine.cosineSimilarity', () => {
   let engine: EmbeddingEngine;
 
   beforeEach(async () => {
@@ -283,68 +449,71 @@ describe('EmbeddingEngine — Mock Backend', () => {
     await engine.initialize();
   });
 
-  it('should produce deterministic vectors for the same input', async () => {
-    const v1 = await engine.embedCode('function hello() { return "world"; }');
-    const v2 = await engine.embedCode('function hello() { return "world"; }');
-
-    expect(v1.length).toBe(768);
-    expect(v2.length).toBe(768);
-    for (let i = 0; i < v1.length; i++) {
-      expect(v1[i]!).toBe(v2[i]!);
-    }
+  it('returns 1.0 for identical content', async () => {
+    const code = 'function add(a: number, b: number): number { return a + b; }';
+    const v1 = await engine.embedCode(code);
+    const v2 = await engine.embedCode(code);
+    expect(engine.cosineSimilarity(v1, v2)).toBeCloseTo(1.0, 5);
   });
 
-  it('should produce different vectors for different inputs', async () => {
-    const v1 = await engine.embedCode('function foo() {}');
-    const v2 = await engine.embedCode('function bar() {}');
-
-    let differences = 0;
-    for (let i = 0; i < v1.length; i++) {
-      if (Math.abs(v1[i]! - v2[i]!) > 1e-10) {
-        differences++;
-      }
-    }
-    // Almost all values should differ for different inputs with our mock
-    expect(differences).toBeGreaterThan(0);
+  it('returns positive similarity for structurally similar code', async () => {
+    const v1 = await engine.embedCode('function add(a, b) { return a + b; }');
+    const v2 = await engine.embedCode('function add(x, y) { return x + y; }');
+    const sim = engine.cosineSimilarity(v1, v2);
+    // With n-gram approach, structurally similar code shares many tokens
+    expect(sim).toBeGreaterThan(0);
   });
 
-  it('should produce normalized vectors', async () => {
-    const v = await engine.embedCode('test code');
-
-    let norm = 0;
-    for (let i = 0; i < v.length; i++) {
-      norm += v[i]! * v[i]!;
-    }
-    norm = Math.sqrt(norm);
-    expect(norm).toBeCloseTo(1.0, 5);
+  it('throws on dimension mismatch', () => {
+    const a = new Float32Array([1, 2, 3]);
+    const b = new Float32Array([1, 2, 3, 4]);
+    expect(() => engine.cosineSimilarity(a, b)).toThrow('dimension mismatch');
   });
 
-  it('should produce vectors of correct dimension', async () => {
-    const customEngine = new EmbeddingEngine({ dimensions: 512, normalize: false });
-    await customEngine.initialize();
-
-    const v = await customEngine.embedCode('test');
-    expect(v.length).toBe(512);
+  it('handles zero vectors', () => {
+    const a = new Float32Array([0, 0, 0]);
+    const b = new Float32Array([1, 2, 3]);
+    expect(engine.cosineSimilarity(a, b)).toBe(0);
   });
 
-  it('should handle empty string input', async () => {
-    const v = await engine.embedCode('');
-    expect(v.length).toBe(768);
-    // Empty string should still produce a valid vector
-    let norm = 0;
-    for (let i = 0; i < v.length; i++) {
-      norm += v[i]! * v[i]!;
-    }
-    norm = Math.sqrt(norm);
-    expect(norm).toBeCloseTo(1.0, 5);
+  it('handles both zero vectors', () => {
+    const a = new Float32Array([0, 0, 0]);
+    const b = new Float32Array([0, 0, 0]);
+    expect(engine.cosineSimilarity(a, b)).toBe(0);
+  });
+
+  it('is commutative', async () => {
+    const v1 = await engine.embedCode('function hello() {}');
+    const v2 = await engine.embedCode('function world() {}');
+    expect(engine.cosineSimilarity(v1, v2)).toBe(
+      engine.cosineSimilarity(v2, v1),
+    );
+  });
+
+  it('returns symmetric values for a vs b and b vs a', () => {
+    const a = new Float32Array([0.5, 0.3, 0.2]);
+    const b = new Float32Array([0.1, 0.8, 0.4]);
+    expect(engine.cosineSimilarity(a, b)).toBe(engine.cosineSimilarity(b, a));
+  });
+
+  it('handles negative values correctly', () => {
+    const a = new Float32Array([-1, 0, 0]);
+    const b = new Float32Array([1, 0, 0]);
+    expect(engine.cosineSimilarity(a, b)).toBeCloseTo(-1.0, 5);
+  });
+
+  it('handles orthogonal vectors', () => {
+    const a = new Float32Array([1, 0, 0]);
+    const b = new Float32Array([0, 1, 0]);
+    expect(engine.cosineSimilarity(a, b)).toBeCloseTo(0, 5);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Cosine Similarity Tests
+// EmbeddingEngine.findMostSimilar
 // ---------------------------------------------------------------------------
 
-describe('EmbeddingEngine.cosineSimilarity', () => {
+describe('EmbeddingEngine.findMostSimilar', () => {
   let engine: EmbeddingEngine;
 
   beforeEach(async () => {
@@ -352,45 +521,54 @@ describe('EmbeddingEngine.cosineSimilarity', () => {
     await engine.initialize();
   });
 
-  it('should return 1.0 for identical content', async () => {
-    const code = 'function add(a: number, b: number): number { return a + b; }';
-    const v1 = await engine.embedCode(code);
-    const v2 = await engine.embedCode(code);
+  it('finds the most similar items in a corpus', async () => {
+    const query = await engine.embedCode('function add(a, b) { return a + b; }');
+    const corpus = await Promise.all([
+      engine.embedCode('function multiply(x, y) { return x * y; }'),
+      engine.embedCode('function add(x, y) { return x + y; }'), // most similar
+      engine.embedCode('class DatabaseConnection { connect() {} }'),
+    ]);
 
-    expect(engine.cosineSimilarity(v1, v2)).toBeCloseTo(1.0, 5);
+    const results = engine.findMostSimilar(query, corpus, 2);
+    expect(results.length).toBe(2);
+    // The second corpus item should be most similar to query
+    expect(results[0]!.index).toBe(1);
   });
 
-  it('should return low similarity for very different content', async () => {
-    const v1 = await engine.embedCode('function add(a, b) { return a + b; }');
-    const v2 = await engine.embedCode('class DatabaseConnection { connect() {} }');
-
-    const sim = engine.cosineSimilarity(v1, v2);
-    // For random vectors in 768D, similarity should be close to 0
-    expect(Math.abs(sim)).toBeLessThan(0.3);
+  it('returns empty for empty corpus', () => {
+    const query = new Float32Array([1, 2, 3]);
+    const results = engine.findMostSimilar(query, [], 10);
+    expect(results).toEqual([]);
   });
 
-  it('should throw on dimension mismatch', () => {
-    const a = new Float32Array([1, 2, 3]);
-    const b = new Float32Array([1, 2, 3, 4]);
-    expect(() => engine.cosineSimilarity(a, b)).toThrow('dimension mismatch');
+  it('respects topK limit', async () => {
+    const query = await engine.embedCode('query');
+    const corpus = await Promise.all(
+      Array.from({ length: 20 }, (_, i) => engine.embedCode(`doc_${i}`)),
+    );
+    const results = engine.findMostSimilar(query, corpus, 5);
+    expect(results.length).toBe(5);
   });
 
-  it('should handle zero vectors', () => {
-    const a = new Float32Array([0, 0, 0]);
-    const b = new Float32Array([1, 2, 3]);
-    expect(engine.cosineSimilarity(a, b)).toBe(0);
-  });
+  it('returns results sorted by score descending', async () => {
+    const query = await engine.embedCode('target');
+    const corpus = await Promise.all([
+      engine.embedCode('target'),
+      engine.embedCode('different'),
+      engine.embedCode('unrelated'),
+    ]);
 
-  it('should be commutative', async () => {
-    const v1 = await engine.embedCode('function hello() {}');
-    const v2 = await engine.embedCode('function world() {}');
-
-    expect(engine.cosineSimilarity(v1, v2)).toBe(engine.cosineSimilarity(v2, v1));
+    const results = engine.findMostSimilar(query, corpus, 3);
+    expect(results.length).toBe(3);
+    // Scores should be descending
+    for (let i = 0; i < results.length - 1; i++) {
+      expect(results[i]!.score).toBeGreaterThanOrEqual(results[i + 1]!.score);
+    }
   });
 });
 
 // ---------------------------------------------------------------------------
-// Batch Embedding Tests
+// EmbeddingEngine.embedBatch
 // ---------------------------------------------------------------------------
 
 describe('EmbeddingEngine.embedBatch', () => {
@@ -401,13 +579,8 @@ describe('EmbeddingEngine.embedBatch', () => {
     await engine.initialize();
   });
 
-  it('should embed multiple snippets at once', async () => {
-    const codes = [
-      'function a() {}',
-      'function b() {}',
-      'function c() {}',
-    ];
-
+  it('embeds multiple snippets at once', async () => {
+    const codes = ['function a() {}', 'function b() {}', 'function c() {}'];
     const vectors = await engine.embedBatch(codes);
 
     expect(vectors.length).toBe(3);
@@ -416,7 +589,7 @@ describe('EmbeddingEngine.embedBatch', () => {
     expect(vectors[2]!.length).toBe(768);
   });
 
-  it('should produce same results as individual embedding', async () => {
+  it('produces same results as individual embedding', async () => {
     const codes = [
       'function foo() { return 1; }',
       'function bar() { return 2; }',
@@ -426,23 +599,26 @@ describe('EmbeddingEngine.embedBatch', () => {
     const individual = await Promise.all(codes.map((c) => engine.embedCode(c)));
 
     for (let i = 0; i < codes.length; i++) {
-      const batchItem = batch[i]!;
-      const indivItem = individual[i]!;
-      for (let j = 0; j < batchItem.length; j++) {
-        expect(batchItem[j]!).toBe(indivItem[j]!);
+      for (let j = 0; j < (batch[i]?.length ?? 0); j++) {
+        expect(batch[i]![j]!).toBe(individual[i]![j]!);
       }
     }
   });
 
-  it('should handle empty batch', async () => {
+  it('handles empty batch', async () => {
     const vectors = await engine.embedBatch([]);
     expect(vectors).toEqual([]);
   });
 
-  it('should handle large batch', async () => {
+  it('handles single-item batch', async () => {
+    const vectors = await engine.embedBatch(['function unique() {}']);
+    expect(vectors.length).toBe(1);
+    expect(vectors[0]!.length).toBe(768);
+  });
+
+  it('handles large batch', async () => {
     const codes = Array.from({ length: 100 }, (_, i) => `function f${i}() {}`);
     const vectors = await engine.embedBatch(codes);
-
     expect(vectors.length).toBe(100);
     expect(vectors[0]!.length).toBe(768);
     expect(vectors[99]!.length).toBe(768);
@@ -450,7 +626,7 @@ describe('EmbeddingEngine.embedBatch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Store/Get Embedding Tests
+// EmbeddingEngine store/get embeddings
 // ---------------------------------------------------------------------------
 
 describe('EmbeddingEngine store/get embeddings', () => {
@@ -461,10 +637,8 @@ describe('EmbeddingEngine store/get embeddings', () => {
     await engine.initialize();
   });
 
-  it('should store and retrieve embeddings', async () => {
-    const code = 'function test() {}';
-    const vector = await engine.embedCode(code);
-
+  it('stores and retrieves embeddings', async () => {
+    const vector = await engine.embedCode('function test() {}');
     engine.storeEmbedding(1, vector);
     const retrieved = engine.getEmbedding(1);
 
@@ -475,25 +649,21 @@ describe('EmbeddingEngine store/get embeddings', () => {
     }
   });
 
-  it('should return null for missing embedding', () => {
-    const result = engine.getEmbedding(999);
-    expect(result).toBeNull();
+  it('returns null for missing embedding', () => {
+    expect(engine.getEmbedding(999)).toBeNull();
   });
 
-  it('should return a copy, not the original', async () => {
+  it('returns a copy, not the original reference', async () => {
     const vector = await engine.embedCode('test');
     engine.storeEmbedding(1, vector);
-
     vector[0] = 999;
-
     const retrieved = engine.getEmbedding(1);
     expect(retrieved![0]!).not.toBe(999);
   });
 
-  it('should update existing embedding', async () => {
+  it('updates existing embedding', async () => {
     const v1 = await engine.embedCode('old code');
     const v2 = await engine.embedCode('new code');
-
     engine.storeEmbedding(1, v1);
     engine.storeEmbedding(1, v2);
 
@@ -503,12 +673,11 @@ describe('EmbeddingEngine store/get embeddings', () => {
     }
   });
 
-  it('should handle multiple stored embeddings', async () => {
+  it('handles many stored embeddings', async () => {
     for (let i = 0; i < 50; i++) {
       const v = await engine.embedCode(`code_${i}`);
       engine.storeEmbedding(i, v);
     }
-
     for (let i = 0; i < 50; i++) {
       expect(engine.getEmbedding(i)).not.toBeNull();
     }
@@ -516,7 +685,7 @@ describe('EmbeddingEngine store/get embeddings', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Incremental Update Tests
+// EmbeddingEngine.incrementalUpdate
 // ---------------------------------------------------------------------------
 
 describe('EmbeddingEngine.incrementalUpdate', () => {
@@ -527,78 +696,101 @@ describe('EmbeddingEngine.incrementalUpdate', () => {
     await engine.initialize();
   });
 
-  it('should embed only nodes without existing embeddings', async () => {
-    // Pre-populate node 1
+  it('embeds only nodes without existing embeddings', async () => {
     const existingVec = await engine.embedCode('existing');
     engine.storeEmbedding(1, existingVec);
 
-    const nodeIds = [1, 2, 3];
     const contentMap = new Map([
       [1, 'existing'],
       [2, 'new content two'],
       [3, 'brand new content three'],
     ]);
 
-    await engine.incrementalUpdate(nodeIds, (id) => contentMap.get(id) ?? '');
+    await engine.incrementalUpdate([1, 2, 3], (id) => contentMap.get(id) ?? '');
 
-    // Node 1 should have its original embedding
+    // Node 1 should preserve original embedding
     const v1 = engine.getEmbedding(1);
     expect(v1).not.toBeNull();
     for (let i = 0; i < v1!.length; i++) {
       expect(v1![i]!).toBe(existingVec[i]!);
     }
 
-    // Nodes 2 and 3 should now have embeddings
+    // New nodes should have embeddings
     expect(engine.getEmbedding(2)).not.toBeNull();
     expect(engine.getEmbedding(3)).not.toBeNull();
   });
 
-  it('should skip nodes with empty content', async () => {
-    const nodeIds = [1, 2];
-    await engine.incrementalUpdate(nodeIds, (id) => {
+  it('skips nodes with empty content', async () => {
+    await engine.incrementalUpdate([1, 2], (id) => {
       return id === 1 ? 'valid content' : '';
     });
-
     expect(engine.getEmbedding(1)).not.toBeNull();
     expect(engine.getEmbedding(2)).toBeNull();
   });
 
-  it('should handle empty node list', async () => {
+  it('handles empty node list', async () => {
     await engine.incrementalUpdate([], () => 'test');
     expect(engine.getEmbedding(0)).toBeNull();
+  });
+
+  it('skips embedding when all nodes have existing embeddings', async () => {
+    const existingVec = await engine.embedCode('existing');
+    engine.storeEmbedding(1, existingVec);
+
+    await engine.incrementalUpdate([1], (id) => {
+      return id === 1 ? 'completely different content' : '';
+    });
+    // Should keep existing embedding unchanged
+    const v1 = engine.getEmbedding(1);
+    expect(v1).not.toBeNull();
+    for (let i = 0; i < existingVec.length; i++) {
+      expect(v1![i]!).toBe(existingVec[i]!);
+    }
   });
 });
 
 // ---------------------------------------------------------------------------
-// Engine Lifecycle Tests
+// EmbeddingEngine lifecycle
 // ---------------------------------------------------------------------------
 
 describe('EmbeddingEngine lifecycle', () => {
-  it('should initialize lazily on first use', async () => {
+  it('initializes lazily on first embedCode call', async () => {
     const engine = new EmbeddingEngine();
     expect(engine.isReady).toBe(false);
-
     await engine.embedCode('test');
     expect(engine.isReady).toBe(true);
   });
 
-  it('should be initialized after calling initialize', async () => {
+  it('initializes lazily on first embedBatch call', async () => {
     const engine = new EmbeddingEngine();
     expect(engine.isReady).toBe(false);
+    await engine.embedBatch(['test1', 'test2']);
+    expect(engine.isReady).toBe(true);
+  });
 
+  it('initializes lazily on first incrementalUpdate call', async () => {
+    const engine = new EmbeddingEngine();
+    expect(engine.isReady).toBe(false);
+    await engine.incrementalUpdate([1], () => 'content');
+    expect(engine.isReady).toBe(true);
+  });
+
+  it('is initialized after calling initialize()', async () => {
+    const engine = new EmbeddingEngine();
+    expect(engine.isReady).toBe(false);
     await engine.initialize();
     expect(engine.isReady).toBe(true);
   });
 
-  it('should not reinitialize if already initialized', async () => {
+  it('does not reinitialize if already initialized', async () => {
     const engine = new EmbeddingEngine();
     await engine.initialize();
-    const dimensions = engine.dimensions;
-    await engine.initialize();
-    expect(engine.dimensions).toBe(dimensions);
+    const dimsBefore = engine.dimensions;
+    await engine.initialize(); // second call should be no-op
+    expect(engine.dimensions).toBe(dimsBefore);
   });
 
-  it('should dispose cleanly', async () => {
+  it('dispose clears all state', async () => {
     const engine = new EmbeddingEngine();
     await engine.initialize();
     await engine.embedCode('test');
@@ -608,15 +800,17 @@ describe('EmbeddingEngine lifecycle', () => {
 
     expect(engine.isReady).toBe(false);
     expect(engine.getEmbedding(1)).toBeNull();
+    expect(engine.embeddingCount).toBe(0);
+    expect(engine.initWarning).toBeNull();
   });
 
-  it('should use default dimensions when no config provided', async () => {
+  it('uses default dimensions (768) when no config provided', async () => {
     const engine = new EmbeddingEngine();
     await engine.initialize();
     expect(engine.dimensions).toBe(768);
   });
 
-  it('should accept custom dimensions', async () => {
+  it('accepts custom dimensions', async () => {
     const engine = new EmbeddingEngine({ dimensions: 256 });
     await engine.initialize();
     expect(engine.dimensions).toBe(256);
@@ -625,65 +819,100 @@ describe('EmbeddingEngine lifecycle', () => {
     expect(v.length).toBe(256);
   });
 
-  it('should handle embedCode without explicit initialize (lazy init)', async () => {
+  it('can be reused after dispose and reinitialize', async () => {
     const engine = new EmbeddingEngine();
-    // embedCode should auto-initialize
-    const v = await engine.embedCode('lazy test');
+    await engine.initialize();
+    await engine.embedCode('first life');
+    engine.dispose();
+
+    // Reinitialize
+    const warning = await engine.initialize();
+    expect(engine.isReady).toBe(true);
+    expect(warning).toBeDefined(); // Still no ONNX in CI
+
+    const v = await engine.embedCode('second life');
     expect(v.length).toBe(768);
-    expect(engine.isReady).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge Cases
+// ---------------------------------------------------------------------------
+
+describe('EmbeddingEngine edge cases', () => {
+  it('handles very long input', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+
+    const longCode = 'function ' + 'a'.repeat(10000) + '() { return true; }';
+    const v = await engine.embedCode(longCode);
+    expect(v.length).toBe(768);
+
+    let norm = 0;
+    for (let i = 0; i < v.length; i++) norm += v[i]! * v[i]!;
+    expect(Math.sqrt(norm)).toBeCloseTo(1.0, 5);
   });
 
-  it('should handle embedBatch without explicit initialize', async () => {
+  it('handles unicode input', async () => {
     const engine = new EmbeddingEngine();
-    const vectors = await engine.embedBatch(['test1', 'test2']);
-    expect(vectors.length).toBe(2);
-    expect(engine.isReady).toBe(true);
+    await engine.initialize();
+
+    const unicodeCode = 'function 你好世界() { return "こんにちは"; }';
+    const v = await engine.embedCode(unicodeCode);
+    expect(v.length).toBe(768);
   });
 
-  it('should handle incrementalUpdate without explicit initialize', async () => {
+  it('handles special characters', async () => {
     const engine = new EmbeddingEngine();
-    const contentMap = new Map([
-      [1, 'content one'],
-      [2, 'content two'],
+    await engine.initialize();
+
+    const specialChars = '@#$%^&*()_+-=[]{}|;:",.<>?/~`!';
+    const v = await engine.embedCode(specialChars);
+    expect(v.length).toBe(768);
+  });
+
+  it('handles whitespace-only input', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+
+    const v = await engine.embedCode('   \n\t   ');
+    expect(v.length).toBe(768);
+  });
+
+  it('importEmbeddings with very large embedding vectors', () => {
+    const engine = new EmbeddingEngine();
+    const largeVec = new Float32Array(768);
+    for (let i = 0; i < 768; i++) largeVec[i] = i / 768;
+    engine.importEmbeddings([{ nodeId: 99, embedding: largeVec }]);
+    const retrieved = engine.getEmbedding(99);
+    expect(retrieved).not.toBeNull();
+    expect(retrieved!.length).toBe(768);
+  });
+
+  it('produces consistent results with parallel embedBatch calls', async () => {
+    const engine = new EmbeddingEngine();
+    await engine.initialize();
+
+    const codes1 = ['function a() {}', 'function b() {}'];
+    const codes2 = ['function c() {}', 'function d() {}'];
+
+    const [batch1, batch2] = await Promise.all([
+      engine.embedBatch(codes1),
+      engine.embedBatch(codes2),
     ]);
-    await engine.incrementalUpdate([1, 2], (id) => contentMap.get(id) ?? '');
-    expect(engine.isReady).toBe(true);
-    expect(engine.getEmbedding(1)).not.toBeNull();
-    expect(engine.getEmbedding(2)).not.toBeNull();
-  });
 
-  it('should handle incrementalUpdate with all nodes already having embeddings', async () => {
-    const engine = new EmbeddingEngine();
-    await engine.initialize();
+    const individual = await Promise.all([
+      engine.embedCode(codes1[0]!),
+      engine.embedCode(codes1[1]!),
+      engine.embedCode(codes2[0]!),
+      engine.embedCode(codes2[1]!),
+    ]);
 
-    const existingVec = await engine.embedCode('existing');
-    engine.storeEmbedding(1, existingVec);
-
-    await engine.incrementalUpdate([1], () => 'new content');
-    // Should keep existing embedding
-    const v1 = engine.getEmbedding(1);
-    expect(v1).not.toBeNull();
-    for (let i = 0; i < existingVec.length; i++) {
-      expect(v1![i]!).toBe(existingVec[i]!);
+    for (let j = 0; j < 768; j++) {
+      expect(batch1[0]![j]!).toBe(individual[0]![j]!);
+      expect(batch1[1]![j]!).toBe(individual[1]![j]!);
+      expect(batch2[0]![j]!).toBe(individual[2]![j]!);
+      expect(batch2[1]![j]!).toBe(individual[3]![j]!);
     }
-  });
-
-  it('should handle incrementalUpdate with empty content for some nodes', async () => {
-    const engine = new EmbeddingEngine();
-    await engine.initialize();
-
-    await engine.incrementalUpdate([1, 2], (id) => {
-      return id === 1 ? 'content' : '';
-    });
-
-    expect(engine.getEmbedding(1)).not.toBeNull();
-    expect(engine.getEmbedding(2)).toBeNull();
-  });
-
-  it('should handle dimension mismatch in cosine similarity', () => {
-    const engine = new EmbeddingEngine();
-    const a = new Float32Array([1, 2]);
-    const b = new Float32Array([1, 2, 3]);
-    expect(() => engine.cosineSimilarity(a, b)).toThrow('dimension mismatch');
   });
 });

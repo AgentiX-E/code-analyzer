@@ -2,7 +2,7 @@
 // Implements BM25 + semantic vector search + Reciprocal Rank Fusion (RRF)
 // for state-of-the-art code search combining lexical and semantic signals.
 
-import type { EmbeddingService, EmbeddingVector } from './embedding-service.js';
+import type { EmbeddingEngine } from '../embeddings/embedder.js';
 import type { GraphStore, SearchResult } from '@code-analyzer/shared';
 
 /** BM25 parameters */
@@ -48,11 +48,11 @@ interface Bm25DocEntry {
  * Based on the proven approach from codebase-memory-mcp and GitNexus.
  */
 export class HybridSearchEngine {
-  private embeddingService: EmbeddingService;
+  private embeddingEngine: EmbeddingEngine;
   private config: HybridSearchConfig;
   private documents: Map<string, Bm25DocEntry> = new Map();
   private invertedIndex: Map<string, Set<string>> = new Map();
-  private embeddingCache: Map<string, EmbeddingVector> = new Map();
+  private embeddingCache: Map<string, Float32Array> = new Map();
   private totalDocLength = 0;
   private avgDocLength = 0;
 
@@ -65,10 +65,10 @@ export class HybridSearchEngine {
   };
 
   constructor(
-    embeddingService: EmbeddingService,
+    embeddingEngine: EmbeddingEngine,
     config?: Partial<HybridSearchConfig>,
   ) {
-    this.embeddingService = embeddingService;
+    this.embeddingEngine = embeddingEngine;
     this.config = { ...HybridSearchEngine.DEFAULT_CONFIG, ...config };
   }
 
@@ -299,14 +299,14 @@ export class HybridSearchEngine {
     query: string,
     topK: number,
   ): Promise<Array<{ id: string; score: number }>> {
-    const queryEmbedding = await this.embeddingService.embed(query, true);
+    const queryEmbedding = await this.embeddingEngine.embedCode(query);
     if (!queryEmbedding) return [];
 
     const results: Array<{ id: string; score: number }> = [];
 
     for (const [docId, cachedVec] of this.embeddingCache) {
-      const score = this.embeddingService.cosineSimilarity(
-        queryEmbedding.vector,
+      const score = this.embeddingEngine.cosineSimilarity(
+        queryEmbedding,
         cachedVec,
       );
       results.push({ id: docId, score });
@@ -387,13 +387,11 @@ export class HybridSearchEngine {
     docs: Array<{ id: string; text: string }>,
   ): Promise<void> {
     const texts = docs.map((d) => d.text);
-    const result = await this.embeddingService.embedBatch(texts, false);
+    const vectors = await this.embeddingEngine.embedBatch(texts);
 
-    if (result) {
-      for (let i = 0; i < docs.length && i < result.vectors.length; i++) {
-        if (result.vectors[i]) {
-          this.embeddingCache.set(docs[i]!.id, result.vectors[i]!);
-        }
+    for (let i = 0; i < docs.length && i < vectors.length; i++) {
+      if (vectors[i]) {
+        this.embeddingCache.set(docs[i]!.id, vectors[i]!);
       }
     }
   }
