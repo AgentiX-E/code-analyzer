@@ -573,19 +573,23 @@ function computeDominators(cfg: FunctionCfg): number[] {
   }
 
   const intersect = (finger1: number, finger2: number): number => {
-    while (finger1 !== finger2) {
-      while (postNum[finger1]! < postNum[finger2]!) {
-        const next = idom[finger1];
-        if (next === undefined || next === -1) return finger1;
-        finger1 = next;
+    let f1 = finger1;
+    let f2 = finger2;
+    let safety = 0;
+    while (f1 !== f2 && safety < n * 2) {
+      while (postNum[f1]! < postNum[f2]!) {
+        const next = idom[f1];
+        if (next === -1 || next === undefined || next === f1) return f1;
+        f1 = next;
       }
-      while (postNum[finger2]! < postNum[finger1]!) {
-        const next = idom[finger2];
-        if (next === undefined || next === -1) return finger2;
-        finger2 = next;
+      while (postNum[f2]! < postNum[f1]!) {
+        const next = idom[f2];
+        if (next === -1 || next === undefined || next === f2) return f2;
+        f2 = next;
       }
+      safety++;
     }
-    return finger1;
+    return f1;
   };
 
   const entry = cfg.entryIndex;
