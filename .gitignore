@@ -29,3 +29,4 @@ reports/
 # Generated
 report_*.json
 logs/
+core.*

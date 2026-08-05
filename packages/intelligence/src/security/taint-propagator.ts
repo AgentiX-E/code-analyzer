@@ -46,6 +46,8 @@ interface TaintState {
   viaCall: boolean;
   /** Exclusion set size at last processing (for monotone detection). */
   processedSize: number;
+  /** Blocks traversed from source to current point (for path reconstruction). */
+  viaBlocks: readonly number[];
 }
 
 /** Configuration for taint propagation. */
@@ -143,6 +145,7 @@ export class TaintPropagator {
             source,
             viaCall: false,
             processedSize: 0,
+            viaBlocks: [source.point.blockIndex],
           };
           worklist.push(state);
         }
@@ -182,11 +185,8 @@ export class TaintPropagator {
           for (const sink of sinks) {
             // Check if this sink kind is excluded
             if (!state.exclusions.has(sink.kind)) {
-              // Build path trace
-              const path = this.buildBlockPath(
-                state.source.point.blockIndex,
-                use.use.blockIndex,
-              );
+              // Build path trace from the propagated state's block trace
+              const path = this.buildBlockPath(state);
 
               findings.push({
                 id: `taint-${state.source.point.blockIndex}-${use.use.blockIndex}-${findings.length}`,
@@ -236,6 +236,7 @@ export class TaintPropagator {
             source: state.source,
             viaCall: state.viaCall,
             processedSize: 0,
+            viaBlocks: [...state.viaBlocks, use.use.blockIndex],
           };
 
           // Check if this state is worth processing (monotone: always enqueue if new exclusions are fewer)
@@ -346,13 +347,14 @@ export class TaintPropagator {
     }));
   }
 
-  private buildBlockPath(
-    sourceBlock: number,
-    sinkBlock: number,
-  ): number[] {
-    // Simple path: just list source and sink blocks
-    // Full path reconstruction would require storing predecessor info
-    return [sourceBlock, sinkBlock];
+  /**
+   * Reconstruct the block-level path from source to sink using the
+   * viaBlocks trace accumulated during worklist propagation.
+   * Each propagation step appends the destination block, so the
+   * final trace is complete.
+   */
+  private buildBlockPath(state: TaintState): number[] {
+    return [...state.viaBlocks];
   }
 
   private computeConfidence(
