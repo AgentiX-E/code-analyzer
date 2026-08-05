@@ -1,8 +1,8 @@
 # Code Analyzer
 
-> **World-class code intelligence platform.** Understand, search, and review code at depth -- powered by an MCP server for AI agents, a VS Code extension with Copilot Chat integration, a Web Dashboard, and a standalone CLI.
+> **Code intelligence platform.** Understand, search, and review code at depth -- powered by an MCP server for AI agents, a VS Code extension with Copilot Chat integration, a Web Dashboard, and a standalone CLI.
 
-[![Status: v1.0.0](https://img.shields.io/badge/status-v1.0.0-blue)](https://github.com/AgentiX-E/code-analyzer)
+[![Status: v0.1.0](https://img.shields.io/badge/status-v0.1.0-blue)](https://github.com/AgentiX-E/code-analyzer)
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/AgentiX-E/code-analyzer)
 [![Precision](https://img.shields.io/badge/precision-79.4%25-success)](docs/BENCHMARK_REPORT.md)
@@ -48,8 +48,8 @@ code-analyzer agent configure
 | **Cross-Repo Analysis** | Multi-repo indexing, federated search, API contract detection, version matrix, cross-repo PR review with GitHub check runs. Incremental reindexing with git change detection |
 | **20-Language Support** | TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, Ruby, PHP, Swift, C/C++, C-like + IaC: Dockerfile, HCL/Terraform, YAML, JSON, Markdown, Shell, SQL |
 | **Cypher Query Engine** | Full Cypher query support with 40+ graph relationship types for deep structural queries across the knowledge graph |
-| **MCP Server** | 39 tools, 15 resources, 5 prompts for AI agents -- auth, sliding-window rate limiter, Cypher queries |
-| **VS Code Extension** | Copilot Chat participant with 7 slash commands: /review, /explain, /impact, /find, /deps, /refactor, /test |
+| **MCP Server** | 40 tools, 15 resources, 5 prompts for AI agents -- auth, sliding-window rate limiter, Cypher queries |
+| **VS Code Extension** | Copilot Chat participant with 15 slash commands: /review, /explain, /impact, /find, /deps, /refactor, /test, /analyze, /coverage, /standards, /review-deps, /check-contract, /trace-dataflow, /find-hotspots, /audit-security |
 | **Web Dashboard** | 6 interactive views: Graph Explorer, Search, Dashboard, Cross-Repo, PR Review Panel, Repo Group Manager |
 | **GitHub Integration** | Webhook receiver, cross-repo PR review bridge, check runs with annotations, repo sync, REST + GraphQL API client |
 | **AI Agent Integrations** | Auto-detection and one-click setup for 11 agents: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codex, Gemini CLI, Cody, Amazon Q |
@@ -65,7 +65,7 @@ code-analyzer agent configure
 |     Web Dashboard (6 views)                                   |
 +---------------------------------------------------------------+
 |                     Integration Layer                         |
-|    MCP Server (39 tools)  |  HTTP API  |  Webhook (PR)       |
+|    MCP Server (40 tools)  |  HTTP API  |  Webhook (PR)       |
 +---------------------------------------------------------------+
 |                     Service Layer                             |
 |    Review Pipeline  |  Search Engine  |  Standards            |
@@ -96,6 +96,9 @@ Code Analyzer achieves **industry-leading results** with zero LLM token cost:
 | **Cost** | **$0** | API cost | API cost | API cost | API cost |
 
 [Full benchmark report →](docs/BENCHMARK_REPORT.md)
+
+> **Note**: Benchmarks are based on internal test suites. Independent third-party validation is planned for future releases.
+
 ```
 
 ## Package Structure

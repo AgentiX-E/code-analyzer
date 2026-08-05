@@ -54,10 +54,16 @@ export function execute(plan: QueryPlan, store: InMemoryGraphStore, projectId?: 
   const columns = plan.columns.map((c) => c.name);
   const rows = buildResultRows(plan.columns, ctx);
 
+  // Apply ORDER BY
+  let finalRows = rows;
+  if (plan.orderBy && plan.orderBy.length > 0) {
+    finalRows = applySort(rows, plan.orderBy);
+  }
+
   // Apply DISTINCT
-  let finalRows = plan.distinct
-    ? deduplicateRows(rows)
-    : rows;
+  finalRows = plan.distinct
+    ? deduplicateRows(finalRows)
+    : finalRows;
 
   // Apply SKIP
   if (plan.skip && plan.skip > 0) {
@@ -96,9 +102,7 @@ function executeStep(step: PlanStep, ctx: ExecContext): void {
       // Projection is handled during row building — no-op here
       break;
     case 'sort':
-      /* v8 ignore start -- @preserve */
       executeSort(ctx);
-      /* v8 ignore stop */
       break;
     case 'limit':
     case 'skip':
@@ -269,8 +273,65 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
 }
 
 function executeSort(_ctx: ExecContext): void {
-  // Sort will be applied after row building
-  // This would require extracting sort columns from the step details
+  // Sort is applied after row building in applySort().
+  // The PlanStep carries sort details that are consumed
+  // during the execute() phase via plan.orderBy.
+}
+
+// ---------------------------------------------------------------------------
+// Sort Implementation
+// ---------------------------------------------------------------------------
+
+interface SortColumn {
+  expression: string;
+  direction: 'asc' | 'desc';
+}
+
+/** Sort result rows by one or more columns with direction support. */
+function applySort(
+  rows: Record<string, unknown>[],
+  orderBy: SortColumn[],
+): Record<string, unknown>[] {
+  if (rows.length === 0 || orderBy.length === 0) return rows;
+
+  const sorted = [...rows];
+
+  sorted.sort((a, b) => {
+    for (const col of orderBy) {
+      const colName = col.expression.includes('.')
+        ? col.expression.split('.')[1] ?? col.expression
+        : col.expression;
+
+      const aVal = a[colName] ?? a[col.expression];
+      const bVal = b[colName] ?? b[col.expression];
+
+      const cmp = compareValues(aVal, bVal);
+      if (cmp !== 0) {
+        return col.direction === 'desc' ? -cmp : cmp;
+      }
+    }
+    return 0;
+  });
+
+  return sorted;
+}
+
+/** Compare two values of potentially different types for sorting. */
+function compareValues(a: unknown, b: unknown): number {
+  // Handle null/undefined — nulls sort last
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+
+  // Number comparison
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a - b;
+  }
+
+  // String comparison (case-insensitive)
+  const aStr = String(a);
+  const bStr = String(b);
+  return aStr.localeCompare(bStr, undefined, { sensitivity: 'base', numeric: true });
 }
 
 // ---------------------------------------------------------------------------

@@ -49,6 +49,7 @@ export interface QueryPlan {
   columns: ColumnDef[];
   params: Record<string, unknown>;
   distinct: boolean;
+  orderBy?: Array<{ expression: string; direction: 'asc' | 'desc' }>;
   limit?: number;
   skip?: number;
 }
@@ -195,6 +196,10 @@ export function plan(ast: CypherQuery, _schema: GraphSchema = DEFAULT_SCHEMA): Q
   const limit = ast.limit;
   const skip = ast.skip;
   const distinct = ast.returnClause.distinct;
+  const orderBy = ast.orderBy?.map((item) => ({
+    expression: exprToString(item.expression),
+    direction: item.direction,
+  }));
   const source = 'code_analyzer_graph';
 
   return {
@@ -203,6 +208,7 @@ export function plan(ast: CypherQuery, _schema: GraphSchema = DEFAULT_SCHEMA): Q
     columns,
     params,
     distinct,
+    orderBy,
     limit: limit ?? undefined,
     skip: skip ?? undefined,
   };

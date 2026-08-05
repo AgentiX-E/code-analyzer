@@ -2,6 +2,7 @@
 // Auth, rate limiting, tool policies, request logging, and circuit breaker.
 
 import type { ToolProfile } from '@code-analyzer/shared';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Auth Middleware
@@ -12,17 +13,22 @@ export interface AuthResult {
   message?: string;
 }
 
+/** SHA-256 hash for secure API key storage. Keys are never stored in plaintext. */
+function hashKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
+
 export class AuthMiddleware {
-  private apiKeys: Set<string>;
+  private apiKeyHashes: Set<string>;
 
   constructor(keys: string[] = []) {
-    this.apiKeys = new Set(keys);
+    this.apiKeyHashes = new Set(keys.map(hashKey));
   }
 
-  /** Validate an incoming request. Returns allowed status. */
+  /** Validate an incoming request. Uses timing-safe comparison to prevent timing attacks. */
   validate(request: Record<string, unknown>): AuthResult {
     // If no API keys are configured, allow all requests
-    if (this.apiKeys.size === 0) {
+    if (this.apiKeyHashes.size === 0) {
       return { allowed: true };
     }
 
@@ -33,21 +39,28 @@ export class AuthMiddleware {
       return { allowed: false, message: 'Missing API key' };
     }
 
-    if (!this.apiKeys.has(apiKey)) {
-      return { allowed: false, message: 'Invalid API key' };
+    const hashedInput = hashKey(apiKey);
+    const hashedInputBuf = Buffer.from(hashedInput, 'hex');
+
+    for (const storedHash of this.apiKeyHashes) {
+      const storedBuf = Buffer.from(storedHash, 'hex');
+      if (hashedInputBuf.length === storedBuf.length &&
+          timingSafeEqual(hashedInputBuf, storedBuf)) {
+        return { allowed: true };
+      }
     }
 
-    return { allowed: true };
+    return { allowed: false, message: 'Invalid API key' };
   }
 
-  /** Add an API key to the allowed set. */
+  /** Add an API key (stored as SHA-256 hash). */
   addKey(key: string): void {
-    this.apiKeys.add(key);
+    this.apiKeyHashes.add(hashKey(key));
   }
 
   /** Remove an API key. */
   removeKey(key: string): void {
-    this.apiKeys.delete(key);
+    this.apiKeyHashes.delete(hashKey(key));
   }
 
   /**

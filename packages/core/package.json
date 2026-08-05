@@ -1,6 +1,6 @@
 {
   "name": "@code-analyzer/core",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Core abstractions and domain models for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",

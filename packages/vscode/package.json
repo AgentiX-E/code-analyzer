@@ -1,7 +1,7 @@
 {
   "name": "@code-analyzer/vscode",
   "displayName": "Code Analyzer",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "World-class code intelligence for VS Code \u2014 AI-powered code exploration, review, and analysis",
   "author": "Lambertyan",
   "license": "MIT",

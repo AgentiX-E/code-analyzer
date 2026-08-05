@@ -1,618 +1,320 @@
 // @code-analyzer/mcp — Trend Analysis Tool
-// Tracks code quality metrics over time: complexity trends,
-// churn rates, review finding history, and coverage evolution.
-// Analyzes review history for patterns, tracks issue frequency,
-// and identifies recurring problem areas.
+// Tracks code quality metrics from the knowledge graph: complexity distribution,
+// dependency density, and structural health indicators.
+//
+// Honest limitation: trend analysis over time requires multiple snapshots.
+// This tool analyzes the current graph state and provides structural metrics.
 
-import type { McpToolDefinition } from './registry.js';
-import type { ReviewComment, Severity, ReviewCategory } from '@code-analyzer/shared';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** A single data point in a trend series */
-export interface TrendPoint {
-  date: string;
-  value: number;
-}
-
-/** Summary statistics for a trend */
-export interface TrendStatistics {
-  min: number;
-  max: number;
-  mean: number;
-  median: number;
-  stdDev: number;
-  changePercent: number;
-  trendDirection: 'improving' | 'declining' | 'stable';
-}
-
-/** A recurring problem area identified from review history */
-export interface RecurringProblem {
-  filePath: string;
-  category: ReviewCategory | string;
-  frequency: number;
-  severity: Severity | string;
-  description: string;
-  firstOccurrence: string;
-  lastOccurrence: string;
-}
-
-/** Issue frequency data over time */
-export interface IssueFrequency {
-  period: string;
-  totalIssues: number;
-  byCategory: Record<string, number>;
-  bySeverity: Record<string, number>;
-}
-
-/** Complete trend analysis report */
-export interface TrendAnalysisReport {
-  projectId: string;
-  metric: string;
-  timespan: string;
-  dataPoints: TrendPoint[];
-  statistics: TrendStatistics;
-  recurringProblems: RecurringProblem[];
-  issueFrequency: IssueFrequency[];
-  recommendations: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Tool Definition
-// ---------------------------------------------------------------------------
+import type { McpToolDefinition, ToolResult } from './registry.js';
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GraphNode } from '@code-analyzer/shared';
+import { ToolContextImpl } from './tool-context.js';
 
 export const trendAnalysisTool: McpToolDefinition = {
   name: 'trend_analysis',
   description:
-    'Track code quality trends over time — complexity evolution, churn rates, review finding history, and coverage changes.',
+    'Analyze code quality metrics from the knowledge graph — complexity distribution, dependency density, and structural health indicators.',
   inputSchema: {
     type: 'object',
     properties: {
       projectId: {
         type: 'string',
-        description: 'The project ID to analyze trends for.',
+        description: 'The project ID to analyze.',
       },
       metric: {
         type: 'string',
-        description: 'The metric to track: complexity, churn, findings, or coverage.',
-        enum: ['complexity', 'churn', 'findings', 'coverage'],
-      },
-      timespan: {
-        type: 'string',
-        description: 'Time span for trend analysis.',
-        enum: ['7d', '30d', '90d', '1y'],
-        default: '30d',
-      },
-      reviewHistory: {
-        type: 'string',
-        description: 'Optional JSON string of historical review comments for pattern analysis.',
+        description: 'The metric to analyze: complexity, dependencies, structure, or health.',
+        enum: ['complexity', 'dependencies', 'structure', 'health'],
       },
     },
-    required: ['projectId', 'metric'],
+    required: ['projectId'],
   },
-  handler: async (args: Record<string, unknown>) => {
-    const { projectId, metric, timespan, reviewHistory } = args;
+  handler: async (args: Record<string, unknown>, storeOrContext?: unknown): Promise<ToolResult> => {
+    const { projectId, metric } = args;
+    const metricKey = (metric as string) ?? 'health';
+    const store = ToolContextImpl.getStore(storeOrContext);
 
-    // Parse review history if provided
-    let reviewComments: ReviewComment[] = [];
-    if (reviewHistory) {
-      try {
-        reviewComments = typeof reviewHistory === 'string'
-          ? JSON.parse(reviewHistory)
-          : (reviewHistory as ReviewComment[]);
-      } catch {
-        // If parsing fails, continue without review history
-      }
+    if (!store) {
+      return {
+        content: [{ type: 'text', text: 'No graph store available. Index a project first.' }],
+        isError: true,
+      };
     }
 
-    const ts = (timespan as string) ?? '30d';
+    const projectIdStr = projectId as string;
+    const nodes = store.getAllNodes().filter((n) => n.projectId === projectIdStr);
 
-    const trends = generateTrendData(
-      projectId as string,
-      metric as string,
-      ts,
-    );
+    if (nodes.length === 0) {
+      return {
+        content: [{ type: 'text', text: `No data found for project "${projectIdStr}". Index the project first.` }],
+        metadata: { projectId: projectIdStr, metric: metricKey },
+      };
+    }
 
-    const statistics = computeTrendStatistics(trends, metric as string);
-    const recurringProblems = identifyRecurringProblems(reviewComments);
-    const issueFrequency = analyzeIssueFrequency(reviewComments, ts);
-    const recommendations = generateTrendRecommendations(
-      statistics,
-      recurringProblems,
-      issueFrequency,
-      metric as string,
-    );
+    const report = generateMetricReport(store, projectIdStr, metricKey, nodes);
 
     return {
-      content: [
-        {
-          type: 'text',
-          text: trendReport(
-            trends,
-            metric as string,
-            ts,
-            statistics,
-            recurringProblems,
-            issueFrequency,
-            recommendations,
-          ),
-        },
-      ],
-      metadata: {
-        projectId,
-        metric,
-        timespan: ts,
-        dataPoints: trends.length,
-        recurringProblemCount: recurringProblems.length,
-        issueFrequencyPeriods: issueFrequency.length,
-      },
+      content: [{ type: 'text', text: report }],
+      metadata: { projectId: projectIdStr, metric: metricKey, nodeCount: nodes.length },
     };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Trend Data Generation
+// Types
 // ---------------------------------------------------------------------------
 
-export function generateTrendData(
-  _projectId: string,
+interface ComplexityBucket {
+  range: string;
+  count: number;
+  percentage: number;
+}
+
+interface DependencyMetric {
+  label: string;
+  inbound: number;
+  outbound: number;
+  total: number;
+}
+
+// ---------------------------------------------------------------------------
+// Metric dispatch
+// ---------------------------------------------------------------------------
+
+function generateMetricReport(
+  store: InMemoryGraphStore,
+  projectId: string,
   metric: string,
-  timespan: string,
-): TrendPoint[] {
-  const days = timespan === '7d' ? 7 : timespan === '30d' ? 30 : timespan === '90d' ? 90 : 365;
-  const points: TrendPoint[] = [];
-  const now = new Date();
-
-  let baseValue: number;
-  let volatility: number;
-  switch (metric) {
-    case 'complexity':
-      baseValue = 100;
-      volatility = 10;
-      break;
-    case 'churn':
-      baseValue = 15;
-      volatility = 5;
-      break;
-    case 'findings':
-      baseValue = 50;
-      volatility = 20;
-      break;
-    case 'coverage':
-      baseValue = 85;
-      volatility = 3;
-      break;
-    default:
-      baseValue = 50;
-      volatility = 10;
-  }
-
-  for (let i = days; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const trend = (days - i) / days;
-    const trendFactor = metric === 'findings' ? -trend * 20 : trend * 10;
-    const noise = (Math.random() - 0.5) * volatility * 2;
-    points.push({
-      date: date.toISOString().slice(0, 10),
-      value: Math.max(0, Math.round(baseValue + trendFactor + noise)),
-    });
-  }
-
-  return points;
-}
-
-// ---------------------------------------------------------------------------
-// Trend Statistics
-// ---------------------------------------------------------------------------
-
-/**
- * Compute descriptive statistics for a trend series.
- */
-export function computeTrendStatistics(
-  points: TrendPoint[],
-  metric: string,
-): TrendStatistics {
-  if (points.length === 0) {
-    return {
-      min: 0, max: 0, mean: 0, median: 0, stdDev: 0,
-      changePercent: 0, trendDirection: 'stable',
-    };
-  }
-
-  const values = points.map((p) => p.value);
-  const sorted = [...values].sort((a, b) => a - b);
-  const min = sorted[0]!;
-  const max = sorted[sorted.length - 1]!;
-  const sum = values.reduce((a, b) => a + b, 0);
-  const mean = sum / values.length;
-
-  // Median
-  const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0
-    ? (sorted[mid - 1]! + sorted[mid]!) / 2
-    : sorted[mid]!;
-
-  // Standard deviation
-  const variance = values.reduce((acc, v) => acc + (v - mean) ** 2, 0) / values.length;
-  const stdDev = Math.sqrt(variance);
-
-  // Change percentage
-  const firstVal = points[0]!.value;
-  const lastVal = points[points.length - 1]!.value;
-  const changePercent = firstVal === 0
-    ? (lastVal > 0 ? 100 : 0)
-    : ((lastVal - firstVal) / firstVal) * 100;
-
-  // Trend direction
-  const isImprovingForMetric = metric === 'findings'
-    ? lastVal < firstVal   // fewer findings is better
-    : lastVal > firstVal;  // higher values are better for complexity/churn/coverage
-
-  let trendDirection: TrendStatistics['trendDirection'];
-  if (Math.abs(changePercent) < 5) {
-    trendDirection = 'stable';
-  } else if (isImprovingForMetric) {
-    trendDirection = 'improving';
-  } else {
-    trendDirection = 'declining';
-  }
-
-  return {
-    min: Math.round(min * 100) / 100,
-    max: Math.round(max * 100) / 100,
-    mean: Math.round(mean * 100) / 100,
-    median: Math.round(median * 100) / 100,
-    stdDev: Math.round(stdDev * 100) / 100,
-    changePercent: Math.round(changePercent * 10) / 10,
-    trendDirection,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Recurring Problems
-// ---------------------------------------------------------------------------
-
-/**
- * Identify recurring problem areas from review comment history.
- * Groups comments by file path to find files with repeated issues.
- */
-export function identifyRecurringProblems(
-  comments: ReviewComment[],
-): RecurringProblem[] {
-  if (comments.length === 0) return [];
-
-  // Group comments by file path
-  const fileGroups = new Map<string, ReviewComment[]>();
-  for (const comment of comments) {
-    const existing = fileGroups.get(comment.path) ?? [];
-    existing.push(comment);
-    fileGroups.set(comment.path, existing);
-  }
-
-  const problems: RecurringProblem[] = [];
-
-  for (const [filePath, fileComments] of fileGroups) {
-    if (fileComments.length < 2) continue; // Only recurring if 2+ issues in same file
-
-    // Find the most common category
-    const categoryCounts = new Map<string, number>();
-    for (const c of fileComments) {
-      categoryCounts.set(c.category, (categoryCounts.get(c.category) ?? 0) + 1);
-    }
-    let topCategory = '';
-    let topCount = 0;
-    for (const [cat, count] of categoryCounts) {
-      if (count > topCount) {
-        topCategory = cat;
-        topCount = count;
-      }
-    }
-
-    // Find highest severity
-    const severityOrder: Record<string, number> = {
-      critical: 0, high: 1, medium: 2, low: 3, info: 4,
-    };
-    let worstSeverity = 'info';
-    let worstOrder = 5;
-    for (const c of fileComments) {
-      const order = severityOrder[c.severity] ?? 5;
-      if (order < worstOrder) {
-        worstOrder = order;
-        worstSeverity = c.severity;
-      }
-    }
-
-    // Find first and last occurrence dates
-    const dates = fileComments
-      .map((c) => c.createdAt)
-      .filter((d) => d)
-      .sort();
-    const firstOccurrence = dates[0] ?? 'unknown';
-    const lastOccurrence = dates[dates.length - 1] ?? 'unknown';
-
-    problems.push({
-      filePath,
-      category: topCategory,
-      frequency: fileComments.length,
-      severity: worstSeverity,
-      description: `File "${filePath}" has ${fileComments.length} recurring issues, primarily in the "${topCategory}" category.`,
-      firstOccurrence,
-      lastOccurrence,
-    });
-  }
-
-  // Sort by frequency (most recurring first), then by severity
-  problems.sort((a, b) => {
-    if (b.frequency !== a.frequency) return b.frequency - a.frequency;
-    const sevOrder: Record<string, number> = {
-      critical: 0, high: 1, medium: 2, low: 3, info: 4,
-    };
-    return (sevOrder[a.severity] ?? 5) - (sevOrder[b.severity] ?? 5);
-  });
-
-  return problems.slice(0, 10); // Top 10 recurring problems
-}
-
-// ---------------------------------------------------------------------------
-// Issue Frequency Analysis
-// ---------------------------------------------------------------------------
-
-/**
- * Analyze issue frequency over time by dividing the review history
- * into time periods and computing counts per period.
- */
-export function analyzeIssueFrequency(
-  comments: ReviewComment[],
-  timespan: string = '30d',
-): IssueFrequency[] {
-  if (comments.length === 0) return [];
-
-  const days = timespan === '7d' ? 7 : timespan === '30d' ? 30 : timespan === '90d' ? 90 : 365;
-
-  // Create time buckets
-  const bucketCount = Math.max(4, Math.min(days, 12)); // 4-12 buckets
-  const daysPerBucket = Math.ceil(days / bucketCount);
-  const now = new Date();
-  const buckets: IssueFrequency[] = [];
-
-  for (let i = bucketCount - 1; i >= 0; i--) {
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - (i + 1) * daysPerBucket + 1);
-    const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() - i * daysPerBucket);
-
-    buckets.push({
-      period: `${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)}`,
-      totalIssues: 0,
-      byCategory: {},
-      bySeverity: {},
-    });
-  }
-
-  // Distribute comments into buckets based on createdAt
-  for (const comment of comments) {
-    if (!comment.createdAt) continue;
-    const commentDate = new Date(comment.createdAt);
-    const daysAgo = Math.floor((now.getTime() - commentDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (daysAgo < 0 || daysAgo > days) continue;
-
-    const bucketIndex = bucketCount - 1 - Math.floor(daysAgo / daysPerBucket);
-    if (bucketIndex < 0 || bucketIndex >= buckets.length) continue;
-
-    const bucket = buckets[bucketIndex]!;
-    bucket.totalIssues++;
-    bucket.byCategory[comment.category] = (bucket.byCategory[comment.category] ?? 0) + 1;
-    bucket.bySeverity[comment.severity] = (bucket.bySeverity[comment.severity] ?? 0) + 1;
-  }
-
-  return buckets;
-}
-
-// ---------------------------------------------------------------------------
-// Trend Recommendations
-// ---------------------------------------------------------------------------
-
-/**
- * Generate recommendations based on trend analysis findings.
- */
-export function generateTrendRecommendations(
-  statistics: TrendStatistics,
-  recurringProblems: RecurringProblem[],
-  issueFrequency: IssueFrequency[],
-  metric: string,
-): string[] {
-  const recommendations: string[] = [];
-
-  // Recommendations based on trend direction
-  if (statistics.trendDirection === 'declining') {
-    const pct = Math.abs(statistics.changePercent);
-    if (pct > 20) {
-      recommendations.push(
-        `Significant decline (${pct.toFixed(1)}%) in ${metric} — immediate action recommended.`,
-      );
-    } else {
-      recommendations.push(
-        `Gradual decline (${pct.toFixed(1)}%) in ${metric} — monitor closely and plan corrective actions.`,
-      );
-    }
-  } else if (statistics.trendDirection === 'improving') {
-    recommendations.push(
-      `Positive trend detected — ${metric} is improving. Continue current practices.`,
-    );
-  } else {
-    recommendations.push(
-      `${metric.charAt(0).toUpperCase() + metric.slice(1)} is stable — no urgent changes needed.`,
-    );
-  }
-
-  // Recommendations based on recurring problems
-  if (recurringProblems.length > 0) {
-    const topProblem = recurringProblems[0]!;
-    recommendations.push(
-      `File "${topProblem.filePath}" has ${topProblem.frequency} recurring issues — consider a focused refactor.`,
-    );
-
-    if (recurringProblems.length > 3) {
-      recommendations.push(
-        `${recurringProblems.length} files have recurring problems — investigate systemic causes.`,
-      );
-    }
-  }
-
-  // Recommendations based on issue frequency
-  if (issueFrequency.length >= 2) {
-    const recent = issueFrequency[issueFrequency.length - 1]!;
-    const previous = issueFrequency[issueFrequency.length - 2]!;
-
-    if (recent.totalIssues > previous.totalIssues * 1.5) {
-      recommendations.push(
-        `Issue frequency increased sharply in the most recent period — investigate what changed.`,
-      );
-    }
-
-    // Check for consistent upward trend
-    let increasing = true;
-    for (let i = 1; i < issueFrequency.length; i++) {
-      if (issueFrequency[i]!.totalIssues <= issueFrequency[i - 1]!.totalIssues) {
-        increasing = false;
-        break;
-      }
-    }
-    if (increasing && issueFrequency.length >= 3) {
-      recommendations.push(
-        'Issue count has been consistently increasing — address root causes before they compound.',
-      );
-    }
-  }
-
-  // Metric-specific recommendations
-  switch (metric) {
-    case 'findings':
-      if (statistics.changePercent > 10) {
-        recommendations.push(
-          'Review findings are increasing — consider adding automated checks to CI pipeline.',
-        );
-      }
-      break;
-    case 'coverage':
-      if (statistics.changePercent < -5) {
-        recommendations.push(
-          'Coverage is declining — add tests for recently added code and set coverage thresholds in CI.',
-        );
-      }
-      break;
-    case 'churn':
-      if (statistics.stdDev > 15) {
-        recommendations.push(
-          'High churn volatility detected — consider stabilizing APIs before adding features.',
-        );
-      }
-      break;
-    case 'complexity':
-      if (statistics.changePercent > 10) {
-        recommendations.push(
-          'Complexity is increasing — review new code for opportunities to simplify.',
-        );
-      }
-      break;
-  }
-
-  return recommendations;
-}
-
-// ---------------------------------------------------------------------------
-// Report Formatting
-// ---------------------------------------------------------------------------
-
-export function trendReport(
-  trends: TrendPoint[],
-  metric: string,
-  timespan: string,
-  statistics?: TrendStatistics,
-  recurringProblems?: RecurringProblem[],
-  issueFrequency?: IssueFrequency[],
-  recommendations?: string[],
+  nodes: GraphNode[],
 ): string {
-  if (trends.length === 0) return 'No trend data available.';
-
-  const stats = statistics ?? computeTrendStatistics(trends, metric);
-
-  const first = trends[0]!;
-  const last = trends[trends.length - 1]!;
-  const delta = last.value - first.value;
-  const direction = stats.trendDirection === 'improving'
-    ? (metric === 'findings' ? '📈 improving' : '📈 improving')
-    : stats.trendDirection === 'declining'
-      ? (metric === 'findings' ? '⚠️ worsening' : '⚠️ declining')
-      : '➡️ stable';
-
-  const metricLabel = metric === 'complexity' ? 'total complexity score' :
-    metric === 'churn' ? 'files changed/week' :
-    metric === 'findings' ? 'review findings count' :
-    'coverage percentage';
-
-  let report = `## Trend Analysis — ${metricLabel}\n\n`;
-  report += `**Period:** ${timespan} | **Change:** ${delta > 0 ? '+' : ''}${delta} (${direction})\n`;
-  report += `**Trend:** ${stats.trendDirection} (${stats.changePercent >= 0 ? '+' : ''}${stats.changePercent}%)\n\n`;
-
-  // Statistics table
-  report += '### Statistics\n\n';
-  report += '| Metric | Value |\n|--------|-------|\n';
-  report += `| Min | ${stats.min} |\n`;
-  report += `| Max | ${stats.max} |\n`;
-  report += `| Mean | ${stats.mean} |\n`;
-  report += `| Median | ${stats.median} |\n`;
-  report += `| Std Dev | ${stats.stdDev} |\n`;
-  report += `| Change | ${stats.changePercent >= 0 ? '+' : ''}${stats.changePercent}% |\n\n`;
-
-  // Trend data table (last 14 points)
-  report += '### Recent Data Points\n\n';
-  report += '| Date | Value |\n|------|-------|\n';
-  for (const point of trends.slice(-14)) {
-    report += `| ${point.date} | ${point.value} |\n`;
+  switch (metric) {
+    case 'complexity':
+      return complexityReport(store, projectId, nodes);
+    case 'dependencies':
+      return dependencyReport(store, projectId, nodes);
+    case 'structure':
+      return structureReport(projectId, nodes);
+    case 'health':
+      return healthReport(store, projectId, nodes);
+    default:
+      return `Unknown metric: ${metric}`;
   }
-  report += '\n';
+}
 
-  // Recurring problems
-  if (recurringProblems && recurringProblems.length > 0) {
-    report += '### Recurring Problem Areas\n\n';
-    report += '| File | Frequency | Category | Severity |\n';
-    report += '|------|-----------|----------|----------|\n';
-    for (const problem of recurringProblems.slice(0, 5)) {
-      const sevIcon = problem.severity === 'critical' ? '🔴' :
-        problem.severity === 'high' ? '🟠' :
-        problem.severity === 'medium' ? '🟡' : '🟢';
-      report += `| \`${problem.filePath}\` | ${problem.frequency} | ${problem.category} | ${sevIcon} ${problem.severity} |\n`;
+// ---------------------------------------------------------------------------
+// Complexity report
+// ---------------------------------------------------------------------------
+
+function complexityReport(
+  store: InMemoryGraphStore,
+  projectId: string,
+  nodes: GraphNode[],
+): string {
+  const complexityScores: Array<{ name: string; filePath: string; score: number }> = [];
+
+  for (const node of nodes) {
+    const outgoing = store.getEdgesForNode(node.id, 'CALLS', 'out').length;
+    const incoming = store.getEdgesForNode(node.id, 'CALLS', 'in').length;
+    const extendsEdges = store.getEdgesForNode(node.id, 'EXTENDS', 'out').length;
+    const implementsEdges = store.getEdgesForNode(node.id, 'IMPLEMENTS', 'out').length;
+    const score = outgoing + incoming + extendsEdges * 3 + implementsEdges * 2;
+
+    if (score > 0) {
+      complexityScores.push({ name: node.name, filePath: node.filePath ?? '<unknown>', score });
     }
-    report += '\n';
   }
 
-  // Issue frequency
-  if (issueFrequency && issueFrequency.length > 0) {
-    report += '### Issue Frequency Over Time\n\n';
-    report += '| Period | Total Issues |\n|--------|-------------|\n';
-    for (const period of issueFrequency) {
-      const bar = '█'.repeat(Math.min(period.totalIssues, 20));
-      report += `| ${period.period} | ${period.totalIssues} ${bar} |\n`;
+  complexityScores.sort((a, b) => b.score - a.score);
+
+  // Distribution buckets
+  const buckets: ComplexityBucket[] = [
+    { range: '1–5', count: 0, percentage: 0 },
+    { range: '6–10', count: 0, percentage: 0 },
+    { range: '11–20', count: 0, percentage: 0 },
+    { range: '21–50', count: 0, percentage: 0 },
+    { range: '50+', count: 0, percentage: 0 },
+  ];
+
+  for (const item of complexityScores) {
+    if (item.score <= 5) buckets[0]!.count++;
+    else if (item.score <= 10) buckets[1]!.count++;
+    else if (item.score <= 20) buckets[2]!.count++;
+    else if (item.score <= 50) buckets[3]!.count++;
+    else buckets[4]!.count++;
+  }
+
+  const total = complexityScores.length || 1;
+  for (const b of buckets) {
+    b.percentage = Math.round((b.count / total) * 100);
+  }
+
+  const scores = complexityScores.map((c) => c.score);
+  const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  const maxVal = scores.length > 0 ? Math.max(...scores) : 0;
+  const minVal = scores.length > 0 ? Math.min(...scores) : 0;
+
+  let report = `## Complexity Analysis — ${projectId}\n\n`;
+  report += `**Statistics**: ${complexityScores.length} structural nodes | Avg: ${avg} | Min: ${minVal} | Max: ${maxVal}\n\n`;
+
+  report += '### Distribution\n\n';
+  report += '| Range | Count | % |\n';
+  report += '|-------|-------|----|\n';
+  for (const b of buckets) {
+    const bar = '█'.repeat(Math.min(Math.round(b.percentage / 5), 20));
+    report += `| ${b.range} | ${b.count} | ${b.percentage}% ${bar} |\n`;
+  }
+
+  report += '\n### Top 10 Most Complex Symbols\n\n';
+  report += '| Score | File | Symbol |\n';
+  report += '|-------|------|--------|\n';
+  for (const item of complexityScores.slice(0, 10)) {
+    report += `| ${item.score} | \`${item.filePath}\` | ${item.name} |\n`;
+  }
+
+  if (avg > 15) {
+    report += '\n### Recommendations\n';
+    report += '- Average complexity is high (>15). Consider refactoring the most complex symbols.\n';
+  }
+
+  report += '\n> Complexity = outgoing CALLS + incoming CALLS + 3× EXTENDS + 2× IMPLEMENTS.\n';
+  report += '> For time-series trend analysis, re-run this tool after subsequent code changes.\n';
+
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// Dependency report
+// ---------------------------------------------------------------------------
+
+function dependencyReport(
+  store: InMemoryGraphStore,
+  projectId: string,
+  nodes: GraphNode[],
+): string {
+  const fileMap = new Map<string, DependencyMetric>();
+
+  for (const node of nodes) {
+    if (!node.filePath) continue;
+    const filePath = node.filePath;
+
+    let metric = fileMap.get(filePath);
+    if (!metric) {
+      metric = { label: filePath, inbound: 0, outbound: 0, total: 0 };
+      fileMap.set(filePath, metric);
     }
-    report += '\n';
+
+    metric.outbound += store.getEdgesForNode(node.id, 'IMPORTS', 'out').length;
+    metric.outbound += store.getEdgesForNode(node.id, 'CALLS', 'out').length;
+    metric.inbound += store.getEdgesForNode(node.id, 'IMPORTS', 'in').length;
+    metric.inbound += store.getEdgesForNode(node.id, 'CALLS', 'in').length;
+    metric.total = metric.inbound + metric.outbound;
   }
 
-  // Recommendations
-  if (recommendations && recommendations.length > 0) {
-    report += '### Recommendations\n\n';
-    for (const rec of recommendations) {
-      report += `- ${rec}\n`;
+  const sorted = Array.from(fileMap.values())
+    .filter((m) => m.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  let report = `## Dependency Analysis — ${projectId}\n\n`;
+  report += `**Files with dependencies**: ${sorted.length}\n\n`;
+
+  report += '| Total | Inbound | Outbound | File |\n';
+  report += '|-------|---------|----------|------|\n';
+  for (const m of sorted.slice(0, 20)) {
+    report += `| ${m.total} | ${m.inbound} | ${m.outbound} | \`${m.label}\` |\n`;
+  }
+
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// Structure report
+// ---------------------------------------------------------------------------
+
+function structureReport(
+  projectId: string,
+  nodes: GraphNode[],
+): string {
+  const labelCounts = new Map<string, number>();
+  for (const node of nodes) {
+    labelCounts.set(node.label, (labelCounts.get(node.label) ?? 0) + 1);
+  }
+
+  const sorted = Array.from(labelCounts.entries())
+    .sort((a, b) => b[1] - a[1]);
+
+  const total = nodes.length;
+
+  let report = `## Structure Analysis — ${projectId}\n\n`;
+  report += `**Total nodes**: ${total} | **Node types**: ${sorted.length}\n\n`;
+
+  report += '| Type | Count | % |\n';
+  report += '|------|-------|----|\n';
+  for (const [label, count] of sorted.slice(0, 15)) {
+    report += `| ${label} | ${count} | ${Math.round((count / total) * 100)}% |\n`;
+  }
+
+  if (sorted.length > 15) {
+    const remaining = sorted.slice(15).reduce((s, [, c]) => s + c, 0);
+    report += `| ... (${sorted.length - 15} more types) | ${remaining} | — |\n`;
+  }
+
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// Health report
+// ---------------------------------------------------------------------------
+
+function healthReport(
+  store: InMemoryGraphStore,
+  projectId: string,
+  nodes: GraphNode[],
+): string {
+  const edges = store.getAllEdges().filter((e) => e.projectId === projectId);
+  const fileNodes = nodes.filter((n) => n.label === 'File');
+  const funcNodes = nodes.filter((n) => n.label === 'Function' || n.label === 'Method');
+  const isolatedNodes = nodes.filter(
+    (n) => store.getEdgesForNode(n.id).length === 0 && n.label !== 'File' && n.label !== 'Folder' && n.label !== 'Project',
+  );
+
+  const density = nodes.length > 1
+    ? Math.round((edges.length / (nodes.length * (nodes.length - 1))) * 10000) / 100
+    : 0;
+
+  let report = `## Health Report — ${projectId}\n\n`;
+
+  report += '### Key Metrics\n\n';
+  report += '| Metric | Value | Assessment |\n';
+  report += '|--------|-------|------------|\n';
+  report += `| Total Nodes | ${nodes.length} | — |\n`;
+  report += `| Total Edges | ${edges.length} | — |\n`;
+  report += `| Graph Density | ${density}% | ${density < 1 ? '🟢 Healthy' : density < 5 ? '🟡 Moderate' : '🔴 Dense'} |\n`;
+  report += `| Files | ${fileNodes.length} | — |\n`;
+  report += `| Functions/Methods | ${funcNodes.length} | — |\n`;
+  const isolatedPct = nodes.length > 0 ? Math.round((isolatedNodes.length / nodes.length) * 100) : 0;
+  report += `| Isolated Nodes | ${isolatedNodes.length} (${isolatedPct}%) | ${isolatedPct < 5 ? '🟢 Healthy' : isolatedPct < 20 ? '🟡 Moderate' : '🔴 High'} |\n`;
+
+  const edgeTypes = new Map<string, number>();
+  for (const e of edges) {
+    edgeTypes.set(e.type, (edgeTypes.get(e.type) ?? 0) + 1);
+  }
+
+  report += '\n### Edge Type Distribution\n\n';
+  report += '| Type | Count |\n';
+  report += '|------|-------|\n';
+  for (const [type, count] of Array.from(edgeTypes.entries()).sort((a, b) => b[1] - a[1])) {
+    report += `| ${type} | ${count} |\n`;
+  }
+
+  if (isolatedNodes.length > 0) {
+    report += `\n### Orphaned Symbols (${isolatedNodes.length})\n\n`;
+    for (const node of isolatedNodes.slice(0, 10)) {
+      report += `- \`${node.filePath ?? '?'}\` — ${node.name} (${node.label})\n`;
     }
-    report += '\n';
+    if (isolatedNodes.length > 10) {
+      report += `- ... and ${isolatedNodes.length - 10} more\n`;
+    }
   }
-
-  report += '---\n';
-  report += '*Generated by Code Analyzer — Trend Analysis*\n';
 
   return report;
 }

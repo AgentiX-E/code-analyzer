@@ -1,19 +1,22 @@
 // @code-analyzer/mcp — Documentation Generation Tool
-// Analyzes undocumented functions and generates JSDoc/docstring
-// skeletons based on function signatures, parameter types, and usage patterns.
+// Analyzes symbols in the knowledge graph and generates documentation
+// skeletons (JSDoc, docstring, Go doc) based on symbol metadata and
+// usage patterns detected through graph edges.
 
-import type { McpToolDefinition } from './registry.js';
+import type { McpToolDefinition, ToolResult } from './registry.js';
+import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import { ToolContextImpl } from './tool-context.js';
 
 export const docGenerationTool: McpToolDefinition = {
   name: 'doc_generation',
   description:
-    'Generate JSDoc/docstring skeletons for undocumented functions. Analyzes signatures, parameter types, return values, and call patterns to create meaningful documentation templates.',
+    'Generate documentation skeletons for symbols based on knowledge graph analysis — includes parameter placeholders and usage-based descriptions.',
   inputSchema: {
     type: 'object',
     properties: {
       projectId: {
         type: 'string',
-        description: 'The project ID.',
+        description: 'The project ID to analyze.',
       },
       filePath: {
         type: 'string',
@@ -21,249 +24,303 @@ export const docGenerationTool: McpToolDefinition = {
       },
       symbolName: {
         type: 'string',
-        description: 'Optional: generate docs for a specific symbol.',
+        description: 'Optional: generate docs for a specific symbol (by name).',
       },
       style: {
         type: 'string',
-        description: 'Documentation style to use.',
-        enum: ['jsdoc', 'docstring', 'godoc', 'javadoc'],
+        description: 'Documentation style: jsdoc, docstring, or godoc.',
+        enum: ['jsdoc', 'docstring', 'godoc'],
         default: 'jsdoc',
+      },
+      maxResults: {
+        type: 'number',
+        description: 'Maximum number of doc skeletons to generate (default: 10).',
+        default: 10,
       },
     },
     required: ['projectId'],
   },
-  handler: async (args: Record<string, unknown>) => {
-    const { projectId, filePath, symbolName, style } = args;
-    const docStyle = (style as string) ?? 'jsdoc';
+  handler: async (args: Record<string, unknown>, storeOrContext?: unknown): Promise<ToolResult> => {
+    const { projectId, filePath, symbolName, style, maxResults } = args;
+    const max = (maxResults as number) ?? 10;
+    const styleStr = (style as string) ?? 'jsdoc';
+    const store = ToolContextImpl.getStore(storeOrContext);
 
-    const docs = generateDocSkeletons(
-      projectId as string,
-      filePath as string | undefined,
-      symbolName as string | undefined,
-      docStyle,
+    if (!store) {
+      return {
+        content: [{ type: 'text', text: 'No graph store available. Index a project first.' }],
+        isError: true,
+      };
+    }
+
+    const projectIdStr = projectId as string;
+    let nodes = store.getAllNodes().filter(
+      (n) => n.projectId === projectIdStr && isDocumentableNode(n.label),
     );
 
+    if (symbolName) {
+      nodes = nodes.filter((n) => n.name === (symbolName as string));
+    }
+    if (filePath) {
+      nodes = nodes.filter((n) => n.filePath === (filePath as string));
+    }
+
+    if (nodes.length === 0) {
+      return {
+        content: [{ type: 'text', text: `No documentable symbols found for project "${projectIdStr}". Index the project first.` }],
+        metadata: { projectId: projectIdStr },
+      };
+    }
+
+    const docs = generateDocSkeletons(store, nodes.slice(0, max), styleStr);
+
     return {
-      content: [
-        {
-          type: 'text',
-          text: docGenerationReport(docs, docStyle),
-        },
-      ],
-      metadata: { projectId, filePath, symbolName, style: docStyle, generatedCount: docs.length },
+      content: [{ type: 'text', text: formatDocs(docs, projectIdStr, styleStr) }],
+      metadata: { projectId: projectIdStr, docCount: docs.length, style: styleStr },
     };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Types
 // ---------------------------------------------------------------------------
 
 interface DocSkeleton {
   symbolName: string;
   filePath: string;
-  signature: string;
-  docstring: string;
+  label: string;
+  language: string;
+  outgoingCalls: number;
+  incomingCalls: number;
+  dependencies: string[];
+  docBlock: string;
 }
+
+// ---------------------------------------------------------------------------
+// Node classification
+// ---------------------------------------------------------------------------
+
+function isDocumentableNode(label: string): boolean {
+  const docLabels = new Set([
+    'Function', 'Method', 'Class', 'Interface', 'Component',
+    'Service', 'Module', 'Type', 'Enum',
+  ]);
+  return docLabels.has(label);
+}
+
+// ---------------------------------------------------------------------------
+// Doc skeleton generation from real graph data
+// ---------------------------------------------------------------------------
 
 function generateDocSkeletons(
-  _projectId: string,
-  filePath?: string,
-  symbolName?: string,
-  style: string = 'jsdoc',
+  store: InMemoryGraphStore,
+  nodes: import('@code-analyzer/shared').GraphNode[],
+  style: string,
 ): DocSkeleton[] {
-  const docs: DocSkeleton[] = [
-    {
-      symbolName: 'processRequest',
-      filePath: 'src/api/handler.ts',
-      signature: '(req: Request, opts?: Options): Promise<Response>',
-      docstring: generateDocForStyle(style, {
-        symbolName: 'processRequest',
-        description: 'Processes an incoming HTTP request and returns a response.',
-        params: [
-          { name: 'req', type: 'Request', description: 'The HTTP request object.' },
-          { name: 'opts', type: 'Options', description: 'Optional configuration parameters.' },
-        ],
-        returns: { type: 'Promise<Response>', description: 'The HTTP response.' },
-        throws: [{ type: 'ValidationError', description: 'If request validation fails.' }],
-        example: "const result = await processRequest(req, { timeout: 5000 });",
-        since: 'v1.2.0',
-        deprecated: false,
-      }),
-    },
-    {
-      symbolName: 'buildQuery',
-      filePath: 'src/db/query-builder.ts',
-      signature: '(table: string, filters: Filter[]): Query',
-      docstring: generateDocForStyle(style, {
-        symbolName: 'buildQuery',
-        description: 'Builds a database query from table name and filter conditions.',
-        params: [
-          { name: 'table', type: 'string', description: 'Target table name.' },
-          { name: 'filters', type: 'Filter[]', description: 'Array of filter conditions to apply.' },
-        ],
-        returns: { type: 'Query', description: 'The constructed query object.' },
-        throws: [{ type: 'InvalidFilterError', description: 'If a filter is malformed.' }],
-        example: "const q = buildQuery('users', [{ field: 'age', op: '>', value: 18 }]);",
-        since: 'v1.0.0',
-        deprecated: false,
-      }),
-    },
-    {
-      symbolName: 'authenticate',
-      filePath: 'src/auth/login.ts',
-      signature: '(credentials: Credentials): Promise<AuthToken>',
-      docstring: generateDocForStyle(style, {
-        symbolName: 'authenticate',
-        description: 'Authenticates a user with the provided credentials.',
-        params: [
-          { name: 'credentials', type: 'Credentials', description: 'Username/password or token.' },
-        ],
-        returns: { type: 'Promise<AuthToken>', description: 'JWT auth token on success.' },
-        throws: [
-          { type: 'AuthError', description: 'If credentials are invalid.' },
-          { type: 'RateLimitError', description: 'If too many attempts.' },
-        ],
-        example: "const token = await authenticate({ user: 'admin', pass: 'secret' });",
-        since: 'v0.9.0',
-        deprecated: false,
-      }),
-    },
-  ];
+  const docs: DocSkeleton[] = [];
 
-  let filtered = docs;
-  if (filePath) {
-    filtered = filtered.filter((d) => d.filePath.includes(filePath));
-  }
-  if (symbolName) {
-    filtered = filtered.filter((d) => d.symbolName.toLowerCase().includes(symbolName.toLowerCase()));
+  for (const node of nodes) {
+    const ext = node.filePath ? node.filePath.split('.').pop()?.toLowerCase() : '';
+    const language = ext === 'ts' || ext === 'tsx' ? 'typescript'
+      : ext === 'js' || ext === 'jsx' ? 'javascript'
+      : ext === 'py' ? 'python'
+      : ext === 'go' ? 'go'
+      : ext === 'java' || ext === 'kt' ? 'java'
+      : 'typescript';
+
+    const outgoingCalls = store.getEdgesForNode(node.id, 'CALLS', 'out').length;
+    const incomingCalls = store.getEdgesForNode(node.id, 'CALLS', 'in').length;
+
+    // Get dependency names for usage description
+    const callEdges = store.getEdgesForNode(node.id, 'CALLS', 'out');
+    const dependencies: string[] = [];
+    for (const edge of callEdges.slice(0, 5)) {
+      const targetNode = store.getNode(edge.targetId);
+      if (targetNode && targetNode.name !== node.name) {
+        dependencies.push(targetNode.name);
+      }
+    }
+
+    const docBlock = generateDocBlock(
+      node.name,
+      node.label,
+      language,
+      style,
+      outgoingCalls,
+      incomingCalls,
+      dependencies,
+    );
+
+    docs.push({
+      symbolName: node.name,
+      filePath: node.filePath ?? '<unknown>',
+      label: node.label,
+      language,
+      outgoingCalls,
+      incomingCalls,
+      dependencies,
+      docBlock,
+    });
   }
 
-  return filtered;
+  return docs;
 }
 
-interface DocTemplate {
-  symbolName: string;
-  description: string;
-  params: Array<{ name: string; type: string; description: string }>;
-  returns: { type: string; description: string };
-  throws: Array<{ type: string; description: string }>;
-  example: string;
-  since: string;
-  deprecated: boolean;
-}
+// ---------------------------------------------------------------------------
+// Doc block generation per style
+// ---------------------------------------------------------------------------
 
-function generateDocForStyle(style: string, t: DocTemplate): string {
-  switch (style) {
-    case 'jsdoc':
-      return jsDoc(t);
-    case 'docstring':
-      return pythonDocstring(t);
-    case 'godoc':
-      return goDoc(t);
-    case 'javadoc':
-      return javaDoc(t);
-    default:
-      return jsDoc(t);
+function generateDocBlock(
+  name: string,
+  label: string,
+  language: string,
+  style: string,
+  outgoingCalls: number,
+  incomingCalls: number,
+  dependencies: string[],
+): string {
+  if (style === 'godoc' || language === 'go') {
+    return generateGoDoc(name, label, outgoingCalls, incomingCalls, dependencies);
   }
+  if (style === 'docstring' || language === 'python') {
+    return generatePythonDoc(name, label, outgoingCalls, incomingCalls, dependencies);
+  }
+  return generateJSDoc(name, label, outgoingCalls, incomingCalls, dependencies);
 }
 
-function jsDoc(t: DocTemplate): string {
-  const lines: string[] = ['/**'];
-  lines.push(` * ${t.description}`);
+function generateJSDoc(
+  name: string,
+  label: string,
+  outgoingCalls: number,
+  incomingCalls: number,
+  dependencies: string[],
+): string {
+  const lines: string[] = [];
+  lines.push('/**');
+  lines.push(` * ${label}: ${name}`);
   lines.push(' *');
-  for (const p of t.params) {
-    lines.push(` * @param {${p.type}} ${p.name} - ${p.description}`);
+  lines.push(' * TODO: Describe what this function/class does.');
+
+  if (label === 'Function' || label === 'Method') {
+    lines.push(' *');
+    lines.push(' * @param {*} paramName — TODO: document parameter');
+    lines.push(' * @returns {*} — TODO: document return value');
   }
-  lines.push(` * @returns {${t.returns.type}} ${t.returns.description}`);
-  for (const e of t.throws) {
-    lines.push(` * @throws {${e.type}} ${e.description}`);
+
+  if (dependencies.length > 0) {
+    lines.push(' *');
+    lines.push(' * @usage');
+    for (const dep of dependencies.slice(0, 3)) {
+      lines.push(` * - Calls: \`${dep}\``);
+    }
   }
-  lines.push(` * @example`);
-  lines.push(` * ${t.example}`);
-  lines.push(` * @since ${t.since}`);
-  if (t.deprecated) lines.push(' * @deprecated');
+
+  if (outgoingCalls > 0 || incomingCalls > 0) {
+    lines.push(' *');
+    lines.push(` * @graph {number} outgoingCalls — ${outgoingCalls}`);
+    lines.push(` * @graph {number} incomingCalls — ${incomingCalls}`);
+  }
+
+  if (label === 'Class' || label === 'Component') {
+    lines.push(' *');
+    lines.push(' * @example');
+    lines.push(' * ```');
+    lines.push(` * const instance = new ${name}(/* TODO */);`);
+    lines.push(' * ```');
+  }
+
   lines.push(' */');
   return lines.join('\n');
 }
 
-function pythonDocstring(t: DocTemplate): string {
-  const lines: string[] = ['"""'];
-  lines.push(t.description);
-  lines.push('');
-  for (const p of t.params) {
-    lines.push(`Args:`);
-    lines.push(`    ${p.name} (${p.type}): ${p.description}`);
-  }
-  lines.push('');
-  lines.push(`Returns:`);
-  lines.push(`    ${t.returns.type}: ${t.returns.description}`);
-  lines.push('');
-  for (const e of t.throws) {
-    lines.push(`Raises:`);
-    lines.push(`    ${e.type}: ${e.description}`);
-  }
-  if (t.deprecated) {
+function generatePythonDoc(
+  name: string,
+  label: string,
+  outgoingCalls: number,
+  incomingCalls: number,
+  dependencies: string[],
+): string {
+  const lines: string[] = [];
+  lines.push(`"""${label}: ${name}`);
+
+  if (label === 'Function' || label === 'Method') {
     lines.push('');
-    lines.push(`.. deprecated:: ${t.since}`);
+    lines.push('Args:');
+    lines.push('    param_name: TODO — describe parameter');
+    lines.push('');
+    lines.push('Returns:');
+    lines.push('    TODO — describe return value');
   }
+
+  if (dependencies.length > 0) {
+    lines.push('');
+    lines.push('Usage:');
+    for (const dep of dependencies.slice(0, 3)) {
+      lines.push(`    Calls: ${dep}`);
+    }
+  }
+
+  if (outgoingCalls > 0 || incomingCalls > 0) {
+    lines.push('');
+    lines.push(`Graph: outgoing=${outgoingCalls}, incoming=${incomingCalls}`);
+  }
+
   lines.push('"""');
   return lines.join('\n');
 }
 
-function goDoc(t: DocTemplate): string {
+function generateGoDoc(
+  name: string,
+  label: string,
+  outgoingCalls: number,
+  incomingCalls: number,
+  dependencies: string[],
+): string {
   const lines: string[] = [];
-  lines.push(`// ${t.symbolName} ${t.description}`);
-  lines.push('//');
-  for (const p of t.params) {
-    lines.push(`// ${p.name} ${p.description}`);
-  }
-  lines.push(`//`);
-  for (const e of t.throws) {
-    lines.push(`// Returns ${e.type} if ${e.description.toLowerCase()}.`);
-  }
-  if (t.deprecated) {
+  lines.push(`// ${name} is a ${label.toLowerCase()} that TODO: describe purpose.`);
+
+  if (dependencies.length > 0) {
     lines.push(`//`);
-    lines.push(`// Deprecated: since ${t.since}`);
+    lines.push(`// It interacts with: ${dependencies.slice(0, 3).join(', ')}.`);
   }
+
+  if (outgoingCalls > 0) {
+    lines.push(`// Calls ${outgoingCalls} other function(s).`);
+  }
+  if (incomingCalls > 0) {
+    lines.push(`// Called by ${incomingCalls} other function(s).`);
+  }
+
   return lines.join('\n');
 }
 
-function javaDoc(t: DocTemplate): string {
-  const lines: string[] = ['/**'];
-  lines.push(` * ${t.description}`);
-  lines.push(' *');
-  for (const p of t.params) {
-    lines.push(` * @param ${p.name} ${p.description}`);
+// ---------------------------------------------------------------------------
+// Report formatting
+// ---------------------------------------------------------------------------
+
+function formatDocs(docs: DocSkeleton[], projectId: string, style: string): string {
+  if (docs.length === 0) {
+    return `## Documentation Generation — ${projectId}\n\nNo documentable symbols found.\n`;
   }
-  lines.push(` * @return ${t.returns.description}`);
-  for (const e of t.throws) {
-    lines.push(` * @throws ${e.type} ${e.description}`);
-  }
-  lines.push(` * @since ${t.since}`);
-  if (t.deprecated) lines.push(' * @deprecated');
-  lines.push(' */');
-  return lines.join('\n');
-}
 
-function docGenerationReport(docs: DocSkeleton[], style: string): string {
-  if (docs.length === 0) return 'No undocumented symbols found.';
+  let report = `## Documentation Generation — ${projectId}\n\n`;
+  report += `**Style**: ${style} | **Templates**: ${docs.length}\n\n`;
+  report += `> Doc skeletons generated from knowledge graph metadata.\n`;
+  report += `> TODO markers indicate where context-specific descriptions are needed.\n\n`;
 
-  let report = `## Generated Documentation (${docs.length})\n\n`;
-  report += `**Style:** ${style}\n\n`;
+  for (const doc of docs) {
+    const callInfo = `out=${doc.outgoingCalls} calls, in=${doc.incomingCalls} calls`;
+    report += `### \`${doc.symbolName}\` — ${doc.label} (${doc.language}, ${callInfo})\n\n`;
+    report += `**File**: \`${doc.filePath}\`\n\n`;
 
-  for (const d of docs) {
-    report += `### \`${d.symbolName}\` — \`${d.filePath}\`\n`;
-    report += `**Signature:** \`${d.signature}\`\n\n`;
-    report += '```\n';
-    report += d.docstring;
+    const lang = doc.language === 'typescript' ? 'typescript'
+      : doc.language === 'python' ? 'python'
+      : 'go';
+
+    report += '```' + lang + '\n';
+    report += doc.docBlock;
     report += '\n```\n\n';
   }
-
-  report += '### Next Steps\n';
-  report += '1. Review generated documentation for accuracy\n';
-  report += '2. Add usage examples where appropriate\n';
-  report += '3. Add @see references to related functions\n';
 
   return report;
 }

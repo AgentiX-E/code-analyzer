@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/analyzer — Knowledge Graph Builder
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';

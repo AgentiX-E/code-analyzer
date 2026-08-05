@@ -31,7 +31,7 @@ export interface InitResult {
 const DEFAULT_STANDARDS = {
   name: 'Project Standards',
   description: 'Custom code review standards for this project',
-  version: '1.0.0',
+  version: '0.1.0',
   rules: [
     {
       id: 'no-console-log',

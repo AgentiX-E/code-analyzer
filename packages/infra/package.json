@@ -1,6 +1,6 @@
 {
   "name": "@code-analyzer/infra",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Infrastructure layer for Code Analyzer",
   "author": "Lambertyan",
   "license": "MIT",
