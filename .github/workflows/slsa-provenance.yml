@@ -1,0 +1,24 @@
+name: SLSA Provenance
+on:
+  release:
+    types: [published]
+permissions: read-all
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Generate provenance
+        uses: slsa-framework/slsa-github-generator/.github/actions/generate-provenance@v2
+        with:
+          base64-subjects: "${{ needs.build.outputs.hashes }}"

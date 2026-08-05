@@ -1,0 +1,25 @@
+name: Cosign Sign
+on:
+  release:
+    types: [published]
+permissions: read-all
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign release artifacts
+        run: |
+          for asset in dist/*.tar.gz dist/*.zip; do
+            [ -f "$asset" ] && cosign sign-blob "$asset" \
+              --output-signature "${asset}.sig" \
+              --output-certificate "${asset}.cert"
+          done
+      - name: Upload signatures
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*.sig,dist/*.cert
