@@ -3,6 +3,22 @@
 // Each checker validates inputs and returns violations with clear messages.
 
 import type { RuleDefinition } from './rule-definitions.js';
+import { astChecker } from './ast-rule-checker.js';
+import {
+  checkNoEvalAst,
+  checkXssAst,
+  checkSqlInjectionAst,
+  checkHardcodedSecretsAst,
+  checkCommandInjectionAst,
+  checkPathTraversalAst,
+  checkOpenRedirectAst,
+  checkUnsafeDeserializationAst,
+  checkWeakCryptoAst,
+  checkInsecureRandomAst,
+  checkHttpUrlAst,
+  checkNoDebugAst,
+  checkUnsafeOptionalChainingAst,
+} from './ast-security-rules.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1988,22 +2004,22 @@ export const CHECKER_MAP: Record<string, RuleChecker> = {
   'no-constant-condition': checkNoConstantCondition,
   'no-empty-catch': checkNoEmptyCatch,
   'no-unused-vars': checkNoUnusedVars,
-  'no-unsafe-optional-chaining': checkNoUnsafeOptionalChaining,
+  'no-unsafe-optional-chaining': astChecker(checkUnsafeOptionalChainingAst),
   'no-array-index-key': checkNoArrayIndexKey,
 
-  // Security
-  'no-eval': checkNoEval,
-  'no-sql-injection': checkSqlInjection,
-  'no-xss': checkXss,
-  'no-hardcoded-secrets': checkHardcodedSecrets,
-  'no-command-injection': checkCommandInjection,
-  'no-path-traversal': checkPathTraversal,
-  'no-open-redirect': checkOpenRedirect,
-  'no-unsafe-deserialization': checkUnsafeDeserialization,
-  'no-weak-crypto': checkWeakCrypto,
-  'no-insecure-random': checkInsecureRandom,
-  'no-http-url': checkHttpUrl,
-  'no-debug-statement': checkDebugStatement,
+  // Security (AST-aware via astChecker wrapper)
+  'no-eval': astChecker(checkNoEvalAst),
+  'no-sql-injection': astChecker(checkSqlInjectionAst),
+  'no-xss': astChecker(checkXssAst),
+  'no-hardcoded-secrets': astChecker(checkHardcodedSecretsAst),
+  'no-command-injection': astChecker(checkCommandInjectionAst),
+  'no-path-traversal': astChecker(checkPathTraversalAst),
+  'no-open-redirect': astChecker(checkOpenRedirectAst),
+  'no-unsafe-deserialization': astChecker(checkUnsafeDeserializationAst),
+  'no-weak-crypto': astChecker(checkWeakCryptoAst),
+  'no-insecure-random': astChecker(checkInsecureRandomAst),
+  'no-http-url': astChecker(checkHttpUrlAst),
+  'no-debug-statement': astChecker(checkNoDebugAst),
 
   // Performance
   'no-sync-fs': checkNoSyncFs,
