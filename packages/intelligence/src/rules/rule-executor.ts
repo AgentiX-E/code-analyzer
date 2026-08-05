@@ -19,6 +19,28 @@ import {
   checkNoDebugAst,
   checkUnsafeOptionalChainingAst,
 } from './ast-security-rules.js';
+import {
+  checkXxeAst,
+  checkSstiAst,
+  checkLdapInjectionAst,
+  checkNosqlInjectionAst,
+  checkLogInjectionAst,
+  checkInefficientRegexAst,
+  checkHardcodedKeyIvAst,
+  checkMissingCertValidationAst,
+  checkPredictableSeedAst,
+  checkInsecurePasswordHashAst,
+  checkMissingAuthCheckAst,
+  checkPermissiveCorsAst,
+  checkMissingRateLimitAst,
+  checkErrorDataExposureAst,
+  checkPrototypePollutionAst,
+  checkIntegerOverflowAst,
+  checkUnsafeDynamicImportAst,
+  checkMissingInputSizeLimitAst,
+  checkUnrestrictedFileUploadAst,
+  checkToctouAst,
+} from './ast-security-rules-2.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2020,6 +2042,28 @@ export const CHECKER_MAP: Record<string, RuleChecker> = {
   'no-insecure-random': astChecker(checkInsecureRandomAst),
   'no-http-url': astChecker(checkHttpUrlAst),
   'no-debug-statement': astChecker(checkNoDebugAst),
+
+  // Security (Extended — 20 new AST-aware rules)
+  'no-xxe': astChecker(checkXxeAst),
+  'no-ssti': astChecker(checkSstiAst),
+  'no-ldap-injection': astChecker(checkLdapInjectionAst),
+  'no-nosql-injection': astChecker(checkNosqlInjectionAst),
+  'no-log-injection': astChecker(checkLogInjectionAst),
+  'no-redos': astChecker(checkInefficientRegexAst),
+  'no-hardcoded-key-iv': astChecker(checkHardcodedKeyIvAst),
+  'no-missing-cert-validation': astChecker(checkMissingCertValidationAst),
+  'no-predictable-seed': astChecker(checkPredictableSeedAst),
+  'no-insecure-password-hash': astChecker(checkInsecurePasswordHashAst),
+  'no-missing-auth': astChecker(checkMissingAuthCheckAst),
+  'no-permissive-cors': astChecker(checkPermissiveCorsAst),
+  'no-missing-rate-limit': astChecker(checkMissingRateLimitAst),
+  'no-error-exposure': astChecker(checkErrorDataExposureAst),
+  'no-prototype-pollution': astChecker(checkPrototypePollutionAst),
+  'no-integer-overflow': astChecker(checkIntegerOverflowAst),
+  'no-unsafe-dynamic-import': astChecker(checkUnsafeDynamicImportAst),
+  'no-missing-input-size-limit': astChecker(checkMissingInputSizeLimitAst),
+  'no-unrestricted-upload': astChecker(checkUnrestrictedFileUploadAst),
+  'no-toctou': astChecker(checkToctouAst),
 
   // Performance
   'no-sync-fs': checkNoSyncFs,

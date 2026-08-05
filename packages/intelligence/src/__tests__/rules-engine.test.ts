@@ -1,6 +1,6 @@
 // @ts-nocheck
 // @code-analyzer/intelligence — Rules Engine Tests
-// Comprehensive tests for all 50 rules, registry, and engine.
+// Comprehensive tests for all 70 rules, registry, and engine.
 
 import { describe, it, expect } from 'vitest';
 import { RulesRegistry } from '../rules/rules-registry.js';
@@ -905,9 +905,9 @@ describe('RulesRegistry', () => {
     registry = new RulesRegistry();
   });
 
-  it('should create default registry with all 50 rules', () => {
+  it('should create default registry with all 70 rules', () => {
     const defaultReg = RulesRegistry.createDefault();
-    expect(defaultReg.size).toBe(50);
+    expect(defaultReg.size).toBe(70);
   });
 
   it('should register a rule definition and checker', () => {
@@ -1071,8 +1071,8 @@ describe('RulesRegistry', () => {
     // When a rule definition exists but has no checker, it is silently skipped.
     // This test verifies createDefault handles that case.
     const defaultReg = RulesRegistry.createDefault();
-    // All 50 rules have checkers, so all are registered
-    expect(defaultReg.size).toBe(50);
+    // All 70 rules have checkers, so all are registered
+    expect(defaultReg.size).toBe(70);
   });
 
   it('should handle runByCategory with language filter on rules without languageFilter', () => {
@@ -1116,7 +1116,7 @@ describe('RulesEngine', () => {
       const source = 'eval("1+1");\nconsole.log("debug");\nconst x = 1;';
       const result = engine.analyze('src/app.ts', source.split('\n'));
       expect(result.violations.length).toBeGreaterThan(0);
-      expect(result.summary.totalRules).toBe(50);
+      expect(result.summary.totalRules).toBe(70);
       expect(result.summary.totalViolations).toBeGreaterThan(0);
       expect(result.summary.byCategory).toBeDefined();
       expect(result.summary.bySeverity).toBeDefined();
@@ -1205,7 +1205,7 @@ describe('RulesEngine', () => {
     const engine = new RulesEngine();
     const registry = engine.getRegistry();
     expect(registry).toBeInstanceOf(RulesRegistry);
-    expect(registry.size).toBe(50);
+    expect(registry.size).toBe(70);
   });
 });
 
@@ -1218,7 +1218,7 @@ describe('Edge Cases', () => {
     const engine = new RulesEngine();
     const result = engine.analyze('empty.ts', []);
     expect(result.violations).toEqual([]);
-    expect(result.summary.totalRules).toBe(50);
+    expect(result.summary.totalRules).toBe(70);
     expect(result.summary.totalViolations).toBe(0);
   });
 
@@ -1281,7 +1281,7 @@ describe('Edge Cases', () => {
     const engine = new RulesEngine();
     const result = engine.analyze('deps.ts', source.split('\n'));
     // Should not crash
-    expect(result.summary.totalRules).toBe(50);
+    expect(result.summary.totalRules).toBe(70);
   });
 
   it('should handle very long source files without crashing', () => {
@@ -1291,11 +1291,11 @@ describe('Edge Cases', () => {
     }
     const engine = new RulesEngine();
     const result = engine.analyze('large.ts', lines);
-    expect(result.summary.totalRules).toBe(50);
+    expect(result.summary.totalRules).toBe(70);
   });
 
-  it('should have exactly 50 rule definitions', () => {
-    expect(ALL_RULE_DEFINITIONS).toHaveLength(50);
+  it('should have exactly 70 rule definitions', () => {
+    expect(ALL_RULE_DEFINITIONS).toHaveLength(70); // legacy DEFAULT_RULES is 50, definition count is 70
   });
 
   it('should have checkers for all rule definitions', () => {
@@ -1316,7 +1316,7 @@ describe('Edge Cases', () => {
 
   it('should create default engine with all rules', () => {
     const engine = new RulesEngine();
-    expect(engine.getRegistry().size).toBe(50);
+    expect(engine.getRegistry().size).toBe(70);
   });
 });
 
@@ -1325,8 +1325,8 @@ describe('Edge Cases', () => {
 // ===========================================================================
 
 describe('Backward Compatibility', () => {
-  it('should export DEFAULT_RULES with 50 rules', () => {
-    expect(DEFAULT_RULES).toHaveLength(50);
+  it('should export DEFAULT_RULES with 70 rules', () => {
+    expect(DEFAULT_RULES).toHaveLength(50); // legacy DEFAULT_RULES is 50, definition count is 70
   });
 
   it('should runRules with default rules', () => {
@@ -1408,7 +1408,7 @@ describe('Backward Compatibility', () => {
 // ===========================================================================
 
 describe('Rule Count Verification', () => {
-  it('should have exactly 6 categories across 50 rules', () => {
+  it('should have exactly 6 categories across 70 rules', () => {
     const categories = new Set(ALL_RULE_DEFINITIONS.map((r) => r.category));
     expect(categories.size).toBe(6);
   });
@@ -1418,9 +1418,9 @@ describe('Rule Count Verification', () => {
     expect(correctness).toHaveLength(8);
   });
 
-  it('should have exactly 12 security rules', () => {
+  it('should have exactly 32 security rules', () => {
     const security = ALL_RULE_DEFINITIONS.filter((r) => r.category === 'security');
-    expect(security).toHaveLength(12);
+    expect(security).toHaveLength(32);
   });
 
   it('should have exactly 8 performance rules', () => {

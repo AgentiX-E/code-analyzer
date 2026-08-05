@@ -191,6 +191,127 @@ export const NO_INSECURE_RANDOM: RuleDefinition = {
   cwe: 'CWE-330',
 };
 
+export const NO_XXE: RuleDefinition = {
+  id: 'no-xxe', category: 'security', severity: 'high',
+  title: 'XML External Entity (XXE) Processing',
+  description: 'XML parser may process external entities, enabling XXE attacks.',
+  cwe: 'CWE-611',
+};
+export const NO_SSTI: RuleDefinition = {
+  id: 'no-ssti', category: 'security', severity: 'high',
+  title: 'Server-Side Template Injection (SSTI)',
+  description: 'Template rendered with user-controlled input may enable code execution.',
+  cwe: 'CWE-94',
+};
+export const NO_LDAP_INJECTION: RuleDefinition = {
+  id: 'no-ldap-injection', category: 'security', severity: 'high',
+  title: 'LDAP Injection',
+  description: 'LDAP query built with user-controlled input may be manipulated.',
+  cwe: 'CWE-90',
+};
+export const NO_NOSQL_INJECTION: RuleDefinition = {
+  id: 'no-nosql-injection', category: 'security', severity: 'high',
+  title: 'NoSQL Injection',
+  description: 'MongoDB-style query with user-controlled input enables NoSQL injection.',
+  cwe: 'CWE-943',
+};
+export const NO_LOG_INJECTION: RuleDefinition = {
+  id: 'no-log-injection', category: 'security', severity: 'medium',
+  title: 'Log Injection / Forging',
+  description: 'Log message includes user-controlled input, enabling log injection attacks.',
+  cwe: 'CWE-117',
+};
+export const NO_REDOS: RuleDefinition = {
+  id: 'no-redos', category: 'security', severity: 'medium',
+  title: 'Inefficient Regular Expression (ReDoS)',
+  description: 'Regular expression with nested quantifiers may cause catastrophic backtracking.',
+  cwe: 'CWE-1333',
+};
+export const NO_HARDCODED_KEY_IV: RuleDefinition = {
+  id: 'no-hardcoded-key-iv', category: 'security', severity: 'high',
+  title: 'Hardcoded Encryption Key or IV',
+  description: 'Cryptographic key or initialization vector is hardcoded in source code.',
+  cwe: 'CWE-321',
+};
+export const NO_MISSING_CERT_VALIDATION: RuleDefinition = {
+  id: 'no-missing-cert-validation', category: 'security', severity: 'high',
+  title: 'Missing TLS Certificate Validation',
+  description: 'TLS certificate validation is disabled, enabling man-in-the-middle attacks.',
+  cwe: 'CWE-295',
+};
+export const NO_PREDICTABLE_SEED: RuleDefinition = {
+  id: 'no-predictable-seed', category: 'security', severity: 'medium',
+  title: 'Predictable Random Seed',
+  description: 'PRNG seeded with a predictable value produces deterministic output.',
+  cwe: 'CWE-335',
+};
+export const NO_INSECURE_PASSWORD_HASH: RuleDefinition = {
+  id: 'no-insecure-password-hash', category: 'security', severity: 'high',
+  title: 'Insecure Password Hash',
+  description: 'Password hashed with fast hash function (MD5/SHA) instead of bcrypt/argon2.',
+  cwe: 'CWE-256',
+};
+export const NO_MISSING_AUTH: RuleDefinition = {
+  id: 'no-missing-auth', category: 'security', severity: 'high',
+  title: 'Missing Authentication Check',
+  description: 'Sensitive route lacks visible authentication middleware.',
+  cwe: 'CWE-306',
+};
+export const NO_PERMISSIVE_CORS: RuleDefinition = {
+  id: 'no-permissive-cors', category: 'security', severity: 'medium',
+  title: 'Overly Permissive CORS Policy',
+  description: 'CORS configured with wildcard (*) origin allows any website to access resources.',
+  cwe: 'CWE-942',
+};
+export const NO_MISSING_RATE_LIMIT: RuleDefinition = {
+  id: 'no-missing-rate-limit', category: 'security', severity: 'medium',
+  title: 'Missing Rate Limiting',
+  description: 'No rate limiting detected, making the API vulnerable to brute-force and DoS.',
+  cwe: 'CWE-770',
+};
+export const NO_ERROR_EXPOSURE: RuleDefinition = {
+  id: 'no-error-exposure', category: 'security', severity: 'medium',
+  title: 'Excessive Data Exposure in Error Responses',
+  description: 'Raw error objects sent in API responses may leak stack traces and internal details.',
+  cwe: 'CWE-209',
+};
+export const NO_PROTOTYPE_POLLUTION: RuleDefinition = {
+  id: 'no-prototype-pollution', category: 'security', severity: 'high',
+  title: 'Prototype Pollution',
+  description: 'Object merge with user-controlled input may pollute Object.prototype.',
+  cwe: 'CWE-1321',
+};
+export const NO_INTEGER_OVERFLOW: RuleDefinition = {
+  id: 'no-integer-overflow', category: 'security', severity: 'medium',
+  title: 'Integer Overflow / Underflow',
+  description: 'Numeric user input parsed without bounds checking may overflow.',
+  cwe: 'CWE-190',
+};
+export const NO_UNSAFE_DYNAMIC_IMPORT: RuleDefinition = {
+  id: 'no-unsafe-dynamic-import', category: 'security', severity: 'high',
+  title: 'Unsafe Dynamic Import',
+  description: 'Dynamic import path derived from user input may load arbitrary modules.',
+  cwe: 'CWE-914',
+};
+export const NO_MISSING_INPUT_SIZE_LIMIT: RuleDefinition = {
+  id: 'no-missing-input-size-limit', category: 'security', severity: 'medium',
+  title: 'Missing Input Size Validation',
+  description: 'No request body size limit configured — vulnerable to resource exhaustion.',
+  cwe: 'CWE-400',
+};
+export const NO_UNRESTRICTED_UPLOAD: RuleDefinition = {
+  id: 'no-unrestricted-upload', category: 'security', severity: 'high',
+  title: 'Unrestricted File Upload',
+  description: 'File upload handler lacks type validation, allowing arbitrary file uploads.',
+  cwe: 'CWE-434',
+};
+export const NO_TOCTOU: RuleDefinition = {
+  id: 'no-toctou', category: 'security', severity: 'medium',
+  title: 'TOCTOU Race Condition',
+  description: 'File existence checked then operated on without atomicity creates a race window.',
+  cwe: 'CWE-367',
+};
+
 export const NO_HTTP_URL: RuleDefinition = {
   id: 'no-http-url',
   category: 'security',
@@ -494,6 +615,28 @@ export const ALL_RULE_DEFINITIONS: RuleDefinition[] = [
   NO_INSECURE_RANDOM,
   NO_HTTP_URL,
   NO_DEBUG_STATEMENT,
+
+  // Security Extended (20 — AST-aware, batch 2)
+  NO_XXE,
+  NO_SSTI,
+  NO_LDAP_INJECTION,
+  NO_NOSQL_INJECTION,
+  NO_LOG_INJECTION,
+  NO_REDOS,
+  NO_HARDCODED_KEY_IV,
+  NO_MISSING_CERT_VALIDATION,
+  NO_PREDICTABLE_SEED,
+  NO_INSECURE_PASSWORD_HASH,
+  NO_MISSING_AUTH,
+  NO_PERMISSIVE_CORS,
+  NO_MISSING_RATE_LIMIT,
+  NO_ERROR_EXPOSURE,
+  NO_PROTOTYPE_POLLUTION,
+  NO_INTEGER_OVERFLOW,
+  NO_UNSAFE_DYNAMIC_IMPORT,
+  NO_MISSING_INPUT_SIZE_LIMIT,
+  NO_UNRESTRICTED_UPLOAD,
+  NO_TOCTOU,
 
   // Performance (8)
   NO_SYNC_FS,
