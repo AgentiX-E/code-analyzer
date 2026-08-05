@@ -36,3 +36,7 @@ export { computeControlDependence } from './control-dependence.js';
 
 // Reaching Definitions
 export { computeReachingDefinitions } from './reaching-defs.js';
+
+// PDG Builder
+export { buildPdg } from './pdg-builder.js';
+export type { PdgNode, PdgEdge, PdgGraph } from './pdg-builder.js';

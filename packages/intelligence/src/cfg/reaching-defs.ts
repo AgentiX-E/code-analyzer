@@ -640,37 +640,57 @@ function computeDominators(cfg: FunctionCfg): number[] {
 // Dominance Frontiers
 // ---------------------------------------------------------------------------
 
+/**
+ * Compute the dominance frontier for each basic block in the CFG.
+ *
+ * Implements the classical Cytron-Ferrante-Rosen-Wegman-Zadeck (1991)
+ * algorithm: for each CFG edge A → B where A does not strictly dominate B,
+ * walk up the dominator tree from A until reaching idom[B],
+ * adding B to DF[runner] at each step.
+ *
+ * DF[X] = set of blocks whose dominance frontier includes X.
+ * A block Y is in DF[X] iff X dominates a predecessor of Y
+ * but does not strictly dominate Y.
+ */
 function computeDominanceFrontiers(
   cfg: FunctionCfg,
   idom: number[],
-): Map<number, Set<number>>[] {
+): Set<number>[] {
   const n = cfg.blocks.length;
-  const df: Map<number, Set<number>>[] = Array.from({ length: n }, () => new Set());
+  const df: Set<number>[] = Array.from({ length: n }, () => new Set<number>());
 
   for (const edge of cfg.edges) {
-    // For each CFG edge A → B, walk up from A
-    // adding B to DF[X] for each X on the path until we hit idom[B]
-    let runner = edge.from;
-    const target = edge.to;
+    const a = edge.from;
+    const b = edge.to;
 
-    while (runner !== -1 && runner !== idom[target]) {
-      const set = df[runner]!;
-      if (set instanceof Set) {
-        // df is Map<number, number[]> for iteration
-      }
+    // Skip if A strictly dominates B — then B cannot be in DF[A]
+    if (strictlyDominates(a, b, idom)) continue;
+
+    let runner = a;
+    const idomB = idom[b]!;
+
+    // Walk up the dominator tree from A until we hit idom[B]
+    while (runner !== -1 && runner !== idomB) {
+      df[runner]!.add(b);
       runner = idom[runner]!;
     }
   }
 
-  // Convert to Maps for API compatibility
-  const result: Map<number, Set<number>>[] = Array.from({ length: n }, () => new Map());
-  for (let b = 0; b < n; b++) {
-    for (const f of df[b]!) {
-      result[b]!.set(f, new Set());
-    }
-  }
+  return df;
+}
 
-  return result;
+/**
+ * Check whether block `a` strictly dominates block `b`.
+ * A strictly dominates B if A dominates B and A ≠ B.
+ */
+function strictlyDominates(a: number, b: number, idom: number[]): boolean {
+  if (a === b) return false;
+  let runner = b;
+  while (runner !== -1) {
+    runner = idom[runner]!;
+    if (runner === a) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
