@@ -1,279 +1,80 @@
 # Code Analyzer — User Guide
 
-> Comprehensive guide for every feature and use case. Learn to install, configure, and use Code Analyzer effectively across all scenarios.
-
-## Table of Contents
-
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [Analyzing Your Codebase](#analyzing-your-codebase)
-4. [Searching Code](#searching-code)
-5. [PR Code Review](#pr-code-review)
-6. [Cross-Repository Analysis](#cross-repository-analysis)
-7. [VS Code Extension](#vs-code-extension)
-8. [MCP Server for AI Agents](#mcp-server-for-ai-agents)
-9. [Web Dashboard](#web-dashboard)
-10. [GitHub Integration](#github-integration)
-11. [Configuration Reference](#configuration-reference)
-12. [Performance Tuning](#performance-tuning)
-13. [Troubleshooting](#troubleshooting)
-
----
-
-## Installation
-
-### Via npm (Recommended)
-
-```bash
-npm install -g @code-analyzer/cli
-```
-
-### Via curl (Zero-Config)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/AgentiX-E/code-analyzer/main/scripts/setup.sh | bash
-```
-
-### Via Homebrew (macOS)
-
-```bash
-brew install code-analyzer
-```
-
-### Via Docker
-
-```bash
-docker compose -f https://raw.githubusercontent.com/AgentiX-E/code-analyzer/main/docker-compose.yml up -d
-```
-
-### Verify Installation
-
-```bash
-code-analyzer --version
-# Code Analyzer v0.2.0
-```
-
----
+**Version**: 1.0.0  
+**Author**: Lambertyan
 
 ## Quick Start
 
 ```bash
-# 1. Navigate to your project
-cd your-project
-
-# 2. Initialize Code Analyzer
-code-analyzer init
-
-# 3. Index your codebase
-code-analyzer analyze .
-
-# 4. Search for anything
-code-analyzer search "authentication"
-
-# 5. Review code changes
-code-analyzer review src/
-
-# 6. Check indexing status
-code-analyzer status
+npm install -g @code-analyzer/cli
+npx embed-code download
+code-analyzer analyze ./your-project
+code-analyzer mcp  # Start MCP server for AI agents
 ```
 
----
+## MCP Server (45 tools)
 
-## Analyzing Your Codebase
-
-### Full Index
-
-```bash
-# Index the entire project
-code-analyzer analyze .
-
-# Index a specific directory
-code-analyzer analyze src/
-
-# Index with verbose output
-code-analyzer analyze . --verbose
+Add to your AI agent config:
+```json
+{"mcpServers":{"code-analyzer":{"command":"npx","args":["@code-analyzer/mcp"]}}}
 ```
 
-### Incremental Indexing
-
-Code Analyzer automatically detects changed files and only re-indexes what is needed. After the initial index:
-
-```bash
-# Re-index only changed files (fast)
-code-analyzer analyze .
-
-# Force full re-index
-code-analyzer analyze . --force
-```
-
-### Supported Languages
-
-Code Analyzer supports 30 programming and configuration languages out of the box:
-
-| Category | Languages |
-|----------|-----------|
-| **Web** | TypeScript, JavaScript, HTML, CSS, SCSS, Vue, Svelte |
-| **Backend** | Python, Go, Java, Kotlin, C#, Rust, PHP, Ruby |
-| **Mobile** | Swift, Dart |
-| **Systems** | C, C++, Zig |
-| **Data** | R, Scala, Groovy, Elixir, Lua |
-| **IaC** | Dockerfile, HCL (Terraform), YAML, JSON, TOML |
-| **Docs** | Markdown, SQL, Bash |
-
----
-
-## Searching Code
-
-### Basic Search
-
-```bash
-code-analyzer search "UserService"
-code-analyzer search "authenticate" --type function --language typescript
-code-analyzer search "middleware" --path "src/api/**"
-```
-
-### Cypher Queries (Advanced)
-
-```bash
-code-analyzer cypher "MATCH (f:Function)-[:CALLS]->(t:Function) WHERE t.name CONTAINS 'auth' RETURN f.name, t.name"
-code-analyzer cypher "MATCH (r:Route) RETURN r.method, r.path ORDER BY r.path ASC"
-```
-
----
-
-## PR Code Review
-
-```bash
-code-analyzer review                           # staged changes
-code-analyzer review --from main --to feature  # branch range
-code-analyzer review --commit abc123           # single commit
-code-analyzer review --standards security-focused
-```
-
-### Customizing Review Rules
-
-Create a `.code-analyzer.yml` in your project root:
-
-```yaml
-review:
-  rules:
-    security: [no-sql-injection, no-xss, no-hardcoded-secrets]
-    correctness: [no-null-pointer, no-unchecked-async, no-missing-error-handling]
-    performance: [no-n-plus-one, no-memory-leaks]
-    style: [no-console-log]
-  ignore: ["**/*.test.ts", "**/*.spec.ts", "**/generated/**"]
-```
-
----
-
-## Cross-Repository Analysis
-
-```bash
-code-analyzer repo-group create my-services --repo frontend ./frontend --repo backend ./backend
-code-analyzer cross-repo search "payment" --group my-services
-code-analyzer cross-repo impact --interface UserDTO --group my-services
-```
-
----
+### Tool Categories
+| Category | Tools | Description |
+|----------|:---:|------|
+| Indexing | 4 | analyze_repository, list_projects, delete_project, index_status |
+| Querying | 10 | search_graph, search_code, semantic_search, trace_call_path, etc. |
+| Change | 4 | detect_changes, impact_analysis, route_map, check_cycles |
+| Review | 2 | review_diff, review_file |
+| PR | 2 | review_pr, check_standards |
+| Reports | 3 | generate_report, export_report, get_recommendations |
+| Cross-Repo | 7 | cross_repo_search, cross_repo_trace, cross_repo_impact, etc. |
+| Security | 3 | pdg_query, taint_analysis, explain_taint |
+| Standards | 4 | list_standards, create_standard, manage_adr, install_skills |
+| Intelligence | 5 | trend_analysis, hotspot_detection, refactor_suggestion, etc. |
 
 ## VS Code Extension
 
-### Copilot Chat Slash Commands
+Copilot Chat Participant: `@code-analyzer /review`, `/explain`, `/impact`, `/find`, `/deps`, `/refactor`, `/test`, `/analyze`, `/coverage`, `/standards`
 
-| Command | What it does |
-|---------|-------------|
-| `/review` | Review current file or selection |
-| `/explain` | Explain code structure |
-| `/impact` | Analyze change impact |
-| `/find` | Find symbols and references |
-| `/deps` | Show dependencies |
-| `/refactor` | Get refactoring suggestions |
-| `/test` | Get test suggestions |
-
----
-
-## MCP Server for AI Agents
+## CLI
 
 ```bash
-code-analyzer agent configure --agent claude-code
-code-analyzer mcp serve
-code-analyzer mcp serve --transport sse --port 3000
+code-analyzer analyze ./project    # Index a repository
+code-analyzer search "function"    # Search knowledge graph
+code-analyzer review ./src --diff  # Review staged changes
+code-analyzer review-pr --from main --to feature
+code-analyzer group create svcs    # Create cross-repo group
+code-analyzer web --port 8080      # Start dashboard
 ```
 
-Supports 11 AI agents: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codex, Gemini CLI, Cody, Amazon Q.
+## Code Review Rules (46+)
+Security (10): SQL injection, XSS, command injection, path traversal, hardcoded secrets
+Performance (7): N+1 queries, large allocations, sync I/O, inefficient loops
+Maintainability (10): Function length, nesting depth, cyclomatic complexity
+Style (7): Naming, formatting, import organization
+Architecture (6): Circular deps, layer violations, god classes
 
----
+## Security
+- Taint Analysis: source -> sink vulnerability tracing
+- Secret Scanner: 16 pattern categories + entropy detection
+- PDG Queries: control/data dependence analysis
 
-## Configuration Reference
+## Enterprise
+- RBAC: 5 roles (viewer/auditor/developer/maintainer/admin), 26 permissions
+- Audit: SHA-256 hash chain, tamper detection, JSON/CSV export
+- Rate Limiting: Token bucket per key/tool
 
-### `.code-analyzer.yml`
-
-```yaml
-project:
-  name: my-project
-  languages: [typescript, python]
-
-analysis:
-  maxFileSize: 10485760
-  excludePatterns: ["node_modules/**", "dist/**", "**/*.generated.*"]
-  parallelWorkers: 4
-  incrementalIndexing: true
-
-search:
-  defaultLimit: 20
-  enableFuzzySearch: true
-  enableVectorSearch: true
-
-review:
-  autoReviewOnPR: true
-  commentOnPR: true
-  bundleRelatedFiles: true
-
-mcp:
-  transport: stdio
-  port: 3000
-  rateLimit: { enabled: true, maxRequestsPerMinute: 60 }
-
-embedding:
-  provider: nomic-embed-code
-  cacheSize: 10000
-
-lsp:
-  enabled: true
-  maxServers: 3
+## Cross-Repository
+```bash
+code-analyzer group create my-services
+code-analyzer group add my-services frontend ./frontend
+code-analyzer group add my-services backend ./backend
+code-analyzer group sync my-services
 ```
-
----
-
-## Performance Tuning
-
-### Small Projects (< 10K LOC)
-```yaml
-analysis: { parallelWorkers: 2 }
-search: { enableVectorSearch: false }
-```
-
-### Medium Projects (10K-100K LOC)
-```yaml
-analysis: { parallelWorkers: 4 }
-embedding: { cacheSize: 5000 }
-```
-
-### Large Projects (> 100K LOC)
-```yaml
-analysis: { parallelWorkers: 8 }
-embedding: { cacheSize: 20000, batchSize: 64 }
-```
-
----
 
 ## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| Index takes too long | Exclude `node_modules`/`dist`, increase `parallelWorkers` |
-| Search returns no results | Run `code-analyzer analyze .` first, check `code-analyzer status` |
-| MCP server won't start | Check Node >= 20, try `mcp serve --transport stdio --verbose` |
-| VS Code extension not connecting | Verify CLI is in PATH, restart VS Code after install |
-
-**Help:** `code-analyzer --help` | **Status:** `code-analyzer status` | **Issues:** [GitHub](https://github.com/AgentiX-E/code-analyzer/issues)
+- Index fails: check .gitignore and .code-analyzerignore
+- Semantic search poor: run `npx embed-code download`
+- MCP timeout: pre-index with `code-analyzer analyze`
+- High memory: reduce cache sizes, disable embeddings for large repos

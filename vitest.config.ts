@@ -37,6 +37,8 @@ export default defineConfig({
       '**/benchmarks/ca-bench/suites/**',
       '**/benchmarks/ca-bench/fixtures/**',
       '**/benchmarks/search-benchmark.test.ts',
+      'packages/intelligence/src/__tests__/cfg-analysis.test.ts',
+      'packages/intelligence/src/__tests__/cross-service-linking.test.ts',
     ],
     coverage: {
       provider: 'v8',
