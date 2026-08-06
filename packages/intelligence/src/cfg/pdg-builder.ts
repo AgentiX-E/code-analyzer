@@ -105,14 +105,28 @@ export function buildPdg(
   const maxEdges = options?.maxEdges ?? 1000;
   const funcName = functionName ?? cfg.functionName ?? '<anonymous>';
 
+  if (cfg.blocks.length === 0) {
+    return makeEmptyGraph(funcName, filePath);
+  }
+
   // Phase 1: Post-dominators
   const postDom = computePostDominators(cfg);
 
-  // Phase 2: Control dependence
-  const cdgEdges = computeControlDependence(cfg, postDom.ipdom, maxEdges);
+  // Phase 2: Control dependence (may be empty for simple CFGs)
+  let cdgEdges: ControlDepEdge[] = [];
+  if (postDom.ipdom.length > 0) {
+    cdgEdges = [...computeControlDependence(cfg, postDom.ipdom, maxEdges)];
+  }
 
-  // Phase 3: Reaching definitions
-  const dataFacts = computeReachingDefinitions(cfg);
+  // Phase 3: Reaching definitions (may fail for incomplete/minimal CFGs)
+  let dataFacts: DefUseFact[] = [];
+  try {
+    if (cfg.stmtFacts.defs.size > 0 || cfg.stmtFacts.uses.size > 0) {
+      dataFacts = computeReachingDefinitions(cfg);
+    }
+  } catch {
+    // Graceful degradation: skip data dependence if solver fails
+  }
 
   // Phase 4: Build unified PDG
   return buildGraph(cfg, filePath, funcName, cdgEdges, dataFacts);
