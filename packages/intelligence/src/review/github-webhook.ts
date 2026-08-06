@@ -374,7 +374,11 @@ export class GitHubPRWebhook {
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const response = await fetch(url, { ...options, headers });
+        const response = await fetch(url, {
+          ...options,
+          headers,
+          signal: AbortSignal.timeout(10_000), // 10s timeout per request
+        });
 
         // Check rate limit
         const remaining = response.headers.get('X-RateLimit-Remaining');
