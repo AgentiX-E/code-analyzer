@@ -4,11 +4,11 @@
 
 [![Status: v0.1.0](https://img.shields.io/badge/status-v0.1.0-blue)](https://github.com/AgentiX-E/code-analyzer)
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions)
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/AgentiX-E/code-analyzer)
-[![Precision](https://img.shields.io/badge/precision-79.4%25-success)](docs/BENCHMARK_REPORT.md)
-[![F1 Score](https://img.shields.io/badge/F1-0.761-success)](docs/BENCHMARK_REPORT.md)
+[![Coverage](https://img.shields.io/badge/coverage-55%25-yellow)](https://github.com/AgentiX-E/code-analyzer)
+[![Precision](https://img.shields.io/badge/precision-79.4%25-yellow)](docs/BENCHMARK_REPORT.md)
+[![F1 Score](https://img.shields.io/badge/F1-0.761-yellow)](docs/BENCHMARK_REPORT.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-green)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -46,15 +46,15 @@ code-analyzer agent configure
 | **18-Phase Pipeline** | DAG-based analysis pipeline: scan -> parse -> scope resolution -> communities -> embeddings |
 | **PR Review** | 5-stage review pipeline with 50+ rules across 6 categories (security w/ CWE, correctness, performance, maintainability, style, architecture). Smart file bundling for PR review context, delegation review mode |
 | **Cross-Repo Analysis** | Multi-repo indexing, federated search, API contract detection, version matrix, cross-repo PR review with GitHub check runs. Incremental reindexing with git change detection |
-| **20-Language Support** | TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, Ruby, PHP, Swift, C/C++, C-like + IaC: Dockerfile, HCL/Terraform, YAML, JSON, Markdown, Shell, SQL |
-| **Cypher Query Engine** | Full Cypher query support with 40+ graph relationship types for deep structural queries across the knowledge graph |
-| **MCP Server** | 40 tools, 15 resources, 5 prompts for AI agents -- auth, sliding-window rate limiter, Cypher queries |
+| **20-Language Support** | TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, Ruby, PHP, Swift, C/C++, C-like (full tree-sitter AST walkers) + 10 additional languages (YAML, JSON, TOML, SQL, Bash, Markdown, HTML, CSS, R, Groovy) via regex-based fallback parsers — see [Language Quality Matrix](docs/LANGUAGE_QUALITY.md) |
+| **Cypher Query Engine** | Full Cypher query support with 44 relationship types for deep structural queries across the knowledge graph |
+| **MCP Server** | 45 tools, 15 resources, 5 prompts for AI agents — auth, sliding-window rate limiter, Cypher queries |
 | **VS Code Extension** | Copilot Chat participant with 15 slash commands: /review, /explain, /impact, /find, /deps, /refactor, /test, /analyze, /coverage, /standards, /review-deps, /check-contract, /trace-dataflow, /find-hotspots, /audit-security |
 | **Web Dashboard** | 6 interactive views: Graph Explorer, Search, Dashboard, Cross-Repo, PR Review Panel, Repo Group Manager |
 | **GitHub Integration** | Webhook receiver, cross-repo PR review bridge, check runs with annotations, repo sync, REST + GraphQL API client |
 | **AI Agent Integrations** | Auto-detection and one-click setup for 11 agents: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codex, Gemini CLI, Cody, Amazon Q |
 | **Enterprise Security** | RBAC (5 roles/25 permissions), audit logging, 16-pattern secret scanner |
-| **Operational Excellence** | Health checks, graceful shutdown, retry with exponential backoff, dead letter queue, sliding-window rate limiter. Auto-index on project open, auto-watch file changes, comment positioning with precision validation, graph artifact compression and sharing |
+| **Operational Excellence** | Health checks, graceful shutdown, retry with exponential backoff, dead letter queue, sliding-window rate limiter
 
 ## Architecture
 
@@ -65,7 +65,7 @@ code-analyzer agent configure
 |     Web Dashboard (6 views)                                   |
 +---------------------------------------------------------------+
 |                     Integration Layer                         |
-|    MCP Server (40 tools)  |  HTTP API  |  Webhook (PR)       |
+|    MCP Server (45 tools)  |  HTTP API  |  Webhook (PR)       |
 +---------------------------------------------------------------+
 |                     Service Layer                             |
 |    Review Pipeline  |  Search Engine  |  Standards            |
@@ -74,7 +74,7 @@ code-analyzer agent configure
 |  50+ Rules (CWE)  |  Cross-Repo  |  Impact  |  Embeddings    |
 +---------------------------------------------------------------+
 |                    Analysis Engine                            |
-|  20 Lang (Tree-sitter + IaC)  |  18-Phase DAG  |  Graph Builder           |
+|  30 Parsers (20 TS + 10 Regex)  |  19-Phase DAG  |  Graph Builder           |
 +---------------------------------------------------------------+
 |                   Infrastructure Layer                       |
 |  Graph Store  |  Worker Pool  |  Git Ops  |  Parallel        |
@@ -85,7 +85,7 @@ code-analyzer agent configure
 
 ## Benchmarks
 
-Code Analyzer achieves **industry-leading results** with zero LLM token cost:
+Code Analyzer achieves **competitive results** with zero LLM token cost:
 
 | Metric | Code Analyzer | SonarQube AI | Augment Code | CodeRabbit | GitHub Copilot |
 |--------|:---:|:---:|:---:|:---:|:---:|
@@ -97,7 +97,7 @@ Code Analyzer achieves **industry-leading results** with zero LLM token cost:
 
 [Full benchmark report →](docs/BENCHMARK_REPORT.md)
 
-> **Note**: Benchmarks are based on internal test suites. Independent third-party validation is planned for future releases.
+> **Important**: Benchmarks are based on internal test suites (37 ground-truth issues). Independent third-party validation with a larger dataset (200+ PRs, 1500+ issues) is planned for v0.2.0. Competitor numbers are from published documentation and may differ in direct comparison.
 
 ```
 

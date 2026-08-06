@@ -14,13 +14,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "url": "https://github.com/AgentiX-E/code-analyzer.git",
     "directory": "packages/core"
   },
   "bugs": {
-    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+    "url": "https://github.com/AgentiX-E/code-analyzer/issues"
   },
-  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "homepage": "https://github.com/AgentiX-E/code-analyzer#readme",
   "files": [
     "dist"
   ],
@@ -50,7 +50,7 @@
     "@code-analyzer/shared": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
 }

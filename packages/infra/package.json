@@ -14,13 +14,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Lambertyan/code-analyzer.git",
+    "url": "https://github.com/AgentiX-E/code-analyzer.git",
     "directory": "packages/infra"
   },
   "bugs": {
-    "url": "https://github.com/Lambertyan/code-analyzer/issues"
+    "url": "https://github.com/AgentiX-E/code-analyzer/issues"
   },
-  "homepage": "https://github.com/Lambertyan/code-analyzer#readme",
+  "homepage": "https://github.com/AgentiX-E/code-analyzer#readme",
   "files": [
     "dist"
   ],
@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
-    "typescript": "^5.6.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
 }
