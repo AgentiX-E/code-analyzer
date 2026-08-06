@@ -3,7 +3,7 @@
 // Each rule operates on structured call sites, string literals,
 // assignments, and imports rather than raw line-based regex.
 
-import type { RuleCheckResult } from './rule-executor.js';
+import type { RuleCheckResult } from './rule-runner.js';
 import type { AstRuleContext } from './ast-rule-checker.js';
 import {
   hasCall,

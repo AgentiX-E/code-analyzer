@@ -3,7 +3,7 @@
 // detection accuracy while maintaining backward-compatible output format.
 // Uses AstRuleContext from ast-rule-checker.ts.
 
-import type { RuleCheckResult } from './rule-executor.js';
+import type { RuleCheckResult } from './rule-runner.js';
 import type { AstRuleContext } from './ast-rule-checker.js';
 import {
   hasCall,

@@ -54,8 +54,6 @@ export function createPhaseLogger(
   transport: (entry: PhaseLogEntry) => void,
   label: string,
 ): PhaseLogger {
-  const baseContext: Omit<PhaseLogContext, 'phaseId'> = {};
-
   function log(
     level: PhaseLogEntry['level'],
     message: string,

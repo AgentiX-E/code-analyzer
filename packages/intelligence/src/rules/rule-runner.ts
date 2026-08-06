@@ -1,8 +1,12 @@
-// @code-analyzer/intelligence — Rule Executors (Checker Functions)
-// 50 standalone checker functions for all deterministic rules.
-// Each checker validates inputs and returns violations with clear messages.
+// @code-analyzer/intelligence — Rule Runner
+// Merged from rule-executor.ts (checker functions) and rules-engine.ts (engine).
+// Contains: checker functions, CHECKER_MAP, RulesEngine, helpers, and types.
+// Rule data definitions live in rule-definitions.ts.
+// Backward-compatible CodeRule API delegated to checker functions.
 
-import type { RuleDefinition } from './rule-definitions.js';
+import type { Severity } from '@code-analyzer/shared';
+import type { RuleDefinition, RuleCategory } from './rule-definitions.js';
+import { ALL_RULE_DEFINITIONS } from './rule-definitions.js';
 import { astChecker } from './ast-rule-checker.js';
 import {
   checkNoEvalAst,
@@ -41,10 +45,11 @@ import {
   checkUnrestrictedFileUploadAst,
   checkToctouAst,
 } from './ast-security-rules-2.js';
+import { RulesRegistry } from './rules-registry.js';
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Types
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 export interface RuleCheckResult {
   ruleId: string;
@@ -60,8 +65,71 @@ export type RuleChecker = (
 ) => RuleCheckResult[];
 
 // ---------------------------------------------------------------------------
-// Helpers
+// CodeRule backward-compatible types
 // ---------------------------------------------------------------------------
+
+export interface CodeRule {
+  id: string;
+  category: RuleCategory;
+  severity: Severity;
+  title: string;
+  description: string;
+  cwe?: string[];
+  language?: string[];
+  check(context: RuleContext): RuleViolation[];
+}
+
+export interface RuleContext {
+  filePath: string;
+  lines: string[];
+  language: string;
+  diff?: import('@code-analyzer/shared').GitDiff;
+  graphContext?: GraphAnalysisData;
+}
+
+export interface RuleViolation {
+  ruleId: string;
+  category: RuleCategory;
+  severity: Severity;
+  filePath: string;
+  line: number;
+  message: string;
+  suggestion?: string;
+}
+
+export interface GraphAnalysisData {
+  outDegree: number;
+  inDegree: number;
+  exportedSymbolCount: number;
+  cyclicPaths: string[][];
+  edgeCounts: Map<string, number>;
+  adjacency?: Map<string, Set<string>>;
+}
+
+export const EMPTY_GRAPH_DATA: GraphAnalysisData = {
+  outDegree: 0,
+  inDegree: 0,
+  exportedSymbolCount: 0,
+  cyclicPaths: [],
+  edgeCounts: new Map(),
+};
+
+// ===========================================================================
+// Helpers
+// ===========================================================================
+
+function detectLanguage(filePath: string): string {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith('.ts') || lower.endsWith('.tsx') || lower.endsWith('.d.ts')) return 'typescript';
+  if (lower.endsWith('.js') || lower.endsWith('.jsx') || lower.endsWith('.mjs') || lower.endsWith('.cjs')) return 'javascript';
+  if (lower.endsWith('.py') || lower.endsWith('.pyi')) return 'python';
+  if (lower.endsWith('.go')) return 'go';
+  if (lower.endsWith('.java')) return 'java';
+  if (lower.endsWith('.rs')) return 'rust';
+  if (lower.endsWith('.rb')) return 'ruby';
+  if (lower.endsWith('.php')) return 'php';
+  return 'unknown';
+}
 
 function isTestFile(filePath: string): boolean {
   return (
@@ -84,12 +152,6 @@ function makeResult(
 ): RuleCheckResult {
   return { ruleId, line, message, suggestion };
 }
-
-// ===========================================================================
-// CATEGORY 1: CORRECTNESS (8 Checkers)
-// ===========================================================================
-
-/** Check for potentially undefined variable references. */
 export function checkNoUndef(
   lines: string[] | null | undefined,
   _filePath: string,
@@ -2049,3 +2111,174 @@ export const CHECKER_MAP: Record<string, RuleChecker> = {
   'no-cross-boundary-access': checkNoCrossBoundaryAccess,
   'missing-abstraction': checkMissingAbstraction,
 };
+
+// ===========================================================================
+// Rule Compatibility (New)
+// ===========================================================================
+
+function severityToSeverity(defSeverity: string): Severity {
+  return defSeverity as Severity;
+}
+
+function ruleCompat(def: RuleDefinition): CodeRule {
+  return {
+    id: def.id,
+    category: def.category,
+    severity: severityToSeverity(def.severity),
+    title: def.title,
+    description: def.description,
+    cwe: def.cwe ? [def.cwe] : undefined,
+    language: def.languageFilter,
+    check(ctx: RuleContext): RuleViolation[] {
+      const checker = CHECKER_MAP[def.id];
+      const lang = ctx.language || detectLanguage(ctx.filePath);
+      const results = checker ? checker(ctx.lines, ctx.filePath, lang) : [];
+      return results.map(r => ({
+        ruleId: r.ruleId,
+        category: def.category,
+        severity: severityToSeverity(def.severity),
+        filePath: ctx.filePath,
+        line: r.line,
+        message: r.message,
+        suggestion: r.suggestion,
+      }));
+    },
+  };
+}
+
+/** Backward-compatible DEFAULT_RULES array built from checker functions. */
+export const DEFAULT_RULES: CodeRule[] = ALL_RULE_DEFINITIONS.map(ruleCompat);
+
+// ===========================================================================
+// Legacy Engine Functions
+// ===========================================================================
+
+export function getFileLanguage(filePath: string): string {
+  return detectLanguage(filePath);
+}
+
+export function runRules(ctx: RuleContext, rules?: CodeRule[]): RuleViolation[] {
+  const ruleSet = rules ?? DEFAULT_RULES;
+  const violations: RuleViolation[] = [];
+  const lang = ctx.language || detectLanguage(ctx.filePath);
+
+  for (const rule of ruleSet) {
+    if (rule.language && rule.language.length > 0) {
+      if (!rule.language.includes(lang)) continue;
+    }
+    try {
+      violations.push(...rule.check(ctx));
+    } catch {
+      // Skip rules that throw to avoid failing entire analysis
+    }
+  }
+
+  return violations;
+}
+
+// ===========================================================================
+// RulesEngine (New)
+// ===========================================================================
+
+export interface AnalyzeOptions {
+  categories?: RuleCategory[];
+  severities?: string[];
+  excludeRules?: string[];
+}
+
+export interface RulesResult {
+  violations: RuleCheckResult[];
+  summary: {
+    totalRules: number;
+    totalViolations: number;
+    byCategory: Record<string, number>;
+    bySeverity: Record<string, number>;
+  };
+}
+
+export class RulesEngine {
+  private registry: RulesRegistry;
+
+  constructor(registry?: RulesRegistry) {
+    this.registry = registry ?? RulesRegistry.createDefault();
+  }
+
+  analyze(
+    filePath: string,
+    lines: string[],
+    options?: AnalyzeOptions,
+  ): RulesResult {
+    const language = detectLanguage(filePath);
+    let violations: RuleCheckResult[];
+
+    if (options?.categories && options.categories.length === 1) {
+      violations = this.registry.runByCategory(options.categories[0]!, lines, filePath, language);
+    } else {
+      violations = this.registry.runAll(lines, filePath, language);
+    }
+
+    if (options?.severities && options.severities.length > 0) {
+      const severitySet = new Set(options.severities);
+      const allRules = this.registry.getAll();
+      violations = violations.filter((v) => {
+        const rule = allRules.find((r) => r.definition.id === v.ruleId);
+        return rule ? severitySet.has(rule.definition.severity) : true;
+      });
+    }
+
+    if (options?.excludeRules && options.excludeRules.length > 0) {
+      const excludeSet = new Set(options.excludeRules);
+      violations = violations.filter((v) => !excludeSet.has(v.ruleId));
+    }
+
+    return buildResult(violations, this.registry);
+  }
+
+  reviewReview(filePath: string, lines: string[]): RulesResult {
+    const language = detectLanguage(filePath);
+    const categories: RuleCategory[] = ['correctness', 'security', 'architecture'];
+    const allViolations: RuleCheckResult[] = [];
+
+    for (const category of categories) {
+      allViolations.push(...this.registry.runByCategory(category, lines, filePath, language));
+    }
+
+    return buildResult(allViolations, this.registry);
+  }
+
+  securityScan(filePath: string, lines: string[]): RulesResult {
+    const language = detectLanguage(filePath);
+    const violations = this.registry.runByCategory('security', lines, filePath, language);
+    return buildResult(violations, this.registry);
+  }
+
+  getRegistry(): RulesRegistry {
+    return this.registry;
+  }
+}
+
+function buildResult(violations: RuleCheckResult[], registry: RulesRegistry): RulesResult {
+  const byCategory: Record<string, number> = {};
+  const bySeverity: Record<string, number> = {};
+  const allRules = registry.getAll();
+
+  for (const v of violations) {
+    const rule = allRules.find((r) => r.definition.id === v.ruleId);
+    if (rule) {
+      const cat = rule.definition.category;
+      const sev = rule.definition.severity;
+      byCategory[cat] = (byCategory[cat] ?? 0) + 1;
+      bySeverity[sev] = (bySeverity[sev] ?? 0) + 1;
+    }
+  }
+
+  return {
+    violations,
+    summary: {
+      totalRules: registry.size,
+      totalViolations: violations.length,
+      byCategory,
+      bySeverity,
+    },
+  };
+}

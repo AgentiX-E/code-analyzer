@@ -21,7 +21,7 @@ import {
   SemanticPhase,
   EmbedPhase,
   createAllPhases,
-} from '../pipeline/phases.js';
+} from '../pipeline/phases/index.js';
 
 import { GraphBuilder } from '../graph/graph-builder.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';

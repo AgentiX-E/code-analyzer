@@ -31,11 +31,12 @@ export {
   SimilarityPhase,
   SemanticPhase,
   EmbedPhase,
-} from './pipeline/phases.js';
+  TypeResolutionPhase,
+} from './pipeline/phases/index.js';
 export type {
   ExecutablePhase,
   PhaseExecutionResult,
-} from './pipeline/phases.js';
+} from './pipeline/phases/index.js';
 
 // Languages
 export type { LanguageProvider, ParsedImport } from './languages/provider.js';

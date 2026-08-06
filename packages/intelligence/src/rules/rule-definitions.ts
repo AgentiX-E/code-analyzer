@@ -1,6 +1,6 @@
 // @code-analyzer/intelligence — Rule Definitions (Pure Data)
 // 50 production-grade deterministic rules across 6 categories.
-// These are data-only definitions — checker functions live in rule-executor.ts.
+// These are data-only definitions — checker functions live in rule-runner.ts.
 
 // ---------------------------------------------------------------------------
 // Types

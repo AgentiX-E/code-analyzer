@@ -272,19 +272,18 @@ export {
   getFileLanguage,
   runRules,
   DEFAULT_RULES,
-} from './rules/rules-engine.js';
+} from './rules/rule-runner.js';
 export type {
-  RuleCategory,
   CodeRule,
   RuleContext,
   RuleViolation,
   AnalyzeOptions,
   RulesResult,
-} from './rules/rules-engine.js';
-export { EMPTY_GRAPH_DATA } from './rules/rules-engine.js';
+} from './rules/rule-runner.js';
+export { EMPTY_GRAPH_DATA } from './rules/rule-runner.js';
 
 // Rule Definitions
-export type { RuleDefinition, RuleSeverity } from './rules/rules-engine.js';
+export type { RuleDefinition, RuleCategory, RuleSeverity } from './rules/rule-definitions.js';
 export {
   ALL_RULE_DEFINITIONS,
   NO_UNDEF,
@@ -337,15 +336,15 @@ export {
   MAX_MODULE_SIZE,
   NO_CROSS_BOUNDARY_ACCESS,
   MISSING_ABSTRACTION,
-} from './rules/rules-engine.js';
+} from './rules/rule-definitions.js';
 
-// Rule Executor
-export type { RuleCheckResult, RuleChecker } from './rules/rules-engine.js';
-export { CHECKER_MAP } from './rules/rules-engine.js';
+// Rule Executor Types & Checker Map
+export type { RuleCheckResult, RuleChecker } from './rules/rule-runner.js';
+export { CHECKER_MAP } from './rules/rule-runner.js';
 
 // Rules Registry
-export { RulesRegistry } from './rules/rules-engine.js';
-export type { RegisteredRule } from './rules/rules-engine.js';
+export { RulesRegistry } from './rules/rules-registry.js';
+export type { RegisteredRule } from './rules/rules-registry.js';
 
 // Cross-Repo Analysis
 export { RepoGroupManager } from './cross-repo/repo-group-manager.js';

@@ -27,6 +27,7 @@ export {
   SimilarityPhase,
   SemanticPhase,
   EmbedPhase,
+  TypeResolutionPhase,
   createAllPhases,
-} from './phases.js';
-export type { ExecutablePhase, PhaseExecutionResult } from './phases.js';
+} from './phases/index.js';
+export type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';

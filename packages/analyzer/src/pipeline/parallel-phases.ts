@@ -27,7 +27,7 @@ import {
   createFileDiscoverer,
 } from '@code-analyzer/infra';
 
-import type { ExecutablePhase, PhaseExecutionResult } from './phases.js';
+import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
 import type { LanguageProvider } from '../languages/provider.js';
 import { GraphBuilder } from '../graph/graph-builder.js';
 

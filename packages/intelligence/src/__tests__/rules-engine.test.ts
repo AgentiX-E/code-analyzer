@@ -4,12 +4,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { RulesRegistry } from '../rules/rules-registry.js';
-import { RulesEngine, getFileLanguage, DEFAULT_RULES, runRules } from '../rules/rules-engine.js';
-import type { RuleCheckResult, RuleChecker } from '../rules/rule-executor.js';
-import { CHECKER_MAP } from '../rules/rule-executor.js';
+import { RulesEngine, getFileLanguage, DEFAULT_RULES, runRules } from '../rules/rule-runner.js';
+import type { RuleCheckResult, RuleChecker } from '../rules/rule-runner.js';
+import { CHECKER_MAP } from '../rules/rule-runner.js';
 import type { RuleDefinition } from '../rules/rule-definitions.js';
 import { ALL_RULE_DEFINITIONS } from '../rules/rule-definitions.js';
-import type { RuleContext } from '../rules/rules-engine.js';
+import type { RuleContext } from '../rules/rule-runner.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

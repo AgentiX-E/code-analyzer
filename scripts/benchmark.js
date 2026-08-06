@@ -264,7 +264,7 @@ async function main() {
   // 4. AST rule checker: parse + check performance
   await runner.run('AST Rules: parse 100 lines + run all 32 security checks', async () => {
     const { createAstContext } = require('../packages/intelligence/dist/rules/ast-rule-checker.js');
-    const { CHECKER_MAP } = require('../packages/intelligence/dist/rules/rule-executor.js');
+    const { CHECKER_MAP } = require('../packages/intelligence/dist/rules/rule-runner.js');
     const source = Array(100).fill(null).map((_, i) =>
       `function fn${i}(x: string) { const v = "secret_${i}"; console.log(v); return eval(x); }`
     );

@@ -4,8 +4,8 @@
 
 import type { RuleDefinition, RuleCategory, RuleSeverity } from './rule-definitions.js';
 import { ALL_RULE_DEFINITIONS } from './rule-definitions.js';
-import type { RuleCheckResult, RuleChecker } from './rule-executor.js';
-import { CHECKER_MAP } from './rule-executor.js';
+import type { RuleCheckResult, RuleChecker } from './rule-runner.js';
+import { CHECKER_MAP } from './rule-runner.js';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -16,7 +16,7 @@ import {
   CrossFilePhase,
   ScopeResolutionPhase,
   RoutesPhase,
-} from '../pipeline/phases.js';
+} from '../pipeline/phases/index.js';
 import type {
   PipelineContext,
   DiscoveredFile,

@@ -2,7 +2,7 @@
 // Provides tree-sitter AST context for rule checkers, with transparent
 // fallback to text-based analysis when grammar is unavailable.
 
-import type { RuleCheckResult, RuleChecker } from './rule-executor.js';
+import type { RuleCheckResult, RuleChecker } from './rule-runner.js';
 
 // ---------------------------------------------------------------------------
 // AST Node Types (minimal subset for rule checking)

@@ -1,7 +1,7 @@
 // @code-analyzer/analyzer — Pipeline Orchestrator
 // DAG-based execution engine using Kahn's algorithm for topological sort.
 
-import type { ExecutablePhase } from './phases.js';
+import type { ExecutablePhase } from './phases/index.js';
 import type {
   PipelinePhaseId,
   PipelineContext,
