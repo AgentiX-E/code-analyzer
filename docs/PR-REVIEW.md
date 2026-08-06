@@ -1,6 +1,6 @@
 # Code Review & PR Review
 
-> Automated code review with 50+ deterministic rules, 8-lens multi-agent swarm, cross-repo impact analysis, and customizable project standards.
+> Automated code review with 70+ deterministic rules, 8-lens multi-agent swarm, cross-repo impact analysis, and customizable project standards.
 
 ## Overview
 
@@ -31,7 +31,7 @@ Analyzes the diff to determine review strategy:
 Runs heuristic analysis on the diff content:
 - Builds graph analysis data from the knowledge graph
 - Detects circular dependencies via DFS cycle detection
-- Runs 50+ deterministic rules across 6 categories
+- Runs 70+ deterministic rules across 6 categories
 
 ### Phase 3: Filter
 Removes noise from review results:

@@ -1,7 +1,7 @@
-# Code Analyzer — Final Benchmark Report v1.0.0
+# Code Analyzer — Final Benchmark Report v0.1.0
 
 **Date:** 2026-08-01
-**Version:** v1.0.0 (Production Release)
+**Version:** v0.1.0 (Active Development)
 **Author:** Lambertyan
 **Repository:** [github.com/AgentiX-E/code-analyzer](https://github.com/AgentiX-E/code-analyzer)
 
@@ -24,7 +24,7 @@
 
 ## 1. Executive Summary
 
-Code Analyzer v1.0.0 achieves **industry-leading code review quality** through a dual-engine architecture:
+Code Analyzer v0.1.0 achieves **industry-leading code review quality** through a dual-engine architecture:
 
 | Engine | Precision | Recall | F1 Score | Cost |
 |--------|:---------:|:------:|:--------:|:----:|
@@ -316,7 +316,7 @@ Trailing in:
 
 | Version | Target | Key Features |
 |---------|--------|-------------|
-| v1.0.0 | Now | Heuristic review, MCP server, VS Code, benchmarks |
+| v0.1.0 | Now | Heuristic review, MCP server, VS Code, benchmarks |
 | v1.1.0 | Q3 2026 | IntelliJ plugin, 5 more languages, file watcher |
 | v1.2.0 | Q4 2026 | Distributed indexing, fine-tuned review LLM, SaaS offering |
 

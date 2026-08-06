@@ -38,7 +38,7 @@ code-analyzer setup --agent claude-code
 2. Your AI agent connects to it via the MCP protocol
 3. The agent gains access to 38 code intelligence tools:
    - 🔍 **Search**: Full-text, semantic, and graph-based code search
-   - 📋 **Review**: Automated PR review with 50+ deterministic rules
+   - 📋 **Review**: Automated PR review with 70+ deterministic rules
    - 📊 **Impact**: Change impact analysis and dependency graphs
    - 🏗️ **Architecture**: Codebase structure visualization
    - 🔗 **Cross-Repo**: Multi-repository analysis

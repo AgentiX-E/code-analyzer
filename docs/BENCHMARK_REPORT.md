@@ -1,7 +1,7 @@
 # Code Analyzer — Official Benchmark Report
 
 **Date:** 2026-08-01
-**Version:** v1.0.0
+**Version:** v0.1.0
 **Methodology:** 20 fixtures, 37 ground truth issues, 5 languages
 
 ---

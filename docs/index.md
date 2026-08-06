@@ -25,7 +25,7 @@ features:
     details: MCP server with 38 tools for AI coding agents. Auto-detect and configure 12 agents including Claude Code, Cursor, Copilot, Aider, and Windsurf.
   - icon: 🛡️
     title: Automated Code Review
-    details: Multi-lens PR review with 50+ production-grade rules covering bugs, security, performance, and maintainability. Customizable project standards with compliance scoring.
+    details: Multi-lens PR review with 70+ production-grade rules covering bugs, security, performance, and maintainability. Customizable project standards with compliance scoring.
   - icon: ⚡
     title: Blazing Fast
     details: Parallel pipeline with 18 phases, worker pool execution, parse caching, and SQLite-backed graph storage for large repositories.

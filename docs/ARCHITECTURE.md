@@ -12,7 +12,7 @@
 | 2. Infrastructure | `infra` | âœ? Done | File discovery, git ops, worker pool, graph stores, supervisor |
 | 3. Analysis Engine | `analyzer` | âœ? Done | 18-phase DAG pipeline, 12 language providers, scope resolution |
 | 4. Intelligence | `intelligence` | âœ? Done | Hybrid search, PR review, embeddings, impact analysis, standards, cross-repo |
-| 5. Service | `mcp`, `server` | âœ? Done | 39 MCP tools, HTTP/SSE server, rate limiting, health checks, graceful shutdown |
+| 5. Service | `mcp`, `server` | âœ? Done | 40 MCP tools, HTTP/SSE server, rate limiting, health checks, graceful shutdown |
 | 6. Integration | `intelligence/github` | âœ? Done | GitHub webhooks, cross-repo PR review bridge, check runs, repo sync |
 | 7. Presentation | `cli`, `vscode`, `web` | âœ? Done | CLI (6 commands), VS Code Copilot Chat (7 slash), Web Dashboard (6 views) |
 

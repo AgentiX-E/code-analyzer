@@ -153,7 +153,7 @@ The project is a **well-architected skeleton** at approximately 20-30% of featur
 | Foundation layer (shared + core) | Complete | Good - config, logging, errors, i18n, metrics |
 | Infrastructure layer (infra) | Complete | Good - storage, git, filesystem, workers |
 | Error hierarchy | Complete | Good - 9 typed error classes |
-| Deterministic rules engine | Complete | Good - 50+ rules across 6 categories |
+| Deterministic rules engine | Complete | Good - 70+ rules across 6 categories |
 | BM25 search | Complete | Production quality - proper TF-IDF, inverted index |
 | PR review pipeline structure | Complete | Good design - plan/analyze/filter/relocate |
 | Review swarm architecture | Complete | Good design - 8 lenses, parallel execution |
@@ -161,7 +161,7 @@ The project is a **well-architected skeleton** at approximately 20-30% of featur
 | RBAC engine | Complete | Good - 5 roles, 25 permissions, wildcards |
 | Documentation | Complete | Good - comprehensive, honest about status |
 | MCP server framework | Complete | Good - stdio + HTTP, middleware, profiles |
-| VS Code Copilot Chat participant | Complete | Good - 7 slash commands, intent classification |
+| VS Code Copilot Chat participant | Complete | Good - 15 slash commands, intent classification |
 
 ### 3.2 What Does NOT Work (Critical Gaps)
 
@@ -231,7 +231,7 @@ The 99% coverage badge is achieved by excluding all incomplete packages (mcp, se
 | **PR review** | detect_changes tool | 7-persona swarm | 7-persona via skill | 8-lens swarm (basic) |
 | **PR review filters** | NO | NO | YES (3-phase) | NO |
 | **PR review relocation** | NO | NO | YES | NO |
-| **Rules engine** | NO | NO | YES (4-layer, 23 files) | YES (50+ rules, text-based) |
+| **Rules engine** | NO | NO | YES (4-layer, 23 files) | YES (70+ rules, text-based) |
 | **LLM integration** | NO (MCP client) | LangChain + chat UI | 20+ providers | NO (by design) |
 | **MCP tools** | 14 | 15+2 | N/A | 38 (mostly stubs) |
 | **MCP transport** | stdio | stdio + HTTP | N/A (not MCP) | stdio + HTTP (mock) |

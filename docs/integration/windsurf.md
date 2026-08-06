@@ -32,7 +32,7 @@ Alternatively, open Windsurf Settings → MCP Servers → Add Server.
 
 | Feature | Description |
 |---|---|
-| **Smart Code Review** | Review PRs and staged changes with 50+ lint rules |
+| **Smart Code Review** | Review PRs and staged changes with 70+ lint rules |
 | **Semantic Search** | Find code by meaning, not just text |
 | **Impact Analysis** | Predict which files will be affected by a change |
 | **Knowledge Graph** | Query the codebase as a graph for architectural insights |
