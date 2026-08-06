@@ -344,7 +344,7 @@ export class EmbeddingWorkerPool {
         }
       });
 
-      worker.on('error', (err) => {
+      worker.on('error', (_err) => {
         state.healthy = false;
         state.errorCount++;
         this.busyWorkers.delete(index);
@@ -449,7 +449,7 @@ let defaultPool: EmbeddingWorkerPool | null = null;
 
 /** Get or create the singleton embedding worker pool. */
 export function getEmbeddingWorkerPool(
-  fallbackFn?: (content: string) => Promise<Float32Array>,
+  _fallbackFn?: (content: string) => Promise<Float32Array>,
 ): EmbeddingWorkerPool {
   if (!defaultPool) {
     defaultPool = new EmbeddingWorkerPool();

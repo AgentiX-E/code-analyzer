@@ -166,7 +166,6 @@ export class IncrementalReindexer {
               // Node may not be deletable
             }
           }
-        }
       }
     }
 

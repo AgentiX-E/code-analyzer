@@ -133,7 +133,7 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   // Register graph visualization endpoint if store is provided
   /* v8 ignore start */ // Graph routes tested via integration
   if (options.graphStore) {
-    registerGraphRoutes(routes, config, () => options.graphStore!);
+    registerGraphRoutes(app, config, () => options.graphStore!);
   }
   /* v8 ignore stop */
 
@@ -142,7 +142,7 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   if (options.graphql && options.graphStore) {
     const { mountGraphQLOnFastify } = await import('./graphql/server.js');
     const startTime = Date.now();
-    mountGraphQLOnFastify(routes, {
+    mountGraphQLOnFastify(app, {
       store: options.graphStore,
       config,
       startTime,

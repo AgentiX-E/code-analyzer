@@ -556,15 +556,16 @@ export class CodeReviewEngine {
     }
 
     // If we have parsed hunks, use the precise hunk-based mapping
-    if ((diff as GitDiffWithHunks).hunks && (diff as GitDiffWithHunks).hunks.length > 0) {
+    const hunks = (diff as GitDiffWithHunks).hunks;
+    if (hunks && hunks.length > 0) {
       return comments.map((comment) => {
         const newStartLine = this.mapLineThroughHunks(
           comment.startLine,
-          (diff as GitDiffWithHunks).hunks!,
+          hunks,
         );
         const newEndLine = this.mapLineThroughHunks(
           comment.endLine,
-          (diff as GitDiffWithHunks).hunks!,
+          hunks,
         );
         const clampedStart = Math.max(1, newStartLine);
         const clampedEnd = Math.max(clampedStart, newEndLine);

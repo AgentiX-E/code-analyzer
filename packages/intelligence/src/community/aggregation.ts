@@ -32,7 +32,7 @@ export interface ReducedGraph {
 export function buildReducedGraph(
   originalAdj: Map<number, Map<number, number>>,
   nodeToCommunity: Map<number, number>,
-  originalDegrees: Map<number, number>,
+  _originalDegrees: Map<number, number>,
 ): ReducedGraph {
   // Collect communities
   const communities = new Set<number>();

@@ -138,7 +138,7 @@ type ScipDescriptor =
  */
 function formatScipSymbol(
   node: GraphNode,
-  language: string,
+  _language: string,
   scheme: string,
 ): string {
   const filePath = node.filePath ?? '';
@@ -174,7 +174,7 @@ function extractPackage(filePath: string): string {
 }
 
 /** Format a SCIP symbol for an external (unresolved) reference. */
-function formatExternalSymbol(_nodeId: number, language: string, scheme: string): string {
+function formatExternalSymbol(_nodeId: number, _language: string, scheme: string): string {
   return `${scheme} . external/ref_${_nodeId}.`;
 }
 function classifyDescriptor(label: string): ScipDescriptor {

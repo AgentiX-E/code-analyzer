@@ -11,7 +11,7 @@ import type {
   TaintReport,
 } from '../search/dataflow-search.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,7 +48,7 @@ function makeGraphNode(overrides: Partial<GraphNode> = {}): GraphNode {
   };
 }
 
-function makeGraphEdge(sourceId: number, targetId: number, type = 'DATAFLOW'): GraphEdge {
+function makeGraphEdge(sourceId: number, targetId: number, type: RelationshipType = 'DATA_FLOWS'): GraphEdge {
   return {
     id: sourceId * 1000 + targetId,
     projectId: 'test-project',

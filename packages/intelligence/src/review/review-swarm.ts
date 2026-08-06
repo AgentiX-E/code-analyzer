@@ -28,6 +28,11 @@ import {
   reviewDependencyHealth,
   reviewApiContract,
 } from './review-lenses.js';
+import { analyzeStructure } from './lenses/structure-lens.js';
+import { analyzeStyle } from './lenses/style-lens.js';
+import { analyzeApi } from './lenses/api-lens.js';
+import { analyzeDocs } from './lenses/docs-lens.js';
+import { synthesizeFindings, generateSynthesisReport } from './lenses/synthesis-lens.js';
 
 // ---------------------------------------------------------------------------
 // Swarm Configuration
@@ -456,7 +461,7 @@ Reason: ${result.decision.reason}`;
       case 'structure':
         return this.runStructureLens(diff, lines);
       case 'api':
-        return this.runApiLens(diff, lines);
+        return this.runApiLens(diff, lines, sourceContents);
       case 'docs':
         return this.runDocsLens(diff, lines);
       case 'deps':
@@ -604,226 +609,28 @@ Reason: ${result.decision.reason}`;
   // -------------------------------------------------------------------------
 
   private runStyleLens(diff: GitDiff, lines: string[]): LensFinding[] {
-    const findings: LensFinding[] = [];
-    let inFunction = false;
-    let funcStart = 0;
-    let funcName = '';
-    let braceDepth = 0;
-    let maxNestingDepth = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      const trimmed = line.trim();
-
-      // Detect function start
-      const funcMatch = trimmed.match(
-        /(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(\w+)\s*\([^)]*\)\s*\{)/,
-      );
-      if (funcMatch) {
-        inFunction = true;
-        funcStart = i + 1;
-        funcName = (funcMatch[1] ?? funcMatch[2] ?? funcMatch[3]) ?? 'anonymous';
-        braceDepth = 0;
-        maxNestingDepth = 0;
-      }
-
-      // Track depth
-      if (inFunction) {
-        const opens = (trimmed.match(/\{/g) ?? []).length;
-        const closes = (trimmed.match(/\}/g) ?? []).length;
-        braceDepth += opens - closes;
-        maxNestingDepth = Math.max(maxNestingDepth, braceDepth);
-      }
-
-      // Function end
-      if (inFunction && braceDepth <= 0 && trimmed.includes('}')) {
-        const funcLength = i + 1 - funcStart;
-        inFunction = false;
-
-        // Check function length
-        if (funcLength > 50) {
-          const evidence: EvidenceAnchor = {
-            filePath: diff.filePath,
-            startLine: funcStart,
-            endLine: i + 1,
-            codeSnippet: `${funcName}: ${funcLength} lines`,
-            lens: 'style',
-            ruleId: 'style-func-length',
-          };
-          const finding = createLensFinding(
-            'style',
-            'style',
-            'medium',
-            'Long Function',
-            `Function "${funcName}" is ${funcLength} lines (threshold: 50). Consider splitting into smaller, focused functions.`,
-            evidence,
-            { ruleId: 'style-func-length' },
-          );
-          if (finding) findings.push(finding);
-        }
-
-        // Check nesting depth
-        if (maxNestingDepth > 4) {
-          const evidence: EvidenceAnchor = {
-            filePath: diff.filePath,
-            startLine: funcStart,
-            endLine: i + 1,
-            codeSnippet: `${funcName}: nesting depth ${maxNestingDepth}`,
-            lens: 'style',
-            ruleId: 'style-nesting-depth',
-          };
-          const finding = createLensFinding(
-            'style',
-            'style',
-            'medium',
-            'Deep Nesting',
-            `Function "${funcName}" has nesting depth of ${maxNestingDepth} (threshold: 4). Extract inner logic to helper functions.`,
-            evidence,
-            { ruleId: 'style-nesting-depth' },
-          );
-          if (finding) findings.push(finding);
-        }
-
-      }
-
-      // Check for console.log in production code
-      if (!diff.filePath.includes('.test.') && !diff.filePath.includes('.spec.')) {
-        if (/\bconsole\.log\b/.test(trimmed) && !trimmed.startsWith('//')) {
-          const evidence: EvidenceAnchor = {
-            filePath: diff.filePath,
-            startLine: i + 1,
-            endLine: i + 1,
-            codeSnippet: trimmed.slice(0, 200),
-            lens: 'style',
-            ruleId: 'style-console-log',
-          };
-          const finding = createLensFinding(
-            'style',
-            'style',
-            'low',
-            'Debug console.log',
-            'console.log() left in production code. Remove or replace with proper logging.',
-            evidence,
-            { ruleId: 'style-console-log' },
-          );
-          if (finding) findings.push(finding);
-        }
-      }
-    }
-
-    return findings;
+    return analyzeStyle(lines.join('\n'), diff.filePath);
   }
 
   // -------------------------------------------------------------------------
   // STRUCTURE LENS
   // -------------------------------------------------------------------------
 
-  private runStructureLens(_diff: GitDiff, lines: string[]): LensFinding[] {
-    const findings: LensFinding[] = [];
-
-    // Check for circular dependency markers
-    // (Full circular dep detection requires graph traversal, done via MCP tools)
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-
-      // Detect barrel export anti-patterns (stub — full implementation in future iteration)
-      /* v8 ignore start */
-      if (line.trim() === "export * from './" && i + 1 < lines.length) {
-        // Barrel exports can cause circular deps
-      }
-      /* v8 ignore stop */
-
-      // Check for disallowed cross-layer imports
-      // e.g., presentation layer importing from infra directly
-      // This requires .code-analyzer.yml layer configuration
-    }
-
-    return findings;
+  private runStructureLens(diff: GitDiff, lines: string[]): LensFinding[] {
+    return analyzeStructure(lines.join('\n'), diff.filePath, {
+      store: this.store,
+      projectId: 'default-project',
+    });
   }
 
   // -------------------------------------------------------------------------
   // API LENS
   // -------------------------------------------------------------------------
 
-  private runApiLens(diff: GitDiff, lines: string[]): LensFinding[] {
-    const findings: LensFinding[] = [];
-
-    // Check for route handlers
-    const isRouteFile = diff.filePath.includes('/api/') ||
-      diff.filePath.includes('/routes/') ||
-      diff.filePath.includes('/controllers/') ||
-      diff.filePath.includes('/handlers/');
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      const trimmed = line.trim();
-
-      // Detect route handler patterns
-      if (isRouteFile) {
-        // Check for missing input validation
-        const isHandler = /\b(?:router\.(?:get|post|put|delete|patch)|app\.(?:get|post|put|delete|patch))\s*\(/.test(trimmed);
-        if (isHandler) {
-          // Look ahead for validation middleware
-          const nextLines = lines.slice(i, i + 5);
-          const hasValidation = nextLines.some(l =>
-            /\bvalidate\b|\bvalidator\b|\bjoi\b|\bzod\b|\byup\b|\bcheck\b/.test(l),
-          );
-
-          if (!hasValidation) {
-            const evidence: EvidenceAnchor = {
-              filePath: diff.filePath,
-              startLine: i + 1,
-              endLine: i + 1,
-              codeSnippet: trimmed.slice(0, 200),
-              lens: 'api',
-              ruleId: 'api-missing-validation',
-            };
-            const finding = createLensFinding(
-              'api',
-              'other',
-              'high',
-              'Missing Input Validation',
-              'Route handler appears to lack input validation. Add schema validation middleware (Zod, Joi, Yup) to prevent malformed requests.',
-              evidence,
-              { ruleId: 'api-missing-validation', suggestion: 'Add validation: router.post("/path", validate(schema), handler)' },
-            );
-            if (finding) findings.push(finding);
-          }
-
-          // Check for missing auth middleware
-          const hasAuth = nextLines.some(l =>
-            /\bauth\b|\bauthenticate\b|\bauthorize\b|\bguard\b|\bmiddleware\b/.test(l),
-          );
-          if (!hasAuth) {
-            const evidence: EvidenceAnchor = {
-              filePath: diff.filePath,
-              startLine: i + 1,
-              endLine: i + 1,
-              codeSnippet: trimmed.slice(0, 200),
-              lens: 'api',
-              ruleId: 'api-missing-auth',
-            };
-            const finding = createLensFinding(
-              'api',
-              'security',
-              'high',
-              'Potentially Unprotected Route',
-              'Route handler may lack authentication/authorization. Verify auth middleware is applied.',
-              evidence,
-              { ruleId: 'api-missing-auth' },
-            );
-            if (finding) findings.push(finding);
-          }
-        }
-
-        // Check for inconsistent response format
-        if (/\b(?:res\.json|res\.send|return\s*\{)\b/.test(trimmed)) {
-          // Heuristic check — proper analysis requires full schema
-        }
-      }
-    }
-
-    return findings;
+  private runApiLens(diff: GitDiff, lines: string[], sourceContents?: Map<string, string>): LensFinding[] {
+    return analyzeApi(lines.join('\n'), diff.filePath, {
+      previousContent: sourceContents?.get(diff.filePath),
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -876,61 +683,7 @@ Reason: ${result.decision.reason}`;
   // -------------------------------------------------------------------------
 
   private runDocsLens(diff: GitDiff, lines: string[]): LensFinding[] {
-    const findings: LensFinding[] = [];
-
-    let foundExport = false;
-    let hasJSDoc = false;
-    let exportLine = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      const trimmed = line.trim();
-
-      // Track JSDoc presence
-      if (/\/\*\*/.test(trimmed)) {
-        hasJSDoc = true;
-      }
-
-      // Detect exported functions/classes without JSDoc
-      if (/\bexport\s+(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\b/.test(trimmed)) {
-        foundExport = true;
-        exportLine = i + 1;
-
-        // Check if there was JSDoc in the preceding 5 lines
-        const precedingLines = lines.slice(Math.max(0, i - 5), i);
-        const hasDocComment = precedingLines.some(l => /\/\*\*/.test(l)) ||
-          precedingLines.some(l => /^\/\/\//.test(l.trim()));
-
-        // export type aliases and export { re-exports } rarely need JSDoc.
-        // export interface without JSDoc is flagged — adversarial check 5
-        // down-ranks Props interfaces specifically.
-        if (!hasDocComment && !trimmed.includes('export type') && !trimmed.includes('export {')) {
-          const match = trimmed.match(/(?:function|class|const|let|var|interface)\s+(\w+)/);
-          if (match) {
-            const evidence: EvidenceAnchor = {
-              filePath: diff.filePath,
-              startLine: i + 1,
-              endLine: i + 1,
-              codeSnippet: trimmed.slice(0, 200),
-              lens: 'docs',
-              ruleId: 'docs-missing-jsdoc',
-            };
-            const finding = createLensFinding(
-              'docs',
-              'documentation',
-              'low',
-              'Missing JSDoc on Exported API',
-              `Exported "${match[1]}" has no JSDoc documentation. Add /** ... */ with @param, @returns, and @example.`,
-              evidence,
-              { ruleId: 'docs-missing-jsdoc' },
-            );
-            if (finding) findings.push(finding);
-          }
-        }
-      }
-    }
-
-    return findings;
+    return analyzeDocs(lines.join('\n'), diff.filePath);
   }
 
   // -------------------------------------------------------------------------

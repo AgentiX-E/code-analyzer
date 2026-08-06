@@ -3,7 +3,7 @@
 // optional semantic scoring. Supports multiple output formats.
 
 import { EOL } from 'node:os';
-import { InMemoryGraphStore, type FtsSearchResult } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -233,7 +233,7 @@ function computeReachingDefsSparse(
   }
 
   // Step 4: Rename — DFS walk of dominator tree
-  const stacks: Map<number, number[]>[] = []; // per-binding value stacks
+  const stacks: number[][] = []; // per-binding value stacks
   for (let i = 0; i < cfg.bindings.length; i++) {
     stacks[i] = [];
   }

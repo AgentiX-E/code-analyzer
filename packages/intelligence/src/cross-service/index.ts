@@ -2,7 +2,6 @@
 
 // Types
 export type {
-  ServiceEdgeType,
   ServiceClassification,
   ResolvedCall,
   CallArg,

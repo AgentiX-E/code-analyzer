@@ -1,11 +1,15 @@
 // @code-analyzer/analyzer — JSON Provider (tree-sitter AST walker)
-// Full tree-sitter AST walker for JSON/JSONC/JSON5: objects, arrays, strings, numbers, booleans.
+// Full tree-sitter AST walker: 15+ node mappings, objects, arrays, pairs,
+// strings, numbers, booleans, null. Handles JSONC and JSON5.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode,
+  TaintSource, TaintSink, TaintSanitizer,
+} from './tree-sitter-base.js';
 
 export class JsonProvider extends TreeSitterBaseProvider {
   readonly language = 'json';
@@ -15,77 +19,150 @@ export class JsonProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'none' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try { const m = require('tree-sitter-json') as TreeSitterLanguage; return m; }
-    catch { return null; }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const m = require('tree-sitter-json') as TreeSitterLanguage;
+      return m;
+    } catch { return null; }
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {
     return [
       { nodeType: 'pair', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'string' },
       { nodeType: 'object', captureTag: CAPTURE_TAGS.CLASS_DEF, useFirstNamedChild: true },
+      { nodeType: 'array', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'string', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'number', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'true', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'false', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'null', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'escape_sequence', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'comment', captureTag: CAPTURE_TAGS.COMMENT, useFirstNamedChild: true },
+      { nodeType: 'ERROR', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'document', captureTag: CAPTURE_TAGS.CLASS_DEF, useFirstNamedChild: true },
+      { nodeType: 'identifier', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'negative_number', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'hex_integer', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'infinity', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'nan', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
     ];
   }
+
+  // ---- AST Walking ----
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nt = node.type;
 
     if (nt === 'pair') {
-      let keyName = '';
-      let valueType = '';
-      let valueText = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child.type === 'string') {
-          if (!keyName) {
-            keyName = child.text.slice(1, -1); // strip quotes from key
-          } else {
-            // This is the value string
-            valueType = 'string'; valueText = child.text.slice(1, -1);
-          }
-        } else if (child.type === 'number') {
-          valueType = 'number'; valueText = child.text;
-        } else if (child.type === 'true' || child.type === 'false') {
-          valueType = 'boolean'; valueText = child.text;
-        } else if (child.type === 'null') {
-          valueType = 'null'; valueText = 'null';
-        } else if (child.type === 'object') {
-          valueType = 'object'; valueText = `{${child.namedChildCount} keys}`;
-        } else if (child.type === 'array') {
-          valueType = 'array'; valueText = `[${child.namedChildCount} items]`;
-        }
-      }
-      if (keyName) {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: valueText ? `${keyName}: ${valueText}` : keyName,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: keyName,
-          properties: { valueType, filePath: this.filePath },
-        });
-      }
-    }
-
-    if (nt === 'object') {
+      this.capturePair(node, captures);
+    } else if (nt === 'object') {
       const pairCount = this.countChildren(node, 'pair');
-      captures.push({
-        tag: CAPTURE_TAGS.CLASS_DEF,
-        text: `object(${pairCount} keys)`,
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        startByte: node.startIndex,
-        endByte: node.endIndex,
-        name: `object_${node.startPosition.row + 1}`,
-        properties: { keyCount: String(pairCount), filePath: this.filePath },
-      });
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.CLASS_DEF,
+        `object_${node.startPosition.row + 1}`, `object(${pairCount} keys)`,
+        { keyCount: String(pairCount) }));
+    } else if (nt === 'array') {
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.VARIABLE_DEF,
+        `array_${node.startPosition.row + 1}`, `[${node.namedChildCount} items]`,
+        { itemCount: String(node.namedChildCount) }));
+    } else if (nt === 'comment') {
+      const text = node.text.replace(/\/\//, '').replace(/\/\*/, '').replace(/\*\//, '').trim();
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.COMMENT, '[comment]', text, { isComment: 'true' }));
     }
 
     for (let i = 0; i < node.childCount; i++) {
       this.walkAndCapture(node.child(i), captures);
     }
   }
+
+  private capturePair(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    let keyName = '';
+    let valueType = '';
+    let valueText = '';
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (child.type === 'string') {
+        if (!keyName) {
+          keyName = child.text.slice(1, -1);
+        } else {
+          valueType = 'string'; valueText = child.text.slice(1, -1);
+        }
+      } else if (child.type === 'number' || child.type === 'negative_number') {
+        valueType = 'number'; valueText = child.text;
+      } else if (child.type === 'hex_integer') {
+        valueType = 'hex'; valueText = child.text;
+      } else if (child.type === 'infinity') {
+        valueType = 'number'; valueText = 'Infinity';
+      } else if (child.type === 'nan') {
+        valueType = 'number'; valueText = 'NaN';
+      } else if (child.type === 'true' || child.type === 'false') {
+        valueType = 'boolean'; valueText = child.text;
+      } else if (child.type === 'null') {
+        valueType = 'null'; valueText = 'null';
+      } else if (child.type === 'object') {
+        valueType = 'object'; valueText = `{${child.namedChildCount} keys}`;
+      } else if (child.type === 'array') {
+        valueType = 'array'; valueText = `[${child.namedChildCount} items]`;
+      } else if (child.type === 'identifier') {
+        valueType = 'identifier'; valueText = child.text;
+      }
+    }
+    if (keyName) {
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.VARIABLE_DEF, keyName,
+        valueText ? `${keyName}: ${valueText}` : keyName, { valueType }));
+    }
+  }
+
+  // ---- Taint Analysis ----
+
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    if (node.type === 'pair') {
+      let keyName = '';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'string') { keyName = child.text.slice(1, -1).toLowerCase(); break; }
+      }
+      if (keyName) {
+        const secretKeys = ['password', 'secret', 'token', 'apikey', 'api_key', 'api-key',
+          'credential', 'privatekey', 'private_key', 'auth_token', 'access_key', 'accesskey'];
+        if (secretKeys.some(k => keyName.includes(k))) {
+          sources.push({ name: keyName, sourceType: 'config_secret',
+            line: node.startPosition.row + 1, text: node.text, properties: {} });
+        }
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTaintSources(node.child(i), sources);
+    }
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    // JSON files don't have code execution sinks but config can dictate dangerous operations
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTaintSinks(node.child(i), sinks);
+    }
+  }
+
+  protected override walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
+    if (node.type === 'pair') {
+      let keyName = '';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'string') { keyName = child.text.slice(1, -1).toLowerCase(); break; }
+      }
+      if (keyName && (keyName.includes('allowed') || keyName.includes('whitelist') ||
+          keyName.includes('validation') || keyName.includes('pattern'))) {
+        sanitizers.push({ name: keyName, sanitizerType: 'config_validation',
+          line: node.startPosition.row + 1, text: node.text, properties: {} });
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSanitizers(node.child(i), sanitizers);
+    }
+  }
+
+  // ---- Helpers ----
 
   private countChildren(node: TreeSitterSyntaxNode, type: string): number {
     let count = 0;
@@ -95,32 +172,66 @@ export class JsonProvider extends TreeSitterBaseProvider {
     return count;
   }
 
+  private makeCapture(
+    node: TreeSitterSyntaxNode, tag: typeof CAPTURE_TAGS[keyof typeof CAPTURE_TAGS],
+    name: string, text: string, extra: Record<string, string> = {},
+  ): UnifiedCapture {
+    return { tag, text,
+      startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1,
+      startByte: node.startIndex, endByte: node.endIndex,
+      name, properties: { filePath: this.filePath, ...extra } };
+  }
+
+  // ---- Fallback ----
+
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     try {
       const obj = JSON.parse(source);
-      const walk = (value: unknown, path: string) => {
+      const walkJson = (value: unknown, path: string, line: number): void => {
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           captures.push({
             tag: CAPTURE_TAGS.CLASS_DEF, text: `${path} (object)`,
-            startLine: 1, endLine: 1, startByte: 0, endByte: 0,
-            name: path || 'root', properties: { keyCount: String(Object.keys(value).length), filePath },
-          });
+            startLine: line, endLine: line, startByte: 0, endByte: 0,
+            name: path || 'root', properties: { keyCount: String(Object.keys(value).length), filePath } });
           for (const [k, v] of Object.entries(value)) {
             captures.push({
               tag: CAPTURE_TAGS.VARIABLE_DEF, text: `${k}: ${typeof v === 'object' ? `[${typeof v}]` : String(v)}`,
-              startLine: 1, endLine: 1, startByte: 0, endByte: 0,
-              name: k, properties: { valueType: typeof v === 'object' ? (Array.isArray(v) ? 'array' : 'object') : typeof v, filePath },
-            });
-            if (v && typeof v === 'object') walk(v, `${path}.${k}`);
+              startLine: line, endLine: line, startByte: 0, endByte: 0,
+              name: k, properties: { valueType: typeof v === 'object' ? (Array.isArray(v) ? 'array' : 'object') : typeof v, filePath } });
+            if (v && typeof v === 'object') walkJson(v, `${path}.${k}`, line);
           }
         }
       };
-      walk(obj, '');
+      walkJson(obj, '', 1);
     } catch { /* invalid JSON, skip */ }
     return captures;
   }
 
   protected override fallbackExtractImports(_source: string): ParsedImport[] { return []; }
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean { return false; }
+
+  protected override fallbackExtractTaintSources(source: string): TaintSource[] {
+    const sources: TaintSource[] = [];
+    try {
+      const obj = JSON.parse(source);
+      const scan = (value: unknown): void => {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          for (const [k, v] of Object.entries(value)) {
+            const lower = k.toLowerCase();
+            const secretKeys = ['password', 'secret', 'token', 'apikey', 'api_key', 'credential', 'private_key', 'access_key'];
+            if (secretKeys.some(s => lower.includes(s))) {
+              sources.push({ name: k, sourceType: 'config_secret', line: 1, text: String(v), properties: {} });
+            }
+            if (v && typeof v === 'object') scan(v);
+          }
+        }
+      };
+      scan(obj);
+    } catch { /* ignore */ }
+    return sources;
+  }
+
+  protected override fallbackExtractTaintSinks(_source: string): TaintSink[] { return []; }
+  protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] { return []; }
 }

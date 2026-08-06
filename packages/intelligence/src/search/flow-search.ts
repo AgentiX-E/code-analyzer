@@ -442,7 +442,7 @@ export class FlowSearchEngine {
   }
 
   private computeScore(
-    node: FlowNode,
+    _node: FlowNode,
     depth: number,
     edgeTypes: RelationshipType[],
   ): number {

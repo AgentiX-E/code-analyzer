@@ -158,7 +158,7 @@ export class TSResolverContext {
           type: this.substituteGenerics(p.type),
         })),
         this.substituteGenerics(type.returnType),
-        { isAsync: type.isAsync, typeParams: type.typeParams },
+        { isAsync: type.isAsync, typeParams: [...type.typeParams] },
       );
     }
 
@@ -351,7 +351,7 @@ export class TSResolverContext {
    */
   evalJSXComponent(
     componentName: string,
-    props: Array<{ name: string; value: TypeRep }>,
+    _props: Array<{ name: string; value: TypeRep }>,
   ): TypeRep {
     // Resolve component type from registry
     const regType = this.registry.lookupType(componentName);

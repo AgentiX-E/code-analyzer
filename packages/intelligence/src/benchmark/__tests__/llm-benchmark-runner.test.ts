@@ -95,15 +95,15 @@ vi.mock('@code-analyzer/infra', () => {
 
 import { runLLMBenchmark, generateLLMComparisonReport } from '../llm-benchmark-runner.js';
 import type { LLMBenchmarkResult } from '../llm-benchmark-runner.js';
+import type { BenchmarkResult } from '../code-review-benchmark.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeBenchmarkResult(overrides: any = {}) {
+function makeBenchmarkResult(overrides: any = {}): BenchmarkResult {
   return {
-    totalFixtures: overrides.totalFixtures ?? 2,
-    totalIssues: overrides.totalIssues ?? 2,
+    totalGroundTruth: overrides.totalGroundTruth ?? 2,
     totalDetections: overrides.totalDetections ?? 4,
     truePositives: overrides.truePositives ?? 2,
     falsePositives: overrides.falsePositives ?? 2,
@@ -112,8 +112,11 @@ function makeBenchmarkResult(overrides: any = {}) {
     recall: overrides.recall ?? 1.0,
     f1Score: overrides.f1Score ?? 0.667,
     noiseRate: overrides.noiseRate ?? 1.0,
-    durationMs: overrides.durationMs ?? 250,
-    matchResults: overrides.matchResults ?? [],
+    totalDurationMs: overrides.totalDurationMs ?? 250,
+    avgTimePerFixtureMs: overrides.avgTimePerFixtureMs ?? 125,
+    fixturesProcessed: overrides.fixturesProcessed ?? 2,
+    languagesTested: overrides.languagesTested ?? 1,
+    detections: overrides.detections ?? [],
     categoryBreakdown: overrides.categoryBreakdown ?? [
       { category: 'security', truePositives: 2, falsePositives: 2, falseNegatives: 0, precision: 0.5, recall: 1.0, f1: 0.667 },
     ],
@@ -362,8 +365,8 @@ describe('runLLMBenchmark', () => {
     const result = await runLLMBenchmark(provider, store, gitOps);
 
     // Basic sanity: all three result sections should be present
-    expect(result.heuristic.totalFixtures).toBeGreaterThanOrEqual(0);
-    expect(result.combined.totalFixtures).toBeGreaterThanOrEqual(0);
-    expect(result.llmOnly.totalFixtures).toBeGreaterThanOrEqual(0);
+    expect(result.heuristic.fixturesProcessed).toBeGreaterThanOrEqual(0);
+    expect(result.combined.fixturesProcessed).toBeGreaterThanOrEqual(0);
+    expect(result.llmOnly.fixturesProcessed).toBeGreaterThanOrEqual(0);
   });
 });

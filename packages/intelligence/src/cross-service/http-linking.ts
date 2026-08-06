@@ -117,8 +117,9 @@ export function classifyCall(call: ResolvedCall): ServiceClassification | null {
   // 5. gRPC client
   pattern = matchQn(qn, GRPC_LIBRARIES);
   if (pattern) {
-    const { service, method } = extractGrpcServiceMethod(call.calleeName, qn);
-    return { edgeType: pattern.kind, grpcService: service, grpcMethod: method, via: "library_pattern" };
+    const grpc = extractGrpcServiceMethod(call.calleeName, qn);
+    if (!grpc) return { edgeType: pattern.kind, via: "library_pattern" };
+    return { edgeType: pattern.kind, grpcService: grpc.service, grpcMethod: grpc.method, via: "library_pattern" };
   }
 
   // 6. GraphQL client
@@ -192,12 +193,14 @@ export function parseRouteDecorator(decoratorText: string): DecoratorRoute | nul
     const annotationMatch = decoratorText.match(/^@?(\w+)\s*\(\s*(?:value\s*=\s*)?["'\`]([^"'\`]+)["'\`]/);
     if (!annotationMatch) return null;
     const [, name, path] = annotationMatch;
+    if (!name || !path) return null;
     const method = annotationRouteMethod(name);
     if (!method || !path.startsWith("/")) return null;
     return { method, path, framework: detectFramework(decoratorText, name) };
   }
 
   let [, funcName, path] = callMatch;
+  if (!funcName || !path) return null;
   if (!path.startsWith("/")) return null;
 
   const method = annotationRouteMethod(funcName);
@@ -356,11 +359,11 @@ export function buildServiceEdge(
       : classification.httpMethod ?? "ANY",
     via: classification.via,
   };
-  if (classification.urlPath) properties.url_path = classification.urlPath;
-  if (classification.httpMethod) properties.method = classification.httpMethod;
-  if (classification.broker) properties.broker = classification.broker;
-  if (classification.grpcService) properties.service = classification.grpcService;
-  if (classification.grpcMethod) properties.rpc_method = classification.grpcMethod;
+  if (classification.urlPath) properties['url_path'] = classification.urlPath;
+  if (classification.httpMethod) properties['method'] = classification.httpMethod;
+  if (classification.broker) properties['broker'] = classification.broker;
+  if (classification.grpcService) properties['service'] = classification.grpcService;
+  if (classification.grpcMethod) properties['rpc_method'] = classification.grpcMethod;
   return {
     sourceQn,
     targetQn: route.qn,

@@ -261,7 +261,7 @@ export class SecretScanner {
    * Scan a file at the given path for secrets.
    * (Synchronous version — use scan() with fs.readFileSync for async)
    */
-  scanContent(content: string, filePath: string): SecretFinding[] {
+  scanContent(content: string, _filePath: string): SecretFinding[] {
     return this.scan(content);
   }
 

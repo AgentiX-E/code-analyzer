@@ -502,7 +502,7 @@ export class TaintAnalysisEngine {
     sinks: Array<{ node: GraphNode; sink: TaintSink }>,
     sanitizerIds: Set<number>,
     adjacency: Map<number, number[]>,
-    graph: KnowledgeGraph,
+    _graph: KnowledgeGraph,
   ): TaintFinding[] {
     const findings: TaintFinding[] = [];
     const sinkIds = new Set(sinks.map((s) => s.node.id));
@@ -519,7 +519,10 @@ export class TaintAnalysisEngine {
       // Check if we've reached a sink
       if (sinkIds.has(current.nodeId) && current.nodeId !== source.node.id) {
         const sink = sinks.find((s) => s.node.id === current.nodeId)!;
-        const confidence = this.computeConfidence(current, sanitizerIds);
+        const confidence = this.computeConfidence(
+          { sanitized: current.sanitized, pathLength: current.path.length },
+          sanitizerIds,
+        );
 
         findings.push({
           id: `taint-${source.node.id}-${current.nodeId}-${findings.length}`,

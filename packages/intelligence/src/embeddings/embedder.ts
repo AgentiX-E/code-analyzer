@@ -171,7 +171,7 @@ export class MockEmbeddingBackend implements EmbeddingBackend {
       for (const ngram of ngrams) {
         const bucket = murmurHash3(ngram) % this.dimensions;
         const magnitude = (murmurHash3(ngram, 42) % 2000 - 1000) / 1000; // [-1, 1]
-        vec[bucket] += magnitude * (1.0 / Math.sqrt(totalWeight));
+        vec[bucket] = (vec[bucket] ?? 0) + magnitude * (1.0 / Math.sqrt(totalWeight));
       }
     }
 

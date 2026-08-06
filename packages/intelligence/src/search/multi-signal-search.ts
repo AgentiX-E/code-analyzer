@@ -3,7 +3,6 @@
 // for state-of-the-art code search combining lexical and semantic signals.
 
 import type { EmbeddingEngine } from '../embeddings/embedder.js';
-import type { GraphStore, SearchResult } from '@code-analyzer/shared';
 
 /** BM25 parameters */
 const BM25_K1 = 1.5; // Term frequency saturation
@@ -25,11 +24,23 @@ export interface HybridSearchConfig {
 }
 
 /** Combined search result with scores from each method */
-export interface HybridSearchResult extends SearchResult {
+export interface HybridSearchResult {
+  id: string;
+  name: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  relevance: number;
   bm25Score: number;
   semanticScore: number;
   combinedScore: number;
   scoreComponents: Record<string, number>;
+  /** API/Type signature string for signature match signal */
+  signature?: string;
+  /** AST structural profile string for AST similarity signal */
+  astProfile?: string;
+  /** PageRank centrality score (0-1) */
+  pageRank?: number;
 }
 
 /** BM25 index entry for a document */
@@ -176,7 +187,7 @@ export class HybridSearchEngine {
    */
   async searchMultiSignal(
     query: string,
-    graphStore?: GraphStore,
+    _graphStore?: unknown,
     minHashSignatures?: Map<string, number[]>,
   ): Promise<HybridSearchResult[]> {
     const baseResults = await this.search(query);
@@ -190,22 +201,22 @@ export class HybridSearchEngine {
 
       // Signal 3: API/Type signature match
       if (result.signature) {
-        signals.signature = this.computeSignatureMatch(query, result.signature);
+        signals['signature'] = this.computeSignatureMatch(query, result.signature);
       }
 
       // Signal 4: AST structural profile match
       if (result.astProfile) {
-        signals.astProfile = this.computeAstSimilarity(query, result.astProfile);
+        signals['astProfile'] = this.computeAstSimilarity(query, result.astProfile);
       }
 
       // Signal 6: Module proximity
       if (result.filePath) {
-        signals.moduleProximity = this.computeModuleProximity(query, result.filePath);
+        signals['moduleProximity'] = this.computeModuleProximity(query, result.filePath);
       }
 
       // Signal 7: PageRank (if available)
       if (result.pageRank !== undefined) {
-        signals.pageRank = Math.min(result.pageRank * 10, 1.0);
+        signals['pageRank'] = Math.min(result.pageRank * 10, 1.0);
       }
 
       // Signal 9: MinHash (if available)
@@ -213,12 +224,12 @@ export class HybridSearchEngine {
         const querySig = minHashSignatures.get('__query__');
         const docSig = minHashSignatures.get(result.id);
         if (querySig && docSig) {
-          signals.minHash = this.estimateJaccard(querySig, docSig);
+          signals['minHash'] = this.estimateJaccard(querySig, docSig);
         }
       }
 
       // Signal 11: Exact name match
-      signals.exactMatch = result.name?.toLowerCase() === query.toLowerCase() ? 1.0 : 0.0;
+      signals['exactMatch'] = result.name?.toLowerCase() === query.toLowerCase() ? 1.0 : 0.0;
 
       result.scoreComponents = signals;
 

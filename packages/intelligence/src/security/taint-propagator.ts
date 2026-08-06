@@ -308,7 +308,7 @@ export class TaintPropagator {
   }
 
   private checkStatementLocal(
-    cfg: FunctionCfg,
+    _cfg: FunctionCfg,
     source: TaintSourceOccurrence,
     sinkIndex: Map<number, TaintSinkOccurrence[]>,
     _sanitizerIndex: Map<number, SanitizerOccurrence[]>,

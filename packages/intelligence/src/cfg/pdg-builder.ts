@@ -115,7 +115,7 @@ export function buildPdg(
   // Phase 2: Control dependence (may be empty for simple CFGs)
   let cdgEdges: ControlDepEdge[] = [];
   if (postDom.ipdom.length > 0) {
-    cdgEdges = [...computeControlDependence(cfg, postDom.ipdom, maxEdges)];
+    cdgEdges = computeControlDependence(cfg, maxEdges);
   }
 
   // Phase 3: Reaching definitions (may fail for incomplete/minimal CFGs)
@@ -135,6 +135,42 @@ export function buildPdg(
 // ---------------------------------------------------------------------------
 // Graph Construction
 // ---------------------------------------------------------------------------
+
+function makeEmptyGraph(
+  functionName: string,
+  filePath: string,
+): PdgGraph {
+  return {
+    functionName,
+    filePath,
+    nodes: [],
+    edges: [],
+    controlEdges: [],
+    dataFacts: [],
+    get nodeCount() { return 0; },
+    get edgeCount() { return 0; },
+
+    queryControl(_query: PdgControlQuery): PdgQueryResult {
+      return { controlEdges: [], dataFacts: [], truncated: false };
+    },
+
+    queryData(_query: PdgDataQuery): PdgQueryResult {
+      return { controlEdges: [], dataFacts: [], truncated: false };
+    },
+
+    getControlDependents(_nodeId: number): number[] {
+      return [];
+    },
+
+    getDataDependents(_blockIndex: number, _stmtIndex: number): number[] {
+      return [];
+    },
+
+    getDataSources(_blockIndex: number, _stmtIndex: number): number[] {
+      return [];
+    },
+  };
+}
 
 function buildGraph(
   cfg: FunctionCfg,
@@ -156,14 +192,14 @@ function buildGraph(
 
   // --- Collect all unique program points from data facts ---
   for (const f of dataFacts) {
-    getNode(f.defBlock, f.defStmt, 'def', 0); // line unknown for def-only sites
-    getNode(f.useBlock, f.useStmt, 'use', 0);
+    getNode(f.def.blockIndex, f.def.stmtIndex, 'def', 0); // line unknown for def-only sites
+    getNode(f.use.blockIndex, f.use.stmtIndex, 'use', 0);
   }
 
   // --- Control dependence edges ---
   for (const cdgEdge of cdgEdges) {
-    const srcBlock = cdgEdge.from;
-    const tgtBlock = cdgEdge.to;
+    const srcBlock = cdgEdge.controllerBlock;
+    const tgtBlock = cdgEdge.dependentBlock;
 
     // Represent the "branch node" for the source block as the block's
     // definition site with the highest index, or create a synthetic one.
@@ -195,8 +231,8 @@ function buildGraph(
 
   // --- Data dependence edges ---
   for (const fact of dataFacts) {
-    const srcKey = `${fact.defBlock}:${fact.defStmt}`;
-    const tgtKey = `${fact.useBlock}:${fact.useStmt}`;
+    const srcKey = `${fact.def.blockIndex}:${fact.def.stmtIndex}`;
+    const tgtKey = `${fact.use.blockIndex}:${fact.use.stmtIndex}`;
 
     const srcId = siteMap.get(srcKey);
     const tgtId = siteMap.get(tgtKey);
@@ -294,8 +330,8 @@ function makeGraph(
 
     queryControl(query: PdgControlQuery): PdgQueryResult {
       const matching = query.direction === 'dependents'
-        ? controlEdges.filter((e) => e.from === query.controllerBlock)
-        : controlEdges.filter((e) => e.to === query.controllerBlock);
+        ? controlEdges.filter((e) => e.controllerBlock === query.controllerBlock)
+        : controlEdges.filter((e) => e.dependentBlock === query.controllerBlock);
 
       return {
         controlEdges: matching.slice(0, 100),
@@ -308,14 +344,14 @@ function makeGraph(
       const matching = query.direction === 'defs'
         ? dataFacts.filter(
             (f) =>
-              f.defBlock === query.blockIndex &&
-              f.defStmt === query.stmtIndex &&
+              f.def.blockIndex === query.blockIndex &&
+              f.def.stmtIndex === query.stmtIndex &&
               f.bindingIdx === query.bindingIdx,
           )
         : dataFacts.filter(
             (f) =>
-              f.useBlock === query.blockIndex &&
-              f.useStmt === query.stmtIndex &&
+              f.use.blockIndex === query.blockIndex &&
+              f.use.stmtIndex === query.stmtIndex &&
               f.bindingIdx === query.bindingIdx,
           );
 

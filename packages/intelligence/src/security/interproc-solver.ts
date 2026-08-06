@@ -14,6 +14,7 @@
 // TITO = "Taint In, Taint Out" — a tainted parameter passes taint to callee args.
 
 import type { TaintSourceOccurrence, TaintSinkOccurrence } from '../cfg/types.js';
+export type { TaintSourceOccurrence, TaintSinkOccurrence };
 
 // ---------------------------------------------------------------------------
 // Function Summary Model
@@ -75,6 +76,8 @@ export interface ParamToSink {
   sink: TaintSinkOccurrence;
   /** Hops from parameter to sink. */
   hops: number;
+  /** Neutralized sink kinds on this path. */
+  neutralized?: readonly string[];
 }
 
 /** CallResult: a call result (return value) carries taint. */
@@ -183,6 +186,12 @@ export interface InterprocTaintResult {
   statesProcessed: number;
   /** Processing duration in milliseconds. */
   durationMs: number;
+  /** Pipeline statistics. */
+  stats: {
+    functionsAnalyzed: number;
+    intraProcFindings: number;
+    interProcFindings: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -370,6 +379,11 @@ export class InterprocSolver {
       summariesAnalyzed: this.summaries.size,
       statesProcessed,
       durationMs: performance.now() - startTime,
+      stats: {
+        functionsAnalyzed: this.summaries.size,
+        intraProcFindings: 0,
+        interProcFindings: findings.length,
+      },
     };
   }
 

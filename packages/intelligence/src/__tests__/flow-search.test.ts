@@ -32,7 +32,7 @@ function createNode(
     startLine,
     endLine: startLine + 1,
     language: 'typescript',
-    properties: { name, filePath, startLine } as NodeProperties,
+    properties: { name, filePath, startLine }as unknown as NodeProperties,
     signature: null,
     docstring: null,
     complexity: null,
@@ -71,7 +71,7 @@ function createEdge(
  * Create a simple call chain: main -> helper -> util
  * Returns [mainId, helperId, utilId]
  */
-function createCallChain(store: InMemoryGraphStore): number[] {
+function createCallChain(store: InMemoryGraphStore): [number, number, number] {
   const main = createNode(store, 'main', 'Function', '/test/main.ts', 1);
   const helper = createNode(store, 'helper', 'Function', '/test/helper.ts', 1);
   const util = createNode(store, 'util', 'Function', '/test/util.ts', 1);
@@ -85,7 +85,7 @@ function createCallChain(store: InMemoryGraphStore): number[] {
 /**
  * Create a class hierarchy: BaseClass -> DerivedClass -> Instance
  */
-function createClassHierarchy(store: InMemoryGraphStore): number[] {
+function createClassHierarchy(store: InMemoryGraphStore): [number, number, number] {
   const base = createNode(store, 'BaseClass', 'Class', '/test/base.ts', 1);
   const derived = createNode(store, 'DerivedClass', 'Class', '/test/derived.ts', 1);
   const instance = createNode(store, 'instance', 'Function', '/test/main.ts', 10);
@@ -1290,7 +1290,7 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'nullLine', filePath: '/test/null.ts', startLine: null } as NodeProperties,
+      properties: { name: 'nullLine', filePath: '/test/null.ts', startLine: null }as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1401,7 +1401,7 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'midFunc', filePath: null, startLine: null } as NodeProperties,
+      properties: { name: 'midFunc', filePath: null, startLine: null }as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1476,7 +1476,7 @@ describe('FlowSearchEngine', () => {
       startLine: 1,
       endLine: 2,
       language: 'typescript',
-      properties: { name: 'noFile', filePath: null, startLine: 1 } as NodeProperties,
+      properties: { name: 'noFile', filePath: null, startLine: 1 }as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1557,7 +1557,7 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'nullSrc', filePath: null, startLine: null } as NodeProperties,
+      properties: { name: 'nullSrc', filePath: null, startLine: null }as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1594,7 +1594,7 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'selfNull', filePath: null, startLine: null } as NodeProperties,
+      properties: { name: 'selfNull', filePath: null, startLine: null }as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,

@@ -106,7 +106,7 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
       let newIdom = NO_IPDOM;
       for (const pred of predsInRevCfg[b]!) {
         if (ipdom[pred] !== NO_IPDOM) {
-          newIdom = ipdom[pred];
+          newIdom = ipdom[pred]!;
           break;
         }
       }
@@ -116,7 +116,7 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
       for (const pred of predsInRevCfg[b]!) {
         if (ipdom[pred] === newIdom) continue;
         if (ipdom[pred] !== NO_IPDOM) {
-          newIdom = intersect(ipdom[pred], newIdom, ipdom, postNum);
+          newIdom = intersect(ipdom[pred]!, newIdom, ipdom, postNum);
         }
       }
 

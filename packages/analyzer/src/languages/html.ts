@@ -1,11 +1,15 @@
 // @code-analyzer/analyzer — HTML Provider (tree-sitter AST walker)
-// Full tree-sitter AST walker: elements, attributes, scripts, styles, comments, imports.
+// Full tree-sitter AST walker: 15+ node mappings, elements, attributes,
+// XSS taint sinks, script/style imports, forms as taint sources.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode,
+  TaintSource, TaintSink, TaintSanitizer,
+} from './tree-sitter-base.js';
 
 export class HtmlProvider extends TreeSitterBaseProvider {
   readonly language = 'html';
@@ -15,8 +19,11 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'none' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try { const m = require('tree-sitter-html') as TreeSitterLanguage; return m; }
-    catch { return null; }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const m = require('tree-sitter-html') as TreeSitterLanguage;
+      return m;
+    } catch { return null; }
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {
@@ -24,93 +31,186 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       { nodeType: 'element', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'tag_name' },
       { nodeType: 'script_element', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'tag_name' },
       { nodeType: 'style_element', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'tag_name' },
+      { nodeType: 'start_tag', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'tag_name' },
+      { nodeType: 'end_tag', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'tag_name' },
+      { nodeType: 'self_closing_tag', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'tag_name' },
+      { nodeType: 'tag_name', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'attribute', captureTag: CAPTURE_TAGS.PROPERTY_DEF, nameChildType: 'attribute_name' },
+      { nodeType: 'attribute_name', captureTag: CAPTURE_TAGS.PROPERTY_DEF, useFirstNamedChild: true },
+      { nodeType: 'attribute_value', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'text', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'comment', captureTag: CAPTURE_TAGS.DOCSTRING, useFirstNamedChild: true },
+      { nodeType: 'doctype', captureTag: CAPTURE_TAGS.DOCSTRING, useFirstNamedChild: true },
+      { nodeType: 'entity', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      { nodeType: 'quoted_attribute_value', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
     ];
   }
+
+  // ---- AST Walking ----
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nt = node.type;
 
     if (nt === 'element' || nt === 'script_element' || nt === 'style_element') {
-      // Get tag name from start_tag → tag_name
-      let tagName = '';
-      let id = '';
-      let cls = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'start_tag' || child.type === 'self_closing_tag') {
-          for (let j = 0; j < child.childCount; j++) {
-            const sub = child.child(j);
-            if (sub.type === 'tag_name') { tagName = sub.text; }
-            if (sub.type === 'attribute') {
-              const attrName = this.getAttrName(sub);
-              const attrVal = this.getAttrValue(sub);
-              if (attrName === 'id') { id = attrVal ?? ''; }
-              if (attrName === 'class') { cls = attrVal ?? ''; }
-            }
-          }
-        }
-      }
-      if (tagName) {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: `<${tagName}${id ? ` id="${id}"` : ''}${cls ? ` class="${cls}"` : ''}>`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: tagName,
-          properties: { id, class: cls, filePath: this.filePath },
-        });
-      }
-    }
-
-    // Inline scripts (src attribute) and link (stylesheet)
-    if (nt === 'start_tag' || nt === 'self_closing_tag') {
-      const tagNameNode = this.findChildOfType(node, 'tag_name');
-      if (tagNameNode) {
-        const tagText = tagNameNode.text;
-        if (tagText === 'script') {
-          const srcAttr = this.findAttribute(node, 'src');
-          if (srcAttr) {
-            captures.push({
-              tag: CAPTURE_TAGS.IMPORT, text: srcAttr,
-              startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1,
-              startByte: node.startIndex, endByte: node.endIndex,
-              name: srcAttr, properties: { importType: 'script', filePath: this.filePath },
-            });
-          }
-        }
-        if (tagText === 'link') {
-          const hrefAttr = this.findAttribute(node, 'href');
-          if (hrefAttr) {
-            captures.push({
-              tag: CAPTURE_TAGS.IMPORT, text: hrefAttr,
-              startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1,
-              startByte: node.startIndex, endByte: node.endIndex,
-              name: hrefAttr, properties: { importType: 'link', filePath: this.filePath },
-            });
-          }
-        }
-      }
-    }
-
-    // Comment
-    if (nt === 'comment') {
-      const text = node.text.replace('<!--', '').replace('-->', '').trim();
-      if (text) {
-        captures.push({
-          tag: CAPTURE_TAGS.DOCSTRING, text,
-          startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1,
-          startByte: node.startIndex, endByte: node.endIndex,
-          name: '[comment]', properties: { filePath: this.filePath },
-        });
-      }
+      this.captureElement(node, captures);
+    } else if (nt === 'start_tag' || nt === 'self_closing_tag') {
+      this.captureTag(node, captures);
+    } else if (nt === 'comment') {
+      this.captureComment(node, captures);
+    } else if (nt === 'doctype') {
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.DOCSTRING, 'doctype', node.text, { isDoctype: 'true' }));
     }
 
     for (let i = 0; i < node.childCount; i++) {
       this.walkAndCapture(node.child(i), captures);
     }
   }
+
+  private captureElement(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    let tagName = '';
+    let id = '';
+    let cls = '';
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'start_tag' || child.type === 'self_closing_tag') {
+        for (let j = 0; j < child.childCount; j++) {
+          const sub = child.child(j);
+          if (sub.type === 'tag_name') tagName = sub.text;
+          if (sub.type === 'attribute') {
+            const attrName = this.getAttrName(sub);
+            const attrVal = this.getAttrValue(sub);
+            if (attrName === 'id') id = attrVal ?? '';
+            if (attrName === 'class') cls = attrVal ?? '';
+          }
+        }
+      }
+    }
+    if (tagName) {
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.VARIABLE_DEF, tagName,
+        `<${tagName}${id ? ` id="${id}"` : ''}${cls ? ` class="${cls}"` : ''}>`, { id, class: cls }));
+    }
+  }
+
+  private captureTag(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const tagNameNode = this.findChildOfType(node, 'tag_name');
+    if (!tagNameNode) return;
+
+    const tagText = tagNameNode.text;
+    if (tagText === 'script') {
+      const srcAttr = this.findAttribute(node, 'src');
+      if (srcAttr) {
+        captures.push(this.makeCapture(node, CAPTURE_TAGS.IMPORT, srcAttr, srcAttr, { importType: 'script' }));
+      }
+    } else if (tagText === 'link') {
+      const hrefAttr = this.findAttribute(node, 'href');
+      if (hrefAttr) {
+        captures.push(this.makeCapture(node, CAPTURE_TAGS.IMPORT, hrefAttr, hrefAttr, { importType: 'link' }));
+      }
+    } else if (tagText === 'img') {
+      const srcAttr = this.findAttribute(node, 'src');
+      if (srcAttr) {
+        captures.push(this.makeCapture(node, CAPTURE_TAGS.IMPORT, srcAttr, srcAttr, { importType: 'img' }));
+      }
+    }
+  }
+
+  private captureComment(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const text = node.text.replace('<!--', '').replace('-->', '').trim();
+    if (text) {
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.DOCSTRING, '[comment]', text, { isComment: 'true' }));
+    }
+  }
+
+  // ---- Taint Analysis ----
+
+  protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    if (node.type === 'element' || node.type === 'start_tag') {
+      const tagNameNode = this.findChildOfType(node, 'tag_name');
+      if (!tagNameNode) return;
+
+      const tag = tagNameNode.text.toLowerCase();
+      // Forms are taint sources (user input)
+      if (tag === 'form' || tag === 'input' || tag === 'textarea' || tag === 'select') {
+        sources.push({ name: tag, sourceType: 'user_input',
+          line: node.startPosition.row + 1, text: node.text.substring(0, 100), properties: {} });
+        return;
+      }
+      // Scripts with src from external sources
+      if (tag === 'script') {
+        const src = this.findAttribute(node, 'src');
+        if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
+          sources.push({ name: src, sourceType: 'external_script',
+            line: node.startPosition.row + 1, text: node.text.substring(0, 100), properties: {} });
+        }
+        return;
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTaintSources(node.child(i), sources);
+    }
+  }
+
+  protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    if (node.type === 'element') {
+      const tagNameNode = this.findChildOfType(node, 'tag_name');
+      if (!tagNameNode) return;
+      const tag = tagNameNode.text.toLowerCase();
+
+      // XSS sinks
+      if (tag === 'script' || tag === 'style') {
+        sinks.push({ name: tag, sinkType: 'xss',
+          line: node.startPosition.row + 1, text: node.text.substring(0, 100), properties: {} });
+        return;
+      }
+      // HTML injection via innerHTML/document.write
+      if (tag === 'div' || tag === 'span') {
+        const attrs = this.collectAttributes(node);
+        if (attrs.some(a => a.toLowerCase().includes('innerhtml') || a.toLowerCase().includes('dangerously'))) {
+          sinks.push({ name: tag, sinkType: 'xss',
+            line: node.startPosition.row + 1, text: node.text.substring(0, 100), properties: {} });
+        }
+        return;
+      }
+      // Event handler sinks (onclick, onerror, etc.)
+      const events = ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur',
+        'onchange', 'onsubmit', 'onkeydown', 'onkeyup'];
+      for (const evt of events) {
+        const val = this.findAttribute(node, evt);
+        if (val) {
+          sinks.push({ name: evt, sinkType: 'xss_event_handler',
+            line: node.startPosition.row + 1, text: node.text.substring(0, 100), properties: {} });
+          return;
+        }
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTaintSinks(node.child(i), sinks);
+    }
+  }
+
+  protected override walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
+    if (node.type === 'element') {
+      const tagNameNode = this.findChildOfType(node, 'tag_name');
+      if (!tagNameNode) return;
+      const tag = tagNameNode.text.toLowerCase();
+      // CSP meta tags are sanitizers
+      if (tag === 'meta') {
+        const httpEquiv = this.findAttribute(node, 'http-equiv');
+        if (httpEquiv && httpEquiv.toLowerCase().includes('content-security-policy')) {
+          sanitizers.push({ name: 'csp', sanitizerType: 'csp_policy',
+            line: node.startPosition.row + 1, text: node.text.substring(0, 100), properties: {} });
+        }
+        return;
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSanitizers(node.child(i), sanitizers);
+    }
+  }
+
+  // ---- Attribute Helpers ----
 
   private getAttrName(attrNode: TreeSitterSyntaxNode): string {
     for (let i = 0; i < attrNode.childCount; i++) {
@@ -123,7 +223,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   private getAttrValue(attrNode: TreeSitterSyntaxNode): string | undefined {
     for (let i = 0; i < attrNode.childCount; i++) {
       const child = attrNode.child(i);
-      if (child.type === 'attribute_value') {
+      if (child.type === 'attribute_value' || child.type === 'quoted_attribute_value') {
         let val = child.text;
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.slice(1, -1);
@@ -151,26 +251,82 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     return undefined;
   }
 
+  private collectAttributes(node: TreeSitterSyntaxNode): string[] {
+    const attrs: string[] = [];
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'start_tag') {
+        for (let j = 0; j < child.childCount; j++) {
+          const sub = child.child(j);
+          if (sub.type === 'attribute') attrs.push(sub.text);
+        }
+      }
+    }
+    return attrs;
+  }
+
+  // ---- Helpers ----
+
+  private makeCapture(
+    node: TreeSitterSyntaxNode, tag: typeof CAPTURE_TAGS[keyof typeof CAPTURE_TAGS],
+    name: string, text: string, extra: Record<string, string> = {},
+  ): UnifiedCapture {
+    return { tag, text,
+      startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1,
+      startByte: node.startIndex, endByte: node.endIndex,
+      name, properties: { filePath: this.filePath, ...extra } };
+  }
+
+  // ---- Fallback ----
+
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
     let m: RegExpExecArray | null;
-    const tagRegex = /<\/?(\w+)[^>]*>/g;
-    while ((m = tagRegex.exec(source)) !== null) {
+    const tagRx = /<\/?(\w+)[^>]*>/g;
+    while ((m = tagRx.exec(source)) !== null) {
       const isClosing = m[0]!.startsWith('</');
       captures.push({ tag: CAPTURE_TAGS.VARIABLE_DEF, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { isClosing: String(isClosing), filePath } });
     }
-    const srcRegex = /<script[^>]+src=["']([^"']+)["']/g;
-    while ((m = srcRegex.exec(source)) !== null) {
+    const srcRx = /<script[^>]+src=["']([^"']+)["']/g;
+    while ((m = srcRx.exec(source)) !== null) {
       captures.push({ tag: CAPTURE_TAGS.IMPORT, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { importType: 'script', filePath } });
     }
-    const linkRegex = /<link[^>]+href=["']([^"']+)["'][^>]*>/g;
-    while ((m = linkRegex.exec(source)) !== null) {
+    const linkRx = /<link[^>]+href=["']([^"']+)["'][^>]*>/g;
+    while ((m = linkRx.exec(source)) !== null) {
       captures.push({ tag: CAPTURE_TAGS.IMPORT, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { importType: 'link', filePath } });
+    }
+    const imgRx = /<img[^>]+src=["']([^"']+)["']/g;
+    while ((m = imgRx.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { importType: 'img', filePath } });
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
   protected override fallbackExtractImports(_source: string): ParsedImport[] { return []; }
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean { return false; }
+
+  protected override fallbackExtractTaintSources(source: string): TaintSource[] {
+    const sources: TaintSource[] = [];
+    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    let m: RegExpExecArray | null;
+    const rx = /<(form|input|textarea|select)\b/g;
+    while ((m = rx.exec(source)) !== null) {
+      sources.push({ name: m[1]!, sourceType: 'user_input', line: ln(m.index), text: m[0], properties: {} });
+    }
+    return sources;
+  }
+
+  protected override fallbackExtractTaintSinks(source: string): TaintSink[] {
+    const sinks: TaintSink[] = [];
+    const ln = (off: number) => source.slice(0, off).split('\n').length;
+    let m: RegExpExecArray | null;
+    const rx = /<(script|style)\b/g;
+    while ((m = rx.exec(source)) !== null) {
+      sinks.push({ name: m[1]!, sinkType: 'xss', line: ln(m.index), text: m[0], properties: {} });
+    }
+    return sinks;
+  }
+
+  protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] { return []; }
 }

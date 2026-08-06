@@ -30,8 +30,8 @@ describe('Lens Profiles', () => {
       'style', 'api', 'deps', 'contract', 'docs', 'synthesis',
     ];
     for (const lensId of expectedLenses) {
-      expect(LENS_PROFILES[lensId]).toBeDefined();
-      expect(LENS_PROFILES[lensId]!.id).toBe(lensId);
+      expect(LENS_PROFILES[lensId as keyof typeof LENS_PROFILES]).toBeDefined();
+      expect(LENS_PROFILES[lensId as keyof typeof LENS_PROFILES]!.id).toBe(lensId);
     }
   });
 

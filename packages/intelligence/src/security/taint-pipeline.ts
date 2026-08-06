@@ -46,13 +46,14 @@ export class TaintPipeline {
    */
   analyze(
     cfgs: Map<string, FunctionCfg>,
-    callGraph: CallGraphEdge[],
+    _callGraph: CallGraphEdge[],
   ): InterprocTaintResult {
     const summaries: FunctionSummary[] = [];
     // Step 1: Run intra-procedural analysis on each function
     for (const [fnQn, cfg] of cfgs) {
       try {
-        const result = this.propagator.analyze(cfg);
+        // TODO: wire real DefUseFact[] from reaching-defs analysis
+        const result = this.propagator.analyze(cfg, []);
         const summary = buildFunctionSummary(fnQn, cfg, result);
         summaries.push(summary);
       } catch {
@@ -65,19 +66,10 @@ export class TaintPipeline {
     this.solver.loadSummaries(summaries);
 
     // Step 4: Run inter-procedural fixpoint
-    const interProcResult = this.solver.solve(callGraph);
+    const interProcResult = this.solver.solve();
 
     // Step 5: Merge and return
-    return {
-      ...interProcResult,
-      findings: interProcResult.findings,
-      stats: {
-        ...interProcResult.stats,
-        functionsAnalyzed: cfgs.size,
-        intraProcFindings: 0,
-        interProcFindings: interProcResult.findings.length,
-      },
-    };
+    return interProcResult;
   }
 }
 
@@ -123,15 +115,15 @@ function buildFunctionSummary(
     const sink = finding.sink;
 
     // Source → Sink flow
-    if (source.kind === 'source') {
+    if (source.category === 'source') {
       // Check if this is source→callArg (seed for fixpoint)
       // or source→sink (intra-proc finding)
       if (sink.kind !== 'source') {
         paramToSinks.push({
-          paramIndex: 0, // Simplified: map to first param
-          sinkKind: sink.kind,
+          param: 0, // Simplified: map to first param
           sinkLine: sink.point.line,
-          taintKinds: [sink.kind],
+          sink,
+          hops: finding.hops,
         });
       }
     }
@@ -140,10 +132,11 @@ function buildFunctionSummary(
     for (const block of finding.path) {
       // Simplified: any block in the path could represent a call site
       sourceToCallArgs.push({
-        sourceKind: source.kind,
-        calleeQn: '',
+        source: finding.source,
+        calleeName: '',
         callLine: block * 100, // Approximate line from block index
         argIndex: 0,
+        resolved: false,
       });
     }
   }

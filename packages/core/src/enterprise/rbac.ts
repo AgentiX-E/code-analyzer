@@ -310,33 +310,3 @@ export class RBACError extends Error {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-/** All 25 permission strings. */
-const ALL_PERMISSIONS: readonly RBACPermission[] = [
-  'index:read',
-  'index:create',
-  'index:delete',
-  'index:status',
-  'query:search',
-  'query:graph',
-  'query:semantic',
-  'query:calls',
-  'query:architecture',
-  'review:diff',
-  'review:file',
-  'review:pr',
-  'review:standards',
-  'review:report',
-  'crossrepo:search',
-  'crossrepo:trace',
-  'crossrepo:impact',
-  'crossrepo:manage',
-  'security:taint',
-  'security:pdg',
-  'security:secret-scan',
-  'security:audit-log',
-  'admin:manage-users',
-  'admin:manage-roles',
-  'admin:system-config',
-  'admin:benchmark',
-];

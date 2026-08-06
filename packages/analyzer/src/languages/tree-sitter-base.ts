@@ -7,6 +7,52 @@ import type { UnifiedCapture, CaptureTag, ImportSemantics } from '@code-analyzer
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
+// Taint analysis types
+// ---------------------------------------------------------------------------
+
+/** A taint source — where untrusted/external data enters the program */
+export interface TaintSource {
+  /** The variable/parameter name that receives tainted data */
+  name: string;
+  /** The source type (e.g., user_input, file_read, network, env_var) */
+  sourceType: string;
+  /** Line number (1-based) */
+  line: number;
+  /** The full source text of the taint source expression */
+  text: string;
+  /** Additional metadata */
+  properties?: Record<string, string>;
+}
+
+/** A taint sink — a dangerous operation that should not receive tainted data */
+export interface TaintSink {
+  /** The function/method name that is dangerous */
+  name: string;
+  /** The sink type (e.g., sql_exec, os_command, file_write, eval) */
+  sinkType: string;
+  /** Line number (1-based) */
+  line: number;
+  /** The full source text of the taint sink expression */
+  text: string;
+  /** Additional metadata */
+  properties?: Record<string, string>;
+}
+
+/** A taint sanitizer — an operation that cleans/validates tainted data */
+export interface TaintSanitizer {
+  /** The sanitizer function/variable name */
+  name: string;
+  /** The sanitizer type (e.g., validation, encoding, escaping, whitelist) */
+  sanitizerType: string;
+  /** Line number (1-based) */
+  line: number;
+  /** The full source text of the sanitizer expression */
+  text: string;
+  /** Additional metadata */
+  properties?: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
 // Tree-sitter type definitions (avoiding direct import for fallback)
 // ---------------------------------------------------------------------------
 
@@ -726,6 +772,160 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       }
     }
     return undefined;
+  }
+
+  // -----------------------------------------------------------------------
+  // Taint analysis — source / sink / sanitizer extraction
+  // -----------------------------------------------------------------------
+
+  /** Extract taint sources from source code using AST walking */
+  extractTaintSources(source: string): TaintSource[] {
+    if (!this.parser || !this.languageGrammar) {
+      return this.fallbackExtractTaintSources(source);
+    }
+
+    try {
+      const tree = this.parser.parse(source);
+      const sources: TaintSource[] = [];
+      this.walkForTaintSources(tree.rootNode, sources);
+      return sources;
+    } catch {
+      return this.fallbackExtractTaintSources(source);
+    }
+  }
+
+  /** Walk the AST to find taint sources */
+  protected walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
+    const nodeType = node.type;
+    const sourceType = this.getTaintSourceType(nodeType, node);
+    if (sourceType) {
+      const name = this.extractTaintName(node);
+      if (name) {
+        sources.push({
+          name,
+          sourceType,
+          line: node.startPosition.row + 1,
+          text: node.text,
+          properties: {},
+        });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTaintSources(node.child(i), sources);
+    }
+  }
+
+  /** Determine if a node type is a taint source, and return the source type */
+  protected getTaintSourceType(_nodeType: string, _node: TreeSitterSyntaxNode): string | null {
+    return null; // Override in subclasses
+  }
+
+  /** Extract taint sinks from source code using AST walking */
+  extractTaintSinks(source: string): TaintSink[] {
+    if (!this.parser || !this.languageGrammar) {
+      return this.fallbackExtractTaintSinks(source);
+    }
+
+    try {
+      const tree = this.parser.parse(source);
+      const sinks: TaintSink[] = [];
+      this.walkForTaintSinks(tree.rootNode, sinks);
+      return sinks;
+    } catch {
+      return this.fallbackExtractTaintSinks(source);
+    }
+  }
+
+  /** Walk the AST to find taint sinks */
+  protected walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
+    const nodeType = node.type;
+    const sinkType = this.getTaintSinkType(nodeType, node);
+    if (sinkType) {
+      const name = this.extractTaintName(node);
+      if (name) {
+        sinks.push({
+          name,
+          sinkType,
+          line: node.startPosition.row + 1,
+          text: node.text,
+          properties: {},
+        });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTaintSinks(node.child(i), sinks);
+    }
+  }
+
+  /** Determine if a node type is a taint sink, and return the sink type */
+  protected getTaintSinkType(_nodeType: string, _node: TreeSitterSyntaxNode): string | null {
+    return null; // Override in subclasses
+  }
+
+  /** Extract taint sanitizers from source code using AST walking */
+  extractSanitizers(source: string): TaintSanitizer[] {
+    if (!this.parser || !this.languageGrammar) {
+      return this.fallbackExtractSanitizers(source);
+    }
+
+    try {
+      const tree = this.parser.parse(source);
+      const sanitizers: TaintSanitizer[] = [];
+      this.walkForSanitizers(tree.rootNode, sanitizers);
+      return sanitizers;
+    } catch {
+      return this.fallbackExtractSanitizers(source);
+    }
+  }
+
+  /** Walk the AST to find taint sanitizers */
+  protected walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
+    const nodeType = node.type;
+    const sanitizerType = this.getSanitizerType(nodeType, node);
+    if (sanitizerType) {
+      const name = this.extractTaintName(node);
+      if (name) {
+        sanitizers.push({
+          name,
+          sanitizerType,
+          line: node.startPosition.row + 1,
+          text: node.text,
+          properties: {},
+        });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSanitizers(node.child(i), sanitizers);
+    }
+  }
+
+  /** Determine if a node type is a sanitizer, and return the sanitizer type */
+  protected getSanitizerType(_nodeType: string, _node: TreeSitterSyntaxNode): string | null {
+    return null; // Override in subclasses
+  }
+
+  /** Extract the name from a taint-related node */
+  protected extractTaintName(node: TreeSitterSyntaxNode): string | undefined {
+    return this.extractNameFromNode(node) ?? this.extractCallName(node);
+  }
+
+  // -----------------------------------------------------------------------
+  // Fallback taint methods
+  // -----------------------------------------------------------------------
+
+  /** Regex-based fallback for taint source extraction */
+  protected fallbackExtractTaintSources(_source: string): TaintSource[] {
+    return [];
+  }
+
+  /** Regex-based fallback for taint sink extraction */
+  protected fallbackExtractTaintSinks(_source: string): TaintSink[] {
+    return [];
+  }
+
+  /** Regex-based fallback for sanitizer extraction */
+  protected fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
+    return [];
   }
 
   // -----------------------------------------------------------------------

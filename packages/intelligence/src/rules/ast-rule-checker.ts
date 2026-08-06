@@ -187,12 +187,12 @@ function loadGrammar(lang: string): unknown | null {
     const g = require(pkg) as Record<string, unknown>;
     // Handle compound exports: tree-sitter-typescript → .typescript / .tsx
     if (key === 'typescript' || key === 'javascript' || key === 'jsx') {
-      grammarCache.set(key, g.typescript ?? g);
-      return g.typescript ?? g;
+      grammarCache.set(key, g['typescript'] ?? g);
+      return g['typescript'] ?? g;
     }
-    if (key === 'tsx' && g.tsx) { grammarCache.set(key, g.tsx); return g.tsx; }
-    if (key === 'python' && g.python) { grammarCache.set(key, g.python); return g.python; }
-    if (key === 'cpp' && g.cpp) { grammarCache.set(key, g.cpp); return g.cpp; }
+    if (key === 'tsx' && g['tsx']) { grammarCache.set(key, g['tsx']); return g['tsx']; }
+    if (key === 'python' && g['python']) { grammarCache.set(key, g['python']); return g['python']; }
+    if (key === 'cpp' && g['cpp']) { grammarCache.set(key, g['cpp']); return g['cpp']; }
     grammarCache.set(key, g);
     return g;
   } catch { grammarCache.set(key, null); return null; }
@@ -225,7 +225,7 @@ function tryParseWithTreeSitter(source: string, language: string): {
     const functions: AstFunctionBounds[] = [];
 
     walkTsTree(root, source, { calls, strings, imports, assignments, functions });
-    return hasAst === false ? null : { calls, strings, imports, assignments, functions };
+    return { calls, strings, imports, assignments, functions };
   } catch { return null; }
 }
 
@@ -318,7 +318,7 @@ function findPrevSibling(node: TsNode, after: TsNode, types: string[]): TsNode |
 // Regex-based Extractors (fallback when tree-sitter is unavailable)
 // ---------------------------------------------------------------------------
 
-function extractCallsRegex(lines: string[], language: string): AstCallSite[] {
+function extractCallsRegex(lines: string[], _language: string): AstCallSite[] {
   const calls: AstCallSite[] = [];
   // Match method calls: obj.method(args) and function calls: name(args)
   const callPattern = /(\w+(?:\.\w+)*)\s*\(([^)]*)\)/g;
@@ -401,7 +401,7 @@ function extractImportsRegex(lines: string[], language: string): AstImport[] {
   return imports;
 }
 
-function extractAssignmentsRegex(lines: string[], language: string): AstAssignment[] {
+function extractAssignmentsRegex(lines: string[], _language: string): AstAssignment[] {
   const assignments: AstAssignment[] = [];
 
   const pattern = /(?:const|let|var)\s+(\w+)\s*=\s*(.+?)(?:;|$)/;
