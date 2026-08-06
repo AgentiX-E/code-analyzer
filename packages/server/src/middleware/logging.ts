@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/server — Logging Middleware
 // Structured request/response logging with configurable detail levels.
 

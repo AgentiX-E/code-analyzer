@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/intelligence — Benchmark Runner
 // Runs benchmark cases through the heuristic review engine and compares
 // results against ground-truth annotations to compute quality metrics.

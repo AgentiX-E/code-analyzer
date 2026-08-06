@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/mcp — Benchmark Tools
 // Delegates to CA-Bench for comprehensive suite-based benchmarking.
 // Falls back to the heuristic review benchmark for backward compatibility.

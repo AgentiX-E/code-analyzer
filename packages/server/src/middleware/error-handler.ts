@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/server — Error Handler Middleware
 // Global error handler that serializes errors consistently.
 
