@@ -20,6 +20,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Use singlefork to prevent worker pool crashes from native modules
+    // (tree-sitter grammars are not always fork-safe in vitest workers)
+    pool: 'forks',
+    poolOptions: {
+      forks: { singleFork: true },
+    },
     include: [
       'packages/*/src/**/*.test.ts',
       'tests/unit/**/*.test.ts',
