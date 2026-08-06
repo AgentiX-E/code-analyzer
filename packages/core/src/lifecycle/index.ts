@@ -2,6 +2,8 @@
  * Lifecycle Management — dependency-ordered initialization and graceful shutdown.
  */
 
+import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+
 /**
  * A managed component with init and shutdown phases.
  */
@@ -64,6 +66,7 @@ export class LifecycleManager {
   private healthCallbacks = new Map<string, () => HealthCheckResult>();
   private shutdownTimeout: number;
   private onInitError?: (name: string, error: Error) => void;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   constructor(options: LifecycleOptions = {}) {
     this.shutdownTimeout = options.shutdownTimeout ?? 5000;
@@ -186,6 +189,7 @@ export class LifecycleManager {
         successCount++;
       } catch (_error) {
         // Shutdown errors are logged but don't prevent other components from shutting down
+        this.logger.trace('Shutdown cleanup error', { phaseId: 'lifecycle.shutdown' });
       }
     }
 

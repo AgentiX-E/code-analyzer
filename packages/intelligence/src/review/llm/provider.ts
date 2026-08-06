@@ -1,6 +1,8 @@
 // @code-analyzer/intelligence — LLM Provider Abstraction Layer
 // Defines the LLMProvider interface and provides a DeepSeek-backed implementation.
 
+import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -193,6 +195,7 @@ export class DeepSeekProvider implements LLMProvider {
   private readonly baseUrl: string;
   private readonly defaultTimeout: number;
   private readonly maxRetries: number;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   constructor(
     options?: {
@@ -320,7 +323,7 @@ export class DeepSeekProvider implements LLMProvider {
             throw new LLMRateLimitError(this.name, retryAfter);
           }
 
-          const errorText = await response.text().catch(() => 'Unknown error');
+          const errorText = await response.text().catch(err => { this.logger.error('Failed to read LLM API error response body', err instanceof Error ? err : new Error(String(err)), { phaseId: 'llm.provider' }); return 'Unknown error'; });
           throw new LLMError(
             `DeepSeek API returned status ${status}: ${errorText.slice(0, 200)}`,
             status,

@@ -20,7 +20,7 @@ import type {
   UnifiedCapture,
   ScopeTree,
 } from '@code-analyzer/shared';
-import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import {
   InMemoryGraphStore,
@@ -304,6 +304,7 @@ export class ParallelScanPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = [];
   readonly description = 'Discover source files using parallel file discovery';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -388,6 +389,7 @@ export class ParallelScanPhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
@@ -403,6 +405,7 @@ export class ParallelParsePhase implements ExecutablePhase {
   readonly description =
     'Parse source files in parallel using worker-pool concurrency';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -462,6 +465,7 @@ export class ParallelParsePhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
@@ -581,6 +585,7 @@ export class ParallelBuildPhase implements ExecutablePhase {
   readonly description =
     'Serialize knowledge graph to storage using batched parallel writes';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -611,6 +616,7 @@ export class ParallelBuildPhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }

@@ -9,6 +9,7 @@ import { cpus } from 'node:os';
 import { basename, join } from 'node:path';
 
 import { getLanguageFromFilename } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import type {
   DiscoveredFile,
   GraphEdge,
@@ -113,6 +114,7 @@ export class ParallelIndexer {
   private readonly config: ParallelIndexerConfig;
   private readonly pool: WorkerPool;
   private readonly discoverer: FileDiscoverer;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   private canceled = false;
   private startTime = 0;
@@ -215,6 +217,7 @@ export class ParallelIndexer {
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Index directory failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.indexDirectory', filePath: rootPath });
       this.errors.push({
         filePath: rootPath,
         message,
@@ -253,7 +256,8 @@ export class ParallelIndexer {
             hash,
             size: Buffer.byteLength(content),
           });
-        } catch {
+        } catch (err) {
+          this.logger.error('Failed to read file for incremental index', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.incrementalIndex', filePath });
           this.errors.push({
             filePath,
             message: 'Failed to read file for incremental index',
@@ -285,6 +289,7 @@ export class ParallelIndexer {
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Incremental index failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.incrementalIndex', filePath: rootPath });
       this.errors.push({
         filePath: rootPath,
         message,
@@ -396,6 +401,7 @@ export class ParallelIndexer {
         // Pool shutdown — likely due to cancellation
         if (this.canceled) return;
         const message = err instanceof Error ? err.message : String(err);
+        this.logger.error('Batch execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.processInParallel', filePath: rootPath });
         this.errors.push({
           filePath: rootPath,
           message: `Batch execution failed: ${message}`,
@@ -435,6 +441,7 @@ export class ParallelIndexer {
         results.push(parsed);
       } catch (err) {
         // File-level errors are recorded but don't crash the batch
+        this.logger.error('File parse failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.parseBatch', filePath: file.filePath });
         this.errors.push({
           filePath: file.filePath,
           message: err instanceof Error ? err.message : String(err),
@@ -594,6 +601,7 @@ export class ParallelIndexer {
 
         this.processedFileCount++;
       } catch (err) {
+        this.logger.error('Batch result processing failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.processBatchResults', filePath });
         this.errors.push({
           filePath: filePath,
           message: err instanceof Error ? err.message : String(err),
@@ -808,8 +816,9 @@ export class ParallelIndexer {
         const data = JSON.parse(content) as Record<string, string>;
         return new Map(Object.entries(data));
       }
-    } catch {
+    } catch (err) {
       // File doesn't exist or is corrupt — treat as fresh index
+      this.logger.warn('Failed to load file hashes', { phaseId: 'parallel-indexer.loadFileHashes', filePath: hashesFile });
     }
 
     return new Map();
@@ -835,8 +844,9 @@ export class ParallelIndexer {
         data[key] = value;
       }
       await writeFile(hashesFile, JSON.stringify(data, null, 2), 'utf-8');
-    } catch {
+    } catch (err) {
       // Non-fatal: hash persistence failure doesn't break indexing
+      this.logger.warn('Failed to save file hashes', { phaseId: 'parallel-indexer.saveFileHashes', filePath: hashesFile });
     }
   }
 

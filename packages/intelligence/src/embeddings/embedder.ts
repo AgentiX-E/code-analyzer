@@ -8,6 +8,11 @@
 
 import { createHash } from 'node:crypto';
 
+import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+
+// Module-level logger for standalone functions
+const moduleLogger: PhaseLogger = createNoopPhaseLogger();
+
 // ---------------------------------------------------------------------------
 // Embedding Backend Interface
 // ---------------------------------------------------------------------------
@@ -316,6 +321,7 @@ async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBack
   } catch (_err) {
     // Package, model, or ONNX runtime not available — caller falls back to mock.
     // This is expected in CI environments and on machines without ONNX runtime.
+    moduleLogger.error('Embedding generation failed', _err instanceof Error ? _err : new Error(String(_err)), { phaseId: 'embedder', extra: { reason: 'Real ONNX backend unavailable, falling back to mock' } });
     return null;
   }
 }

@@ -21,7 +21,7 @@ import type {
   NodeProperties,
 } from '@code-analyzer/shared';
 
-import { getLanguageFromFilename, CAPTURE_TAGS } from '@code-analyzer/shared';
+import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { LanguageProvider } from '../languages/provider.js';
 import type { ParsedImport } from '../languages/provider.js';
@@ -560,6 +560,7 @@ export class ScanPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = [];
   readonly description = 'Discover source files in the project directory';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -639,6 +640,7 @@ export class ScanPhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
@@ -653,6 +655,7 @@ export class StructurePhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scan'];
   readonly description = 'Build directory hierarchy and module structure';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -685,6 +688,7 @@ export class StructurePhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
@@ -699,6 +703,7 @@ export class ParsePhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scan', 'structure'];
   readonly description = 'Parse source files using language-specific parsers';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -829,6 +834,7 @@ export class ParsePhase implements ExecutablePhase {
         output: { filesParsed: successCount, filesFailed: failCount },
       };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -880,6 +886,7 @@ export class MarkdownPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scan'];
   readonly description = 'Process markdown and documentation files';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -923,6 +930,7 @@ export class MarkdownPhase implements ExecutablePhase {
       ctx.phaseData.set('markdown', { markdownFiles });
       return { phaseId: this.id, status: 'success', output: { markdownFiles } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1081,6 +1089,7 @@ export class ConfigPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scan'];
   readonly description = 'Process configuration files (JSON, YAML, TOML, ENV)';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1126,6 +1135,7 @@ export class ConfigPhase implements ExecutablePhase {
       ctx.phaseData.set('config', { configFiles, totalEntries: configFiles });
       return { phaseId: this.id, status: 'success', output: { configFiles } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1141,6 +1151,7 @@ export class CrossFilePhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['parse'];
   readonly description = 'Analyze cross-file dependencies and imports';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1269,6 +1280,7 @@ export class CrossFilePhase implements ExecutablePhase {
         output: { crossFileDeps: importEdgesCreated },
       };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1284,6 +1296,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['parse'];
   readonly description = 'Resolve scope trees and symbol references';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1540,6 +1553,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         output: { referencesResolved },
       };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1647,6 +1661,7 @@ export class RoutesPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['parse'];
   readonly description = 'Detect and catalog API route handlers';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1711,6 +1726,7 @@ export class RoutesPhase implements ExecutablePhase {
       ctx.phaseData.set('routes', { routesFound });
       return { phaseId: this.id, status: 'success', output: { routesFound } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1739,6 +1755,7 @@ export class ToolsPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['parse'];
   readonly description = 'Detect AI agent tool definitions';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1788,6 +1805,7 @@ export class ToolsPhase implements ExecutablePhase {
       ctx.phaseData.set('tools', { toolsFound });
       return { phaseId: this.id, status: 'success', output: { toolsFound } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1820,6 +1838,7 @@ export class DependencyInjectionPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['parse'];
   readonly description = 'Detect dependency injection patterns';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1877,6 +1896,7 @@ export class DependencyInjectionPhase implements ExecutablePhase {
       ctx.phaseData.set('di', { injectionsFound });
       return { phaseId: this.id, status: 'success', output: { injectionsFound } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -1892,6 +1912,7 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scopeResolution'];
   readonly description = 'Prune local-only symbols from the knowledge graph';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -1957,6 +1978,7 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
       ctx.phaseData.set('pruneLocalSymbols', { symbolsPruned: nodesToPrune.length });
       return { phaseId: this.id, status: 'success', output: { symbolsPruned: nodesToPrune.length } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2050,6 +2072,7 @@ export class CommunitiesPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['crossFile'];
   readonly description = 'Detect code communities and module clusters';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2079,6 +2102,7 @@ export class CommunitiesPhase implements ExecutablePhase {
       ctx.phaseData.set('communities', { communitiesFound: communities.length });
       return { phaseId: this.id, status: 'success', output: { communitiesFound: communities.length } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2094,6 +2118,7 @@ export class ProcessesPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scopeResolution', 'routes'];
   readonly description = 'Detect and catalog business process steps';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2160,6 +2185,7 @@ export class ProcessesPhase implements ExecutablePhase {
       ctx.phaseData.set('processes', { processesFound });
       return { phaseId: this.id, status: 'success', output: { processesFound } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2207,6 +2233,7 @@ export class TestsPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['scopeResolution'];
   readonly description = 'Detect test files and their code relationships';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2279,6 +2306,7 @@ export class TestsPhase implements ExecutablePhase {
       ctx.phaseData.set('tests', { testsFound });
       return { phaseId: this.id, status: 'success', output: { testsFound } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2297,6 +2325,7 @@ export class DumpPhase implements ExecutablePhase {
   ];
   readonly description = 'Serialize and dump the knowledge graph to storage';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2327,6 +2356,7 @@ export class DumpPhase implements ExecutablePhase {
         },
       };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2394,6 +2424,7 @@ export class SimilarityPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['dump'];
   readonly description = 'Compute code similarity between files and functions';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2454,6 +2485,7 @@ export class SimilarityPhase implements ExecutablePhase {
       ctx.phaseData.set('similarity', { similarPairsFound });
       return { phaseId: this.id, status: 'success', output: { similarPairsFound } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2469,6 +2501,7 @@ export class SemanticPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['dump'];
   readonly description = 'Perform semantic analysis on the knowledge graph';
   readonly parallelizable = false;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2575,6 +2608,7 @@ export class SemanticPhase implements ExecutablePhase {
       ctx.phaseData.set('semantic', { semanticRelations });
       return { phaseId: this.id, status: 'success', output: { semanticRelations } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2733,6 +2767,7 @@ export class EmbedPhase implements ExecutablePhase {
   readonly dependencies: PipelinePhaseId[] = ['dump'];
   readonly description = 'Generate vector embeddings for graph nodes';
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
@@ -2756,6 +2791,7 @@ export class EmbedPhase implements ExecutablePhase {
       ctx.phaseData.set('embed', { embeddingsGenerated: embeddings.length });
       return { phaseId: this.id, status: 'success', output: { embeddingsGenerated: embeddings.length } };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
@@ -2770,6 +2806,7 @@ export class TypeResolutionPhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'typeResolution';
   readonly dependencies: PipelinePhaseId[] = ['parse', 'scopeResolution'];
   readonly parallelizable = true;
+  private logger: PhaseLogger = createNoopPhaseLogger();
   readonly description =
     'Extract type information from parsed ASTs and build cross-file type registry';
 
@@ -2846,6 +2883,7 @@ export class TypeResolutionPhase implements ExecutablePhase {
         output: { typesRegistered, typesByLanguage },
       };
     } catch (err) {
+      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }

@@ -6,6 +6,11 @@
 import * as os from 'node:os';
 import v8 from 'node:v8';
 
+import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+
+// Module-level logger for standalone health check functions
+const moduleLogger: PhaseLogger = createNoopPhaseLogger();
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -151,7 +156,8 @@ function createDiskCheck(
           message: `Available space ${available} bytes`,
           details: { availableBytes: available, minBytes: minSpaceBytes },
         };
-      } catch {
+      } catch (err) {
+        moduleLogger.error('Disk space check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'health-check.disk-space' });
         return {
           name: 'disk-space',
           status: 'warn',
@@ -176,6 +182,7 @@ function createStoreCheck(storeCheckFn?: () => Promise<boolean>): HealthCheck {
           message: ok ? 'Store is reachable' : 'Store is unreachable',
         };
       } catch (err) {
+        moduleLogger.error('Store connectivity check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'health-check.store-connectivity' });
         return {
           name: 'store-connectivity',
           status: 'fail',
@@ -203,6 +210,7 @@ function createWorkerPoolCheck(
           message: ok ? 'Worker pool is healthy' : 'Worker pool is degraded',
         };
       } catch (err) {
+        moduleLogger.error('Worker pool check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'health-check.worker-pool' });
         return {
           name: 'worker-pool',
           status: 'fail',
@@ -226,6 +234,7 @@ export class HealthCheckRegistry {
   private version: string;
   private defaultTimeout: number;
   private startTime: number;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   constructor(options: HealthCheckRegistryOptions = {}) {
     this.version = options.version ?? '0.0.0';
@@ -288,6 +297,7 @@ export class HealthCheckRegistry {
         result.latency = Date.now() - checkStart;
         results.push(result);
       } catch (err) {
+        this.logger.error('Health check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: `health-check.${hc.name}` });
         results.push({
           name: hc.name,
           status: 'fail',
@@ -354,6 +364,7 @@ export class HealthCheckRegistry {
       result.latency = Date.now() - checkStart;
       return result;
     } catch (err) {
+      this.logger.error('Health check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: `health-check.${name}` });
       return {
         name,
         status: 'fail',

@@ -6,6 +6,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { PRReviewEngine } from './pr-review.js';
 import { DiffParser } from './diff-parser.js';
@@ -77,6 +78,7 @@ const RETRY_BASE_DELAY_MS = 1000;
 export class GitHubPRWebhook {
   private readonly diffParser: DiffParser;
   private readonly pipeline: ReviewPipeline;
+  private logger: PhaseLogger = createNoopPhaseLogger();
 
   constructor(
     private githubToken: string,
@@ -420,7 +422,7 @@ export class GitHubPRWebhook {
         }
 
         if (!response.ok) {
-          const body = await response.text().catch(() => '');
+          const body = await response.text().catch(err => { this.logger.error('Failed to read GitHub API error response body', err instanceof Error ? err : new Error(String(err)), { phaseId: 'github-webhook.request' }); return ''; });
           throw new Error(
             `GitHub API error (${response.status}): ${body.slice(0, 200)}`,
           );
