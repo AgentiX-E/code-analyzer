@@ -41,6 +41,16 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
     revSuccs[edge.to]!.push(edge.from);
   }
 
+  // Build predecessor list for the reverse CFG (needed for CHK algorithm)
+  // predsInRevCfg[b] = predecessors of b in the reverse CFG
+  // = blocks c where revSuccs[c] contains b
+  const predsInRevCfg: number[][] = Array.from({ length: n }, () => []);
+  for (let b = 0; b < n; b++) {
+    for (const succ of revSuccs[b]!) {
+      predsInRevCfg[succ]!.push(b);
+    }
+  }
+
   // Post-order traversal of the reverse CFG starting from EXIT
   const postOrder = computeReversePostOrder(revSuccs, cfg.exitIndex, n);
 
@@ -94,19 +104,19 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
 
       // Find first processed predecessor in reverse CFG
       let newIdom = NO_IPDOM;
-      for (const pred of revSuccs[b]!) {
+      for (const pred of predsInRevCfg[b]!) {
         if (ipdom[pred] !== NO_IPDOM) {
-          newIdom = pred;
+          newIdom = ipdom[pred];
           break;
         }
       }
       if (newIdom === NO_IPDOM) continue;
 
       // Intersect all other processed predecessors
-      for (const pred of revSuccs[b]!) {
-        if (pred === newIdom) continue;
+      for (const pred of predsInRevCfg[b]!) {
+        if (ipdom[pred] === newIdom) continue;
         if (ipdom[pred] !== NO_IPDOM) {
-          newIdom = intersect(pred, newIdom, ipdom, postNum);
+          newIdom = intersect(ipdom[pred], newIdom, ipdom, postNum);
         }
       }
 
