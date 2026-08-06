@@ -170,7 +170,7 @@ function generateTestCode(
 }
 
 function generateTSTestCode(
-  safeName: string,
+  _safeName: string,
   originalName: string,
   dependencies: string[],
   framework: string,

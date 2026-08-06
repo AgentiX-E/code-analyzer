@@ -14,6 +14,8 @@ export interface ToolResult {
     resource?: { uri: string; mimeType?: string; text: string };
   }>;
   isError?: boolean;
+  /** Optional structured metadata about the tool result (e.g. projectId, counts). */
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaginatedToolResult<T> {

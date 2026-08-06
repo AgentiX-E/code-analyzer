@@ -861,14 +861,14 @@ export async function crossRepoReviewPR(args: Record<string, unknown>, store?: u
       filePath: d.filePath,
       oldHash: '',
       newHash: '',
-      changeType: d.changeType ?? 'modified',
+      changeType: (d.changeType ?? 'modified') as 'modified' | 'added' | 'deleted' | 'renamed',
       oldPath: d.oldPath,
       ranges: (d.ranges ?? []).map((r) => ({
         oldStart: r.oldStart,
         oldEnd: r.oldEnd,
         newStart: r.newStart,
         newEnd: r.newEnd,
-        changeType: r.changeType ?? 'modified',
+        changeType: (r.changeType ?? 'modified') as 'modified' | 'added' | 'removed',
       })),
     }));
 

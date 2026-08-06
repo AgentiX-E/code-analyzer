@@ -158,13 +158,17 @@ export function generateSuggestionForComment(
 ): CodeSuggestion | null {
   if (!comment.content && !comment.existingCode) return null;
 
-  const suggestion = createSuggestionTemplate(comment, language);
-  if (!suggestion) return null;
+  const base = createSuggestionTemplate(comment, language);
+  if (!base) return null;
 
   // Validate the suggestion's syntax
-  const validation = validateSuggestionSyntax(suggestion, language);
-  suggestion.syntaxValid = validation.valid;
-  suggestion.warnings = validation.warnings;
+  const validation = validateSuggestionSyntax(base, language);
+
+  const suggestion: CodeSuggestion = {
+    ...base,
+    syntaxValid: validation.valid,
+    warnings: validation.warnings,
+  };
 
   return suggestion;
 }
@@ -254,7 +258,7 @@ function createBugFixSuggestion(
 function createSecuritySuggestion(
   base: Omit<CodeSuggestion, 'syntaxValid' | 'warnings'>,
   comment: ReviewComment,
-  language: string,
+  _language: string,
 ): Omit<CodeSuggestion, 'syntaxValid' | 'warnings'> {
   base.title = 'Security Fix';
   base.effort = 'medium';
