@@ -93,10 +93,11 @@ export default defineConfig({
         'packages/analyzer/src/languages/php.ts',
         'packages/analyzer/src/languages/ruby.ts',
         'packages/analyzer/src/languages/swift.ts',
-        // Extended tree-sitter language providers: same inherent branch-count
-        // limitation as core languages. Unit-tested via dedicated provider tests
-        // (344 tests across 10 files) but tree-sitter AST traversal paths
-        // cannot all be covered without testing every grammar node-type permutation.
+        // Extended tree-sitter language providers: upgraded to full AST walkers
+        // in Iteration 6. Tested via 323 tests in extended-languages.test.ts.
+        // Same inherent branch-count limitation as core languages — tree-sitter
+        // AST traversal paths cannot all be covered without testing every grammar
+        // node-type permutation. Excluded from branch coverage gate.
         'packages/analyzer/src/languages/bash.ts',
         'packages/analyzer/src/languages/css.ts',
         'packages/analyzer/src/languages/groovy.ts',
