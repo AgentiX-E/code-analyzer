@@ -106,12 +106,31 @@ export function createAstContext(
   // Handle null/undefined gracefully — same as safeLines() pattern
   const src = lines ?? [];
   const source = src.join('\n');
-  const hasAst = false; // AST extraction is attempted lazily
-  const calls = extractCallsRegex(src, language);
-  const strings = extractStringsRegex(src);
-  const imports = extractImportsRegex(src, language);
-  const assignments = extractAssignmentsRegex(src, language);
-  const functions = extractFunctionBoundsRegex(src, language);
+
+  // Attempt tree-sitter parsing for structured extraction
+  let hasAst = false;
+  let calls: AstCallSite[] = [];
+  let strings: AstStringLiteral[] = [];
+  let imports: AstImport[] = [];
+  let assignments: AstAssignment[] = [];
+  let functions: AstFunctionBounds[] = [];
+
+  const tsResult = tryParseWithTreeSitter(source, language);
+  if (tsResult) {
+    hasAst = true;
+    calls = tsResult.calls;
+    strings = tsResult.strings;
+    imports = tsResult.imports;
+    assignments = tsResult.assignments;
+    functions = tsResult.functions;
+  } else {
+    // Fall back to regex-based extraction
+    calls = extractCallsRegex(src, language);
+    strings = extractStringsRegex(src);
+    imports = extractImportsRegex(src, language);
+    assignments = extractAssignmentsRegex(src, language);
+    functions = extractFunctionBoundsRegex(src, language);
+  }
 
   return {
     lines: src,
@@ -137,9 +156,166 @@ export function isTestFile(filePath: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Regex-based Extractors (used when tree-sitter is unavailable)
-// These are improved versions of the original inline regex patterns
-// that existed scattered across 50 checker functions.
+// Tree-Sitter Based Extraction (preferred when grammar is available)
+// ---------------------------------------------------------------------------
+
+/** Cached grammar modules: languageName → grammar. */
+const grammarCache = new Map<string, unknown>();
+
+/** Map language names to their tree-sitter npm package names. */
+const GRAMMAR_PACKAGES: Record<string, string> = {
+  typescript: 'tree-sitter-typescript', tsx: 'tree-sitter-typescript',
+  javascript: 'tree-sitter-typescript', jsx: 'tree-sitter-typescript',
+  python: 'tree-sitter-python', go: 'tree-sitter-go', java: 'tree-sitter-java',
+  kotlin: 'tree-sitter-kotlin', rust: 'tree-sitter-rust', php: 'tree-sitter-php',
+  ruby: 'tree-sitter-ruby', c: 'tree-sitter-c', cpp: 'tree-sitter-cpp',
+  csharp: 'tree-sitter-c-sharp', swift: 'tree-sitter-swift', json: 'tree-sitter-json',
+  yaml: 'tree-sitter-yaml', toml: 'tree-sitter-toml', sql: 'tree-sitter-sql',
+  bash: 'tree-sitter-bash', html: 'tree-sitter-html', css: 'tree-sitter-css',
+  dart: 'tree-sitter-dart', lua: 'tree-sitter-lua', scala: 'tree-sitter-scala',
+  elixir: 'tree-sitter-elixir', groovy: 'tree-sitter-groovy', zig: 'tree-sitter-zig',
+};
+
+function loadGrammar(lang: string): unknown | null {
+  const key = lang.toLowerCase();
+  const c = grammarCache.get(key);
+  if (c !== undefined) return c;
+  const pkg = GRAMMAR_PACKAGES[key];
+  if (!pkg) { grammarCache.set(key, null); return null; }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const g = require(pkg) as Record<string, unknown>;
+    // Handle compound exports: tree-sitter-typescript → .typescript / .tsx
+    if (key === 'typescript' || key === 'javascript' || key === 'jsx') {
+      grammarCache.set(key, g.typescript ?? g);
+      return g.typescript ?? g;
+    }
+    if (key === 'tsx' && g.tsx) { grammarCache.set(key, g.tsx); return g.tsx; }
+    if (key === 'python' && g.python) { grammarCache.set(key, g.python); return g.python; }
+    if (key === 'cpp' && g.cpp) { grammarCache.set(key, g.cpp); return g.cpp; }
+    grammarCache.set(key, g);
+    return g;
+  } catch { grammarCache.set(key, null); return null; }
+}
+
+function tryParseWithTreeSitter(source: string, language: string): {
+  calls: AstCallSite[]; strings: AstStringLiteral[];
+  imports: AstImport[]; assignments: AstAssignment[];
+  functions: AstFunctionBounds[];
+} | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Parser = require('tree-sitter') as new () => {
+      setLanguage(g: unknown): void; parse(src: string): { rootNode: TsNode };
+    };
+    if (!Parser) return null;
+    const grammar = loadGrammar(language);
+    if (!grammar) return null;
+
+    const parser = new Parser();
+    parser.setLanguage(grammar);
+    const tree = parser.parse(source);
+    const root = tree.rootNode;
+    if ((root as { hasError?: boolean }).hasError) return null;
+
+    const calls: AstCallSite[] = [];
+    const strings: AstStringLiteral[] = [];
+    const imports: AstImport[] = [];
+    const assignments: AstAssignment[] = [];
+    const functions: AstFunctionBounds[] = [];
+
+    walkTsTree(root, source, { calls, strings, imports, assignments, functions });
+    return hasAst === false ? null : { calls, strings, imports, assignments, functions };
+  } catch { return null; }
+}
+
+interface TsNode {
+  type: string; text: string;
+  startPosition: { row: number; column: number };
+  endPosition: { row: number; column: number };
+  childCount: number; child(i: number): TsNode;
+  namedChildCount: number; namedChild(i: number): TsNode;
+}
+
+const CALL_TYPES = new Set(['call_expression','method_invocation','function_call','call','invocation','function_application','member_call_expression']);
+const STR_TYPES = new Set(['string','string_fragment','template_string','template_literal','string_literal','template_substitution','interpolation','raw_string','triple_string']);
+const IMP_TYPES = new Set(['import_statement','import_declaration','import_from_statement','import_specification']);
+const ASN_TYPES = new Set(['variable_declaration','assignment_expression','assignment','let_declaration','const_declaration','var_declaration','local_variable_declaration']);
+const FN_TYPES = new Set(['function_declaration','method_definition','function_definition','arrow_function','function','method_declaration','constructor']);
+
+function walkTsTree(node: TsNode, _src: string, ctx: {
+  calls: AstCallSite[]; strings: AstStringLiteral[];
+  imports: AstImport[]; assignments: AstAssignment[];
+  functions: AstFunctionBounds[];
+}): void {
+  const t = node.type;
+  // Calls
+  if (CALL_TYPES.has(t)) {
+    const fnChild = findChild(node, ['identifier','property_identifier']);
+    if (fnChild) {
+      const obj = findPrevSibling(node, fnChild, ['identifier','member_expression']);
+      const args = findChild(node, ['arguments','argument_list']);
+      const argTexts: string[] = [];
+      if (args) for (let j = 0; j < args.namedChildCount; j++) argTexts.push(args.namedChild(j).text);
+      ctx.calls.push({
+        name: fnChild.text,
+        object: obj ? obj.text : null,
+        text: node.text, line: node.startPosition.row + 1,
+        arguments: argTexts,
+      });
+    }
+  }
+  // Strings
+  if (STR_TYPES.has(t)) {
+    const v = node.text;
+    const stripped = (v.startsWith("'")&&v.endsWith("'"))||(v.startsWith('"')&&v.endsWith('"'))||(v.startsWith('`')&&v.endsWith('`')) ? v.slice(1,-1) : v;
+    ctx.strings.push({ value: stripped, text: v, line: node.startPosition.row + 1 });
+  }
+  // Imports
+  if (IMP_TYPES.has(t)) {
+    const src = findChild(node, ['string','string_fragment']);
+    if (src) ctx.imports.push({ moduleSpecifier: src.text.replace(/['"]/g,''), symbols: [], line: node.startPosition.row + 1, isType: t.includes('type') });
+  }
+  // Assignments
+  if (ASN_TYPES.has(t)) {
+    const id = findChild(node, ['identifier','variable_declarator']);
+    const name = id && id.type === 'variable_declarator' ? findChild(id, ['identifier'])?.text : id?.text;
+    if (name) ctx.assignments.push({ name, value: node.text, line: node.startPosition.row + 1 });
+  }
+  // Functions
+  if (FN_TYPES.has(t)) {
+    const id = findChild(node, ['identifier','property_identifier']);
+    const params = findChild(node, ['parameters','formal_parameters','parameter_list']);
+    ctx.functions.push({
+      name: id?.text ?? '<anonymous>',
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      paramCount: params ? params.namedChildCount : 0,
+    });
+  }
+  for (let i = 0; i < node.childCount; i++) walkTsTree(node.child(i), _src, ctx);
+}
+
+function findChild(node: TsNode, types: string[]): TsNode | null {
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const c = node.namedChild(i);
+    if (types.includes(c.type)) return c;
+  }
+  return null;
+}
+
+function findPrevSibling(node: TsNode, after: TsNode, types: string[]): TsNode | null {
+  let found = false;
+  for (let i = node.namedChildCount - 1; i >= 0; i--) {
+    const c = node.namedChild(i);
+    if (c === after) { found = true; continue; }
+    if (found && types.includes(c.type)) return c;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Regex-based Extractors (fallback when tree-sitter is unavailable)
 // ---------------------------------------------------------------------------
 
 function extractCallsRegex(lines: string[], language: string): AstCallSite[] {
