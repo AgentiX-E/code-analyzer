@@ -120,6 +120,16 @@ export class CrossRepoIndexer {
     private groupManager: RepoGroupManager,
   ) {}
 
+  /** Public accessor for the underlying graph store (used by incremental reindexer). */
+  getStore(): InMemoryGraphStore {
+    return this.store;
+  }
+
+  /** Public accessor for the group manager (used by incremental reindexer). */
+  getGroupManager(): RepoGroupManager {
+    return this.groupManager;
+  }
+
   // -----------------------------------------------------------------------
   // Indexing
   // -----------------------------------------------------------------------
@@ -228,8 +238,9 @@ export class CrossRepoIndexer {
   /**
    * Index a single repo directory — discover files, extract symbols,
    * and populate the graph store.
+   * Made public for use by IncrementalReindexer.
    */
-  private async indexSingleRepo(
+  async indexSingleRepo(
     projectId: string,
     localPath: string,
     options: IndexOptions,

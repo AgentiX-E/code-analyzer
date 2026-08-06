@@ -157,7 +157,7 @@ export class NearCloneDetector {
         projectId: graph.projectId,
         sourceId: pair.nodeId1,
         targetId: pair.nodeId2,
-        type: 'SIMILAR_TO' as any,
+        type: 'SIMILAR_TO',
         properties: {
           jaccardEstimate: pair.jaccardEstimate,
           detector: 'minhash-lsh',

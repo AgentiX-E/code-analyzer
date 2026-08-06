@@ -321,7 +321,7 @@ export class FrameworkRouteDetector {
         id: graph.edges.size + 1,
         sourceId: fileNodeId,
         targetId: routeNodeId,
-        type: 'HANDLES' as any,
+        type: 'HANDLES',
         properties: { method: route.method, path: route.path },
       } as unknown as GraphEdge;
 
@@ -337,7 +337,7 @@ export class FrameworkRouteDetector {
               id: graph.edges.size + 1,
               sourceId: routeNodeId,
               targetId: id,
-              type: 'HANDLES' as any,
+              type: 'HANDLES',
               properties: { method: route.method, path: route.path },
             } as unknown as GraphEdge;
             graph.edges.set(handlerEdge.id, handlerEdge);

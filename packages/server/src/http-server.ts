@@ -94,7 +94,7 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
     keepAliveTimeout: config.keepAliveTimeout,
     requestIdHeader: 'x-request-id',
     genReqId: () => `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-  } as any);
+  });
 
   // --- Connection tracking ---
   app.addHook('onRequest', async (_request, _reply) => {
@@ -105,12 +105,12 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   });
 
   // --- Middleware Pipeline ---
-  registerCors(app as any, config.cors);
-  registerAuth(app as any, config.auth);
-  registerLogging(app as any, config.logging);
-  registerRateLimit(app as any, config.rateLimit);
-  registerMtls(app as any, config.mtls);
-  registerErrorHandler(app as any);
+  registerCors(app, config.cors);
+  registerAuth(app, config.auth);
+  registerLogging(app, config.logging);
+  registerRateLimit(app, config.rateLimit);
+  registerMtls(app, config.mtls);
+  registerErrorHandler(app);
 
   // --- Custom Plugins ---
   if (options.plugins) {
@@ -121,16 +121,13 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
 
   // --- Routes ---
   const healthRegistry = options.healthCheck ?? HealthCheckRegistry.createDefault();
-  // Fastify with http2:true creates Http2SecureServer which is incompatible
-  // with route functions typed for RawServerDefault. Cast to any to bridge.
-  const routes = app as any;
-  registerHealthRoutes(routes, config, healthRegistry);
-  registerToolRoutes(routes, config, () => options.registry);
-  registerSSERoutes(routes, config, () => options.registry);
+  registerHealthRoutes(app, config, healthRegistry);
+  registerToolRoutes(app, config, () => options.registry);
+  registerSSERoutes(app, config, () => options.registry);
 
   // Register webhook endpoint if configured
   if (options.webhook) {
-    registerWebhookRoutes(routes, config, options.webhook);
+    registerWebhookRoutes(app, config, options.webhook);
   }
 
   // Register graph visualization endpoint if store is provided

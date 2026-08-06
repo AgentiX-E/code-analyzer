@@ -438,7 +438,7 @@ function buildSummary(comments: any[]): Record<string, number> {
   for (const c of comments) {
     const key = c.severity as string;
     if (key in summary) {
-      (summary as any)[key]++;
+      summary[key as keyof typeof summary]++;
     }
   }
   return summary;

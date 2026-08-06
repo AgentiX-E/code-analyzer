@@ -5,6 +5,7 @@
 import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
 import { buildSearchResponse, buildTraceResponse, buildImpactResponse } from './smart-response.js';
+import type { GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Singleton RepoGroupManager for session-scoped group persistence
@@ -856,20 +857,7 @@ export async function crossRepoReviewPR(args: Record<string, unknown>, store?: u
 
   try {
     // Build GitDiff objects from raw diffs
-    const diffs: Array<{
-      filePath: string;
-      oldHash: string;
-      newHash: string;
-      changeType: string;
-      oldPath?: string;
-      ranges: Array<{
-        oldStart: number;
-        oldEnd: number;
-        newStart: number;
-        newEnd: number;
-        changeType: string;
-      }>;
-    }> = (params.diffs ?? []).map((d) => ({
+    const diffs: GitDiff[] = (params.diffs ?? []).map((d) => ({
       filePath: d.filePath,
       oldHash: '',
       newHash: '',
@@ -941,7 +929,7 @@ export async function crossRepoReviewPR(args: Record<string, unknown>, store?: u
       }
     }
 
-    const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, parsedSourceRepo, diffs as any);
+    const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, parsedSourceRepo, diffs);
 
     return {
       content: [{

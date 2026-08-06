@@ -9,6 +9,7 @@ import type {
   InMemoryGraphStore,
 } from '@code-analyzer/infra';
 import type { NodeQuery, EdgeQuery, FtsSearchResult } from '@code-analyzer/infra';
+import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Resolver types
@@ -268,7 +269,7 @@ export const resolvers = {
         offset,
       };
       if (args.label) {
-        query.label = args.label as any;
+        query.label = args.label as NodeLabel;
       }
 
       const result = store.queryNodes(query);
@@ -294,7 +295,7 @@ export const resolvers = {
       };
       if (args.sourceId != null) query.sourceId = args.sourceId;
       if (args.targetId != null) query.targetId = args.targetId;
-      if (args.type) query.type = args.type as any;
+      if (args.type) query.type = args.type as RelationshipType;
 
       const result = store.queryEdges(query);
       return {

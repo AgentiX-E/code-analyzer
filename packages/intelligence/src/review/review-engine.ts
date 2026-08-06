@@ -41,6 +41,11 @@ export interface DiffHunk {
   newLines: string[];
 }
 
+/** Extended GitDiff that may include parsed hunks. */
+interface GitDiffWithHunks extends GitDiff {
+  hunks?: DiffHunk[];
+}
+
 /**
  * Abstraction for reading file contents from git history.
  * Required for the review engine to access actual code being reviewed.
@@ -551,15 +556,15 @@ export class CodeReviewEngine {
     }
 
     // If we have parsed hunks, use the precise hunk-based mapping
-    if ((diff as any).hunks && (diff as any).hunks.length > 0) {
+    if ((diff as GitDiffWithHunks).hunks && (diff as GitDiffWithHunks).hunks.length > 0) {
       return comments.map((comment) => {
         const newStartLine = this.mapLineThroughHunks(
           comment.startLine,
-          (diff as any).hunks!,
+          (diff as GitDiffWithHunks).hunks!,
         );
         const newEndLine = this.mapLineThroughHunks(
           comment.endLine,
-          (diff as any).hunks!,
+          (diff as GitDiffWithHunks).hunks!,
         );
         const clampedStart = Math.max(1, newStartLine);
         const clampedEnd = Math.max(clampedStart, newEndLine);

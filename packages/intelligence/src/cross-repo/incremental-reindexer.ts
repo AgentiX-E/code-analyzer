@@ -136,18 +136,17 @@ export class IncrementalReindexer {
     indexer: CrossRepoIndexer,
   ): Promise<ReindexResult> {
     const startTime = Date.now();
-    const nodesBefore = (indexer as any).store?.getNodeCount?.() ?? 0;
-    const edgesBefore = (indexer as any).store?.getEdgeCount?.() ?? 0;
+    const store = indexer.getStore();
+    const nodesBefore = store.getNodeCount();
+    const edgesBefore = store.getEdgeCount();
 
     let filesProcessed = 0;
     let filesSkipped = 0;
 
     // Remove nodes for deleted files
     if (changes.deleted.length > 0) {
-      const store = (indexer as any).store;
-      if (store) {
-        const allNodes = store.getAllNodes?.() ?? [];
-        for (const node of allNodes) {
+      const allNodes = store.getAllNodes();
+      for (const node of allNodes) {
           if (node.filePath && changes.deleted.includes(node.filePath)) {
             try {
               const edges = store.getEdgesForNode?.(node.id) ?? [];
@@ -171,11 +170,11 @@ export class IncrementalReindexer {
       }
     }
 
-    // Re-index added + modified files by triggering indexSingleRepo if available
+    // Re-index added + modified files by triggering indexSingleRepo
     const filesToProcess = [...changes.added, ...changes.modified];
-    if (filesToProcess.length > 0 && typeof (indexer as any).indexSingleRepo === 'function') {
+    if (filesToProcess.length > 0) {
       try {
-        await (indexer as any).indexSingleRepo(
+        await indexer.indexSingleRepo(
           repoPath,
           repoPath,
           { force: true } as IndexOptions,
@@ -188,8 +187,8 @@ export class IncrementalReindexer {
       filesSkipped = filesToProcess.length;
     }
 
-    const nodesAfter = (indexer as any).store?.getNodeCount?.() ?? 0;
-    const edgesAfter = (indexer as any).store?.getEdgeCount?.() ?? 0;
+    const nodesAfter = store.getNodeCount();
+    const edgesAfter = store.getEdgeCount();
 
     return {
       filesProcessed,

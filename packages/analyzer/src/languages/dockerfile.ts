@@ -31,7 +31,7 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
 
   protected override getNodeMappings(): NodeTypeMapping[] {
     return [
-      { nodeType: 'from_instruction', captureTag: 'decorator' as any, nameChildType: 'image_spec' },
+      { nodeType: 'from_instruction', captureTag: CAPTURE_TAGS.DECORATOR, nameChildType: 'image_spec' },
       { nodeType: 'instruction', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
     ];
   }

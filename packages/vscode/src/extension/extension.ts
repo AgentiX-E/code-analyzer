@@ -9,7 +9,7 @@ import { ConfigService } from '../services/config-service.js';
 import { FileWatcherService } from '../services/file-watcher.js';
 import { createStatusBarManager } from '../views/status-bar.js';
 import { registerCommands } from './commands.js';
-import { CodeAnalyzerChatParticipant } from '../participant/code-analyzer-participant.js';
+import { CodeAnalyzerChatParticipant, type ChatRequest, type ChatContext, type ChatResponseStream, type CancellationToken } from '../participant/code-analyzer-participant.js';
 import {
   SidebarLogic,
   generateSidebarHtml,
@@ -22,8 +22,18 @@ import { CommentLogic } from '../providers/comment-provider.js';
 import type {
   IVSCodeAPI,
   DiagnosticCollection,
+  Diagnostic,
+  StatusBarItem,
   VSCodeWorkspaceFolder,
 } from '../services/vscode-api.js';
+import { DiagnosticSeverity } from '../services/vscode-api.js';
+import type { ReviewCommentItem } from '../services/engine-bridge.js';
+import type { CodeAnalyzerConfig } from '@code-analyzer/shared';
+
+/** Chat participant with slash command registration (runtime has .command() not in vscode types). */
+interface ChatParticipantExt extends vscode.Disposable {
+  command(name: string, handler: (...args: unknown[]) => unknown): void;
+}
 
 // ---------------------------------------------------------------------------
 // Extension state
@@ -186,7 +196,7 @@ function createVSCodeAPIAdapter(): IVSCodeAPI {
       vscode.window.createStatusBarItem(
         alignment as unknown as vscode.StatusBarAlignment,
         priority,
-      ) as unknown as any,
+      ) as unknown as StatusBarItem,
 
     // URI
     Uri: {
@@ -226,9 +236,14 @@ function registerChatParticipantWithCommands(
     'code-analyzer',
     async (request, _ctx, stream, token) => {
       const handler = new CodeAnalyzerChatParticipant(eng);
-      return handler.handleRequest(request as any, _ctx as any, stream as any, token as any);
+      return handler.handleRequest(
+        request as unknown as ChatRequest,
+        _ctx as unknown as ChatContext,
+        stream as unknown as ChatResponseStream,
+        token as unknown as CancellationToken,
+      );
     },
-  ) as any;
+  ) as unknown as ChatParticipantExt;
 
   chatParticipant = participant;
 
@@ -382,7 +397,7 @@ function registerStatusBar(
         vscode.window.createStatusBarItem(
           alignment as unknown as vscode.StatusBarAlignment,
           priority,
-        ) as any,
+        ) as unknown as StatusBarItem,
     },
     eng,
   );
@@ -414,7 +429,7 @@ function registerConfigWebview(
               if (message.command === 'saveConfig') {
                 const config = message['config'] as Record<string, unknown> | undefined;
                 if (config) {
-                  const errors = configLogic.validate(config as any);
+                  const errors = configLogic.validate(config as Partial<CodeAnalyzerConfig>);
                   if (errors.length > 0) {
                     webviewView.webview.postMessage({
                       command: 'configError',
@@ -495,7 +510,7 @@ function registerCodeLensProvider(
             filePath: document.uri.fsPath,
             startLine: diagnostic.range.start.line,
             endLine: diagnostic.range.end.line,
-          } as any);
+          } as unknown as ReviewCommentItem);
 
           for (const action of actions) {
             const lens = new vscode.CodeLens(diagnostic.range, {
@@ -550,7 +565,7 @@ function registerHoverProvider(
               message: diagnostic.message,
               title: diagnostic.message.split('\n')[0] ?? 'Issue',
               suggestions: [],
-            } as any);
+            } as unknown as ReviewCommentItem);
 
             const markdown = reviewLogic.buildHoverMarkdown(hoverContent);
             return new vscode.Hover(
@@ -589,12 +604,12 @@ function registerReviewOnSave(
         const comments = await eng.reviewWorkspace();
         const fileComments = comments.filter((c) => c.path === document.uri.fsPath);
         if (fileComments.length === 0) {
-          commentCollection.delete({ toString: () => document.uri.fsPath } as any);
+          commentCollection.delete({ toString: () => document.uri.fsPath });
           return;
         }
 
         const diagnostics = commentLogic.mapCommentsToDiagnostics(fileComments);
-        const vsDiags = diagnostics.map((d) => ({
+        const vsDiags: Diagnostic[] = diagnostics.map((d) => ({
           range: {
             startLine: d.range.startLine,
             startCharacter: d.range.startCharacter,
@@ -603,12 +618,12 @@ function registerReviewOnSave(
           },
           message: d.message,
           severity: d.severity === 'error'
-            ? 0 : d.severity === 'warning' ? 1 : 2,
+            ? DiagnosticSeverity.Error : d.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
           source: d.source,
         }));
         commentCollection.set(
-          { toString: () => document.uri.fsPath } as any,
-          vsDiags as any,
+          { toString: () => document.uri.fsPath },
+          vsDiags,
         );
       } catch {
         // Silently handle review errors on save
@@ -656,7 +671,7 @@ function registerGraphTreeView(
       },
 
       getParent(element: TreeItemData): vscode.ProviderResult<TreeItemData> {
-        return treeLogic.getParent(element.id) as any;
+        return treeLogic.getParent(element.id);
       },
     },
   );

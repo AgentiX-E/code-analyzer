@@ -4,7 +4,7 @@
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import type { LanguageProvider, ParsedImport } from './provider.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
+import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 export function lineNumberAt(source: string, offset: number): number {
   return source.slice(0, offset).split('\n').length;
@@ -89,7 +89,7 @@ export function extractClassLike(
     const implementsMatch = fullLine.match(/implements\s+([\w\s,]+)/);
 
     captures.push({
-      tag: tag as any,
+      tag: tag as CaptureTag,
       text: `${keyword} ${name}`,
       startLine,
       endLine,

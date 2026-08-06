@@ -211,7 +211,7 @@ export class IncrementalCrossRepoIndexer {
     const startTime = Date.now();
     const errors: string[] = [];
 
-    const group = (this.indexer as any).groupManager?.getGroup(groupId);
+    const group = this.indexer.getGroupManager().getGroup(groupId);
     if (!group) {
       throw new Error(`Group "${groupId}" not found`);
     }
@@ -251,7 +251,7 @@ export class IncrementalCrossRepoIndexer {
       if (filesToReindex.length > 0) {
         const beforeNodeCount = this.store.getNodeCount();
         try {
-          await (this.indexer as any).indexSingleRepo(
+          await this.indexer.indexSingleRepo(
             repo.fullName,
             repo.localPath,
             { ...options, force: true },

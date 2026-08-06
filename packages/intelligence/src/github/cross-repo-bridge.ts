@@ -10,7 +10,7 @@ import type { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import type { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
 import type { PRReviewEngine } from '../review/pr-review.js';
 import { DiffParser } from '../review/diff-parser.js';
-import type { PullRequest, GitDiff } from '@code-analyzer/shared';
+import type { PullRequest, GitDiff, GitHubRepo } from '@code-analyzer/shared';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -196,8 +196,8 @@ export class CrossRepoWebhookBridge {
         title: payload.pull_request.title,
         body: payload.pull_request.body,
         state: 'open',
-        base: { ref: payload.pull_request.base.ref, sha: payload.pull_request.base.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as any },
-        head: { ref: payload.pull_request.head.ref, sha: payload.pull_request.head.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as any },
+        base: { ref: payload.pull_request.base.ref, sha: payload.pull_request.base.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as unknown as GitHubRepo },
+        head: { ref: payload.pull_request.head.ref, sha: payload.pull_request.head.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as unknown as GitHubRepo },
         user: { login: '' },
         labels: [],
         createdAt: new Date().toISOString(),

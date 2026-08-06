@@ -265,7 +265,15 @@ export class GitHubApiClient {
 
     // Sign with the private key using Node.js crypto
     /* v8 ignore start */
-    const { subtle } = await import('node:crypto').then(() => globalThis.crypto?.subtle ? { subtle: globalThis.crypto.subtle } : import('node:crypto').then(c => c.webcrypto?.subtle ? { subtle: (c as any).webcrypto.subtle } : { subtle: null })) as any;
+    const { subtle: _unused } = await import('node:crypto').then(() => (
+      globalThis.crypto?.subtle
+        ? { subtle: globalThis.crypto.subtle }
+        : import('node:crypto').then(c => (
+            c.webcrypto?.subtle
+              ? { subtle: c.webcrypto.subtle }
+              : { subtle: null as null }
+          ))
+    )) as Promise<{ subtle: unknown }>;
     /* v8 ignore stop */
 
     const sig = await signWithNode(signingInput, privateKeyPem);

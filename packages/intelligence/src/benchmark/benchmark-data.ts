@@ -377,7 +377,7 @@ const BENCH_QUALITY_001: BenchmarkCase = {
       filePath: '/src/services/report-builder.ts',
       beforeContent: '',
       afterContent: `export function buildReport(data: any[]): any {
-  const report = { title: '', metrics: [] as any[], totals: {} as any };
+  const report = { title: '', metrics: [] as Array<{ name: string; value: number }>, totals: {} as Record<string, number> };
   report.title = 'Monthly Report - ' + new Date().toISOString();
   let sum = 0;
   let count = 0;

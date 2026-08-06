@@ -354,7 +354,7 @@ Reason: ${result.decision.reason}`;
           const crossEdges = this.store.queryEdges({
             projectId,
             sourceId: func.id,
-            type: 'CROSS_REPO_CALLS' as any,
+            type: 'CROSS_REPO_CALLS',
           });
           for (const edge of crossEdges.items) {
             context.crossRepoRefs.push(`${edge.sourceId} → ${edge.targetId}`);

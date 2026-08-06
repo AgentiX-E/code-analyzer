@@ -230,7 +230,7 @@ export function generateSynthesisReport(
     lens: 'synthesis',
   };
 
-  const finding = createLensFinding('synthesis', 'maintainability' as any, 'info',
+  const finding = createLensFinding('synthesis', 'maintainability', 'info',
     `Code Health Score: ${result.summary.healthScore}/100`,
     `Found ${result.summary.totalFindings} issues (${result.summary.critical} critical, ${result.summary.high} high, ${result.summary.medium} medium, ${result.summary.low} low) across ${result.summary.lanesActive.length} lanes. Health score: ${result.summary.healthScore}/100.`,
     evidence, { ruleId: 'synthesis' });

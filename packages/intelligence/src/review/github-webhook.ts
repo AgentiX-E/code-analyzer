@@ -16,6 +16,15 @@ import type { ReviewConfig } from './review-engine.js';
 // Types
 // ---------------------------------------------------------------------------
 
+interface GitHubPRFile {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch?: string;
+}
+
 export interface GitHubPREvent {
   action: 'opened' | 'synchronize' | 'reopened' | 'closed';
   pull_request: {
@@ -271,8 +280,8 @@ export class GitHubPRWebhook {
     });
 
     try {
-      const data = JSON.parse(response);
-      return (data as any[]).map((f) => ({
+      const data = JSON.parse(response) as GitHubPRFile[];
+      return data.map((f) => ({
         filename: f.filename as string,
         status: f.status as string,
         additions: f.additions as number,

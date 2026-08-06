@@ -113,7 +113,7 @@ export async function reviewPR(args: Record<string, unknown>, store?: unknown): 
         };
 
         const engine = ctx.getCrossRepoPRReviewEngine();
-        const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, projectId, diffs as any);
+        const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, projectId, diffs);
 
         return {
           content: [{

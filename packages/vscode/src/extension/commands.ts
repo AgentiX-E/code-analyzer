@@ -269,7 +269,7 @@ export function registerCommands(
           selection: issue.startLine != null
             ? { startLine: issue.startLine, startCharacter: 0, endLine: issue.startLine, endCharacter: 0 }
             : undefined,
-        } as any);
+        });
       } catch {
         await api.showErrorMessage(`Could not open file: ${issue.filePath}`);
       }
@@ -314,7 +314,7 @@ export function registerCommands(
     api.registerCommand('code-analyzer.showChat', () => {
       api.executeCommand('workbench.action.chat.open', {
         query: '@code-analyzer',
-      } as any);
+      });
     }),
   );
 
@@ -325,7 +325,7 @@ export function registerCommands(
       const slashCmd = command ?? '/review';
       await api.executeCommand('workbench.action.chat.open', {
         query: `@code-analyzer ${slashCmd}`,
-      } as any);
+      });
     }),
   );
 

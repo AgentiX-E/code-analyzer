@@ -10,6 +10,7 @@ import {
   PipelineOrchestrator,
   type PipelineResult,
   type PhaseResult,
+  type ExecutablePhase,
 } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type {
@@ -115,7 +116,7 @@ export async function analyzeRepository(
         metadata: {},
       } as unknown as PipelineContext;
 
-      const orchestrator = new PipelineOrchestrator(phases as any);
+      const orchestrator = new PipelineOrchestrator(phases as ExecutablePhase[]);
       const result: PipelineResult = await orchestrator.execute(ctx);
 
       clearTimeout(timer);

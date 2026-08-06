@@ -3,7 +3,7 @@
 // optional semantic scoring. Supports multiple output formats.
 
 import { EOL } from 'node:os';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore, type FtsSearchResult } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,14 +71,14 @@ export async function searchGraph(
     const ftsRaw = graphStore.searchFts(options.query, { limit });
 
     // Map to structured results
-    const results: SearchResult[] = (ftsRaw as any[]).map((r: any) => ({
-      id: r.id ?? 0,
-      name: r.name ?? 'unknown',
-      type: r.type ?? r.label ?? 'unknown',
-      file: r.file ?? '',
-      line: r.line ?? 1,
-      score: r.score ?? 0,
-      snippet: options.verbose ? ((r.content ?? '').slice(0, 200)) : undefined,
+    const results: SearchResult[] = ftsRaw.map((r) => ({
+      id: r.nodeId ?? 0,
+      name: r.node.name ?? 'unknown',
+      type: r.node.label ?? r.matchedColumn ?? 'unknown',
+      file: (r.node.filePath ?? ''),
+      line: r.node.startLine ?? 1,
+      score: r.rank ?? 0,
+      snippet: options.verbose ? (r.snippet.slice(0, 200)) : undefined,
     }));
 
     // Filter by type if specified

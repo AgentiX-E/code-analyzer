@@ -311,7 +311,7 @@ export class DataflowSearchEngine {
       const searchText = `${node.name} ${node.qualifiedName} ${node.signature ?? ''}`;
       for (const pattern of patterns) {
         if (pattern.namePattern.test(searchText)) {
-          const isSink = sinkCategories.has((pattern as TaintSink).category as any);
+          const isSink = sinkCategories.has((pattern as TaintSink).category);
           nodes.push({
             nodeId: node.id,
             name: node.name,
