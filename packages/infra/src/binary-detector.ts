@@ -82,12 +82,11 @@ const TEXT_EXTENSIONS = new Set([
 
 export class BinaryFileDetector {
   private readonly maxBytesToRead: number;
-  private readonly useEncodingDetection: boolean;
   private signatures: BinarySignature[];
 
   constructor(options: BinaryDetectorOptions = {}) {
     this.maxBytesToRead = options.maxBytesToRead ?? 4096;
-    this.useEncodingDetection = options.useEncodingDetection ?? true;
+    void (options.useEncodingDetection);
 
     // Custom signatures go first so they take priority over defaults
     const custom = options.customSignatures ?? [];
@@ -186,7 +185,7 @@ export class BinaryFileDetector {
     const checkSize = Math.min(buffer.length, 4096);
     let nonPrintable = 0;
     for (let i = 0; i < checkSize; i++) {
-      const byte = buffer[i];
+      const byte = buffer[i]!;
       // Allow: tab(9), newline(10), carriage return(13), space(32) through tilde(126)
       if (byte !== 0x09 && byte !== 0x0a && byte !== 0x0d &&
         (byte < 0x20 || byte > 0x7e)) {

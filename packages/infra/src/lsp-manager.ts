@@ -51,32 +51,21 @@ const SUPPORTED_LSP_LANGUAGES: LSPLanguage[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Cache Entry
-// ---------------------------------------------------------------------------
-
-interface CacheEntry {
-  key: string;
-  result: TypeInfoResult;
-}
-
-// ---------------------------------------------------------------------------
 // LSPManager
 // ---------------------------------------------------------------------------
 
 export class LSPManager {
-  private readonly projectRoot: string;
   private readonly enabled: boolean;
   private readonly cacheSize: number;
   private running: boolean;
-  private readonly maxServers: number;
 
   /** Simple LRU cache: Map maintains insertion order in JS */
   private readonly cache: Map<string, TypeInfoResult>;
 
   constructor(options: LSPManagerOptions = {}) {
-    this.projectRoot = options.projectRoot ?? process.cwd();
+    void (options.projectRoot);
     this.enabled = options.enabled ?? true;
-    this.maxServers = options.maxServers ?? 10;
+    void (options.maxServers);
     this.cacheSize = options.cacheSize ?? 1000;
     this.cache = new Map();
     this.running = false;
@@ -146,9 +135,9 @@ export class LSPManager {
   // -------------------------------------------------------------------------
 
   async getDefinition(
-    filePath: string,
-    line: number,
-    column: number,
+    _filePath: string,
+    _line: number,
+    _column: number,
     language: LSPLanguage,
   ): Promise<DefinitionResult | null> {
     if (!this.enabled || !this.isAvailable(language)) {
@@ -162,9 +151,9 @@ export class LSPManager {
   // -------------------------------------------------------------------------
 
   async getReferences(
-    filePath: string,
-    line: number,
-    column: number,
+    _filePath: string,
+    _line: number,
+    _column: number,
     language: LSPLanguage,
   ): Promise<ReferenceResult[]> {
     if (!this.enabled || !this.isAvailable(language)) {
@@ -178,8 +167,8 @@ export class LSPManager {
   // -------------------------------------------------------------------------
 
   async notifyFileOpen(
-    filePath: string,
-    content: string,
+    _filePath: string,
+    _content: string,
     language: LSPLanguage,
   ): Promise<void> {
     if (!this.enabled || !this.isAvailable(language)) {
@@ -189,7 +178,7 @@ export class LSPManager {
   }
 
   async notifyFileClose(
-    filePath: string,
+    _filePath: string,
     language: LSPLanguage,
   ): Promise<void> {
     if (!this.enabled || !this.isAvailable(language)) {

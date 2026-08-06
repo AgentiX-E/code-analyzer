@@ -5,7 +5,6 @@
 
 import { readFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { basename } from 'node:path';
 import { BatchProcessor } from './batch-processor.js';
 
 // ---------------------------------------------------------------------------
@@ -138,7 +137,6 @@ export function matchGlob(filePath: string, pattern: string): boolean {
   const patternSegments = pattern.replace(/\\/g, '/').split('/');
 
   // Compute segment-level match
-  let si = 0, pi = 0;
   const starCache = new Map<string, boolean>();
 
   function matchSegments(si: number, pi: number): boolean {
