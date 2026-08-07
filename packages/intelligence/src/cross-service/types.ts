@@ -4,6 +4,8 @@
  * Ported from the C implementation in codebase-memory-mcp.
  */
 
+import { EDGE_CALLS, EDGE_CONFIGURES, EDGE_EMITS, EDGE_HANDLES, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_LISTENS_ON } from '@code-analyzer/shared';
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -436,7 +438,6 @@ export const ROUTE_REG_LIBRARIES: LibraryPattern[] = [
   // Elixir
   { libraryId: "Phoenix.Router", kind: "ROUTE_REG" },
   // Scala
-import { EDGE_CALLS, EDGE_CONFIGURES, EDGE_EMITS, EDGE_HANDLES, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_LISTENS_ON } from '@code-analyzer/shared';
   { libraryId: "akka.http.scaladsl.server", kind: "ROUTE_REG" },
   { libraryId: "play.api.routing", kind: "ROUTE_REG" },
 ];

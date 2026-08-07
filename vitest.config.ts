@@ -23,9 +23,8 @@ export default defineConfig({
     // Use singlefork to prevent worker pool crashes from native modules
     // (tree-sitter grammars are not always fork-safe in vitest workers)
     pool: 'forks',
-    poolOptions: {
-      forks: { singleFork: true },
-    },
+    // Vitest 4.x: poolOptions singleFork migrated to top-level singleFork
+    singleFork: true,
     include: [
       'packages/*/src/**/*.test.ts',
       'tests/unit/**/*.test.ts',
