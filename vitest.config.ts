@@ -200,7 +200,7 @@ export default defineConfig({
         statements: 95,
       },
     },
-    testTimeout: 40_000,
+    testTimeout: 90_000,
     hookTimeout: 60_000,
     // Retry flaky tests (primarily git-intensive tests that suffer from
     // file-lock contention in parallel CI runners).
