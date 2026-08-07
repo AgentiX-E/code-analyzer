@@ -282,6 +282,10 @@ describe('CodeAnalyzerDaemon', () => {
 
   describe('stale PID handling', () => {
     it('should not throw if PID file exists but process is dead', async () => {
+      // Ensure clean state — stop any existing daemon and remove stale PID file
+      try { await daemon.stop(); } catch { /* already stopped */ }
+      try { fs.unlinkSync(pidFile); } catch { /* no file */ }
+
       // Write a fake PID file with a likely non-existent PID
       fs.writeFileSync(pidFile, '99999', 'utf-8');
 

@@ -30,3 +30,4 @@ reports/
 report_*.json
 logs/
 core.*
+tests/benchmarks/real-world/.stress-data/
