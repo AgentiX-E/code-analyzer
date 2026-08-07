@@ -1,4 +1,7 @@
 // @code-analyzer/analyzer — Pipeline Phase: TypeResolution
+// Enhanced type resolution phase supporting TypeScript, Python, Go, and Java.
+// Uses language-specific advanced resolvers to extract type information
+// from parsed ASTs and build a cross-file type registry.
 
 import type {
   PipelinePhaseId,
@@ -9,12 +12,33 @@ import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
 import { TypeRegistry } from '../../resolution/type-registry.js';
-import { TypeScriptTypeResolver } from '../../resolution/typescript-resolver.js';
-import { PythonTypeResolver } from '../../resolution/python-resolver.js';
+import { TypeScriptAdvancedResolver } from '../../resolution/typescript-resolver-advanced.js';
+import { PythonAdvancedResolver } from '../../resolution/python-resolver-advanced.js';
+import { GoResolver } from '../../resolution/go-resolver.js';
+import { JavaResolver } from '../../resolution/java-resolver.js';
 
 // ---------------------------------------------------------------------------
-// TypeResolutionPhase — Hybrid LSP type extraction (TS/JS + Python)
+// TypeResolutionPhase — Multi-language type extraction
 // ---------------------------------------------------------------------------
+
+/**
+ * Language-to-resolver mapping supporting:
+ *   - TypeScript / JavaScript (via TypeScriptAdvancedResolver)
+ *   - Python (via PythonAdvancedResolver)
+ *   - Go (via GoResolver)
+ *   - Java (via JavaResolver)
+ */
+const LANGUAGE_RESOLVERS: Record<string, () => {
+  extractTypes: (source: string, filePath: string) => import('../../resolution/type-registry.js').TypeInfo[];
+}> = {
+  typescript: () => new TypeScriptAdvancedResolver(),
+  tsx: () => new TypeScriptAdvancedResolver(),
+  javascript: () => new TypeScriptAdvancedResolver(),
+  jsx: () => new TypeScriptAdvancedResolver(),
+  python: () => new PythonAdvancedResolver(),
+  go: () => new GoResolver(),
+  java: () => new JavaResolver(),
+};
 
 export class TypeResolutionPhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'typeResolution';
@@ -35,42 +59,41 @@ export class TypeResolutionPhase implements ExecutablePhase {
         return { phaseId: this.id, status: 'success', output: { typesRegistered: 0 } };
       }
 
-      const registry = new TypeRegistry();
-      const tsResolver = new TypeScriptTypeResolver();
-      const pyResolver = new PythonTypeResolver();
+      // Resolver instances — created lazily per language
+      const resolverInstances = new Map<string, { extractTypes: (source: string, filePath: string) => import('../../resolution/type-registry.js').TypeInfo[] }>();
 
+      const registry = new TypeRegistry();
       let typesRegistered = 0;
       const typesByLanguage: Record<string, number> = {};
 
+      // Pre-fetch scan data for content lookup
+      const scanData = ctx.phaseData.get('scan') as
+        | { discoveredFiles: Array<{ filePath: string; content: string }> }
+        | undefined;
+
       for (const file of parseData.parsedFiles) {
         const lang = file.language as string;
-        let typeInfos: import('../../resolution/type-registry.js').TypeInfo[] = [];
 
-        // Extract types using the appropriate resolver
-        if (lang === 'typescript' || lang === 'tsx' || lang === 'javascript' || lang === 'jsx') {
-          // Get file content from the scan phase data
-          const scanData = ctx.phaseData.get('scan') as
-            | { discoveredFiles: Array<{ filePath: string; content: string }> }
-            | undefined;
-          const content = scanData?.discoveredFiles?.find(
-            (f) => f.filePath === file.filePath,
-          )?.content;
-
-          if (content) {
-            typeInfos = tsResolver.extractTypes(content, file.filePath);
-          }
-        } else if (lang === 'python') {
-          const scanData = ctx.phaseData.get('scan') as
-            | { discoveredFiles: Array<{ filePath: string; content: string }> }
-            | undefined;
-          const content = scanData?.discoveredFiles?.find(
-            (f) => f.filePath === file.filePath,
-          )?.content;
-
-          if (content) {
-            typeInfos = pyResolver.extractTypes(content, file.filePath);
-          }
+        // Skip unsupported languages
+        if (!LANGUAGE_RESOLVERS[lang]) {
+          continue;
         }
+
+        // Get or create resolver for this language
+        if (!resolverInstances.has(lang)) {
+          resolverInstances.set(lang, LANGUAGE_RESOLVERS[lang]!());
+        }
+        const resolver = resolverInstances.get(lang)!;
+
+        // Get file content from scan phase
+        const content = scanData?.discoveredFiles?.find(
+          (f) => f.filePath === file.filePath,
+        )?.content;
+
+        if (!content) continue;
+
+        // Extract types using the language-appropriate resolver
+        const typeInfos = resolver.extractTypes(content, file.filePath);
 
         // Register extracted types
         for (const typeInfo of typeInfos) {
@@ -79,11 +102,9 @@ export class TypeResolutionPhase implements ExecutablePhase {
           typesByLanguage[lang] = (typesByLanguage[lang] ?? 0) + 1;
         }
 
-        // Register module path for import resolution
-        registry.registerModule(
-          file.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '',
-          file.filePath,
-        );
+        // Register module paths for import resolution
+        const moduleName = file.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+        registry.registerModule(moduleName, file.filePath);
         registry.registerModule(file.filePath, file.filePath);
       }
 
