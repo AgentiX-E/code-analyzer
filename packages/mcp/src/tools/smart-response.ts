@@ -310,7 +310,7 @@ export function buildImpactResponse(
       label: (node['label'] as string) ?? 'unknown',
       callType: (impactType as string) ?? EDGE_CALLS,
       confidence: computeConfidence(
-        { qualifiedName: node['symbolQname'], filePath: node['filePath'] },
+        { qualifiedName: node['symbolQname'] as string | null, filePath: node['filePath'] as string | null },
         { targetSymbol, edgeType: EDGE_CALLS, hasDirectEdge: depth <= 1 },
       ),
       lineNumber: (node['startLine'] as number) ?? undefined,

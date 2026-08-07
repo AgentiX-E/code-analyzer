@@ -1,9 +1,35 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Confidence Scoring Module
+
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+export interface ConfidenceFinding {
+  qualifiedName?: string | null;
+  filePath?: string | null;
+  signature?: string | null;
+  startLine?: number | null;
+  endLine?: number | null;
+  rank?: number | null;
+  name?: string | null;
+  projectId?: string | null;
+  label?: string | null;
+  vectorScore?: number | null;
+}
+
+export interface ConfidenceContext {
+  targetSymbol?: string | null;
+  targetFile?: string | null;
+  targetSignature?: string | null;
+  lineNumber?: number | null;
+  edgeType?: string | null;
+  hasDirectEdge?: boolean | null;
+  isExported?: boolean | null;
+  projectId?: string | null;
+  expectedLabel?: string | null;
+}
 
 export interface ConfidenceScore {
   score: number;
@@ -24,8 +50,8 @@ export interface ConfidenceScore {
  *   - Inferred matches:   0.5 – 0.69
  */
 export function computeConfidence(
-  finding: Record<string, unknown>,
-  context: Record<string, unknown>,
+  finding: ConfidenceFinding,
+  context: ConfidenceContext,
 ): ConfidenceScore {
   const factors: string[] = [];
 
@@ -78,7 +104,7 @@ export function computeConfidence(
       directMatches++;
       factors.push('line range contains target');
     } else if (
-      Math.abs((finding.startLine as number) - (context.lineNumber as number)) <= 5
+      Math.abs(finding.startLine - context.lineNumber) <= 5
     ) {
       heuristicMatches++;
       factors.push('proximity-based line match');
@@ -111,8 +137,8 @@ export function computeConfidence(
 
   // Name similarity (substring)
   if (typeof finding.name === 'string' && typeof context.targetSymbol === 'string') {
-    const fn = (finding.name as string).toLowerCase();
-    const tn = (context.targetSymbol as string).toLowerCase();
+    const fn = finding.name.toLowerCase();
+    const tn = context.targetSymbol.toLowerCase();
     if (fn !== tn && (fn.includes(tn) || tn.includes(fn))) {
       heuristicMatches++;
       factors.push('name substring similarity');
@@ -130,22 +156,22 @@ export function computeConfidence(
   }
 
   // Same file but different symbol
-  if (typeof finding['filePath'] === 'string' && typeof context['targetFile'] === 'string' &&
-      finding['filePath'] === context['targetFile'] && context['hasDirectEdge'] === false) {
+  if (typeof finding.filePath === 'string' && typeof context.targetFile === 'string' &&
+      finding.filePath === context.targetFile && context.hasDirectEdge === false) {
     inferredMatches++;
     factors.push('same file (no direct edge)');
   }
 
   // Same label type (e.g., both are Functions)
-  if (typeof finding['label'] === 'string' && typeof context['expectedLabel'] === 'string') {
-    if (finding['label'] === context['expectedLabel']) {
+  if (typeof finding.label === 'string' && typeof context.expectedLabel === 'string') {
+    if (finding.label === context.expectedLabel) {
       inferredMatches++;
       factors.push('same label type');
     }
   }
 
   // Semantic vector similarity
-  if (typeof finding['vectorScore'] === 'number' && (finding['vectorScore'] as number) > 0.7) {
+  if (typeof finding.vectorScore === 'number' && finding.vectorScore > 0.7) {
     inferredMatches++;
     factors.push('high vector similarity');
   }
@@ -181,7 +207,6 @@ export function computeConfidence(
   }
 
   // Clamp to [0, 1]
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
   score = Math.max(0.0, Math.min(1.0, score));
 
   const label = getConfidenceLabel(score);
