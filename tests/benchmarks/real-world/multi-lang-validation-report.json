@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-06T22:43:28.266Z",
+  "timestamp": "2026-08-07T04:33:40.337Z",
   "results": [
     {
       "language": "Python",
@@ -10,14 +10,14 @@
       "parseSuccess": 30,
       "parseFailed": 0,
       "successRate": 1,
-      "parseTimeMs": 58,
-      "filesPerSec": 522,
-      "symbolCount": 797,
-      "functions": 493,
-      "classes": 122,
+      "parseTimeMs": 1291,
+      "filesPerSec": 23,
+      "symbolCount": 888,
+      "functions": 488,
+      "classes": 85,
       "methods": 0,
       "variables": 0,
-      "imports": 182,
+      "imports": 315,
       "errors": []
     },
     {
@@ -29,14 +29,14 @@
       "parseSuccess": 533,
       "parseFailed": 0,
       "successRate": 1,
-      "parseTimeMs": 651,
-      "filesPerSec": 818,
-      "symbolCount": 6718,
+      "parseTimeMs": 9490,
+      "filesPerSec": 56,
+      "symbolCount": 6722,
       "functions": 747,
-      "classes": 530,
+      "classes": 529,
       "methods": 3955,
-      "variables": 533,
-      "imports": 953,
+      "variables": 539,
+      "imports": 952,
       "errors": []
     },
     {
@@ -48,14 +48,14 @@
       "parseSuccess": 1627,
       "parseFailed": 0,
       "successRate": 1,
-      "parseTimeMs": 1230,
-      "filesPerSec": 1323,
-      "symbolCount": 18251,
+      "parseTimeMs": 25229,
+      "filesPerSec": 64,
+      "symbolCount": 29504,
       "functions": 0,
-      "classes": 2747,
-      "methods": 0,
-      "variables": 0,
-      "imports": 15504,
+      "classes": 2505,
+      "methods": 9068,
+      "variables": 2435,
+      "imports": 15496,
       "errors": []
     }
   ]
