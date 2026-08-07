@@ -3,6 +3,7 @@
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge, NodeLabel, RelationshipType, CypherExpression } from '@code-analyzer/shared';
+import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
 import type { QueryPlan, ColumnDef, PlanStep } from './planner.js';
 import { buildFilterPredicate } from './planner.js';
 
@@ -490,21 +491,9 @@ function deduplicateRows(rows: Record<string, unknown>[]): Record<string, unknow
 // ---------------------------------------------------------------------------
 
 function isNodeLabel(value: string): value is NodeLabel {
-  return (['Project', 'Package', 'Folder', 'File', 'Module', 'Class', 'Interface',
-    'Function', 'Method', 'Constructor', 'Property', 'Enum', 'TypeAlias', 'Struct',
-    'Trait', 'Variable', 'Route', 'Tool', 'Component', 'Test', 'Community', 'Process',
-    'Config', 'ADR', 'BasicBlock', 'InfraResource', 'CrossRepoFunction', 'CrossRepoInterface',
-    'CrossRepoModule', 'Contract', 'Event', 'DataSource', 'Sink',
-    'DockerImage', 'K8sResource', 'TerraformResource'] as const).includes(value as NodeLabel);
+  return (NODE_LABELS as readonly string[]).includes(value);
 }
 
 function isRelationshipType(value: string): value is RelationshipType {
-  return (['CONTAINS', 'DEFINES', 'HAS_METHOD', 'HAS_PROPERTY', 'MEMBER_OF', 'BELONGS_TO',
-    'EXTENDS', 'IMPLEMENTS', 'METHOD_OVERRIDES', 'METHOD_IMPLEMENTS', 'CALLS', 'IMPORTS',
-    'ACCESSES', 'INSTANTIATES', 'USES_TYPE', 'HANDLES', 'HANDLES_ROUTE', 'HANDLES_TOOL', 'EXPOSES',
-    'INJECTS', 'SIMILAR_TO', 'SEMANTICALLY_RELATED', 'TESTS', 'CHANGES_WITH', 'DATA_FLOWS',
-    'STEP_IN_PROCESS', 'CFG', 'REACHING_DEF', 'TAINTED', 'SANITIZES', 'TAINT_PATH',
-    'EMITS', 'LISTENS_ON', 'CONFIGURES', 'CROSS_REPO_DEPENDS', 'CROSS_REPO_CALLS',
-    'CROSS_REPO_IMPLEMENTS', 'CROSS_REPO_IMPORTS', 'CROSS_REPO_EXPOSES', 'CROSS_REPO_CONTRACT',
-    'BUILDS_FROM', 'DEPLOYS_TO', 'PROVISIONS'] as const).includes(value as RelationshipType);
+  return (RELATIONSHIP_TYPES as readonly string[]).includes(value);
 }

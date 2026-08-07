@@ -1,25 +1,22 @@
 # Code Analyzer
 
-> **Code intelligence platform.** Understand, search, and review code at depth -- powered by an MCP server for AI agents, a VS Code extension with Copilot Chat integration, a Web Dashboard, and a standalone CLI.
+> **Code intelligence platform.** Understand, search, and review code at depth — powered by an MCP server for AI agents, a VS Code extension with Copilot Chat integration, a Web Dashboard, and a standalone CLI.
 
 [![Status: v0.1.0](https://img.shields.io/badge/status-v0.1.0-blue)](https://github.com/AgentiX-E/code-analyzer)
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions)
 [![Coverage](https://img.shields.io/badge/coverage-55%25-yellow)](https://github.com/AgentiX-E/code-analyzer)
-[![Precision](https://img.shields.io/badge/precision-79.4%25-yellow)](docs/BENCHMARK_REPORT.md)
-[![F1 Score](https://img.shields.io/badge/F1-0.761-yellow)](docs/BENCHMARK_REPORT.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-green)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+> **Note on coverage:** The 55% badge reflects the codebase after iterative refactoring (I1-I8). Test organization is in progress; target is >=80% with organized integration tests.
+
 ---
 
-## Quick Start (Zero Config)
+## Quick Start
 
 ```bash
-# Install and setup in one command
-curl -fsSL https://raw.githubusercontent.com/AgentiX-E/code-analyzer/main/scripts/setup.sh | bash
-
-# Or via npm
+# Install via npm
 npm install -g @code-analyzer/cli
 
 # Initialize a project and index it
@@ -38,97 +35,118 @@ code-analyzer agent detect
 code-analyzer agent configure
 ```
 
-## What Code Analyzer Does
+---
 
-| Capability | Description |
+## Verified Capabilities
+
+Checkmarks indicate features verified through automated tests.
+
+| Capability | Status |
 |---|---|
-| **Knowledge Graph** | Builds a rich property graph of your codebase -- 33 node types, 40+ relationship types with in-memory and SQLite storage |
-| **18-Phase Pipeline** | DAG-based analysis pipeline: scan -> parse -> scope resolution -> communities -> embeddings |
-| **PR Review** | 5-stage review pipeline with 50+ rules across 6 categories (security w/ CWE, correctness, performance, maintainability, style, architecture). Smart file bundling for PR review context, delegation review mode |
-| **Cross-Repo Analysis** | Multi-repo indexing, federated search, API contract detection, version matrix, cross-repo PR review with GitHub check runs. Incremental reindexing with git change detection |
-| **20-Language Support** | TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, Ruby, PHP, Swift, C/C++, C-like (full tree-sitter AST walkers) + 10 additional languages (YAML, JSON, TOML, SQL, Bash, Markdown, HTML, CSS, R, Groovy) via regex-based fallback parsers — see [Language Quality Matrix](docs/LANGUAGE_QUALITY.md) |
-| **Cypher Query Engine** | Full Cypher query support with 44 relationship types for deep structural queries across the knowledge graph |
-| **MCP Server** | 45 tools, 15 resources, 5 prompts for AI agents — auth, sliding-window rate limiter, Cypher queries |
-| **VS Code Extension** | Copilot Chat participant with 15 slash commands: /review, /explain, /impact, /find, /deps, /refactor, /test, /analyze, /coverage, /standards, /review-deps, /check-contract, /trace-dataflow, /find-hotspots, /audit-security |
-| **Web Dashboard** | 6 interactive views: Graph Explorer, Search, Dashboard, Cross-Repo, PR Review Panel, Repo Group Manager |
-| **GitHub Integration** | Webhook receiver, cross-repo PR review bridge, check runs with annotations, repo sync, REST + GraphQL API client |
-| **AI Agent Integrations** | Auto-detection and one-click setup for 11 agents: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codex, Gemini CLI, Cody, Amazon Q |
-| **Enterprise Security** | RBAC (5 roles/25 permissions), audit logging, 16-pattern secret scanner |
-| **Operational Excellence** | Health checks, graceful shutdown, retry with exponential backoff, dead letter queue, sliding-window rate limiter
+| Knowledge Graph (33 node types, 43 relationship types) | Verified — unit tested |
+| 19-Phase Analysis Pipeline | Verified — integration tested |
+| 20-Language Parsing (tree-sitter + regex fallback) | Verified — unit tested |
+| Scope Resolution (3-tier: same-file, cross-file, namespace) | Verified — unit tested |
+| PR Review (50+ heuristic rules, 6 categories) | Verified — integration tested |
+| Cypher Query Engine (lexer → parser → planner → executor) | Verified — unit tested |
+| MCP Server (39 tools, 15 resources, 5 prompts) | Verified — integration tested |
+| VS Code Extension (15 Copilot Chat slash commands) | Verified — unit tested |
+| Web Dashboard (6 interactive views) | Verified — integration tested |
+| GitHub Integration (webhooks, check runs, cross-repo PR) | Verified — integration tested |
+| AI Agent Auto-Detection (12 agents) | Verified — unit tested |
+| RBAC (5 roles, 25 permissions) | Verified — unit tested |
+| Secret Scanner (16 patterns) | Verified — unit tested |
+| Impact Analysis (BFS-based change propagation) | Verified — integration tested |
+| Cross-Repo Analysis (federated search, contract detection) | Verified — integration tested |
+| Taint Analysis (source → sink path tracking) | Verified — unit tested |
+| Graph Store (in-memory + SQLite with FTS5) | Verified — unit tested |
+| Rate Limiting (sliding window) | Verified — unit tested |
+| Health Checks + Graceful Shutdown | Verified — integration tested |
+| Benchmark Framework (ca-bench, real-world PR suite) | Verified — benchmark tested |
+
+---
 
 ## Architecture
+
+The platform is structured as a 10-package pnpm monorepo with clear separation of concerns:
 
 ```
 +---------------------------------------------------------------+
 |                    Presentation Layer                         |
-|     CLI (6 commands)  |  VS Code Extension (Copilot)         |
+|     CLI        |  VS Code Extension (15 slash commands)      |
 |     Web Dashboard (6 views)                                   |
 +---------------------------------------------------------------+
 |                     Integration Layer                         |
-|    MCP Server (45 tools)  |  HTTP API  |  Webhook (PR)       |
+|    MCP Server (39 tools)  |  HTTP REST API  |  Webhooks      |
 +---------------------------------------------------------------+
 |                     Service Layer                             |
-|    Review Pipeline  |  Search Engine  |  Standards            |
+|    Review Engine  |  Search (BM25 + vector)  |  Standards    |
 +---------------------------------------------------------------+
 |                    Intelligence Layer                         |
 |  50+ Rules (CWE)  |  Cross-Repo  |  Impact  |  Embeddings    |
 +---------------------------------------------------------------+
 |                    Analysis Engine                            |
-|  30 Parsers (20 TS + 10 Regex)  |  19-Phase DAG  |  Graph Builder           |
+|  20 Parsers  |  19-Phase DAG  |  Scope Resolution  |  Graph  |
 +---------------------------------------------------------------+
 |                   Infrastructure Layer                       |
-|  Graph Store  |  Worker Pool  |  Git Ops  |  Parallel        |
+|  Graph Store (SQLite)  |  Git Ops  |  Worker Pool            |
 +---------------------------------------------------------------+
 |                    Foundation Layer                           |
-|   Config  |  Logging  |  Errors  |  i18n  |  Metrics         |
+|   Config  |  Logging  |  Errors  |  RBAC  |  Metrics         |
 +---------------------------------------------------------------+
-
-## Benchmarks
-
-Code Analyzer achieves **competitive results** with zero LLM token cost:
-
-| Metric | Code Analyzer | SonarQube AI | Augment Code | CodeRabbit | GitHub Copilot |
-|--------|:---:|:---:|:---:|:---:|:---:|
-| **Precision** | **79.4%** | 72% | 65% | 58% | 42% |
-| **Recall** | **73.0%** | 48% | 55% | 52% | 38% |
-| **F1 Score** | **0.761** | 0.576 | 0.596 | 0.549 | 0.399 |
-| **Noise Rate** | **0.3x** | 0.8x | 1.5x | 2.1x | 3.2x |
-| **Cost** | **$0** | API cost | API cost | API cost | API cost |
-
-[Full benchmark report →](docs/BENCHMARK_REPORT.md)
-
-> **Important**: Benchmarks are based on internal test suites (37 ground-truth issues). Independent third-party validation with a larger dataset (200+ PRs, 1500+ issues) is planned for v0.2.0. Competitor numbers are from published documentation and may differ in direct comparison.
-
 ```
 
-## Package Structure
+### Package Structure
 
 | Package | Description |
 |---|---|
-| `@code-analyzer/shared` | Shared types (33 node labels, 39 edges), constants, protocols |
+| `@code-analyzer/shared` | Types (33 node labels, 43 edges, 43 consts), constants, validation, utilities |
 | `@code-analyzer/core` | Foundation: config, logging, errors, i18n, metrics, agent detection, security, RBAC, audit |
-| `@code-analyzer/infra` | Infrastructure: graph stores, file discovery, git operations, worker pool |
-| `@code-analyzer/analyzer` | Analysis: 20-language tree-sitter + IaC, 18-phase pipeline, scope resolution, auto-index, auto-watch, incremental reindexing |
-| `@code-analyzer/intelligence` | Intelligence: 50+ rules, cross-repo, impact analysis, embeddings, standards, GitHub client |
+| `@code-analyzer/infra` | Infrastructure: graph stores (in-memory, SQLite), file discovery, git operations, concurrency |
+| `@code-analyzer/analyzer` | Analysis: 20-language parsers, 19-phase DAG pipeline, scope resolution, auto-index/watch |
+| `@code-analyzer/intelligence` | Intelligence: 50+ review rules, cross-repo, impact analysis, embeddings, taint analysis |
 | `@code-analyzer/mcp` | MCP server: 39 tools, 15 resources, 5 prompts, Cypher engine, middleware |
 | `@code-analyzer/server` | HTTP REST API server with webhook support, rate limiting, graceful shutdown |
-| `@code-analyzer/cli` | Full CLI: init, analyze, search, review, status, agent |
-| `@code-analyzer/vscode` | VS Code extension with Copilot Chat participant (7 slash commands) |
+| `@code-analyzer/cli` | CLI: init, analyze, search, review, status, agent commands |
+| `@code-analyzer/vscode` | VS Code extension with Copilot Chat participant (15 slash commands) |
 | `@code-analyzer/web` | Web Dashboard with 6 interactive views |
+
+---
+
+## Benchmarks
+
+Code Analyzer achieves competitive results with zero LLM token cost on internal test suites:
+
+| Metric | Code Analyzer | SonarQube | CodeRabbit |
+|--------|:---:|:---:|:---:|
+| **Precision** | 79.4% | 72% | 58% |
+| **Recall** | 73.0% | 48% | 52% |
+| **F1 Score** | 0.761 | 0.576 | 0.549 |
+| **Noise Rate** | 0.3x | 0.8x | 2.1x |
+| **Cost** | $0 | API cost | API cost |
+
+> **Important caveat:** Benchmarks are based on internal test suites (37 ground-truth issues). Independent validation with a larger dataset (200+ PRs, 1500+ issues) is planned for v0.2.0. Competitor numbers are from published documentation and may differ in direct comparison.
+
+[Full benchmark report →](docs/BENCHMARK_REPORT.md)
+
+---
 
 ## Documentation
 
-- **[Getting Started](docs/getting-started.md)** -- Installation, quick start, first analysis
-- **[Architecture](docs/ARCHITECTURE.md)** -- 7-layer design, data flow, design decisions
-- **[MCP Server](docs/MCP-SERVER.md)** -- Tool reference, resources, prompts, configuration
-- **[Code Review & PR Review](docs/PR-REVIEW.md)** -- Rules reference, PR review workflow, standards, review swarm
-- **[Web Dashboard](docs/WEB-DASHBOARD.md)** -- Interactive UI guide, hooks, API client
-- **[GitHub Integration](docs/GITHUB-INTEGRATION.md)** -- Webhooks, cross-repo PR review, check runs, repo sync
-- **[Language Support](docs/language-support.md)** -- 12-language tree-sitter coverage
-- **[Configuration](docs/CONFIGURATION.md)** -- Options, environment variables, tuning
-- **[Integrations](docs/INTEGRATIONS.md)** -- AI agent setup guides
-- **[API Reference](docs/api-spec.md)** -- REST API specification, endpoints, examples
-- **[Troubleshooting](docs/troubleshooting.md)** -- Common issues, performance tuning, debugging
+- **[Getting Started](docs/getting-started.md)** — Installation, quick start, first analysis
+- **[Architecture](docs/ARCHITECTURE.md)** — 7-layer design, data flow, design decisions
+- **[Benchmark Report](docs/BENCHMARK_REPORT.md)** — Methodology, results, caveats, v0.2.0 roadmap
+- **[Deployment Guide](docs/DEPLOYMENT.md)** — Docker, Docker Compose, Kubernetes, env vars
+- **[MCP Server](docs/MCP-SERVER.md)** — Tool reference, resources, prompts, configuration
+- **[Code Review & PR Review](docs/PR-REVIEW.md)** — Rules reference, PR review workflow
+- **[Web Dashboard](docs/WEB-DASHBOARD.md)** — Interactive UI guide, hooks, API client
+- **[GitHub Integration](docs/GITHUB-INTEGRATION.md)** — Webhooks, cross-repo PR, check runs
+- **[Language Support](docs/language-support.md)** — 20-language coverage and quality matrix
+- **[Configuration](docs/CONFIGURATION.md)** — Options, environment variables, tuning
+- **[Integrations](docs/INTEGRATIONS.md)** — AI agent setup guides (12 agents)
+- **[Troubleshooting](docs/troubleshooting.md)** — Common issues, performance tuning, debugging
+
+---
 
 ## Development
 
@@ -136,35 +154,44 @@ Code Analyzer achieves **competitive results** with zero LLM token cost:
 # Install dependencies
 pnpm install
 
-# Run all tests (5,200+ tests, 95%+ coverage across all dimensions)
+# Run unit tests
 pnpm test
+
+# Run integration tests
+pnpm test:integration
+
+# Run benchmarks
+pnpm test:bench
 
 # Build all packages
 pnpm build
 
-# Run a specific package's tests
-pnpm --filter @code-analyzer/cli test
-
 # Lint and typecheck
-pnpm lint
-pnpm typecheck
+pnpm lint && pnpm typecheck
 ```
+
+---
 
 ## Deployment
 
 ```bash
-# Docker (multi-arch: amd64, arm64)
+# Docker Compose (recommended)
 docker compose up -d
+
+# Docker (single container)
+docker build -t code-analyzer:latest .
+docker run -d -p 3000:3000 code-analyzer:latest
+
+# Kubernetes
+kubectl apply -f k8s/
 
 # Homebrew (macOS)
 brew install code-analyzer
-
-# Manual build from source
-git clone https://github.com/AgentiX-E/code-analyzer.git
-cd code-analyzer
-pnpm install && pnpm build
-node packages/mcp/dist/index.js
 ```
+
+See **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** for full deployment documentation including resource requirements, health checks, environment variables, and Kubernetes manifests.
+
+---
 
 ## License
 

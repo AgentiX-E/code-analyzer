@@ -1,32 +1,60 @@
-# Code Analyzer — Official Benchmark Report
+# Code Analyzer — Benchmark Report
 
-**Date:** 2026-08-01
+**Date:** 2026-08-07
 **Version:** v0.1.0
-**Methodology:** 20 fixtures, 37 ground truth issues, 5 languages
+**Methodology:** Internal test suite — 20 fixtures, 37 ground-truth issues, 5 languages
 
 ---
 
-## Executive Summary
+## Methodology
 
-Code Analyzer achieves **industry-leading code review quality** using its deterministic heuristic engine with **zero LLM token cost**. The results surpass all major commercial and open-source code review tools in both precision and recall.
+### Approach
+
+The current benchmark evaluates Code Analyzer's heuristic review engine against a curated internal test suite. Each test fixture contains known defects with precise line-range annotations verified by the development team.
+
+**How it works:**
+
+1. **Fixture Selection:** 20 test files across 5 programming languages (TypeScript, Python, Go, Java, Rust) containing 37 known defects
+2. **Defect Categories:** Security (12), Correctness/Bug (16), Performance (4), Maintainability (3), Style (2)
+3. **Detection:** CodeReviewEngine runs all 50+ heuristic rules against each fixture; no LLM or external API calls involved
+4. **Matching:** A detection is considered a true positive if its line range overlaps the ground-truth annotation by >= 50% and the category matches
+5. **Metrics:** Standard precision, recall, F1, and noise rate calculated per-category and overall
+
+### Current State
+
+The benchmark is **internal only**:
+
+- **37 ground-truth issues** annotated by the development team
+- **20 test fixtures** designed to exercise known rules
+- **Deterministic results** — the heuristic engine produces identical output on every run (no stochastic element)
+
+### v0.2.0 Plan
+
+We recognize the limitations of internal-only validation. The following improvements are planned:
+
+| Target | Plan |
+|--------|------|
+| **Dataset size** | 200+ real-world PRs from open-source repositories |
+| **Ground truth** | 1,500+ annotated issues with 3+ reviewer cross-validation |
+| **Inter-reviewer agreement** | Cohen's kappa >= 0.7 target |
+| **External benchmarks** | Inclusion of standard datasets (Defects4J, Juliet Test Suite) |
+| **Continuous benchmarking** | Automated runs on every release with regression detection |
 
 ---
 
-## Overall Results
+## Results (Internal Test Suite)
 
-| Metric | Code Analyzer | SonarQube AI | Augment Code | CodeRabbit | GitHub Copilot |
-|--------|:---:|:---:|:---:|:---:|:---:|
-| **Precision** | **79.4%** | 72% | 65% | 58% | 42% |
-| **Recall** | **73.0%** | 48% | 55% | 52% | 38% |
-| **F1 Score** | **0.761** | 0.576 | 0.596 | 0.549 | 0.399 |
-| **Noise Rate** | **0.3x** | 0.8x | 1.5x | 2.1x | 3.2x |
-| **Token Cost** | **$0.00** | API cost | API cost | API cost | API cost |
+### Overall
 
-> Competitor data sourced from independent benchmark study (aitoollab.cn, May 2026): 30 bugs across Java + Python, tested March-April 2026.
+| Metric | Code Analyzer v0.1.0 |
+|--------|:---:|
+| **Precision** | 79.4% |
+| **Recall** | 73.0% |
+| **F1 Score** | 0.761 |
+| **Noise Rate** | 0.3x (0.3 false positives per true finding) |
+| **Token Cost** | $0.00 (fully local heuristic engine) |
 
----
-
-## Per-Category Breakdown
+### Per-Category Breakdown
 
 | Category | TP | FP | FN | Precision | Recall | F1 |
 |----------|:--:|:--:|:--:|:---:|:---:|:---:|
@@ -38,47 +66,83 @@ Code Analyzer achieves **industry-leading code review quality** using its determ
 
 ---
 
-## Benchmark Methodology
+## Comparison with Other Tools
 
-1. **Fixture Selection:** 20 test fixtures across 5 programming languages (TypeScript, Python, Go, Java, Rust) containing 37 known defects annotated with precise line ranges.
-2. **Bug Categories:** Security (12), Correctness (16), Performance (4), Maintainability (3), Style (2).
-3. **Detection:** CodeReviewEngine heuristic analysis (zero LLM cost).
-4. **Matching:** Detection matched to ground truth if line-range overlap >= 50% and categories match.
-5. **Metrics:** Precision = TP/(TP+FP), Recall = TP/(TP+FN), F1 = 2PR/(P+R), Noise = FP/TP.
+Code Analyzer is competitive in specific dimensions on the internal test suite. Results below combine Code Analyzer's scores with competitor data sourced from published documentation and independent studies (aitoollab.cn, May 2026).
+
+| Metric | Code Analyzer | SonarQube | Semgrep | CodeRabbit |
+|--------|:---:|:---:|:---:|:---:|
+| **Precision** | 79.4% | 72% | — | 58% |
+| **Recall** | 73.0% | 48% | — | 52% |
+| **F1 Score** | 0.761 | 0.576 | — | 0.549 |
+| **Noise Rate** | 0.3x | 0.8x | — | 2.1x |
+| **Cost per Review** | $0 | API cost | Free OSS | API cost |
+| **Languages** | 20 | 30+ | 30+ | All (LLM) |
+| **Security Rules** | 12 | 200+ | 100+ | Prompt-based |
+
+> **Note on Semgrep:** Semgrep's strength is pattern-based static analysis, not general-purpose code review. It reports zero false positives on known patterns but does not surface the same class of issues as heuristic or LLM-based reviewers. A direct precision/recall comparison is not meaningful without a controlled experiment on identical datasets.
 
 ---
 
-## Key Findings
+## Caveats & Limitations
 
-### 1. Highest Precision in the Industry (79.4%)
-Code Analyzer reports the fewest false positives — only 0.3 noise per true finding. This dramatically reduces reviewer fatigue compared to tools like GitHub Copilot (3.2x noise rate) where over 2/3 of comments are noise.
+### Internal vs External Validation
 
-### 2. Highest Recall in the Industry (73.0%)
-Code Analyzer finds 73% of all defects — significantly outperforming SonarQube AI (48%) which prioritizes precision at the cost of missing over half of all bugs.
+The current results reflect performance on a **curated internal test suite**, not on real-world PR datasets. This has several implications:
 
-### 3. Zero Token Cost
-Unlike all commercial tools that require LLM API calls ($0.01-$0.50 per review), Code Analyzer's heuristic engine runs entirely locally with zero API cost while achieving superior results.
+1. **Selection bias:** Fixtures were designed to test rules that are known to work well. Rules with known false-positive problems may not be equally represented.
+2. **No inter-reviewer validation:** Ground truth was annotated by the development team without independent cross-validation, which can inflate recall metrics.
+3. **Small sample size:** 37 issues across 5 languages is insufficient for statistical significance on per-language or per-category breakdowns.
+4. **Different datasets, different scores:** Competitor numbers come from different datasets and studies. Direct comparison on a common benchmark is needed for meaningful conclusions.
 
-### 4. 100% Detection Rate for Maintainability Issues
-Long functions (>50 lines) and deep nesting (>4 levels) are detected with perfect accuracy, making Code Analyzer exceptionally valuable for code quality enforcement.
+### What These Numbers Mean
+
+| If you see... | It means... |
+|---------------|-------------|
+| Precision = 79.4% | ~8 out of 10 comments Code Analyzer posts are real issues |
+| Recall = 73.0% | It finds ~3 out of every 4 known issues in the test suite |
+| Noise Rate = 0.3x | For every 3 true issues found, expect ~1 false positive |
+
+### Areas for Improvement
+
+- **Security recall (67%):** Some CWE categories (authentication bypass, race conditions) require deeper semantic analysis not yet implemented
+- **Style false positives:** One of the style fixtures produces a false positive due to an overly broad regex pattern
+- **Correctness recall (69%):** Multi-file logical errors that span >2 files are not yet detectable
 
 ---
 
 ## Reproducibility
 
 ```bash
-# Install
-npm install -g @code-analyzer/cli
-
-# Clone benchmark fixtures
+# Clone the repository
 git clone https://github.com/AgentiX-E/code-analyzer.git
 cd code-analyzer
 
-# Run benchmarks
+# Install dependencies
+pnpm install
+
+# Run benchmark suite
 pnpm --filter @code-analyzer/intelligence test:bench
 
-# Generate report
+# View detailed results
 pnpm --filter @code-analyzer/intelligence benchmark:report
 ```
 
-All benchmark fixtures, ground truth annotations, and the benchmark runner are committed to the repository. Results are **deterministic** — the heuristic engine produces identical results on every run.
+All fixtures, ground-truth annotations, and the benchmark runner are committed to the repository. Results are **deterministic** — the heuristic engine produces identical output on every run.
+
+### Adding New Fixtures
+
+To contribute new benchmark fixtures:
+
+1. Add source files to `tests/benchmarks/ca-bench/fixtures/`
+2. Annotate ground-truth issues in `tests/benchmarks/ca-bench/fixtures/*/ground-truth.json`
+3. Ensure the format matches `GroundTruthIssue` from `tests/benchmarks/ca-bench/suites/real-world-benchmark.ts`
+4. Run `pnpm test:bench` to validate the new fixtures integrate correctly
+
+---
+
+## Related Documents
+
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Production deployment guide
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Architecture and design decisions
+- [CODE-REVIEW.md](CODE-REVIEW.md) — Code review rules reference

@@ -1,128 +1,115 @@
 # Changelog
 
-All notable changes to Code Analyzer will be documented in this file.
-
-## [1.0.0] — Unreleased
-
-### 🚀 Ecosystem & Distribution (Iteration 7)
-
-#### npm Publishing
-- **12-package pnpm monorepo** with complete npm metadata for all public packages
-- `keywords`, `repository`, `bugs`, `homepage` fields on all packages
-- `publishConfig.access: "public"` for `@code-analyzer/*` scope
-- `files: ["dist"]` for minimal package size
-- `engines.node >= 20.0.0` enforcement
-
-#### VS Code Marketplace
-- Full marketplace manifest with icon, gallery banner, Q&A link
-- Publisher: `agentix`
-- 7 Copilot Chat slash commands: `/review`, `/explain`, `/impact`, `/find`, `/deps`, `/refactor`, `/test`
-
-#### Homebrew & Docker
-- **Homebrew formula** (`homebrew/code-analyzer.rb`) for `brew install code-analyzer`
-- **Multi-arch Docker image** with `linux/amd64` and `linux/arm64` support
-- **Docker Bake** (`docker/docker-bake.hcl`) for parallel multi-platform builds
-- 5-stage optimized Dockerfile: base → builder → runner → cli → vscode-builder
-
-#### GitHub Action
-- **`code-analyzer-action`** composite action for CI integration
-- 7 inputs: `github-token`, `standards`, `severity`, `fail-on`, `max-files`, `exclude-patterns`, `languages`
-- PR comment integration with Markdown summary
-- Reusable workflow (`.github/workflows/code-analyzer.yml`) with PR/review triggers
-
-#### AI Agent Auto-Detection
-- **12 supported agents**: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot, Codeium, Tabnine, Amazon Q, Roo Code, Augment Code
-- 5 detection methods: environment variables, config files, binaries, processes, VS Code extensions
-- Per-agent MCP configuration templates
-- `code-analyzer setup --auto` for zero-config onboarding
-- `code-analyzer setup --agent <name>` for manual agent selection
-
-#### Integration Guides
-- **7 comprehensive integration guides**: Claude Code, Cursor, Windsurf, Continue.dev, Aider, Cline, GitHub Copilot
-- Quick-start instructions, manual config, verification steps, troubleshooting for each
-- Agent-specific features: slash commands, auto-approve, rules integration
-- Team setup guide for GitHub Copilot with shared `.github/copilot/mcp.json`
-
-### 📊 Coverage
-- **2,871 tests** across 60 test files
-- **Lines: 98.51%** | **Branches: 95.25%** | **Functions: 99.8%** | **Statements: 98.51%**
-
-### 🚀 Initial Release
-
-**Code Analyzer v1.0.0** — A world-class code intelligence platform with layered architecture, MCP service, and VS Code extension.
-
-### Core Features
-
-- **7-Layer Architecture**: Foundation → Infrastructure → Analysis Engine → Intelligence → Service → Integration → Presentation
-- **10-package pnpm monorepo** with Turborepo
-- **Knowledge Graph**: 33 node types, 39 relationship types, SQLite with FTS5
-- **18-phase DAG pipeline**: scan → structure → parse → markdown → config → crossFile → scopeResolution → routes → tools → di → pruneLocalSymbols → communities → processes → tests → dump → similarity → semantic → embed
-
-### Analysis Engine
-
-- **8 Language Providers**: TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust
-- **Scope Resolution**: Same-file, cross-file named/default/namespace imports, 3-tier resolution
-- **Unified Parser**: Regex-based parsing with worker pool parallelization
-- **Knowledge Graph Builder**: Full graph construction with integrity validation
-
-### Intelligence Layer
-
-- **Hybrid Search**: BM25 + vector semantic search with Reciprocal Rank Fusion (k=60)
-- **4-Phase Code Review**: Plan → Analyze → Filter → Relocate with three-zone memory compression
-- **Project Standards Engine**: 10 built-in templates, 4 check types (ast-pattern, regex, graph-query, metric)
-- **Impact Analysis**: Change impact prediction with IoU overlap detection
-- **Trend Analysis**: Multi-metric trend detection with direction-aware reporting
-- **MinHash + LSH**: 128-hash fingerprints for near-clone detection
-- **Embeddings**: SHA-256 → deterministic vectors (mock) + @agentix-e/embed-code-ts (real)
-
-### MCP Server
-
-- **38 Tools**: Search, Review, Standards, Reports, PDG, Cross-Repo, Indexing, Querying
-- **15 Resources**: Architecture, graph, standards, reports, sessions, skills
-- **5 Prompts**: Explore, review, impact, refactor, debug
-- **Middleware**: Auth (API key), rate limiting, tool policies, request logging
-- **Cypher Query Engine**: Full openCypher read subset (lexer → parser → planner → executor)
-
-### VS Code Extension
-
-- **Copilot Chat Participant**: `@code-analyzer` with 6 intent classifiers (explore, search, review, impact, debug, refactor)
-- **Sidebar Provider**: Search, review, architecture view
-- **Status Bar Integration**: Index status, session state
-- **Engine Bridge**: Facade bridging all 5 core packages
-
-### Performance
-
-- 10,000 nodes insert in < 200ms
-- 50,000 nodes insert in < 1 second
-- Edge traversal in < 5ms on dense graphs
-- BFS depth 3 on 1000 nodes in < 10ms
-- Full-text search on 10K nodes in < 250ms
-
-### Testing
-
-- **2,440 tests** across 57 test files
-- **Coverage**: 98.88% statements, 95.13% branches, 99.81% functions
-- **24 real integration tests** (no mocks)
-- **performance benchmarks**
-- **extended language tests** across 4 new languages
-
-### CI/CD
-
-- GitHub Actions: Build, lint, test, typecheck, CodeQL, PR review, security audit
-
-### Security
-
-- Security policy with vulnerability disclosure timeline
-- CodeQL static analysis on every push
-- SBOM generation planned for upcoming releases
-- API key authentication and rate limiting
-- Worker process isolation
-- No arbitrary code execution
+All notable changes to Code Analyzer are documented in this file.
 
 ---
 
-## Version History
+## [0.1.0] — 2026-08-07
 
-| Version | Date | Description |
-|---------|------|-------------|
-| 1.0.0 | TBD | Initial release |
+### Iteration 8: Core Capability Gaps (I8)
+
+- **Data Flow Analysis:** Program Dependence Graph (PDG) builder with BasicBlock extraction, CFG edges, reaching definitions, and taint path reconstruction
+- **Secret Scanner:** 16-pattern detector covering API keys, tokens, private keys, JWT, Slack webhooks, database URLs, cloud credentials, OAuth secrets
+- **Incremental Re-indexing:** Git-diff-based stale node detection with granular re-indexing of changed files only
+- **Code Standards & Compliance:** Standard template library with 4 check types (ast-pattern, regex, graph-query, metric), auto-fix suggestions, and RBAC integration
+- **Advanced Reporting:** Report builder with scope, summaries, findings, recommendations, and action items; PR review auto-summary with merge recommendations
+- **Code Evolution Trends:** Multi-metric trend detection with direction-aware reporting and velocity tracking
+- **Parallel Indexing:** Multi-project concurrent indexing with supervisor crash recovery
+- **Graph Optimization:** Queryable edge storage (bidirectional lookups), graph compression (BFS-based community detection)
+- **Semantic Code Search:** BM25 + vector hybrid search with Reciprocal Rank Fusion (k=60)
+
+### Iteration 7: Coverage & Configuration (I7)
+
+- **Vitest Coverage Configuration:** Unified vitest.config.coverage.ts with jest-sonar-reporter
+- **Coverage Metrics:** Lines: 55%, Branches: 50%, Functions: 58%, Statements: 54% (post-refactor baseline)
+- **SonarQube Properties:** Standard sonar-project.properties for CI integration
+
+### Iteration 6: Language Parsers (I6)
+
+- **10 Tree-sitter Parsers:** Java, Kotlin, C#, Rust, C, C++, PHP, Ruby, Swift, Dart with AST walkers
+- **Regex-based Fallback Parsers:** Lua, Scala, Zig, Elixir (12 regex parsers total)
+- **Infrastructure-as-Code Parsers:** HCL (Terraform), Dockerfile with IaC graph node types (DockerImage, K8sResource, TerraformResource) and edges (BUILDS_FROM, DEPLOYS_TO, PROVISIONS)
+- **Universal Parser Registry:** 20-language parser registry with fallback chain and LanguageQualityMatrix
+
+### Iteration 5: Review Lenses (I5)
+
+- **4 Review Lenses:** Security (CWE-mapped), Performance (complexity/heap/IO), Structure (architectural patterns, SOLID), Test (coverage + quality)
+- **Review Swarm:** Multi-agent-style concurrent review orchestration with quarantined file isolation, crash recovery, and supervisor pattern
+- **SCIP Export:** Standard Code Intelligence Protocol exporter for interoperability with Sourcegraph and other SCIP-compatible tools
+
+### Iteration 4: Pipeline Modularization (I4)
+
+- **18-Phase Pipeline Refactoring:** Each phase extracted to its own module in `packages/analyzer/src/pipeline/phases/`
+- **Parallel Phase Execution:** DAG-based dependency resolution with parallel execution of independent phases
+- **Clean Architecture:** TypeRegistry, SemanticModel, and PipelineContext threading through all phases
+- **Graph Builder Refinement:** Added graph serialization, reconstruction from SQLite, and batch operations
+
+### Iteration 3: Error Handling (I3)
+
+- **Typed Error System:** `CodeAnalyzerError` base class with ErrorCategory discriminated by code
+- **10 Error Categories:** CONFIG, IO, PARSE, RESOLVE, GRAPH, EMBED, LLM, MCP, RATE_LIMIT, INTERNAL
+- **Supervisor Pattern:** File quarantine on parse failure, per-phase crash recovery, and peak memory tracking
+- **Dead Letter Queue:** Failed operations persisted for retry with exponential backoff in the server package
+- **Sliding-Window Rate Limiter:** Configurable window size and per-window request caps
+
+### Iteration 2: Type Safety (I2)
+
+- **Package-Level Vitest Configs:** Individual `vitest.config.ts` per package with path aliases
+- **Shared Type Consolidation:** All core types centralized in `@code-analyzer/shared` with discriminated interfaces
+- **Type-Only Imports:** Audit and enforcement across the monorepo to reduce build-time coupling
+- **Code Quality Automation:** ESLint flat config, Prettier, and pre-commit hooks consolidated
+
+### Iteration 1: Foundation Hygiene (I1)
+
+- **Monorepo Structure:** 10-package pnpm workspace with Turborepo pipeline orchestration
+- **Package Configuration:** Individual `package.json`, `tsconfig.json`, build scripts per package
+- **CI/CD Pipeline:** GitHub Actions with per-package build/test/lint, CodeQL, and Docker build
+- **Docker Multi-Stage Build:** 5-stage optimized Dockerfile (base → builder → runner → cli → vscode-builder)
+- **Multi-Arch Support:** `docker buildx` with `linux/amd64` and `linux/arm64` targets
+- **Docker Compose:** MCP server + REST API server with security hardening, health checks, and resource limits
+
+---
+
+## Core Architecture (v0.1.0 base)
+
+### Knowledge Graph
+- 33 node types, 43 relationship types with in-memory and SQLite (FTS5) storage
+- 43 centralized edge type constants in `@code-analyzer/shared/constants/edge-types`
+- Graph compression (BFS community detection), batch operations, integrity validation
+
+### Analysis Engine
+- 20-language parsing: 10 tree-sitter providers + 12 regex fallback parsers + HCL/Dockerfile
+- 19-phase DAG pipeline with parallel execution
+- Scope resolution: same-file, cross-file named/default/namespace imports with 3-tier resolution
+- Incremental re-indexing with git change detection and stale node isolation
+
+### Intelligence Layer
+- 50+ heuristic review rules across 6 categories (security w/ CWE, correctness, performance, maintainability, style, architecture)
+- Hybrid search: BM25 + vector semantic search with Reciprocal Rank Fusion
+- Impact analysis: BFS-based change propagation with IoU overlap detection
+- Taint analysis: source → sink path tracking with sanitizer recognition
+- Cross-repo analysis: federated search, contract detection, version matrix, cross-repo PR review
+- MinHash + LSH: 128-hash fingerprints for near-clone detection
+- 4 review lenses: Security, Performance, Structure, Test
+
+### MCP Server
+- 39 tools, 15 resources, 5 prompts with auth middleware and sliding-window rate limiting
+- Cypher query engine: lexer → parser → planner → executor with full openCypher read subset
+
+### Developer Experience
+- VS Code extension: Copilot Chat participant with 15 slash commands
+- Web Dashboard: 6 interactive views (Graph Explorer, Search, Dashboard, Cross-Repo, PR Review, Repo Group Manager)
+- CLI: init, analyze, search, review, status, agent commands
+- AI agent auto-detection: 12 agents with per-agent MCP configuration templates
+- GitHub integration: webhook receiver, check runs, repo sync, REST + GraphQL API client
+
+### Operational Excellence
+- Health checks, graceful shutdown, structured JSON logging
+- RBAC: 5 roles with 25 granular permissions and audit logging
+- Multi-arch Docker images, Docker Compose, Kubernetes manifests, Homebrew formula
+- GitHub Action for CI integration with PR comment support
+
+### Benchmarks
+- Internal test suite: 20 fixtures, 37 ground-truth issues across 5 languages
+- Competitive precision (79.4%), recall (73.0%), F1 (0.761) with zero LLM token cost
+- See [BENCHMARK_REPORT.md](docs/BENCHMARK_REPORT.md) for methodology and caveats

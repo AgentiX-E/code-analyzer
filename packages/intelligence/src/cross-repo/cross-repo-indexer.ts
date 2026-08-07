@@ -12,6 +12,17 @@ import type {
   NodeLabel,
   Contract,
 } from '@code-analyzer/shared';
+import {
+  EDGE_IMPORTS,
+  EDGE_CALLS,
+  EDGE_IMPLEMENTS,
+  EDGE_CROSS_REPO_IMPORTS,
+  EDGE_CROSS_REPO_CALLS,
+  EDGE_CROSS_REPO_IMPLEMENTS,
+  EDGE_CROSS_REPO_DEPENDS,
+  EDGE_CROSS_REPO_EXPOSES,
+  EDGE_CROSS_REPO_CONTRACT,
+} from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { getLanguageFromFilename } from '@code-analyzer/shared';
 
@@ -593,7 +604,7 @@ export class CrossRepoIndexer {
         // Get all imports from repo A's nodes
         for (const nodeA of nodesA) {
           if (nodeA.label !== 'File') continue;
-          const edges = this.store.getEdgesForNode(nodeA.id, 'IMPORTS');
+          const edges = this.store.getEdgesForNode(nodeA.id, EDGE_IMPORTS);
           /* v8 ignore start */
           for (const edge of edges) {
             const targetNode = this.store.getNode(edge.targetId);
@@ -738,17 +749,17 @@ export class CrossRepoIndexer {
           // Determine cross-repo relationship type
           let crossRepoType: string;
           switch (edge.type) {
-            case 'IMPORTS':
-              crossRepoType = 'CROSS_REPO_IMPORTS';
+            case EDGE_IMPORTS:
+              crossRepoType = EDGE_CROSS_REPO_IMPORTS;
               break;
-            case 'CALLS':
-              crossRepoType = 'CROSS_REPO_CALLS';
+            case EDGE_CALLS:
+              crossRepoType = EDGE_CROSS_REPO_CALLS;
               break;
-            case 'IMPLEMENTS':
-              crossRepoType = 'CROSS_REPO_IMPLEMENTS';
+            case EDGE_IMPLEMENTS:
+              crossRepoType = EDGE_CROSS_REPO_IMPLEMENTS;
               break;
             default:
-              crossRepoType = 'CROSS_REPO_DEPENDS';
+              crossRepoType = EDGE_CROSS_REPO_DEPENDS;
           }
 
           // Create cross-repo node if not exists
@@ -1334,7 +1345,7 @@ export class CrossRepoIndexer {
           projectId,
           sourceId: sourceNode.id,
           targetId: targetFileNode.id,
-          type: 'IMPORTS',
+          type: EDGE_IMPORTS,
           properties: {
             importPath: imp.modulePath,
             importedSymbols: imp.importedNames,

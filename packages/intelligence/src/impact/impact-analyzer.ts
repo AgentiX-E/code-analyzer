@@ -9,6 +9,12 @@ import type {
   RelationshipType,
   NodeLabel,
 } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_IMPLEMENTS,
+  EDGE_EXTENDS,
+  EDGE_MEMBER_OF,
+} from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ChangedSymbol } from './change-detector.js';
 
@@ -69,10 +75,10 @@ export interface ProcessImpact {
 const RISK_ORDER: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
 
 const TRAVERSAL_RELATIONSHIPS: RelationshipType[] = [
-  'CALLS',
-  'IMPLEMENTS',
-  'EXTENDS',
-  'MEMBER_OF',
+  EDGE_CALLS,
+  EDGE_IMPLEMENTS,
+  EDGE_EXTENDS,
+  EDGE_MEMBER_OF,
 ];
 
 const DEFAULT_MAX_DEPTH = 3;
@@ -427,7 +433,7 @@ export class ImpactAnalyzer {
           const consumerEdges = this.store.queryEdges({
             projectId,
             sourceId: routeNode.id,
-            type: 'CALLS',
+            type: EDGE_CALLS,
             limit: 100000,
           });
           const consumers = consumerEdges.items.map(
