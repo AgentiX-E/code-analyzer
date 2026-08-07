@@ -4,6 +4,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
 import { buildImpactResponse } from './smart-response.js';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_MEMBER_OF } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -220,7 +221,7 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
       const node = graphStore.getNodeByQualifiedName(targetSymbol);
       if (node) {
         // BFS traversal for impact analysis
-        const bfs = graphStore.bfs(node.id, depth, ['CALLS', 'IMPLEMENTS', 'EXTENDS', 'MEMBER_OF']);
+        const bfs = graphStore.bfs(node.id, depth, [EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS, EDGE_MEMBER_OF]);
 
         // Separate direct vs indirect
         const directNodes: unknown[] = [];
@@ -468,7 +469,7 @@ function detectCycle(
   recStack.add(nodeId);
   path.push(nodeId);
 
-  const outgoing = store.getEdgesForNode(nodeId, 'IMPORTS', 'out');
+  const outgoing = store.getEdgesForNode(nodeId, EDGE_IMPORTS, 'out');
   for (const edge of outgoing) {
     const neighborId = edge.targetId;
     if (!visited.has(neighborId)) {

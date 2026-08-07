@@ -8,7 +8,7 @@ import type {
   ResolvedImport,
   UnifiedCapture,
 } from '@code-analyzer/shared';
-import { CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger , EDGE_IMPORTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ParsedImport } from '../../languages/provider.js';
 
@@ -134,7 +134,7 @@ export class CrossFilePhase implements ExecutablePhase {
                   ctx.graph,
                   sourceFileNodeId,
                   targetFileNodeId,
-                  'IMPORTS',
+                  EDGE_IMPORTS,
                   ctx.projectId,
                 );
                 importEdgesCreated++;

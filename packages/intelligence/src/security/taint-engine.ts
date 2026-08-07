@@ -4,6 +4,7 @@
 // across 8 programming languages.
 
 import type { GraphEdge, KnowledgeGraph, GraphNode } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_DATA_FLOWS, EDGE_IMPORTS } from '@code-analyzer/shared';
 
 /** Severity level for taint findings */
 export type TaintSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -484,7 +485,7 @@ export class TaintAnalysisEngine {
 
     for (const [, edge] of graph.edges) {
       // Follow CALLS and DATA_FLOWS edges
-      if (edge.type === 'CALLS' || edge.type === 'DATA_FLOWS' || edge.type === 'IMPORTS') {
+      if (edge.type === EDGE_CALLS || edge.type === EDGE_DATA_FLOWS || edge.type === EDGE_IMPORTS) {
         let neighbors = adjacency.get(edge.sourceId);
         if (!neighbors) {
           neighbors = [];

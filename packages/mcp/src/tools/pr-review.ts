@@ -7,6 +7,7 @@ import { StandardsEngine } from '@code-analyzer/intelligence';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
 import type { GitDiff } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -194,7 +195,7 @@ export async function reviewPR(args: Record<string, unknown>, store?: unknown): 
             symbolsAffected += nodes.length;
 
             for (const node of nodes) {
-              const bfs = ctx.store.bfs(node.id, 3, ['CALLS', 'IMPLEMENTS', 'EXTENDS']);
+              const bfs = ctx.store.bfs(node.id, 3, [EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS]);
               const impactedCount = bfs.visitedCount;
 
               if (impactedCount > 10) {

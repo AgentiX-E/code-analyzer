@@ -6,6 +6,7 @@
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 import { ToolContextImpl } from './tool-context.js';
 
 export const refactorSuggestionTool: McpToolDefinition = {
@@ -103,10 +104,10 @@ function generateSuggestions(
   const suggestions: RefactorSuggestion[] = [];
 
   for (const node of nodes) {
-    const outgoingCalls = store.getEdgesForNode(node.id, 'CALLS', 'out').length;
-    const incomingCalls = store.getEdgesForNode(node.id, 'CALLS', 'in').length;
-    const extendsEdges = store.getEdgesForNode(node.id, 'EXTENDS', 'out').length;
-    const implementsEdges = store.getEdgesForNode(node.id, 'IMPLEMENTS', 'out').length;
+    const outgoingCalls = store.getEdgesForNode(node.id, EDGE_CALLS, 'out').length;
+    const incomingCalls = store.getEdgesForNode(node.id, EDGE_CALLS, 'in').length;
+    const extendsEdges = store.getEdgesForNode(node.id, EDGE_EXTENDS, 'out').length;
+    const implementsEdges = store.getEdgesForNode(node.id, EDGE_IMPLEMENTS, 'out').length;
     const dependencyEdges = outgoingCalls + extendsEdges + implementsEdges;
 
     // Extract method: function/method with high outgoing call count

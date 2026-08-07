@@ -3,6 +3,7 @@
 // VS Code integration is handled by extension.ts through DI.
 
 import type { EngineBridge } from '../services/engine-bridge.js';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // SidebarLogic — testable pure logic
@@ -77,7 +78,7 @@ export class SidebarLogic {
               ? related.slice(1).map((_, i) => ({
                   sourceId: i + 1,
                   targetId: i + 2,
-                  type: 'CALLS',
+                  type: EDGE_CALLS,
                 }))
               : [],
           };

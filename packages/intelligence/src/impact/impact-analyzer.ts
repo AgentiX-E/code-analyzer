@@ -14,6 +14,9 @@ import {
   EDGE_IMPLEMENTS,
   EDGE_EXTENDS,
   EDGE_MEMBER_OF,
+  EDGE_TESTS,
+  EDGE_HANDLES_ROUTE,
+  EDGE_STEP_IN_PROCESS,
 } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ChangedSymbol } from './change-detector.js';
@@ -329,7 +332,7 @@ export class ImpactAnalyzer {
       const testEdges = this.store.queryEdges({
         projectId,
         targetId: symId,
-        type: 'TESTS',
+        type: EDGE_TESTS,
         limit: 100000,
       });
 
@@ -407,7 +410,7 @@ export class ImpactAnalyzer {
       const routeEdges = this.store.queryEdges({
         projectId,
         sourceId: symId,
-        type: 'HANDLES_ROUTE',
+        type: EDGE_HANDLES_ROUTE,
         limit: 100000,
       });
 
@@ -488,7 +491,7 @@ export class ImpactAnalyzer {
       const processEdges = this.store.queryEdges({
         projectId,
         targetId: symId,
-        type: 'STEP_IN_PROCESS',
+        type: EDGE_STEP_IN_PROCESS,
         limit: 100000,
       });
 

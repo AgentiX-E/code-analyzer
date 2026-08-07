@@ -10,6 +10,7 @@ import type {
 } from '../review-lenses.js';
 import { createLensFinding } from '../review-lenses.js';
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -223,19 +224,19 @@ function detectCircularImports(
   const importerNodes = store.queryEdges({
     projectId,
     sourceId: fileNodeId,
-    type: 'IMPORTS' as RelationshipType,
+    type: EDGE_IMPORTS as RelationshipType,
   });
 
   // Also check reverse: what does this file import?
   const importEdges = store.queryEdges({
     projectId,
     targetId: fileNodeId,
-    type: 'IMPORTS' as RelationshipType,
+    type: EDGE_IMPORTS as RelationshipType,
   });
 
   for (const edge of importEdges.items) {
     // Check if the imported node transitively imports this file
-    const bfsResult = store.bfs(edge.sourceId, 50, ['IMPORTS' as RelationshipType]);
+    const bfsResult = store.bfs(edge.sourceId, 50, [EDGE_IMPORTS as RelationshipType]);
     for (const [nodeId, depth] of bfsResult.pathLengths) {
       if (nodeId === fileNodeId && depth > 0) {
         const importedNode = store.getNode(edge.sourceId);
@@ -355,9 +356,9 @@ function detectOrphanCode(
       targetId: node.id,
     });
 
-    const hasIncomingCalls = incomingEdges.items.some(e => e.type === 'CALLS');
-    const hasIncomingImports = incomingEdges.items.some(e => e.type === 'IMPORTS');
-    const hasIncomingTests = incomingEdges.items.some(e => e.type === 'TESTS');
+    const hasIncomingCalls = incomingEdges.items.some(e => e.type === EDGE_CALLS);
+    const hasIncomingImports = incomingEdges.items.some(e => e.type === EDGE_IMPORTS);
+    const hasIncomingTests = incomingEdges.items.some(e => e.type === EDGE_TESTS);
 
     if (!hasIncomingCalls && !hasIncomingImports && !hasIncomingTests) {
       const lineNum = node.startLine ?? 1;

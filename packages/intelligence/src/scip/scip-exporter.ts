@@ -7,6 +7,7 @@
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_DEFINES, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_METHOD_OVERRIDES } from '@code-analyzer/shared';
 
 // ===========================================================================
 // SCIP Data Types — TypeScript mirrors of the SCIP Protobuf schema
@@ -215,17 +216,17 @@ function getScheme(language: string | null): string {
 /** Map graph relationship type to SCIP role bits. */
 function mapEdgeToRoles(edge: GraphEdge): { role: number; isDef: boolean; isRef: boolean; isImpl: boolean } {
   switch (edge.type) {
-    case 'CALLS':
+    case EDGE_CALLS:
       return { role: SymbolRole.ReadAccess, isDef: false, isRef: true, isImpl: false };
-    case 'IMPLEMENTS':
+    case EDGE_IMPLEMENTS:
       return { role: SymbolRole.Definition, isDef: true, isRef: false, isImpl: true };
-    case 'EXTENDS':
+    case EDGE_EXTENDS:
       return { role: SymbolRole.Definition, isDef: true, isRef: false, isImpl: false };
-    case 'IMPORTS':
+    case EDGE_IMPORTS:
       return { role: SymbolRole.Import, isDef: false, isRef: true, isImpl: false };
-    case 'DEFINES':
+    case EDGE_DEFINES:
       return { role: SymbolRole.Definition, isDef: true, isRef: false, isImpl: false };
-    case 'METHOD_OVERRIDES':
+    case EDGE_METHOD_OVERRIDES:
       return { role: SymbolRole.WriteAccess, isDef: false, isRef: false, isImpl: true };
     default:
       return { role: SymbolRole.ReadAccess, isDef: false, isRef: true, isImpl: false };
@@ -291,7 +292,7 @@ function exportDocument(
         symbol: targetSym,
         isReference: isRef,
         isImplementation: isImpl,
-        isTypeDefinition: edge.type === 'EXTENDS' || edge.type === 'IMPLEMENTS',
+        isTypeDefinition: edge.type === EDGE_EXTENDS || edge.type === EDGE_IMPLEMENTS,
         isDefinition: isDef,
       });
     }

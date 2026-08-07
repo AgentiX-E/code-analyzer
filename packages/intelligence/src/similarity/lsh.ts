@@ -3,6 +3,7 @@
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphEdge } from '@code-analyzer/shared';
+import { EDGE_SIMILAR_TO } from '@code-analyzer/shared';
 import { MinHashSimilarity } from './minhash.js';
 
 // ---------------------------------------------------------------------------
@@ -160,7 +161,7 @@ export class LSHSearcher {
       projectId,
       sourceId: edge.sourceId,
       targetId: edge.targetId,
-      type: 'SIMILAR_TO',
+      type: EDGE_SIMILAR_TO,
       properties: {
         confidence: edge.similarity,
         similarity: edge.similarity,

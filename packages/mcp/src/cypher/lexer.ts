@@ -2,6 +2,7 @@
 // Tokenizes a Cypher-like query string into a stream of tokens.
 
 import type { CypherToken } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_EXPOSES, EDGE_EXTENDS, EDGE_HANDLES, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
 
 const KEYWORDS = new Set([
   'MATCH', 'OPTIONAL', 'WHERE', 'RETURN', 'WITH', 'ORDER', 'BY',
@@ -10,8 +11,8 @@ const KEYWORDS = new Set([
   'AND', 'OR', 'NOT', 'IN', 'IS', 'NULL', 'TRUE', 'FALSE',
   'AS', 'ON', 'CREATE', 'DELETE', 'SET', 'MERGE', 'DETACH',
   'CONTAINS', 'STARTS', 'ENDS', 'WITH', 'REGEX',
-  'CALLS', 'IMPLEMENTS', 'EXTENDS', 'IMPORTS',
-  'HANDLES', 'EXPOSES', 'TESTS',
+  EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS, EDGE_IMPORTS,
+  EDGE_HANDLES, EDGE_EXPOSES, EDGE_TESTS,
   '*', // wildcard
 ]);
 

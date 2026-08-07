@@ -5,6 +5,7 @@
 // Iterate until convergence.
 
 import type { KnowledgeGraph, GraphEdge } from '@code-analyzer/shared';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -130,7 +131,7 @@ export class LouvainDetector {
     const adjacency = new Map<number, Map<number, number>>();
 
     for (const [, edge] of graph.edges) {
-      if (edge.type !== 'CALLS') continue;
+      if (edge.type !== EDGE_CALLS) continue;
 
       // Ensure both nodes are in the adjacency
       if (!adjacency.has(edge.sourceId)) adjacency.set(edge.sourceId, new Map());

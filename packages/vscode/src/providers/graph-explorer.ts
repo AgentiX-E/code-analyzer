@@ -3,6 +3,7 @@
 // No VS Code dependency — all VS Code integration lives in extension.ts.
 
 import type { EngineBridge, SymbolDetailItem } from '../services/engine-bridge.js';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Graph Data Types
@@ -156,7 +157,7 @@ export class GraphExplorerLogic {
       edges.push({
         sourceId: nodes[i]!.id,
         targetId: nodes[i + 1]!.id,
-        type: 'CALLS',
+        type: EDGE_CALLS,
       });
     }
 

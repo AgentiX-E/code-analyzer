@@ -6,6 +6,7 @@
 import type { McpToolDefinition } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from './tool-context.js';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 export const hotspotDetectionTool: McpToolDefinition = {
   name: 'hotspot_detection',
@@ -94,10 +95,10 @@ function generateHotspots(
     // Only analyze function/method/class nodes — structural types carry complexity
     if (!isStructuralNode(node.label)) continue;
 
-    const incoming = store.getEdgesForNode(node.id, 'CALLS', 'in').length;
-    const outgoing = store.getEdgesForNode(node.id, 'CALLS', 'out').length;
-    const extendsEdges = store.getEdgesForNode(node.id, 'EXTENDS', 'out').length;
-    const implementsEdges = store.getEdgesForNode(node.id, 'IMPLEMENTS', 'out').length;
+    const incoming = store.getEdgesForNode(node.id, EDGE_CALLS, 'in').length;
+    const outgoing = store.getEdgesForNode(node.id, EDGE_CALLS, 'out').length;
+    const extendsEdges = store.getEdgesForNode(node.id, EDGE_EXTENDS, 'out').length;
+    const implementsEdges = store.getEdgesForNode(node.id, EDGE_IMPLEMENTS, 'out').length;
 
     // Complexity = weighted edge count (outgoing IMPLEMENTS/EXTENDS count more)
     const complexity = outgoing + incoming + extendsEdges * 3 + implementsEdges * 2;

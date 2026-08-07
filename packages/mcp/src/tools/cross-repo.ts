@@ -6,6 +6,7 @@ import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
 import { buildSearchResponse, buildTraceResponse, buildImpactResponse } from './smart-response.js';
 import type { GitDiff } from '@code-analyzer/shared';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Singleton RepoGroupManager for session-scoped group persistence
@@ -210,7 +211,7 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
           const current = queue.shift()!;
           if (current.depth >= maxDepth) continue;
 
-          const edges = gstore.getEdgesForNode(current.nodeId, 'CALLS');
+          const edges = gstore.getEdgesForNode(current.nodeId, EDGE_CALLS);
           for (const edge of edges) {
             const targetId = edge.targetId;
             if (visited.has(targetId)) continue;
@@ -227,7 +228,7 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
                 toRepo: targetNode.projectId,
                 fromSymbol: sourceNode.name,
                 toSymbol: targetNode.name,
-                relationship: 'CALLS',
+                relationship: EDGE_CALLS,
               });
             }
 
@@ -258,7 +259,7 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
         path: path.map(p => ({
           symbol: p['symbol'] as string,
           depth: p['depth'] as number,
-          relationship: 'CALLS',
+          relationship: EDGE_CALLS,
           filePath: p['filePath'] as string,
         })),
         found: path.length > 1,
@@ -325,7 +326,7 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
         const allNodes = gstore.getAllNodes();
         for (const potentialCaller of allNodes) {
           if (potentialCaller.label === 'Function' || potentialCaller.label === 'Method') {
-            const callerEdges = gstore.getEdgesForNode(potentialCaller.id, 'CALLS');
+            const callerEdges = gstore.getEdgesForNode(potentialCaller.id, EDGE_CALLS);
             for (const edge of callerEdges) {
               if (edge.targetId === node.id) {
                 // Found a caller — check if it's in a different repo

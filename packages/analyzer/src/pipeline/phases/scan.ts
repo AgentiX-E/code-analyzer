@@ -8,7 +8,7 @@ import type {
   PipelineContext,
   DiscoveredFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_CONTAINS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -81,7 +81,7 @@ export class ScanPhase implements ExecutablePhase {
             const parentPath = dirname(folderPath);
             const parentNodeId = ctx.graph.fileIndex.get(parentPath);
             if (parentNodeId) {
-              builder.addEdge(ctx.graph, parentNodeId, currentFolderId, 'CONTAINS', ctx.projectId);
+              builder.addEdge(ctx.graph, parentNodeId, currentFolderId, EDGE_CONTAINS, ctx.projectId);
             }
           }
 
@@ -94,7 +94,7 @@ export class ScanPhase implements ExecutablePhase {
 
           // Create CONTAINS edge from parent folder to file
           if (currentFolderId) {
-            builder.addEdge(ctx.graph, currentFolderId, fileNode.id, 'CONTAINS', ctx.projectId);
+            builder.addEdge(ctx.graph, currentFolderId, fileNode.id, EDGE_CONTAINS, ctx.projectId);
           }
         }
       }

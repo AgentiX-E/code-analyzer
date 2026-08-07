@@ -8,7 +8,7 @@ import type {
   DiscoveredFile,
   ParsedFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_BELONGS_TO, EDGE_HANDLES, EDGE_HANDLES_ROUTE } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -154,7 +154,7 @@ export class RoutesPhase implements ExecutablePhase {
             framework: route.framework,
           }, qname);
 
-          builder.addEdge(ctx.graph, fileNodeId, node.id, 'HANDLES_ROUTE', ctx.projectId);
+          builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_HANDLES_ROUTE, ctx.projectId);
 
           // Also create BELONGS_TO edges from any functions defined near the route
           const parseData = ctx.phaseData.get('parse') as
@@ -169,8 +169,8 @@ export class RoutesPhase implements ExecutablePhase {
                   const symQname = `project:${ctx.projectId}:${symbol.qualifiedName}`;
                   const symNodeId = ctx.graph.qnameIndex.get(symQname);
                   if (symNodeId) {
-                    builder.addEdge(ctx.graph, symNodeId, node.id, 'BELONGS_TO', ctx.projectId);
-                    builder.addEdge(ctx.graph, symNodeId, node.id, 'HANDLES', ctx.projectId);
+                    builder.addEdge(ctx.graph, symNodeId, node.id, EDGE_BELONGS_TO, ctx.projectId);
+                    builder.addEdge(ctx.graph, symNodeId, node.id, EDGE_HANDLES, ctx.projectId);
                   }
                 }
               }

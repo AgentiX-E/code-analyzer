@@ -10,6 +10,7 @@ import type {
 } from '@code-analyzer/infra';
 import type { NodeQuery, EdgeQuery, FtsSearchResult } from '@code-analyzer/infra';
 import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Resolver types
@@ -597,7 +598,7 @@ export const resolvers = {
 
       // Build adjacency from IMPORT edges
       for (const edge of edges) {
-        if (edge.type === 'IMPORTS' || edge.type === 'CALLS') {
+        if (edge.type === EDGE_IMPORTS || edge.type === EDGE_CALLS) {
           const source = store.nodes.get(edge.sourceId);
           const target = store.nodes.get(edge.targetId);
           if (source?.filePath && target?.filePath) {

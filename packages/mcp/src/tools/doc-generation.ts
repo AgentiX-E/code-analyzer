@@ -6,6 +6,7 @@
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from './tool-context.js';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 export const docGenerationTool: McpToolDefinition = {
   name: 'doc_generation',
@@ -128,11 +129,11 @@ function generateDocSkeletons(
       : ext === 'java' || ext === 'kt' ? 'java'
       : 'typescript';
 
-    const outgoingCalls = store.getEdgesForNode(node.id, 'CALLS', 'out').length;
-    const incomingCalls = store.getEdgesForNode(node.id, 'CALLS', 'in').length;
+    const outgoingCalls = store.getEdgesForNode(node.id, EDGE_CALLS, 'out').length;
+    const incomingCalls = store.getEdgesForNode(node.id, EDGE_CALLS, 'in').length;
 
     // Get dependency names for usage description
-    const callEdges = store.getEdgesForNode(node.id, 'CALLS', 'out');
+    const callEdges = store.getEdgesForNode(node.id, EDGE_CALLS, 'out');
     const dependencies: string[] = [];
     for (const edge of callEdges.slice(0, 5)) {
       const targetNode = store.getNode(edge.targetId);

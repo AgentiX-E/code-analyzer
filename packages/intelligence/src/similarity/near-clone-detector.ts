@@ -3,6 +3,7 @@
 // efficient detection of near-duplicate code across large codebases.
 
 import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
+import { EDGE_SIMILAR_TO } from '@code-analyzer/shared';
 
 /** MinHash signature (array of hash values) */
 export type MinHashSignature = number[];
@@ -157,7 +158,7 @@ export class NearCloneDetector {
         projectId: graph.projectId,
         sourceId: pair.nodeId1,
         targetId: pair.nodeId2,
-        type: 'SIMILAR_TO',
+        type: EDGE_SIMILAR_TO,
         properties: {
           jaccardEstimate: pair.jaccardEstimate,
           detector: 'minhash-lsh',

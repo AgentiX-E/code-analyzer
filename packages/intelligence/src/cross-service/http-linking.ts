@@ -33,6 +33,7 @@ import {
 import { GRPC_LIBRARIES } from './grpc-linking.js';
 import { extractGrpcServiceMethod } from './grpc-linking.js';
 import { GRAPHQL_LIBRARIES, TRPC_LIBRARIES } from './graphql-linking.js';
+import { EDGE_CALLS, EDGE_EMITS, EDGE_HANDLES, EDGE_LISTENS_ON } from '@code-analyzer/shared';
 
 // ============================================================================
 // Pattern Matching
@@ -367,13 +368,13 @@ export function buildServiceEdge(
   return {
     sourceQn,
     targetQn: route.qn,
-    type: classification.edgeType === "ROUTE_REG" ? "CALLS" : classification.edgeType,
+    type: classification.edgeType === "ROUTE_REG" ? EDGE_CALLS : classification.edgeType,
     properties,
   };
 }
 
 export function buildHandlesEdge(handlerQn: string, routeQn: string): ServiceEdge {
-  return { sourceQn: handlerQn, targetQn: routeQn, type: "HANDLES", properties: { handler: handlerQn } };
+  return { sourceQn: handlerQn, targetQn: routeQn, type: EDGE_HANDLES, properties: { handler: handlerQn } };
 }
 
 export function buildChannelEdge(
@@ -385,8 +386,7 @@ export function buildChannelEdge(
   return {
     sourceQn: funcQn,
     targetQn: `__channel__${channelName}`,
-    type: direction === "emit" ? "EMITS" : "LISTENS_ON",
+    type: direction === "emit" ? EDGE_EMITS : EDGE_LISTENS_ON,
     properties: { channel_name: channelName, transport },
   };
 }
-

@@ -8,7 +8,7 @@ import type {
   SupportedLanguage,
   NodeProperties,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_DEFINES, EDGE_HAS_METHOD } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -112,15 +112,15 @@ export class ParsePhase implements ExecutablePhase {
                       ctx.graph,
                       currentClassNodeId,
                       node.id,
-                      'HAS_METHOD',
+                      EDGE_HAS_METHOD,
                       ctx.projectId,
                     );
                   } else {
-                    builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+                    builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                   }
                 } else if (label === 'Class') {
                   currentClassNodeId = node.id;
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
 
                   // EXTENDS edge for base classes
                   const baseClasses = symbol.properties.baseClasses as string | undefined;
@@ -131,11 +131,11 @@ export class ParsePhase implements ExecutablePhase {
                     }
                   }
                 } else if (label === 'Interface') {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 } else if (label === 'Function') {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 } else {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 }
               }
             }

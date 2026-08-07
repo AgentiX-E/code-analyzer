@@ -3,6 +3,7 @@
 // and analyze cross-repo usage patterns.
 
 import type { GraphNode } from '@code-analyzer/shared';
+import { EDGE_DEFINES } from '@code-analyzer/shared';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import { MinHashSimilarity } from '../similarity/minhash.js';
 
@@ -248,7 +249,7 @@ export class FederatedSearchEngine {
     const fingerprints = new Map<number, number[]>();
     for (const file of groupFiles) {
       // Tokenize: use the file's symbols as tokens
-      const edges = this.store.getEdgesForNode(file.id, 'DEFINES');
+      const edges = this.store.getEdgesForNode(file.id, EDGE_DEFINES);
       const tokens: string[] = [];
 
       // Use symbol names as tokens for structural similarity

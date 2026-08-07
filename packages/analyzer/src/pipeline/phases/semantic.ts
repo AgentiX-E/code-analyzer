@@ -4,7 +4,7 @@ import type {
   PipelinePhaseId,
   PipelineContext,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_CALLS, EDGE_HAS_METHOD, EDGE_SEMANTICALLY_RELATED } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -51,7 +51,7 @@ export class SemanticPhase implements ExecutablePhase {
       // Semantic heuristic 1: Classes with similar method signatures are related
       const classMethods = new Map<number, string[]>();
       for (const [, edge] of ctx.graph.edges) {
-        if (edge.type === 'HAS_METHOD') {
+        if (edge.type === EDGE_HAS_METHOD) {
           const target = ctx.graph.nodes.get(edge.targetId);
           if (target) {
             const methods = classMethods.get(edge.sourceId) ?? [];
@@ -78,7 +78,7 @@ export class SemanticPhase implements ExecutablePhase {
 
           if (overlapRatio >= 0.3 && methodsA.length >= 2) {
             try {
-              builder.addEdge(ctx.graph, classes[i]!.id, classes[j]!.id, 'SEMANTICALLY_RELATED', ctx.projectId);
+              builder.addEdge(ctx.graph, classes[i]!.id, classes[j]!.id, EDGE_SEMANTICALLY_RELATED, ctx.projectId);
               semanticRelations++;
             } catch { /* Edge may exist */ }
           }
@@ -88,7 +88,7 @@ export class SemanticPhase implements ExecutablePhase {
       // Semantic heuristic 2: Functions sharing caller patterns are related
       const functionCallers = new Map<number, Set<number>>();
       for (const [, edge] of ctx.graph.edges) {
-        if (edge.type === 'CALLS' && ctx.graph.nodes.has(edge.targetId)) {
+        if (edge.type === EDGE_CALLS && ctx.graph.nodes.has(edge.targetId)) {
           const callers = functionCallers.get(edge.targetId) ?? new Set();
           callers.add(edge.sourceId);
           functionCallers.set(edge.targetId, callers);
@@ -116,7 +116,7 @@ export class SemanticPhase implements ExecutablePhase {
 
           if (similarity >= 0.2 && shared >= 2) {
             try {
-              builder.addEdge(ctx.graph, idA, idB, 'SEMANTICALLY_RELATED', ctx.projectId);
+              builder.addEdge(ctx.graph, idA, idB, EDGE_SEMANTICALLY_RELATED, ctx.projectId);
               semanticRelations++;
             } catch { /* Edge may exist */ }
           }

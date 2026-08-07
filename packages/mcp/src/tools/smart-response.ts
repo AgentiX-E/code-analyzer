@@ -7,6 +7,7 @@ import type {
   GraphNode,
   GraphEdge,
 } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
 import { computeConfidence, type ConfidenceScore } from './confidence.js';
 
 // ---------------------------------------------------------------------------
@@ -209,7 +210,7 @@ function getCallers(
   store: InMemoryGraphStore,
 ): Map<number, { caller: GraphNode; edge: GraphEdge }> {
   const callers = new Map<number, { caller: GraphNode; edge: GraphEdge }>();
-  const incoming = store.getEdgesForNode(node.id, 'CALLS', 'in');
+  const incoming = store.getEdgesForNode(node.id, EDGE_CALLS, 'in');
   for (const edge of incoming) {
     const caller = store.getNode(edge.sourceId);
     if (caller && !callers.has(caller.id)) {
@@ -225,7 +226,7 @@ function getCallees(
   store: InMemoryGraphStore,
 ): Map<number, { callee: GraphNode; edge: GraphEdge }> {
   const callees = new Map<number, { callee: GraphNode; edge: GraphEdge }>();
-  const outgoing = store.getEdgesForNode(node.id, 'CALLS', 'out');
+  const outgoing = store.getEdgesForNode(node.id, EDGE_CALLS, 'out');
   for (const edge of outgoing) {
     const callee = store.getNode(edge.targetId);
     if (callee && !callees.has(callee.id)) {
@@ -250,7 +251,7 @@ function collectTransitiveCallers(
     const current = queue.shift()!;
     if (current.depth >= maxDepth) continue;
 
-    const incoming = store.getEdgesForNode(current.nodeId, 'CALLS', 'in');
+    const incoming = store.getEdgesForNode(current.nodeId, EDGE_CALLS, 'in');
     for (const edge of incoming) {
       const caller = store.getNode(edge.sourceId);
       if (caller && !visited.has(caller.id)) {
@@ -307,10 +308,10 @@ export function buildImpactResponse(
       qualifiedName: (node['symbolQname'] as string) ?? 'unknown',
       filePath: (node['filePath'] as string) ?? null,
       label: (node['label'] as string) ?? 'unknown',
-      callType: (impactType as string) ?? 'CALLS',
+      callType: (impactType as string) ?? EDGE_CALLS,
       confidence: computeConfidence(
         { qualifiedName: node['symbolQname'], filePath: node['filePath'] },
-        { targetSymbol, edgeType: 'CALLS', hasDirectEdge: depth <= 1 },
+        { targetSymbol, edgeType: EDGE_CALLS, hasDirectEdge: depth <= 1 },
       ),
       lineNumber: (node['startLine'] as number) ?? undefined,
     };
@@ -365,10 +366,10 @@ export function buildImpactResponse(
           qualifiedName: tc.qualifiedName,
           filePath: tc.filePath,
           label: tc.label,
-          callType: 'CALLS',
+          callType: EDGE_CALLS,
           confidence: computeConfidence(
             { qualifiedName: tc.qualifiedName, filePath: tc.filePath },
-            { targetSymbol, edgeType: 'CALLS', hasDirectEdge: false },
+            { targetSymbol, edgeType: EDGE_CALLS, hasDirectEdge: false },
           ),
         });
       }
@@ -557,7 +558,7 @@ export function buildTraceResponse(
 
       if (sourceNode && targetNode) {
         // Do a BFS from source to find alternative paths
-        const bfsResult = store.bfs(sourceNode.id, 5, ['CALLS', 'IMPLEMENTS', 'EXTENDS']);
+        const bfsResult = store.bfs(sourceNode.id, 5, [EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS]);
         const targetId = targetNode.id;
         const pathLengths = bfsResult.pathLengths;
 
@@ -670,7 +671,7 @@ export function buildSearchResponse(
       }));
 
       // Collect imports
-      const importEdges = store.getEdgesForNode(node.id, 'IMPORTS', 'out');
+      const importEdges = store.getEdgesForNode(node.id, EDGE_IMPORTS, 'out');
       /* v8 ignore start */ // import resolution via graph store (tested via integration)
       imports = importEdges
         .map(e => {
@@ -700,7 +701,7 @@ export function buildSearchResponse(
     /* v8 ignore start */ // cross-repo reference resolution: tested via integration/e2e
     const crossRepoRefs: string[] = [];
     if (node) {
-      const crossRepoEdges = store.getEdgesForNode(node.id, 'CROSS_REPO_CALLS', 'out');
+      const crossRepoEdges = store.getEdgesForNode(node.id, EDGE_CROSS_REPO_CALLS, 'out');
       crossRepoEdges.forEach(e => {
         const target = store.getNode(e.targetId);
         if (target && target.projectId !== node.projectId) {

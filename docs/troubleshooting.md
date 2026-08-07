@@ -1,342 +1,292 @@
-# Code Analyzer — Troubleshooting Guide
+# Troubleshooting
 
-Common issues and their solutions when using Code Analyzer.
-
-## Table of Contents
-
-- [Installation Issues](#installation-issues)
-- [Build Errors](#build-errors)
-- [Runtime Issues](#runtime-issues)
-- [Performance Tuning](#performance-tuning)
-- [GitHub Integration](#github-integration)
-- [MCP Server Issues](#mcp-server-issues)
-- [VS Code Extension Issues](#vs-code-extension-issues)
-- [Database & Storage Issues](#database--storage-issues)
+> Solutions for common issues when using Code Analyzer. If you don't find your issue here, check the [Getting Started guide](getting-started.md) or [file an issue](https://github.com/AgentiX-E/code-analyzer/issues).
 
 ---
 
-## Installation Issues
+## "No files found to analyze"
 
-### `tree-sitter` native module fails to build
+**Symptom:** Analysis completes instantly with zero files processed.
 
-**Symptom**: `npm install` or `pnpm install` fails with `node-gyp` errors related to `tree-sitter`.
+**Causes and solutions:**
 
-**Solution**:
-1. Ensure build essentials are installed:
+1. **No supported source files in the directory.** Code Analyzer supports TypeScript, JavaScript, Python, Go, Java, Kotlin, C#, Rust, and 10 additional languages. Verify your project contains files with recognized extensions.
+
+2. **`.gitignore` is blocking everything.** Code Analyzer respects `.gitignore` by default. If your source files are gitignored (unusual but possible), create a `.code-analyzerignore` file to override:
+
+   ```
+   !src/
+   !*.ts
+   !*.py
+   ```
+
+3. **Language filter is too restrictive.** If you ran `code-analyzer analyze . --languages typescript` but your project is Python, no files will match. Check your language filter or remove it to auto-detect.
+
+4. **Verify with a dry run.** List files that would be analyzed:
+
+   ```bash
+   code-analyzer analyze . --dry-run --format json | jq '.files[].path'
+   ```
+
+---
+
+## "MCP server won't start"
+
+**Symptom:** `npx @code-analyzer/mcp` fails to start or exits immediately.
+
+**Causes and solutions:**
+
+1. **Port conflict.** If using HTTP transport, another process may be using the port:
+
+   ```bash
+   lsof -i :3100
+   ```
+
+   Change the port: `code-analyzer mcp --transport http --port 3101`.
+
+2. **Authentication misconfiguration.** If `mcp.auth.enabled` is `true` but no API keys are configured, the server may reject all connections. Either disable auth or add valid keys to your config:
+
+   ```yaml
+   mcp:
+     auth:
+       enabled: false
+   ```
+
+3. **Node.js version too old.** Verify `node --version` returns >= 20.0.0. If not:
+
+   ```bash
+   nvm install 20
+   nvm use 20
+   ```
+
+4. **Run directly for error output:**
+
+   ```bash
+   npx @code-analyzer/mcp --verbose
+   ```
+
+---
+
+## "VS Code extension not working"
+
+**Symptom:** Extension is installed but shows no data, sidebar is empty, or Copilot Chat participant doesn't respond.
+
+**Causes and solutions:**
+
+1. **Verify installation.** Check the extension is actually activated:
+
+   - Open VS Code
+   - View → Output (or `Ctrl+Shift+U`)
+   - Select "Code Analyzer" from the dropdown
+   - Look for "Code Analyzer extension activated" in the log
+
+2. **Copilot Chat not available.** The `@code-analyzer` participant requires GitHub Copilot Chat to be installed and active. Verify:
+
+   - GitHub Copilot extension is installed and signed in
+   - Copilot Chat is enabled in your GitHub settings
+   - You see the Copilot Chat icon in the activity bar
+
+3. **Extension failed to load.** Reload the window:
+
+   ```
+   Ctrl+Shift+P → "Developer: Reload Window"
+   ```
+
+4. **Check for conflicts.** Another extension may interfere. Disable all extensions except Code Analyzer and GitHub Copilot, then re-enable one by one.
+
+5. **Node.js not on PATH.** The extension requires Node.js >= 20 accessible from the terminal. Verify:
+
+   ```bash
+   which node
+   node --version
+   ```
+
+---
+
+## "Analysis is slow"
+
+**Symptom:** Repository analysis takes several minutes or appears to hang.
+
+**Causes and solutions:**
+
+1. **Tune concurrency settings.** Increase worker threads in `.code-analyzerrc`:
+
+   ```yaml
+   concurrency: 8  # or auto (uses all CPUs)
+   ```
+
+   Or via environment: `CODE_ANALYZER_PARSE_WORKERS=8`
+
+2. **Reduce file size limits.** Skip very large files that don't benefit from analysis:
+
+   ```yaml
+   maxFileSize: 1048576  # 1 MB instead of 10 MB
+   ```
+
+3. **Skip unnecessary directories.** Add build artifacts, generated code, and vendor directories:
+
+   ```yaml
+   skipDirectories:
+     - node_modules
+     - dist
+     - .next
+     - __pycache__
+     - generated
+     - vendor
+   ```
+
+4. **Limit languages.** Analyze only the languages you care about:
+
+   ```bash
+   code-analyzer analyze . --languages typescript,python
+   ```
+
+5. **Use incremental indexing.** After the initial full index, subsequent runs will only process changed files:
+
+   ```bash
+   code-analyzer analyze . --incremental
+   ```
+
+---
+
+## "Memory usage is high"
+
+**Symptom:** Process crashes with "JavaScript heap out of memory" or uses excessive RAM.
+
+**Causes and solutions:**
+
+1. **Increase Node.js heap limit.** For large repos:
+
+   ```bash
+   NODE_OPTIONS="--max-old-space-size=8192" code-analyzer analyze .
+   ```
+
+2. **Reduce `maxFiles`.** Cap the number of files processed:
+
+   ```yaml
+   maxFiles: 10000
+   ```
+
+3. **Use SQLite graph store.** For very large codebases, switch from in-memory to disk-based storage:
+
+   ```yaml
+   storage:
+     type: sqlite
+     dbPath: .code-analyzer/graph.db
+   ```
+
+   The SQLite store uses WAL mode and keeps the working set small, trading some query speed for dramatically lower memory usage.
+
+4. **Disable embeddings for large repos.** If you don't need semantic search:
+
+   ```yaml
+   embed:
+     enabled: false
+   ```
+
+5. **Split into smaller units.** For monorepos, analyze one package at a time:
+
+   ```bash
+   code-analyzer analyze packages/frontend --project-id frontend
+   code-analyzer analyze packages/backend --project-id backend
+   ```
+
+---
+
+## "Cypher query returns no results"
+
+**Symptom:** `query_cypher` returns an empty array when you expect results.
+
+**Causes and solutions:**
+
+1. **Verify the schema.** Check available node types and relationship types:
+
+   ```bash
+   code-analyzer search --cypher "MATCH (n) RETURN DISTINCT labels(n) AS label, count(n) AS count"
+   ```
+
+2. **Validate relationship types.** Relationship types are case-sensitive. Use the exact names from the schema:
+
+   ```
+   CORRECT: MATCH (f:Function)-[:CALLS]->(t:Function)
+   WRONG:   MATCH (f:Function)-[:calls]->(t:Function)
+   ```
+
+3. **Check node label spelling.** Common mistakes:
+
+   ```
+   WRONG: MATCH (c:class)
+   CORRECT: MATCH (c:Class)
+   ```
+
+4. **List all relationship types in your graph:**
+
+   ```bash
+   code-analyzer search --cypher "MATCH ()-[r]->() RETURN DISTINCT type(r) AS relationship, count(r) AS count ORDER BY count DESC"
+   ```
+
+5. **Start simple and build up.** Test with the broadest query first:
+
+   ```cypher
+   MATCH (f:Function) RETURN f.name LIMIT 5
+   ```
+
+   Then gradually add filters and relationships.
+
+---
+
+## "Native module errors"
+
+**Symptom:** Installation fails with `node-gyp` or native module compilation errors (e.g., `tree-sitter`, `better-sqlite3`).
+
+**Causes and solutions:**
+
+1. **Node.js version mismatch.** Ensure Node.js >= 20.0.0:
+
+   ```bash
+   node --version
+   # If too old:
+   nvm install 20 && nvm use 20
+   ```
+
+2. **Install build tools.** Native modules require a C++ compiler:
+
    ```bash
    # Ubuntu/Debian
    sudo apt-get install build-essential python3
+
    # macOS
    xcode-select --install
+
+   # Alpine Linux
+   apk add build-base python3
    ```
-2. Ensure Node.js >= 20.0.0:
+
+3. **Rebuild native modules.** Clean and reinstall:
+
    ```bash
-   node --version
-   ```
-3. Clear the pnpm store and reinstall:
-   ```bash
-   pnpm store prune
    rm -rf node_modules
+   pnpm store prune
    pnpm install
    ```
 
-### `better-sqlite3` fails to compile
+4. **Platform support.** Some native modules may not work on all platforms. For example, `tree-sitter` requires a supported architecture (x86_64, arm64). If you're on an unsupported platform, use Docker instead:
 
-**Symptom**: Native SQLite bindings compilation error.
-
-**Solution**:
-```bash
-# Install system-level SQLite development headers
-sudo apt-get install libsqlite3-dev  # Ubuntu/Debian
-brew install sqlite                   # macOS
-```
-
-### `pnpm: command not found`
-
-**Symptom**: `pnpm` is not recognized after installation.
-
-**Solution**:
-```bash
-npm install -g pnpm@9
-# or via corepack
-corepack enable
-corepack prepare pnpm@9 --activate
-```
-
----
-
-## Build Errors
-
-### `TypeScript strict mode errors`
-
-**Symptom**: Build fails with `ts(18048)`, `ts(4111)`, etc.
-
-**Solution**:
-1. The project uses TypeScript strict mode with `NodeNext` module resolution.
-2. Ensure you run the build from the project root:
    ```bash
-   pnpm build
+   docker pull ghcr.io/agentix-e/code-analyzer:latest
    ```
-3. If building a single package, ensure its dependencies are already built:
+
+5. **Use prebuilt binaries.** When available, the package ships prebuilt binaries for common platforms. If building from source, ensure you have the latest version:
+
    ```bash
-   pnpm --filter @code-analyzer/shared build
-   pnpm --filter @code-analyzer/intelligence build
-   ```
-
-### `Cannot find module '@code-analyzer/...'`
-
-**Symptom**: Import errors when building downstream packages.
-
-**Solution**: Build all packages in correct dependency order:
-```bash
-pnpm build  # turbo handles topological ordering
-```
-
----
-
-## Runtime Issues
-
-### Out of Memory (OOM)
-
-**Symptom**: Process crashes with `JavaScript heap out of memory` when analyzing large repositories.
-
-**Solution**:
-1. Increase Node.js heap limit:
-   ```bash
-   NODE_OPTIONS="--max-old-space-size=4096" code-analyzer analyze ./large-repo
-   ```
-2. Configure file size limits in `.code-analyzer.json`:
-   ```json
-   {
-     "analyzer": {
-       "maxFileSize": 5242880,
-       "maxFiles": 25000
-     }
-   }
-   ```
-3. Use the `--exclude` flag to skip large generated directories:
-   ```bash
-   code-analyzer analyze ./repo --exclude '**/generated/**'
-   ```
-
-### Slow Analysis on Large Repositories
-
-**Symptom**: Repository analysis takes too long.
-
-**Solution**:
-1. Reduce the scope with include/exclude patterns
-2. Limit languages:
-   ```bash
-   code-analyzer analyze ./repo --languages typescript,javascript
-   ```
-3. Increase worker count (auto-detected by default):
-   ```json
-   {
-     "analyzer": {
-       "parseWorkers": 8
-     }
-   }
-   ```
-4. Enable parse caching for re-analysis speedups
-
-### High Memory Usage
-
-**Symptom**: Steady memory growth during analysis.
-
-**Solution**:
-1. Set `pruner.enabled: true` in config to prune unreferenced symbols
-2. Reduce `maxFileSize` to skip very large files
-3. Use SQLite graph store for large graphs instead of in-memory:
-   ```json
-   {
-     "storage": {
-       "type": "sqlite",
-       "dbPath": "./code-analyzer.db"
-     }
-   }
+   pnpm add -g @code-analyzer/cli@latest
    ```
 
 ---
 
-## Performance Tuning
+## Still Having Issues?
 
-### Worker Configuration
-
-| Scenario | Recommended `parseWorkers` |
-|----------|---------------------------|
-| Small repo (< 1000 files) | 2–4 |
-| Medium repo (1000–10000 files) | `os.cpus().length - 1` (default) |
-| Large repo (> 10000 files) | `os.cpus().length` |
-| CI/CD pipeline | `os.cpus().length` |
-
-### Cache Configuration
-
-Enable parse caching for faster re-analysis:
-```json
-{
-  "cache": {
-    "enabled": true,
-    "maxSize": 1000,
-    "ttl": 3600
-  }
-}
-```
-
-### Graph Store Selection
-
-| Store | Best For | Limitations |
-|-------|----------|-------------|
-| In-Memory | Fast queries, small/medium repos | Memory-bound, ephemeral |
-| SQLite | Large repos, persistence | Slightly slower reads |
-
----
-
-## GitHub Integration
-
-### Rate Limit Errors (403 / 429)
-
-**Symptom**: `GitHubRateLimitError` or 403/429 responses from GitHub API.
-
-**Solution**:
-1. Check your current rate limit:
-   ```bash
-   curl -H "Authorization: token YOUR_TOKEN" \
-     https://api.github.com/rate_limit
-   ```
-2. Use a GitHub App installation token (higher limits than PAT):
-   - Personal Access Token: 5000 req/hour
-   - GitHub App: 5000–15000 req/hour depending on plan
-3. Enable retry logic with exponential backoff (built into the client)
-
-### Webhook Signature Verification Fails
-
-**Symptom**: `INVALID_SIGNATURE` errors when receiving GitHub webhooks.
-
-**Solution**:
-1. Verify the webhook secret matches between GitHub and your server config
-2. Ensure the payload is raw (not parsed) when computing the signature
-3. Check that `X-Hub-Signature-256` uses the `sha256=` prefix
-
-### Cross-Repo Analysis Not Finding Dependencies
-
-**Symptom**: Cross-repo analysis returns empty or partial results.
-
-**Solution**:
-1. Ensure all repos in the group are indexed:
-   ```bash
-   code-analyzer cross-repo index --group my-group
-   ```
-2. Verify GitHub tokens have read access to all repos
-3. Check that dependencies are declared in `package.json`, `requirements.txt`, or `go.mod`
-
----
-
-## MCP Server Issues
-
-### Client Cannot Connect
-
-**Symptom**: MCP client reports connection failure.
-
-**Solution**:
-1. Verify the server is running:
-   ```bash
-   curl http://localhost:3000/health
-   ```
-2. Check for port conflicts:
-   ```bash
-   lsof -i :3000
-   ```
-3. Review server logs for startup errors
-
-### Tool Returns Unexpected Errors
-
-**Symptom**: Tool calls return error responses.
-
-**Solution**:
-1. Check tool arguments match the expected schema:
-   ```bash
-   curl http://localhost:3000/api/v1/tools/list | jq '.tools[] | {name, description}'
-   ```
-2. Verify the graph store has been populated (run `analyze_repository` first)
-3. Check that the tool supports the requested operation
-
-### mTLS Handshake Fails
-
-**Symptom**: TLS connection rejected during mTLS authentication.
-
-**Solution**:
-1. Verify the client certificate is signed by the configured CA
-2. Check certificate expiration dates
-3. If behind a reverse proxy, configure `clientCertHeader`:
-   ```json
-   {
-     "mtls": {
-       "clientCertHeader": "x-forwarded-client-cert"
-     }
-   }
-   ```
-
----
-
-## VS Code Extension Issues
-
-### Copilot Chat Participant Not Responding
-
-**Symptom**: The `@code-analyzer` participant shows no response in Copilot Chat.
-
-**Solution**:
-1. Ensure the extension is activated (check Output panel → Code Analyzer)
-2. Verify an MCP server is running or configured
-3. Check that the VS Code workspace contains analyzable code
-
-### Analysis Results Don't Update
-
-**Symptom**: VS Code shows stale analysis results.
-
-**Solution**:
-1. Run the "Code Analyzer: Refresh Analysis" command
-2. Check the file watcher is enabled (`watcher.enabled: true`)
-3. Manually trigger re-analysis if the watcher missed changes
-
----
-
-## Database & Storage Issues
-
-### SQLite Database Locked
-
-**Symptom**: `SQLITE_BUSY` errors during concurrent operations.
-
-**Solution**:
-1. The project uses WAL mode by default — check that it's enabled
-2. Avoid multiple processes accessing the same database file
-3. If using in-memory SQLite (`:memory:`), switch to file-based for concurrent access
-
-### Graph Store Corruption
-
-**Symptom**: Unexpected query results or missing data.
-
-**Solution**:
-1. Run validation:
-   ```bash
-   code-analyzer status --validate
-   ```
-2. Rebuild the graph from source:
-   ```bash
-   code-analyzer analyze ./repo --force
-   ```
-3. Delete and recreate the database:
-   ```bash
-   rm -f ./code-analyzer.db
-   code-analyzer analyze ./repo
-   ```
-
----
-
-## Getting Help
-
-If the above solutions don't resolve your issue:
-
-1. Run `code-analyzer status` for a diagnostic overview
-2. Check logs at the configured log directory
-3. Enable debug logging: `CODE_ANALYZER_LOG_LEVEL=debug`
-4. File an issue with the diagnostic output at [GitHub Issues](https://github.com/AgentiX-E/code-analyzer/issues)
+1. Run diagnostics: `code-analyzer status --verbose`
+2. Enable debug logging: `CODE_ANALYZER_LOG_LEVEL=debug code-analyzer analyze .`
+3. Check [GitHub Issues](https://github.com/AgentiX-E/code-analyzer/issues) for known problems
+4. File a new issue with the diagnostic output and steps to reproduce

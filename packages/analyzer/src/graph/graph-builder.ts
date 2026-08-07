@@ -10,6 +10,7 @@ import type {
   RelationshipType,
   NodeProperties,
 } from '@code-analyzer/shared';
+import { EDGE_CONTAINS } from '@code-analyzer/shared';
 
 export interface IntegrityReport {
   projectId: string;
@@ -65,7 +66,7 @@ export class GraphBuilder {
     const projectEdge = this.createEdge(
       projectNode.id,
       rootFolder.id,
-      'CONTAINS',
+      EDGE_CONTAINS,
       ctx.projectId,
     );
     graph.edges.set(projectEdge.id, projectEdge);
@@ -235,7 +236,7 @@ export class GraphBuilder {
           filePath: currentPath,
         }, `folder:${currentPath}`);
         folderId = folderNode.id;
-        this.addEdge(graph, parentId, folderId, 'CONTAINS', graph.projectId);
+        this.addEdge(graph, parentId, folderId, EDGE_CONTAINS, graph.projectId);
       }
       parentId = folderId;
     }

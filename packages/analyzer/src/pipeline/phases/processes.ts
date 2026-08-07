@@ -4,7 +4,7 @@ import type {
   PipelinePhaseId,
   PipelineContext,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_BELONGS_TO, EDGE_CALLS, EDGE_IMPORTS, EDGE_STEP_IN_PROCESS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -52,9 +52,9 @@ export class ProcessesPhase implements ExecutablePhase {
           for (const [, edge] of ctx.graph.edges) {
             if (edge.sourceId === current && !visited.has(edge.targetId)) {
               if (
-                edge.type === 'CALLS' ||
-                edge.type === 'BELONGS_TO' ||
-                edge.type === 'IMPORTS'
+                edge.type === EDGE_CALLS ||
+                edge.type === EDGE_BELONGS_TO ||
+                edge.type === EDGE_IMPORTS
               ) {
                 visited.add(edge.targetId);
                 queue.push(edge.targetId);
@@ -76,7 +76,7 @@ export class ProcessesPhase implements ExecutablePhase {
 
           // Create STEP_IN_PROCESS edges
           for (let i = 0; i < steps.length; i++) {
-            builder.addEdge(ctx.graph, steps[i], processNode.id, 'STEP_IN_PROCESS', ctx.projectId);
+            builder.addEdge(ctx.graph, steps[i], processNode.id, EDGE_STEP_IN_PROCESS, ctx.projectId);
           }
 
           processesFound++;

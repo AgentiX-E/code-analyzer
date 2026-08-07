@@ -5,6 +5,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
 import type { GitDiff, ReviewCategory, Severity } from '@code-analyzer/shared';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -467,7 +468,7 @@ function runBasicHeuristics(projectId: string, ctx: ToolContext): { comments: un
 
   // Check for nodes with many dependents
   for (const node of allNodes) {
-    const incoming = ctx.store.getEdgesForNode(node.id, 'CALLS', 'in');
+    const incoming = ctx.store.getEdgesForNode(node.id, EDGE_CALLS, 'in');
     if (incoming.length > 15) {
       comments.push({
         id: `h-coupling-${node.id}`,

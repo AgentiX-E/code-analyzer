@@ -20,7 +20,7 @@ import type {
   UnifiedCapture,
   ScopeTree,
 } from '@code-analyzer/shared';
-import { CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger , EDGE_DEFINES, EDGE_HAS_METHOD } from '@code-analyzer/shared';
 
 import {
   InMemoryGraphStore,
@@ -549,15 +549,15 @@ export class ParallelParsePhase implements ExecutablePhase {
           // Create appropriate edges
           if (label === 'Class') {
             currentClassNodeId = node.id;
-            builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+            builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
           } else if (label === 'Method' || label === 'Constructor') {
             if (currentClassNodeId) {
-              builder.addEdge(ctx.graph, currentClassNodeId, node.id, 'HAS_METHOD', ctx.projectId);
+              builder.addEdge(ctx.graph, currentClassNodeId, node.id, EDGE_HAS_METHOD, ctx.projectId);
             } else {
-              builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+              builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
             }
           } else {
-            builder.addEdge(ctx.graph, fileNodeId, node.id, 'DEFINES', ctx.projectId);
+            builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
           }
         }
       }

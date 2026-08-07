@@ -5,6 +5,7 @@
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from './tool-context.js';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 export const testGenerationTool: McpToolDefinition = {
   name: 'test_generation',
@@ -121,7 +122,7 @@ function generateTestSkeletons(
       : 'typescript';
 
     // Get dependencies (called symbols)
-    const outgoingEdges = store.getEdgesForNode(node.id, 'CALLS', 'out');
+    const outgoingEdges = store.getEdgesForNode(node.id, EDGE_CALLS, 'out');
     const dependencies: string[] = [];
 
     for (const edge of outgoingEdges.slice(0, 5)) {

@@ -4,6 +4,7 @@
 
 import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // generate_report — Real implementation using graph store data
@@ -69,10 +70,10 @@ export async function generateReport(args: Record<string, unknown>, store?: unkn
   const testCount = labelDistribution['Test'] ?? 0;
 
   // Count relationships
-  const callCount = relationshipDistribution['CALLS'] ?? 0;
-  const importCount = relationshipDistribution['IMPORTS'] ?? 0;
-  const extendsCount = relationshipDistribution['EXTENDS'] ?? 0;
-  const implementsCount = relationshipDistribution['IMPLEMENTS'] ?? 0;
+  const callCount = relationshipDistribution[EDGE_CALLS] ?? 0;
+  const importCount = relationshipDistribution[EDGE_IMPORTS] ?? 0;
+  const extendsCount = relationshipDistribution[EDGE_EXTENDS] ?? 0;
+  const implementsCount = relationshipDistribution[EDGE_IMPLEMENTS] ?? 0;
 
   const report = {
     id: `report_${Date.now()}`,
@@ -367,7 +368,7 @@ export async function getRecommendations(args: Record<string, unknown>, store?: 
 
         // Architecture: high-degree nodes (potential god objects)
         for (const node of allNodes) {
-          const edges = gstore.getEdgesForNode(node.id, 'CALLS');
+          const edges = gstore.getEdgesForNode(node.id, EDGE_CALLS);
           if (edges.length > 20 && (node.label === 'Class' || node.label === 'Function')) {
             recommendations.push({
               category: 'architecture',

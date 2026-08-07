@@ -6,6 +6,7 @@
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
+import { EDGE_ACCESSES, EDGE_CALLS, EDGE_DATA_FLOWS, EDGE_DEFINES, EDGE_EXTENDS, EDGE_HANDLES, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_INSTANTIATES } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,15 +75,15 @@ export interface FlowSearchOptions {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_FLOW_EDGES: RelationshipType[] = [
-  'CALLS',
-  'IMPORTS',
-  'DATA_FLOWS',
-  'DEFINES',
-  'EXTENDS',
-  'IMPLEMENTS',
-  'HANDLES',
-  'ACCESSES',
-  'INSTANTIATES',
+  EDGE_CALLS,
+  EDGE_IMPORTS,
+  EDGE_DATA_FLOWS,
+  EDGE_DEFINES,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+  EDGE_HANDLES,
+  EDGE_ACCESSES,
+  EDGE_INSTANTIATES,
 ];
 
 export class FlowSearchEngine {
@@ -223,7 +224,7 @@ export class FlowSearchEngine {
     return this.search([functionNodeId], {
       maxDepth,
       maxResults,
-      edgeTypes: ['CALLS', 'IMPORTS'],
+      edgeTypes: [EDGE_CALLS, EDGE_IMPORTS],
       direction: 'backward',
     });
   }
@@ -239,7 +240,7 @@ export class FlowSearchEngine {
     return this.search([functionNodeId], {
       maxDepth,
       maxResults,
-      edgeTypes: ['CALLS'],
+      edgeTypes: [EDGE_CALLS],
       direction: 'forward',
     });
   }
@@ -451,12 +452,12 @@ export class FlowSearchEngine {
 
     // Bonus for direct CALLS edges (strong relationship)
     const lastEdge = edgeTypes[edgeTypes.length - 1];
-    if (lastEdge === 'CALLS') score += 10;
-    if (lastEdge === 'EXTENDS' || lastEdge === 'IMPLEMENTS') score += 15;
-    if (lastEdge === 'DATA_FLOWS') score += 5;
+    if (lastEdge === EDGE_CALLS) score += 10;
+    if (lastEdge === EDGE_EXTENDS || lastEdge === EDGE_IMPLEMENTS) score += 15;
+    if (lastEdge === EDGE_DATA_FLOWS) score += 5;
 
     // Penalty for weak relationships
-    if (lastEdge === 'IMPORTS') score -= 5;
+    if (lastEdge === EDGE_IMPORTS) score -= 5;
 
     return Math.max(0, Math.min(100, score));
   }

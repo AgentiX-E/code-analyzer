@@ -5,7 +5,7 @@ import type {
   PipelineContext,
   DiscoveredFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_HANDLES_TOOL } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -76,7 +76,7 @@ export class ToolsPhase implements ExecutablePhase {
 
             const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
             if (fileNodeId) {
-              builder.addEdge(ctx.graph, fileNodeId, node.id, 'HANDLES_TOOL', ctx.projectId);
+              builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_HANDLES_TOOL, ctx.projectId);
             }
 
             toolsFound++;

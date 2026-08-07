@@ -4,6 +4,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { tokenize, parse, plan, execute } from '../cypher/index.js';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { NodeLabel } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_HAS_METHOD, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 import type { ToolResult } from './registry.js';
 import { buildSearchResponse, buildTraceResponse } from './smart-response.js';
 
@@ -361,11 +362,11 @@ export async function traceCallPath(args: Record<string, unknown>, store?: unkno
     if (graphStore) {
       const node = graphStore.getNodeByQualifiedName(sourceSymbol);
       if (node) {
-        const bfs = graphStore.bfs(node.id, maxDepth, ['CALLS', 'IMPLEMENTS', 'EXTENDS']);
+        const bfs = graphStore.bfs(node.id, maxDepth, [EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS]);
         const path = bfs.nodes.map(n => ({
           symbol: n.qualifiedName,
           depth: bfs.pathLengths.get(n.id) ?? 0,
-          relationship: 'CALLS',
+          relationship: EDGE_CALLS,
           filePath: n.filePath,
         }));
 
@@ -917,7 +918,7 @@ export async function exploreSymbol(args: Record<string, unknown>, store?: unkno
           ];
 
           result.calls = outgoing
-            .filter(e => e.type === 'CALLS')
+            .filter(e => e.type === EDGE_CALLS)
             .map(e => {
               const targetNode = graphStore.getNode(e.targetId);
               return {
@@ -928,7 +929,7 @@ export async function exploreSymbol(args: Record<string, unknown>, store?: unkno
             });
 
           result.calledBy = incoming
-            .filter(e => e.type === 'CALLS')
+            .filter(e => e.type === EDGE_CALLS)
             .map(e => {
               const sourceNode = graphStore.getNode(e.sourceId);
               return {
@@ -1007,7 +1008,7 @@ export async function findImplementations(args: Record<string, unknown>, store?:
         };
 
         // Find IMPLEMENTS edges pointing to this interface
-        const incoming = graphStore.getEdgesForNode(ifaceNode.id, 'IMPLEMENTS', 'in');
+        const incoming = graphStore.getEdgesForNode(ifaceNode.id, EDGE_IMPLEMENTS, 'in');
         const implementorIds = new Set<number>();
 
         result.implementations = incoming
@@ -1028,7 +1029,7 @@ export async function findImplementations(args: Record<string, unknown>, store?:
 
         // Find method implementations
         for (const implId of implementorIds) {
-          const methods = graphStore.getEdgesForNode(implId, 'HAS_METHOD', 'out');
+          const methods = graphStore.getEdgesForNode(implId, EDGE_HAS_METHOD, 'out');
           for (const methodEdge of methods) {
             const methodNode = graphStore.getNode(methodEdge.targetId);
             if (methodNode) {

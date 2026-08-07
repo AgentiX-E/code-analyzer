@@ -12,6 +12,7 @@ import {
   EmbeddingEngine,
 } from '@code-analyzer/intelligence';
 import type { GitDiff } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_TESTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public return types (simplified for vscode consumers)
@@ -399,7 +400,7 @@ export class EngineBridge {
     const outgoingEdges = this.store.queryEdges({
       projectId: this.projectId,
       sourceId: node.id,
-      type: 'CALLS',
+      type: EDGE_CALLS,
       limit: 100,
     });
 
@@ -424,7 +425,7 @@ export class EngineBridge {
     const testEdges = this.store.queryEdges({
       projectId: this.projectId,
       targetId: node.id,
-      type: 'TESTS',
+      type: EDGE_TESTS,
       limit: 100,
     });
 

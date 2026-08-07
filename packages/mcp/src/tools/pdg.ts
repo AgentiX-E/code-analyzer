@@ -4,6 +4,7 @@
 
 import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
+import { EDGE_CALLS, EDGE_CFG, EDGE_DATA_FLOWS, EDGE_IMPORTS, EDGE_REACHING_DEF, EDGE_SANITIZES, EDGE_TAINTED, EDGE_TAINT_PATH } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // pdg_query — Analyze program dependence graph (CFG-based)
@@ -22,7 +23,7 @@ export const pdgQuerySchema = {
   properties: {
     functionId: { type: 'string', description: 'Function identifier (qualified name)' },
     projectId: { type: 'string', description: 'Project ID' },
-    edgeType: { type: 'string', description: 'Edge type filter', enum: ['CFG', 'DATA_FLOWS', 'REACHING_DEF', 'TAINTED', 'SANITIZES', 'TAINT_PATH'] },
+    edgeType: { type: 'string', description: 'Edge type filter', enum: [EDGE_CFG, EDGE_DATA_FLOWS, EDGE_REACHING_DEF, EDGE_TAINTED, EDGE_SANITIZES, EDGE_TAINT_PATH] },
   },
   required: ['functionId', 'projectId'],
 };
@@ -52,14 +53,14 @@ export async function pdgQuery(args: Record<string, unknown>, store?: unknown): 
         });
 
         // Get CALLS edges as basic control flow approximation
-        const callEdges = gstore.getEdgesForNode(funcNode.id, 'CALLS');
+        const callEdges = gstore.getEdgesForNode(funcNode.id, EDGE_CALLS);
         for (const edge of callEdges) {
           const target = gstore.getNode(edge.targetId);
           if (target) {
             edges.push({
               sourceId: edge.sourceId,
               targetId: edge.targetId,
-              type: 'CALLS',
+              type: EDGE_CALLS,
               targetName: target.name,
             });
           }
@@ -148,7 +149,7 @@ export async function taintAnalysis(args: Record<string, unknown>, store?: unkno
         if (!isSource) continue;
 
         // Check if it calls anything that looks like a sink
-        const callEdges = gstore.getEdgesForNode(node.id, 'CALLS');
+        const callEdges = gstore.getEdgesForNode(node.id, EDGE_CALLS);
         for (const edge of callEdges) {
           const target = gstore.getNode(edge.targetId);
           if (!target) continue;
@@ -245,7 +246,7 @@ export async function explainTaint(args: Record<string, unknown>, store?: unknow
         };
 
         // Trace call path
-        const bfsPath = gstore.bfs(node.id, 5, ['CALLS', 'IMPORTS']);
+        const bfsPath = gstore.bfs(node.id, 5, [EDGE_CALLS, EDGE_IMPORTS]);
 
         explanation.path = bfsPath.nodes.map((p, idx) => ({
           nodeId: p.id,

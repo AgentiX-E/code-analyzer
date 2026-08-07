@@ -3,6 +3,7 @@
 // visualization, plus repo-level metrics computation.
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import { EDGE_CROSS_REPO_CALLS, EDGE_CROSS_REPO_DEPENDS, EDGE_CROSS_REPO_IMPLEMENTS, EDGE_CROSS_REPO_IMPORTS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -161,9 +162,9 @@ export class CrossRepoGraphVisualizer {
     lines.push('    color = "#888888";');
     lines.push('    bgcolor = "#F8F8F8";');
     lines.push('');
-    lines.push('    legend_imports [label = "CROSS_REPO_IMPORTS", shape = "plaintext", fontsize = 10];');
-    lines.push('    legend_calls   [label = "CROSS_REPO_CALLS",   shape = "plaintext", fontsize = 10];');
-    lines.push('    legend_depends [label = "CROSS_REPO_DEPENDS", shape = "plaintext", fontsize = 10];');
+    lines.push('    legend_imports [label = EDGE_CROSS_REPO_IMPORTS, shape = "plaintext", fontsize = 10];');
+    lines.push('    legend_calls   [label = EDGE_CROSS_REPO_CALLS,   shape = "plaintext", fontsize = 10];');
+    lines.push('    legend_depends [label = EDGE_CROSS_REPO_DEPENDS, shape = "plaintext", fontsize = 10];');
     lines.push('');
     lines.push('    legend_imports -> legend_calls -> legend_depends [style = "invis"];');
     lines.push('  }');
@@ -409,9 +410,9 @@ export class CrossRepoGraphVisualizer {
   }
 
   private dotEdgeStyle(edgeType: string): string {
-    if (edgeType === 'CROSS_REPO_CALLS') return 'style = "dashed" color = "#D94A4A" ';
-    if (edgeType === 'CROSS_REPO_IMPLEMENTS') return 'style = "bold" color = "#50B86C" ';
-    if (edgeType === 'CROSS_REPO_DEPENDS') return 'style = "dotted" color = "#8B5CF6" ';
+    if (edgeType === EDGE_CROSS_REPO_CALLS) return 'style = "dashed" color = "#D94A4A" ';
+    if (edgeType === EDGE_CROSS_REPO_IMPLEMENTS) return 'style = "bold" color = "#50B86C" ';
+    if (edgeType === EDGE_CROSS_REPO_DEPENDS) return 'style = "dotted" color = "#8B5CF6" ';
     return 'color = "#4A90D9" '; // CROSS_REPO_IMPORTS (default)
   }
 

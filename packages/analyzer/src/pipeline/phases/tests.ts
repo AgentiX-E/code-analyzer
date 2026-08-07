@@ -6,7 +6,7 @@ import type {
   PipelinePhaseId,
   PipelineContext,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -86,7 +86,7 @@ export class TestsPhase implements ExecutablePhase {
         // Find what this test file imports
         const importedFiles = new Set<string>();
         for (const [, edge] of ctx.graph.edges) {
-          if (edge.sourceId === fileNodeId && edge.type === 'IMPORTS') {
+          if (edge.sourceId === fileNodeId && edge.type === EDGE_IMPORTS) {
             const targetNode = ctx.graph.nodes.get(edge.targetId);
             if (targetNode?.properties?.filePath) {
               importedFiles.add(targetNode.properties.filePath as string);
@@ -99,7 +99,7 @@ export class TestsPhase implements ExecutablePhase {
           const targetNodeId = filePathToNodeId.get(importedFile);
           if (targetNodeId && targetNodeId !== fileNodeId) {
             try {
-              builder.addEdge(ctx.graph, fileNodeId, targetNodeId, 'TESTS', ctx.projectId);
+              builder.addEdge(ctx.graph, fileNodeId, targetNodeId, EDGE_TESTS, ctx.projectId);
               testsFound++;
             } catch {
               // Edge may already exist
@@ -115,7 +115,7 @@ export class TestsPhase implements ExecutablePhase {
               const srcFileName = basename(srcPath, extname(srcPath));
               if (fileName.includes(srcFileName) || srcFileName.includes(fileName)) {
                 try {
-                  builder.addEdge(ctx.graph, fileNodeId, srcNodeId, 'TESTS', ctx.projectId);
+                  builder.addEdge(ctx.graph, fileNodeId, srcNodeId, EDGE_TESTS, ctx.projectId);
                   testsFound++;
                   break;
                 } catch {

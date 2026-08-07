@@ -7,6 +7,7 @@ import type {
   GraphNode,
   RelationshipType,
 } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_HANDLES_ROUTE, EDGE_IMPLEMENTS, EDGE_MEMBER_OF, EDGE_TESTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -47,10 +48,10 @@ export interface SymbolWithChanges {
 const RISK_ORDER: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
 
 const DEPENDENT_RELATIONSHIPS: RelationshipType[] = [
-  'CALLS',
-  'IMPLEMENTS',
-  'EXTENDS',
-  'MEMBER_OF',
+  EDGE_CALLS,
+  EDGE_IMPLEMENTS,
+  EDGE_EXTENDS,
+  EDGE_MEMBER_OF,
 ];
 
 // ---------------------------------------------------------------------------
@@ -148,7 +149,7 @@ export class ChangeDetector {
         const incomingCalls = this.store.queryEdges({
           projectId,
           targetId: nodeId,
-          type: 'CALLS',
+          type: EDGE_CALLS,
           limit: 100000,
         });
         const callers = incomingCalls.items.map(
@@ -161,7 +162,7 @@ export class ChangeDetector {
         const outgoingCalls = this.store.queryEdges({
           projectId,
           sourceId: nodeId,
-          type: 'CALLS',
+          type: EDGE_CALLS,
           limit: 100000,
         });
         const callees = outgoingCalls.items.map(
@@ -174,7 +175,7 @@ export class ChangeDetector {
         const testEdges = this.store.queryEdges({
           projectId,
           targetId: nodeId,
-          type: 'TESTS',
+          type: EDGE_TESTS,
           limit: 100000,
         });
         const tests = testEdges.items.map(
@@ -187,7 +188,7 @@ export class ChangeDetector {
         const routeEdges = this.store.queryEdges({
           projectId,
           sourceId: nodeId,
-          type: 'HANDLES_ROUTE',
+          type: EDGE_HANDLES_ROUTE,
           limit: 100000,
         });
         const routes = routeEdges.items.map(

@@ -1,25 +1,42 @@
 # Getting Started with Code Analyzer
 
-> A 5-minute guide to indexing, searching, and reviewing your codebase with code intelligence.
+> A step-by-step guide to indexing, searching, and reviewing your codebase. From zero to code intelligence in under 10 minutes.
 
 ## Prerequisites
 
-| Requirement | Minimum | Notes |
-|-------------|---------|-------|
-| **Node.js** | ≥ 20.0.0 | Check with `node --version` |
-| **pnpm** (build from source) | ≥ 9.0.0 | Only needed for local development |
-| **Git** | Any recent version | For repository analysis and PR review |
-| **Disk** | ~50 MB (core) + graph storage | Knowledge graph stored locally |
+| Requirement | Minimum | How to Check |
+|-------------|---------|---------------|
+| **Node.js** | >= 20.0.0 | `node --version` |
+| **pnpm** | >= 9.0.0 | `pnpm --version` |
+| **Git** | Any recent version | `git --version` |
+| **Disk Space** | ~50 MB core + graph storage | Varies by codebase size |
+
+If you don't have pnpm installed:
+
+```bash
+npm install -g pnpm@latest
+# Or via corepack (Node.js >= 16.13):
+corepack enable && corepack prepare pnpm@latest --activate
+```
+
+---
 
 ## Installation
 
 ### Option 1 — Global Install (Recommended)
 
 ```bash
-npm install -g @code-analyzer/cli
+pnpm add -g @code-analyzer/cli
 
 # Verify installation
 code-analyzer --version
+```
+
+**Expected output:**
+
+```
+Code Analyzer v1.0.0
+Node: v20.11.0 | Platform: linux x64
 ```
 
 ### Option 2 — npx (No Install)
@@ -28,177 +45,195 @@ code-analyzer --version
 npx @code-analyzer/cli analyze --repo .
 ```
 
-### Option 3 — Build from Source
+The first run downloads the package automatically. Subsequent runs are faster due to npx cache.
+
+### Option 3 — Docker
 
 ```bash
-git clone https://github.com/AgentiX-E/code-analyzer.git
-cd code-analyzer
-pnpm install && pnpm build
+docker pull ghcr.io/agentix-e/code-analyzer:latest
 
-# Use locally
-node packages/cli/dist/index.js analyze --repo .
+# Run analysis on your project
+docker run --rm -v $(pwd):/workspace ghcr.io/agentix-e/code-analyzer:latest \
+  code-analyzer analyze --repo /workspace
+
+# Start MCP server via Docker
+docker run --rm -v $(pwd):/workspace -p 3100:3100 \
+  ghcr.io/agentix-e/code-analyzer:latest \
+  code-analyzer mcp --transport http --port 3100
+```
+
+Use Docker when you want a fully isolated environment or need to run Code Analyzer in CI/CD pipelines without installing Node.js.
+
+---
+
+## First Steps
+
+### 1. Initialize Your Project
+
+Before your first analysis, initialize a configuration:
+
+```bash
+code-analyzer init
+```
+
+This creates a `.code-analyzerrc` file in your project root with sensible defaults. You'll be prompted to select:
+
+- Which languages to analyze (TypeScript, Python, Go, Java, Kotlin, C#, Rust)
+- Directories to exclude
+- Review severity preferences
+
+**Expected output:**
+
+```
+✓ Created .code-analyzerrc
+✓ Detected 3 languages: typescript, python, go
+✓ Configuration saved with 8 options
+```
+
+### 2. Analyze Your Codebase
+
+Run your first full analysis to build the knowledge graph:
+
+```bash
+code-analyzer analyze .
+```
+
+**What happens during analysis:**
+1. **File Discovery** — Scans your project, respecting `.gitignore` and `.code-analyzerignore`
+2. **Parsing** — Each source file is parsed by the appropriate language provider
+3. **Graph Building** — A 19-phase DAG pipeline constructs a knowledge graph with 33 entity types and 44 relationship types
+4. **Indexing** — Full-text and vector embeddings are generated for hybrid search
+
+**Expected output:**
+
+```
+╔══════════════════════════════════════╗
+║   Code Analyzer - Analysis Results   ║
+╠══════════════════════════════════════╣
+║ Files analyzed:        1,247         ║
+║ Lines of code:         87,342        ║
+║ Nodes created:         4,521         ║
+║ Relationships created:  18,330        ║
+║ Graph size:            12.4 MB       ║
+║ Analysis time:         8.3s          ║
+╚══════════════════════════════════════╝
+
+Languages detected: typescript (847 files), python (312 files), go (88 files)
+```
+
+### 3. Search Your Code
+
+Now that your codebase is indexed, search it:
+
+```bash
+# Keyword search
+code-analyzer search "authentication"
+
+# Semantic search (what does this code do?)
+code-analyzer search "how does the login flow work" --semantic
+
+# Search with filters
+code-analyzer search "handler" --language typescript --type Function
+
+# Cypher graph query
+code-analyzer search --cypher "MATCH (f:Function) WHERE f.name CONTAINS 'auth' RETURN f.name, f.file"
+```
+
+**Expected output (keyword search):**
+
+```
+Search: "authentication" (BM25, top 20 results)
+
+1. auth/login.ts:42  —  authenticateUser()      [score: 0.892]
+2. auth/middleware.ts:18  —  authMiddleware()    [score: 0.845]
+3. services/token.ts:67  —  refreshAuthToken()    [score: 0.801]
+4. types/auth.ts:5  —  AuthConfig interface       [score: 0.763]
+...
+
+Found 47 results in 0.12s
+```
+
+### 4. Review Your Code
+
+Get automated review feedback on your code:
+
+```bash
+# Review a single file
+code-analyzer review src/auth/login.ts
+
+# Review staged changes (before committing)
+code-analyzer review src/ --diff
+
+# Review entire directory against standards
+code-analyzer review src/ --standard typescript-best-practices
+```
+
+**Expected output:**
+
+```
+Review: src/auth/login.ts
+═══════════════════════════════
+[CRITICAL] Line 42: Hardcoded secret - API key appears to be embedded in source
+  → Move to environment variable or secrets manager
+
+[HIGH] Line 67: Missing error handling - async function lacks try/catch
+  → Wrap database call in try/catch with appropriate error response
+
+[MEDIUM] Line 89: Function length exceeds threshold (52 lines)
+  → Consider refactoring into smaller functions
+
+[LOW] Line 12: Unused import 'crypto' detected
+  → Remove unused import
+
+Summary: 1 critical, 1 high, 1 medium, 1 low — 4 issues total
 ```
 
 ---
 
-## First Analysis
+## Setting Up MCP for AI Agents
 
-### Step 1: Index Your Repository
+Code Analyzer exposes 45 tools via the Model Context Protocol (MCP), turning your AI coding agent into a code intelligence powerhouse.
 
-```bash
-# Index a repository (creates knowledge graph)
-code-analyzer analyze --repo /path/to/your/project
+### Auto-Detect and Configure
 
-# Specify which languages to analyze
-code-analyzer analyze --repo . --languages typescript,python,java
-
-# Output results as JSON for programmatic use
-code-analyzer analyze --repo . --format json --output analysis.json
-```
-
-**What happens under the hood:**
-1. File discovery scans your project respecting `.gitignore`
-2. Each file is parsed by the appropriate language provider
-3. An 18-phase DAG pipeline builds a knowledge graph
-4. The graph is stored in an in-memory graph store
-5. You get a summary of nodes, edges, and analysis time
-
-### Step 2: Search Your Knowledge Graph
+The easiest way to set up MCP is with the agent detection command:
 
 ```bash
-# Full-text search (BM25 ranking)
-code-analyzer search "authentication" --repo .
-
-# Semantic search (requires embeddings)
-code-analyzer search "how does login work" --semantic --repo .
-
-# Filter by language and entity type
-code-analyzer search "handler" --language typescript --type Function --repo .
-
-# Search with Cypher queries
-code-analyzer search --cypher "MATCH (f:Function) WHERE f.name CONTAINS 'auth' RETURN f" --repo .
+code-analyzer agent detect
 ```
 
-### Step 3: Explore Architecture
+This scans your environment for supported AI agents and shows what's available:
+
+```
+Agent Detection Results
+═════════════════════════
+✓ Claude Desktop detected — ~/Library/Application Support/Claude/claude_desktop_config.json
+✓ Cursor detected — .cursor/mcp.json
+✓ VS Code detected — Code Analyzer extension installed
+✓ Windsurf detected — ~/.windsurf/mcp.json
+
+Run 'code-analyzer agent configure' to set up all detected agents.
+```
+
+Then configure all detected agents at once:
 
 ```bash
-# Get a bird's-eye view of your project
-code-analyzer report generate --repo . --format html --output report.html
-
-# Identify hotspots and complex modules
-code-analyzer report generate --repo . --format json | jq '.hotspots'
-
-# Trace call paths between functions
-code-analyzer trace "login" "database.query" --repo .
+code-analyzer agent configure
 ```
 
----
-
-## Code Review
-
-### PR Review
-
-```bash
-# Review a pull request with automated analysis
-code-analyzer review pr \
-  --repo . \
-  --pr 42 \
-  --token $GITHUB_TOKEN
-
-# Generate a detailed review report
-code-analyzer review pr \
-  --repo . \
-  --pr 42 \
-  --format markdown \
-  --output review.md
-
-# Review with custom project standards
-code-analyzer review pr \
-  --repo . \
-  --pr 42 \
-  --standard .code-analyzer-standards.yml
-```
-
-### Standards Checking
-
-```bash
-# Check against built-in TypeScript standards
-code-analyzer standards check --repo . --standard typescript-best-practices
-
-# List available built-in standards
-code-analyzer standards list
-
-# Use a custom standards file
-code-analyzer standards check --repo . --standard .code-analyzer-standards.yml
-
-# Check against multiple standards
-code-analyzer standards check --repo . --standard typescript-best-practices,security-basics
-```
-
-### Impact Analysis
-
-```bash
-# See what will be affected when changing a function
-code-analyzer impact analyze --repo . --function getUser
-
-# Analyze uncommitted changes before committing
-code-analyzer impact diff --repo .
-
-# Generate impact report
-code-analyzer impact analyze --repo . --function authenticate --format markdown --output impact.md
-```
-
----
-
-## VS Code Extension
-
-### Installation
-
-Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentiX-E.code-analyzer) or search for "Code Analyzer" in the Extensions view (`Ctrl+Shift+X`).
-
-### Key Features
-
-| Feature | How to Use |
-|---------|------------|
-| **Knowledge Graph Sidebar** | Click the Code Analyzer icon in the activity bar |
-| **Copilot Chat** | Type `@code-analyzer` in Copilot Chat |
-| **Inline Review Comments** | Hover over code to see AI review suggestions |
-| **Impact Analysis** | Right-click a function → "Analyze Impact" |
-| **Status Bar** | Shows index status and pending reviews |
-
-### Copilot Chat Commands
+**Expected output:**
 
 ```
-@code-analyzer explore the authentication module
-@code-analyzer search for all REST API handlers
-@code-analyzer review this file against project standards
-@code-analyzer impact what if I rename getUser to fetchUser?
-@code-analyzer debug why is the login flow failing?
-@code-analyzer refactor suggest improvements for this class
+✓ Configured Claude Desktop (38 tools)
+✓ Configured Cursor (28 tools, analysis profile)
+✓ Configured Windsurf (28 tools, analysis profile)
+
+Restart your AI agents to begin using Code Analyzer tools.
 ```
 
-The Copilot Chat participant uses 6 intent classifiers to route your queries to the right analysis pipeline.
+### Manual Configuration
 
-### Extension Settings
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `codeAnalyzer.indexOnOpen` | `true` | Auto-index workspace on open |
-| `codeAnalyzer.languages` | `["typescript","javascript"]` | Languages to analyze |
-| `codeAnalyzer.autoReview` | `false` | Auto-review on save |
-| `codeAnalyzer.maxTokens` | `8000` | Max tokens for review context |
-| `codeAnalyzer.ignorePatterns` | `["node_modules","dist"]` | Patterns to ignore |
-| `codeAnalyzer.standardsPath` | `null` | Custom standards file path |
-
----
-
-## MCP Server
-
-Use Code Analyzer as an MCP server — your AI coding agent gains 38 code intelligence tools.
-
-### Setup with Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+If auto-detection doesn't work, configure manually. For Claude Desktop, add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -207,143 +242,129 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
       "command": "npx",
       "args": ["-y", "@code-analyzer/mcp"],
       "env": {
-        "CODE_ANALYZER_PROJECT_DIR": "/path/to/your/project"
+        "CODE_ANALYZER_PROJECT_DIR": "/absolute/path/to/your/project"
       }
     }
   }
 }
 ```
 
-### Setup with Cursor
-
-Add to `.cursor/mcp.json` in your project:
+For Cursor, create `.cursor/mcp.json` in your project root:
 
 ```json
 {
   "mcpServers": {
     "code-analyzer": {
       "command": "npx",
-      "args": ["-y", "@code-analyzer/mcp"]
+      "args": ["-y", "@code-analyzer/mcp"],
+      "env": {
+        "CODE_ANALYZER_PROJECT_DIR": "${workspaceFolder}"
+      }
     }
   }
 }
 ```
 
-### What Your AI Agent Gains
-
-Once connected, your AI agent can:
-
-- **Search** code with BM25+vector hybrid ranking
-- **Query** the knowledge graph with Cypher
-- **Review** PRs with project standards
-- **Analyze** change impact before committing
-- **Check** compliance against 10 built-in standards
-- **Generate** architecture reports and trend analyses
-- **Trace** call paths between any two functions
-
-See the [MCP Server Guide](MCP-SERVER.md) for the complete tool reference (38 tools, 15 resources, 5 prompts).
-
-### Available Tools (Sample)
-
-| Category | Tools | Description |
-|----------|-------|-------------|
-| Search | `search_graph`, `search_code`, `semantic_query` | Full-text, structural, and semantic search |
-| Review | `review_pr`, `review_diff`, `review_file` | Automated code review with standards |
-| Standards | `check_standards`, `list_standards`, `add_standard` | Project standards management |
-| Reports | `generate_report`, `get_trends`, `recommend` | Analysis reports and recommendations |
-| Query | `query_cypher`, `get_architecture`, `trace_path` | Graph queries and architecture |
-| Impact | `analyze_impact`, `detect_changes` | Change impact analysis |
+After restarting your AI agent, you'll see a hammer icon in the chat interface, confirming the 45 MCP tools are available. See the [MCP Tool Reference](mcp-tool-reference.md) for the complete listing.
 
 ---
 
-## CI/CD Integration
+## VS Code Extension Setup
 
-### GitHub Actions
+### Installation
 
-```yaml
-name: Code Analysis
-on: [pull_request]
+1. Open VS Code
+2. Press `Ctrl+Shift+X` (or `Cmd+Shift+X` on macOS)
+3. Search for "Code Analyzer"
+4. Click **Install**
 
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npx @code-analyzer/cli analyze --repo .
-      - run: npx @code-analyzer/cli review pr --repo . --pr ${{ github.event.pull_request.number }}
+Alternatively, install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentiX-E.code-analyzer).
+
+### Verify Installation
+
+After installation, you should see:
+
+- **Activity Bar Icon** — The Code Analyzer icon (magnifying glass over brackets) appears in the activity bar
+- **Status Bar Indicator** — Shows "CA: Indexed" when a project is analyzed
+- **Output Panel** — View → Output → "Code Analyzer" shows extension logs
+
+### Key Features
+
+| Feature | How to Access |
+|---------|---------------|
+| **Knowledge Graph Sidebar** | Click the Code Analyzer icon in the activity bar |
+| **Copilot Chat Integration** | Type `@code-analyzer` in Copilot Chat (requires GitHub Copilot) |
+| **Inline Review Comments** | Hover over code to see AI review suggestions |
+| **Impact Analysis** | Right-click a function → "Code Analyzer: Analyze Impact" |
+| **Command Palette** | `Ctrl+Shift+P` → search "Code Analyzer" |
+
+### Copilot Chat Commands
+
+```
+@code-analyzer /review    — Review the current file
+@code-analyzer /explain   — Explain selected code
+@code-analyzer /impact    — Analyze impact of current function
+@code-analyzer /find      — Search for symbols
+@code-analyzer /deps      — Show dependencies
+@code-analyzer /refactor  — Suggest refactoring
+@code-analyzer /test      — Generate tests for current file
+@code-analyzer /coverage  — Show test coverage gaps
+@code-analyzer /standards — Check against standards
 ```
 
-### GitLab CI
+### Extension Settings
 
-```yaml
-code-analysis:
-  image: node:20
-  script:
-    - npx @code-analyzer/cli analyze --repo .
-    - npx @code-analyzer/cli standards check --repo . --standard typescript-best-practices
-  artifacts:
-    reports:
-      codequality: analysis.json
-```
+Configure via `Ctrl+,` → search "Code Analyzer":
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `codeAnalyzer.indexOnOpen` | `true` | Auto-index workspace when opened |
+| `codeAnalyzer.languages` | `["typescript","javascript"]` | Languages to analyze |
+| `codeAnalyzer.autoReview` | `false` | Automatically review on file save |
+| `codeAnalyzer.ignorePatterns` | `["node_modules","dist"]` | Patterns to skip |
 
 ---
 
-## Configuration
+## Troubleshooting Common First-Time Issues
 
-Code Analyzer can be configured via a `.code-analyzer.yml` file in your project root:
+### "command not found: code-analyzer"
 
-```yaml
-# .code-analyzer.yml
-project:
-  name: my-project
-  languages:
-    - typescript
-    - python
+The global install path isn't in your `$PATH`. Run:
 
-analysis:
-  exclude:
-    - "**/node_modules/**"
-    - "**/dist/**"
-    - "**/*.test.ts"
-  maxFileSize: 1048576  # 1MB
-
-review:
-  standards:
-    - typescript-best-practices
-    - security-basics
-  autoFix: false
-
-search:
-  semantic: true
-  embeddingModel: nomic-embed-code
+```bash
+pnpm setup
+source ~/.bashrc  # or ~/.zshrc
 ```
 
-See the [Configuration Guide](CONFIGURATION.md) for the complete reference.
+Or use npx directly: `npx @code-analyzer/cli analyze .`
 
----
+### "No files found to analyze"
 
-## Troubleshooting
+Check that:
+1. You're in a directory with supported source files (`.ts`, `.py`, `.go`, `.java`, etc.)
+2. Your files aren't excluded by `.gitignore` patterns
+3. You've specified the right language: `code-analyzer analyze . --languages typescript`
 
-### "Git command failed" errors
-Ensure you are running `code-analyzer` from within a Git repository, or specify the repo path explicitly with `--repo /path/to/project`.
+### "Analysis is slow" on Large Projects
 
-### Slow indexing on large projects
-- Exclude unnecessary directories in `.code-analyzer.yml`
-- Limit languages: `--languages typescript,javascript`
-- Increase worker pool: set `CODE_ANALYZER_WORKERS=8` environment variable
+- Limit languages: `code-analyzer analyze . --languages typescript`
+- Exclude generated files in `.code-analyzerrc`:
+  ```json
+  { "excludePatterns": ["**/generated/**", "**/*.generated.*"] }
+  ```
+- Set `CODE_ANALYZER_PARSE_WORKERS=8` for more parallel workers
 
-### MCP tools not appearing
-- Verify the MCP server starts: run `npx @code-analyzer/mcp` directly and check for errors
-- Check that `CODE_ANALYZER_PROJECT_DIR` is set correctly
-- Restart your MCP client after configuration changes
+### "MCP server won't start"
 
-### VS Code extension not loading
-- Ensure Node.js ≥ 20 is installed
-- Check the extension output: View → Output → "Code Analyzer"
-- Reload VS Code window: `Ctrl+Shift+P` → "Developer: Reload Window"
+- Check for port conflicts: `lsof -i :3100`
+- Verify Node.js version: `node --version` (must be >= 20)
+- Run directly to see errors: `npx @code-analyzer/mcp --transport http --port 3100`
+
+### "VS Code extension shows nothing"
+
+- Check the extension is activated: View → Output → select "Code Analyzer"
+- Reload VS Code: `Ctrl+Shift+P` → "Developer: Reload Window"
+- Verify Node.js >= 20 is installed and on `$PATH`
 
 ---
 
@@ -351,12 +372,9 @@ Ensure you are running `code-analyzer` from within a Git repository, or specify 
 
 | Resource | Description |
 |----------|-------------|
-| 📘 [Architecture Guide](ARCHITECTURE.md) | Deep dive into the 7-layer architecture |
-| 🔧 [Configuration Reference](CONFIGURATION.md) | All config options and environment variables |
-| 🔌 [MCP Server Guide](MCP-SERVER.md) | Complete MCP tool and prompt reference |
-| 🔍 [Code Review Guide](CODE-REVIEW.md) | PR review workflow and custom standards |
-| 🌐 [Language Support](language-support.md) | 8-language feature matrix and cross-language analysis |
-| 📦 [Package READMEs](../packages/) | Per-package API documentation |
-| 🤝 [Contributing Guide](../CONTRIBUTING.md) | Development setup and coding standards |
-| 📋 [Changelog](../CHANGELOG.md) | Version history and release notes |
-| 🔒 [Security Policy](../SECURITY.md) | Vulnerability reporting and security measures |
+| [Configuration Reference](configuration-reference.md) | All config options and environment variables |
+| [MCP Tool Reference](mcp-tool-reference.md) | Complete 45-tool reference for AI agents |
+| [Scenario Guides](scenario-guides.md) | Task-based workflows (PR review, CI/CD, monorepo) |
+| [Troubleshooting](troubleshooting.md) | Detailed solutions for common issues |
+| [Architecture](architecture.md) | Deep dive into the system design |
+| [Language Support](language-support.md) | Supported languages and feature matrix |

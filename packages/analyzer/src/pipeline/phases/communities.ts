@@ -5,7 +5,7 @@ import type {
   PipelineContext,
   KnowledgeGraph,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_MEMBER_OF } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -31,7 +31,7 @@ function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; na
   const adjacency = new Map<number, Set<number>>();
 
   for (const [, edge] of graph.edges) {
-    if (edge.type === 'CALLS' || edge.type === 'IMPORTS' || edge.type === 'EXTENDS' || edge.type === 'IMPLEMENTS') {
+    if (edge.type === EDGE_CALLS || edge.type === EDGE_IMPORTS || edge.type === EDGE_EXTENDS || edge.type === EDGE_IMPLEMENTS) {
       if (!adjacency.has(edge.sourceId)) adjacency.set(edge.sourceId, new Set());
       if (!adjacency.has(edge.targetId)) adjacency.set(edge.targetId, new Set());
       adjacency.get(edge.sourceId)!.add(edge.targetId);
@@ -122,7 +122,7 @@ export class CommunitiesPhase implements ExecutablePhase {
         // Create MEMBER_OF edges from each member node to the community
         for (const memberId of community.members) {
           try {
-            builder.addEdge(ctx.graph, memberId, node.id, 'MEMBER_OF', ctx.projectId);
+            builder.addEdge(ctx.graph, memberId, node.id, EDGE_MEMBER_OF, ctx.projectId);
           } catch {
             // Skip edges that can't be created
           }

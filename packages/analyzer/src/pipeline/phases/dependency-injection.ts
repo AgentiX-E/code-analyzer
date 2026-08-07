@@ -6,7 +6,7 @@ import type {
   DiscoveredFile,
   ParsedFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_INJECTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -82,7 +82,7 @@ export class DependencyInjectionPhase implements ExecutablePhase {
                     if (sourceNodeId && injectedType) {
                       for (const [, targetNode] of ctx.graph.nodes) {
                         if (targetNode.name === injectedType && targetNode.label === 'Class') {
-                          builder.addEdge(ctx.graph, sourceNodeId, targetNode.id, 'INJECTS', ctx.projectId);
+                          builder.addEdge(ctx.graph, sourceNodeId, targetNode.id, EDGE_INJECTS, ctx.projectId);
                           injectionsFound++;
                           break;
                         }

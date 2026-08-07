@@ -8,7 +8,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { cpus } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { getLanguageFromFilename } from '@code-analyzer/shared';
+import { getLanguageFromFilename, EDGE_CALLS, EDGE_DEFINES, EDGE_IMPORTS } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import type {
   DiscoveredFile,
@@ -577,7 +577,7 @@ export class ParallelIndexer {
           const edge = this.createEdge(
             fileNode.id,
             node.id,
-            'DEFINES',
+            EDGE_DEFINES,
             `project:${rootPath}`,
           );
           this.addToBuffer(edge);
@@ -591,7 +591,7 @@ export class ParallelIndexer {
             const edge = this.createEdge(
               fileNode.id,
               targetNode.id,
-              ref.referenceKind === 'import' ? 'IMPORTS' : 'CALLS',
+              ref.referenceKind === 'import' ? EDGE_IMPORTS : EDGE_CALLS,
               `project:${rootPath}`,
             );
             this.addToBuffer(edge);

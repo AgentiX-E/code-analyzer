@@ -9,6 +9,7 @@ import type {
   ReviewCategory,
   Severity,
 } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { StandardsEngine } from '../standards/engine.js';
 import { IoUOverlapDetector, type CommentRegion } from '../impact/iou-overlap.js';
@@ -321,7 +322,7 @@ Reason: ${result.decision.reason}`;
           const funcLine = (func.properties as Record<string, number>)['lineNumber'];
           if (funcLine && Math.abs(funcLine - finding.evidence.startLine) < 50) {
             // Find callers of this nearby function
-            const edges = this.store.queryEdges({ projectId, targetId: func.id, type: 'CALLS' });
+            const edges = this.store.queryEdges({ projectId, targetId: func.id, type: EDGE_CALLS });
             for (const edge of edges.items) {
               const caller = this.store.getNode(edge.sourceId);
               if (caller) {
@@ -330,7 +331,7 @@ Reason: ${result.decision.reason}`;
             }
 
             // Find what this function calls
-            const outEdges = this.store.queryEdges({ projectId, sourceId: func.id, type: 'CALLS' });
+            const outEdges = this.store.queryEdges({ projectId, sourceId: func.id, type: EDGE_CALLS });
             for (const edge of outEdges.items) {
               const callee = this.store.getNode(edge.targetId);
               if (callee) {
@@ -359,7 +360,7 @@ Reason: ${result.decision.reason}`;
           const crossEdges = this.store.queryEdges({
             projectId,
             sourceId: func.id,
-            type: 'CROSS_REPO_CALLS',
+            type: EDGE_CROSS_REPO_CALLS,
           });
           for (const edge of crossEdges.items) {
             context.crossRepoRefs.push(`${edge.sourceId} → ${edge.targetId}`);

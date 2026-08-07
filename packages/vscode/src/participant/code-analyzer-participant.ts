@@ -4,6 +4,7 @@
 // Supports 10 slash commands for structured analysis workflows.
 
 import type { EngineBridge } from '../services/engine-bridge.js';
+import { EDGE_CALLS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Type stubs for VS Code Chat API (used in tests only; real types from vscode)
@@ -541,12 +542,12 @@ export class CodeAnalyzerChatParticipant {
       upstream: (ctx.callers ?? []).map((c) => ({
         name: c.name,
         filePath: c.filePath,
-        relationship: 'CALLS',
+        relationship: EDGE_CALLS,
       })),
       downstream: (ctx.calleeList ?? []).map((c) => ({
         name: c.name,
         filePath: c.filePath,
-        relationship: 'CALLS',
+        relationship: EDGE_CALLS,
       })),
     };
 

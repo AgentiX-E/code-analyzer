@@ -7,7 +7,7 @@ import type {
   ResolvedImport,
   NodeLabel,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -166,7 +166,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                         ctx.graph,
                         sourceNode,
                         target.nodeId,
-                        'CALLS',
+                        EDGE_CALLS,
                         ctx.projectId,
                       );
                       referencesResolved++;
@@ -214,7 +214,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                         ctx.graph,
                         sourceNodeId,
                         target.nodeId,
-                        'EXTENDS',
+                        EDGE_EXTENDS,
                         ctx.projectId,
                       );
                       referencesResolved++;
@@ -256,7 +256,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
                         ctx.graph,
                         sourceNodeId,
                         target.nodeId,
-                        'IMPLEMENTS',
+                        EDGE_IMPLEMENTS,
                         ctx.projectId,
                       );
                       referencesResolved++;

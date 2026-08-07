@@ -8,6 +8,7 @@
 import type { McpToolDefinition, ToolResult } from './registry.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
 import { ToolContextImpl } from './tool-context.js';
 
 export const trendAnalysisTool: McpToolDefinition = {
@@ -113,10 +114,10 @@ function complexityReport(
   const complexityScores: Array<{ name: string; filePath: string; score: number }> = [];
 
   for (const node of nodes) {
-    const outgoing = store.getEdgesForNode(node.id, 'CALLS', 'out').length;
-    const incoming = store.getEdgesForNode(node.id, 'CALLS', 'in').length;
-    const extendsEdges = store.getEdgesForNode(node.id, 'EXTENDS', 'out').length;
-    const implementsEdges = store.getEdgesForNode(node.id, 'IMPLEMENTS', 'out').length;
+    const outgoing = store.getEdgesForNode(node.id, EDGE_CALLS, 'out').length;
+    const incoming = store.getEdgesForNode(node.id, EDGE_CALLS, 'in').length;
+    const extendsEdges = store.getEdgesForNode(node.id, EDGE_EXTENDS, 'out').length;
+    const implementsEdges = store.getEdgesForNode(node.id, EDGE_IMPLEMENTS, 'out').length;
     const score = outgoing + incoming + extendsEdges * 3 + implementsEdges * 2;
 
     if (score > 0) {
@@ -203,10 +204,10 @@ function dependencyReport(
       fileMap.set(filePath, metric);
     }
 
-    metric.outbound += store.getEdgesForNode(node.id, 'IMPORTS', 'out').length;
-    metric.outbound += store.getEdgesForNode(node.id, 'CALLS', 'out').length;
-    metric.inbound += store.getEdgesForNode(node.id, 'IMPORTS', 'in').length;
-    metric.inbound += store.getEdgesForNode(node.id, 'CALLS', 'in').length;
+    metric.outbound += store.getEdgesForNode(node.id, EDGE_IMPORTS, 'out').length;
+    metric.outbound += store.getEdgesForNode(node.id, EDGE_CALLS, 'out').length;
+    metric.inbound += store.getEdgesForNode(node.id, EDGE_IMPORTS, 'in').length;
+    metric.inbound += store.getEdgesForNode(node.id, EDGE_CALLS, 'in').length;
     metric.total = metric.inbound + metric.outbound;
   }
 

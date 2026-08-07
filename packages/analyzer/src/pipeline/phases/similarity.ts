@@ -5,7 +5,7 @@ import type {
   PipelineContext,
   DiscoveredFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_SIMILAR_TO } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -117,7 +117,7 @@ export class SimilarityPhase implements ExecutablePhase {
 
             if (nodeA && nodeB) {
               try {
-                builder.addEdge(ctx.graph, nodeA, nodeB, 'SIMILAR_TO', ctx.projectId);
+                builder.addEdge(ctx.graph, nodeA, nodeB, EDGE_SIMILAR_TO, ctx.projectId);
                 similarPairsFound++;
               } catch {
                 // Edge may already exist

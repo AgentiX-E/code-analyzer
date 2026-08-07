@@ -66,7 +66,7 @@ export function computeConfidence(
   }
 
   // Edge-based direct caller/callee
-  if (context.edgeType === 'CALLS' && context.hasDirectEdge === true) {
+  if (context.edgeType === EDGE_CALLS && context.hasDirectEdge === true) {
     directMatches++;
     factors.push('direct edge exists in graph');
   }
@@ -86,12 +86,12 @@ export function computeConfidence(
   }
 
   // --- Heuristic signals ---
-  if (context.edgeType === 'IMPLEMENTS' && context.hasDirectEdge === true) {
+  if (context.edgeType === EDGE_IMPLEMENTS && context.hasDirectEdge === true) {
     heuristicMatches++;
     factors.push('implements relationship');
   }
 
-  if (context.edgeType === 'EXTENDS' && context.hasDirectEdge === true) {
+  if (context.edgeType === EDGE_EXTENDS && context.hasDirectEdge === true) {
     heuristicMatches++;
     factors.push('extends relationship');
   }
@@ -181,6 +181,7 @@ export function computeConfidence(
   }
 
   // Clamp to [0, 1]
+import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
   score = Math.max(0.0, Math.min(1.0, score));
 
   const label = getConfidenceLabel(score);

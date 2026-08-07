@@ -18,6 +18,7 @@
 //           └── Route node + HANDLES edge creation
 
 import type { KnowledgeGraph, GraphNode, GraphEdge, NodeLabel } from '@code-analyzer/shared';
+import { EDGE_HANDLES } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -321,7 +322,7 @@ export class FrameworkRouteDetector {
         id: graph.edges.size + 1,
         sourceId: fileNodeId,
         targetId: routeNodeId,
-        type: 'HANDLES',
+        type: EDGE_HANDLES,
         properties: { method: route.method, path: route.path },
       } as unknown as GraphEdge;
 
@@ -337,7 +338,7 @@ export class FrameworkRouteDetector {
               id: graph.edges.size + 1,
               sourceId: routeNodeId,
               targetId: id,
-              type: 'HANDLES',
+              type: EDGE_HANDLES,
               properties: { method: route.method, path: route.path },
             } as unknown as GraphEdge;
             graph.edges.set(handlerEdge.id, handlerEdge);

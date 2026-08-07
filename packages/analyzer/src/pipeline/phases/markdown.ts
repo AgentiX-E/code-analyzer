@@ -5,7 +5,7 @@ import type {
   PipelineContext,
   DiscoveredFile,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger , EDGE_CONTAINS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -95,7 +95,7 @@ export class MarkdownPhase implements ExecutablePhase {
             language: 'markdown',
           }, qname);
 
-          builder.addEdge(ctx.graph, fileNodeId, node.id, 'CONTAINS', ctx.projectId);
+          builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_CONTAINS, ctx.projectId);
         }
 
         markdownFiles++;
