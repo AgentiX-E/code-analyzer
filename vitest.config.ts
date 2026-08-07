@@ -192,12 +192,12 @@ export default defineConfig({
         'packages/*/dist/**',
       ],
       thresholds: {
-        // Honest baseline thresholds — reflects actual coverage with real-code exclusions
-        // documented above. Target: 95/89/95/95 by Iteration 7 when all exclusions removed.
-        lines: 55,
-        branches: 40,
-        functions: 55,
-        statements: 55,
+        // Aligned with CI coverage gate (≥95/89/95/95). Iteration 7 target when
+        // all exclusions are removed and coverage reaches production quality.
+        lines: 95,
+        branches: 89,
+        functions: 95,
+        statements: 95,
       },
     },
     testTimeout: 40_000,

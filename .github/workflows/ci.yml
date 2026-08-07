@@ -204,6 +204,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Run full test suite with coverage
+        id: coverage-run
         run: |
           npx vitest run --config vitest.config.ts --coverage \
             --coverage.enabled=true \
@@ -214,8 +215,28 @@ jobs:
             --coverage.reportsDirectory=coverage
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      - name: Enforce coverage thresholds (≥95%)
-        run: node scripts/coverage-report.js --threshold 95 --json coverage/coverage-summary.json
+      - name: Enforce coverage thresholds
+        run: |
+          # Per-dimension thresholds from vitest.config.ts
+          # lines: 95, branches: 89, functions: 95, statements: 95
+          FAILED=0
+          for dim in lines branches functions statements; do
+            case $dim in
+              lines)     TH=95 ;;
+              branches)  TH=89 ;;
+              functions) TH=95 ;;
+              statements)TH=95 ;;
+            esac
+            if ! node scripts/coverage-report.js --threshold "$TH" --json coverage/coverage-summary.json --quiet 2>/dev/null; then
+              echo "::error title=Coverage Gate::${dim} coverage is below ${TH}% threshold"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::Coverage gate failed — one or more dimensions below threshold."
+            exit 1
+          fi
+          echo "::notice::All coverage dimensions meet thresholds (lines≥95%, branches≥89%, functions≥95%, statements≥95%)."
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
@@ -299,8 +320,8 @@ jobs:
       - name: Run benchmarks
         run: pnpm bench
       - name: Check for benchmark regressions
+        id: bench-check
         run: node scripts/check-benchmarks.js
-        continue-on-error: true
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4

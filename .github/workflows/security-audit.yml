@@ -38,7 +38,13 @@ jobs:
         run: pnpm vitest run packages/core/src/__tests__/security-hardening.test.ts
 
       - name: Run code-analyzer secret scanner
-        run: pnpm exec code-analyzer scan --secret 2>/dev/null || echo "Secret scanner check completed (warning: CLI scan not available in CI)"
+        id: secret-scan
+        run: |
+          if pnpm exec code-analyzer scan --secret 2>/dev/null; then
+            echo "Secret scanner check passed."
+          else
+            echo "::warning::Secret scanner CLI not available in CI — skipping deep scan. Verify locally with 'pnpm exec code-analyzer scan --secret'."
+          fi
 
   dependency-audit:
     name: Dependency Audit
@@ -58,8 +64,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level=high
-        continue-on-error: true
+        id: audit
+        run: |
+          if pnpm audit --audit-level=high; then
+            echo "::notice::Dependency audit passed — no high-severity vulnerabilities found."
+          else
+            echo "::warning::Dependency audit found HIGH-severity vulnerabilities. Review and remediate as soon as possible."
+            exit 1
+          fi
 
   codeql:
     name: CodeQL Analysis

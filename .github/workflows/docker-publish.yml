@@ -75,7 +75,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up QEMU (for multi-arch emulation)
         uses: docker/setup-qemu-action@v3
@@ -180,7 +180,10 @@ jobs:
               docker logs "$CONTAINER_ID"
             fi
 
-            docker stop "$CONTAINER_ID" || true
+            # Gracefully stop container (cleanup — failure is non-blocking)
+            if ! docker stop "$CONTAINER_ID"; then
+              echo "::warning::Failed to stop container $CONTAINER_ID — manual cleanup may be needed."
+            fi
           fi
 
           if [[ "${{ matrix.target.name }}" == "cli" ]]; then
@@ -203,7 +206,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
