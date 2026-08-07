@@ -20,10 +20,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // Fork pool with singleFork — tree-sitter grammars are not fork-safe,
-    // so we run all tests in a single fork to avoid worker crashes.
+    // Fork pool with singleFork — all tests in one worker avoids native
+    // addon inter-process crashes. After all tests pass, vitest pool
+    // teardown may emit a cosmetic EPIPE error.
     pool: 'forks',
     singleFork: true,
+    testTimeout: 90_000,
+    hookTimeout: 60_000,
     include: [
       'packages/*/src/**/*.test.ts',
       'tests/unit/**/*.test.ts',
@@ -201,8 +204,5 @@ export default defineConfig({
     },
     testTimeout: 90_000,
     hookTimeout: 60_000,
-    // Retry flaky tests (primarily git-intensive tests that suffer from
-    // file-lock contention in parallel CI runners).
-    retry: 2,
   },
 });
