@@ -287,6 +287,10 @@ export class BashProvider extends TreeSitterBaseProvider {
     while ((m = srcRegex.exec(source)) !== null) {
       captures.push({ tag: CAPTURE_TAGS.IMPORT, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { importType: 'source', filePath } });
     }
+    const pipeRegex = /(\S+)\s*\|\s*\S+/g;
+    while ((m = pipeRegex.exec(source)) !== null) {
+      captures.push({ tag: CAPTURE_TAGS.FUNCTION_CALL, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { pipeCommand: 'true', filePath } });
+    }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 

@@ -845,7 +845,7 @@ export class JavaResolver extends TypeResolverBase {
     const ln = (off: number) => source.slice(0, off).split('\n').length;
 
     // Class declarations (including generics)
-    const classRx = /(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)*class\s+(\w+)(?:<([^>]+)>)?(?:\s+extends\s+(\w[\w.<>]*))?(?:\s+implements\s+(.+?))?\s*\{/g;
+    const classRx = /(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)*class\s+(\w+)(?:<([^>]+)>)?(?:\s+extends\s+([\w.<>,\s]+?))?(?:\s+implements\s+(.+?))?\s*\{/g;
     let m: RegExpExecArray | null;
     while ((m = classRx.exec(source)) !== null) {
       const baseType = m[3] ? m[3].replace(/<[^>]+>/, '').split(',')[0]!.trim() : null;

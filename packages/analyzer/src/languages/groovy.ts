@@ -123,16 +123,17 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
     if (node.type === 'method_invocation' || node.type === 'call_expression') {
       const name = this.extractCallName(node);
-      if (!name) return;
+      const fullName = this.extractFullCallName(node) ?? name;
+      if (!name && !fullName) { return; }
       const line = node.startPosition.row + 1;
       // Groovy-specific taint sources
       if (name === 'System.console' || name === 'System.in' || name === 'args' ||
-          name === 'binding' || name.includes('request') || name.includes('params')) {
-        sources.push({ name, sourceType: 'user_input', line, text: node.text, properties: {} });
+          name === 'binding' || (name !== null && name.includes('request')) || (name !== null && name.includes('params'))) {
+        sources.push({ name: name!, sourceType: 'user_input', line, text: node.text, properties: {} });
         return;
       }
-      if (name === 'Eval.me' || name === 'Eval.x') {
-        sources.push({ name, sourceType: 'code_injection', line, text: node.text, properties: {} });
+      if (fullName === 'Eval.me' || fullName === 'Eval.x') {
+        sources.push({ name: fullName, sourceType: 'code_injection', line, text: node.text, properties: {} });
         return;
       }
       return;
@@ -145,20 +146,21 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     if (node.type === 'method_invocation' || node.type === 'call_expression') {
       const name = this.extractCallName(node);
-      if (!name) return;
+      const fullName = this.extractFullCallName(node) ?? name;
+      if (!name && !fullName) { return; }
       const line = node.startPosition.row + 1;
       // Groovy metaprogramming sinks
-      if (name === 'Eval.me' || name === 'Eval.x' || name === 'GroovyShell' ||
+      if (fullName === 'Eval.me' || fullName === 'Eval.x' || name === 'GroovyShell' ||
           name === 'GroovyScriptEngine' || name === 'evaluate') {
-        sinks.push({ name, sinkType: 'code_injection', line, text: node.text, properties: {} });
+        sinks.push({ name: fullName ?? name!, sinkType: 'code_injection', line, text: node.text, properties: {} });
         return;
       }
       // SQL sinks in Groovy
-      if (name.includes('execute') || name.includes('executeUpdate') || name.includes('Sql')) {
+      if (name && (name.includes('execute') || name.includes('executeUpdate') || name.includes('Sql'))) {
         sinks.push({ name, sinkType: 'sql_exec', line, text: node.text, properties: {} });
       }
       // File write sinks
-      if (name.includes('write') || name.includes('withWriter') || name.includes('withOutputStream')) {
+      if (name && (name.includes('write') || name.includes('withWriter') || name.includes('withOutputStream'))) {
         sinks.push({ name, sinkType: 'file_write', line, text: node.text, properties: {} });
       }
       return;
@@ -171,12 +173,13 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   protected override walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
     if (node.type === 'method_invocation' || node.type === 'call_expression') {
       const name = this.extractCallName(node);
-      if (!name) return;
+      const fullName = this.extractFullCallName(node) ?? name;
+      if (!name && !fullName) { return; }
       const line = node.startPosition.row + 1;
       // Groovy sanitizers
-      if (name === 'encodeAsHTML' || name === 'encodeAsJavaScript' || name === 'encodeAsURL' ||
+      if (fullName === 'encodeAsHTML' || fullName === 'encodeAsJavaScript' || fullName === 'encodeAsURL' ||
           name === 'escape' || name === 'stripIndent' || name === 'replaceAll') {
-        sanitizers.push({ name, sanitizerType: 'encoding', line, text: node.text, properties: {} });
+        sanitizers.push({ name: fullName ?? name!, sanitizerType: 'encoding', line, text: node.text, properties: {} });
         return;
       }
       return;
@@ -187,6 +190,36 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Helpers ----
+
+  private extractFullCallName(node: TreeSitterSyntaxNode): string | null {
+    // For member expressions like Eval.me
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'member_expression') {
+        const parts: string[] = [];
+        for (let j = 0; j < child.childCount; j++) {
+          const sub = child.child(j);
+          if (sub.type === 'identifier' || sub.type === 'type_identifier' ||
+              sub.type === 'property_identifier') {
+            parts.push(sub.text);
+          }
+        }
+        if (parts.length > 1) return parts.join('.');
+      }
+    }
+    // For tree-sitter-groovy: identifiers are direct children of method_invocation
+    // separated by dots, e.g., Eval.me(userScript)
+    const parts: string[] = [];
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === 'identifier' || child.type === 'type_identifier' ||
+          child.type === 'property_identifier') {
+        parts.push(child.text);
+      }
+    }
+    if (parts.length > 1) return parts.join('.');
+    return null;
+  }
 
   private findIdent(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {

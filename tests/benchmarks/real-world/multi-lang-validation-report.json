@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-07T04:33:40.337Z",
+  "timestamp": "2026-08-07T05:08:40.407Z",
   "results": [
     {
       "language": "Python",
@@ -10,8 +10,8 @@
       "parseSuccess": 30,
       "parseFailed": 0,
       "successRate": 1,
-      "parseTimeMs": 1291,
-      "filesPerSec": 23,
+      "parseTimeMs": 1700,
+      "filesPerSec": 18,
       "symbolCount": 888,
       "functions": 488,
       "classes": 85,
@@ -29,8 +29,8 @@
       "parseSuccess": 533,
       "parseFailed": 0,
       "successRate": 1,
-      "parseTimeMs": 9490,
-      "filesPerSec": 56,
+      "parseTimeMs": 9089,
+      "filesPerSec": 59,
       "symbolCount": 6722,
       "functions": 747,
       "classes": 529,
@@ -48,7 +48,7 @@
       "parseSuccess": 1627,
       "parseFailed": 0,
       "successRate": 1,
-      "parseTimeMs": 25229,
+      "parseTimeMs": 25588,
       "filesPerSec": 64,
       "symbolCount": 29504,
       "functions": 0,

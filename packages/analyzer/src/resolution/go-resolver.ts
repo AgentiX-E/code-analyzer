@@ -433,7 +433,7 @@ export class GoResolver extends TypeResolverBase {
           if (underlying.type === 'struct_type') {
             kind = 'class'; // Go struct
             members = this.extractStructFields(underlying, name);
-          } else if (underlying.type === 'interface_type') {
+          } else if (underlying.type === 'interface_type' || (underlying as unknown as { text?: string }).text?.includes('interface')) {
             kind = 'interface';
             members = this.extractInterfaceMethods(underlying);
             // Register interface for satisfaction checking

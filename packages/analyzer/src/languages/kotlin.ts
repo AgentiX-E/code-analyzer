@@ -261,8 +261,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       captures.push({ tag: CAPTURE_TAGS.ENUM_DEF, text: `enum class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
     }
 
-    // Functions
-    const funcRegex = /(?:(?:private|internal|protected|public|override|open|abstract|suspend|inline|operator|infix|tailrec|external)\s+)*fun\s+(?:<[^>]*>\s*)?(\w+)/g;
+    // Functions (including extension functions: fun Type.name)
+    const funcRegex = /(?:(?:private|internal|protected|public|override|open|abstract|suspend|inline|operator|infix|tailrec|external)\s+)*fun\s+(?:<[^>]*>\s*)?(?:\w+\.)?(\w+)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
     }

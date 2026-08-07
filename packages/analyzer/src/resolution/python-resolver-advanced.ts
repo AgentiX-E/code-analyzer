@@ -144,12 +144,17 @@ export class PythonAdvancedResolver extends TypeResolverBase {
    */
   private resolvePythonGeneric(typeName: string, _context: TypeContext): ResolvedType | null {
     // Support both old-style Generic[T] and new-style list[int] (Python 3.9+)
-    // Strip Optional/Union wrapping since those are handled separately
     const match = typeName.match(/^(\w+)\s*\[\s*(.+?)\s*\]$/);
     if (!match) return null;
 
     const base = match[1]!;
     const argsStr = match[2]!;
+
+    // Route Optional/Union/Callable to their dedicated handlers
+    if (base === 'Optional') return null;
+    if (base === 'Union') return null;
+    if (base === 'Callable') return null;
+
     const args = this.splitTopLevelCommas(argsStr);
     const resolvedArgs = args.map((a) => this.makePythonUnresolved(a.trim()));
 
@@ -320,14 +325,11 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     }
 
     if (nt === 'function_definition' || nt === 'decorated_definition') {
-      const parent = node.parent;
-      if (parent && (parent.type === 'module' || parent.type === 'source_file')) {
-        const info = this.extractTopLevelFunction(node, source);
-        if (info) types.push(info);
-      }
+      const info = this.extractTopLevelFunction(node, source);
+      if (info) types.push(info);
     }
 
-    if (nt === 'expression_statement' && this.isTopLevel(node)) {
+    if (nt === 'expression_statement') {
       const info = this.extractTypeAlias(node, source);
       if (info) types.push(info);
     }
@@ -351,7 +353,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     const decorators = this.extractDecorators(node);
     const isAbstract = decorators.some((d) =>
       d.includes('abstractmethod') || d.includes('ABC') || d.includes('ABCMeta'),
-    );
+    ) || baseTypes.some((b) => b === 'ABC' || b === 'ABCMeta' || b === 'abc.ABC');
     const isDataclass = decorators.some((d) => d.includes('dataclass'));
     const isProtocol = baseTypes.includes('Protocol');
 
@@ -392,9 +394,9 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     const paramTypes = this.extractParamTypes(actualNode);
 
     let returnType: string | null = null;
-    const retAnn = this.findChild(actualNode, 'return_type');
-    if (retAnn) {
-      returnType = retAnn.lastChild?.text ?? retAnn.text.replace(/^->\s*/, '');
+    const retAnn = this.findChild(actualNode, 'type');
+    if (retAnn && retAnn.text !== 'parameters') {
+      returnType = retAnn.text;
     }
 
     const decorators = this.extractDecorators(node);
@@ -410,32 +412,90 @@ export class PythonAdvancedResolver extends TypeResolverBase {
   }
 
   private extractTypeAlias(node: SyntaxNode, _source: string): TypeInfo | null {
-    const assignment = this.findChild(node, 'assignment');
-    if (!assignment) return null;
+    const assignment = this.findChildAll(node, 'assignment');
+    const annAssign = this.findChildAll(node, 'annotated_assignment');
 
-    const lhs = assignment.child(0);
-    if (!lhs || lhs.type !== 'identifier') return null;
+    if (!assignment && !annAssign) return null;
 
-    const varName = lhs.text;
-    const rhs = assignment.child(2);
-    if (!rhs) return null;
+    // Handle type-annotated assignment: x: int (tree-sitter-python uses 'assignment' node for this)
+    if (assignment) {
+      const lhs = assignment.child(0);
+      if (!lhs || lhs.type !== 'identifier') return null;
+      const varName = lhs.text;
+      const rhs = assignment.child(2);
+      if (!rhs) return null;
 
-    // Detect TypeAlias = SomeType patterns, including generic types
-    if (rhs.type === 'identifier' || rhs.type === 'attribute' ||
-        rhs.type === 'generic_type' || rhs.type === 'call' ||
-        rhs.type === 'subscript' || rhs.type === 'string' ||
-        rhs.type === 'none') {
+      // Check if this is a type annotation (colon) or value assignment (equals)
+      const sep = assignment.child(1);
+      if (sep && (sep.text === ':' || sep.type === ':')) {
+        // Type annotation: x: int
+        const typeText = rhs.text;
+        return {
+          name: varName,
+          qualifiedName: `file:${this.filePath}:${varName}`,
+          filePath: this.filePath,
+          kind: 'variable',
+          members: new Map(),
+          baseTypes: [],
+          implementedInterfaces: [],
+          typeParameters: [],
+          returnType: typeText,
+          parameterTypes: [],
+          isExported: !varName.startsWith('_'),
+          isAbstract: false,
+          decorators: [],
+          location: {
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+          },
+        };
+      }
+
+      // Detect TypeAlias = SomeType patterns
+      if (rhs.type === 'identifier' || rhs.type === 'attribute' ||
+          rhs.type === 'generic_type' || rhs.type === 'call' ||
+          rhs.type === 'subscript' || rhs.type === 'string' ||
+          rhs.type === 'none') {
+        return {
+          name: varName,
+          qualifiedName: `file:${this.filePath}:${varName}`,
+          filePath: this.filePath,
+          kind: rhs.text === 'None' ? 'variable' : 'type',
+          members: new Map(),
+          baseTypes: [],
+          implementedInterfaces: [],
+          typeParameters: [],
+          returnType: rhs.text,
+          parameterTypes: [],
+          isExported: !varName.startsWith('_'),
+          isAbstract: false,
+          decorators: [],
+          location: {
+            startLine: node.startPosition.row + 1,
+            endLine: node.endPosition.row + 1,
+          },
+        };
+      }
+
+      return null;
+    }
+
+    if (annAssign) {
+      const varName = this.childText(annAssign, 'identifier');
+      if (!varName) return null;
+      const typeNode = this.findChildAll(annAssign, 'type');
+      const typeText = typeNode ? typeNode.text : 'Any';
 
       return {
         name: varName,
         qualifiedName: `file:${this.filePath}:${varName}`,
         filePath: this.filePath,
-        kind: rhs.text === 'None' ? 'variable' : 'type',
+        kind: 'variable',
         members: new Map(),
         baseTypes: [],
         implementedInterfaces: [],
         typeParameters: [],
-        returnType: rhs.text,
+        returnType: typeText,
         parameterTypes: [],
         isExported: !varName.startsWith('_'),
         isAbstract: false,
@@ -473,7 +533,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
         const paramTypes = this.extractParamTypes(methodNode);
 
         let retType = 'None';
-        const retNode = this.findChild(methodNode, 'return_type');
+        const retNode = this.findChildAll(methodNode, 'return_type');
         if (retNode && retNode.childCount > 0) {
           retType = retNode.child(retNode.childCount - 1).text;
         }
@@ -489,28 +549,43 @@ export class PythonAdvancedResolver extends TypeResolverBase {
       }
 
       if (child.type === 'expression_statement') {
-        const assignment = this.findChild(child, 'assignment');
+        const assignment = this.findChildAll(child, 'assignment');
         if (assignment) {
           const lhs = assignment.child(0);
           if (lhs && lhs.type === 'identifier') {
             const attrName = lhs.text;
-            const rhs = assignment.child(2);
-            const attrType = rhs ? rhs.text : 'Any';
-            // Check for type annotation
-            const typeAnn = this.findChild(child, 'type');
-            const finalType = typeAnn ? typeAnn.text : attrType;
-
-            members.set(attrName, {
-              name: attrName,
-              type: finalType,
-              visibility: attrName.startsWith('__') ? 'private' :
-                attrName.startsWith('_') ? 'protected' : 'public',
-              isStatic: true, isOptional: false, isAsync: false,
-              parameterTypes: [], returnType: finalType,
-            });
+            // Check if this is a type annotation (colon) or value assignment (equals)
+            const sep = assignment.child(1);
+            const isAnnotation = sep && (sep.text === ':' || sep.type === ':');
+            if (isAnnotation) {
+              // Type-annotated attribute: x: int
+              const typeNode = assignment.child(2);
+              const attrType = typeNode ? typeNode.text : 'Any';
+              members.set(attrName, {
+                name: attrName, type: attrType,
+                visibility: attrName.startsWith('__') ? 'private' :
+                  attrName.startsWith('_') ? 'protected' : 'public',
+                isStatic: true, isOptional: false, isAsync: false,
+                parameterTypes: [], returnType: attrType,
+              });
+            } else {
+              // Regular assignment: x = value
+              const rhs = assignment.child(2);
+              const attrType = rhs ? rhs.text : 'Any';
+              const typeAnn = this.findChildAll(child, 'type');
+              const finalType = typeAnn ? typeAnn.text : attrType;
+              members.set(attrName, {
+                name: attrName,
+                type: finalType,
+                visibility: attrName.startsWith('__') ? 'private' :
+                  attrName.startsWith('_') ? 'protected' : 'public',
+                isStatic: true, isOptional: false, isAsync: false,
+                parameterTypes: [], returnType: finalType,
+              });
+            }
           }
         }
-        // Type-annotated attribute: x: int = 5
+        // Type-annotated attribute via annotated_assignment: x: int = 5
         const annAssign = this.findChild(child, 'annotated_assignment');
         if (annAssign) {
           const attrName = this.childText(annAssign, 'identifier');
@@ -539,6 +614,29 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
       // Annotated assignment: name: Type = default
       if (child.type === 'expression_statement') {
+        // tree-sitter-python uses 'assignment' node for x: int
+        const assignment = this.findChildAll(child, 'assignment');
+        if (assignment) {
+          const sep = assignment.child(1);
+          if (sep && (sep.text === ':' || sep.type === ':')) {
+            const attrName = this.childText(assignment, 'identifier');
+            const typeNode = assignment.child(2);
+            if (attrName) {
+              const attrType = typeNode ? typeNode.text : 'Any';
+              members.set(attrName, {
+                name: attrName,
+                type: attrType,
+                visibility: 'public',
+                isStatic: false,
+                isOptional: false,
+                isAsync: false,
+                parameterTypes: [],
+                returnType: attrType,
+              });
+            }
+          }
+        }
+        // Also check annotated_assignment for other Python versions
         const annAssign = this.findChild(child, 'annotated_assignment');
         if (annAssign) {
           const attrName = this.childText(annAssign, 'identifier');
@@ -701,6 +799,14 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     return null;
   }
 
+  private findChildAll(node: SyntaxNode, type: string): SyntaxNode | null {
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c && c.type === type) return c;
+    }
+    return null;
+  }
+
   // -----------------------------------------------------------------------
   // Fallback regex-based extraction
   // -----------------------------------------------------------------------
@@ -726,7 +832,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     }
 
     // Functions with type annotations
-    const funcRx = /(?:@\w+\s*\n\s*)*(?:async\s+)?def\s+(\w+)\(([^)]*)\)(?:\s*->\s*(\S+))?/g;
+    const funcRx = /(?:@\w+\s*\n\s*)*(?:async\s+)?def\s+(\w+)\(([^)]*)\)(?:\s*->\s*(\w+(?:\[\w+(?:,\s*\w+)*\])?))?/g;
     while ((m = funcRx.exec(source)) !== null) {
       const params = m[2] ? m[2].split(',').map((p) => {
         const parts = p.trim().split(':');

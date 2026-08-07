@@ -124,9 +124,16 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   // ---- Taint Analysis ----
 
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
-    if (node.type === 'element' || node.type === 'start_tag') {
-      const tagNameNode = this.findChildOfType(node, 'tag_name');
-      if (!tagNameNode) return;
+    if (node.type === 'element' || node.type === 'script_element' || 
+        node.type === 'style_element' || node.type === 'start_tag') {
+      let tagNameNode = this.findTagName(node);
+      if (!tagNameNode) {
+        // Recursively walk children even if no tag_name found
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkForTaintSources(node.child(i), sources);
+        }
+        return;
+      }
 
       const tag = tagNameNode.text.toLowerCase();
       // Forms are taint sources (user input)
@@ -151,9 +158,14 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   }
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
-    if (node.type === 'element') {
-      const tagNameNode = this.findChildOfType(node, 'tag_name');
-      if (!tagNameNode) return;
+    if (node.type === 'element' || node.type === 'script_element' || node.type === 'style_element') {
+      const tagNameNode = this.findTagName(node);
+      if (!tagNameNode) {
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkForTaintSinks(node.child(i), sinks);
+        }
+        return;
+      }
       const tag = tagNameNode.text.toLowerCase();
 
       // XSS sinks
@@ -190,9 +202,14 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   }
 
   protected override walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
-    if (node.type === 'element') {
-      const tagNameNode = this.findChildOfType(node, 'tag_name');
-      if (!tagNameNode) return;
+    if (node.type === 'element' || node.type === 'script_element' || node.type === 'style_element') {
+      const tagNameNode = this.findTagName(node);
+      if (!tagNameNode) {
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkForSanitizers(node.child(i), sanitizers);
+        }
+        return;
+      }
       const tag = tagNameNode.text.toLowerCase();
       // CSP meta tags are sanitizers
       if (tag === 'meta') {
@@ -211,6 +228,14 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   }
 
   // ---- Attribute Helpers ----
+
+  private findTagName(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    if (node.type === 'element' || node.type === 'script_element' || node.type === 'style_element') {
+      const startTag = this.findChildOfType(node, 'start_tag');
+      return startTag ? this.findChildOfType(startTag, 'tag_name') : null;
+    }
+    return this.findChildOfType(node, 'tag_name');
+  }
 
   private getAttrName(attrNode: TreeSitterSyntaxNode): string {
     for (let i = 0; i < attrNode.childCount; i++) {
