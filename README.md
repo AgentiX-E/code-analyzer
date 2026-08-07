@@ -6,7 +6,6 @@
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen)](https://github.com/AgentiX-E/code-analyzer/actions)
 [![Coverage](https://img.shields.io/badge/coverage-55%25-yellow)](https://github.com/AgentiX-E/code-analyzer)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/AgentiX-E/code-analyzer/badge)](https://securityscorecards.dev/viewer/?uri=github.com/AgentiX-E/code-analyzer)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/0/badge)](https://www.bestpractices.dev/projects/0)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-green)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0+-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -15,15 +14,35 @@
 
 ---
 
-## Quick Start
+## Overview
+
+Code Analyzer is a code intelligence platform that helps developers understand, search, and review code at depth. It includes:
+
+- **Knowledge Graph**: Models source code as a typed property graph with 33 node types and 44 relationship types
+- **MCP Server**: Exposes 45 tools to AI coding agents via the Model Context Protocol
+- **VS Code Extension**: Integrates with Copilot Chat for real-time code intelligence
+- **Web Dashboard**: Provides 6 interactive views for exploring your codebase
+- **CLI**: Standalone command-line interface for analysis, search, and review
+
+---
+
+## Install
 
 ```bash
 # Install via npm
 npm install -g @code-analyzer/cli
 
-# Initialize a project and index it
+# Initialize a project
 cd your-project
 code-analyzer init
+```
+
+---
+
+## Usage
+
+```bash
+# Index your codebase
 code-analyzer analyze .
 
 # Search your codebase
@@ -39,7 +58,7 @@ code-analyzer agent configure
 
 ---
 
-## Verified Capabilities
+## Features
 
 Checkmarks indicate features verified through automated tests.
 
@@ -192,6 +211,12 @@ brew install code-analyzer
 ```
 
 See **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** for full deployment documentation including resource requirements, health checks, environment variables, and Kubernetes manifests.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute, set up your development environment, and submit pull requests.
 
 ---
 

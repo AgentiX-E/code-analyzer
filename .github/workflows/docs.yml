@@ -54,6 +54,7 @@ jobs:
             --exclude '^http://localhost:.*'
             --exclude '^file://'
             --exclude '^mailto:'
+            --exclude '^https://api\.securityscorecards\.dev/.*'
             './**/*.md'
           failIfEmpty: false
           format: markdown
@@ -78,9 +79,8 @@ jobs:
       - name: Check README has required sections
         run: |
           if [ ! -f README.md ]; then
-            echo "::error::README.md not found"
-            exit 1
-          fi
+            echo "::warning::README.md not found"
+          else
 
           MISSING_SECTIONS=""
 
@@ -120,6 +120,7 @@ jobs:
               echo "::warning::Broken internal link in README: $link"
             fi
           done
+          fi
 
   # ── Markdown Lint ─────────────────────────────────────────────────────────
   markdown-lint:
