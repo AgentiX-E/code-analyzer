@@ -32,7 +32,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 function setupYoga(): { yoga: ReturnType<typeof createYoga>; store: InMemoryGraphStore; ctx: ReturnType<typeof createGraphQLContext> } {
   const store = new InMemoryGraphStore(':memory:');
-  const ctx = createGraphQLContext(store, { name: 'e2e', version: '1.0.0' }, Date.now());
+  const ctx = createGraphQLContext(store, { metadata: { name: 'e2e', version: '1.0.0', environment: 'test' } } as any, Date.now());
   const schema = makeExecutableSchema({ typeDefs, resolvers });
   const yoga = createYoga({ schema, context: async () => ctx });
 
@@ -99,22 +99,20 @@ describe('GraphQL E2E — Queries', () => {
     expect(result.data.projects).toEqual([]);
   });
 
-  // skip: resolver depends on project schema completeness (Iteration 3 resolvers are scaffolded)
-  it.skip('should query projects (populated store)', async () => {
+  it('should query projects (populated store)', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
-    const result = await executeQuery(yoga, `{ projects { id name version } }`);
+    const result = await executeQuery(yoga, `{ projects { id name language } }`);
     expect(result.data.projects).toHaveLength(1);
     expect(result.data.projects[0].name).toBe('e2e-gql-project');
   });
 
-  // skip: resolver needs project lookup by ID (resolver scaffolded)
-  it.skip('should query a single project by id', async () => {
+  it('should query a single project by id', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
     const result = await executeQuery(
       yoga,
-      `query($id: ID!) { project(id: $id) { name version } }`,
+      `query($id: ID!) { project(id: $id) { name language } }`,
       { id: 'e2e-gql-project' },
     );
     expect(result.data.project.name).toBe('e2e-gql-project');
@@ -130,33 +128,34 @@ describe('GraphQL E2E — Queries', () => {
     expect(result.data.project).toBeNull();
   });
 
-  // skip: graph resolver needs populated edge data (resolver scaffolded)
-  it.skip('should query graph with nodes and edges', async () => {
+  it('should query graph with nodes and edges', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
     const result = await executeQuery(
       yoga,
-      `query($projectId: ID!) { graph(projectId: $projectId) { nodes { id name label } edges { sourceId targetId type } } }`,
+      `query($projectId: ID!) {
+        graph(projectId: $projectId) { items { id name label } }
+        edges(projectId: $projectId) { items { sourceId targetId type } }
+      }`,
       { projectId: 'e2e-gql-project' },
     );
-    expect(result.data.graph.nodes.length).toBeGreaterThan(0);
-    expect(result.data.graph.edges.length).toBeGreaterThan(0);
+    expect(result.data.graph.items.length).toBeGreaterThan(0);
+    expect(result.data.edges.items.length).toBeGreaterThan(0);
   });
 
-  // skip: stats resolver needs project-specific aggregation (resolver scaffolded)
-  it.skip('should query stats for a project', async () => {
+  it('should query stats for a project', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
     const result = await executeQuery(
       yoga,
-      `query($projectId: ID!) { stats(projectId: $projectId) { nodeCount edgeCount } }`,
+      `query($projectId: ID!) { projectStats(projectId: $projectId) { nodeCount edgeCount } }`,
       { projectId: 'e2e-gql-project' },
     );
-    expect(result.data.stats.nodeCount).toBeGreaterThanOrEqual(1);
+    expect(result.data.projectStats.nodeCount).toBeGreaterThanOrEqual(1);
   });
 
   // skip: health resolver needs server startTime tracking (resolver scaffolded)
-  it.skip('should query health', async () => {
+  it('should query health', async () => {
     const { yoga } = setupYoga();
     const result = await executeQuery(yoga, `{ health { status uptime } }`);
     expect(result.data.health.status).toBe('healthy');
@@ -176,7 +175,7 @@ describe('GraphQL E2E — Queries', () => {
 
 describe('GraphQL E2E — Mutations', () => {
   // skip: deleteProject mutation needs project lookup (resolver scaffolded)
-  it.skip('should delete a project', async () => {
+  it('should delete a project', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
     const result = await executeQuery(
@@ -188,7 +187,7 @@ describe('GraphQL E2E — Mutations', () => {
   });
 
   // skip: deleteProject for non-existent requires project listing (resolver scaffolded)
-  it.skip('should return false when deleting non-existent project', async () => {
+  it('should return false when deleting non-existent project', async () => {
     const { yoga } = setupYoga();
     const result = await executeQuery(
       yoga,
@@ -204,8 +203,7 @@ describe('GraphQL E2E — Mutations', () => {
 // ---------------------------------------------------------------------------
 
 describe('GraphQL E2E — Pagination', () => {
-  // skip: pagination depends on graph resolver completeness (resolver scaffolded)
-  it.skip('should return all nodes for populated store', async () => {
+  it('should return all nodes for populated store', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
     const now = new Date().toISOString();
@@ -221,9 +219,9 @@ describe('GraphQL E2E — Pagination', () => {
 
     const result = await executeQuery(
       yoga,
-      `query($projectId: ID!) { graph(projectId: $projectId) { nodes { id name } } }`,
+      `query($projectId: ID!) { graph(projectId: $projectId) { items { id name } } }`,
       { projectId: 'e2e-gql-project' },
     );
-    expect(result.data.graph.nodes.length).toBeGreaterThan(10);
+    expect(result.data.graph.items.length).toBeGreaterThan(10);
   });
 });

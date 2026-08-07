@@ -453,29 +453,23 @@ describe('IncrementalReindexer', () => {
       expect(result).toBeDefined();
     });
 
-    it('should handle indexer without store property gracefully', async () => {
-      // Create a mock indexer that has no store at all
-      const mockIndexer = {} as unknown as CrossRepoIndexer;
-
+    it('should throw when indexer has no accessible store', async () => {
+      const mockIndexer = { getStore: () => { throw new Error("store not available"); } } as unknown as CrossRepoIndexer;
       const changes: ChangedFiles = {
-        added: [],
-        modified: [],
-        deleted: ['src/nonexistent.ts'],
-        allChanged: ['src/nonexistent.ts'],
+        added: [], modified: [], deleted: [], allChanged: [],
       };
-
-      const result = await reindexer.reindexChanged(repoPath, changes, mockIndexer);
-      expect(result).toBeDefined();
-      expect(result.nodesUpdated).toBe(0);
-      expect(result.edgesUpdated).toBe(0);
+      await expect(
+        reindexer.reindexChanged(repoPath, changes, mockIndexer)
+      ).rejects.toThrow('store not available');
     });
 
     it('should handle store without getNodeCount and getEdgeCount', async () => {
-      // Store with no getNodeCount/getEdgeCount — triggers ?? 0 fallback
       const mockStore = {
+        getNodeCount: () => 0,
+        getEdgeCount: () => 0,
         getAllNodes: () => [],
       };
-      const mockIndexer = { store: mockStore } as unknown as CrossRepoIndexer;
+      const mockIndexer = { store: mockStore, getStore: () => mockStore } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
         added: [],
@@ -489,13 +483,13 @@ describe('IncrementalReindexer', () => {
       expect(result.edgesUpdated).toBe(0);
     });
 
-    it('should handle store without getAllNodes', async () => {
-      // Store without getAllNodes method — triggers ?? [] fallback
+    it('should handle empty store with deleted files', async () => {
       const mockStore = {
         getNodeCount: () => 0,
         getEdgeCount: () => 0,
+        getAllNodes: () => [],
       };
-      const mockIndexer = { store: mockStore } as unknown as CrossRepoIndexer;
+      const mockIndexer = { store: mockStore, getStore: () => mockStore } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
         added: [],
@@ -578,7 +572,7 @@ describe('IncrementalReindexer', () => {
         deleteNode: () => {},
         deleteEdge: () => {},
       };
-      const mockIndexer = { store: mockStore } as unknown as CrossRepoIndexer;
+      const mockIndexer = { store: mockStore, getStore: () => mockStore } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
         added: [],
@@ -614,6 +608,7 @@ describe('IncrementalReindexer', () => {
       // Create a mock indexer without indexSingleRepo
       const mockIndexer = {
         store,
+        getStore: () => store,
       } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
@@ -632,6 +627,7 @@ describe('IncrementalReindexer', () => {
       // Create a mock indexer whose indexSingleRepo always throws
       const mockIndexer = {
         store,
+        getStore: () => store,
         indexSingleRepo: async () => { throw new Error('index failed'); },
       } as unknown as CrossRepoIndexer;
 

@@ -146,15 +146,13 @@ describe('MCP E2E — Tool Execution', () => {
     expect(result.isError).toBeFalsy();
   });
 
-  // skip: explore_symbol needs graph traversal (requires indexed symbol graph)
-  it.skip('should execute explore_symbol', async () => {
-    const result = await registry.execute('explore_symbol', { symbol: 'Service0', projectId: 'e2e-mcp-project' }, toolContext);
+  it('should execute explore_symbol', async () => {
+    const result = await registry.execute('explore_symbol', { symbolName: 'Service0', projectId: 'e2e-mcp-project' }, toolContext);
     expect(result.isError).toBeFalsy();
   });
 
-  // skip: impact_analysis needs cross-reference dependency graph
-  it.skip('should execute impact_analysis', async () => {
-    const result = await registry.execute('impact_analysis', { target: 'Service0', projectId: 'e2e-mcp-project' }, toolContext);
+  it('should execute impact_analysis', async () => {
+    const result = await registry.execute('impact_analysis', { targetSymbol: 'Service0', projectId: 'e2e-mcp-project', fromRef: 'HEAD~1', toRef: 'HEAD' }, toolContext);
     expect(result.isError).toBeFalsy();
   });
 

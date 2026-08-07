@@ -497,7 +497,7 @@ export const resolvers = {
     ) => {
       const mem = process.memoryUsage();
       return {
-        status: 'ok',
+        status: 'healthy',
         uptime: Date.now() - ctx.startTime,
         timestamp: new Date().toISOString(),
         version: ctx.config.metadata.version,
@@ -702,6 +702,8 @@ export const resolvers = {
       for (const [id, edge] of store.edges) {
         if (edge.projectId === args.id) edgeIds.push(id);
       }
+
+      if (nodeIds.length === 0 && edgeIds.length === 0) return false;
 
       for (const nid of nodeIds) store.deleteNode(nid);
       for (const eid of edgeIds) store.deleteEdge(eid);

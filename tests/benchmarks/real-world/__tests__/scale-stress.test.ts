@@ -252,7 +252,7 @@ describe('Scale Stress Test', () => {
     { count: 100, label: '100 files (warmup)', required: true },
     { count: 1000, label: '1K files', required: true },
     { count: 5000, label: '5K files', required: true },
-    { count: 10000, label: '10K files', required: false },
+    { count: 10000, label: '10K files', required: true },
   ];
 
   const results: ScaleTier[] = [];
