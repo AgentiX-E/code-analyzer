@@ -421,35 +421,32 @@ export class GoResolver extends TypeResolverBase {
 
         const qn = `file:${this.filePath}:${name}`;
         const exported = name[0] === name[0]?.toUpperCase();
-        const typeNode = this.findChild(child, 'type');
-        const underlying = typeNode ? typeNode.child(0) : null;
-
-        let kind: TypeInfo['kind'] = 'class'; // Go struct = class
+        let kind: TypeInfo['kind'] = 'type';
         let members = new Map<string, TypeMember>();
         let baseTypes: string[] = [];
         const typeParams: string[] = [];
 
-        if (underlying) {
-          if (underlying.type === 'struct_type') {
-            kind = 'class'; // Go struct
-            members = this.extractStructFields(underlying, name);
-          } else if (underlying.type === 'interface_type' || (underlying as unknown as { text?: string }).text?.includes('interface')) {
-            kind = 'interface';
-            members = this.extractInterfaceMethods(underlying);
-            // Register interface for satisfaction checking
-            this.interfaceCache.set(name, {
-              name,
-              package: '',
-              methods: this.extractInterfaceSigs(underlying),
-              embeddedInterfaces: [],
-            });
-          } else if (underlying.type === 'generic_type') {
-            kind = 'type';
-            // Extract generic type parameters
-            this.extractGenericParams(child, typeParams);
-          } else {
-            kind = 'type';
-          }
+        // Look for struct_type, interface_type directly as named children of type_spec
+        const structNode = this.findChild(child, 'struct_type');
+        const interfaceNode = this.findChild(child, 'interface_type');
+        const genericNode = this.findChild(child, 'generic_type');
+
+        if (structNode) {
+          kind = 'class'; // Go struct
+          members = this.extractStructFields(structNode, name);
+        } else if (interfaceNode) {
+          kind = 'interface';
+          members = this.extractInterfaceMethods(interfaceNode);
+          // Register interface for satisfaction checking
+          this.interfaceCache.set(name, {
+            name,
+            package: '',
+            methods: this.extractInterfaceSigs(interfaceNode),
+            embeddedInterfaces: [],
+          });
+        } else if (genericNode) {
+          kind = 'type';
+          this.extractGenericParams(child, typeParams);
         }
 
         types.push({

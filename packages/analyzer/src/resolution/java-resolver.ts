@@ -462,8 +462,15 @@ export class JavaResolver extends TypeResolverBase {
     const baseTypes: string[] = [];
     const superclass = this.findChild(node, 'superclass');
     if (superclass) {
-      const scName = this.childText(superclass, 'type_identifier') ||
+      let scName = this.childText(superclass, 'type_identifier') ||
         this.childText(superclass, 'identifier');
+      // If superclass uses generics (e.g., AbstractList<T>), type_identifier is inside generic_type
+      if (!scName) {
+        const genericType = this.findChild(superclass, 'generic_type');
+        if (genericType) {
+          scName = this.childText(genericType, 'type_identifier');
+        }
+      }
       if (scName) baseTypes.push(scName);
     }
 
@@ -471,9 +478,19 @@ export class JavaResolver extends TypeResolverBase {
     const implemented: string[] = [];
     const superInterfaces = this.findChild(node, 'super_interfaces');
     if (superInterfaces) {
-      for (let i = 0; i < superInterfaces.childCount; i++) {
-        const iface = superInterfaces.child(i);
-        const ifaceName = iface.type === 'type_identifier' ? iface.text : this.childText(iface, 'type_identifier');
+      // Interfaces are inside a type_list child
+      const typeList = this.findChild(superInterfaces, 'type_list');
+      const targetNode = typeList || superInterfaces;
+      for (let i = 0; i < targetNode.childCount; i++) {
+        const iface = targetNode.child(i);
+        let ifaceName: string | null = null;
+        if (iface.type === 'type_identifier') {
+          ifaceName = iface.text;
+        } else if (iface.type === 'generic_type') {
+          ifaceName = this.childText(iface, 'type_identifier');
+        } else {
+          ifaceName = this.childText(iface, 'type_identifier');
+        }
         if (ifaceName) implemented.push(ifaceName);
       }
     }

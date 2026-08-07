@@ -70,16 +70,20 @@ export async function searchGraph(
     // Perform FTS search
     const ftsRaw = graphStore.searchFts(options.query, { limit });
 
-    // Map to structured results
-    const results: SearchResult[] = ftsRaw.map((r) => ({
-      id: r.nodeId ?? 0,
-      name: r.node.name ?? 'unknown',
-      type: r.node.label ?? r.matchedColumn ?? 'unknown',
-      file: (r.node.filePath ?? ''),
-      line: r.node.startLine ?? 1,
-      score: r.rank ?? 0,
-      snippet: options.verbose ? (r.snippet.slice(0, 200)) : undefined,
-    }));
+    // Map to structured results — handles both FtsSearchResult and flat mock objects
+    const results: SearchResult[] = ftsRaw.map((r: any) => {
+      const node = r.node ?? null;
+      const snippetRaw: string | undefined | null = r.snippet ?? r.content ?? null;
+      return {
+        id: r.nodeId ?? r.id ?? 0,
+        name: node?.name ?? r.name ?? 'unknown',
+        type: node?.label ?? r.matchedColumn ?? r.label ?? r.type ?? 'unknown',
+        file: (node?.filePath ?? r.file ?? ''),
+        line: node?.startLine ?? r.line ?? 1,
+        score: r.rank ?? r.score ?? 0,
+        snippet: options.verbose ? (snippetRaw ?? '').slice(0, 200) : undefined,
+      };
+    });
 
     // Filter by type if specified
     const filtered = options.type

@@ -240,7 +240,7 @@ interface TsNode {
 const CALL_TYPES = new Set(['call_expression','method_invocation','function_call','call','invocation','function_application','member_call_expression']);
 const STR_TYPES = new Set(['string','string_fragment','template_string','template_literal','string_literal','template_substitution','interpolation','raw_string','triple_string']);
 const IMP_TYPES = new Set(['import_statement','import_declaration','import_from_statement','import_specification']);
-const ASN_TYPES = new Set(['variable_declaration','assignment_expression','assignment','let_declaration','const_declaration','var_declaration','local_variable_declaration']);
+const ASN_TYPES = new Set(['variable_declaration','assignment_expression','assignment','let_declaration','const_declaration','var_declaration','local_variable_declaration','lexical_declaration']);
 const FN_TYPES = new Set(['function_declaration','method_definition','function_definition','arrow_function','function','method_declaration','constructor']);
 
 function walkTsTree(node: TsNode, _src: string, ctx: {
@@ -251,15 +251,36 @@ function walkTsTree(node: TsNode, _src: string, ctx: {
   const t = node.type;
   // Calls
   if (CALL_TYPES.has(t)) {
-    const fnChild = findChild(node, ['identifier','property_identifier']);
-    if (fnChild) {
-      const obj = findPrevSibling(node, fnChild, ['identifier','member_expression']);
-      const args = findChild(node, ['arguments','argument_list']);
+    // Extract function name and object from call_expression
+    let fnName: string | null = null;
+    let fnObj: string | null = null;
+
+    // Check for member_expression child (e.g., console.log, logger.info)
+    const memberExpr = findChild(node, ['member_expression']);
+    if (memberExpr) {
+      const propId = findChild(memberExpr, ['property_identifier']);
+      const objId = findChild(memberExpr, ['identifier']);
+      if (propId) fnName = propId.text;
+      if (objId) fnObj = objId.text;
+    }
+
+    // Check for direct identifier / import / super
+    if (!fnName) {
+      const directFn = findChild(node, ['identifier', 'import', 'super', 'this', 'new_expression']);
+      if (directFn) fnName = directFn.text;
+    }
+
+    if (fnName) {
+      const argsNode = findChild(node, ['arguments', 'argument_list']);
       const argTexts: string[] = [];
-      if (args) for (let j = 0; j < args.namedChildCount; j++) argTexts.push(args.namedChild(j).text);
+      if (argsNode) {
+        for (let j = 0; j < argsNode.namedChildCount; j++) {
+          argTexts.push(argsNode.namedChild(j)!.text);
+        }
+      }
       ctx.calls.push({
-        name: fnChild.text,
-        object: obj ? obj.text : null,
+        name: fnName,
+        object: fnObj,
         text: node.text, line: node.startPosition.row + 1,
         arguments: argTexts,
       });
@@ -278,9 +299,16 @@ function walkTsTree(node: TsNode, _src: string, ctx: {
   }
   // Assignments
   if (ASN_TYPES.has(t)) {
-    const id = findChild(node, ['identifier','variable_declarator']);
-    const name = id && id.type === 'variable_declarator' ? findChild(id, ['identifier'])?.text : id?.text;
-    if (name) ctx.assignments.push({ name, value: node.text, line: node.startPosition.row + 1 });
+    const vd = findChild(node, ['variable_declarator']);
+    const id = vd ? findChild(vd, ['identifier'])?.text : null;
+    // Extract the actual value (RHS of =) rather than entire declaration
+    let val = node.text;
+    if (vd) {
+      const stringVal = findChild(vd, ['string', 'string_fragment', 'template_string', 'number', 'true', 'false', 'null']);
+      if (stringVal) val = stringVal.text;
+    }
+    const name = id;
+    if (name) ctx.assignments.push({ name, value: val, line: node.startPosition.row + 1 });
   }
   // Functions
   if (FN_TYPES.has(t)) {

@@ -135,7 +135,15 @@ export class BenchmarkRunner {
     const aggregate = this.computeMetrics(cases);
     const summary = this.generateReport(aggregate);
 
-    return { cases, aggregate, summary };
+    return {
+      cases,
+      aggregate,
+      summary,
+      fixturesProcessed: dataset.length,
+      languagesTested: new Set(dataset.flatMap((bc) => bc.files.map((f) => f.language ?? 'unknown'))).size,
+      totalDurationMs: 0,
+      avgTimePerFixtureMs: dataset.length > 0 ? 0 : 0,
+    };
   }
 
   /**

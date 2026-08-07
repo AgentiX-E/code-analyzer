@@ -49,9 +49,15 @@ vi.mock('../code-review-benchmark.js', () => {
     runBenchmark() {
       return {
         totalFixtures: 2, totalIssues: 2, totalDetections: 3,
+        totalGroundTruth: 2,
         truePositives: 2, falsePositives: 1, falseNegatives: 0,
         precision: 0.667, recall: 1.0, f1Score: 0.8, noiseRate: 0.5,
         durationMs: 100, matchResults: [],
+        fixturesProcessed: 2,
+        languagesTested: 1,
+        totalDurationMs: 100,
+        avgTimePerFixtureMs: 50,
+        detections: [],
         categoryBreakdown: [{
           category: 'security', truePositives: 2, falsePositives: 1,
           falseNegatives: 0, precision: 0.667, recall: 1.0, f1: 0.8,

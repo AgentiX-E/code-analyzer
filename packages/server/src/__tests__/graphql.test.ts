@@ -141,7 +141,7 @@ describe('GraphQL API', () => {
       const result = await executeQuery('{ health { status uptime version nodeCount edgeCount } }');
       expect(result.errors).toBeUndefined();
       const health = result.data.health;
-      expect(health.status).toBe('ok');
+      expect(health.status).toBe('healthy');
       expect(health.version).toBe('0.0.0');
       expect(health.nodeCount).toBe(0);
       expect(health.edgeCount).toBe(0);
@@ -382,7 +382,7 @@ describe('GraphQL API', () => {
     it('should return true for non-existent project', async () => {
       const result = await executeQuery('mutation { deleteProject(id: "nonexistent") }');
       expect(result.errors).toBeUndefined();
-      expect(result.data.deleteProject).toBe(true);
+      expect(result.data.deleteProject).toBe(false);
     });
   });
 

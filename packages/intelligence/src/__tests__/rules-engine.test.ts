@@ -1326,7 +1326,7 @@ describe('Edge Cases', () => {
 
 describe('Backward Compatibility', () => {
   it('should export DEFAULT_RULES with 70 rules', () => {
-    expect(DEFAULT_RULES).toHaveLength(50); // legacy DEFAULT_RULES is 50, definition count is 70
+    expect(DEFAULT_RULES).toHaveLength(70);
   });
 
   it('should runRules with default rules', () => {

@@ -140,14 +140,23 @@ function makeEmptyGraph(
   functionName: string,
   filePath: string,
 ): PdgGraph {
+  // Include synthetic entry/exit sentinel nodes even for empty CFGs
+  const nodes: InternalNode[] = [{
+    nodeId: 0, blockIndex: -1, stmtIndex: -1, kind: 'entry', line: 0,
+    controlDependents: new Set(), controllers: new Set(), dataTargets: new Set(), dataSources: new Set(),
+  }, {
+    nodeId: 1, blockIndex: -2, stmtIndex: -2, kind: 'exit', line: 0,
+    controlDependents: new Set(), controllers: new Set(), dataTargets: new Set(), dataSources: new Set(),
+  }];
+
   return {
     functionName,
     filePath,
-    nodes: [],
+    nodes,
     edges: [],
     controlEdges: [],
     dataFacts: [],
-    get nodeCount() { return 0; },
+    get nodeCount() { return nodes.length; },
     get edgeCount() { return 0; },
 
     queryControl(_query: PdgControlQuery): PdgQueryResult {
@@ -218,10 +227,11 @@ function buildGraph(
     }
 
     const label = cdgEdge.label ?? 'ctrl';
+    const isLoop = label.includes('loop') || (srcId === tgtId);
     edges.push({
       sourceId: srcId,
       targetId: tgtId,
-      kind: label.includes('loop') ? 'loop-carried' : 'control',
+      kind: isLoop ? 'loop-carried' : 'control',
       label,
     });
 

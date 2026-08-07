@@ -55,14 +55,25 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
   const postOrder = computeReversePostOrder(revSuccs, cfg.exitIndex, n);
 
   // Intersect operation: walk up the dominator chain
+  // Find the deepest common ancestor in the ipdom tree
   const intersect = (finger1: number, finger2: number, ipdom: number[], postNum: number[]): number => {
     while (finger1 !== finger2) {
+      let moved = false;
+      // Climb the finger that is further from root (higher postnum = processed later)
       while (postNum[finger1]! < postNum[finger2]!) {
-        finger1 = ipdom[finger1]!;
+        const next = ipdom[finger1]!;
+        if (next === finger1 || next === NO_IPDOM) break; // reached root
+        finger1 = next;
+        moved = true;
       }
       while (postNum[finger2]! < postNum[finger1]!) {
-        finger2 = ipdom[finger2]!;
+        const next = ipdom[finger2]!;
+        if (next === finger2 || next === NO_IPDOM) break;
+        finger2 = next;
+        moved = true;
       }
+      // If neither finger moved, both are at roots — converge
+      if (!moved) break;
     }
     return finger1;
   };
@@ -106,7 +117,7 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
       let newIdom = NO_IPDOM;
       for (const pred of predsInRevCfg[b]!) {
         if (ipdom[pred] !== NO_IPDOM) {
-          newIdom = ipdom[pred]!;
+          newIdom = pred;
           break;
         }
       }
@@ -114,9 +125,9 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
 
       // Intersect all other processed predecessors
       for (const pred of predsInRevCfg[b]!) {
-        if (ipdom[pred] === newIdom) continue;
+        if (pred === newIdom) continue;
         if (ipdom[pred] !== NO_IPDOM) {
-          newIdom = intersect(ipdom[pred]!, newIdom, ipdom, postNum);
+          newIdom = intersect(pred, newIdom, ipdom, postNum);
         }
       }
 
