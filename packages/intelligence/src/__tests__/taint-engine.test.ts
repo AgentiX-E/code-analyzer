@@ -11,13 +11,13 @@ import { EDGE_CALLS, EDGE_DATA_FLOWS, EDGE_IMPORTS } from '@code-analyzer/shared
 function makeNode(partial: Partial<GraphNode> & { id: number; name: string }): GraphNode {
   return {
     projectId: 'proj',
-    label: 'FUNCTION',
+    label: 'Function',
     qualifiedName: `q::${partial.name}`,
     filePath: 'test.ts',
     startLine: 1,
     endLine: 1,
     language: 'typescript',
-    properties: {},
+    properties: { name: partial.name },
     signature: null,
     docstring: null,
     complexity: 1,

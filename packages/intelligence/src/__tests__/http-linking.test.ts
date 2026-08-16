@@ -251,7 +251,7 @@ describe('synthesizeRouteNode', () => {
     });
     expect(node.label).toBe('Route');
     expect(node.qn).toContain('GET');
-    expect(node.properties.url_path).toBe('/users/:param');
+    expect(node.properties['url_path']).toBe('/users/:param');
   });
 
   it('synthesizes async route node', () => {
@@ -292,8 +292,8 @@ describe('buildServiceEdge', () => {
     });
     expect(edge?.sourceQn).toBe('caller.main');
     expect(edge?.type).toBe('HTTP_CALLS');
-    expect(edge?.properties.method).toBe('GET');
-    expect(edge?.properties.url_path).toBe('/x');
+    expect(edge?.properties['method']).toBe('GET');
+    expect(edge?.properties['url_path']).toBe('/x');
   });
 
   it('maps ROUTE_REG to EDGE_CALLS', () => {
@@ -307,9 +307,9 @@ describe('buildServiceEdge', () => {
     const edge = buildServiceEdge('c.main', {
       edgeType: 'GRPC_CALLS', grpcService: 'S', grpcMethod: 'M', via: 'library_pattern',
     });
-    expect(edge?.properties.service).toBe('S');
-    expect(edge?.properties.rpc_method).toBe('M');
-    expect(edge?.properties.callee).toBe('S/M');
+    expect(edge?.properties['service']).toBe('S');
+    expect(edge?.properties['rpc_method']).toBe('M');
+    expect(edge?.properties['callee']).toBe('S/M');
   });
 });
 
@@ -325,7 +325,7 @@ describe('buildChannelEdge', () => {
   it('builds emit channel edge', () => {
     const edge = buildChannelEdge('fn.main', 'orders', 'kafka', 'emit');
     expect(edge.type).toBe('EMITS');
-    expect(edge.properties.channel_name).toBe('orders');
+    expect(edge.properties['channel_name']).toBe('orders');
   });
   it('builds listen channel edge', () => {
     const edge = buildChannelEdge('fn.main', 'orders', 'kafka', 'listen');

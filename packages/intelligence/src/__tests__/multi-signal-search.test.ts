@@ -6,7 +6,7 @@ import type { EmbeddingEngine as EmbeddingEngineType } from '../embeddings/embed
 // The HybridSearchEngine expects an EmbeddingEngine-like object with
 // embedCode, embedBatch, and cosineSimilarity. Use the real (mock-backed)
 // EmbeddingEngine to exercise the integration path deterministically.
-function makeEngine(config?: Parameters<EmbeddingEngine['constructor']>[0]) {
+function makeEngine(config?: ConstructorParameters<typeof EmbeddingEngine>[0]) {
   return new HybridSearchEngine(new EmbeddingEngine(config) as unknown as EmbeddingEngineType, {
     // Make results deterministic and threshold-inclusive
     minScore: 0,

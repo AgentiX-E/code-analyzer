@@ -3,17 +3,18 @@ import { NearCloneDetector } from '../similarity/near-clone-detector.js';
 import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 
 function makeNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
+  const name = overrides.name ?? `func${id}`;
   return {
     id,
     projectId: 'p',
     label: 'Function',
-    name: `func${id}`,
-    qualifiedName: `pkg.func${id}`,
+    name,
+    qualifiedName: `pkg.${name}`,
     filePath: `/src/f${id}.ts`,
     startLine: 1,
     endLine: 10,
     language: 'typescript',
-    properties: {},
+    properties: { name },
     signature: `function func${id}(a: string, b: number): boolean { return a.length > b; }`,
     docstring: null,
     complexity: 1,
@@ -102,7 +103,7 @@ describe('NearCloneDetector', () => {
       expect(graph.edges.size).toBe(result.pairs.length);
       for (const edge of graph.edges.values()) {
         expect(edge.type).toBe('SIMILAR_TO');
-        expect(edge.properties.detector).toBe('minhash-lsh');
+        expect(edge.properties['detector']).toBe('minhash-lsh');
       }
     }
   });
