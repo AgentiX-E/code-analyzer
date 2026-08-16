@@ -63,8 +63,7 @@ export function computeControlDependence(
 
       // Walk up ipdom chain from S — additional nodes that C does NOT
       // post-dominate are also control-dependent on C
-      let cur = ipdom[s];
-      if (cur === undefined) cur = NO_IPDOM;
+      let cur: number = ipdom[s] ?? NO_IPDOM;
       for (let limit = 0; limit < 100; limit++) {
         if (cur === NO_IPDOM || cur === exitIdx || cur === c) break;
         if (postDominates(postDom, c, cur)) break;
@@ -76,8 +75,8 @@ export function computeControlDependence(
           edges.push({ controllerBlock: c, dependentBlock: cur, label });
         }
 
-        const next = ipdom[cur];
-        if (next === NO_IPDOM || next === cur || next === cur) break;
+        const next: number = ipdom[cur] ?? NO_IPDOM;
+        if (next === NO_IPDOM || next === cur) break;
         cur = next;
       }
     }

@@ -37,6 +37,10 @@ export interface BenchmarkResult {
   cases: SingleCaseResult[];
   aggregate: AggregateMetrics;
   summary: string;
+  fixturesProcessed: number;
+  languagesTested: number;
+  totalDurationMs: number;
+  avgTimePerFixtureMs: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +144,7 @@ export class BenchmarkRunner {
       aggregate,
       summary,
       fixturesProcessed: dataset.length,
-      languagesTested: new Set(dataset.flatMap((bc) => bc.files.map((f) => f.language ?? 'unknown'))).size,
+      languagesTested: new Set(dataset.map((bc) => bc.language)).size,
       totalDurationMs: 0,
       avgTimePerFixtureMs: dataset.length > 0 ? 0 : 0,
     };
