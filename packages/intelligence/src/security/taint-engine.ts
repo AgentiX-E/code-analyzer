@@ -508,8 +508,11 @@ export class TaintAnalysisEngine {
     const findings: TaintFinding[] = [];
     const sinkIds = new Set(sinks.map((s) => s.node.id));
 
-    // BFS from source
-    const visited = new Set<number>();
+    // BFS from source. Note: cycle avoidance is handled per-path via
+    // `current.path.includes(neighborId)` below — a global `visited` set must
+    // NOT be used here, because it would block valid alternative paths to the
+    // same sink (e.g. a diamond-shaped graph) after the first path visits an
+    // intermediate node.
     const queue: Array<{ nodeId: number; path: number[]; sanitized: boolean; sanitizerPath: number[] }> = [
       { nodeId: source.node.id, path: [source.node.id], sanitized: false, sanitizerPath: [] },
     ];
@@ -550,10 +553,7 @@ export class TaintAnalysisEngine {
       // Explore neighbors
       const neighbors = adjacency.get(current.nodeId) ?? [];
       for (const neighborId of neighbors) {
-        if (visited.has(neighborId)) continue;
-        if (current.path.includes(neighborId)) continue; // No cycles
-
-        visited.add(neighborId);
+        if (current.path.includes(neighborId)) continue; // No cycles within a path
 
         const isSanitizer = sanitizerIds.has(neighborId);
         queue.push({
