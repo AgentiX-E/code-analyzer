@@ -143,7 +143,9 @@ const SPRING_PATTERNS = {
   // @RestController("/prefix") or @Controller("/prefix") — class-level path prefix
   controllerWithPrefix: /@(?:Rest)?Controller\s*\(\s*['"]([^'"]*)['"]/,
   // @RequestMapping("/path") — class-level base path mapping
-  requestMappingClass: /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"]/g,
+  // Negative lookahead excludes method-level mappings that carry `method = RequestMethod.X`
+  // so a method-level @RequestMapping is not misread as a class-level prefix.
+  requestMappingClass: /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"](?!\s*,\s*method\s*=)/g,
 
   // Method-level HTTP mapping annotations
   // @GetMapping("/path"), @PostMapping("/path"), etc.
@@ -156,6 +158,13 @@ const SPRING_PATTERNS = {
   requestMappingMethod: /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"]\s*,\s*method\s*=\s*RequestMethod\.(\w+)/g,
   // @RequestMapping with empty path (uses class-level prefix only)
   requestMappingNoPath: /@RequestMapping\s*\(\s*method\s*=\s*RequestMethod\.(\w+)/g,
+  // @GetMapping / @PostMapping / etc. without an explicit path (root endpoint "/")
+  // Also matches the bare annotation form (@GetMapping with no parentheses).
+  getMappingNoPath: /@GetMapping(?:\s*\(\s*\))?/g,
+  postMappingNoPath: /@PostMapping(?:\s*\(\s*\))?/g,
+  putMappingNoPath: /@PutMapping(?:\s*\(\s*\))?/g,
+  deleteMappingNoPath: /@DeleteMapping(?:\s*\(\s*\))?/g,
+  patchMappingNoPath: /@PatchMapping(?:\s*\(\s*\))?/g,
 
   // Path variable and query param patterns (informational)
   pathVariable: /@PathVariable\s*(?:\(\s*(?:value\s*=\s*)?['"]?(\w+)['"]?\s*\))?/,
@@ -1273,6 +1282,30 @@ export class FrameworkRouteDetector {
           routeType: 'http',
           controllerName: feignClientName ?? controllerName,
         });
+      }
+
+      // @XxxMapping with no explicit path — root endpoint (uses class prefix or "/")
+      const noPathMappings: Array<[RegExp, string]> = [
+        [SPRING_PATTERNS.getMappingNoPath, 'GET'],
+        [SPRING_PATTERNS.postMappingNoPath, 'POST'],
+        [SPRING_PATTERNS.putMappingNoPath, 'PUT'],
+        [SPRING_PATTERNS.deleteMappingNoPath, 'DELETE'],
+        [SPRING_PATTERNS.patchMappingNoPath, 'PATCH'],
+      ];
+      for (const [re, method] of noPathMappings) {
+        re.lastIndex = 0;
+        while (re.exec(trimmed) !== null) {
+          routes.push({
+            method,
+            path: controllerPrefix || '/',
+            filePath,
+            line: i + 1,
+            handlerName: this.extractJavaHandler(lines, i),
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName: feignClientName ?? controllerName,
+          });
+        }
       }
 
       // @RequestMapping(method = RequestMethod.XXX) — generic request mapping
