@@ -74,7 +74,6 @@ export default defineConfig({
         'packages/infra/src/storage/types.ts', // Pure type definitions
         'packages/infra/src/resilience/**',    // Resilience utilities (tested via dedicated test suites)
         'packages/core/src/agents/types.ts', // Pure type definitions
-        'packages/infra/src/filesystem/watcher.ts', // Future iteration stub
         // Entry point scripts — tested via integration/e2e, not unit tests
         'packages/mcp/src/start.ts',
         'packages/server/src/start.ts',
