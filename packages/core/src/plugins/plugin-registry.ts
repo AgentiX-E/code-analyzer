@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/core — Plugin Registry
 // Central registry for managing loaded plugins.
 // Aggregates rules, lenses, standards, and MCP tools from all registered plugins.

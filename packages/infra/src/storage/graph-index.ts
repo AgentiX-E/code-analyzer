@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/infra — Graph Store Index
 // In-memory secondary indexes for O(1) lookups by name, label, and project.
 // Plugs into InMemoryGraphStore for sub-millisecond query performance.

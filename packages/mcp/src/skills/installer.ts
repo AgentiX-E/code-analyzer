@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Agent Skills Installer
 // Detects AI coding agents and installs project-specific skills.
 

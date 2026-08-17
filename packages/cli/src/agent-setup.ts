@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/cli — Agent Auto-Detection & One-Click Configuration
 //
 // Detects installed AI coding agents and configures them to use

@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Report Tools
 // Generates structured reports from graph analysis data
 

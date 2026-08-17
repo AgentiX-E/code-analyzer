@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/analyzer — Scala Tree-sitter Provider
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';

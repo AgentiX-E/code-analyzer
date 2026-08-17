@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/intelligence — Review Pipeline
 // 5-stage review pipeline: Pre-filter → Context Enrichment → Review
 // Execution → Deduplication → Severity Normalization.

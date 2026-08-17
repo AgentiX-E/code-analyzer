@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/infra — Performance Profiler
 // Query benchmark suite and hot-path optimization toolkit.
 // Measures and reports query latency, throughput, and memory usage.

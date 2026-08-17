@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Cross-Repository Tools
 // Real implementations backed by graph store and cross-repo engine
 

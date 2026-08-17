@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 import os from 'node:os';
 
 import type { CodeAnalyzerConfig } from '@code-analyzer/shared';

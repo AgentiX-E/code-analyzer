@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/server — SSE Transport
 // Server-Sent Events transport for MCP protocol and real-time streaming.
 

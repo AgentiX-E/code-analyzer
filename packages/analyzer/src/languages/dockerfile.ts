@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/analyzer — Dockerfile Tree-sitter Provider
 // Infrastructure-as-Code: detects Dockerfile instructions (FROM, RUN, COPY, etc.)
 

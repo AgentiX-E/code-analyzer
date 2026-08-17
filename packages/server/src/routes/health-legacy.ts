@@ -1,6 +1,5 @@
 // @code-analyzer/server — Legacy Health Helpers
 // Kept for backward compatibility with tests that import buildHealthResponse directly.
-/* v8 ignore file -- @preserve */
 
 import type { ServerConfig } from '../server-config.js';
 

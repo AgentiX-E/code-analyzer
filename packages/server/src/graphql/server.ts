@@ -1,7 +1,6 @@
 // @code-analyzer/server — GraphQL Yoga Server
 // Creates a Yoga GraphQL server that integrates with the existing Fastify HTTP server.
 // Provides /graphql endpoint with GraphiQL playground in development mode.
-/* v8 ignore file -- @preserve */
 
 import { createYoga } from 'graphql-yoga';
 import { makeExecutableSchema } from '@graphql-tools/schema';

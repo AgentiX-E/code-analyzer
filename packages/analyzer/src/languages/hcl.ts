@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/analyzer — HCL / Terraform Tree-sitter Provider
 // Infrastructure-as-Code: detects Terraform resources, data sources, variables, and outputs.
 

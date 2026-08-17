@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — PR Review Tools
 
 import { existsSync, readFileSync } from 'node:fs';

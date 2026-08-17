@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/intelligence — Cross-Repo PR Review Engine
 // Reviews pull requests with cross-repo context, detects API breaking changes,
 // predicts test impact across repos, and checks version compatibility.

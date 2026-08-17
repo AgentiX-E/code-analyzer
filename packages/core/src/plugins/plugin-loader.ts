@@ -1,4 +1,3 @@
-/* v8 ignore file -- @preserve */
 // @code-analyzer/core — Plugin Loader
 // Dynamically loads plugins from file paths or node_modules packages.
 // Supports CommonJS and ESM plugins with validation before registration.

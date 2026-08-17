@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/mcp — Code Review Tools
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';

@@ -1,4 +1,3 @@
-/* v8 ignore file */
 // @code-analyzer/server — Tools Routes
 // MCP tool listing and invocation via REST API.
 
