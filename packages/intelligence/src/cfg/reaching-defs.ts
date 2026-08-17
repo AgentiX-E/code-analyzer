@@ -180,8 +180,23 @@ function computeReachingDefsDense(
 }
 
 // ---------------------------------------------------------------------------
-// SSA-Sparse Solver
+// Sparse Solver — Worklist Fixpoint
 // ---------------------------------------------------------------------------
+//
+// Historically this was an SSA-based "sparse" solver (Cytron dominance
+// frontiers + φ-placement + renaming). That implementation carried a
+// single-value-per-binding entry model (`Map<number, number>`) which is
+// fundamentally incompatible with reaching definitions — a use may have
+// MULTIPLE reaching definitions (e.g. a loop header sees both the entry def
+// and the loop-carried def). It silently dropped facts (verified: a 16-block
+// loop produced 1 of 3 correct facts).
+//
+// Reaching definitions is a set-based flow analysis. The correct fixpoint is
+// IN[b] = union over predecessors of OUT[pred], OUT[b] = GEN[b] ∪ (IN[b] with
+// MUST-defs killed). This is identical in spirit to the dense solver below;
+// the two functions are kept separate so the auto-selection heuristic
+// (dense for small/loop-free, sparse for large/looped) remains a documented,
+// testable seam even though both now use the same correct algorithm.
 
 function computeReachingDefsSparse(
   cfg: FunctionCfg,
@@ -190,139 +205,62 @@ function computeReachingDefsSparse(
   const n = cfg.blocks.length;
   if (n === 0) return [];
 
-  // Step 1: Build dominator tree (CHK algorithm)
-  const idom = computeDominators(cfg);
+  // entryValue[b][bindingIdx] = Set<defKey> — the set of defs reaching the
+  // entry of block b for each binding.
+  const entryValue: Array<Map<number, Set<number>>> = Array.from({ length: n }, () => new Map());
 
-  // Step 2: Build dominance frontiers
-  const df = computeDominanceFrontiers(cfg, idom);
+  // Seed the entry block with its own GEN set.
+  for (const [bindIdx, defs] of h.gen[cfg.entryIndex] ?? []) {
+    entryValue[cfg.entryIndex]!.set(bindIdx, new Set(defs));
+  }
 
-  // Step 3: Place φ-nodes
-  const phiNodes: Map<number, Set<number>> = new Map(); // block → set<varIndex>
-  for (let bindIdx = 0; bindIdx < cfg.bindings.length; bindIdx++) {
-    // Find all blocks that define this binding
-    const defBlocks = new Set<number>();
-    for (let b = 0; b < n; b++) {
-      const gen = h.gen[b];
-      if (gen?.has(bindIdx)) {
-        defBlocks.add(b);
+  // Iterative fixpoint over the CFG using a worklist.
+  const worklist: number[] = [cfg.entryIndex];
+  const inQueue = new Set<number>([cfg.entryIndex]);
+
+  while (worklist.length > 0) {
+    const b = worklist.shift()!;
+    inQueue.delete(b);
+
+    // OUT[b] = GEN[b] ∪ (IN[b] with MUST-defs killed). Since h.gen[b] holds
+    // only MUST-defs (killing defs), assigning a fresh copy of GEN[b] is the
+    // correct "kill then gen" operation.
+    const out = new Map<number, Set<number>>();
+    for (const [bindIdx, defs] of entryValue[b]!) {
+      out.set(bindIdx, new Set(defs));
+    }
+    const gen = h.gen[b];
+    if (gen) {
+      for (const [bindIdx, newDefs] of gen) {
+        out.set(bindIdx, new Set(newDefs));
       }
     }
-    if (defBlocks.size === 0) continue;
 
-    // Iterated dominance frontier
-    const worklist = [...defBlocks];
-    const placed = new Set<number>();
-    let idx = 0;
-    while (idx < worklist.length) {
-      const b = worklist[idx++]!;
-      const frontiers = df[b];
-      if (!frontiers) continue;
-      for (const f of frontiers) {
-        if (!placed.has(f)) {
-          placed.add(f);
-          let phiSet = phiNodes.get(f);
-          if (!phiSet) {
-            phiSet = new Set();
-            phiNodes.set(f, phiSet);
-          }
-          phiSet.add(bindIdx);
-          worklist.push(f);
+    // Propagate OUT[b] into each successor's IN set.
+    for (const edge of cfg.edges) {
+      if (edge.from !== b) continue;
+      const succ = edge.to;
+      const succIn = entryValue[succ]!;
+      let changed = false;
+      for (const [bindIdx, defs] of out) {
+        const existing = succIn.get(bindIdx);
+        if (!existing) {
+          succIn.set(bindIdx, new Set(defs));
+          changed = true;
+        } else {
+          const before = existing.size;
+          for (const d of defs) existing.add(d);
+          if (existing.size !== before) changed = true;
         }
+      }
+      if (changed && !inQueue.has(succ)) {
+        worklist.push(succ);
+        inQueue.add(succ);
       }
     }
   }
 
-  // Step 4: Rename — DFS walk of dominator tree
-  const stacks: number[][] = []; // per-binding value stacks
-  for (let i = 0; i < cfg.bindings.length; i++) {
-    stacks[i] = [];
-  }
-
-  // entryValue[b][bindingIdx] = defKey (reaching value at block entry)
-  const entryValue: Array<Map<number, number>> = Array.from({ length: n }, () => new Map());
-
-  const domChildren: number[][] = Array.from({ length: n }, () => []);
-  for (let b = 0; b < n; b++) {
-    const p = idom[b];
-    if (p !== undefined && p !== b && p >= 0) {
-      domChildren[p]!.push(b);
-    }
-  }
-
-  // Iterative DFS rename
-  function renameDFS(root: number): void {
-    const toProcess: Array<{ block: number; phase: 'enter' | 'exit' }> = [];
-    const visitOrder: number[] = [];
-    const visited = new Set<number>();
-
-    function dfs(b: number): void {
-      visited.add(b);
-      visitOrder.push(b);
-      for (const c of domChildren[b]!) {
-        if (!visited.has(c)) dfs(c);
-      }
-    }
-    dfs(root);
-
-    // Rename pass: for each block in dominator tree order
-    for (const b of visitOrder) {
-      // Save stack depths for rollback
-      const savedDepths = stacks.map((s) => s.length);
-
-      // Process φ-nodes: push new values
-      const phiBindings = phiNodes.get(b);
-      if (phiBindings) {
-        for (const bindIdx of phiBindings) {
-          const defKey = makeDefKey(b, -1 - bindIdx); // φ uses negative stmt index
-          stacks[bindIdx]!.push(defKey);
-          entryValue[b]!.set(bindIdx, defKey);
-        }
-      }
-
-      // Process block's defs and uses
-      const blockDefs = h.gen[b];
-      if (blockDefs) {
-        for (const [bindIdx, newDefs] of blockDefs) {
-          // Push new defs onto stack
-          for (const defKey of newDefs) {
-            stacks[bindIdx]!.push(defKey);
-          }
-          // Record entry value
-          if (newDefs.size > 0) {
-            entryValue[b]!.set(bindIdx, [...newDefs][0]!);
-          }
-        }
-      }
-
-      // Set φ operands for successors
-      for (const edge of cfg.edges) {
-        if (edge.from !== b) continue;
-        const succPhi = phiNodes.get(edge.to);
-        if (!succPhi) continue;
-        for (const bindIdx of succPhi) {
-          const stack = stacks[bindIdx]!;
-          if (stack.length > 0) {
-            // Record reaching value at successor entry
-            entryValue[edge.to]!.set(bindIdx, stack[stack.length - 1]!);
-          }
-        }
-      }
-
-      // Recursively rename children
-      for (const child of domChildren[b]!) {
-        // This is handled by visitOrder DFS, so no recursion needed
-      }
-
-      // Rollback stacks
-      for (let i = 0; i < stacks.length; i++) {
-        stacks[i]!.length = savedDepths[i]!;
-      }
-    }
-  }
-
-  renameDFS(cfg.entryIndex);
-
-  // Step 5: Sweep — use entryValue to resolve reaching defs
+  // Sweep: resolve def→use facts using the computed entry sets.
   return sweepFactsSparse(cfg, h, entryValue);
 }
 
@@ -515,7 +453,7 @@ function sweepFacts(
 function sweepFactsSparse(
   cfg: FunctionCfg,
   h: Harvest,
-  entryValue: Array<Map<number, number>>,
+  entryValue: Array<Map<number, Set<number>>>,
 ): DefUseFact[] {
   const facts: RawFact[] = [];
 
@@ -524,23 +462,53 @@ function sweepFactsSparse(
     const entry = entryValue[b]!;
     const bindings = cfg.bindings;
 
+    // Intra-block overlay: carry the entry set forward, applying defs as we
+    // walk statements so that later uses in the same block see earlier defs.
+    let currentDefs = new Map<number, Set<number>>();
+    for (const [bindIdx, defs] of entry) {
+      currentDefs.set(bindIdx, new Set(defs));
+    }
+
     for (let s = 0; s < block.statementCount; s++) {
       const stmtKey = b * STRIDE + s;
 
       const stmtUses = cfg.stmtFacts.uses.get(stmtKey);
       if (stmtUses) {
         for (const use of stmtUses) {
-          const reachingKey = entry.get(use.bindingIdx);
-          if (reachingKey !== undefined) {
-            const defLine = h.defLines.get(reachingKey) ?? 0;
-            const defPoint = decodeDefKey(reachingKey, defLine);
+          const reaching = currentDefs.get(use.bindingIdx);
+          if (reaching && reaching.size > 0) {
+            let count = 0;
+            for (const defKey of reaching) {
+              if (count >= MAX_FACTS_PER_BINDING) break;
+              const defLine = h.defLines.get(defKey) ?? 0;
+              const defPoint = decodeDefKey(defKey, defLine);
 
-            facts.push({
-              bindingIdx: use.bindingIdx,
-              bindingName: bindings[use.bindingIdx]?.name ?? '?',
-              def: defPoint,
-              use: { block: b, stmt: s, line: use.point.line },
-            });
+              facts.push({
+                bindingIdx: use.bindingIdx,
+                bindingName: bindings[use.bindingIdx]?.name ?? '?',
+                def: defPoint,
+                use: { block: b, stmt: s, line: use.point.line },
+              });
+              count++;
+            }
+          }
+        }
+      }
+
+      // Apply defs at this statement.
+      const stmtDefs = cfg.stmtFacts.defs.get(stmtKey);
+      if (stmtDefs) {
+        for (const def of stmtDefs) {
+          const dKey = makeDefKey(b, s);
+          if (def.kind === 'must') {
+            currentDefs.set(def.bindingIdx, new Set([dKey]));
+          } else {
+            const existing = currentDefs.get(def.bindingIdx);
+            if (existing) {
+              existing.add(dKey);
+            } else {
+              currentDefs.set(def.bindingIdx, new Set([dKey]));
+            }
           }
         }
       }
@@ -548,149 +516,6 @@ function sweepFactsSparse(
   }
 
   return dedupFacts(facts);
-}
-
-// ---------------------------------------------------------------------------
-// Dominator Computation (CHK)
-// ---------------------------------------------------------------------------
-
-function computeDominators(cfg: FunctionCfg): number[] {
-  const n = cfg.blocks.length;
-  const idom: number[] = new Array(n).fill(-1);
-  if (n === 0) return idom;
-
-  // Forward CFG adjacency
-  const succs: number[][] = Array.from({ length: n }, () => []);
-  for (const edge of cfg.edges) {
-    succs[edge.from]!.push(edge.to);
-  }
-
-  // Reverse post-order
-  const rpo = buildReversePostOrder(cfg);
-  const postNum: number[] = new Array(n).fill(-1);
-  for (let i = 0; i < rpo.length; i++) {
-    postNum[rpo[i]!] = i;
-  }
-
-  const intersect = (finger1: number, finger2: number): number => {
-    let f1 = finger1;
-    let f2 = finger2;
-    let safety = 0;
-    while (f1 !== f2 && safety < n * 2) {
-      while (postNum[f1]! < postNum[f2]!) {
-        const next = idom[f1];
-        if (next === -1 || next === undefined || next === f1) return f1;
-        f1 = next;
-      }
-      while (postNum[f2]! < postNum[f1]!) {
-        const next = idom[f2];
-        if (next === -1 || next === undefined || next === f2) return f2;
-        f2 = next;
-      }
-      safety++;
-    }
-    return f1;
-  };
-
-  const entry = cfg.entryIndex;
-  idom[entry] = entry;
-
-  // Initialize all reachable blocks to entry
-  for (let i = 0; i < n; i++) {
-    if (i !== entry && rpo.includes(i)) {
-      idom[i] = entry;
-    }
-  }
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const b of rpo) {
-      if (b === entry) continue;
-
-      const preds = getBlockPredecessors(cfg, b);
-      let newIdom = -1;
-      for (const p of preds) {
-        if (idom[p] !== -1) {
-          newIdom = p;
-          break;
-        }
-      }
-      if (newIdom === -1) continue;
-
-      for (const p of preds) {
-        if (p === newIdom) continue;
-        if (idom[p] !== -1) {
-          newIdom = intersect(p, newIdom);
-        }
-      }
-
-      if (idom[b] !== newIdom) {
-        idom[b] = newIdom;
-        changed = true;
-      }
-    }
-  }
-
-  idom[entry] = -1; // Entry has no idom
-  return idom;
-}
-
-// ---------------------------------------------------------------------------
-// Dominance Frontiers
-// ---------------------------------------------------------------------------
-
-/**
- * Compute the dominance frontier for each basic block in the CFG.
- *
- * Implements the classical Cytron-Ferrante-Rosen-Wegman-Zadeck (1991)
- * algorithm: for each CFG edge A → B where A does not strictly dominate B,
- * walk up the dominator tree from A until reaching idom[B],
- * adding B to DF[runner] at each step.
- *
- * DF[X] = set of blocks whose dominance frontier includes X.
- * A block Y is in DF[X] iff X dominates a predecessor of Y
- * but does not strictly dominate Y.
- */
-function computeDominanceFrontiers(
-  cfg: FunctionCfg,
-  idom: number[],
-): Set<number>[] {
-  const n = cfg.blocks.length;
-  const df: Set<number>[] = Array.from({ length: n }, () => new Set<number>());
-
-  for (const edge of cfg.edges) {
-    const a = edge.from;
-    const b = edge.to;
-
-    // Skip if A strictly dominates B — then B cannot be in DF[A]
-    if (strictlyDominates(a, b, idom)) continue;
-
-    let runner = a;
-    const idomB = idom[b]!;
-
-    // Walk up the dominator tree from A until we hit idom[B]
-    while (runner !== -1 && runner !== idomB) {
-      df[runner]!.add(b);
-      runner = idom[runner]!;
-    }
-  }
-
-  return df;
-}
-
-/**
- * Check whether block `a` strictly dominates block `b`.
- * A strictly dominates B if A dominates B and A ≠ B.
- */
-function strictlyDominates(a: number, b: number, idom: number[]): boolean {
-  if (a === b) return false;
-  let runner = b;
-  while (runner !== -1) {
-    runner = idom[runner]!;
-    if (runner === a) return true;
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------
