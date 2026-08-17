@@ -1,8 +1,8 @@
 # Architecture
 
-> `code-analyzer` â€? Architecture documentation for a layered code intelligence platform that transforms source code into a structured knowledge graph with 33 entity types and 39 relationship types.
+> `code-analyzer` â€? Architecture documentation for a layered code intelligence platform that transforms source code into a structured knowledge graph with 36 entity types and 43 relationship types.
 
-> **Implementation Status**: v0.2.0 â€? All seven layers are fully implemented and tested. 110 test files, 5,200+ tests, 95%+ coverage across all dimensions. The platform provides MCP service, VS Code extension with Copilot Chat integration, Web Dashboard, and GitHub cross-repo PR review.
+> **Implementation Status**: v0.1.0 ¡ª All seven layers are implemented. 280 test files, 8,000+ tests. Coverage is measured honestly (see README badge); semantic embeddings require the ONNX model (see embed phase). The platform provides MCP service, VS Code extension with Copilot Chat integration, Web Dashboard, and GitHub cross-repo PR review.
 
 ### Layer Implementation Status Summary
 
@@ -142,7 +142,7 @@ All packages depend on `@code-analyzer/shared` for type definitions. `@code-anal
 
 ## Knowledge Graph Schema
 
-The knowledge graph is the heart of Code Analyzer. It models code as a typed property graph with 33 node types (entity labels) and 39 relationship types (edge semantics).
+The knowledge graph is the heart of Code Analyzer. It models code as a typed property graph with 36 node types (entity labels) and 43 relationship types (edge semantics).
 
 ### 33 Node Types
 

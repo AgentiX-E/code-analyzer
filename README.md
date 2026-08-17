@@ -18,7 +18,7 @@
 
 Code Analyzer is a code intelligence platform that helps developers understand, search, and review code at depth. It includes:
 
-- **Knowledge Graph**: Models source code as a typed property graph with 33 node types and 44 relationship types
+- **Knowledge Graph**: Models source code as a typed property graph with 36 node types and 43 relationship types
 - **MCP Server**: Exposes 45 tools to AI coding agents via the Model Context Protocol
 - **VS Code Extension**: Integrates with Copilot Chat for real-time code intelligence
 - **Web Dashboard**: Provides 6 interactive views for exploring your codebase
@@ -64,13 +64,13 @@ Checkmarks indicate features verified through automated tests.
 
 | Capability | Status |
 |---|---|
-| Knowledge Graph (33 node types, 43 relationship types) | Verified — unit tested |
+| Knowledge Graph (36 node types, 43 relationship types) | Verified — unit tested |
 | 19-Phase Analysis Pipeline | Verified — integration tested |
-| 20-Language Parsing (tree-sitter + regex fallback) | Verified — unit tested |
+| 31-Language Parsing (tree-sitter + regex fallback) | Verified — unit tested |
 | Scope Resolution (3-tier: same-file, cross-file, namespace) | Verified — unit tested |
 | PR Review (50+ heuristic rules, 6 categories) | Verified — integration tested |
 | Cypher Query Engine (lexer → parser → planner → executor) | Verified — unit tested |
-| MCP Server (39 tools, 15 resources, 5 prompts) | Verified — integration tested |
+| MCP Server (45 tools, 15 resources, 5 prompts) | Verified — integration tested |
 | VS Code Extension (15 Copilot Chat slash commands) | Verified — unit tested |
 | Web Dashboard (6 interactive views) | Verified — integration tested |
 | GitHub Integration (webhooks, check runs, cross-repo PR) | Verified — integration tested |
@@ -98,7 +98,7 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 |     Web Dashboard (6 views)                                   |
 +---------------------------------------------------------------+
 |                     Integration Layer                         |
-|    MCP Server (39 tools)  |  HTTP REST API  |  Webhooks      |
+|    MCP Server (45 tools)  |  HTTP REST API  |  Webhooks      |
 +---------------------------------------------------------------+
 |                     Service Layer                             |
 |    Review Engine  |  Search (BM25 + vector)  |  Standards    |
@@ -107,7 +107,7 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 |  50+ Rules (CWE)  |  Cross-Repo  |  Impact  |  Embeddings    |
 +---------------------------------------------------------------+
 |                    Analysis Engine                            |
-|  20 Parsers  |  19-Phase DAG  |  Scope Resolution  |  Graph  |
+|  31 Parsers  |  19-Phase DAG  |  Scope Resolution  |  Graph  |
 +---------------------------------------------------------------+
 |                   Infrastructure Layer                       |
 |  Graph Store (SQLite)  |  Git Ops  |  Worker Pool            |
@@ -121,12 +121,12 @@ The platform is structured as a 10-package pnpm monorepo with clear separation o
 
 | Package | Description |
 |---|---|
-| `@code-analyzer/shared` | Types (33 node labels, 43 edges, 43 consts), constants, validation, utilities |
+| `@code-analyzer/shared` | Types (36 node labels, 43 edges, 43 consts), constants, validation, utilities |
 | `@code-analyzer/core` | Foundation: config, logging, errors, i18n, metrics, agent detection, security, RBAC, audit |
 | `@code-analyzer/infra` | Infrastructure: graph stores (in-memory, SQLite), file discovery, git operations, concurrency |
-| `@code-analyzer/analyzer` | Analysis: 20-language parsers, 19-phase DAG pipeline, scope resolution, auto-index/watch |
+| `@code-analyzer/analyzer` | Analysis: 31-language parsers, 19-phase DAG pipeline, scope resolution, auto-index/watch |
 | `@code-analyzer/intelligence` | Intelligence: 50+ review rules, cross-repo, impact analysis, embeddings, taint analysis |
-| `@code-analyzer/mcp` | MCP server: 39 tools, 15 resources, 5 prompts, Cypher engine, middleware |
+| `@code-analyzer/mcp` | MCP server: 45 tools, 15 resources, 5 prompts, Cypher engine, middleware |
 | `@code-analyzer/server` | HTTP REST API server with webhook support, rate limiting, graceful shutdown |
 | `@code-analyzer/cli` | CLI: init, analyze, search, review, status, agent commands |
 | `@code-analyzer/vscode` | VS Code extension with Copilot Chat participant (15 slash commands) |
@@ -162,7 +162,7 @@ Code Analyzer achieves competitive results with zero LLM token cost on internal 
 - **[Code Review & PR Review](docs/PR-REVIEW.md)** — Rules reference, PR review workflow
 - **[Web Dashboard](docs/WEB-DASHBOARD.md)** — Interactive UI guide, hooks, API client
 - **[GitHub Integration](docs/GITHUB-INTEGRATION.md)** — Webhooks, cross-repo PR, check runs
-- **[Language Support](docs/language-support.md)** — 20-language coverage and quality matrix
+- **[Language Support](docs/language-support.md)** — 31-language coverage and quality matrix
 - **[Configuration](docs/CONFIGURATION.md)** — Options, environment variables, tuning
 - **[Integrations](docs/INTEGRATIONS.md)** — AI agent setup guides (12 agents)
 - **[Troubleshooting](docs/troubleshooting.md)** — Common issues, performance tuning, debugging

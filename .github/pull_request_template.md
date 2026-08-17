@@ -1,48 +1,46 @@
 ## Description
-
-<!-- Describe your changes in detail -->
+<!-- Provide a clear and concise description of the changes in this PR. -->
 
 ## Type of Change
-
-- [ ] Bug fix (non-breaking change)
-- [ ] New feature (non-breaking change)
-- [ ] Breaking change
-- [ ] Performance improvement
-- [ ] Documentation update
-- [ ] CI/CD improvement
-- [ ] Test coverage improvement
-
-## Checklist
-
-- [ ] Tests added/updated for all changes
-- [ ] All tests pass (`pnpm test`)
-- [ ] Coverage thresholds met (95% lines, 90% branches, 95% functions)
-- [ ] TypeScript compiles with zero errors (`pnpm typecheck`)
-- [ ] Linting passes (`pnpm lint`)
-- [ ] Documentation updated (if applicable)
-- [ ] CHANGELOG entry added (if applicable)
-
-## Related Issues
-
-<!-- Link to related issues using #issue_number -->
+- [ ] 🚀 New feature (`feat:`)
+- [ ] 🐛 Bug fix (`fix:`)
+- [ ] ⚡ Performance improvement (`perf:`)
+- [ ] 🔧 Refactoring — no functional change (`refactor:`)
+- [ ] 🧪 Test enhancement (`test:`)
+- [ ] 📝 Documentation update (`docs:`)
+- [ ] 🔨 CI/CD improvement (`ci:`)
+- [ ] 🔒 Security fix (`security:`)
 
 ## Testing
 
-<!-- Describe how you tested your changes -->
+### Test Results
+<!-- Paste the output of `npx vitest run` here or attach a screenshot -->
+- [ ] All existing tests pass — `npx vitest run` shows 0 failures
+- [ ] Property-based tests pass — `npx vitest run --config vitest.property.config.ts`
+- [ ] Integration tests pass — `npx vitest run --config vitest.integration.config.ts`
+- [ ] E2E tests pass — `npx vitest run --config vitest.e2e.config.ts`
 
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Performance benchmarks
-- [ ] Manual testing
+### Coverage
+- [ ] Coverage meets the threshold enforced in `vitest.config.ts` (`pnpm test:coverage`)
+- [ ] No new `/* v8 ignore */` or `/* v8 ignore file */` markers added to production source
+- [ ] Coverage summary (lines/branches) posted in the PR description
 
-## Performance Impact
+### Performance
+- [ ] No benchmark regressions (run `pnpm bench:ci && pnpm check:perf`)
+- [ ] Real-world benchmarks pass (React, cross-repo E2E, scale profiling)
 
-<!-- If applicable, describe any performance impact -->
+## Breaking Changes
+- [ ] No breaking changes to public APIs
+- [ ] Breaking changes documented with migration guide below
 
-- [ ] No significant impact
-- [ ] Improvement (describe): 
-- [ ] Regression (explain why unavoidable): 
+## Checklist
+- [ ] Code follows project conventions (format with `pnpm format`)
+- [ ] All comments and documentation are written in English
+- [ ] TypeScript types are complete — `pnpm typecheck` passes
+- [ ] Lint passes — `pnpm lint` has no errors
+- [ ] `.env` file is NOT included in the commit
+- [ ] No API keys, tokens, or secrets in source code
+- [ ] Commit follows conventional commits format (`type(scope): description`)
 
-## Screenshots
-
-<!-- If applicable, add screenshots to help explain your changes -->
+## Related Issues
+<!-- Link related issues using #issue-number -->
