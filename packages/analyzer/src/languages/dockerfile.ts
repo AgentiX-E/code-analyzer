@@ -1,171 +1,31 @@
-// @code-analyzer/analyzer — Dockerfile Tree-sitter Provider
-// Infrastructure-as-Code: detects Dockerfile instructions (FROM, RUN, COPY, etc.)
+// @code-analyzer/analyzer — Dockerfile Provider (regex-based parser)
+//
+// Infrastructure-as-Code: detects Dockerfile instructions (FROM, RUN, COPY,
+// ENV, ARG, EXPOSE, WORKDIR, LABEL, VOLUME, USER, CMD, ENTRYPOINT).
+//
+// A pure regex provider (no tree-sitter): `tree-sitter-dockerfile` is not a
+// real published grammar — the npm package of that name is the `0.0.1-security`
+// placeholder — so a tree-sitter path would be unreachable dead code. The regex
+// parser below is the complete, tested implementation.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import { TreeSitterBaseProvider } from './tree-sitter-base.js';
-
-import type { ParsedImport } from './provider.js';
+import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const DOCKERFILE_EXTENSIONS: string[] = [];
 const DOCKERFILE_GLOBS = ['**/Dockerfile', '**/*.dockerfile'];
 
-export class DockerfileProvider extends TreeSitterBaseProvider {
+export class DockerfileProvider implements LanguageProvider {
   readonly language = 'dockerfile';
   readonly displayName = 'Dockerfile';
   readonly extensions = DOCKERFILE_EXTENSIONS;
   readonly globs = DOCKERFILE_GLOBS;
   readonly importSemantics = 'named' as const;
 
-  protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-dockerfile') as TreeSitterLanguage;
-    } /* v8 ignore next */
-    catch {
-      return null;
-    }
-  }
-
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      { nodeType: 'from_instruction', captureTag: CAPTURE_TAGS.DECORATOR, nameChildType: 'image_spec' },
-      { nodeType: 'instruction', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-    ];
-  }
-
-  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const nodeType = node.type;
-
-    if (nodeType === 'from_instruction') {
-      let image = '';
-      let tag = '';
-      let stage: string | undefined;
-
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child.type === 'image_spec') {
-          // Parse image name
-          let nameParts: string[] = [];
-          for (let j = 0; j < child.namedChildCount; j++) {
-            const sub = child.namedChild(j);
-            if (sub.type === 'image_name') nameParts.push(sub.text);
-          }
-          image = nameParts.join(':');
-          if (!image) image = child.text;
-        } else if (child.type === 'image_tag') {
-          tag = child.text.replace(/^:/, '');
-        } else if (child.type === 'identifier' && !stage) {
-          stage = child.text;
-        }
-      }
-
-      const fullImage = tag ? `${image}:${tag}` : image;
-      if (fullImage) {
-        captures.push({
-          tag: CAPTURE_TAGS.IMPORT,
-          text: `FROM ${fullImage}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: fullImage,
-          properties: {
-            baseImage: fullImage,
-            stage: stage ?? '',
-            iaCType: 'DockerImage',
-            isIaC: 'true',
-            filePath: this.filePath,
-          },
-        });
-      }
-    } else if (nodeType === 'run_instruction' || nodeType === 'cmd_instruction' ||
-               nodeType === 'entrypoint_instruction' || nodeType === 'copy_instruction' ||
-               nodeType === 'add_instruction') {
-      const instrType = nodeType.replace('_instruction', '').toUpperCase();
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_CALL,
-        text: `${instrType} ${this.extractInstructionText(node)}`,
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        startByte: node.startIndex,
-        endByte: node.endIndex,
-        name: instrType,
-        properties: {
-          instruction: instrType,
-          isIaC: 'true',
-          filePath: this.filePath,
-        },
-      });
-    } else if (nodeType === 'expose_instruction') {
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_CALL,
-        text: node.text.trim(),
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        startByte: node.startIndex,
-        endByte: node.endIndex,
-        name: 'EXPOSE',
-        properties: { instruction: 'EXPOSE', isIaC: 'true', filePath: this.filePath },
-      });
-    } else if (nodeType === 'env_instruction') {
-      let varName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child.type === 'env_key') {
-          varName = child.text;
-          break;
-        }
-      }
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: varName || node.text.trim(),
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        startByte: node.startIndex,
-        endByte: node.endIndex,
-        name: varName || 'ENV',
-        properties: { instruction: 'ENV', isIaC: 'true', filePath: this.filePath },
-      });
-    } else if (nodeType === 'arg_instruction') {
-      let varName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child.type === 'identifier') {
-          varName = child.text;
-          break;
-        }
-      }
-      captures.push({
-        tag: CAPTURE_TAGS.VARIABLE_DEF,
-        text: varName || node.text.trim(),
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        startByte: node.startIndex,
-        endByte: node.endIndex,
-        name: varName || 'ARG',
-        properties: { instruction: 'ARG', isIaC: 'true', filePath: this.filePath },
-      });
-    }
-
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
-    }
-  }
-
-  protected override walkForImports(_node: TreeSitterSyntaxNode, _imports: ParsedImport[]): void {
-    // Dockerfile has no traditional imports — FROM is handled in parsing
-  }
-
-  protected override checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
-    return true;
-  }
-
-  // Fallbacks
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  parse(source: string, filePath: string): UnifiedCapture[] {
+    const sanitized = sanitizeSource(source);
     const captures: UnifiedCapture[] = [];
-    const lines = source.split('\n');
+    const lines = sanitized.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!.trim();
@@ -192,8 +52,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: `FROM ${image}`,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: image,
           properties: {
             baseImage: image,
@@ -213,8 +73,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'RUN',
           properties: { instruction: 'RUN', isIaC: 'true', filePath },
         });
@@ -228,8 +88,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'COPY',
           properties: { instruction: 'COPY', isIaC: 'true', filePath },
         });
@@ -243,8 +103,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'ADD',
           properties: { instruction: 'ADD', isIaC: 'true', filePath },
         });
@@ -258,8 +118,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'CMD',
           properties: { instruction: 'CMD', isIaC: 'true', filePath },
         });
@@ -273,8 +133,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'ENTRYPOINT',
           properties: { instruction: 'ENTRYPOINT', isIaC: 'true', filePath },
         });
@@ -289,8 +149,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: envMatch[1]!,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: envMatch[1]!,
           properties: { instruction: 'ENV', isIaC: 'true', filePath },
         });
@@ -305,8 +165,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: argMatch[1]!,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: argMatch[1]!,
           properties: { instruction: 'ARG', isIaC: 'true', filePath },
         });
@@ -320,8 +180,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'EXPOSE',
           properties: { instruction: 'EXPOSE', isIaC: 'true', filePath },
         });
@@ -335,8 +195,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'WORKDIR',
           properties: { instruction: 'WORKDIR', isIaC: 'true', filePath },
         });
@@ -351,8 +211,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: labelMatch[1]!,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: labelMatch[1]!,
           properties: { instruction: 'LABEL', isIaC: 'true', filePath },
         });
@@ -366,8 +226,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'VOLUME',
           properties: { instruction: 'VOLUME', isIaC: 'true', filePath },
         });
@@ -381,8 +241,8 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
           text: line,
           startLine: lineNum,
           endLine: lineNum,
-          startByte: source.indexOf(line),
-          endByte: source.indexOf(line) + line.length,
+          startByte: sanitized.indexOf(line),
+          endByte: sanitized.indexOf(line) + line.length,
           name: 'USER',
           properties: { instruction: 'USER', isIaC: 'true', filePath },
         });
@@ -393,9 +253,10 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  extractImports(source: string): ParsedImport[] {
+    const sanitized = sanitizeSource(source);
     const imports: ParsedImport[] = [];
-    const lines = source.split('\n');
+    const lines = sanitized.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!.trim();
       const fromMatch = line.match(/^FROM\s+([^\s]+)/i);
@@ -411,23 +272,17 @@ export class DockerfileProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
+  isExported(_source: string, _symbolName: string): boolean {
     return true;
   }
+}
 
-  // Helpers
-  private extractInstructionText(node: TreeSitterSyntaxNode): string {
-    const parts: string[] = [];
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child.type !== 'identifier' && child.text.trim()) {
-        parts.push(child.text.trim());
-      }
-    }
-    return parts.join(' ').substring(0, 50);
-  }
-
-  private ln(source: string, offset: number): number {
-    return source.slice(0, offset).split('\n').length;
-  }
+/** Normalize input: strip BOM + zero-width chars, normalize line endings to LF. */
+function sanitizeSource(source: string): string {
+  return source
+    .replace(/^\uFEFF/, '')
+    .replace(/[\u200B\u200C\u200D]/g, '')
+    .replace(/\uFEFF/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
 }

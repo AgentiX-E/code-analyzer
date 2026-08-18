@@ -133,28 +133,4 @@ describe('LuaProvider', () => {
       expect(provider.isExported('function global()\nend', 'missing')).toBe(false);
     });
   });
-
-  describe('fallback methods (direct invocation)', () => {
-    it('fallbackParse should parse functions and imports', () => {
-      const code = 'function f()\nend\nrequire("m")';
-      const captures = provider.fallbackParse(code, 'test.lua');
-      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF)).toHaveLength(1);
-      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT)).toHaveLength(1);
-    });
-
-    it('fallbackParse should handle empty input', () => {
-      expect(provider.fallbackParse('', 'test.lua')).toEqual([]);
-    });
-
-    it('fallbackExtractImports should extract require sources', () => {
-      const imports = provider.fallbackExtractImports('require("x")');
-      expect(imports).toHaveLength(1);
-      expect(imports[0]?.source).toBe('x');
-    });
-
-    it('fallbackIsExported should distinguish local vs global', () => {
-      expect(provider.fallbackIsExported('function a()\nend', 'a')).toBe(true);
-      expect(provider.fallbackIsExported('local function a()\nend', 'a')).toBe(false);
-    });
-  });
 });

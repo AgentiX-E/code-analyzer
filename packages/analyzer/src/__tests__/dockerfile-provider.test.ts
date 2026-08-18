@@ -156,28 +156,4 @@ describe('DockerfileProvider', () => {
       expect(provider.isExported('', 'anything')).toBe(true);
     });
   });
-
-  describe('fallback methods (direct invocation)', () => {
-    it('fallbackParse should parse FROM and RUN', () => {
-      const captures = provider.fallbackParse('FROM alpine\nRUN echo hi', 'Dockerfile');
-      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
-      expect(imports).toHaveLength(1);
-      expect(calls).toHaveLength(1);
-    });
-
-    it('fallbackParse should handle empty input', () => {
-      expect(provider.fallbackParse('', 'Dockerfile')).toEqual([]);
-    });
-
-    it('fallbackExtractImports should extract images', () => {
-      const imports = provider.fallbackExtractImports('FROM node:18');
-      expect(imports).toHaveLength(1);
-      expect(imports[0]?.source).toBe('node:18');
-    });
-
-    it('fallbackIsExported should return true', () => {
-      expect(provider.fallbackIsExported('', 'x')).toBe(true);
-    });
-  });
 });
