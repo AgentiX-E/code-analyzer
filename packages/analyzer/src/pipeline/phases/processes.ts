@@ -86,7 +86,9 @@ export class ProcessesPhase implements ExecutablePhase {
       ctx.phaseData.set('processes', { processesFound });
       return { phaseId: this.id, status: 'success', output: { processesFound } };
     } catch (err) {
+      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }

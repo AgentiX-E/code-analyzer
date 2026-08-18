@@ -9,6 +9,7 @@ import {
   ConfigPhase,
   CrossFilePhase,
   ScopeResolutionPhase,
+  TypeResolutionPhase,
   RoutesPhase,
   ToolsPhase,
   DependencyInjectionPhase,
@@ -1354,6 +1355,34 @@ describe('PruneLocalSymbolsPhase', () => {
     expect(output.symbolsPruned).toBeGreaterThanOrEqual(0);
   });
 
+  it('should prune unreferenced Variable and file-scope symbols, preserving referenced nodes', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+
+    // A File node (never pruned), an unreferenced Variable, an unreferenced
+    // Function (file-scope prune), a filePath-less Function, and a referenced
+    // Variable (kept).
+    const file = builder.addNode(g, 'File', 'main.ts', { name: 'main.ts', filePath: '/tmp/main.ts' });
+    const unreferencedVar = builder.addNode(g, 'Variable', 'localVar', { name: 'localVar', filePath: '/tmp/main.ts' }, 'localVar');
+    const unreferencedFunc = builder.addNode(g, 'Function', 'unusedFunc', { name: 'unusedFunc', filePath: '/tmp/main.ts' }, 'unusedFunc');
+    const noFilePathFunc = builder.addNode(g, 'Function', 'noPathFunc', { name: 'noPathFunc' }, 'noPathFunc');
+    const referencedVar = builder.addNode(g, 'Variable', 'usedVar', { name: 'usedVar', filePath: '/tmp/main.ts' }, 'usedVar');
+    builder.addEdge(g, file.id, referencedVar.id, 'DEFINES', 'test-proj');
+
+    const result = await prunePhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { symbolsPruned: number };
+    expect(output.symbolsPruned).toBe(3);
+
+    // Unreferenced nodes removed; File and referenced Variable preserved.
+    expect(g.nodes.has(unreferencedVar.id)).toBe(false);
+    expect(g.nodes.has(unreferencedFunc.id)).toBe(false);
+    expect(g.nodes.has(noFilePathFunc.id)).toBe(false);
+    expect(g.nodes.has(file.id)).toBe(true);
+    expect(g.nodes.has(referencedVar.id)).toBe(true);
+  });
+
   it('should not prune nodes that are referenced by edges', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -1562,6 +1591,120 @@ describe('ProcessesPhase', () => {
     const processesData = ctx.phaseData.get('processes') as { processesFound: number };
     expect(processesData).toBeDefined();
     expect(typeof processesData.processesFound).toBe('number');
+  });
+
+  it('should build a Process node from a route call chain', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+
+    const route = builder.addNode(g, 'Route', '/api/users', { name: '/api/users', routePath: '/api/users' });
+    const handler = builder.addNode(g, 'Function', 'getUsers', { name: 'getUsers' }, 'getUsers');
+    const helper = builder.addNode(g, 'Function', 'fetchUsers', { name: 'fetchUsers' }, 'fetchUsers');
+    builder.addEdge(g, route.id, handler.id, 'CALLS', 'test-proj');
+    builder.addEdge(g, handler.id, helper.id, 'CALLS', 'test-proj');
+
+    const result = await processesPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { processesFound: number };
+    expect(output.processesFound).toBe(1);
+
+    const processNodes = Array.from(g.nodes.values()).filter((n) => n.label === 'Process');
+    expect(processNodes).toHaveLength(1);
+    const stepEdges = Array.from(g.edges.values()).filter((e) => e.type === 'STEP_IN_PROCESS');
+    expect(stepEdges.length).toBe(3); // route + handler + helper
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 12b: TypeResolutionPhase
+// ---------------------------------------------------------------------------
+
+describe('TypeResolutionPhase', () => {
+  let fixture: FixtureDir;
+  let typeResolutionPhase: TypeResolutionPhase;
+
+  beforeEach(() => {
+    fixture = createFixtureDir();
+    createTypeScriptFixture(fixture.rootPath);
+    typeResolutionPhase = new TypeResolutionPhase();
+  });
+
+  afterEach(() => {
+    fixture.cleanup();
+  });
+
+  it('should return zero types when parse data is missing', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+
+    const result = await typeResolutionPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { typesRegistered: number };
+    expect(output.typesRegistered).toBe(0);
+  });
+
+  it('should extract and register types via a language resolver', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const filePath = join(fixture.rootPath, 'src', 'index.ts');
+    ctx.phaseData.set('parse', {
+      parsedFiles: [{
+        filePath,
+        language: 'typescript',
+        symbols: [],
+        references: [],
+        scopeTree: {},
+        ast: null,
+      }],
+    });
+    ctx.phaseData.set('scan', {
+      discoveredFiles: [{ filePath, content: 'interface User { name: string }\n' }],
+    });
+
+    const result = await typeResolutionPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { typesRegistered: number };
+    expect(output.typesRegistered).toBeGreaterThanOrEqual(0);
+    expect(ctx.typeRegistry).toBeDefined();
+  });
+
+  it('should skip unsupported languages and files without content', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    ctx.phaseData.set('parse', {
+      parsedFiles: [
+        { filePath: '/tmp/a.unknown', language: 'cobol', symbols: [], references: [], scopeTree: {}, ast: null },
+        { filePath: '/tmp/b.ts', language: 'typescript', symbols: [], references: [], scopeTree: {}, ast: null },
+      ],
+    });
+    // No scan data for b.ts -> content lookup returns undefined -> skipped
+    ctx.phaseData.set('scan', { discoveredFiles: [] });
+
+    const result = await typeResolutionPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { typesRegistered: number };
+    expect(output.typesRegistered).toBe(0);
+  });
+
+  it('should instantiate a resolver for every supported language', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const samples: Array<{ lang: string; path: string; content: string }> = [
+      { lang: 'tsx', path: '/tmp/f1.tsx', content: 'const C = () => <div />;\n' },
+      { lang: 'javascript', path: '/tmp/f2.js', content: 'class A {}\n' },
+      { lang: 'jsx', path: '/tmp/f3.jsx', content: 'const C = () => <div />;\n' },
+      { lang: 'python', path: '/tmp/f4.py', content: 'class A:\n    pass\n' },
+      { lang: 'go', path: '/tmp/f5.go', content: 'package main\n\ntype A struct {\n\tX int\n}\n' },
+      { lang: 'java', path: '/tmp/f6.java', content: 'class A {}\n' },
+    ];
+    ctx.phaseData.set('parse', {
+      parsedFiles: samples.map((s) => ({
+        filePath: s.path, language: s.lang, symbols: [], references: [], scopeTree: {}, ast: null,
+      })),
+    });
+    ctx.phaseData.set('scan', {
+      discoveredFiles: samples.map((s) => ({ filePath: s.path, content: s.content })),
+    });
+
+    const result = await typeResolutionPhase.execute(ctx);
+    expect(result.status).toBe('success');
   });
 });
 
@@ -2035,6 +2178,38 @@ describe('SemanticPhase', () => {
     expect(semanticData).toBeDefined();
     expect(typeof semanticData.semanticRelations).toBe('number');
   });
+
+  it('should relate functions that share callers and classes with overlapping methods', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+
+    // Module + two classes with overlapping methods
+    builder.addNode(g, 'Module', 'm', { name: 'm' }, 'm');
+    const classA = builder.addNode(g, 'Class', 'A', { name: 'A' }, 'A');
+    const classB = builder.addNode(g, 'Class', 'B', { name: 'B' }, 'B');
+    const m1 = builder.addNode(g, 'Method', 'run', { name: 'run', signature: '(x)' }, 'run');
+    const m2 = builder.addNode(g, 'Method', 'stop', { name: 'stop', signature: '()' }, 'stop');
+    builder.addEdge(g, classA.id, m1.id, 'HAS_METHOD', 'test-proj');
+    builder.addEdge(g, classA.id, m2.id, 'HAS_METHOD', 'test-proj');
+    builder.addEdge(g, classB.id, m1.id, 'HAS_METHOD', 'test-proj');
+    builder.addEdge(g, classB.id, m2.id, 'HAS_METHOD', 'test-proj');
+
+    // Two functions sharing two callers
+    const f1 = builder.addNode(g, 'Function', 'foo', { name: 'foo', signature: '(a, b)' }, 'foo');
+    const f2 = builder.addNode(g, 'Function', 'bar', { name: 'bar', signature: '(x, y)' }, 'bar');
+    const c1 = builder.addNode(g, 'Function', 'caller1', { name: 'caller1' }, 'caller1');
+    const c2 = builder.addNode(g, 'Function', 'caller2', { name: 'caller2' }, 'caller2');
+    builder.addEdge(g, c1.id, f1.id, 'CALLS', 'test-proj');
+    builder.addEdge(g, c1.id, f2.id, 'CALLS', 'test-proj');
+    builder.addEdge(g, c2.id, f1.id, 'CALLS', 'test-proj');
+    builder.addEdge(g, c2.id, f2.id, 'CALLS', 'test-proj');
+
+    const result = await semanticPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { semanticRelations: number };
+    expect(output.semanticRelations).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2186,6 +2361,32 @@ describe('EmbedPhase', () => {
     const embedData = ctx.phaseData.get('embed') as { embeddingsGenerated: number };
     expect(embedData).toBeDefined();
     expect(typeof embedData.embeddingsGenerated).toBe('number');
+  });
+
+  it('should include signature in embedding text when present', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+    builder.addNode(g, 'Function', 'signed', { name: 'signed', signature: '(a: number): number' }, 'signed');
+
+    const result = await embedPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    // The signed Function node should have an embedding
+    const signedNode = Array.from(g.nodes.values()).find((n) => n.name === 'signed');
+    expect(signedNode?.properties.embedding).toBeDefined();
+    expect(Array.isArray(signedNode?.properties.embedding)).toBe(true);
+  });
+
+  it('should return zero embeddings when only structural nodes exist', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+    builder.addNode(g, 'File', 'only.ts', { name: 'only.ts', filePath: '/tmp/only.ts' });
+
+    const result = await embedPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { embeddingsGenerated: number };
+    expect(output.embeddingsGenerated).toBe(0);
   });
 });
 

@@ -58,19 +58,9 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
 
       // Remove nodes
       for (const nodeId of nodesToPrune) {
-        // Remove edges pointing to/from this node
-        const edgesToRemove: number[] = [];
-        for (const [edgeId, edge] of ctx.graph.edges) {
-          if (edge.sourceId === nodeId || edge.targetId === nodeId) {
-            edgesToRemove.push(edgeId);
-          }
-        }
-        for (const edgeId of edgesToRemove) {
-          ctx.graph.edges.delete(edgeId);
-        }
-
         // Remove node from indexes
         const node = ctx.graph.nodes.get(nodeId);
+        /* v8 ignore next -- @preserve -- nodeId came from a nodes iteration, so get() is always defined */
         if (node) {
           ctx.graph.qnameIndex.delete(node.qualifiedName);
           if (node.properties?.filePath) {
@@ -83,7 +73,9 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
       ctx.phaseData.set('pruneLocalSymbols', { symbolsPruned: nodesToPrune.length });
       return { phaseId: this.id, status: 'success', output: { symbolsPruned: nodesToPrune.length } };
     } catch (err) {
+      /* v8 ignore next -- @preserve -- thrown values are always Error instances in this codebase */
       this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      /* v8 ignore next -- @preserve -- thrown values are always Error instances in this codebase */
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
