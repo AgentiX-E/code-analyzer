@@ -20,10 +20,54 @@ export class PhpProvider extends TreeSitterBaseProvider {
   protected override loadGrammar(): TreeSitterLanguage | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-php') as TreeSitterLanguage;
+      const php = require('tree-sitter-php') as { php: TreeSitterLanguage; php_only: TreeSitterLanguage };
+      return php.php || php.php_only;
     } catch {
       return null;
     }
+  }
+
+  override parse(source: string, filePath: string): UnifiedCapture[] {
+    return super.parse(this.ensurePhpTag(source), filePath);
+  }
+
+  override extractImports(source: string): ParsedImport[] {
+    return super.extractImports(this.ensurePhpTag(source));
+  }
+
+  override isExported(source: string, symbolName: string): boolean {
+    return super.isExported(this.ensurePhpTag(source), symbolName);
+  }
+
+  /**
+   * tree-sitter-php only parses code inside `<?php` / `<?=` tags. Most PHP
+   * snippets omit the opening tag, so prepend one when it is absent.
+   */
+  private ensurePhpTag(source: string): string {
+    return /^\s*<\?(php|=)/i.test(source) ? source : `<?php ${source}`;
+  }
+
+  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    // use statements are imports: emit IMPORT captures so downstream graph
+    // edges form (walkForImports covers extractImports; parse mirrors it).
+    if (node.type === 'namespace_use_declaration') {
+      const imports: ParsedImport[] = [];
+      this.extractPhpUseImport(node, imports);
+      for (const imp of imports) {
+        captures.push({
+          tag: CAPTURE_TAGS.IMPORT,
+          text: imp.source,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: imp.source,
+          properties: { names: imp.names.join(','), importType: imp.type, filePath: this.filePath },
+        });
+      }
+    }
+
+    super.walkAndCapture(node, captures);
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {
@@ -134,22 +178,24 @@ export class PhpProvider extends TreeSitterBaseProvider {
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
 
-      // Capture the qualified name (namespace path)
+      // The qualified name and alias live inside a namespace_use_clause child
+      // (use Namespace\Class as Alias;).
+      if (child.type === 'namespace_use_clause') {
+        for (let j = 0; j < child.childCount; j++) {
+          const sub = child.child(j);
+          if (sub.type === 'qualified_name' || sub.type === 'namespace_name') {
+            if (source === '') source = sub.text;
+          } else if (sub.type === 'name') {
+            if (source === '') source = sub.text;
+            else alias = sub.text;
+          }
+        }
+        continue;
+      }
+
+      // Defensive: some grammar versions expose the qualified name directly.
       if ((child.type === 'qualified_name' || child.type === 'name' || child.type === 'namespace_name') && source === '') {
         source = child.text;
-      }
-
-      // Check for function or const import keywords
-      if (child.type === 'function' || child.type === 'const') {
-        // Preserve the type - these are still 'named' imports but for functions/constants
-      }
-
-      // Check for alias after "as" keyword
-      if (child.type === 'name' || child.type === 'identifier') {
-        // The name after "as" is the alias; the qualified_name already captured the source
-        if (source !== '') {
-          alias = child.text;
-        }
       }
     }
 
@@ -207,6 +253,40 @@ export class PhpProvider extends TreeSitterBaseProvider {
       includeType === 'require_expression' ||
       includeType === 'include_once_expression'
     );
+  }
+
+  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
+    const nt = node.type;
+
+    if (
+      nt === 'method_declaration' || nt === 'function_definition' ||
+      nt === 'class_declaration' || nt === 'interface_declaration' ||
+      nt === 'trait_declaration' || nt === 'enum_declaration'
+    ) {
+      const nameNode = this.findPhpName(node);
+      if (nameNode && nameNode.text === symbolName) {
+        // private/protected members are not exported; public (the default) is.
+        for (let i = 0; i < node.childCount; i++) {
+          const c = node.child(i);
+          if (c.type === 'visibility_modifier' && (c.text === 'private' || c.text === 'protected')) {
+            return false;
+          }
+        }
+        return true;
+      }
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      if (this.checkExported(node.child(i), symbolName)) return true;
+    }
+    return false;
+  }
+
+  private findPhpName(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === 'name') return node.namedChild(i);
+    }
+    return null;
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)
