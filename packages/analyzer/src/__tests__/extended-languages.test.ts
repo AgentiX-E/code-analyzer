@@ -12,7 +12,7 @@ import { RProvider } from '../languages/r.js';
 import { GroovyProvider } from '../languages/groovy.js';
 import { JsonProvider } from '../languages/json.js';
 
-import type { LanguageProvider } from '../languages/provider.js';
+import type { TaintProvider } from '../languages/tree-sitter-base.js';
 
 // Helper: instantiate all 10 extended providers
 const providers = {
@@ -42,10 +42,6 @@ describe('YamlProvider', () => {
       expect(provider.extensions).toContain('.yaml'); expect(provider.extensions).toContain('.yml');
     });
     it('should have none import semantics', () => expect(provider.importSemantics).toBe('none'));
-    it('should have 15+ node type mappings', () => {
-      const mappings = (provider as YamlProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -131,6 +127,22 @@ describe('YamlProvider', () => {
       const caps = provider.parse('key: value', 'myfile.yaml');
       expect(caps.find(c => c.name === 'key')?.properties?.filePath).toBe('myfile.yaml');
     });
+    it('handles block scalar markers', () => {
+      const caps = provider.parse('|\n  indented text\nkey: value', 'test.yaml');
+      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+    });
+    it('handles folded block scalar markers', () => {
+      const caps = provider.parse('>\n  folded text\nkey: value', 'test.yaml');
+      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+    });
+    it('handles strip and keep block scalar markers', () => {
+      const caps = provider.parse('|-\n  text\nkey: value\n>-\n  text2\nkey2: value2', 'test.yaml');
+      expect(caps.filter(c => c.name === 'key2').length).toBeGreaterThanOrEqual(1);
+    });
+    it('handles tab-indented block scalar content', () => {
+      const caps = provider.parse('|\n\tindented\nkey: value', 'test.yaml');
+      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('extractImports', () => {
@@ -171,10 +183,6 @@ describe('TomlProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('toml'));
     it('has .toml extensions', () => expect(provider.extensions).toContain('.toml'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as TomlProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -287,10 +295,6 @@ describe('SqlProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('sql'));
     it('has sql extensions', () => expect(provider.extensions).toContain('.sql'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as SqlProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -535,10 +539,6 @@ describe('MarkdownProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('markdown'));
     it('has md extensions', () => expect(provider.extensions).toContain('.md'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as MarkdownProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -561,6 +561,10 @@ describe('MarkdownProvider', () => {
     });
     it('detects list items', () => {
       const caps = provider.parse('- item1\n- item2', 'test.md');
+      expect(caps.filter(c => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(2);
+    });
+    it('detects ordered list items', () => {
+      const caps = provider.parse('1. first\n2. second', 'test.md');
       expect(caps.filter(c => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(2);
     });
     it('detects blockquotes', () => {
@@ -623,6 +627,10 @@ describe('MarkdownProvider', () => {
     it('handles BOM', () => {
       const caps = provider.parse('\uFEFF# Title', 'test.md');
       expect(Array.isArray(caps)).toBe(true);
+    });
+    it('handles frontmatter', () => {
+      const caps = provider.parse('---\ntitle: Doc\n---\n# Heading', 'test.md');
+      expect(caps.filter(c => c.properties?.isFrontmatter === 'true').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -759,10 +767,6 @@ describe('CssProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('css'));
     it('has css extensions', () => expect(provider.extensions).toContain('.css'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as CssProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -875,10 +879,6 @@ describe('RProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('r'));
     it('has r extensions', () => expect(provider.extensions).toContain('.r'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as RProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -1234,7 +1234,7 @@ describe('JsonProvider', () => {
 // ============================================================================
 
 describe('Edge cases and robustness', () => {
-  const allProviders: [string, LanguageProvider][] = Object.entries(providers);
+  const allProviders: [string, TaintProvider][] = Object.entries(providers);
 
   describe('empty files', () => {
     it.each(allProviders)('%s handles empty input', (_name, p) => {
@@ -1269,6 +1269,17 @@ describe('Edge cases and robustness', () => {
     it.each(allProviders)('%s extractSanitizers returns array', (_name, p) => {
       const r = p.extractSanitizers('test');
       expect(Array.isArray(r)).toBe(true);
+    });
+  });
+
+  describe('extractImports and isExported return sane defaults', () => {
+    it.each(allProviders)('%s extractImports returns array', (_name, p) => {
+      const r = p.extractImports('test');
+      expect(Array.isArray(r)).toBe(true);
+    });
+    it.each(allProviders)('%s isExported returns boolean', (_name, p) => {
+      const r = p.isExported('test', 'symbol');
+      expect(typeof r).toBe('boolean');
     });
   });
 });

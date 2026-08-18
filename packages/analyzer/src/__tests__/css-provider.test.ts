@@ -157,67 +157,67 @@ describe('CssProvider', () => {
     });
   });
 
-  describe('fallback methods', () => {
-    it('fallbackParse should parse rule sets', () => {
+  describe('regex parsing (via parse)', () => {
+    it('parse should parse rule sets', () => {
       const code = 'body { color: red; }';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       const rules = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(rules.some((c) => c.name === 'body')).toBe(true);
     });
 
-    it('fallbackParse should parse property declarations', () => {
+    it('parse should parse property declarations', () => {
       const code = 'body { color: red; font-size: 16px; }';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'color')).toBe(true);
     });
 
-    it('fallbackParse should parse import statements', () => {
+    it('parse should parse import statements', () => {
       const code = '@import url("reset.css");';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'reset.css')).toBe(true);
     });
 
-    it('fallbackParse should parse url() imports', () => {
+    it('parse should parse url() imports', () => {
       const code = '@import url("theme.css");';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'theme.css')).toBe(true);
     });
 
-    it('fallbackParse should parse at-rules', () => {
+    it('parse should parse at-rules', () => {
       const code = '@media screen { body { font-size: 14px; } }';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       const atRules = captures.filter((c) => c.properties?.atRuleType === 'media');
       expect(atRules.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.css');
+    it('parse should handle empty input', () => {
+      const captures = provider.parse('', 'test.css');
       expect(captures).toEqual([]);
     });
 
-    it('fallbackParse should return sorted captures', () => {
+    it('parse should return sorted captures', () => {
       const code = '.a { color: red; }\n.b { color: blue; }';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       for (let i = 1; i < captures.length; i++) {
         expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
       }
     });
 
-    it('fallbackParse should skip at-rule selectors', () => {
+    it('parse should skip at-rule selectors', () => {
       const code = '@keyframes fade { from { opacity: 0; } }';
-      const captures = provider.fallbackParse(code, 'test.css');
+      const captures = provider.parse(code, 'test.css');
       expect(Array.isArray(captures)).toBe(true);
     });
 
-    it('fallbackExtractImports should return empty array', () => {
-      expect(provider.fallbackExtractImports('anything')).toEqual([]);
+    it('extractImports should return empty array', () => {
+      expect(provider.extractImports('anything')).toEqual([]);
     });
 
-    it('fallbackIsExported should return false', () => {
-      expect(provider.fallbackIsExported('anything', 'any')).toBe(false);
+    it('isExported should return false', () => {
+      expect(provider.isExported('anything', 'any')).toBe(false);
     });
   });
 });

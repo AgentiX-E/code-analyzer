@@ -59,7 +59,7 @@ describe('TomlProvider', () => {
     it('should parse array of tables', () => {
       const code = '[[products]]\nname = "Hammer"\n[[products]]\nname = "Nail"';
       const captures = provider.parse(code, 'test.toml');
-      // May use CLASS_DEF or VARIABLE_DEF depending on tree-sitter vs fallback
+      // Array tables are emitted as CLASS_DEF with isArrayTable='true'.
       const arrTables = captures.filter((c) =>
         c.properties?.isArrayTable === 'true'
       );
@@ -147,46 +147,46 @@ describe('TomlProvider', () => {
     });
   });
 
-  describe('fallback methods', () => {
-    it('fallbackParse should parse key-value pairs', () => {
+  describe('regex parsing (via parse)', () => {
+    it('parse should parse key-value pairs', () => {
       const code = 'name = "test"\nversion = "1.0"';
-      const captures = provider.fallbackParse(code, 'test.toml');
+      const captures = provider.parse(code, 'test.toml');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'name')).toBe(true);
     });
 
-    it('fallbackParse should parse table sections', () => {
+    it('parse should parse table sections', () => {
       const code = '[server]\nhost = "localhost"';
-      const captures = provider.fallbackParse(code, 'test.toml');
+      const captures = provider.parse(code, 'test.toml');
       const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true');
       expect(tables.some((c) => c.name === 'server')).toBe(true);
     });
 
-    it('fallbackParse should parse array of tables', () => {
+    it('parse should parse array of tables', () => {
       const code = '[[items]]\nname = "item1"';
-      const captures = provider.fallbackParse(code, 'test.toml');
+      const captures = provider.parse(code, 'test.toml');
       const arrTables = captures.filter((c) => c.properties?.isArrayTable === 'true');
       expect(arrTables.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should skip comments', () => {
+    it('parse should skip comments', () => {
       const code = '# comment\nkey = "value"';
-      const captures = provider.fallbackParse(code, 'test.toml');
+      const captures = provider.parse(code, 'test.toml');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'key')).toBe(true);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.toml');
+    it('parse should handle empty input', () => {
+      const captures = provider.parse('', 'test.toml');
       expect(captures).toEqual([]);
     });
 
-    it('fallbackExtractImports should return empty array', () => {
-      expect(provider.fallbackExtractImports('anything')).toEqual([]);
+    it('extractImports should return empty array', () => {
+      expect(provider.extractImports('anything')).toEqual([]);
     });
 
-    it('fallbackIsExported should return false', () => {
-      expect(provider.fallbackIsExported('anything', 'any')).toBe(false);
+    it('isExported should return false', () => {
+      expect(provider.isExported('anything', 'any')).toBe(false);
     });
   });
 });

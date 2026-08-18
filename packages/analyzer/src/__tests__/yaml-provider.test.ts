@@ -170,66 +170,66 @@ describe('YamlProvider', () => {
     });
   });
 
-  describe('fallback methods', () => {
-    it('fallbackParse should parse key-value pairs', () => {
+  describe('regex parsing (via parse)', () => {
+    it('parse should parse key-value pairs', () => {
       const code = 'name: test\nversion: "1.0"';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'name')).toBe(true);
     });
 
-    it('fallbackParse should parse sequence items', () => {
+    it('parse should parse sequence items', () => {
       const code = '- item1\n- item2';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       const items = captures.filter((c) => c.properties?.isListItem === 'true');
       expect(items.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('fallbackParse should parse anchors', () => {
+    it('parse should parse anchors', () => {
       const code = '&anchor key: value';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       const anchors = captures.filter((c) => c.properties?.anchor === 'true');
       expect(anchors.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should parse aliases', () => {
+    it('parse should parse aliases', () => {
       const code = '*alias value';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       const aliases = captures.filter((c) => c.properties?.alias === 'true');
       expect(aliases.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should skip comments', () => {
+    it('parse should skip comments', () => {
       const code = '# comment\nkey: value';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'key')).toBe(true);
     });
 
-    it('fallbackParse should skip document markers', () => {
+    it('parse should skip document markers', () => {
       const code = '---\nkey: value\n...';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'key')).toBe(true);
     });
 
-    it('fallbackParse should handle block scalar indicators', () => {
+    it('parse should handle block scalar indicators', () => {
       const code = 'description: |\n  multi line\n  text';
-      const captures = provider.fallbackParse(code, 'test.yaml');
+      const captures = provider.parse(code, 'test.yaml');
       expect(Array.isArray(captures)).toBe(true);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.yaml');
+    it('parse should handle empty input', () => {
+      const captures = provider.parse('', 'test.yaml');
       expect(captures).toEqual([]);
     });
 
-    it('fallbackExtractImports should return empty array', () => {
-      expect(provider.fallbackExtractImports('anything')).toEqual([]);
+    it('extractImports should return empty array', () => {
+      expect(provider.extractImports('anything')).toEqual([]);
     });
 
-    it('fallbackIsExported should return false', () => {
-      expect(provider.fallbackIsExported('anything', 'any')).toBe(false);
+    it('isExported should return false', () => {
+      expect(provider.isExported('anything', 'any')).toBe(false);
     });
   });
 });

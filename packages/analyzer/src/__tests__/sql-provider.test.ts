@@ -157,45 +157,45 @@ describe('SqlProvider', () => {
     });
   });
 
-  describe('fallback methods', () => {
-    it('fallbackParse should parse CREATE TABLE', () => {
+  describe('regex parsing (via parse)', () => {
+    it('parse should parse CREATE TABLE', () => {
       const code = 'CREATE TABLE users (id INT PRIMARY KEY);';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(tables.some((c) => c.name === 'users')).toBe(true);
     });
 
-    it('fallbackParse should parse CREATE VIEW', () => {
+    it('parse should parse CREATE VIEW', () => {
       const code = 'CREATE VIEW active AS SELECT * FROM users;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const views = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(views.some((c) => c.name === 'active')).toBe(true);
     });
 
-    it('fallbackParse should parse CREATE FUNCTION', () => {
+    it('parse should parse CREATE FUNCTION', () => {
       const code = 'CREATE FUNCTION add(x INT, y INT) RETURNS INT BEGIN RETURN x + y; END;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'add')).toBe(true);
     });
 
-    it('fallbackParse should parse CREATE PROCEDURE', () => {
+    it('parse should parse CREATE PROCEDURE', () => {
       const code = 'CREATE PROCEDURE cleanup() BEGIN DELETE FROM logs; END;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const procs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(procs.some((c) => c.name === 'cleanup')).toBe(true);
     });
 
-    it('fallbackParse should parse CREATE OR REPLACE', () => {
+    it('parse should parse CREATE OR REPLACE', () => {
       const code = 'CREATE OR REPLACE VIEW v AS SELECT * FROM t;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const views = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(views.some((c) => c.name === 'v')).toBe(true);
     });
 
-    it('fallbackParse should parse DML statements', () => {
+    it('parse should parse DML statements', () => {
       const code = 'SELECT * FROM users;\nINSERT INTO users VALUES (1);\nUPDATE users SET x=1;\nDELETE FROM users;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const dmls = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       // Fallback regex uses: /(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+["`]?(\w+)["`]?/gi
       // "SELECT * FROM users" - matches "SELECT *" not "SELECT users"
@@ -203,59 +203,59 @@ describe('SqlProvider', () => {
       expect(dmls.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('fallbackParse should parse CTEs', () => {
+    it('parse should parse CTEs', () => {
       const code = 'WITH cte AS (SELECT id FROM users) SELECT * FROM cte;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const ctes = captures.filter((c) => c.properties?.isCTE === 'true');
       expect(ctes.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should parse CREATE INDEX', () => {
+    it('parse should parse CREATE INDEX', () => {
       const code = 'CREATE INDEX idx_name ON table(col);';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       expect(Array.isArray(captures)).toBe(true);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.sql');
+    it('parse should handle empty input', () => {
+      const captures = provider.parse('', 'test.sql');
       expect(captures).toEqual([]);
     });
 
-    it('fallbackParse should return sorted captures', () => {
+    it('parse should return sorted captures', () => {
       const code = 'CREATE TABLE a (id INT);\nSELECT * FROM a;';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       for (let i = 1; i < captures.length; i++) {
         expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
       }
     });
 
-    it('fallbackParse should handle quoted identifiers', () => {
+    it('parse should handle quoted identifiers', () => {
       const code = 'CREATE TABLE "user_data" (id INT);';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(tables.some((c) => c.name === 'user_data')).toBe(true);
     });
 
-    it('fallbackParse should handle backtick identifiers', () => {
+    it('parse should handle backtick identifiers', () => {
       const code = 'CREATE TABLE `order` (id INT);';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(tables.some((c) => c.name === 'order')).toBe(true);
     });
 
-    it('fallbackParse should handle IF NOT EXISTS', () => {
+    it('parse should handle IF NOT EXISTS', () => {
       const code = 'CREATE TABLE IF NOT EXISTS config (key TEXT);';
-      const captures = provider.fallbackParse(code, 'test.sql');
+      const captures = provider.parse(code, 'test.sql');
       const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(tables.some((c) => c.name === 'config')).toBe(true);
     });
 
-    it('fallbackExtractImports should return empty array', () => {
-      expect(provider.fallbackExtractImports('anything')).toEqual([]);
+    it('extractImports should return empty array', () => {
+      expect(provider.extractImports('anything')).toEqual([]);
     });
 
-    it('fallbackIsExported should return false', () => {
-      expect(provider.fallbackIsExported('anything', 'any')).toBe(false);
+    it('isExported should return false', () => {
+      expect(provider.isExported('anything', 'any')).toBe(false);
     });
   });
 

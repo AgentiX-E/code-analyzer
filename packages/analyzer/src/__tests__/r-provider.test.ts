@@ -81,7 +81,7 @@ describe('RProvider', () => {
     });
 
     it('should parse pipe operators', () => {
-      // Tree-sitter may parse pipes differently; fallback may not detect them
+      // Pipe operators are not captured by the regex parser; parse must not throw.
       const code = 'x %>% mean()';
       const captures = provider.parse(code, 'test.R');
       expect(Array.isArray(captures)).toBe(true);
@@ -177,84 +177,84 @@ describe('RProvider', () => {
     });
   });
 
-  describe('fallback methods', () => {
-    it('fallbackParse should parse function definitions', () => {
+  describe('regex parsing (via parse)', () => {
+    it('parse should parse function definitions', () => {
       const code = 'myfunc <- function(x) { return(x) }';
-      const captures = provider.fallbackParse(code, 'test.R');
+      const captures = provider.parse(code, 'test.R');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'myfunc')).toBe(true);
     });
 
-    it('fallbackParse should parse variable assignments', () => {
+    it('parse should parse variable assignments', () => {
       const code = 'x <- 10\ny <- 20';
-      const captures = provider.fallbackParse(code, 'test.R');
+      const captures = provider.parse(code, 'test.R');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'x')).toBe(true);
       expect(vars.some((c) => c.name === 'y')).toBe(true);
     });
 
-    it('fallbackParse should skip keywords as variable names', () => {
+    it('parse should skip keywords as variable names', () => {
       const code = 'if <- 10';
-      const captures = provider.fallbackParse(code, 'test.R');
+      const captures = provider.parse(code, 'test.R');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.some((c) => c.name === 'if')).toBe(false);
     });
 
-    it('fallbackParse should parse class definitions', () => {
+    it('parse should parse class definitions', () => {
       const code = 'setClass("Person", slots = c(name = "character"))';
-      const captures = provider.fallbackParse(code, 'test.R');
+      const captures = provider.parse(code, 'test.R');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.some((c) => c.name === 'Person')).toBe(true);
     });
 
-    it('fallbackParse should parse library imports', () => {
+    it('parse should parse library imports', () => {
       const code = 'library(ggplot2)\nrequire("dplyr")';
-      const captures = provider.fallbackParse(code, 'test.R');
+      const captures = provider.parse(code, 'test.R');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'ggplot2')).toBe(true);
       expect(imports.some((c) => c.name === 'dplyr')).toBe(true);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.R');
+    it('parse should handle empty input', () => {
+      const captures = provider.parse('', 'test.R');
       expect(captures).toEqual([]);
     });
 
-    it('fallbackParse should return sorted captures', () => {
+    it('parse should return sorted captures', () => {
       const code = 'x <- 10\ny <- 20\nf <- function() { }';
-      const captures = provider.fallbackParse(code, 'test.R');
+      const captures = provider.parse(code, 'test.R');
       for (let i = 1; i < captures.length; i++) {
         expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
       }
     });
 
-    it('fallbackExtractImports should extract library imports', () => {
+    it('extractImports should extract library imports', () => {
       const code = 'library(ggplot2)\nrequire(dplyr)';
-      const imports = provider.fallbackExtractImports(code);
+      const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('fallbackExtractImports should extract quoted library names', () => {
+    it('extractImports should extract quoted library names', () => {
       const code = 'library("ggplot2")';
-      const imports = provider.fallbackExtractImports(code);
+      const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
       expect(imports[0]?.source).toBe('ggplot2');
     });
 
-    it('fallbackExtractImports should include line numbers', () => {
+    it('extractImports should include line numbers', () => {
       const code = '\nlibrary(dplyr)';
-      const imports = provider.fallbackExtractImports(code);
+      const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
       expect(imports[0]?.lineNumber).toBe(2);
     });
 
-    it('fallbackExtractImports should handle empty input', () => {
-      const imports = provider.fallbackExtractImports('');
+    it('extractImports should handle empty input', () => {
+      const imports = provider.extractImports('');
       expect(imports).toEqual([]);
     });
 
-    it('fallbackIsExported should return true', () => {
-      expect(provider.fallbackIsExported('', 'anything')).toBe(true);
+    it('isExported should return true', () => {
+      expect(provider.isExported('', 'anything')).toBe(true);
     });
   });
 

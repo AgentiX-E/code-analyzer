@@ -52,6 +52,17 @@ export interface TaintSanitizer {
   properties?: Record<string, string>;
 }
 
+/**
+ * A language provider that additionally exposes taint analysis (source / sink /
+ * sanitizer extraction). Both TreeSitterBaseProvider and the pure-regex config
+ * providers implement this, so callers can uniformly query taint metadata.
+ */
+export interface TaintProvider extends LanguageProvider {
+  extractTaintSources(source: string): TaintSource[];
+  extractTaintSinks(source: string): TaintSink[];
+  extractSanitizers(source: string): TaintSanitizer[];
+}
+
 // ---------------------------------------------------------------------------
 // Tree-sitter type definitions (avoiding direct import for fallback)
 // ---------------------------------------------------------------------------

@@ -135,80 +135,80 @@ describe('MarkdownProvider', () => {
     });
   });
 
-  describe('fallback methods', () => {
-    it('fallbackParse should parse headings', () => {
+  describe('regex parsing (via parse)', () => {
+    it('parse should parse headings', () => {
       const code = '# Title\n## Subtitle';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const headings = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(headings.some((c) => c.name === 'Title')).toBe(true);
       expect(headings.some((c) => c.name === 'Subtitle')).toBe(true);
     });
 
-    it('fallbackParse should parse links', () => {
+    it('parse should parse links', () => {
       const code = '[link](https://example.com)';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const links = captures.filter((c) => c.properties?.url === 'https://example.com');
       expect(links.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should parse images', () => {
+    it('parse should parse images', () => {
       const code = '![alt](image.png)';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const images = captures.filter((c) => c.properties?.isImage === 'true');
       expect(images.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should parse code blocks', () => {
+    it('parse should parse code blocks', () => {
       const code = '```python\nprint("hello")\n```';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const blocks = captures.filter((c) => c.properties?.language === 'python');
       expect(blocks.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should parse lists', () => {
+    it('parse should parse lists', () => {
       const code = '- item1\n- item2';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const items = captures.filter((c) => c.properties?.isListItem === 'true');
       expect(items.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('fallbackParse should parse ordered lists', () => {
+    it('parse should parse ordered lists', () => {
       const code = '1. first\n2. second';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const items = captures.filter((c) => c.properties?.isListItem === 'true');
       expect(items.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('fallbackParse should parse frontmatter', () => {
+    it('parse should parse frontmatter', () => {
       const code = '---\ntitle: hello\n---\n# Content';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const fm = captures.filter((c) => c.properties?.isFrontmatter === 'true');
       expect(fm.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should parse blockquotes', () => {
+    it('parse should parse blockquotes', () => {
       const code = '> quoted text';
-      const captures = provider.fallbackParse(code, 'test.md');
+      const captures = provider.parse(code, 'test.md');
       const quotes = captures.filter((c) => c.properties?.isBlockquote === 'true');
       expect(quotes.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.md');
+    it('parse should handle empty input', () => {
+      const captures = provider.parse('', 'test.md');
       expect(captures).toEqual([]);
     });
 
-    it('fallbackParse should handle text without markdown features', () => {
-      const captures = provider.fallbackParse('Just plain text', 'test.md');
+    it('parse should handle text without markdown features', () => {
+      const captures = provider.parse('Just plain text', 'test.md');
       expect(Array.isArray(captures)).toBe(true);
     });
 
-    it('fallbackExtractImports should return empty array', () => {
-      expect(provider.fallbackExtractImports('anything')).toEqual([]);
+    it('extractImports should return empty array', () => {
+      expect(provider.extractImports('anything')).toEqual([]);
     });
 
-    it('fallbackIsExported should return false', () => {
-      expect(provider.fallbackIsExported('anything', 'any')).toBe(false);
+    it('isExported should return false', () => {
+      expect(provider.isExported('anything', 'any')).toBe(false);
     });
   });
 });

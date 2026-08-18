@@ -1,166 +1,40 @@
-// @code-analyzer/analyzer — Zig Tree-sitter Provider
+// @code-analyzer/analyzer — Zig Provider (regex-based parser)
+//
+// A pure regex provider (no tree-sitter): the `tree-sitter-zig` package only
+// ships `nodeTypeInfo` metadata (no compiled `Language` object), so a
+// tree-sitter path is unreachable dead code — `Parser.setLanguage()` throws
+// "Invalid language object". The regex parser below is the complete, tested
+// implementation.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import { TreeSitterBaseProvider } from './tree-sitter-base.js';
-
-import type { ParsedImport } from './provider.js';
+import type { ParsedImport, LanguageProvider } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import { sanitizeSource, lineNumber } from './regex-helpers.js';
 
 const ZIG_EXTENSIONS = ['.zig'];
 const ZIG_GLOBS = ['**/*.zig'];
 
-export class ZigProvider extends TreeSitterBaseProvider {
+export class ZigProvider implements LanguageProvider {
   readonly language = 'zig';
   readonly displayName = 'Zig';
   readonly extensions = ZIG_EXTENSIONS;
   readonly globs = ZIG_GLOBS;
   readonly importSemantics = 'named' as const;
 
-  protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-zig') as TreeSitterLanguage;
-    } /* v8 ignore next */
-    catch {
-      return null;
-    }
-  }
-
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      { nodeType: 'function_declaration', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-      { nodeType: 'struct_declaration', captureTag: CAPTURE_TAGS.STRUCT_DEF, nameChildType: 'identifier' },
-      { nodeType: 'enum_declaration', captureTag: CAPTURE_TAGS.ENUM_DEF, nameChildType: 'identifier' },
-    ];
-  }
-
-  protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const nodeType = node.type;
-
-    if (nodeType === 'function_declaration') {
-      // Support generics: fn foo(comptime T: type) ... — the identifier may be after a comptime param
-      let nameNode = this.findNamedChild(node, 'identifier');
-      if (!nameNode) {
-        // Try generic_param_list → generic_param → identifier pattern
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
-          if (child.type === 'generic_param_list' || child.type === 'parameter_list') {
-            nameNode = this.findDeepChild(child, 'identifier');
-            if (nameNode) break;
-          }
-        }
-        // Fallback: check if there's a name in the first non-generic child
-        if (!nameNode) {
-          for (let i = 0; i < node.namedChildCount; i++) {
-            const child = node.namedChild(i);
-            if (child.type === 'identifier' && child.text !== 'fn') {
-              nameNode = child;
-              break;
-            }
-          }
-        }
-      }
-      if (nameNode) {
-        const isPub = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex).includes('pub');
-        captures.push({
-          tag: CAPTURE_TAGS.FUNCTION_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { isPublic: String(isPub), filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'struct_declaration') {
-      const nameNode = this.findNamedChild(node, 'identifier');
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.STRUCT_DEF,
-          text: `struct ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'enum_declaration') {
-      const nameNode = this.findNamedChild(node, 'identifier');
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.ENUM_DEF,
-          text: `enum ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'usingnamespace_declaration' || node.text.startsWith('usingnamespace')) {
-      // Handle `usingnamespace` declarations that import symbols from another namespace
-      const namedChild = this.findDeepChild(node, 'identifier');
-      if (namedChild) {
-        captures.push({
-          tag: CAPTURE_TAGS.IMPORT,
-          text: `usingnamespace ${namedChild.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: namedChild.startIndex,
-          endByte: namedChild.endIndex,
-          name: namedChild.text,
-          properties: { importType: 'usingnamespace', filePath: this.filePath },
-        });
-      }
-    }
-
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
-    }
-  }
-
-  protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
-    }
-  }
-
-  protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (node.type === 'function_declaration' || node.type === 'struct_declaration' ||
-        node.type === 'enum_declaration' || node.type === 'const_declaration' || node.type === 'variable_declaration') {
-      const nameNode = this.findNamedChild(node, 'identifier');
-      if (nameNode && nameNode.text === symbolName) {
-        const before = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex);
-        return before.includes('pub');
-      }
-    }
-
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
-    }
-    return false;
-  }
-
-  // Fallbacks
-  /* v8 ignore next */
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  parse(source: string, filePath: string): UnifiedCapture[] {
+    const sanitized = sanitizeSource(source);
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
-    // Function declarations: pub fn name(...) or fn name(...)
+    // Function declarations: [pub] fn name
     const funcRegex = /(?:pub\s+)?fn\s+(\w+)/g;
-    while ((m = funcRegex.exec(source)) !== null) {
+    while ((m = funcRegex.exec(sanitized)) !== null) {
       const isPub = m[0]!.startsWith('pub');
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: m[1]!,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
         startByte: m.index,
         endByte: m.index + m[0].length,
         name: m[1]!,
@@ -168,14 +42,14 @@ export class ZigProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // Struct declarations
+    // Struct declarations: [pub] const Name = struct
     const structRegex = /(?:pub\s+)?const\s+(\w+)\s*=\s*struct\b/g;
-    while ((m = structRegex.exec(source)) !== null) {
+    while ((m = structRegex.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.STRUCT_DEF,
         text: `struct ${m[1]!}`,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
         startByte: m.index,
         endByte: m.index + m[0].length,
         name: m[1]!,
@@ -183,14 +57,14 @@ export class ZigProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // Enum declarations
+    // Enum declarations: [pub] const Name = enum
     const enumRegex = /(?:pub\s+)?const\s+(\w+)\s*=\s*enum\b/g;
-    while ((m = enumRegex.exec(source)) !== null) {
+    while ((m = enumRegex.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.ENUM_DEF,
         text: `enum ${m[1]!}`,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
         startByte: m.index,
         endByte: m.index + m[0].length,
         name: m[1]!,
@@ -198,14 +72,14 @@ export class ZigProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // @import statements
+    // @import statements: @import("path")
     const importRegex = /@import\s*\(\s*"([^"]+)"\s*\)/g;
-    while ((m = importRegex.exec(source)) !== null) {
+    while ((m = importRegex.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
         text: m[1]!,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
         startByte: m.index,
         endByte: m.index + m[0].length,
         name: m[1]!,
@@ -213,14 +87,14 @@ export class ZigProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // const declarations (variables)
+    // const declarations (immutable variables): const name = ...
     const constRegex = /const\s+(\w+)\s*=/g;
-    while ((m = constRegex.exec(source)) !== null) {
+    while ((m = constRegex.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: m[1]!,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
         startByte: m.index,
         endByte: m.index + m[0].length,
         name: m[1]!,
@@ -228,14 +102,14 @@ export class ZigProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // var declarations
+    // var declarations (mutable variables): var name [:Type] = ...
     const varRegex = /var\s+(\w+)\s*(?::[^=]+)?\s*=/g;
-    while ((m = varRegex.exec(source)) !== null) {
+    while ((m = varRegex.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.VARIABLE_DEF,
         text: m[1]!,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
+        startLine: lineNumber(sanitized, m.index),
+        endLine: lineNumber(sanitized, m.index + m[0].length),
         startByte: m.index,
         endByte: m.index + m[0].length,
         name: m[1]!,
@@ -246,47 +120,24 @@ export class ZigProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  extractImports(source: string): ParsedImport[] {
+    const sanitized = sanitizeSource(source);
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
     const importRegex = /@import\s*\(\s*"([^"]+)"\s*\)/g;
-    while ((m = importRegex.exec(source)) !== null) {
+    while ((m = importRegex.exec(sanitized)) !== null) {
       imports.push({
         source: m[1]!,
         names: [m[1]!],
         type: 'named',
-        lineNumber: this.ln(source, m.index),
+        lineNumber: lineNumber(sanitized, m.index),
       });
     }
     return imports;
   }
 
-  /* v8 ignore next */
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  isExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`pub\\s+(?:fn|const|var)\\s+${s}\\b`).test(source);
-  }
-
-  // Helpers
-  private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
-    }
-    return null;
-  }
-
-  /** Recursively search for the first descendant node of the given type (DFS). */
-  private findDeepChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    if (node.type === type) return node;
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const found = this.findDeepChild(node.namedChild(i), type);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  private ln(source: string, offset: number): number {
-    return source.slice(0, offset).split('\n').length;
   }
 }
