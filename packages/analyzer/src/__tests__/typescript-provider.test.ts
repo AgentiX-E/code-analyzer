@@ -82,6 +82,14 @@ describe('TypeScriptProvider', () => {
       expect(vars.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('should detect var declarations (variable_declaration node)', () => {
+      const source = 'var legacy: number = 1;\n';
+      const captures = provider.parse(source, 'test.ts');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars).toHaveLength(1);
+      expect(vars[0]!.name).toBe('legacy');
+    });
+
     it('should detect imports', () => {
       const source = `import { useState } from 'react';`;
       const captures = provider.parse(source, 'test.ts');
@@ -206,6 +214,13 @@ describe('TypeScriptProvider', () => {
       expect(funcs[0]!.name).toBe('init');
     });
 
+    it('should detect JSDoc comments', () => {
+      const source = '/** A documented function */\nfunction doc(): void {}\n';
+      const captures = provider.parse(source, 'test.ts');
+      const docs = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs).toHaveLength(1);
+    });
+
     it('should detect export class', () => {
       const source = 'export class Service {}';
       const captures = provider.parse(source, 'test.ts');
@@ -300,6 +315,30 @@ describe('TypeScriptProvider', () => {
 
     it('should detect export default class', () => {
       expect(provider.isExported('export default class MyClass {}', 'MyClass')).toBe(true);
+    });
+
+    it('should detect export const', () => {
+      expect(provider.isExported('export const VERSION = 1;', 'VERSION')).toBe(true);
+    });
+
+    it('should detect export let', () => {
+      expect(provider.isExported('export let counter = 0;', 'counter')).toBe(true);
+    });
+
+    it('should detect export interface', () => {
+      expect(provider.isExported('export interface Config {}', 'Config')).toBe(true);
+    });
+
+    it('should detect export type alias', () => {
+      expect(provider.isExported('export type ID = string;', 'ID')).toBe(true);
+    });
+
+    it('should detect export enum', () => {
+      expect(provider.isExported('export enum Status { On }', 'Status')).toBe(true);
+    });
+
+    it('should return false for a different symbol in an export statement', () => {
+      expect(provider.isExported('export function foo() {}', 'bar')).toBe(false);
     });
   });
 

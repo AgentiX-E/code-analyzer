@@ -47,11 +47,30 @@ describe('GoProvider', () => {
     });
 
     it('should detect interface definitions', () => {
-      const source = `package main\n\ntype Reader interface {\n    Read(p []byte) (n int, err error)\n}`;
+      // tree-sitter-go requires a trailing newline after the closing brace of a
+      // type declaration, otherwise the parse reports hasError and falls back to
+      // regex (masking the tree-sitter path).
+      const source = `package main\n\ntype Reader interface {\n\tRead(p []byte) (n int, err error)\n}\n`;
       const captures = provider.parse(source, 'test.go');
       const interfaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
       expect(interfaces).toHaveLength(1);
       expect(interfaces[0]!.name).toBe('Reader');
+    });
+
+    it('should detect type aliases', () => {
+      const source = `package main\n\ntype MyInt int\n`;
+      const captures = provider.parse(source, 'test.go');
+      const types = captures.filter((c) => c.tag === CAPTURE_TAGS.TYPE_DEF);
+      expect(types).toHaveLength(1);
+      expect(types[0]!.name).toBe('MyInt');
+    });
+
+    it('should detect grouped imports with alias as captures', () => {
+      const source = `package main\n\nimport (\n\tf "fmt"\n\t"os"\n)\n`;
+      const captures = provider.parse(source, 'test.go');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((i) => i.name === 'fmt' && i.properties?.alias === 'f')).toBe(true);
+      expect(imports.some((i) => i.name === 'os')).toBe(true);
     });
 
     it('should detect package declaration', () => {

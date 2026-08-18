@@ -38,6 +38,23 @@ describe('PythonProvider', () => {
       expect(classes[0]!.name).toBe('Dog');
     });
 
+    it('should detect class definitions with base classes', () => {
+      const source = `class Child(Base, Mixin):\n    pass\n`;
+      const captures = provider.parse(source, 'test.py');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes).toHaveLength(1);
+      expect(classes[0]!.name).toBe('Child');
+      expect(classes[0]!.properties?.baseClasses).toBe('Base,Mixin');
+    });
+
+    it('should detect decorators with arguments', () => {
+      const source = `@app.route("/home")\ndef index():\n    pass\n`;
+      const captures = provider.parse(source, 'test.py');
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators).toHaveLength(1);
+      expect(decorators[0]!.name).toBe('app.route');
+    });
+
     it('should detect decorators', () => {
       const source = `@staticmethod\ndef foo():\n    pass`;
       const captures = provider.parse(source, 'test.py');
@@ -58,6 +75,14 @@ describe('PythonProvider', () => {
       const captures = provider.parse(source, 'test.py');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.length).toBe(3);
+    });
+
+    it('should detect aliased imports as captures', () => {
+      const source = `import numpy as np\n`;
+      const captures = provider.parse(source, 'test.py');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.name).toBe('np');
     });
 
     it('should detect async functions', () => {
@@ -106,6 +131,14 @@ describe('PythonProvider', () => {
       expect(imports).toHaveLength(1);
       expect(imports[0]!.type).toBe('namespace');
       expect(imports[0]!.names).toContain('np');
+    });
+
+    it('should parse from-import with alias', () => {
+      const source = `from module import thing as alias`;
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('module');
+      expect(imports[0]!.names).toContain('alias');
     });
   });
 

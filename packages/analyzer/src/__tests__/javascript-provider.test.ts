@@ -57,6 +57,38 @@ describe('JavaScriptProvider', () => {
       expect(classes[0]!.name).toBe('Animal');
     });
 
+    it('should detect class extends base class', () => {
+      const source = 'class Dog extends Animal {}\n';
+      const captures = provider.parse(source, 'test.js');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes).toHaveLength(1);
+      expect(classes[0]!.name).toBe('Dog');
+      expect(classes[0]!.properties?.baseClasses).toBe('Animal');
+    });
+
+    it('should detect JSDoc comments', () => {
+      const source = '/** A documented function */\nfunction doc() {}\n';
+      const captures = provider.parse(source, 'test.js');
+      const docs = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs).toHaveLength(1);
+      expect(docs[0]!.name).toBe('/** A documented function */');
+    });
+
+    it('should detect new expressions', () => {
+      const source = 'const instance = new Foo();\n';
+      const captures = provider.parse(source, 'test.js');
+      const news = captures.filter((c) => c.tag === CAPTURE_TAGS.NEW_EXPRESSION);
+      expect(news).toHaveLength(1);
+      expect(news[0]!.name).toBe('Foo');
+    });
+
+    it('should detect method calls', () => {
+      const source = 'obj.method();\n';
+      const captures = provider.parse(source, 'test.js');
+      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+      expect(calls.some((c) => c.name === 'method')).toBe(true);
+    });
+
     it('should detect class methods and constructors', () => {
       const source = 'class Person {\n  constructor(name) { this.name = name; }\n  greet() { return "hi"; }\n}';
       const captures = provider.parse(source, 'test.js');
@@ -139,6 +171,14 @@ describe('JavaScriptProvider', () => {
       const imports = provider.extractImports('const x = 1;');
       expect(imports).toHaveLength(0);
     });
+
+    it('should parse require() calls', () => {
+      const source = 'const fs = require("fs");';
+      const imports = provider.extractImports(source);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('fs');
+      expect(imports[0]!.names).toContain('fs');
+    });
   });
 
   describe('isExported', () => {
@@ -156,6 +196,10 @@ describe('JavaScriptProvider', () => {
 
     it('should return false for non-exported', () => {
       expect(provider.isExported('function internal() {}', 'internal')).toBe(false);
+    });
+
+    it('should return false for a different symbol in an export statement', () => {
+      expect(provider.isExported('export { foo }', 'bar')).toBe(false);
     });
   });
 });
