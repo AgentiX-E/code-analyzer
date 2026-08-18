@@ -15,8 +15,13 @@ describe('HealthCheckRegistry', () => {
 
   // Use memoryThreshold: 100 to ensure the built-in memory check always
   // passes in CI/sandbox environments where heap usage can be unpredictable.
+  // Inject a deterministic disk check (plenty of space) so tests that rely on
+  // runAll() are not affected by the host machine's real free disk space.
   beforeEach(() => {
-    registry = new HealthCheckRegistry({ memoryThreshold: 100 });
+    registry = new HealthCheckRegistry({
+      memoryThreshold: 100,
+      diskCheck: async () => Number.MAX_SAFE_INTEGER,
+    });
   });
 
   describe('static createDefault', () => {

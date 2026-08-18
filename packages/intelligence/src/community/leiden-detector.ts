@@ -20,6 +20,7 @@
 // Scientific Reports 9, 5233 (2019).
 
 import type { GraphNode, GraphEdge, KnowledgeGraph } from '@code-analyzer/shared';
+import { mulberry32, DEFAULT_SEED } from './rng.js';
 
 /** Community detection result. */
 export interface LeidenResult {
@@ -62,15 +63,19 @@ export class LeidenCommunityDetector {
   private resolution: number;
   private maxIterations: number;
   private minModularityImprovement: number;
+  private random: () => number;
 
   constructor(options?: {
     resolution?: number;
     maxIterations?: number;
     minModularityImprovement?: number;
+    seed?: number;
   }) {
     this.resolution = options?.resolution ?? 1.0;
     this.maxIterations = options?.maxIterations ?? 100;
     this.minModularityImprovement = options?.minModularityImprovement ?? 1e-6;
+    // Deterministic PRNG — same seed yields the same node ordering and result.
+    this.random = mulberry32(options?.seed ?? DEFAULT_SEED);
   }
 
   /**
@@ -460,7 +465,7 @@ export class LeidenCommunityDetector {
 
   private shuffleArray<T>(array: T[]): void {
     for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(this.random() * (i + 1));
       [array[i], array[j]] = [array[j]!, array[i]!];
     }
   }

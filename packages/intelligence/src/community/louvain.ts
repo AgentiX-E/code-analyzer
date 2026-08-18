@@ -6,6 +6,7 @@
 
 import type { KnowledgeGraph, GraphEdge } from '@code-analyzer/shared';
 import { EDGE_CALLS } from '@code-analyzer/shared';
+import { mulberry32, DEFAULT_SEED } from './rng.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,9 +32,12 @@ export interface CommunityResult {
 export class LouvainDetector {
   /** Minimum modularity improvement to continue iterating */
   private readonly minImprovement: number;
+  /** Deterministic PRNG — same seed yields the same node ordering and result. */
+  private readonly random: () => number;
 
-  constructor(minImprovement = 1e-6) {
+  constructor(minImprovement = 1e-6, seed: number = DEFAULT_SEED) {
     this.minImprovement = minImprovement;
+    this.random = mulberry32(seed);
   }
 
   /**
@@ -270,7 +274,7 @@ export class LouvainDetector {
   /** Fisher-Yates shuffle */
   private shuffle<T>(arr: T[]): T[] {
     for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(this.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j]!, arr[i]!];
     }
     return arr;

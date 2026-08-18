@@ -17,6 +17,7 @@
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { mulberry32, shuffleWith, DEFAULT_SEED } from './rng.js';
 
 /** Result of Leiden community detection. */
 export interface LeidenCommunityResult {
@@ -61,6 +62,8 @@ export interface LeidenConfig {
   minImprovement?: number;
   /** Convert edges to undirected for community detection (default: true). */
   undirected?: boolean;
+  /** PRNG seed for node ordering (default: 42). Deterministic output for a given graph + seed. */
+  seed?: number;
 }
 
 /**
@@ -81,6 +84,8 @@ export function leiden(
   const maxIterations = config.maxIterations ?? 100;
   const minImprovement = config.minImprovement ?? 1e-6;
   const undirected = config.undirected ?? true;
+  // Deterministic PRNG — same seed yields the same node ordering and result.
+  const random = mulberry32(config.seed ?? DEFAULT_SEED);
 
   // Extract nodes and edges from input
   const nodes = extractNodes(input);
@@ -150,7 +155,7 @@ export function leiden(
     // Phase 1: Local moving (like Louvain)
     // -----------------------------------------------------------------------
     const nodeIds = nodes.map((n) => n.id);
-    shuffleArray(nodeIds);
+    shuffleWith(nodeIds, random);
 
     for (const nodeId of nodeIds) {
       const currentNodeCommunity = nodeToCommunity.get(nodeId)!;
@@ -209,7 +214,7 @@ export function leiden(
     // -----------------------------------------------------------------------
     refineCommunities(
       nodeToCommunity, communityToNodes, communityWeights,
-      adjacency, totalWeight, nodeWeights, resolution, minImprovement,
+      adjacency, totalWeight, nodeWeights, resolution, minImprovement, random,
     );
 
     // Recompute modularity
@@ -406,6 +411,7 @@ function refineCommunities(
   nodeWeights: Map<number, number>,
   resolution: number,
   minImprovement: number,
+  random: () => number,
 ): void {
   const communityIds = [...communityToNodes.keys()];
 
@@ -429,7 +435,7 @@ function refineCommunities(
     while (changed && safety < 50) {
       changed = false;
       safety++;
-      shuffleArray(members);
+      shuffleWith(members, random);
 
       for (const nodeId of members) {
         const currentNodeSubComm = refinedComm.get(nodeId)!;
@@ -553,11 +559,4 @@ function renumber(
     iterations,
     resolution,
   };
-}
-
-function shuffleArray<T>(array: T[]): void {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j]!, array[i]!];
-  }
 }

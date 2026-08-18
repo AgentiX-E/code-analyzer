@@ -227,6 +227,23 @@ describe('Leiden Algorithm', () => {
     expect(result.modularity).toBeGreaterThanOrEqual(0.2);
   });
 
+  it('should be deterministic for a fixed seed', () => {
+    const g = buildTwoCommunityGraph();
+    const a = leiden({ nodes: g.nodes.values(), edges: g.edges.values() });
+    const b = leiden({ nodes: g.nodes.values(), edges: g.edges.values() });
+    expect(a.modularity).toBe(b.modularity);
+    expect(a.communityCount).toBe(b.communityCount);
+    expect([...a.nodeToCommunity.entries()].sort()).toEqual([...b.nodeToCommunity.entries()].sort());
+  });
+
+  it('should honor an explicit seed', () => {
+    const g = buildTwoCommunityGraph();
+    const a = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { seed: 7 });
+    const b = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { seed: 7 });
+    expect(a.modularity).toBe(b.modularity);
+    expect([...a.nodeToCommunity.entries()].sort()).toEqual([...b.nodeToCommunity.entries()].sort());
+  });
+
   it('should produce a single community for a fully connected graph', () => {
     const g = buildCliqueGraph(5);
     const result = leiden({ nodes: g.nodes.values(), edges: g.edges.values() });
