@@ -197,8 +197,14 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Load the language-specific grammar. Subclasses must implement. */
   protected abstract loadGrammar(): TreeSitterLanguage | null;
 
-  /** Get node type → capture tag mappings. Subclasses must implement. */
-  protected abstract getNodeMappings(): NodeTypeMapping[];
+  /**
+   * Get node type → capture tag mappings. Override to drive the default
+   * {@link walkAndCapture} implementation. Providers that override
+   * walkAndCapture directly do not need to provide mappings.
+   */
+  protected getNodeMappings(): NodeTypeMapping[] {
+    return [];
+  }
 
   // -----------------------------------------------------------------------
   // Primary parse method — walks the AST and emits UnifiedCapture

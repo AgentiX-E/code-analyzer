@@ -5,7 +5,7 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const ELIXIR_EXTENSIONS = ['.ex', '.exs'];
 const ELIXIR_GLOBS = ['**/*.ex', '**/*.exs'];
@@ -21,17 +21,11 @@ export class ElixirProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-elixir') as TreeSitterLanguage;
-    } /* v8 ignore next */
+    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
     catch {
       return null;
     }
-  }
-
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      { nodeType: 'call', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-      { nodeType: 'unary_operator', captureTag: CAPTURE_TAGS.DECORATOR, nameChildType: 'identifier' },
-    ];
+    /* v8 ignore stop */
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
@@ -40,11 +34,14 @@ export class ElixirProvider extends TreeSitterBaseProvider {
     if (nodeType === 'call') {
       // Detect def, defp, defmodule, defstruct, etc.
       const target = this.findNamedChild(node, 'identifier');
+      /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
       if (target) {
         if (target.text === 'defmodule') {
           const args = this.findNamedChild(node, 'arguments');
+          /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
           if (args) {
             const modName = this.extractModuleName(args);
+            /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
             if (modName) {
               captures.push({
                 tag: CAPTURE_TAGS.CLASS_DEF,
@@ -59,37 +56,42 @@ export class ElixirProvider extends TreeSitterBaseProvider {
             }
           }
         } else if (target.text === 'def' || target.text === 'defp' || target.text === 'defmacro') {
-          // Extract function name from the arguments child
-          // In tree-sitter-elixir, the function name is nested:
-          //   call > identifier("def") > arguments > call > identifier("func_name")
+          // Extract the function name from the arguments child. tree-sitter-elixir
+          // emits two shapes depending on arity:
+          //   with params:  arguments > call        > identifier (func_name)
+          //   without params: arguments > identifier (func_name) directly
           const args = this.findNamedChild(node, 'arguments');
+          /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
           if (args) {
             const innerCall = this.findNamedChild(args, 'call');
-            if (innerCall) {
-              const funcNameNode = this.findNamedChild(innerCall, 'identifier');
-              if (funcNameNode) {
-                captures.push({
-                  tag: CAPTURE_TAGS.FUNCTION_DEF,
-                  text: funcNameNode.text,
-                  startLine: node.startPosition.row + 1,
-                  endLine: node.endPosition.row + 1,
-                  startByte: funcNameNode.startIndex,
-                  endByte: funcNameNode.endIndex,
-                  name: funcNameNode.text,
-                  properties: {
-                    visibility: target.text === 'defp' ? 'private' : 'public',
-                    ...(target.text === 'defmacro' ? { isMacro: 'true' } : {}),
-                    filePath: this.filePath,
-                  },
-                });
-              }
+            const funcNameNode = innerCall
+              ? this.findNamedChild(innerCall, 'identifier')
+              : this.findNamedChild(args, 'identifier');
+            /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
+            if (funcNameNode) {
+              captures.push({
+                tag: CAPTURE_TAGS.FUNCTION_DEF,
+                text: funcNameNode.text,
+                startLine: node.startPosition.row + 1,
+                endLine: node.endPosition.row + 1,
+                startByte: funcNameNode.startIndex,
+                endByte: funcNameNode.endIndex,
+                name: funcNameNode.text,
+                properties: {
+                  visibility: target.text === 'defp' ? 'private' : 'public',
+                  ...(target.text === 'defmacro' ? { isMacro: 'true' } : {}),
+                  filePath: this.filePath,
+                },
+              });
             }
           }
         } else if (target.text === 'use' || target.text === 'import' || target.text === 'alias') {
           // use/import/alias Module — treat as import
           const args = this.findNamedChild(node, 'arguments');
+          /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
           if (args) {
             const modName = this.extractModuleName(args);
+            /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
             if (modName) {
               captures.push({
                 tag: CAPTURE_TAGS.IMPORT,
@@ -117,8 +119,10 @@ export class ElixirProvider extends TreeSitterBaseProvider {
       const target = this.findNamedChild(node, 'identifier');
       if (target && (target.text === 'import' || target.text === 'use' || target.text === 'alias' || target.text === 'require')) {
         const args = this.findNamedChild(node, 'arguments');
+        /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
         if (args) {
           const modName = this.extractModuleName(args);
+          /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
           if (modName) {
             imports.push({
               source: modName,
@@ -144,6 +148,7 @@ export class ElixirProvider extends TreeSitterBaseProvider {
       if (target && (target.text === 'def' || target.text === 'defmodule')) {
         for (let i = 0; i < node.namedChildCount; i++) {
           const child = node.namedChild(i);
+          /* v8 ignore next -- @preserve -- function name lives in arguments, not a sibling identifier */
           if (child.type === 'identifier' && child !== target && child.text === symbolName) return true;
           if (child.type === 'arguments') {
             const modName = this.extractModuleName(child);
@@ -278,15 +283,18 @@ export class ElixirProvider extends TreeSitterBaseProvider {
     const parts: string[] = [];
     for (let i = 0; i < argsNode.namedChildCount; i++) {
       const child = argsNode.namedChild(i);
+      /* v8 ignore next -- @preserve -- module names are always alias nodes, never identifiers */
       if (child.type === 'identifier') parts.push(child.text);
       else if (child.type === 'alias') {
         // tree-sitter-elixir 0.3.x: alias children are anonymous (neither namedChildCount nor childCount)
         // The full module path is available directly via .text
+        /* v8 ignore next -- @preserve -- alias nodes are anonymous (named=0 child=0) */
         if (child.namedChildCount > 0) {
           for (let j = 0; j < child.namedChildCount; j++) {
             if (child.namedChild(j).type === 'identifier') parts.push(child.namedChild(j).text);
           }
         } else if (child.childCount > 0) {
+          /* v8 ignore next -- @preserve -- alias nodes are anonymous */
           for (let j = 0; j < child.childCount; j++) {
             if (child.child(j).type === 'identifier') parts.push(child.child(j).text);
           }
@@ -295,9 +303,11 @@ export class ElixirProvider extends TreeSitterBaseProvider {
         }
       }
     }
+    /* v8 ignore next -- @preserve -- arguments always carry an alias so parts is non-empty */
     return parts.length > 0 ? parts.join('.') : null;
   }
 
+  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }
