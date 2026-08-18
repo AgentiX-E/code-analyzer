@@ -76,11 +76,23 @@ describe('RubyProvider', () => {
       const imports = provider.extractImports("require_relative '../lib/helper'");
       expect(imports.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('returns empty for non-require calls', () => {
+      expect(provider.extractImports("puts 'hi'")).toEqual([]);
+    });
   });
 
   describe('isExported', () => {
     it('detects class as public', () => {
       expect(provider.isExported("class MyClass\nend", 'MyClass')).toBe(true);
+    });
+
+    it('returns false for a non-existent symbol', () => {
+      expect(provider.isExported("class MyClass\nend", 'Other')).toBe(false);
+    });
+
+    it('detects a method as public', () => {
+      expect(provider.isExported("def hello\nend", 'hello')).toBe(true);
     });
   });
 });

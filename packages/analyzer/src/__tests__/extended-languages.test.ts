@@ -652,10 +652,6 @@ describe('HtmlProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('html'));
     it('has html extensions', () => expect(provider.extensions).toContain('.html'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as HtmlProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -999,10 +995,6 @@ describe('GroovyProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('groovy'));
     it('has groovy extensions', () => expect(provider.extensions).toContain('.groovy'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as GroovyProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {

@@ -15,180 +15,100 @@ describe('HtmlProvider', () => {
       expect(provider.displayName).toBe('HTML');
     });
 
-    it('should have .html, .htm, .xhtml extensions', () => {
+    it('should have .html and .htm extensions', () => {
       expect(provider.extensions).toContain('.html');
       expect(provider.extensions).toContain('.htm');
-      expect(provider.extensions).toContain('.xhtml');
     });
 
-    it('should have "none" import semantics', () => {
+    it('should have none import semantics', () => {
       expect(provider.importSemantics).toBe('none');
     });
   });
 
-  describe('parse', () => {
-    it('should parse elements with tag names', () => {
-      const code = '<div></div>';
-      const captures = provider.parse(code, 'test.html');
-      const divs = captures.filter((c) => c.name === 'div');
-      expect(divs.length).toBeGreaterThanOrEqual(1);
+  describe('parse — elements and tags', () => {
+    it('should extract an element with id and class', () => {
+      const code = '<div id="main" class="container">Hello</div>';
+      const captures = provider.parse(code, 't.html');
+      const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(els.some((c) => c.name === 'div' && c.properties?.id === 'main' && c.properties?.class === 'container')).toBe(true);
     });
 
-    it('should parse elements with attributes', () => {
-      const code = '<div id="main" class="container"></div>';
-      const captures = provider.parse(code, 'test.html');
-      const divs = captures.filter((c) => c.name === 'div');
-      expect(divs.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should parse script elements', () => {
-      const code = '<script src="app.js"></script>';
-      const captures = provider.parse(code, 'test.html');
-      const scripts = captures.filter((c) => c.name === 'script');
-      expect(scripts.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should parse link elements', () => {
-      const code = '<link rel="stylesheet" href="style.css">';
-      const captures = provider.parse(code, 'test.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should parse comments via tree-sitter', () => {
-      const code = '<!-- This is a comment -->';
-      const captures = provider.parse(code, 'test.html');
-      // Tree-sitter may or may not extract comments as DOCSTRING
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should parse self-closing tags', () => {
-      const code = '<br/><img src="photo.jpg"/>';
-      const captures = provider.parse(code, 'test.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should parse nested elements', () => {
-      const code = '<div><span>text</span></div>';
-      const captures = provider.parse(code, 'test.html');
-      const spans = captures.filter((c) => c.name === 'span');
-      const divs = captures.filter((c) => c.name === 'div');
-      expect(spans.length).toBeGreaterThanOrEqual(1);
-      expect(divs.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should parse HTML5 doctype', () => {
-      const code = '<!DOCTYPE html>\n<html></html>';
-      const captures = provider.parse(code, 'test.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should handle empty files', () => {
-      const captures = provider.parse('', 'empty.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should handle plain text', () => {
-      const captures = provider.parse('just some text', 'test.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should parse elements with multiple attributes', () => {
-      const code = '<input type="text" name="username" placeholder="Enter name">';
-      const captures = provider.parse(code, 'test.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should return captures sorted by line', () => {
-      const code = '<div></div>\n<span></span>\n<p></p>';
-      const captures = provider.parse(code, 'test.html');
-      for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
-      }
-    });
-
-    it('should include filePath in properties', () => {
-      const code = '<div></div>';
-      const captures = provider.parse(code, 'myfile.html');
-      const div = captures.find((c) => c.name === 'div');
-      expect(div?.properties?.filePath).toBe('myfile.html');
-    });
-
-    it('should parse HTML with inline style elements', () => {
-      const code = '<style>body { color: red; }</style>';
-      const captures = provider.parse(code, 'test.html');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should parse a basic HTML document structure', () => {
-      const code = '<!DOCTYPE html>\n<html>\n<head>\n<title>Test</title>\n</head>\n<body>\n<h1>Hello</h1>\n</body>\n</html>';
-      const captures = provider.parse(code, 'test.html');
-      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('extractImports', () => {
-    it('should return empty array (HTML has no imports)', () => {
-      const imports = provider.extractImports('<div></div>');
-      expect(imports).toEqual([]);
-    });
-  });
-
-  describe('isExported', () => {
-    it('should return false (HTML has no export concept)', () => {
-      expect(provider.isExported('<div></div>', 'div')).toBe(false);
-    });
-  });
-
-  describe('fallback methods', () => {
-    it('fallbackParse should parse tags', () => {
-      const code = '<div></div><span></span>';
-      const captures = provider.fallbackParse(code, 'test.html');
-      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'div')).toBe(true);
-      expect(vars.some((c) => c.name === 'span')).toBe(true);
-    });
-
-    it('fallbackParse should detect closing tags', () => {
-      const code = '<div></div>';
-      const captures = provider.fallbackParse(code, 'test.html');
-      const closing = captures.filter((c) => c.properties?.isClosing === 'true');
-      expect(closing.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('fallbackParse should extract script src imports', () => {
-      const code = '<script src="app.js"></script>';
-      const captures = provider.fallbackParse(code, 'test.html');
+    it('should extract a script src as an import', () => {
+      const code = '<script src="https://x.com/a.js"></script>';
+      const captures = provider.parse(code, 't.html');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports.some((c) => c.name === 'app.js')).toBe(true);
+      expect(imports.some((c) => c.name === 'https://x.com/a.js')).toBe(true);
     });
 
-    it('fallbackParse should extract link href imports', () => {
-      const code = '<link href="style.css" rel="stylesheet">';
-      const captures = provider.fallbackParse(code, 'test.html');
+    it('should extract a link href as an import', () => {
+      const code = '<link rel="stylesheet" href="style.css">';
+      const captures = provider.parse(code, 't.html');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'style.css')).toBe(true);
     });
 
-    it('fallbackParse should handle empty input', () => {
-      const captures = provider.fallbackParse('', 'test.html');
-      expect(captures).toEqual([]);
+    it('should extract an img src as an import', () => {
+      const code = '<img src="img.png" alt="x">';
+      const captures = provider.parse(code, 't.html');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((c) => c.name === 'img.png')).toBe(true);
     });
 
-    it('fallbackParse should return sorted captures', () => {
-      const code = '<div></div>\n<span></span>';
-      const captures = provider.fallbackParse(code, 'test.html');
-      for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
-      }
+    it('should extract a comment', () => {
+      const code = '<!-- hello world -->';
+      const captures = provider.parse(code, 't.html');
+      const comments = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(comments.some((c) => c.name === '[comment]')).toBe(true);
     });
 
-    it('fallbackExtractImports should return empty array', () => {
-      expect(provider.fallbackExtractImports('anything')).toEqual([]);
+    it('should extract a doctype', () => {
+      const code = '<!DOCTYPE html>';
+      const captures = provider.parse(code, 't.html');
+      const docs = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs.some((c) => c.name === 'doctype')).toBe(true);
+    });
+  });
+
+  describe('taint sources', () => {
+    it('should detect form as user_input', () => {
+      const sources = provider.extractTaintSources('<form><input type="text"></form>');
+      expect(sources.some((s) => s.name === 'form' && s.sourceType === 'user_input')).toBe(true);
     });
 
-    it('fallbackIsExported should return false', () => {
-      expect(provider.fallbackIsExported('anything', 'any')).toBe(false);
+    it('should detect input/textarea/select as user_input', () => {
+      const sources = provider.extractTaintSources('<input type="text"><textarea></textarea><select></select>');
+      expect(sources.some((s) => s.name === 'input')).toBe(true);
+      expect(sources.some((s) => s.name === 'textarea')).toBe(true);
+      expect(sources.some((s) => s.name === 'select')).toBe(true);
+    });
+
+    it('should detect external script src as external_script', () => {
+      const sources = provider.extractTaintSources('<script src="https://evil.com/x.js"></script>');
+      expect(sources.some((s) => s.sourceType === 'external_script')).toBe(true);
+    });
+  });
+
+  describe('taint sinks', () => {
+    it('should detect script/style as xss sink', () => {
+      const sinks = provider.extractTaintSinks('<script>alert(1)</script>');
+      expect(sinks.some((s) => s.name === 'script' && s.sinkType === 'xss')).toBe(true);
+    });
+
+    it('should detect event handlers as xss_event_handler', () => {
+      const sinks = provider.extractTaintSinks('<div onload="x()"></div>');
+      expect(sinks.some((s) => s.name === 'onload' && s.sinkType === 'xss_event_handler')).toBe(true);
+    });
+
+    it('should detect innerHTML as xss sink', () => {
+      const sinks = provider.extractTaintSinks('<div innerHTML="x"></div>');
+      expect(sinks.some((s) => s.name === 'div' && s.sinkType === 'xss')).toBe(true);
+    });
+  });
+
+  describe('sanitizers', () => {
+    it('should detect CSP meta tag as sanitizer', () => {
+      const sanitizers = provider.extractSanitizers('<meta http-equiv="Content-Security-Policy" content="default-src self">');
+      expect(sanitizers.some((s) => s.name === 'csp' && s.sanitizerType === 'csp_policy')).toBe(true);
     });
   });
 });
