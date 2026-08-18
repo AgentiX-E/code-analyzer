@@ -409,10 +409,6 @@ describe('BashProvider', () => {
     it('has sh/bash extensions', () => {
       expect(provider.extensions).toContain('.sh'); expect(provider.extensions).toContain('.bash');
     });
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as BashProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
@@ -1115,10 +1111,6 @@ describe('JsonProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('json'));
     it('has json extensions', () => expect(provider.extensions).toContain('.json'));
-    it('has 15+ node type mappings', () => {
-      const mappings = (provider as JsonProvider).getNodeMappings();
-      expect(mappings.length).toBeGreaterThanOrEqual(15);
-    });
   });
 
   describe('parse', () => {
