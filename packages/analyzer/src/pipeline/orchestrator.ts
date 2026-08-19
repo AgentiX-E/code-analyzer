@@ -2,11 +2,7 @@
 // DAG-based execution engine using Kahn's algorithm for topological sort.
 
 import type { ExecutablePhase } from './phases/index.js';
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  KnowledgeGraph,
-} from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -101,9 +97,8 @@ export class PipelineOrchestrator {
     let hasFailure = false;
 
     for (const phaseId of order) {
-      const phase = this.phases.get(phaseId);
-      /* v8 ignore next */
-      if (!phase) continue;
+      // order is derived from this.phases.keys(), so the lookup always resolves
+      const phase = this.phases.get(phaseId)!;
 
       // Check if dependencies completed successfully
       let skipPhase = false;
@@ -241,13 +236,10 @@ export class PipelineOrchestrator {
     // Build graph
     for (const phase of this.phases.values()) {
       for (const dep of phase.dependencies) {
-        const deps = adjacency.get(dep);
-        /* v8 ignore next */ // defensive: dep not in adjacency (cycle/validation guards above)
-        if (deps) {
-          deps.push(phase.id);
-        }
-        /* v8 ignore next */
-        inDegree.set(phase.id, (inDegree.get(phase.id) ?? 0) + 1);
+        // adjacency and inDegree are seeded for every registered phase, and
+        // validatePipeline() rejects missing dependencies before we get here
+        adjacency.get(dep)!.push(phase.id);
+        inDegree.set(phase.id, inDegree.get(phase.id)! + 1);
       }
     }
 
@@ -264,15 +256,14 @@ export class PipelineOrchestrator {
     // Sort initial queue once for deterministic ordering (O(V log V), not O(V² log V))
     queue.sort();
 
-    while (queue.length > 0) { 
+    while (queue.length > 0) {
       const current = queue.shift()!;
       result.push(current);
 
-      /* v8 ignore next */
-      const neighbors = adjacency.get(current) ?? [];
+      // adjacency is seeded for every registered phase, so the lookups resolve
+      const neighbors = adjacency.get(current)!;
       for (const neighbor of neighbors) {
-        /* v8 ignore next */
-        const newDegree = (inDegree.get(neighbor) ?? 1) - 1;
+        const newDegree = inDegree.get(neighbor)! - 1;
         inDegree.set(neighbor, newDegree);
         if (newDegree === 0) {
           queue.push(neighbor);
