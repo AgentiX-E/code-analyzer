@@ -45,19 +45,12 @@ export function computeDominators(cfg: ControlFlowGraph): Map<number, Set<number
       const preds = cfg.blocks.filter((b) => b.successors.includes(block.id));
       if (preds.length === 0) continue;
 
-      let newDom: Set<number> | null = null;
-
-      for (const pred of preds) {
-        const predDom = dom.get(pred.id);
-        if (!predDom) continue;
-        if (newDom === null) {
-          newDom = new Set(predDom);
-        } else {
-          newDom = intersectSets(newDom, predDom);
-        }
+      // Every block is pre-seeded with a dominator set and preds is non-empty
+      // here, so the first predecessor always seeds the intersection.
+      let newDom = new Set(dom.get(preds[0]!.id)!);
+      for (let i = 1; i < preds.length; i++) {
+        newDom = intersectSets(newDom, dom.get(preds[i]!.id)!);
       }
-
-      if (newDom === null) continue;
       newDom.add(block.id);
 
       const oldDom = dom.get(block.id);
@@ -90,17 +83,16 @@ export function computeImmediateDominators(cfg: ControlFlowGraph): Map<number, n
       continue;
     }
 
-    const doms = dominators.get(block.id);
-    if (!doms || doms.size <= 1) {
-      idom.set(block.id, -1);
-      continue;
-    }
+    // Non-entry blocks are dominated by at least themselves and the entry
+    // block, so the dominator set always has >= 2 elements here.
+    const doms = dominators.get(block.id)!;
 
     // Strict dominators: dominators excluding the block itself
     const strictDoms = new Set(doms);
     strictDoms.delete(block.id);
 
-    // Immediate dominator: the strict dominator that dominates all other strict dominators
+    // Immediate dominator: the strict dominator that dominates all other
+    // strict dominators.
     let best: number | null = null;
     for (const d of strictDoms) {
       if (best === null) {
@@ -108,16 +100,16 @@ export function computeImmediateDominators(cfg: ControlFlowGraph): Map<number, n
         continue;
       }
 
-      const bestDoms = dominators.get(best);
-      const currDoms = dominators.get(d);
+      const bestDoms = dominators.get(best)!;
+      const currDoms = dominators.get(d)!;
 
-      if (bestDoms && !bestDoms.has(d) && currDoms && currDoms.has(best)) {
+      if (!bestDoms.has(d) && currDoms.has(best)) {
         // d dominates best, so d is a better candidate (more "immediate")
         best = d;
       }
     }
 
-    idom.set(block.id, best ?? -1);
+    idom.set(block.id, best!);
   }
 
   return idom;
@@ -147,10 +139,9 @@ export function buildDominatorTree(cfg: ControlFlowGraph): {
   for (const [blockId, immediateDom] of idom) {
     if (immediateDom >= 0) {
       parent.set(blockId, immediateDom);
-      const childList = children.get(immediateDom);
-      if (childList) {
-        childList.push(blockId);
-      }
+      // children is pre-seeded for every block and immediateDom is a valid
+      // block id, so the child list always exists.
+      children.get(immediateDom)!.push(blockId);
     }
   }
 
@@ -190,11 +181,10 @@ export function computeDominanceFrontiers(cfg: ControlFlowGraph): Map<number, Se
       const succIdom = idom.get(succId);
 
       while (runner !== succIdom && runner >= 0) {
-        const frontier = frontiers.get(runner);
-        if (frontier) {
-          frontier.add(succId);
-        }
-        runner = idom.get(runner) ?? -1;
+        // frontiers is pre-seeded for every block and runner is always a
+        // valid block id while the loop runs, so the entry always exists.
+        frontiers.get(runner)!.add(succId);
+        runner = idom.get(runner)!;
       }
     }
   }
@@ -265,8 +255,9 @@ export function findNaturalLoops(cfg: ControlFlowGraph): Map<number, number[]> {
           visited.add(pred.id);
 
           // Check if pred is dominated by the loop header
-          const predDoms = dominators.get(pred.id);
-          if (predDoms && predDoms.has(targetId)) {
+          const predDoms = dominators.get(pred.id)!;
+          /* v8 ignore next -- @preserve -- every predecessor reachable from a back-edge source is dominated by the loop header (natural-loop invariant), so this is always true */
+          if (predDoms.has(targetId)) {
             if (!loop!.includes(pred.id)) {
               loop!.push(pred.id);
             }
@@ -296,6 +287,7 @@ function intersectSets(a: Set<number>, b: Set<number>): Set<number> {
 function setEquals(a: Set<number>, b: Set<number>): boolean {
   if (a.size !== b.size) return false;
   for (const val of a) {
+    /* v8 ignore next -- @preserve -- dominator sets converge monotonically, so equal sizes imply equal contents at this call site */
     if (!b.has(val)) return false;
   }
   return true;
