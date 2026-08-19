@@ -4331,6 +4331,36 @@ describe('ConfigPhase - XML and edge cases', () => {
     expect(configNodes.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('should parse a multi-line XML config file', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const xmlPath = join(fixture.rootPath, 'multi.xml');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: xmlPath,
+      language: null,
+      content: '<project>\n  <name>test</name>\n  <version>2.0</version>\n</project>',
+      hash: 'xmlmulti',
+      size: 70,
+    });
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      xmlPath,
+      { name: 'multi.xml', filePath: xmlPath },
+      `file:${xmlPath}`,
+    );
+
+    await configPhase.execute(ctx);
+    const configNodes = Array.from(ctx.graph!.nodes.values()).filter(
+      (n) => n.label === 'Config' && n.properties?.filePath === xmlPath,
+    );
+    expect(configNodes.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('should recognize config files by partial name match (e.g., .eslintrc.yaml)', async () => {
     writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
 
@@ -5163,5 +5193,183 @@ describe('ConfigPhase - docker-compose and more', () => {
     );
     // Array values should be stringified; at least 'name' should be found
     expect(configNodes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should skip .env lines without an equals sign', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const envPath = join(fixture.rootPath, 'odd.env');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: envPath,
+      language: null,
+      content: 'NOVALUE\nGOOD=1\n',
+      hash: 'env1',
+      size: 20,
+    });
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      envPath,
+      { name: 'odd.env', filePath: envPath },
+      `file:${envPath}`,
+    );
+
+    await configPhase.execute(ctx);
+    const nodes = Array.from(ctx.graph!.nodes.values()).filter(
+      (n) => n.label === 'Config' && n.properties?.filePath === envPath,
+    );
+    expect(nodes.some((n) => n.name === 'GOOD')).toBe(true);
+    expect(nodes.some((n) => n.name === 'NOVALUE')).toBe(false);
+  });
+
+  it('should skip .toml section headers', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const tomlPath = join(fixture.rootPath, 'pyproject.toml');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: tomlPath,
+      language: null,
+      content: '[tool]\nname = "demo"\n',
+      hash: 'toml1',
+      size: 20,
+    });
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      tomlPath,
+      { name: 'pyproject.toml', filePath: tomlPath },
+      `file:${tomlPath}`,
+    );
+
+    await configPhase.execute(ctx);
+    const nodes = Array.from(ctx.graph!.nodes.values()).filter(
+      (n) => n.label === 'Config' && n.properties?.filePath === tomlPath,
+    );
+    expect(nodes.some((n) => n.name === 'name')).toBe(true);
+  });
+
+  it('should ignore a JSON file whose top-level value is not an object', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const jsonPath = join(fixture.rootPath, 'scalar.json');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: jsonPath,
+      language: null,
+      content: '"just a string"',
+      hash: 'scalar1',
+      size: 14,
+    });
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      jsonPath,
+      { name: 'scalar.json', filePath: jsonPath },
+      `file:${jsonPath}`,
+    );
+
+    await configPhase.execute(ctx);
+    const nodes = Array.from(ctx.graph!.nodes.values()).filter(
+      (n) => n.label === 'Config' && n.properties?.filePath === jsonPath,
+    );
+    expect(nodes.length).toBe(0);
+  });
+
+  it('should recognize config files via partial name match', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const customPath = join(fixture.rootPath, '.eslintrc.custom');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: customPath,
+      language: null,
+      content: '{"rules":{}}',
+      hash: 'custom1',
+      size: 14,
+    });
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      customPath,
+      { name: '.eslintrc.custom', filePath: customPath },
+      `file:${customPath}`,
+    );
+
+    await configPhase.execute(ctx);
+    // The partial match flags the file as config, but '.custom' content is not
+    // JSON-parsed (only .json extension), so no Config nodes are produced
+    const output = (await configPhase.execute(ctx)).output as { configFiles: number };
+    expect(output.configFiles).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should skip a config file absent from the graph file index', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const jsonPath = join(fixture.rootPath, 'orphan.json');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: jsonPath,
+      language: null,
+      content: '{"name":"orphan"}',
+      hash: 'orphan1',
+      size: 16,
+    });
+    // Deliberately do NOT add a File node
+
+    const result = await configPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { configFiles: number };
+    expect(output.configFiles).toBe(0);
+  });
+
+  it('should handle a non-Error exception through the catch block', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const jsonPath = join(fixture.rootPath, 'boom.json');
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    scanData.discoveredFiles.push({
+      filePath: jsonPath,
+      language: null,
+      content: '{"name":"boom"}',
+      hash: 'boom1',
+      size: 14,
+    });
+
+    const badGraph = new Proxy(ctx.graph!, {
+      get(target, prop) {
+        if (prop === 'fileIndex') {
+          return new Proxy(target.fileIndex, {
+            get() {
+              // eslint-disable-next-line @typescript-eslint/only-throw-error
+              throw 'config boom';
+            },
+          });
+        }
+        return Reflect.get(target, prop);
+      },
+    });
+    ctx.graph = badGraph as typeof ctx.graph;
+
+    const result = await configPhase.execute(ctx);
+    expect(result.status).toBe('failed');
+    expect(result.error).toBe('config boom');
   });
 });

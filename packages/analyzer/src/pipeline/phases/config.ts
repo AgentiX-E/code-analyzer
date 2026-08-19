@@ -2,12 +2,8 @@
 
 import { basename, extname } from 'node:path';
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  DiscoveredFile,
-} from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_CONFIGURES } from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_CONFIGURES } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -17,23 +13,63 @@ import { GraphBuilder } from '../../graph/graph-builder.js';
 // Config helpers
 // ---------------------------------------------------------------------------
 
-const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml', '.env', '.ini', '.cfg', '.xml']);
+const CONFIG_EXTENSIONS = new Set([
+  '.json',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.env',
+  '.ini',
+  '.cfg',
+  '.xml',
+]);
 const CONFIG_FILE_NAMES = new Set([
-  'package.json', 'tsconfig.json', 'tsconfig.base.json',
-  '.eslintrc', '.eslintrc.json', '.eslintrc.js', '.eslintrc.yaml',
-  '.prettierrc', '.prettierrc.json', '.prettierrc.yaml',
-  'pyproject.toml', 'setup.cfg', 'Cargo.toml', 'go.mod',
-  'pom.xml', 'build.gradle', 'build.gradle.kts',
-  'docker-compose.yaml', 'docker-compose.yml', 'Dockerfile',
-  '.env', '.env.local', '.env.development', '.env.production',
-  'Makefile', '.gitlab-ci.yml', '.github', // handled by extension
+  'package.json',
+  'tsconfig.json',
+  'tsconfig.base.json',
+  '.eslintrc',
+  '.eslintrc.json',
+  '.eslintrc.js',
+  '.eslintrc.yaml',
+  '.prettierrc',
+  '.prettierrc.json',
+  '.prettierrc.yaml',
+  'pyproject.toml',
+  'setup.cfg',
+  'Cargo.toml',
+  'go.mod',
+  'pom.xml',
+  'build.gradle',
+  'build.gradle.kts',
+  'docker-compose.yaml',
+  'docker-compose.yml',
+  'Dockerfile',
+  '.env',
+  '.env.local',
+  '.env.development',
+  '.env.production',
+  'Makefile',
+  '.gitlab-ci.yml',
+  '.github', // handled by extension
 ]);
 
 const CONFIG_RELEVANT_KEYS = new Set([
-  'name', 'version', 'description', 'main', 'module', 'exports',
-  'scripts', 'dependencies', 'devDependencies', 'peerDependencies',
-  'compilerOptions', 'include', 'exclude',
-  'project', 'tool', 'build-system',
+  'name',
+  'version',
+  'description',
+  'main',
+  'module',
+  'exports',
+  'scripts',
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'compilerOptions',
+  'include',
+  'exclude',
+  'project',
+  'tool',
+  'build-system',
 ]);
 
 interface ConfigEntry {
@@ -114,12 +150,7 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
   return entries;
 }
 
-function flattenObject(
-  obj: unknown,
-  prefix: string,
-  path: string,
-  depth: number,
-): ConfigEntry[] {
+function flattenObject(obj: unknown, prefix: string, path: string, depth: number): ConfigEntry[] {
   if (depth > 10) return [];
   if (typeof obj !== 'object' || obj === null) return [];
 
@@ -146,6 +177,7 @@ function findLineNumber(lines: string[], charIndex: number): number {
     accumulated += lines[i].length + 1; // +1 for newline
     if (accumulated > charIndex) return i + 1;
   }
+  /* v8 ignore next -- @preserve -- charIndex always lies within the content */
   return lines.length;
 }
 
@@ -174,8 +206,7 @@ export class ConfigPhase implements ExecutablePhase {
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: DiscoveredFile[] }
-        | undefined;
+        { discoveredFiles: DiscoveredFile[] } | undefined;
 
       if (!scanData?.discoveredFiles || !ctx.graph) {
         return { phaseId: this.id, status: 'success', output: { configFiles: 0 } };
@@ -198,13 +229,19 @@ export class ConfigPhase implements ExecutablePhase {
 
         for (const entry of entries) {
           const qname = `config:${file.filePath}:${entry.key}`;
-          const node = builder.addNode(ctx.graph, 'Config', entry.key, {
-            name: entry.key,
-            filePath: file.filePath,
-            startLine: entry.line,
-            endLine: entry.line,
-            configValue: String(entry.value),
-          }, qname);
+          const node = builder.addNode(
+            ctx.graph,
+            'Config',
+            entry.key,
+            {
+              name: entry.key,
+              filePath: file.filePath,
+              startLine: entry.line,
+              endLine: entry.line,
+              configValue: String(entry.value),
+            },
+            qname,
+          );
 
           builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_CONFIGURES, ctx.projectId);
         }
@@ -215,7 +252,11 @@ export class ConfigPhase implements ExecutablePhase {
       ctx.phaseData.set('config', { configFiles, totalEntries: configFiles });
       return { phaseId: this.id, status: 'success', output: { configFiles } };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
