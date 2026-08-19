@@ -2,11 +2,13 @@
 
 import { basename, extname } from 'node:path';
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
+import {
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_IMPORTS,
+  EDGE_TESTS,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -72,16 +74,16 @@ export class TestsPhase implements ExecutablePhase {
       const filePathToNodeId = new Map<string, number>();
       for (const [nodeId, node] of ctx.graph.nodes) {
         const filePath = node.properties?.filePath as string | undefined;
-        if (filePath && (node.label === 'File' || node.label === 'Function' || node.label === 'Class')) {
+        if (
+          filePath &&
+          (node.label === 'File' || node.label === 'Function' || node.label === 'Class')
+        ) {
           filePathToNodeId.set(filePath, nodeId);
         }
       }
 
       for (const [filePath, fileNodeId] of filePathToNodeId) {
         if (!isTestFile(filePath)) continue;
-
-        const node = ctx.graph.nodes.get(fileNodeId);
-        if (!node) continue;
 
         // Find what this test file imports
         const importedFiles = new Set<string>();
@@ -109,7 +111,10 @@ export class TestsPhase implements ExecutablePhase {
 
         // If no import-based relationships found, check by filename convention
         if (importedFiles.size === 0) {
-          const fileName = basename(filePath).replace(/\.(test|spec)\.(ts|tsx|js|jsx|py|go|rs|java|kt)/i, '');
+          const fileName = basename(filePath).replace(
+            /\.(test|spec)\.(ts|tsx|js|jsx|py|go|rs|java|kt)/i,
+            '',
+          );
           for (const [srcPath, srcNodeId] of filePathToNodeId) {
             if (srcPath.includes(fileName) && srcNodeId !== fileNodeId) {
               const srcFileName = basename(srcPath, extname(srcPath));
@@ -130,7 +135,11 @@ export class TestsPhase implements ExecutablePhase {
       ctx.phaseData.set('tests', { testsFound });
       return { phaseId: this.id, status: 'success', output: { testsFound } };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
