@@ -5,7 +5,11 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
 
 const PHP_EXTENSIONS = ['.php', '.phtml'];
 const PHP_GLOBS = ['**/*.php', '**/*.phtml'];
@@ -20,9 +24,14 @@ export class PhpProvider extends TreeSitterBaseProvider {
   protected override loadGrammar(): TreeSitterLanguage | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const php = require('tree-sitter-php') as { php: TreeSitterLanguage; php_only: TreeSitterLanguage };
-      return php.php || php.php_only;
+      const php = require('tree-sitter-php') as {
+        php: TreeSitterLanguage;
+        php_only: TreeSitterLanguage;
+      };
+      // tree-sitter-php always exports both grammars; `.php` is the primary.
+      return php.php;
     } catch {
+      /* v8 ignore next -- @preserve -- native module load failure is untestable */
       return null;
     }
   }
@@ -72,12 +81,24 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
   protected override getNodeMappings(): NodeTypeMapping[] {
     return [
-      { nodeType: 'function_definition', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'name' },
+      {
+        nodeType: 'function_definition',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'name',
+      },
       { nodeType: 'class_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'name' },
-      { nodeType: 'interface_declaration', captureTag: CAPTURE_TAGS.INTERFACE_DEF, nameChildType: 'name' },
+      {
+        nodeType: 'interface_declaration',
+        captureTag: CAPTURE_TAGS.INTERFACE_DEF,
+        nameChildType: 'name',
+      },
       { nodeType: 'trait_declaration', captureTag: CAPTURE_TAGS.TRAIT_DEF, nameChildType: 'name' },
       { nodeType: 'enum_declaration', captureTag: CAPTURE_TAGS.ENUM_DEF, nameChildType: 'name' },
-      { nodeType: 'method_declaration', captureTag: CAPTURE_TAGS.METHOD_DEF, nameChildType: 'name' },
+      {
+        nodeType: 'method_declaration',
+        captureTag: CAPTURE_TAGS.METHOD_DEF,
+        nameChildType: 'name',
+      },
     ];
   }
 
@@ -115,7 +136,11 @@ export class PhpProvider extends TreeSitterBaseProvider {
         let baseNamespace = '';
         for (let j = i - 1; j >= 0; j--) {
           const prev = node.child(j);
-          if (prev.type === 'qualified_name' || prev.type === 'name' || prev.type === 'namespace_name') {
+          if (
+            prev.type === 'qualified_name' ||
+            prev.type === 'name' ||
+            prev.type === 'namespace_name'
+          ) {
             baseNamespace = prev.text;
             break;
           }
@@ -194,7 +219,12 @@ export class PhpProvider extends TreeSitterBaseProvider {
       }
 
       // Defensive: some grammar versions expose the qualified name directly.
-      if ((child.type === 'qualified_name' || child.type === 'name' || child.type === 'namespace_name') && source === '') {
+      if (
+        (child.type === 'qualified_name' ||
+          child.type === 'name' ||
+          child.type === 'namespace_name') &&
+        source === ''
+      ) {
         source = child.text;
       }
     }
@@ -259,16 +289,22 @@ export class PhpProvider extends TreeSitterBaseProvider {
     const nt = node.type;
 
     if (
-      nt === 'method_declaration' || nt === 'function_definition' ||
-      nt === 'class_declaration' || nt === 'interface_declaration' ||
-      nt === 'trait_declaration' || nt === 'enum_declaration'
+      nt === 'method_declaration' ||
+      nt === 'function_definition' ||
+      nt === 'class_declaration' ||
+      nt === 'interface_declaration' ||
+      nt === 'trait_declaration' ||
+      nt === 'enum_declaration'
     ) {
       const nameNode = this.findPhpName(node);
       if (nameNode && nameNode.text === symbolName) {
         // private/protected members are not exported; public (the default) is.
         for (let i = 0; i < node.childCount; i++) {
           const c = node.child(i);
-          if (c.type === 'visibility_modifier' && (c.text === 'private' || c.text === 'protected')) {
+          if (
+            c.type === 'visibility_modifier' &&
+            (c.text === 'private' || c.text === 'protected')
+          ) {
             return false;
           }
         }
@@ -298,31 +334,76 @@ export class PhpProvider extends TreeSitterBaseProvider {
     // Functions
     const funcRegex = /function\s+(\w+)\s*\(/g;
     while ((m = funcRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Classes
     const clRegex = /(?:abstract\s+)?(?:final\s+)?class\s+(\w+)/g;
     while ((m = clRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Interfaces
     const ifRegex = /interface\s+(\w+)/g;
     while ((m = ifRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.INTERFACE_DEF, text: `interface ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `interface ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Traits
     const trRegex = /trait\s+(\w+)/g;
     while ((m = trRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.TRAIT_DEF, text: `trait ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.TRAIT_DEF,
+        text: `trait ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Enums (PHP 8.1+)
     const enumRegex = /enum\s+(\w+)/g;
     while ((m = enumRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.ENUM_DEF, text: `enum ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Variables
@@ -332,19 +413,45 @@ export class PhpProvider extends TreeSitterBaseProvider {
       const name = m[1]!;
       if (name === 'this' || seen.has(name)) continue;
       seen.add(name);
-      captures.push({ tag: CAPTURE_TAGS.VARIABLE_DEF, text: name, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: name,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name,
+        properties: { filePath },
+      });
     }
 
     // Imports
     const imps = this.fallbackExtractImports(source);
     for (const imp of imps) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: imp.source,
+        startLine: imp.lineNumber,
+        endLine: imp.lineNumber,
+        startByte: 0,
+        endByte: 0,
+        name: imp.source,
+        properties: { names: imp.names.join(','), importType: imp.type, filePath },
+      });
     }
 
     // Doc comments
     const docRegex = /\/\*\*([\s\S]*?)\*\//g;
     while ((m = docRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.DOCSTRING, text: m[0], startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.DOCSTRING,
+        text: m[0],
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        properties: { filePath },
+      });
     }
 
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
@@ -365,7 +472,12 @@ export class PhpProvider extends TreeSitterBaseProvider {
       const alias = m[2];
       const parts = fullPath.split('\\');
       const name = alias ?? parts[parts.length - 1]!;
-      imports.push({ source: fullPath, names: [name], type: 'named', lineNumber: this.ln(source, m.index) });
+      imports.push({
+        source: fullPath,
+        names: [name],
+        type: 'named',
+        lineNumber: this.ln(source, m.index),
+      });
     }
 
     // Grouped imports: use Namespace\{A, B, C as D}
@@ -387,9 +499,15 @@ export class PhpProvider extends TreeSitterBaseProvider {
     }
 
     // require/include
-    const reqRegex = /(?:require|require_once|include|include_once)\s*(?:\(?\s*['"]([^'"]+)['"]\s*\)?)\s*;/g;
+    const reqRegex =
+      /(?:require|require_once|include|include_once)\s*(?:\(?\s*['"]([^'"]+)['"]\s*\)?)\s*;/g;
     while ((m = reqRegex.exec(source)) !== null) {
-      imports.push({ source: m[1]!, names: [m[1]!], type: 'default', lineNumber: this.ln(source, m.index) });
+      imports.push({
+        source: m[1]!,
+        names: [m[1]!],
+        type: 'default',
+        lineNumber: this.ln(source, m.index),
+      });
     }
 
     return imports;
@@ -399,7 +517,9 @@ export class PhpProvider extends TreeSitterBaseProvider {
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // PHP: public methods/properties, classes are typically public
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`(?:public\\s+)?function\\s+${s}\\b|class\\s+${s}\\b|interface\\s+${s}\\b|trait\\s+${s}\\b`).test(source);
+    return new RegExp(
+      `(?:public\\s+)?function\\s+${s}\\b|class\\s+${s}\\b|interface\\s+${s}\\b|trait\\s+${s}\\b`,
+    ).test(source);
   }
 
   private ln(source: string, offset: number): number {

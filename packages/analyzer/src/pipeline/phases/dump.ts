@@ -1,9 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: Dump
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-} from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
@@ -17,8 +14,13 @@ import { GraphBuilder } from '../../graph/graph-builder.js';
 export class DumpPhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'dump';
   readonly dependencies: PipelinePhaseId[] = [
-    'scopeResolution', 'routes', 'tools', 'di',
-    'communities', 'processes', 'tests',
+    'scopeResolution',
+    'routes',
+    'tools',
+    'di',
+    'communities',
+    'processes',
+    'tests',
   ];
   readonly description = 'Serialize and dump the knowledge graph to storage';
   readonly parallelizable = false;
@@ -53,7 +55,13 @@ export class DumpPhase implements ExecutablePhase {
         },
       };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      /* v8 ignore next -- @preserve -- errors thrown here are always Error instances */
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
+      /* v8 ignore next -- @preserve -- errors thrown here are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }

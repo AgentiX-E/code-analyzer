@@ -21,43 +21,57 @@ describe('PhpProvider', () => {
   describe('parse', () => {
     it('detects functions', () => {
       const captures = provider.parse('function hello() { return "hi"; }', 'test.php');
-      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some(f => f.name === 'hello')).toBe(true);
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((f) => f.name === 'hello')).toBe(true);
     });
 
     it('detects classes', () => {
-      const captures = provider.parse('class MyClass {\n  public function method() {}\n}', 'test.php');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classes.some(c => c.name === 'MyClass')).toBe(true);
+      const captures = provider.parse(
+        'class MyClass {\n  public function method() {}\n}',
+        'test.php',
+      );
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some((c) => c.name === 'MyClass')).toBe(true);
     });
 
     it('detects interfaces', () => {
-      const captures = provider.parse('interface MyInterface {\n  public function doSomething();\n}', 'test.php');
-      const ifaces = captures.filter(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
-      expect(ifaces.some(c => c.name === 'MyInterface')).toBe(true);
+      const captures = provider.parse(
+        'interface MyInterface {\n  public function doSomething();\n}',
+        'test.php',
+      );
+      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(ifaces.some((c) => c.name === 'MyInterface')).toBe(true);
     });
 
     it('detects traits', () => {
-      const captures = provider.parse('trait Loggable {\n  public function log($msg) {}\n}', 'test.php');
-      const traits = captures.filter(c => c.tag === CAPTURE_TAGS.TRAIT_DEF);
-      expect(traits.some(c => c.name === 'Loggable')).toBe(true);
+      const captures = provider.parse(
+        'trait Loggable {\n  public function log($msg) {}\n}',
+        'test.php',
+      );
+      const traits = captures.filter((c) => c.tag === CAPTURE_TAGS.TRAIT_DEF);
+      expect(traits.some((c) => c.name === 'Loggable')).toBe(true);
     });
 
     it('detects enums', () => {
       const captures = provider.parse('enum Color {\n  case Red;\n  case Green;\n}', 'test.php');
-      const enums = captures.filter(c => c.tag === CAPTURE_TAGS.ENUM_DEF);
-      expect(enums.some(c => c.name === 'Color')).toBe(true);
+      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
+      expect(enums.some((c) => c.name === 'Color')).toBe(true);
     });
 
     it('detects imports (use statements)', () => {
       const captures = provider.parse('use App\\Models\\User;\nclass Test {}', 'test.php');
-      const imports = captures.filter(c => c.tag === CAPTURE_TAGS.IMPORT);
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.length).toBeGreaterThanOrEqual(1);
     });
 
     it('handles empty source', () => {
       const captures = provider.parse('', 'empty.php');
       expect(Array.isArray(captures)).toBe(true);
+    });
+
+    it('parses source that already has a PHP opening tag', () => {
+      const captures = provider.parse('<?php function tagged() { return 1; }', 'tagged.php');
+      expect(captures.some((c) => c.name === 'tagged')).toBe(true);
     });
   });
 
