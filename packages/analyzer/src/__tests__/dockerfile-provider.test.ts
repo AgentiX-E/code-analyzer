@@ -44,6 +44,13 @@ describe('DockerfileProvider', () => {
       expect(imports[0]?.properties?.stage).toBe('build');
     });
 
+    it('should parse FROM with a --platform flag', () => {
+      const captures = provider.parse('FROM --platform=linux/amd64 node:18', 'Dockerfile');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports).toHaveLength(1);
+      expect(imports[0]?.name).toBe('--platform=linux/amd64 node:18');
+    });
+
     it('should parse FROM without a tag', () => {
       const captures = provider.parse('FROM alpine', 'Dockerfile');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
@@ -60,15 +67,18 @@ describe('DockerfileProvider', () => {
   });
 
   describe('parse — instructions', () => {
-    it.each(['RUN npm install', 'COPY . /app', 'ADD src /app', 'CMD ["node", "index.js"]', 'ENTRYPOINT ["node"]'])(
-      'should parse %s as a function call',
-      (line) => {
-        const captures = provider.parse(line, 'Dockerfile');
-        const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
-        expect(calls).toHaveLength(1);
-        expect(calls[0]?.properties?.isIaC).toBe('true');
-      },
-    );
+    it.each([
+      'RUN npm install',
+      'COPY . /app',
+      'ADD src /app',
+      'CMD ["node", "index.js"]',
+      'ENTRYPOINT ["node"]',
+    ])('should parse %s as a function call', (line) => {
+      const captures = provider.parse(line, 'Dockerfile');
+      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.properties?.isIaC).toBe('true');
+    });
 
     it('should name the RUN capture RUN', () => {
       const captures = provider.parse('RUN apt-get update', 'Dockerfile');
@@ -95,6 +105,14 @@ describe('DockerfileProvider', () => {
       const captures = provider.parse(code, 'Dockerfile');
       const names = captures.map((c) => c.name).sort();
       expect(names).toEqual(expect.arrayContaining(['EXPOSE', 'WORKDIR', 'VOLUME', 'USER']));
+    });
+
+    it('should ignore unrecognized instructions', () => {
+      const captures = provider.parse(
+        'STOPSIGNAL SIGTERM\nHEALTHCHECK CMD curl -f http://localhost',
+        'Dockerfile',
+      );
+      expect(captures).toHaveLength(0);
     });
 
     it('should parse LABEL as a variable definition', () => {
@@ -126,7 +144,8 @@ describe('DockerfileProvider', () => {
     });
 
     it('should parse multiple FROM (multi-stage build)', () => {
-      const code = 'FROM node:18 AS build\nRUN npm run build\nFROM nginx\nCOPY --from=build /app /usr/share/nginx/html';
+      const code =
+        'FROM node:18 AS build\nRUN npm run build\nFROM nginx\nCOPY --from=build /app /usr/share/nginx/html';
       const captures = provider.parse(code, 'Dockerfile');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports).toHaveLength(2);
