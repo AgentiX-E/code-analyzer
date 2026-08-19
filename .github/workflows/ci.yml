@@ -4,17 +4,17 @@
 # property/E2E tests, coverage gates, and benchmark checks.
 #
 # Triggered on:
-#   - push to main (gate for merge)
-#   - pull_request to main (pre-merge validation)
+#   - push to master (gate for merge)
+#   - pull_request to master (pre-merge validation)
 #   - manual workflow_dispatch
 
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 # Cancel in-progress runs on the same PR to conserve CI resources

@@ -1,7 +1,7 @@
 # @code-analyzer — Docker Build & Publish
 #
 # Builds multi-architecture Docker images and publishes to GitHub Container Registry
-# (ghcr.io) on push to main and version tags.
+# (ghcr.io) on push to master and version tags.
 #
 # Features:
 #   - Multi-arch: linux/amd64 + linux/arm64
@@ -16,7 +16,7 @@ name: Docker Build & Publish
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags:
       - 'v*'
     paths:
@@ -29,7 +29,7 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/docker-publish.yml'
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - 'Dockerfile'
       - 'docker/**'
@@ -107,7 +107,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,format=long
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
 
       - name: Compute version
         id: version

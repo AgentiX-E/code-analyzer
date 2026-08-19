@@ -1,17 +1,17 @@
 # @code-analyzer — Release Drafter
 #
 # Automatically drafts the next release notes based on merged PR labels.
-# Updates the draft on every push to main.
+# Updates the draft on every push to master.
 #
 # Triggered:
-#   - On push to main
+#   - On push to master
 #   - Manually via workflow_dispatch
 
 name: Release Drafter
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:

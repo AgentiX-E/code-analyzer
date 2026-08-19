@@ -313,9 +313,9 @@ See also: [Querying & Exploration tools](mcp-tool-reference.md#1-querying--explo
 name: Code Quality Gate
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   quality:

@@ -2,13 +2,13 @@ name: Security Audit
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'packages/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/security-audit.yml'
   pull_request:
-    branches: [main]
+    branches: [master]
   schedule:
     - cron: '0 8 * * 1'  # Every Monday at 08:00 UTC
 

@@ -4,14 +4,14 @@
 # and ensures all doc files are well-formed.
 #
 # Triggered:
-#   - Push to main when documentation changes
+#   - Push to master when documentation changes
 #   - Manual workflow_dispatch
 
 name: Documentation CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - '**.md'
       - 'docs/**'
@@ -20,7 +20,7 @@ on:
       - 'CHANGELOG.md'
       - '.github/workflows/docs.yml'
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - '**.md'
       - 'docs/**'

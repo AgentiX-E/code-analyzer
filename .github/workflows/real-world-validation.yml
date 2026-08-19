@@ -6,7 +6,7 @@
 # Triggered:
 #   - Weekly schedule (Sunday at 00:00 UTC)
 #   - Manual workflow_dispatch (with project selection)
-#   - Push to main when benchmark files change
+#   - Push to master when benchmark files change
 
 name: Real-World Validation
 
@@ -22,7 +22,7 @@ on:
         default: 'react,vue,django'
         type: string
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'tests/benchmarks/real-world/**'
       - 'packages/analyzer/src/languages/**'

@@ -317,7 +317,7 @@ jobs:
 name: Code Standards Check
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 jobs:

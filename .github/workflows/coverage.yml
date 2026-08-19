@@ -4,17 +4,17 @@
 # four dimensions: lines, branches, functions, statements.
 #
 # Triggered:
-#   - On push to main
-#   - On PRs targeting main
+#   - On push to master
+#   - On PRs targeting master
 #   - Manually via workflow_dispatch
 
 name: Coverage Gate
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:

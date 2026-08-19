@@ -62,13 +62,13 @@ const impact = await analyzer.analyzeImpact({ file: 'src/auth/login.ts', symbol:
 - 95%+ test coverage
 
 ## Documentation
-- Architecture: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/ARCHITECTURE.md
-- Configuration: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/CONFIGURATION.md
-- MCP Server: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/MCP-SERVER.md
-- Code Review: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/CODE-REVIEW.md
-- Language Support: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/language-support.md
-- Getting Started: https://github.com/AgentiX-E/code-analyzer/blob/main/docs/getting-started.md
-- Contributing: https://github.com/AgentiX-E/code-analyzer/blob/main/CONTRIBUTING.md
+- Architecture: https://github.com/AgentiX-E/code-analyzer/blob/master/docs/ARCHITECTURE.md
+- Configuration: https://github.com/AgentiX-E/code-analyzer/blob/master/docs/CONFIGURATION.md
+- MCP Server: https://github.com/AgentiX-E/code-analyzer/blob/master/docs/MCP-SERVER.md
+- Code Review: https://github.com/AgentiX-E/code-analyzer/blob/master/docs/CODE-REVIEW.md
+- Language Support: https://github.com/AgentiX-E/code-analyzer/blob/master/docs/language-support.md
+- Getting Started: https://github.com/AgentiX-E/code-analyzer/blob/master/docs/getting-started.md
+- Contributing: https://github.com/AgentiX-E/code-analyzer/blob/master/CONTRIBUTING.md
 
 ## Source
 - GitHub: https://github.com/AgentiX-E/code-analyzer

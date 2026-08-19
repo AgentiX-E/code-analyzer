@@ -1,20 +1,20 @@
 # @code-analyzer — Performance Regression Detection
 #
-# Runs benchmark suites and compares against the baseline stored in the main branch.
+# Runs benchmark suites and compares against the baseline stored in the master branch.
 # Fails the PR if any benchmark regresses beyond the threshold (15% slower).
 #
 # Triggered:
-#   - On every PR targeting main
-#   - On push to main (to update the baseline)
+#   - On every PR targeting master
+#   - On push to master (to update the baseline)
 #   - Manually via workflow_dispatch
 
 name: Performance Benchmarks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'packages/**/src/**'
       - 'scripts/run-benchmarks.ts'
@@ -75,9 +75,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: benchmark-baseline.json
-          key: benchmark-baseline-${{ github.ref == 'refs/heads/main' && github.sha || 'main-latest' }}
+          key: benchmark-baseline-${{ github.ref == 'refs/heads/master' && github.sha || 'master-latest' }}
           restore-keys: |
-            benchmark-baseline-main-
+            benchmark-baseline-master-
 
       - name: Run benchmarks
         id: run
@@ -116,8 +116,8 @@ jobs:
           path: benchmark-report.json
           retention-days: 90
 
-      - name: Cache baseline (main branch only)
-        if: github.ref == 'refs/heads/main' && steps.run.outcome == 'success'
+      - name: Cache baseline (master branch only)
+        if: github.ref == 'refs/heads/master' && steps.run.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: benchmark-report.json

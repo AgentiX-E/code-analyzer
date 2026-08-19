@@ -111,7 +111,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/AgentiX-E/code-analyzer/edit/main/docs/:path',
+      pattern: 'https://github.com/AgentiX-E/code-analyzer/edit/master/docs/:path',
     },
 
     footer: {
