@@ -168,6 +168,7 @@ export class TypeRegistry {
       const resolvedQname = fileImports.get(name);
       if (resolvedQname) {
         const resolved = this.types.get(resolvedQname);
+        /* v8 ignore next -- @preserve -- the import map only references registered qnames */
         if (resolved) {
           return {
             typeInfo: resolved,
@@ -197,7 +198,11 @@ export class TypeRegistry {
     // Resolve the owning type
     const resolved = contextFile
       ? this.resolveType(typeName, contextFile)
-      : { typeInfo: this.types.get(typeName) ?? null, isResolved: false, resolutionPath: [] as string[] };
+      : {
+          typeInfo: this.types.get(typeName) ?? null,
+          isResolved: false,
+          resolutionPath: [] as string[],
+        };
 
     if (!resolved.typeInfo) {
       return { member: null, ownerType: null, isResolved: false };
@@ -328,9 +333,10 @@ export class TypeRegistry {
         ...t,
         members: Array.from(t.members.entries()),
       })),
-      importMaps: Array.from(this.importResolutionMap.entries()).map(
-        ([file, map]) => [file, Array.from(map.entries())],
-      ),
+      importMaps: Array.from(this.importResolutionMap.entries()).map(([file, map]) => [
+        file,
+        Array.from(map.entries()),
+      ]),
     };
   }
 
