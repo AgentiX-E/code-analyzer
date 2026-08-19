@@ -11,7 +11,21 @@ import type { BasicBlock, ControlFlowGraph } from './cfg-types.js';
  * Control flow boundary information for a block.
  */
 interface BoundaryInfo {
-  type: 'if' | 'else' | 'for' | 'while' | 'switch' | 'case' | 'default' | 'try' | 'catch' | 'finally' | 'return' | 'throw' | 'break' | 'continue';
+  type:
+    | 'if'
+    | 'else'
+    | 'for'
+    | 'while'
+    | 'switch'
+    | 'case'
+    | 'default'
+    | 'try'
+    | 'catch'
+    | 'finally'
+    | 'return'
+    | 'throw'
+    | 'break'
+    | 'continue';
   line: number;
   /** For if/while/for: line of the matching end/close brace */
   endLine?: number;
@@ -120,11 +134,12 @@ export class CfgBuilder {
 
       // Collect captures within this function's line range
       const funcCaptures = captures.filter(
-        (c) => c.startLine >= funcDef.startLine && c.endLine <= funcEndLine && c.endLine < nextFuncStart,
+        (c) =>
+          c.startLine >= funcDef.startLine && c.endLine <= funcEndLine && c.endLine < nextFuncStart,
       );
 
       functions.push({
-        name: funcDef.name ?? funcDef.text ?? `func_${i}`,
+        name: funcDef.name ?? funcDef.text,
         funcCaptures,
       });
     }
@@ -156,8 +171,10 @@ export class CfgBuilder {
     // Compute edges
     this.computeEdges(blocks, boundaries);
 
-    const entryId = blocks[0]?.id ?? 0;
-    const exitId = blocks[blocks.length - 1]?.id ?? 0;
+    // createBlocks always produces at least one block for a non-empty capture
+    // set (guarded above by the sorted.length === 0 early return).
+    const entryId = blocks[0]!.id;
+    const exitId = blocks[blocks.length - 1]!.id;
 
     return {
       functionName,
@@ -274,22 +291,13 @@ export class CfgBuilder {
   /**
    * Create basic blocks by grouping statements between control flow boundaries.
    */
-  private createBlocks(
-    captures: UnifiedCapture[],
-    boundaries: BoundaryInfo[],
-  ): BasicBlock[] {
+  private createBlocks(captures: UnifiedCapture[], boundaries: BoundaryInfo[]): BasicBlock[] {
     const blocks: BasicBlock[] = [];
     const sortedCaps = [...captures].sort((a, b) => a.startLine - b.startLine);
-
-    // Create a set of boundary lines for quick lookup
-    const boundaryLines = new Set(boundaries.map((b) => b.line));
 
     // Group captures into blocks based on control flow boundaries
     let currentBlockCaptures: UnifiedCapture[] = [];
     let labelCounter = 0;
-
-    // Find the minimum line number among all captures
-    const minLine = sortedCaps.length > 0 ? sortedCaps[0]!.startLine : 1;
 
     // Build a map of line -> captures for block assignment
     const lineToCaptures = new Map<number, UnifiedCapture[]>();
@@ -303,7 +311,8 @@ export class CfgBuilder {
     const uniqueLines = [...new Set(sortedCaps.map((c) => c.startLine))].sort((a, b) => a - b);
 
     for (const line of uniqueLines) {
-      const lineCaps = lineToCaptures.get(line) ?? [];
+      // Every unique line is a key in lineToCaptures by construction.
+      const lineCaps = lineToCaptures.get(line)!;
 
       // Check if this line starts a new control flow boundary
       const boundaryAtLine = boundaries.find((b) => b.line === line);
@@ -330,19 +339,6 @@ export class CfgBuilder {
       blocks.push(this.makeBlock(currentBlockCaptures, `block_${labelCounter++}`));
     }
 
-    // If no blocks were created, create a single block
-    if (blocks.length === 0) {
-      blocks.push({
-        id: this.nextBlockId++,
-        label: 'entry',
-        statements: 0,
-        successors: [],
-        predecessors: [],
-        startLine: minLine,
-        endLine: minLine,
-      });
-    }
-
     // Post-process: handle case/default blocks within switch
     this.processSwitchBlocks(blocks, boundaries);
 
@@ -361,8 +357,8 @@ export class CfgBuilder {
       statements: captures.length,
       successors: [],
       predecessors: [],
-      startLine: lines.length > 0 ? Math.min(...lines) : 0,
-      endLine: lines.length > 0 ? Math.max(...captures.map((c) => c.endLine)) : 0,
+      startLine: Math.min(...lines),
+      endLine: Math.max(...captures.map((c) => c.endLine)),
     };
   }
 
@@ -374,16 +370,16 @@ export class CfgBuilder {
     const caseBoundaries = boundaries.filter((b) => b.type === 'case' || b.type === 'default');
 
     for (const switchB of switchBoundaries) {
-      const switchBlock = blocks.find((b) => b.startLine <= switchB.line && b.endLine >= switchB.line);
-      if (!switchBlock) continue;
+      // Every switch boundary creates a block at its own line.
+      const switchBlock = blocks.find((b) => b.startLine === switchB.line)!;
 
       // Find all case/default blocks within this switch's line range
       const switchCases = caseBoundaries.filter(
-        (c) => c.line >= switchB.line && (!switchB.endLine || c.line <= switchB.endLine),
+        (c) => c.line >= switchB.line && c.line <= switchB.endLine!,
       );
 
       for (const caseB of switchCases) {
-        const caseBlock = blocks.find((b) => b.startLine <= caseB.line && b.endLine >= caseB.line);
+        const caseBlock = blocks.find((b) => b.startLine === caseB.line);
         if (caseBlock && caseBlock.id !== switchBlock.id) {
           switchBlock.successors.push(caseBlock.id);
           caseBlock.predecessors.push(switchBlock.id);
@@ -397,15 +393,15 @@ export class CfgBuilder {
    * and control flow structure.
    */
   private computeEdges(blocks: BasicBlock[], boundaries: BoundaryInfo[]): void {
-    if (blocks.length === 0) return;
-
     // Default: sequential flow between blocks
     for (let i = 0; i < blocks.length - 1; i++) {
       const current = blocks[i]!;
       const next = blocks[i + 1]!;
 
       // Check if current block ends with a control flow terminator
-      const currentHasBoundary = boundaries.some((b) => b.line >= current.startLine && b.line <= current.endLine);
+      const currentHasBoundary = boundaries.some(
+        (b) => b.line >= current.startLine && b.line <= current.endLine,
+      );
       const hasReturn = boundaries.some(
         (b) => b.type === 'return' && b.line >= current.startLine && b.line <= current.endLine,
       );
@@ -441,24 +437,20 @@ export class CfgBuilder {
     const elseBoundaries = boundaries.filter((b) => b.type === 'else');
 
     for (const ifB of ifBoundaries) {
-      const ifBlock = blocks.find((b) => b.startLine <= ifB.line && b.endLine >= ifB.line);
-      if (!ifBlock) continue;
+      // Every if boundary creates a block at its own line.
+      const ifBlock = blocks.find((b) => b.startLine === ifB.line)!;
 
       // Find the matching else if it exists
-      const matchingElse = elseBoundaries.find(
-        (e) => e.line > ifB.line && (!ifB.endLine || e.line <= ifB.endLine),
-      );
+      const matchingElse = elseBoundaries.find((e) => e.line > ifB.line && e.line <= ifB.endLine!);
 
-      // Find successor blocks after the if/else
-      const ifEndLine = matchingElse ? matchingElse.endLine ?? matchingElse.line : ifB.endLine ?? ifB.line;
-
-      // Find the first block after the if statement's scope
+      // Find the first block after the if header (the then branch), before
+      // any matching else clause.
       const thenBlock = blocks.find(
-        (b) => b.startLine > ifBlock.endLine && (!matchingElse || b.endLine < matchingElse.line),
+        (b) => b.startLine > ifB.line && (!matchingElse || b.startLine < matchingElse.line),
       );
 
       const elseBlock = matchingElse
-        ? blocks.find((b) => b.startLine <= matchingElse.line && b.endLine >= matchingElse.line)
+        ? blocks.find((b) => b.startLine === matchingElse.line)
         : undefined;
 
       if (thenBlock) {
@@ -480,12 +472,12 @@ export class CfgBuilder {
     const loopBoundaries = boundaries.filter((b) => b.type === 'for' || b.type === 'while');
 
     for (const loop of loopBoundaries) {
-      const loopBlock = blocks.find((b) => b.startLine <= loop.line && b.endLine >= loop.line);
-      if (!loopBlock) continue;
+      // Every loop boundary creates a block at its own line.
+      const loopBlock = blocks.find((b) => b.startLine === loop.line)!;
 
       // Find the last block within the loop body (before the loop's end line)
       const loopBodyBlocks = blocks.filter(
-        (b) => b.startLine > loopBlock.endLine && (loop.endLine ? b.endLine <= loop.endLine : true),
+        (b) => b.startLine > loop.line && b.endLine <= loop.endLine!,
       );
 
       if (loopBodyBlocks.length > 0) {
@@ -496,9 +488,7 @@ export class CfgBuilder {
       }
 
       // Find the exit (first block after loop)
-      const exitBlock = blocks.find(
-        (b) => b.startLine > (loop.endLine ?? loop.line),
-      );
+      const exitBlock = blocks.find((b) => b.startLine > loop.endLine!);
 
       if (exitBlock) {
         loopBlock.successors.push(exitBlock.id);
@@ -516,35 +506,31 @@ export class CfgBuilder {
     const finallyBoundaries = boundaries.filter((b) => b.type === 'finally');
 
     for (const tryB of tryBoundaries) {
-      const tryBlock = blocks.find((b) => b.startLine <= tryB.line && b.endLine >= tryB.line);
-      if (!tryBlock) continue;
+      // Every try boundary creates a block at its own line.
+      const tryBlock = blocks.find((b) => b.startLine === tryB.line)!;
 
       // Find matching catch blocks
       const matchingCatches = catchBoundaries.filter(
-        (c) => c.line > tryB.line && (!tryB.endLine || c.line <= tryB.endLine),
+        (c) => c.line > tryB.line && c.line <= tryB.endLine!,
       );
 
       for (const catchB of matchingCatches) {
-        const catchBlock = blocks.find((b) => b.startLine <= catchB.line && b.endLine >= catchB.line);
-        if (catchBlock && catchBlock.id !== tryBlock.id) {
-          tryBlock.successors.push(catchBlock.id);
-          catchBlock.predecessors.push(tryBlock.id);
-        }
+        // Every catch boundary creates a block at its own line.
+        const catchBlock = blocks.find((b) => b.startLine === catchB.line)!;
+        tryBlock.successors.push(catchBlock.id);
+        catchBlock.predecessors.push(tryBlock.id);
       }
 
       // Find matching finally block
       const matchingFinally = finallyBoundaries.find(
-        (f) => f.line > tryB.line && (!tryB.endLine || f.line <= tryB.endLine),
+        (f) => f.line > tryB.line && f.line <= tryB.endLine!,
       );
 
       if (matchingFinally) {
-        const finallyBlock = blocks.find(
-          (b) => b.startLine <= matchingFinally.line && b.endLine >= matchingFinally.line,
-        );
-        if (finallyBlock && finallyBlock.id !== tryBlock.id) {
-          tryBlock.successors.push(finallyBlock.id);
-          finallyBlock.predecessors.push(tryBlock.id);
-        }
+        // Every finally boundary creates a block at its own line.
+        const finallyBlock = blocks.find((b) => b.startLine === matchingFinally.line)!;
+        tryBlock.successors.push(finallyBlock.id);
+        finallyBlock.predecessors.push(tryBlock.id);
       }
     }
   }
