@@ -146,13 +146,15 @@ describe('findBlockEnd', () => {
   });
 
   it('handles strings containing braces', () => {
-    // No trailing newline — findBlockEnd has a known edge case where
-    // a single-level block with trailing content after } returns
-    // the total line count. We test the actual behavior.
     const source = 'function foo() {\n  const s = "{";\n  return s;\n}';
     const endLine = findBlockEnd(source, 0);
-    // Without trailing \n, the closing brace at end matches on depth 0
     expect(endLine).toBe(4);
+  });
+
+  it('returns the closing brace line even with trailing newlines', () => {
+    const source = 'function foo() {\n  return 1;\n}\n\n// trailing comment\n';
+    const endLine = findBlockEnd(source, 0);
+    expect(endLine).toBe(3);
   });
 
   it('handles single-line comments containing braces', () => {
@@ -202,6 +204,24 @@ describe('extractClassLike', () => {
     expect(captures[0]!.name).toBe('MyClass');
     expect(captures[0]!.text).toBe('class MyClass');
     expect(captures[0]!.startLine).toBe(1);
+  });
+
+  it('extracts a class on the last line without a trailing newline', () => {
+    const source = 'class Last {\n  // body\n}';
+    const captures: UnifiedCapture[] = [];
+    extractClassLike(source, 'test.ts', captures, 'class', CAPTURE_TAGS.CLASS_DEF);
+
+    expect(captures).toHaveLength(1);
+    expect(captures[0]!.name).toBe('Last');
+  });
+
+  it('extracts a single-line class with no newline at all', () => {
+    const source = 'class SingleLine {}';
+    const captures: UnifiedCapture[] = [];
+    extractClassLike(source, 'test.ts', captures, 'class', CAPTURE_TAGS.CLASS_DEF);
+
+    expect(captures).toHaveLength(1);
+    expect(captures[0]!.name).toBe('SingleLine');
   });
 
   it('extracts interface definition', () => {
@@ -330,7 +350,18 @@ describe('extractFunctions', () => {
   it('extracts function definition with return type', () => {
     const source = 'int add(int a, int b) {\n  return a + b;\n}\n';
     const captures: UnifiedCapture[] = [];
-    const reserved = new Set<string>(['int', 'float', 'double', 'char', 'void', 'bool', 'string', 'var', 'let', 'const']);
+    const reserved = new Set<string>([
+      'int',
+      'float',
+      'double',
+      'char',
+      'void',
+      'bool',
+      'string',
+      'var',
+      'let',
+      'const',
+    ]);
     extractFunctions(source, 'test.c', captures, reserved);
 
     const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
@@ -343,12 +374,47 @@ describe('extractFunctions', () => {
   it('extracts void function', () => {
     const source = 'void print(const char* msg) {\n  printf("%s", msg);\n}\n';
     const captures: UnifiedCapture[] = [];
-    const reserved = new Set<string>(['int', 'float', 'double', 'char', 'void', 'bool', 'string', 'var', 'let', 'const']);
+    const reserved = new Set<string>([
+      'int',
+      'float',
+      'double',
+      'char',
+      'void',
+      'bool',
+      'string',
+      'var',
+      'let',
+      'const',
+    ]);
     extractFunctions(source, 'test.c', captures, reserved);
 
-    const printFunc = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'print');
+    const printFunc = captures.find(
+      (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'print',
+    );
     expect(printFunc).toBeDefined();
     expect(printFunc!.properties?.returnType).toBe('void');
+  });
+
+  it('extracts a function declaration without a body', () => {
+    const source = 'int forward(int a);\n';
+    const captures: UnifiedCapture[] = [];
+    const reserved = new Set<string>(['int', 'void']);
+    extractFunctions(source, 'test.c', captures, reserved);
+
+    const fwd = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'forward');
+    expect(fwd).toBeDefined();
+    expect(fwd!.properties?.returnType).toBe('int');
+  });
+
+  it('treats a same-named return type as a constructor (void return)', () => {
+    const source = 'Foo Foo() {\n  return;\n}\n';
+    const captures: UnifiedCapture[] = [];
+    const reserved = new Set<string>(['void']);
+    extractFunctions(source, 'test.cpp', captures, reserved);
+
+    const ctor = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Foo');
+    expect(ctor).toBeDefined();
+    expect(ctor!.properties?.returnType).toBe('void');
   });
 
   it('extracts functions with access modifiers', () => {

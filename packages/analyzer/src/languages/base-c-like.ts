@@ -46,8 +46,14 @@ export function findBlockEnd(source: string, startOffset: number): number {
       continue;
     }
 
-    if (prev === '/' && ch === '*') { inComment = true; continue; }
-    if (prev === '/' && ch === '/') { inLineComment = true; continue; }
+    if (prev === '/' && ch === '*') {
+      inComment = true;
+      continue;
+    }
+    if (prev === '/' && ch === '/') {
+      inLineComment = true;
+      continue;
+    }
 
     if (ch === '"' || ch === "'" || ch === '`') {
       inString = ch;
@@ -56,10 +62,10 @@ export function findBlockEnd(source: string, startOffset: number): number {
 
     if (ch === '{') depth++;
     else if (ch === '}') {
+      depth--;
       if (depth === 0) {
         return lineNumberAt(source, startOffset + i);
       }
-      depth--;
     }
   }
 
@@ -78,13 +84,19 @@ export function extractClassLike(
   modifiers?: string[],
 ): void {
   const modPrefix = modifiers ? `(?:${modifiers.join('|')}\\s+)*` : '';
-  const regex = new RegExp(`${modPrefix}(?:export\\s+)?(?:public\\s+)?(?:abstract\\s+)?(?:sealed\\s+)?${keyword}\\s+(\\w+)`, 'g');
+  const regex = new RegExp(
+    `${modPrefix}(?:export\\s+)?(?:public\\s+)?(?:abstract\\s+)?(?:sealed\\s+)?${keyword}\\s+(\\w+)`,
+    'g',
+  );
   let match: RegExpExecArray | null;
   while ((match = regex.exec(source)) !== null) {
     const name = match[1]!;
     const startLine = lineNumberAt(source, match.index);
     const endLine = findBlockEnd(source, match.index + match[0].length);
-    const fullLine = source.slice(match.index, source.indexOf('\n', match.index) !== -1 ? source.indexOf('\n', match.index) : source.length);
+    const fullLine = source.slice(
+      match.index,
+      source.indexOf('\n', match.index) !== -1 ? source.indexOf('\n', match.index) : source.length,
+    );
     const extendsMatch = fullLine.match(/extends\s+(\w+)/);
     const implementsMatch = fullLine.match(/implements\s+([\w\s,]+)/);
 
@@ -116,16 +128,24 @@ export function extractFunctions(
   reservedKeywords: ReadonlySet<string>,
 ): void {
   // Function declarations: returnType functionName(...) {
-  const funcRegex = /(?:(?:public|private|protected|static|abstract|final|virtual|override|async|unsafe|extern|native|synchronized)\s+)*(\w+(?:<[^>]*>)?)\s+(\w+)\s*\([^)]*\)\s*(?:\{[^}]*\})?\s*(?:\{|;)/g;
+  const funcRegex =
+    /(?:(?:public|private|protected|static|abstract|final|virtual|override|async|unsafe|extern|native|synchronized)\s+)*(\w+(?:<[^>]*>)?)\s+(\w+)\s*\([^)]*\)\s*(?:\{[^}]*\})?\s*(?:\{|;)/g;
   let match: RegExpExecArray | null;
   while ((match = funcRegex.exec(source)) !== null) {
     const retType = match[1]!;
     const name = match[2]!;
     if (reservedKeywords.has(name)) continue;
-    if (['if', 'while', 'for', 'switch', 'catch', 'with', 'lock', 'using', 'synchronized'].includes(name)) continue;
+    if (
+      ['if', 'while', 'for', 'switch', 'catch', 'with', 'lock', 'using', 'synchronized'].includes(
+        name,
+      )
+    )
+      continue;
     const startLine = lineNumberAt(source, match.index);
     const isMethod = match[0].includes('{') ? match[0].indexOf('{') < match[0].length : false;
-    const endLine = isMethod ? findBlockEnd(source, match.index + match[0].indexOf('{')) : startLine;
+    const endLine = isMethod
+      ? findBlockEnd(source, match.index + match[0].indexOf('{'))
+      : startLine;
 
     captures.push({
       tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -191,7 +211,10 @@ export function extractVariables(
     if (reservedKeywords.has(name)) continue;
     const line = lineNumberAt(source, match.index);
     captures.push({
-      tag: match[0].includes('const') || match[0].includes('final') || match[0].includes('val') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
+      tag:
+        match[0].includes('const') || match[0].includes('final') || match[0].includes('val')
+          ? CAPTURE_TAGS.CONSTANT_DEF
+          : CAPTURE_TAGS.VARIABLE_DEF,
       text: name,
       startLine: line,
       endLine: line,
