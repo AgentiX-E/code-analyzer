@@ -71,15 +71,16 @@ describe('KotlinProvider', () => {
     it('should extract interface definitions', () => {
       const code = 'interface Callback {\n  fun onSuccess()\n}';
       const captures = provider.parse(code, 'Callback.kt');
-      // tree-sitter-kotlin uses 'interface_declaration' which isn't in walkAndCapture
-      // but fallback catches it
-      expect(Array.isArray(captures)).toBe(true);
+      const interfaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(interfaces.some((c) => c.name === 'Callback')).toBe(true);
     });
 
     it('should extract object declarations', () => {
       const code = 'object DatabaseConfig {\n  val url = "localhost"\n}';
       const captures = provider.parse(code, 'Config.kt');
-      const objs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isObject === 'true');
+      const objs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isObject === 'true',
+      );
       expect(objs.some((c) => c.name === 'DatabaseConfig')).toBe(true);
     });
 
@@ -118,7 +119,8 @@ describe('KotlinProvider', () => {
     });
 
     it('should extract functions with modifiers', () => {
-      const code = 'private fun doInternal(): Unit { }\nsuspend fun fetchData(): String { return "" }';
+      const code =
+        'private fun doInternal(): Unit { }\nsuspend fun fetchData(): String { return "" }';
       const captures = provider.parse(code, 'test.kt');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'doInternal')).toBe(true);
@@ -133,7 +135,8 @@ describe('KotlinProvider', () => {
     });
 
     it('should extract functions with default params and varargs', () => {
-      const code = 'fun greet(name: String = "World", vararg args: String) { }\nfun sum(vararg nums: Int): Int = nums.sum()';
+      const code =
+        'fun greet(name: String = "World", vararg args: String) { }\nfun sum(vararg nums: Int): Int = nums.sum()';
       const captures = provider.parse(code, 'test.kt');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'greet')).toBe(true);
@@ -154,13 +157,15 @@ describe('KotlinProvider', () => {
     });
 
     it('should extract properties with getter/setter', () => {
-      const code = 'val getter: String get() = "hello"\nvar count: Int = 0\n  get() = field\n  set(value) { field = value }';
+      const code =
+        'val getter: String get() = "hello"\nvar count: Int = 0\n  get() = field\n  set(value) { field = value }';
       const captures = provider.parse(code, 'test.kt');
       expect(Array.isArray(captures)).toBe(true);
     });
 
     it('should extract annotations', () => {
-      const code = '@Override\nfun onCreate() { }\n@Deprecated("use newMethod")\nfun oldMethod() { }';
+      const code =
+        '@Override\nfun onCreate() { }\n@Deprecated("use newMethod")\nfun oldMethod() { }';
       const captures = provider.parse(code, 'test.kt');
       // tree-sitter uses 'annotation' which isn't in walkAndCapture
       expect(Array.isArray(captures)).toBe(true);
@@ -215,7 +220,8 @@ describe('KotlinProvider', () => {
     });
 
     it('should extract higher-order functions', () => {
-      const code = 'fun higherOrder(fn: () -> Unit) { fn() }\nfun execute(callback: (String) -> Boolean): Boolean { return callback("test") }';
+      const code =
+        'fun higherOrder(fn: () -> Unit) { fn() }\nfun execute(callback: (String) -> Boolean): Boolean { return callback("test") }';
       const captures = provider.parse(code, 'test.kt');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'higherOrder')).toBe(true);
@@ -236,7 +242,8 @@ describe('KotlinProvider', () => {
     });
 
     it('should extract class with methods inside', () => {
-      const code = 'class Calculator {\n  fun add(a: Int, b: Int): Int = a + b\n  fun subtract(a: Int, b: Int): Int = a - b\n}';
+      const code =
+        'class Calculator {\n  fun add(a: Int, b: Int): Int = a + b\n  fun subtract(a: Int, b: Int): Int = a - b\n}';
       const captures = provider.parse(code, 'test.kt');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.length).toBeGreaterThanOrEqual(2);
@@ -245,9 +252,12 @@ describe('KotlinProvider', () => {
     });
 
     it('should extract overloaded functions', () => {
-      const code = 'fun format(value: Int): String = value.toString()\nfun format(value: Double): String = value.toString()';
+      const code =
+        'fun format(value: Int): String = value.toString()\nfun format(value: Double): String = value.toString()';
       const captures = provider.parse(code, 'test.kt');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'format');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'format',
+      );
       expect(funcs.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -265,7 +275,8 @@ describe('KotlinProvider', () => {
     });
 
     it('should handle file with class, function, enum, and imports', () => {
-      const code = 'import kotlin.collections.List\n\nclass Box<T>(val value: T)\n\nfun main() { }\n\nenum class Direction { NORTH, SOUTH }';
+      const code =
+        'import kotlin.collections.List\n\nclass Box<T>(val value: T)\n\nfun main() { }\n\nenum class Direction { NORTH, SOUTH }';
       const captures = provider.parse(code, 'test.kt');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
@@ -404,7 +415,9 @@ describe('KotlinProvider', () => {
     it('fallbackParse should extract object declarations', () => {
       const code = 'object DatabaseConfig {\n  val url = "localhost"\n}';
       const captures = provider.fallbackParse(code, 'test.kt');
-      const objs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isObject === 'true');
+      const objs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isObject === 'true',
+      );
       expect(objs.some((c) => c.name === 'DatabaseConfig')).toBe(true);
     });
 
@@ -422,7 +435,8 @@ describe('KotlinProvider', () => {
     });
 
     it('fallbackParse should extract annotations', () => {
-      const code = '@Override\nfun onCreate() { }\n@Deprecated("use newMethod")\nfun oldMethod() { }';
+      const code =
+        '@Override\nfun onCreate() { }\n@Deprecated("use newMethod")\nfun oldMethod() { }';
       const captures = provider.fallbackParse(code, 'test.kt');
       const decs = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
       expect(decs.length).toBeGreaterThanOrEqual(2);
@@ -568,32 +582,6 @@ describe('KotlinProvider', () => {
       }
     });
 
-    it('findNamedChild should find child by type', () => {
-      const code = 'class Foo { fun bar() {} }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const classNode = p.findDeepChild(tree.rootNode, 'class_declaration');
-        if (classNode) {
-          const nameNode = p.findNamedChild(classNode, 'type_identifier');
-          expect(nameNode).toBeDefined();
-        }
-      }
-    });
-
-    it('findNamedChild should return null for missing child', () => {
-      const code = 'class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const classNode = p.findDeepChild(tree.rootNode, 'class_declaration');
-        if (classNode) {
-          const result = p.findNamedChild(classNode, 'nonexistent');
-          expect(result).toBeNull();
-        }
-      }
-    });
-
     it('findChild should find direct named child', () => {
       const code = 'class Foo { }';
       const p = provider as any;
@@ -618,13 +606,6 @@ describe('KotlinProvider', () => {
           expect(result).toBeNull();
         }
       }
-    });
-
-    it('getNodeMappings should return node type mappings', () => {
-      const p = provider as any;
-      const mappings = p.getNodeMappings();
-      expect(Array.isArray(mappings)).toBe(true);
-      expect(mappings.length).toBeGreaterThan(0);
     });
 
     it('walkAndCapture should handle empty source_file root', () => {

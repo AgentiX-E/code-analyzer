@@ -5,7 +5,7 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const KOTLIN_EXTENSIONS = ['.kt', '.kts'];
 const KOTLIN_GLOBS = ['**/*.kt', '**/*.kts'];
@@ -21,30 +21,21 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-kotlin') as TreeSitterLanguage;
-    } /* v8 ignore next */
-    catch {
+    } catch {
+      /* v8 ignore next -- @preserve -- native grammar module load failure is untestable */
       return null;
     }
   }
 
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      { nodeType: 'class_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'identifier' },
-      { nodeType: 'function_declaration', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-      { nodeType: 'interface_declaration', captureTag: CAPTURE_TAGS.INTERFACE_DEF, nameChildType: 'identifier' },
-      { nodeType: 'enum_class', captureTag: CAPTURE_TAGS.ENUM_DEF, nameChildType: 'identifier' },
-    ];
-  }
-
   // When tree-sitter grammar is available, use AST walking
-  /* v8 ignore start */
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     // Only used when grammar is loaded — fallback handles otherwise
     const nodeType = node.type;
 
     if (nodeType === 'class_declaration' || nodeType === 'object_declaration') {
       // tree-sitter-kotlin uses 'type_identifier' for class/object names
-      const nameNode = this.findChild(node, 'type_identifier') ?? this.findChild(node, 'identifier');
+      const nameNode = this.findChild(node, 'type_identifier');
+      /* v8 ignore next -- @preserve -- a declaration node always carries a name child */
       if (nameNode) {
         // Check if this is an enum class (has enum_class_body child)
         let isEnum = false;
@@ -54,10 +45,26 @@ export class KotlinProvider extends TreeSitterBaseProvider {
             break;
           }
         }
+        // tree-sitter-kotlin represents interfaces as class_declaration with an
+        // 'interface' keyword; distinguish them so they are not mislabeled CLASS_DEF
+        let isInterface = false;
+        for (let c = 0; c < node.childCount; c++) {
+          if (node.child(c).type === 'interface') {
+            isInterface = true;
+            break;
+          }
+        }
         const isObject = nodeType === 'object_declaration';
+        const tag = isEnum
+          ? CAPTURE_TAGS.ENUM_DEF
+          : isInterface
+            ? CAPTURE_TAGS.INTERFACE_DEF
+            : CAPTURE_TAGS.CLASS_DEF;
         captures.push({
-          tag: isEnum ? CAPTURE_TAGS.ENUM_DEF : CAPTURE_TAGS.CLASS_DEF,
-          text: isEnum ? `enum class ${nameNode.text}` : `${isObject ? 'object' : 'class'} ${nameNode.text}`,
+          tag,
+          text: isEnum
+            ? `enum class ${nameNode.text}`
+            : `${isInterface ? 'interface' : isObject ? 'object' : 'class'} ${nameNode.text}`,
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           startByte: nameNode.startIndex,
@@ -68,7 +75,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'function_declaration') {
       // tree-sitter-kotlin uses 'simple_identifier' for function names
-      const nameNode = this.findChild(node, 'simple_identifier') ?? this.findChild(node, 'identifier');
+      const nameNode = this.findChild(node, 'simple_identifier');
+      /* v8 ignore next -- @preserve -- a declaration node always carries a name child */
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -87,6 +95,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     if (nodeType === 'import_header') {
       const parts = this.collectImportPathParts(node);
       const sourcePath = parts.join('.');
+      /* v8 ignore next -- @preserve -- an import_header always carries a path */
       if (sourcePath) {
         captures.push({
           tag: CAPTURE_TAGS.IMPORT,
@@ -114,7 +123,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       nodeType === 'function_declaration' ||
       nodeType === 'property_declaration'
     ) {
-      const nameNode = 
+      const nameNode =
         this.findChild(node, 'type_identifier') ??
         this.findChild(node, 'simple_identifier') ??
         this.findChild(node, 'identifier');
@@ -131,20 +140,18 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   kotlinCheckExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
     return this.checkExported(node, symbolName);
   }
-  /* v8 ignore stop */
 
   // ---- Import extraction via AST walking ----
 
   /**
    * Walk the AST to find and extract Kotlin import statements.
    * Kotlin imports are represented as `import_header` nodes in the tree-sitter AST.
-   * 
+   *
    * Syntax handled:
    *   import kotlin.collections.List           // named import
    *   import kotlin.collections.*               // wildcard import
    *   import kotlin.collections.List as MyList  // aliased import
    */
-  /* v8 ignore next */
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_header') {
       this.extractKotlinImport(node, imports);
@@ -180,33 +187,21 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       }
     }
 
-    // Search for 'as' keyword followed by an identifier to extract the alias
-    // Also handle tree-sitter's import_alias node
-    for (let i = 0; i < node.childCount - 1; i++) {
-      if (node.child(i).text === 'as' && node.child(i + 1).type === 'identifier') {
-        aliasName = node.child(i + 1).text;
+    // Tree-sitter: import_alias holds the alias name as a type_identifier child
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (child.type === 'import_alias') {
+        const aliasNode = this.findChild(child, 'type_identifier');
+        /* v8 ignore next -- @preserve -- an import_alias always carries a type_identifier */
+        if (aliasNode) {
+          aliasName = aliasNode.text;
+        }
         break;
       }
     }
 
-    // Tree-sitter: check for import_alias named child
-    if (!aliasName) {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child.type === 'import_alias') {
-          for (let j = 0; j < child.namedChildCount; j++) {
-            const aliasChild = child.namedChild(j);
-            if (aliasChild.type === 'type_identifier' || aliasChild.type === 'identifier') {
-              aliasName = aliasChild.text;
-              break;
-            }
-          }
-          break;
-        }
-      }
-    }
-
     const sourcePath = parts.join('.');
+    /* v8 ignore next -- @preserve -- an import_header always carries an identifier path */
     if (!sourcePath) return;
 
     // Build the import name list:
@@ -240,50 +235,124 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     // Classes
     const clRegex = /(?:data\s+|sealed\s+|abstract\s+|open\s+|inner\s+)*class\s+(\w+)/g;
     while ((m = clRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Interfaces
     const ifRegex = /interface\s+(\w+)/g;
     while ((m = ifRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.INTERFACE_DEF, text: `interface ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `interface ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Objects
     const objRegex = /(?:companion\s+)?object\s+(\w+)/g;
     while ((m = objRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `object ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { isObject: 'true', filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `object ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { isObject: 'true', filePath },
+      });
     }
 
     // Enum classes
     const enumRegex = /enum\s+class\s+(\w+)/g;
     while ((m = enumRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.ENUM_DEF, text: `enum class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Functions (including extension functions: fun Type.name)
-    const funcRegex = /(?:(?:private|internal|protected|public|override|open|abstract|suspend|inline|operator|infix|tailrec|external)\s+)*fun\s+(?:<[^>]*>\s*)?(?:\w+\.)?(\w+)/g;
+    const funcRegex =
+      /(?:(?:private|internal|protected|public|override|open|abstract|suspend|inline|operator|infix|tailrec|external)\s+)*fun\s+(?:<[^>]*>\s*)?(?:\w+\.)?(\w+)/g;
     while ((m = funcRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Properties (val/var)
-    const propRegex = /(?:const\s+)?(?:lateinit\s+)?(?:private\s+|internal\s+|protected\s+)?(?:override\s+)?(?:open\s+)?(?:abstract\s+)?(val|var)\s+(\w+)/g;
+    const propRegex =
+      /(?:const\s+)?(?:lateinit\s+)?(?:private\s+|internal\s+|protected\s+)?(?:override\s+)?(?:open\s+)?(?:abstract\s+)?(val|var)\s+(\w+)/g;
     while ((m = propRegex.exec(source)) !== null) {
       const tag = m[1] === 'val' ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
-      captures.push({ tag, text: m[2]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[2]!, properties: { filePath } });
+      captures.push({
+        tag,
+        text: m[2]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[2]!,
+        properties: { filePath },
+      });
     }
 
     // Annotations
     const annRegex = /@(\w+)(?:\([\s\S]*?\))?/g;
     while ((m = annRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.DECORATOR, text: m[0], startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { decorator: m[1]!, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.DECORATOR,
+        text: m[0],
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { decorator: m[1]!, filePath },
+      });
     }
 
     // Imports
     const imps = this.fallbackExtractImports(source);
     for (const imp of imps) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: imp.source,
+        startLine: imp.lineNumber,
+        endLine: imp.lineNumber,
+        startByte: 0,
+        endByte: 0,
+        name: imp.source,
+        properties: { names: imp.names.join(','), importType: imp.type, filePath },
+      });
     }
 
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
@@ -306,7 +375,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
 
       imports.push({
         source: fullPath,
-        names: alias ? [alias] : (isWildcard ? [] : [parts[parts.length - 1]!]),
+        names: alias ? [alias] : isWildcard ? [] : [parts[parts.length - 1]!],
         type: isWildcard ? 'wildcard' : 'named',
         lineNumber: this.ln(source, m.index),
       });
@@ -319,19 +388,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(?:class|interface|object|fun|val|var)\\s+${s}\\b`).test(source);
   }
-  /* v8 ignore stop */
 
   // ---- Utility helpers ----
-
-  /**
-   * Find the first named child with the given type.
-   */
-  private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
-    }
-    return null;
-  }
 
   /**
    * Recursively search for a descendant node with the given type.
