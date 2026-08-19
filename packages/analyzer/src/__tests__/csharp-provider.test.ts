@@ -61,7 +61,8 @@ describe('CSharpProvider', () => {
     });
 
     it('should extract interface with methods and properties', () => {
-      const code = 'public interface IService {\n  void Process();\n  string Name { get; set; }\n  int GetCount();\n}';
+      const code =
+        'public interface IService {\n  void Process();\n  string Name { get; set; }\n  int GetCount();\n}';
       const captures = provider.parse(code, 'test.cs');
       const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
       expect(ifaces.some((c) => c.name === 'IService')).toBe(true);
@@ -152,7 +153,8 @@ describe('CSharpProvider', () => {
     });
 
     it('should extract auto-properties', () => {
-      const code = 'public class Config {\n  public string AppName { get; set; }\n  public int MaxRetries { get; set; } = 3;\n  public bool IsEnabled { get; private set; }\n}';
+      const code =
+        'public class Config {\n  public string AppName { get; set; }\n  public int MaxRetries { get; set; } = 3;\n  public bool IsEnabled { get; private set; }\n}';
       const captures = provider.parse(code, 'test.cs');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(vars.length).toBeGreaterThanOrEqual(3);
@@ -169,7 +171,8 @@ describe('CSharpProvider', () => {
     });
 
     it('should extract attributes on methods', () => {
-      const code = 'public class Test {\n  [HttpGet]\n  public string Get() { return ""; }\n  [HttpPost]\n  public void Post() { }\n}';
+      const code =
+        'public class Test {\n  [HttpGet]\n  public string Get() { return ""; }\n  [HttpPost]\n  public void Post() { }\n}';
       const captures = provider.parse(code, 'test.cs');
       const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
       expect(decorators.length).toBeGreaterThanOrEqual(2);
@@ -185,42 +188,48 @@ describe('CSharpProvider', () => {
     });
 
     it('should handle async methods', () => {
-      const code = 'public class Service {\n  public async Task<string> FetchAsync() { return ""; }\n}';
+      const code =
+        'public class Service {\n  public async Task<string> FetchAsync() { return ""; }\n}';
       const captures = provider.parse(code, 'test.cs');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.some((c) => c.name === 'FetchAsync')).toBe(true);
     });
 
     it('should handle class with multiple methods', () => {
-      const code = 'public class Calculator {\n  public int Add(int a, int b) { return a + b; }\n  public int Subtract(int a, int b) { return a - b; }\n  private void Init() { }\n}';
+      const code =
+        'public class Calculator {\n  public int Add(int a, int b) { return a + b; }\n  public int Subtract(int a, int b) { return a - b; }\n  private void Init() { }\n}';
       const captures = provider.parse(code, 'test.cs');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.length).toBeGreaterThanOrEqual(3);
     });
 
     it('should extract generic classes', () => {
-      const code = 'public class Box<T> {\n  private T Value { get; set; }\n  public T GetValue() { return Value; }\n}';
+      const code =
+        'public class Box<T> {\n  private T Value { get; set; }\n  public T GetValue() { return Value; }\n}';
       const captures = provider.parse(code, 'test.cs');
       const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classDefs.some((c) => c.name === 'Box')).toBe(true);
     });
 
     it('should extract generic methods', () => {
-      const code = 'public class Repository {\n  public List<T> GetAll<T>() { return new List<T>(); }\n}';
+      const code =
+        'public class Repository {\n  public List<T> GetAll<T>() { return new List<T>(); }\n}';
       const captures = provider.parse(code, 'test.cs');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.some((c) => c.name === 'GetAll')).toBe(true);
     });
 
     it('should extract LINQ method syntax', () => {
-      const code = 'public class Query {\n  public List<string> GetNames() { return items.Where(x => x.Active).Select(x => x.Name).ToList(); }\n}';
+      const code =
+        'public class Query {\n  public List<string> GetNames() { return items.Where(x => x.Active).Select(x => x.Name).ToList(); }\n}';
       const captures = provider.parse(code, 'test.cs');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.some((c) => c.name === 'GetNames')).toBe(true);
     });
 
     it('should extract file with multiple usings, class, interface, and struct', () => {
-      const code = 'using System;\nusing System.Linq;\npublic class Service { }\npublic interface IRepo { }\npublic struct Point { }';
+      const code =
+        'using System;\nusing System.Linq;\npublic class Service { }\npublic interface IRepo { }\npublic struct Point { }';
       const captures = provider.parse(code, 'test.cs');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
@@ -263,7 +272,8 @@ describe('CSharpProvider', () => {
     });
 
     it('should extract multiple using directives with different types', () => {
-      const code = 'using System;\nusing static System.Math;\nusing Alias = System.Collections.Generic.List;';
+      const code =
+        'using System;\nusing static System.Math;\nusing Alias = System.Collections.Generic.List;';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(3);
     });
@@ -301,6 +311,10 @@ describe('CSharpProvider', () => {
       // Regex fallback may not distinguish public from non-public consistently
       const result = provider.isExported('class InternalClass { }', 'InternalClass');
       expect(typeof result).toBe('boolean');
+    });
+
+    it('should return false for a private method', () => {
+      expect(provider.isExported('class Foo { private void Bar() { } }', 'Bar')).toBe(false);
     });
 
     it('should return false for non-matching name', () => {
