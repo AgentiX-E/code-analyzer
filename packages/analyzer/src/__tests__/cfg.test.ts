@@ -24,11 +24,7 @@ import type { BasicBlock, ControlFlowGraph } from '../cfg/cfg-types.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeBlock(
-  id: number,
-  successors: number[],
-  opts?: Partial<BasicBlock>,
-): BasicBlock {
+function makeBlock(id: number, successors: number[], opts?: Partial<BasicBlock>): BasicBlock {
   return {
     id,
     label: `block_${id}`,
@@ -58,11 +54,7 @@ describe('CFG Construction', () => {
   const builder = new CfgBuilder();
 
   it('should build a simple linear CFG (3 blocks)', () => {
-    const cfg = makeCfg('linear', [
-      makeBlock(0, [1]),
-      makeBlock(1, [2]),
-      makeBlock(2, []),
-    ]);
+    const cfg = makeCfg('linear', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
     expect(cfg.blocks).toHaveLength(3);
     expect(cfg.entryBlockId).toBe(0);
@@ -284,11 +276,7 @@ describe('Dominator Computation', () => {
   });
 
   it('every block should dominate itself', () => {
-    const cfg = makeCfg('self_dom', [
-      makeBlock(0, [1]),
-      makeBlock(1, [2]),
-      makeBlock(2, []),
-    ]);
+    const cfg = makeCfg('self_dom', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
     const doms = computeDominators(cfg);
     for (const block of cfg.blocks) {
@@ -439,11 +427,7 @@ describe('Dominator Computation', () => {
 describe('Dataflow Analysis', () => {
   describe('Reaching Definitions', () => {
     it('should compute reaching definitions for linear CFG', () => {
-      const cfg = makeCfg('rd_linear', [
-        makeBlock(0, [1]),
-        makeBlock(1, [2]),
-        makeBlock(2, []),
-      ]);
+      const cfg = makeCfg('rd_linear', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
       const defs = new Map<string, number[]>();
       defs.set('x', [0]); // x defined in block 0
@@ -460,11 +444,7 @@ describe('Dataflow Analysis', () => {
     });
 
     it('should handle killed definitions', () => {
-      const cfg = makeCfg('rd_kill', [
-        makeBlock(0, [1]),
-        makeBlock(1, [2]),
-        makeBlock(2, []),
-      ]);
+      const cfg = makeCfg('rd_kill', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
       const defs = new Map<string, number[]>();
       defs.set('x', [0, 2]); // x defined in blocks 0 and 2
@@ -500,10 +480,7 @@ describe('Dataflow Analysis', () => {
     });
 
     it('should handle empty definitions map', () => {
-      const cfg = makeCfg('rd_empty', [
-        makeBlock(0, [1]),
-        makeBlock(1, []),
-      ]);
+      const cfg = makeCfg('rd_empty', [makeBlock(0, [1]), makeBlock(1, [])]);
 
       const reaching = computeReachingDefinitions(cfg, new Map());
       expect(reaching.size).toBeGreaterThan(0);
@@ -522,16 +499,12 @@ describe('Dataflow Analysis', () => {
 
   describe('Live Variables', () => {
     it('should compute live variables for linear CFG', () => {
-      const cfg = makeCfg('lv_linear', [
-        makeBlock(0, [1]),
-        makeBlock(1, [2]),
-        makeBlock(2, []),
-      ]);
+      const cfg = makeCfg('lv_linear', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
       const uses = new Map<string, number[]>();
       uses.set('x', [1]); // x used in block 1
 
-      const liveVars = computeLiveVariables(cfg, uses);
+      const liveVars = computeLiveVariables(cfg, uses, new Map());
       expect(liveVars.size).toBeGreaterThan(0);
 
       // Block 0 should have x as live-out (since x is used in block 1)
@@ -550,7 +523,7 @@ describe('Dataflow Analysis', () => {
       const uses = new Map<string, number[]>();
       uses.set('result', [3]); // Used only in block 3
 
-      const liveVars = computeLiveVariables(cfg, uses);
+      const liveVars = computeLiveVariables(cfg, uses, new Map());
       // All blocks should have 'result' live-out since it's used at the end
       for (const block of cfg.blocks) {
         if (block.id !== 3) {
@@ -571,18 +544,15 @@ describe('Dataflow Analysis', () => {
       const uses = new Map<string, number[]>();
       uses.set('counter', [2]); // Used in loop body
 
-      const liveVars = computeLiveVariables(cfg, uses);
+      const liveVars = computeLiveVariables(cfg, uses, new Map());
       const live1 = liveVars.get(1);
       expect(live1).toBeDefined();
     });
 
     it('should handle empty uses', () => {
-      const cfg = makeCfg('lv_empty', [
-        makeBlock(0, [1]),
-        makeBlock(1, []),
-      ]);
+      const cfg = makeCfg('lv_empty', [makeBlock(0, [1]), makeBlock(1, [])]);
 
-      const liveVars = computeLiveVariables(cfg, new Map());
+      const liveVars = computeLiveVariables(cfg, new Map(), new Map());
       // No variables ever used, so all live-out sets should be empty
       expect(liveVars.size).toBeGreaterThanOrEqual(0);
     });
@@ -590,11 +560,7 @@ describe('Dataflow Analysis', () => {
 
   describe('Unreachable Code Detection', () => {
     it('should detect no unreachable code in fully connected CFG', () => {
-      const cfg = makeCfg('reach_all', [
-        makeBlock(0, [1]),
-        makeBlock(1, [2]),
-        makeBlock(2, []),
-      ]);
+      const cfg = makeCfg('reach_all', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
       const unreachable = detectUnreachableCode(cfg);
       expect(unreachable).toHaveLength(0);
@@ -646,13 +612,13 @@ describe('Dataflow Analysis', () => {
   describe('Dead Store Detection', () => {
     it('should return empty array for empty CFG', () => {
       const cfg = makeCfg('ds_empty', []);
-      const deadStores = detectDeadStores(cfg);
+      const deadStores = detectDeadStores(cfg, new Map(), new Map());
       expect(deadStores).toHaveLength(0);
     });
 
     it('should return empty for single block with no defs', () => {
       const cfg = makeCfg('ds_single', [makeBlock(0, [])]);
-      const deadStores = detectDeadStores(cfg);
+      const deadStores = detectDeadStores(cfg, new Map(), new Map());
       // No block assignments populated by default, so no dead stores
       expect(deadStores).toHaveLength(0);
     });
@@ -660,27 +626,20 @@ describe('Dataflow Analysis', () => {
 
   describe('Available Expressions', () => {
     it('should compute available expressions for linear CFG', () => {
-      const cfg = makeCfg('ae_linear', [
-        makeBlock(0, [1]),
-        makeBlock(1, [2]),
-        makeBlock(2, []),
-      ]);
+      const cfg = makeCfg('ae_linear', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
       const exprs = new Map<number, string[]>();
       exprs.set(0, ['a + b']);
       exprs.set(2, ['x * y']);
 
-      const avail = computeAvailableExpressions(cfg, exprs);
+      const avail = computeAvailableExpressions(cfg, exprs, new Map());
       expect(avail.size).toBeGreaterThan(0);
     });
 
     it('should have empty available set at entry', () => {
-      const cfg = makeCfg('ae_entry', [
-        makeBlock(0, [1]),
-        makeBlock(1, []),
-      ]);
+      const cfg = makeCfg('ae_entry', [makeBlock(0, [1]), makeBlock(1, [])]);
 
-      const avail = computeAvailableExpressions(cfg, new Map());
+      const avail = computeAvailableExpressions(cfg, new Map(), new Map());
       const entryAvail = avail.get(0);
       expect(entryAvail).toBeDefined();
       if (entryAvail) {
@@ -689,22 +648,271 @@ describe('Dataflow Analysis', () => {
     });
 
     it('should propagate expressions through sequential blocks', () => {
-      const cfg = makeCfg('ae_prop', [
-        makeBlock(0, [1]),
-        makeBlock(1, [2]),
-        makeBlock(2, []),
-      ]);
+      const cfg = makeCfg('ae_prop', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
 
       const exprs = new Map<number, string[]>();
       exprs.set(0, ['x + 1']);
 
-      const avail = computeAvailableExpressions(cfg, exprs);
+      const avail = computeAvailableExpressions(cfg, exprs, new Map());
       // Expression should be available at block 1's entry
       const block1Avail = avail.get(1);
       expect(block1Avail).toBeDefined();
       if (block1Avail) {
         expect(block1Avail.has('x + 1')).toBe(true);
       }
+    });
+
+    it('removes killed expressions from availability', () => {
+      const cfg = makeCfg('ae_kill', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
+
+      const exprs = new Map<number, string[]>();
+      exprs.set(0, ['a + b']);
+      const kills = new Map<number, string[]>();
+      kills.set(1, ['a + b']); // block 1 redefines an operand of 'a + b'
+
+      const avail = computeAvailableExpressions(cfg, exprs, kills);
+      // Available at block 1's entry, but killed before block 2's entry.
+      expect(avail.get(1)!.has('a + b')).toBe(true);
+      expect(avail.get(2)!.has('a + b')).toBe(false);
+    });
+
+    it('intersects availability across multiple predecessors', () => {
+      const cfg = makeCfg('ae_intersect', [
+        makeBlock(0, [1, 2]),
+        makeBlock(1, [3]),
+        makeBlock(2, [3]),
+        makeBlock(3, []),
+      ]);
+
+      const exprs = new Map<number, string[]>();
+      exprs.set(1, ['x + 1']);
+      exprs.set(2, ['x + 1']);
+
+      const avail = computeAvailableExpressions(cfg, exprs, new Map());
+      // Both branches generate 'x + 1', so it is available at block 3's entry.
+      expect(avail.get(3)!.has('x + 1')).toBe(true);
+    });
+
+    it('treats a missing predecessor result as an empty set', () => {
+      const cfg = makeCfg('ae_no_pred', [makeBlock(0, [1]), makeBlock(1, [])]);
+
+      const avail = computeAvailableExpressions(cfg, new Map(), new Map());
+      expect(avail.get(0)!.size).toBe(0);
+    });
+  });
+
+  describe('Live Variables — defs kill liveness', () => {
+    it('removes a definition from liveness on earlier blocks', () => {
+      const cfg = makeCfg('lv_def', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
+
+      const uses = new Map<string, number[]>();
+      uses.set('x', [2]);
+      const defs = new Map<string, number[]>();
+      defs.set('x', [1]); // x redefined in block 1, killing its liveness before 1
+
+      const liveVars = computeLiveVariables(cfg, uses, defs);
+      // x is used in block 2 but redefined in block 1, so it is not live-out of block 0.
+      expect(liveVars.get(0)!.has('x')).toBe(false);
+    });
+
+    it('keeps a variable live when no definition intervenes', () => {
+      const cfg = makeCfg('lv_nodef', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
+
+      const uses = new Map<string, number[]>();
+      uses.set('x', [2]);
+
+      const liveVars = computeLiveVariables(cfg, uses, new Map());
+      expect(liveVars.get(0)!.has('x')).toBe(true);
+    });
+  });
+
+  describe('Dead Store Detection — populated assignments/usages', () => {
+    it('flags an assigned variable that is never used', () => {
+      const cfg = makeCfg('ds_never_used', [makeBlock(0, [1]), makeBlock(1, [])]);
+
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      const deadStores = detectDeadStores(cfg, assignments, new Map());
+      expect(deadStores).toContainEqual({ blockId: 0, variable: 'y' });
+    });
+
+    it('does not flag an assigned variable that is used in a successor', () => {
+      const cfg = makeCfg('ds_used', [makeBlock(0, [1]), makeBlock(1, [])]);
+
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      const usages = new Map<number, string[]>();
+      usages.set(1, ['y']);
+
+      const deadStores = detectDeadStores(cfg, assignments, usages);
+      expect(deadStores).toHaveLength(0);
+    });
+
+    it('flags a store whose variable is redefined before use', () => {
+      const cfg = makeCfg('ds_redef', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
+
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      assignments.set(1, ['y']); // redefined before use
+      const usages = new Map<number, string[]>();
+      usages.set(2, ['y']);
+
+      const deadStores = detectDeadStores(cfg, assignments, usages);
+      // The block 0 store of y is dead (redefined in block 1), but block 1's is used.
+      expect(deadStores).toContainEqual({ blockId: 0, variable: 'y' });
+      expect(deadStores).not.toContainEqual({ blockId: 1, variable: 'y' });
+    });
+
+    it('traverses multiple successors before finding a use', () => {
+      const cfg = makeCfg('ds_traverse', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [])]);
+
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      const usages = new Map<number, string[]>();
+      usages.set(2, ['y']);
+
+      const deadStores = detectDeadStores(cfg, assignments, usages);
+      expect(deadStores).toHaveLength(0);
+    });
+
+    it('handles a loop back-edge without infinite recursion', () => {
+      // 0 -> {1, 2}; block 2 points back to 1, so 1 is pushed twice before
+      // being visited (exercising the already-visited guard in checkVariableUsed).
+      const cfg = makeCfg('ds_loop', [makeBlock(0, [1, 2]), makeBlock(1, []), makeBlock(2, [1])]);
+
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      const deadStores = detectDeadStores(cfg, assignments, new Map());
+      expect(deadStores).toContainEqual({ blockId: 0, variable: 'y' });
+    });
+  });
+
+  describe('Unreachable Code Detection — cycles', () => {
+    it('handles a diamond back-edge without marking blocks unreachable', () => {
+      // 0 -> {1, 2}; block 2 points back to 1, so 1 is pushed twice before
+      // being visited (exercising the already-visited guard in the DFS).
+      const cfg = makeCfg('reach_loop', [
+        makeBlock(0, [1, 2]),
+        makeBlock(1, []),
+        makeBlock(2, [1]),
+      ]);
+
+      const unreachable = detectUnreachableCode(cfg);
+      expect(unreachable).toHaveLength(0);
+    });
+  });
+
+  describe('Available Expressions — disjoint and empty predecessors', () => {
+    it('handles a block with no predecessors', () => {
+      const cfg = makeCfg('ae_disconnected', [
+        makeBlock(0, [1]),
+        makeBlock(1, []),
+        makeBlock(2, []), // no predecessors
+      ]);
+
+      const avail = computeAvailableExpressions(cfg, new Map(), new Map());
+      expect(avail.get(2)!.size).toBe(0);
+    });
+
+    it('intersects availability when predecessor sets differ in size', () => {
+      const cfg = makeCfg('ae_sizes', [
+        makeBlock(0, [1, 2]),
+        makeBlock(1, [3]),
+        makeBlock(2, [3]),
+        makeBlock(3, []),
+      ]);
+
+      const exprs = new Map<number, string[]>();
+      exprs.set(1, ['a', 'b']);
+      exprs.set(2, ['c']);
+
+      const avail = computeAvailableExpressions(cfg, exprs, new Map());
+      // {a, b} ∩ {c} = ∅
+      expect(avail.get(3)!.size).toBe(0);
+    });
+  });
+
+  describe('defensive handling of malformed input', () => {
+    it('ignores definitions for a non-existent block in reaching definitions', () => {
+      const cfg = makeCfg('rd_bogus_def', [makeBlock(0, [1]), makeBlock(1, [])]);
+      const defs = new Map<string, number[]>();
+      defs.set('x', [999]);
+      const reaching = computeReachingDefinitions(cfg, defs);
+      expect(reaching.get(0)!.size).toBe(0);
+    });
+
+    it('ignores uses and defs for a non-existent block in live variables', () => {
+      const cfg = makeCfg('lv_bogus', [makeBlock(0, [1]), makeBlock(1, [])]);
+      const uses = new Map<string, number[]>();
+      uses.set('x', [999]);
+      const defs = new Map<string, number[]>();
+      defs.set('y', [999]);
+      const live = computeLiveVariables(cfg, uses, defs);
+      expect(live.size).toBe(2);
+    });
+
+    it('ignores assignments and usages for a non-existent block in dead stores', () => {
+      const cfg = makeCfg('ds_bogus', [makeBlock(0, [1]), makeBlock(1, [])]);
+      const assignments = new Map<number, string[]>();
+      assignments.set(999, ['y']);
+      const usages = new Map<number, string[]>();
+      usages.set(999, ['z']);
+      const deadStores = detectDeadStores(cfg, assignments, usages);
+      expect(deadStores).toHaveLength(0);
+    });
+
+    it('ignores a successor that is not a real block in unreachable detection', () => {
+      const cfg = makeCfg('reach_bogus_succ', [makeBlock(0, [999]), makeBlock(1, [])]);
+      const unreachable = detectUnreachableCode(cfg);
+      expect(unreachable).toContain(1);
+    });
+
+    it('ignores a bogus successor during dead-store traversal', () => {
+      const cfg = makeCfg('ds_bogus_succ', [makeBlock(0, [999]), makeBlock(1, [])]);
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      const deadStores = detectDeadStores(cfg, assignments, new Map());
+      expect(deadStores).toContainEqual({ blockId: 0, variable: 'y' });
+    });
+
+    it('ignores a bogus predecessor in reaching definitions', () => {
+      const cfg = makeCfg('rd_bogus_pred', [makeBlock(0, [1]), makeBlock(1, [])]);
+      cfg.blocks[1]!.predecessors = [999];
+      const reaching = computeReachingDefinitions(cfg, new Map());
+      expect(reaching.size).toBe(2);
+    });
+
+    it('ignores a bogus successor in live variables', () => {
+      const cfg = makeCfg('lv_bogus_succ', [makeBlock(0, [1]), makeBlock(1, [])]);
+      cfg.blocks[0]!.successors = [999];
+      const live = computeLiveVariables(cfg, new Map(), new Map());
+      expect(live.size).toBe(2);
+    });
+
+    it('ignores a back-edge predecessor with no avail-out yet', () => {
+      // In a loop, block 1's back-edge predecessor (block 2) has no avail-out
+      // on the first pass, so it is skipped until a later iteration.
+      const cfg = makeCfg('ae_backedge', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [1])]);
+      const avail = computeAvailableExpressions(cfg, new Map(), new Map());
+      expect(avail.size).toBe(3);
+    });
+
+    it('does not re-push an already-visited successor in dead-store traversal', () => {
+      const cfg = makeCfg('ds_cycle', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [1])]);
+      const assignments = new Map<number, string[]>();
+      assignments.set(0, ['y']);
+      const deadStores = detectDeadStores(cfg, assignments, new Map());
+      expect(deadStores).toContainEqual({ blockId: 0, variable: 'y' });
+    });
+
+    it('detects a same-size content change during reaching-definitions iteration', () => {
+      // A loop where a killed definition is replaced by another of equal size.
+      const cfg = makeCfg('rd_replace', [makeBlock(0, [1]), makeBlock(1, [2]), makeBlock(2, [1])]);
+      const defs = new Map<string, number[]>();
+      defs.set('a', [0, 2]);
+      defs.set('b', [1]);
+      const reaching = computeReachingDefinitions(cfg, defs);
+      expect(reaching.size).toBe(3);
     });
   });
 });

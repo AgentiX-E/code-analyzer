@@ -79,8 +79,8 @@ export function computeReachingDefinitions(
 
       // REACH_OUT[B] = GEN[B] ∪ (REACH_IN[B] - KILL[B])
       const newOut = new Set(newIn);
-      const gen = blockDefs.get(block.id) ?? new Set();
-      const kill = blockKills.get(block.id) ?? new Set();
+      const gen = blockDefs.get(block.id)!;
+      const kill = blockKills.get(block.id)!;
 
       // Remove killed definitions
       for (const v of kill) newOut.delete(v);
@@ -111,17 +111,19 @@ export function computeReachingDefinitions(
  * to a use of v along which v is not redefined.
  *
  * @param cfg - The control flow graph
- * @param uses - Map from block ID to array of variable names used in that block
+ * @param uses - Map from variable name to array of block IDs where it is used
+ * @param defs - Map from variable name to array of block IDs where it is defined
  * @returns Map from block ID to set of variables live on exit from that block
  */
 export function computeLiveVariables(
   cfg: ControlFlowGraph,
   uses: Map<string, number[]>,
+  defs: Map<string, number[]>,
 ): Map<number, Set<string>> {
   const liveIn = new Map<number, Set<string>>();
   const liveOut = new Map<number, Set<string>>();
 
-  // Build uses per block
+  // Build uses and defs per block
   const blockUses = new Map<number, Set<string>>();
   const blockDefs = new Map<number, Set<string>>();
 
@@ -130,12 +132,26 @@ export function computeLiveVariables(
     blockDefs.set(block.id, new Set());
   }
 
-  // For live variables, the 'uses' parameter maps variable -> [blockIds where it's used]
+  // For live variables, 'uses' maps variable -> [blockIds where it's used],
+  // and 'defs' maps variable -> [blockIds where it's defined].
   for (const [variable, blockIds] of uses) {
     for (const blockId of blockIds) {
       const useSet = blockUses.get(blockId);
       if (useSet) useSet.add(variable);
     }
+  }
+  for (const [variable, blockIds] of defs) {
+    for (const blockId of blockIds) {
+      const defSet = blockDefs.get(blockId);
+      if (defSet) defSet.add(variable);
+    }
+  }
+
+  // Initialize live sets for every block so the returned map is complete
+  // (blocks with empty live-out sets must still be present).
+  for (const block of cfg.blocks) {
+    liveIn.set(block.id, new Set());
+    liveOut.set(block.id, new Set());
   }
 
   // Iterate until fixed point (backward analysis)
@@ -160,18 +176,18 @@ export function computeLiveVariables(
       }
 
       // LIVE_IN[B] = USE[B] ∪ (LIVE_OUT[B] - DEF[B])
-      const use = blockUses.get(block.id) ?? new Set();
-      const def = blockDefs.get(block.id) ?? new Set();
+      const use = blockUses.get(block.id)!;
+      const def = blockDefs.get(block.id)!;
 
       const newIn = new Set(newOut);
       for (const v of def) newIn.delete(v);
       for (const v of use) newIn.add(v);
 
-      if (!setEquals(newOut, liveOut.get(block.id) ?? new Set())) {
+      if (!setEquals(newOut, liveOut.get(block.id)!)) {
         liveOut.set(block.id, newOut);
         changed = true;
       }
-      if (!setEquals(newIn, liveIn.get(block.id) ?? new Set())) {
+      if (!setEquals(newIn, liveIn.get(block.id)!)) {
         liveIn.set(block.id, newIn);
         changed = true;
       }
@@ -235,22 +251,20 @@ export function detectUnreachableCode(cfg: ControlFlowGraph): number[] {
  * before the variable is redefined or goes out of scope.
  *
  * @param cfg - The control flow graph
+ * @param assignments - Map from block ID to variables assigned in that block
+ * @param usages - Map from block ID to variables used in that block
  * @returns Array of { blockId, variable } pairs indicating dead stores
  */
 export function detectDeadStores(
   cfg: ControlFlowGraph,
+  assignments: Map<number, string[]>,
+  usages: Map<number, string[]>,
 ): Array<{ blockId: number; variable: string }> {
   const deadStores: Array<{ blockId: number; variable: string }> = [];
 
   if (cfg.blocks.length === 0) return deadStores;
 
-  // Build a map of which variables are used in each block
-  // This requires scanning the CFG — for the analyzer pipeline, we use
-  // a simplified approach: check if a variable assigned in a block
-  // is used in any successor or reachable block before being redefined.
-
-  // Track: for each block, what variables are assigned and what are used
-  // We derive this from block labels and statement content
+  // Build per-block assignment and usage sets from the caller-provided maps.
   const blockAssignments = new Map<number, Set<string>>();
   const blockUsages = new Map<number, Set<string>>();
 
@@ -259,17 +273,22 @@ export function detectDeadStores(
     blockUsages.set(block.id, new Set());
   }
 
-  // Simple heuristic: check for blocks that define variables but
-  // the definitions are not used before being overwritten or
-  // before the function exits.
+  for (const [blockId, vars] of assignments) {
+    const set = blockAssignments.get(blockId);
+    if (set) for (const v of vars) set.add(v);
+  }
+  for (const [blockId, vars] of usages) {
+    const set = blockUsages.get(blockId);
+    if (set) for (const v of vars) set.add(v);
+  }
 
-  // Build reachability via BFS from each defining block
+  // For each defining block, check whether the assigned variable is used
+  // before being redefined along any forward path.
   for (const block of cfg.blocks) {
-    const assignments = blockAssignments.get(block.id);
-    if (!assignments || assignments.size === 0) continue;
+    const assignmentsInBlock = blockAssignments.get(block.id);
+    if (!assignmentsInBlock || assignmentsInBlock.size === 0) continue;
 
-    for (const variable of assignments) {
-      // Check if this variable is used before being redefined along any path
+    for (const variable of assignmentsInBlock) {
       const isUsed = checkVariableUsed(cfg, block.id, variable, blockAssignments, blockUsages);
       if (!isUsed) {
         deadStores.push({ blockId: block.id, variable });
@@ -296,6 +315,7 @@ function checkVariableUsed(
 
   // Start from successors of the defining block
   const startBlock = cfg.blocks.find((b) => b.id === startBlockId);
+  /* v8 ignore next -- @preserve -- startBlockId always references a block in cfg.blocks */
   if (!startBlock) return false;
 
   for (const succId of startBlock.successors) {
@@ -344,11 +364,14 @@ function checkVariableUsed(
  *
  * @param cfg - The control flow graph
  * @param expressions - Map from block ID to array of expression strings generated
+ * @param kills - Map from block ID to array of expression strings killed
+ *   (their operands redefined) in that block
  * @returns Map from block ID to set of available expressions at block entry
  */
 export function computeAvailableExpressions(
   cfg: ControlFlowGraph,
   expressions: Map<number, string[]>,
+  kills: Map<number, string[]>,
 ): Map<number, Set<string>> {
   const availIn = new Map<number, Set<string>>();
   const availOut = new Map<number, Set<string>>();
@@ -365,7 +388,7 @@ export function computeAvailableExpressions(
 
   for (const block of cfg.blocks) {
     gen.set(block.id, new Set(expressions.get(block.id) ?? []));
-    kill.set(block.id, new Set());
+    kill.set(block.id, new Set(kills.get(block.id) ?? []));
   }
 
   // Initialize: entry has nothing available, others have everything
@@ -387,8 +410,8 @@ export function computeAvailableExpressions(
     iterCount++;
 
     for (const block of cfg.blocks) {
-      const genSet = gen.get(block.id) ?? new Set();
-      const killSet = kill.get(block.id) ?? new Set();
+      const genSet = gen.get(block.id)!;
+      const killSet = kill.get(block.id)!;
 
       if (block.id === cfg.entryBlockId) {
         // AVAIL_IN[entry] = ∅ (already set)
@@ -455,6 +478,7 @@ function intersectSets(a: Set<string>, b: Set<string>): Set<string> {
 
 function setEquals(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
+  /* v8 ignore next -- @preserve -- the analyses are monotonic, so equal-size sets are always equal */
   for (const val of a) {
     if (!b.has(val)) return false;
   }
