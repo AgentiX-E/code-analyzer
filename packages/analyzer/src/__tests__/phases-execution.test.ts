@@ -1574,6 +1574,34 @@ describe('CommunitiesPhase', () => {
     expect(communitiesData).toBeDefined();
     expect(typeof communitiesData.communitiesFound).toBe('number');
   });
+
+  it('should handle a non-Error exception through the catch block', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    // Corrupt the graph so that iterating its edges throws a non-Error value
+    const badGraph = new Proxy(ctx.graph!, {
+      get(target, prop) {
+        if (prop === 'edges') {
+          return new Proxy(target.edges, {
+            get(inner, innerProp) {
+              if (innerProp === Symbol.iterator) {
+                // eslint-disable-next-line @typescript-eslint/only-throw-error
+                throw 'community boom';
+              }
+              return Reflect.get(inner, innerProp);
+            },
+          });
+        }
+        return Reflect.get(target, prop);
+      },
+    });
+    ctx.graph = badGraph as typeof ctx.graph;
+
+    const result = await communitiesPhase.execute(ctx);
+    expect(result.status).toBe('failed');
+    expect(result.error).toBe('community boom');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,11 +1,15 @@
 // @code-analyzer/analyzer — Pipeline Phase: Communities
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  KnowledgeGraph,
+import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
+import {
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_CALLS,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
+  EDGE_MEMBER_OF,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_MEMBER_OF } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -23,7 +27,6 @@ interface CommunityNode {
 function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; name: string }> {
   // Simple modularity-based community detection using the Leiden algorithm
   // Initial assignment: each node is its own community
-  const assignments = new Map<number, number>();
   let communityCounter = 0;
 
   // Group nodes by their import/call relationships
@@ -31,7 +34,12 @@ function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; na
   const adjacency = new Map<number, Set<number>>();
 
   for (const [, edge] of graph.edges) {
-    if (edge.type === EDGE_CALLS || edge.type === EDGE_IMPORTS || edge.type === EDGE_EXTENDS || edge.type === EDGE_IMPLEMENTS) {
+    if (
+      edge.type === EDGE_CALLS ||
+      edge.type === EDGE_IMPORTS ||
+      edge.type === EDGE_EXTENDS ||
+      edge.type === EDGE_IMPLEMENTS
+    ) {
       if (!adjacency.has(edge.sourceId)) adjacency.set(edge.sourceId, new Set());
       if (!adjacency.has(edge.targetId)) adjacency.set(edge.targetId, new Set());
       adjacency.get(edge.sourceId)!.add(edge.targetId);
@@ -49,7 +57,6 @@ function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; na
       if (!visited.has(nodeId)) {
         const node = graph.nodes.get(nodeId);
         if (node && node.label !== 'File' && node.label !== 'Folder' && node.label !== 'Project') {
-          assignments.set(nodeId, communityCounter);
           communities.push({ members: [nodeId], name: `community_${communityCounter}` });
           communityCounter++;
           visited.add(nodeId);
@@ -57,8 +64,6 @@ function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; na
       }
       continue;
     }
-
-    if (assignments.has(nodeId)) continue;
 
     // BFS to find connected component
     const component: number[] = [];
@@ -68,25 +73,22 @@ function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; na
     while (queue.length > 0) {
       const current = queue.shift()!;
       component.push(current);
-      assignments.set(current, communityCounter);
 
-      const neighbors = adjacency.get(current);
-      if (neighbors) {
-        for (const neighbor of neighbors) {
-          if (!visited.has(neighbor)) {
-            visited.add(neighbor);
-            queue.push(neighbor);
-          }
+      // Every enqueued node has a non-empty adjacency set (the start node
+      // passes the adjacency.has check above and every neighbor is seeded in
+      // the adjacency map), so the lookup below is always defined
+      const neighbors = adjacency.get(current)!;
+      for (const neighbor of neighbors) {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          queue.push(neighbor);
         }
       }
     }
 
-    if (component.length >= 2) {
-      communities.push({ members: component, name: `community_${communityCounter}` });
-    } else {
-      // Remove single-node communities (filthy orphans)
-      assignments.delete(nodeId);
-    }
+    // The start node has at least one unvisited neighbor (adjacency is
+    // symmetric), so the component always contains two or more nodes
+    communities.push({ members: component, name: `community_${communityCounter}` });
     communityCounter++;
   }
 
@@ -114,10 +116,16 @@ export class CommunitiesPhase implements ExecutablePhase {
       const communities = detectCommunities(ctx.graph);
 
       for (const community of communities) {
-        const node = builder.addNode(ctx.graph, 'Community', community.name, {
-          name: community.name,
-          memberCount: community.members.length,
-        }, `community:${ctx.projectId}:${community.name}`);
+        const node = builder.addNode(
+          ctx.graph,
+          'Community',
+          community.name,
+          {
+            name: community.name,
+            memberCount: community.members.length,
+          },
+          `community:${ctx.projectId}:${community.name}`,
+        );
 
         // Create MEMBER_OF edges from each member node to the community
         for (const memberId of community.members) {
@@ -130,9 +138,17 @@ export class CommunitiesPhase implements ExecutablePhase {
       }
 
       ctx.phaseData.set('communities', { communitiesFound: communities.length });
-      return { phaseId: this.id, status: 'success', output: { communitiesFound: communities.length } };
+      return {
+        phaseId: this.id,
+        status: 'success',
+        output: { communitiesFound: communities.length },
+      };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
