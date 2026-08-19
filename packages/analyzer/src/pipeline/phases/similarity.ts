@@ -1,11 +1,7 @@
 // @code-analyzer/analyzer — Pipeline Phase: Similarity
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  DiscoveredFile,
-} from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_SIMILAR_TO } from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_SIMILAR_TO } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -18,7 +14,7 @@ import { GraphBuilder } from '../../graph/graph-builder.js';
 
 const MINHASH_SEEDS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53];
 
-function tokenizeCode(content: string, granularity: number = 3): string[] {
+export function tokenizeCode(content: string, granularity: number = 3): string[] {
   // AST node-type trigram approximation using whitespace-delimited tokens
   const tokens = content
     .replace(/\/\/.*$/gm, '') // Remove single-line comments
@@ -36,7 +32,7 @@ function tokenizeCode(content: string, granularity: number = 3): string[] {
   return ngrams;
 }
 
-function computeMinHash(ngrams: string[], numHashes: number = 16): number[] {
+export function computeMinHash(ngrams: string[], numHashes: number = 16): number[] {
   const hashes: number[] = new Array(numHashes).fill(Number.MAX_SAFE_INTEGER);
 
   for (const ngram of ngrams) {
@@ -51,7 +47,7 @@ function computeMinHash(ngrams: string[], numHashes: number = 16): number[] {
   return hashes;
 }
 
-function jaccardSimilarity(a: number[], b: number[]): number {
+export function jaccardSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let matches = 0;
   for (let i = 0; i < a.length; i++) {
@@ -79,8 +75,7 @@ export class SimilarityPhase implements ExecutablePhase {
 
       const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: DiscoveredFile[] }
-        | undefined;
+        { discoveredFiles: DiscoveredFile[] } | undefined;
 
       if (!scanData?.discoveredFiles) {
         return { phaseId: this.id, status: 'success', output: { similarPairsFound: 0 } };
@@ -112,16 +107,16 @@ export class SimilarityPhase implements ExecutablePhase {
 
           const similarity = jaccardSimilarity(hashA, hashB);
           if (similarity >= SIMILARITY_THRESHOLD) {
-            const nodeA = fileNodeMap.get(pathA);
-            const nodeB = fileNodeMap.get(pathB);
+            // fileHashes and fileNodeMap are populated together for the same
+            // files, so every path in fileEntries is guaranteed present here.
+            const nodeA = fileNodeMap.get(pathA)!;
+            const nodeB = fileNodeMap.get(pathB)!;
 
-            if (nodeA && nodeB) {
-              try {
-                builder.addEdge(ctx.graph, nodeA, nodeB, EDGE_SIMILAR_TO, ctx.projectId);
-                similarPairsFound++;
-              } catch {
-                // Edge may already exist
-              }
+            try {
+              builder.addEdge(ctx.graph, nodeA, nodeB, EDGE_SIMILAR_TO, ctx.projectId);
+              similarPairsFound++;
+            } catch {
+              // Edge may already exist
             }
           }
         }
@@ -130,7 +125,11 @@ export class SimilarityPhase implements ExecutablePhase {
       ctx.phaseData.set('similarity', { similarPairsFound });
       return { phaseId: this.id, status: 'success', output: { similarPairsFound } };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
