@@ -89,7 +89,8 @@ describe('RustProvider', () => {
     });
 
     it('should extract trait with methods', () => {
-      const code = 'pub trait Handler {\n  fn process(&self);\n  fn default(&self) -> bool { true }\n}';
+      const code =
+        'pub trait Handler {\n  fn process(&self);\n  fn default(&self) -> bool { true }\n}';
       const captures = provider.parse(code, 'test.rs');
       const traits = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
       expect(traits.some((c) => c.name === 'Handler')).toBe(true);
@@ -127,9 +128,14 @@ describe('RustProvider', () => {
       const code = 'use std::collections::*;\npub fn main() { }';
       const captures = provider.parse(code, 'main.rs');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      // tree-sitter-rust wraps wildcard in 'use_wildcard' node;
-      // walkForImports only checks for scoped_identifier directly
-      expect(Array.isArray(imports)).toBe(true);
+      expect(imports.some((c) => c.name === 'std::collections::*')).toBe(true);
+    });
+
+    it('should extract use aliased imports', () => {
+      const code = 'use std::collections::HashMap as Map;\npub fn main() { }';
+      const captures = provider.parse(code, 'main.rs');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((c) => c.name === 'std::collections::HashMap')).toBe(true);
     });
 
     it('should handle empty files', () => {
@@ -154,19 +160,25 @@ describe('RustProvider', () => {
     it('should extract impl blocks', () => {
       const code = 'impl User {\n  pub fn new() -> Self { Self { } }\n}';
       const captures = provider.parse(code, 'test.rs');
-      const impls = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isImpl === 'true');
+      const impls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isImpl === 'true',
+      );
       expect(impls.some((c) => c.name === 'User')).toBe(true);
     });
 
     it('should extract impl blocks for traits', () => {
-      const code = 'impl Display for User {\n  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "User") }\n}';
+      const code =
+        'impl Display for User {\n  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "User") }\n}';
       const captures = provider.parse(code, 'test.rs');
-      const impls = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isImpl === 'true');
+      const impls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isImpl === 'true',
+      );
       expect(impls.some((c) => c.name === 'Display')).toBe(true);
     });
 
     it('should extract impl blocks with generics and where clauses', () => {
-      const code = 'impl<T> Foo<T> where T: Display {\n  pub fn new(val: T) -> Self { Self(val) }\n}';
+      const code =
+        'impl<T> Foo<T> where T: Display {\n  pub fn new(val: T) -> Self { Self(val) }\n}';
       const captures = provider.parse(code, 'test.rs');
       // generic_type wraps type_identifier; findChild only checks direct children
       expect(Array.isArray(captures)).toBe(true);
@@ -189,13 +201,13 @@ describe('RustProvider', () => {
     it('should extract attributes', () => {
       const code = '#[derive(Debug)]\npub struct Point {\n  x: f64,\n  y: f64,\n}';
       const captures = provider.parse(code, 'test.rs');
-      // attribute_item in tree-sitter-rust has 'attribute' as named child,
-      // not 'identifier' directly — the current findChild doesn't traverse into attribute
-      expect(Array.isArray(captures)).toBe(true);
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators.some((c) => c.name === 'derive')).toBe(true);
     });
 
     it('should handle lifetime annotations', () => {
-      const code = "fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {\n  if x.len() > y.len() { x } else { y }\n}";
+      const code =
+        "fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {\n  if x.len() > y.len() { x } else { y }\n}";
       const captures = provider.parse(code, 'test.rs');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'longest')).toBe(true);
@@ -227,7 +239,8 @@ describe('RustProvider', () => {
     });
 
     it('should extract macro_rules! definitions', () => {
-      const code = 'macro_rules! my_macro {\n  ($x:expr) => { println!("{}", $x) };\n}\nfn main() { }';
+      const code =
+        'macro_rules! my_macro {\n  ($x:expr) => { println!("{}", $x) };\n}\nfn main() { }';
       const captures = provider.parse(code, 'test.rs');
       expect(Array.isArray(captures)).toBe(true);
     });
@@ -240,7 +253,8 @@ describe('RustProvider', () => {
     });
 
     it('should handle file with struct, enum, trait, and impl', () => {
-      const code = 'pub struct Data { val: i32 }\npub enum Status { On, Off }\npub trait Printable { fn print(&self); }\nimpl Printable for Data { fn print(&self) { } }';
+      const code =
+        'pub struct Data { val: i32 }\npub enum Status { On, Off }\npub trait Printable { fn print(&self); }\nimpl Printable for Data { fn print(&self) { } }';
       const captures = provider.parse(code, 'test.rs');
       const structs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
@@ -276,9 +290,18 @@ describe('RustProvider', () => {
     it('should extract wildcard imports', () => {
       const code = 'use std::collections::*;';
       const imports = provider.extractImports(code);
-      // tree-sitter-rust wraps wildcard imports in 'use_wildcard' node
-      // the current walkForImports only looks for scoped_identifier directly
-      expect(Array.isArray(imports)).toBe(true);
+      expect(imports.length).toBeGreaterThanOrEqual(1);
+      const wildcard = imports.find((i) => i.type === 'wildcard');
+      expect(wildcard).toBeDefined();
+      expect(wildcard!.source).toBe('std::collections');
+    });
+
+    it('should extract aliased imports', () => {
+      const code = 'use std::collections::HashMap as Map;';
+      const imports = provider.extractImports(code);
+      expect(imports.length).toBeGreaterThanOrEqual(1);
+      expect(imports[0].names).toContain('HashMap');
+      expect(imports[0].type).toBe('named');
     });
 
     it('should handle files without imports', () => {
