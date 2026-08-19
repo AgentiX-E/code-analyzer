@@ -22,14 +22,20 @@ import {
 
 let GoLanguage: unknown;
 
-function loadGoLanguage(): boolean {
-  if (GoLanguage) return true;
+/**
+ * Lazily load the tree-sitter-go grammar. Returns the grammar language object,
+ * or null if the native binding fails to load (e.g. binary incompatibility).
+ * Callers fall back to regex extraction in that case.
+ */
+function loadGoLanguage(): unknown {
+  if (GoLanguage) return GoLanguage;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     GoLanguage = require('tree-sitter-go');
-    return true;
+    return GoLanguage;
   } catch {
-    return false;
+    /* v8 ignore next -- @preserve native module load failure is untestable */
+    return null;
   }
 }
 
@@ -80,6 +86,17 @@ export class GoResolver extends TypeResolverBase {
   private filePath = '';
   private typeCache = new Map<string, ResolvedType>();
   private interfaceCache = new Map<string, GoInterfaceInfo>();
+  private readonly loadGrammar: () => unknown;
+
+  /**
+   * @param loadGrammar Injectable grammar loader (test seam). Defaults to the
+   *   lazy `loadGoLanguage` helper. Returns the grammar language object or
+   *   null to trigger regex fallback extraction.
+   */
+  constructor(loadGrammar: () => unknown = loadGoLanguage) {
+    super();
+    this.loadGrammar = loadGrammar;
+  }
 
   // -----------------------------------------------------------------------
   // TypeResolverBase implementation
@@ -153,12 +170,13 @@ export class GoResolver extends TypeResolverBase {
     this.source = source;
     this.filePath = filePath;
 
-    if (!loadGoLanguage()) {
+    const language = this.loadGrammar();
+    if (!language) {
       return this.fallbackExtractTypes(source, filePath);
     }
 
     const parser = new Parser();
-    parser.setLanguage(GoLanguage as Parser.Language);
+    parser.setLanguage(language as Parser.Language);
     const tree = parser.parse(source);
     const types: TypeInfo[] = [];
 
@@ -393,11 +411,13 @@ export class GoResolver extends TypeResolverBase {
 
     if (nt === 'function_declaration') {
       const info = this.extractFunction(node, source);
+      /* v8 ignore next -- @preserve -- extractFunction always returns a TypeInfo for a function_declaration */
       if (info) types.push(info);
     }
 
     if (nt === 'method_declaration') {
       const info = this.extractMethod(node, source);
+      /* v8 ignore next -- @preserve -- extractMethod always returns a TypeInfo for a method_declaration */
       if (info) types.push(info);
     }
 
@@ -413,10 +433,12 @@ export class GoResolver extends TypeResolverBase {
   private extractTypeDeclaration(node: SyntaxNode, _source: string, types: TypeInfo[]): void {
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
+      /* v8 ignore next -- @preserve -- index is bounded by childCount */
       if (!child) continue;
 
       if (child.type === 'type_spec') {
         const name = this.childText(child, 'type_identifier');
+        /* v8 ignore next -- @preserve -- type_spec always has a type_identifier */
         if (!name) continue;
 
         const qn = `file:${this.filePath}:${name}`;
@@ -426,10 +448,12 @@ export class GoResolver extends TypeResolverBase {
         let baseTypes: string[] = [];
         const typeParams: string[] = [];
 
-        // Look for struct_type, interface_type directly as named children of type_spec
+        // Generic type params (Go 1.18+) — type_parameter_list on the type_spec.
+        this.extractGenericParams(child, typeParams);
+
+        // Look for struct_type / interface_type as named children of type_spec.
         const structNode = this.findChild(child, 'struct_type');
         const interfaceNode = this.findChild(child, 'interface_type');
-        const genericNode = this.findChild(child, 'generic_type');
 
         if (structNode) {
           kind = 'class'; // Go struct
@@ -437,16 +461,13 @@ export class GoResolver extends TypeResolverBase {
         } else if (interfaceNode) {
           kind = 'interface';
           members = this.extractInterfaceMethods(interfaceNode);
-          // Register interface for satisfaction checking
+          // Register interface for satisfaction checking.
           this.interfaceCache.set(name, {
             name,
             package: '',
             methods: this.extractInterfaceSigs(interfaceNode),
-            embeddedInterfaces: [],
+            embeddedInterfaces: this.extractEmbeddedInterfaces(interfaceNode),
           });
-        } else if (genericNode) {
-          kind = 'type';
-          this.extractGenericParams(child, typeParams);
         }
 
         types.push({
@@ -465,40 +486,28 @@ export class GoResolver extends TypeResolverBase {
 
   private extractFunction(node: SyntaxNode, _source: string): TypeInfo | null {
     const name = this.childText(node, 'identifier');
+    /* v8 ignore next -- @preserve -- function_declaration always has an identifier */
     if (!name) return null;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = name[0] === name[0]?.toUpperCase();
     const typeParams = this.extractFuncGenericParams(node);
 
-    // Parameters
+    const paramLists = this.collectParamLists(node);
+
+    // Parameters (first parameter_list)
     const paramTypes: string[] = [];
-    const paramList = this.findChild(node, 'parameter_list');
-    if (paramList) {
-      this.extractGoParams(paramList, paramTypes);
+    /* v8 ignore next -- @preserve -- every function declaration has a parameter_list */
+    if (paramLists[0]) {
+      this.extractGoParams(paramLists[0], paramTypes);
     }
 
-    // Results
-    let returnType: string | null = null;
-    const resultList = this.findChild(node, 'result');
-    if (resultList) {
-      const resParams: string[] = [];
-      this.extractGoParams(resultList, resParams);
-      returnType = resParams.length === 0 ? 'void' :
-        resParams.length === 1 ? resParams[0]! :
-        `(${resParams.join(', ')})`;
-    }
-
-    // Check for receiver (method)
-    let baseType = '';
-    const receiver = this.findChild(node, 'parameter_list');
-    if (receiver && node.type === 'method_declaration') {
-      // First param is the receiver
-    }
+    // Results: a second parameter_list (multi-result) or a direct type node.
+    const returnType = this.extractResultType(node, paramLists, 1);
 
     return {
       name, qualifiedName: qn, filePath: this.filePath, kind: 'function',
-      members: new Map(), baseTypes: baseType ? [baseType] : [],
+      members: new Map(), baseTypes: [],
       implementedInterfaces: [], typeParameters: typeParams,
       returnType, parameterTypes: paramTypes,
       isExported: exported, isAbstract: false, decorators: [],
@@ -508,47 +517,39 @@ export class GoResolver extends TypeResolverBase {
 
   private extractMethod(node: SyntaxNode, _source: string): TypeInfo | null {
     const name = this.childText(node, 'field_identifier');
+    /* v8 ignore next -- @preserve -- method_declaration always has a field_identifier */
     if (!name) return null;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = name[0] === name[0]?.toUpperCase();
 
-    // Get receiver type
+    // paramLists[0] = receiver, paramLists[1] = params, paramLists[2] = results.
+    const paramLists = this.collectParamLists(node);
+
+    // Receiver type (strip the leading `*` from pointer receivers).
     let receiverType = '';
-    const paramList = this.findChild(node, 'parameter_list');
-    if (paramList) {
-      const firstParam = paramList.child(0);
-      if (firstParam) {
-        const typeNode = this.findChild(firstParam, 'type');
-        if (typeNode) {
-          receiverType = typeNode.text.replace(/^\*/, '').trim();
-        }
+    /* v8 ignore next -- @preserve -- method_declaration always has a receiver */
+    if (paramLists[0]) {
+      const recvParams: string[] = [];
+      this.extractGoParams(paramLists[0], recvParams);
+      /* v8 ignore next -- @preserve -- receiver always carries a type */
+      if (recvParams.length > 0) {
+        receiverType = recvParams[0]!.replace(/^\*/, '').trim();
       }
     }
 
-    // Parameters after receiver
+    // Parameters after the receiver.
     const paramTypes: string[] = [];
-    if (paramList && paramList.childCount > 1) {
-      for (let i = 1; i < paramList.childCount; i++) {
-        const p = paramList.child(i);
-        if (p) {
-          const typeNode = this.findChild(p, 'type');
-          if (typeNode) paramTypes.push(typeNode.text);
-        }
-      }
+    /* v8 ignore next -- @preserve -- method always has a parameter_list */
+    if (paramLists[1]) {
+      this.extractGoParams(paramLists[1], paramTypes);
     }
 
-    let returnType: string | null = null;
-    const result = this.findChild(node, 'result');
-    if (result) {
-      const resParams: string[] = [];
-      this.extractGoParams(result, resParams);
-      returnType = resParams.join(', ') || 'void';
-    }
+    const returnType = this.extractResultType(node, paramLists, 2);
 
     return {
       name, qualifiedName: qn, filePath: this.filePath, kind: 'function',
-      members: new Map(), baseTypes: receiverType ? [receiverType] : [],
+      members: new Map(), baseTypes: [receiverType],
       implementedInterfaces: [], typeParameters: [],
       returnType, parameterTypes: paramTypes,
       isExported: exported, isAbstract: false, decorators: [],
@@ -566,6 +567,7 @@ export class GoResolver extends TypeResolverBase {
   private extractStructFields(structNode: SyntaxNode, _structName: string): Map<string, TypeMember> {
     const members = new Map<string, TypeMember>();
     const body = this.findChild(structNode, 'field_declaration_list');
+    /* v8 ignore next -- @preserve -- struct_type always has a field_declaration_list */
     if (!body) return members;
 
     for (let i = 0; i < body.childCount; i++) {
@@ -581,18 +583,13 @@ export class GoResolver extends TypeResolverBase {
         }
       }
 
-      // Get type
-      const typeNode = this.findChild(child, 'type');
+      // Get type — tree-sitter-go has no `type` wrapper; the type is one of
+      // type_identifier / pointer_type / qualified_type / slice_type / etc.
+      const typeNode = this.findTypeNode(child);
+      /* v8 ignore next -- @preserve -- every field declaration has a type node */
       const fieldType = typeNode ? typeNode.text : 'unknown';
 
-      // Get struct tag
-      const tagNode = this.findChild(child, 'raw_string_literal');
-      let tagValue = '';
-      if (tagNode) {
-        tagValue = tagNode.text;
-      }
-
-      // If no explicit field name, this is an embedded type
+      // If no explicit field name, this is an embedded type (e.g. `io.Reader`).
       if (fieldNames.length === 0 && typeNode) {
         const embeddedType = typeNode.text;
         members.set(embeddedType, {
@@ -607,9 +604,6 @@ export class GoResolver extends TypeResolverBase {
         });
         continue;
       }
-
-      // Parse tags
-      const parsedTags = tagValue ? this.parseStructTags(tagValue) : [];
 
       for (const fname of fieldNames) {
         const isExported = fname[0] === fname[0]?.toUpperCase();
@@ -638,24 +632,32 @@ export class GoResolver extends TypeResolverBase {
     const members = new Map<string, TypeMember>();
     for (let i = 0; i < interfaceNode.childCount; i++) {
       const child = interfaceNode.child(i);
+      /* v8 ignore next -- @preserve -- index is bounded by childCount */
       if (!child) continue;
 
-      if (child.type === 'method_spec') {
+      // tree-sitter-go represents interface methods as `method_elem`
+      // (embedded interfaces are `type_elem`).
+      if (child.type === 'method_elem') {
         const name = this.childText(child, 'field_identifier');
+        /* v8 ignore next -- @preserve -- method_elem always has a field_identifier */
         if (!name) continue;
+
+        const paramLists = this.collectParamLists(child);
 
         // Parameters
         const paramTypes: string[] = [];
-        const paramList = this.findChild(child, 'parameter_list');
-        if (paramList) this.extractGoParams(paramList, paramTypes);
+        /* v8 ignore next -- @preserve -- method_elem always has a params parameter_list */
+        if (paramLists[0]) this.extractGoParams(paramLists[0], paramTypes);
 
-        // Results
+        // Results: a second parameter_list, or a direct type node.
         let returnType = 'void';
-        const result = this.findChild(child, 'result');
-        if (result) {
+        if (paramLists[1]) {
           const resParams: string[] = [];
-          this.extractGoParams(result, resParams);
+          this.extractGoParams(paramLists[1], resParams);
           returnType = resParams.join(', ') || 'void';
+        } else {
+          const typeNode = this.findTypeNode(child);
+          if (typeNode) returnType = typeNode.text;
         }
 
         members.set(name, {
@@ -676,18 +678,25 @@ export class GoResolver extends TypeResolverBase {
     const methods = new Map<string, GoMethodSig>();
     for (let i = 0; i < interfaceNode.childCount; i++) {
       const child = interfaceNode.child(i);
-      if (!child || child.type !== 'method_spec') continue;
+      if (!child || child.type !== 'method_elem') continue;
 
       const name = this.childText(child, 'field_identifier');
+      /* v8 ignore next -- @preserve -- method_elem always has a field_identifier */
       if (!name) continue;
 
+      const paramLists = this.collectParamLists(child);
+
       const params: GoParam[] = [];
-      const paramList = this.findChild(child, 'parameter_list');
-      if (paramList) params.push(...this.extractGoSigParams(paramList));
+      /* v8 ignore next -- @preserve -- method_elem always has a params parameter_list */
+      if (paramLists[0]) params.push(...this.extractGoSigParams(paramLists[0]));
 
       const results: GoParam[] = [];
-      const result = this.findChild(child, 'result');
-      if (result) results.push(...this.extractGoSigParams(result));
+      if (paramLists[1]) {
+        results.push(...this.extractGoSigParams(paramLists[1]));
+      } else {
+        const typeNode = this.findTypeNode(child);
+        if (typeNode) results.push({ name: '', type: typeNode.text });
+      }
 
       methods.set(name, { name, params, results });
     }
@@ -720,8 +729,8 @@ export class GoResolver extends TypeResolverBase {
   }
 
   private typesCompatible(a: string, b: string): boolean {
-    // Structural compatibility check
-    if (a === b) return true;
+    // Structural compatibility check. Only invoked after an exact-match
+    // comparison in checkInterfaceSatisfaction, so `a !== b` here.
     if (a === 'any' || b === 'any') return true;
     // Check if both are interfaces (structural matching)
     if (a.startsWith('interface') || b.startsWith('interface')) return true;
@@ -731,13 +740,12 @@ export class GoResolver extends TypeResolverBase {
   private extractGoParams(paramList: SyntaxNode, result: string[]): void {
     for (let i = 0; i < paramList.childCount; i++) {
       const child = paramList.child(i);
+      /* v8 ignore next -- @preserve -- index is bounded by childCount */
       if (!child) continue;
-      const typeNode = this.findChild(child, 'type');
-      if (typeNode) {
-        result.push(typeNode.text);
-      } else if (child.type === 'type_identifier') {
-        result.push(child.text);
-      }
+      // Each parameter is a parameter_declaration wrapping a type node
+      // (type_identifier / slice_type / pointer_type / qualified_type / ...).
+      const typeNode = this.findTypeNode(child);
+      if (typeNode) result.push(typeNode.text);
     }
   }
 
@@ -745,61 +753,100 @@ export class GoResolver extends TypeResolverBase {
     const params: GoParam[] = [];
     for (let i = 0; i < paramList.childCount; i++) {
       const child = paramList.child(i);
+      /* v8 ignore next -- @preserve -- index is bounded by childCount */
       if (!child) continue;
 
-      // Go params: identifier type or just type
-      const identifiers = child.children.filter(
-        (c) => c.type === 'identifier' || c.type === 'type_identifier',
-      );
-      const typeNode = this.findChild(child, 'type');
+      const typeNode = this.findTypeNode(child);
+      // Skip anonymous tokens (parens, commas) — they carry no type node.
+      if (!typeNode) continue;
 
-      const paramType = typeNode ? typeNode.text :
-        (identifiers.length > 0 ? identifiers[identifiers.length - 1]!.text : 'unknown');
-
-      const paramName = identifiers.length > 0 ? identifiers[0]!.text : '';
-
-      params.push({ name: paramName, type: paramType });
+      const paramName = this.childText(child, 'identifier') ?? '';
+      params.push({ name: paramName, type: typeNode.text });
     }
     return params;
   }
 
   private extractGenericParams(node: SyntaxNode, result: string[]): void {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    const tpList = this.findChild(node, 'type_parameter_list');
+    if (!tpList) return;
+    for (let i = 0; i < tpList.childCount; i++) {
+      const child = tpList.child(i);
       if (child && child.type === 'type_parameter_declaration') {
-        for (let j = 0; j < child.childCount; j++) {
-          const tp = child.child(j);
-          if (tp && (tp.type === 'type_identifier' || tp.type === 'identifier')) {
-            result.push(tp.text);
-          }
-        }
+        const name = this.childText(child, 'identifier');
+        /* v8 ignore next -- @preserve -- type_parameter_declaration always has an identifier */
+        if (name) result.push(name);
       }
     }
   }
 
   private extractFuncGenericParams(node: SyntaxNode): string[] {
     const params: string[] = [];
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child && child.type === 'type_parameters') {
-        for (let j = 0; j < child.childCount; j++) {
-          const tp = child.child(j);
-          if (tp && (tp.type === 'type_identifier' || tp.type === 'identifier')) {
-            params.push(tp.text);
-          }
-        }
+    const tpList = this.findChild(node, 'type_parameter_list');
+    if (!tpList) return params;
+    for (let i = 0; i < tpList.childCount; i++) {
+      const child = tpList.child(i);
+      if (child && child.type === 'type_parameter_declaration') {
+        const name = this.childText(child, 'identifier');
+        /* v8 ignore next -- @preserve -- type_parameter_declaration always has an identifier */
+        if (name) params.push(name);
       }
     }
     return params;
   }
 
+  /** Extract embedded interface names (type_elem) from an interface_type. */
+  private extractEmbeddedInterfaces(interfaceNode: SyntaxNode): string[] {
+    const embedded: string[] = [];
+    for (let i = 0; i < interfaceNode.childCount; i++) {
+      const c = interfaceNode.child(i);
+      if (c && c.type === 'type_elem') {
+        const typeNode = this.findTypeNode(c);
+        /* v8 ignore next -- @preserve -- type_elem always carries a type node */
+        if (typeNode) embedded.push(typeNode.text);
+      }
+    }
+    return embedded;
+  }
+
+  /**
+   * Extract the result type(s) of a function/method declaration.
+   *
+   * @param node The function_declaration or method_declaration.
+   * @param paramLists All parameter_list children, in source order.
+   * @param resultIndex Index of the result parameter_list (1 for functions —
+   *   params at 0; 2 for methods — receiver at 0, params at 1).
+   */
+  private extractResultType(
+    node: SyntaxNode,
+    paramLists: SyntaxNode[],
+    resultIndex: number,
+  ): string | null {
+    const resultList = paramLists[resultIndex];
+    if (resultList) {
+      const resParams: string[] = [];
+      this.extractGoParams(resultList, resParams);
+      if (resParams.length === 0) return null;
+      if (resParams.length === 1) return resParams[0]!;
+      return `(${resParams.join(', ')})`;
+    }
+    // Single result — a direct type node (e.g. `int`, `error`, `*T`).
+    const typeNode = this.findTypeNode(node);
+    return typeNode ? typeNode.text : null;
+  }
+
+  /** Collect all parameter_list children of a declaration, in source order. */
+  private collectParamLists(node: SyntaxNode): SyntaxNode[] {
+    const lists: SyntaxNode[] = [];
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const c = node.namedChild(i);
+      if (c && c.type === 'parameter_list') lists.push(c);
+    }
+    return lists;
+  }
+
   private childText(node: SyntaxNode, type: string): string | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       const c = node.namedChild(i);
-      if (c && c.type === type && c.text) return c.text;
-    }
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
       if (c && c.type === type && c.text) return c.text;
     }
     return null;
@@ -809,6 +856,34 @@ export class GoResolver extends TypeResolverBase {
     for (let i = 0; i < node.namedChildCount; i++) {
       const c = node.namedChild(i);
       if (c && c.type === type) return c;
+    }
+    return null;
+  }
+
+  /**
+   * Node types that tree-sitter-go uses to represent a *declaration* type
+   * (field type, parameter type, result type). Unlike tree-sitter-typescript,
+   * Go has no generic `type` wrapper node — the type is one of these concrete
+   * node types directly.
+   */
+  private static readonly TYPE_NODES = new Set([
+    'type_identifier',
+    'pointer_type',
+    'slice_type',
+    'array_type',
+    'map_type',
+    'channel_type',
+    'function_type',
+    'qualified_type',
+    'generic_type',
+    'parenthesized_type',
+  ]);
+
+  /** Find the first named child that represents a Go type. */
+  private findTypeNode(node: SyntaxNode): SyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const c = node.namedChild(i);
+      if (c && GoResolver.TYPE_NODES.has(c.type)) return c;
     }
     return null;
   }
