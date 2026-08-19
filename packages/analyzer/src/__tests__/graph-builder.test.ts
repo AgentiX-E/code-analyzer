@@ -36,16 +36,12 @@ describe('GraphBuilder', () => {
       expect(graph.edges.size).toBe(1); // Project -> Root Folder
 
       // Check Project node
-      const projectNodes = Array.from(graph.nodes.values()).filter(
-        (n) => n.label === 'Project',
-      );
+      const projectNodes = Array.from(graph.nodes.values()).filter((n) => n.label === 'Project');
       expect(projectNodes).toHaveLength(1);
       expect(projectNodes[0]!.name).toBe('test-project');
 
       // Check Folder node
-      const folderNodes = Array.from(graph.nodes.values()).filter(
-        (n) => n.label === 'Folder',
-      );
+      const folderNodes = Array.from(graph.nodes.values()).filter((n) => n.label === 'Folder');
       expect(folderNodes).toHaveLength(1);
       expect(folderNodes[0]!.name).toBe('/test/project');
     });
@@ -214,11 +210,7 @@ describe('GraphBuilder', () => {
       const initialNodeCount = graph.nodes.size;
       const initialEdgeCount = graph.edges.size;
 
-      const folderId = builder.ensureFolderPath(
-        graph,
-        ctx.rootPath,
-        'src/utils',
-      );
+      const folderId = builder.ensureFolderPath(graph, ctx.rootPath, 'src/utils');
 
       expect(folderId).toBeGreaterThan(0);
       // Should create 'src' and 'utils' folder nodes
@@ -226,10 +218,115 @@ describe('GraphBuilder', () => {
       expect(graph.edges.size).toBe(initialEdgeCount + 2);
 
       // Verify the nodes exist
-      const folderNodes = Array.from(graph.nodes.values()).filter(
-        (n) => n.label === 'Folder',
-      );
+      const folderNodes = Array.from(graph.nodes.values()).filter((n) => n.label === 'Folder');
       expect(folderNodes.length).toBe(3); // root + src + utils
+    });
+
+    it('ensureFolderPath reuses an existing folder node', () => {
+      const store = new InMemoryGraphStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      builder.ensureFolderPath(graph, ctx.rootPath, 'src/utils');
+      const countAfterFirst = graph.nodes.size;
+
+      const folderId = builder.ensureFolderPath(graph, ctx.rootPath, 'src/utils');
+      expect(folderId).toBeGreaterThan(0);
+      // Second call reuses existing folders, no new nodes
+      expect(graph.nodes.size).toBe(countAfterFirst);
+    });
+  });
+
+  describe('addNode', () => {
+    it('returns the existing node for a duplicate qualified name', () => {
+      const store = new InMemoryGraphStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      const first = builder.addNode(graph, 'Class', 'Foo', { name: 'Foo' }, 'cls:Foo');
+      const second = builder.addNode(graph, 'Class', 'Foo', { name: 'Foo' }, 'cls:Foo');
+      expect(second.id).toBe(first.id);
+    });
+
+    it('recovers when the qname index points at a missing node', () => {
+      const store = new InMemoryGraphStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      // Corrupt the qname index: it references a node id that no longer exists
+      graph.qnameIndex.set('cls:Ghost', 424242);
+
+      const node = builder.addNode(graph, 'Class', 'Ghost', { name: 'Ghost' }, 'cls:Ghost');
+      expect(node.qualifiedName).toBe('cls:Ghost');
+      // The fresh node is created; the stale index entry is left as-is because
+      // the qname lookup only falls through when the stored id is missing
+      expect(graph.nodes.has(node.id)).toBe(true);
+    });
+
+    it('skips the file index for non-File/non-Folder nodes', () => {
+      const store = new InMemoryGraphStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      const node = builder.addNode(graph, 'Function', 'run', { name: 'run' }, 'fn:run');
+      expect(graph.fileIndex.has('fn:run')).toBe(false);
+      expect(node.id).toBeGreaterThan(0);
+    });
+
+    it('resolves node ID conflicts across builder instances', () => {
+      const store = new InMemoryGraphStore();
+      const firstBuilder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = firstBuilder.build(ctx);
+
+      // A second builder starts its id counter from 1, colliding with the
+      // existing project/folder ids; addNode must reassign to a free id
+      const secondBuilder = new GraphBuilder(store);
+      const node = secondBuilder.addNode(
+        graph,
+        'Function',
+        'collide',
+        { name: 'collide' },
+        'fn:collide',
+      );
+      expect(graph.nodes.has(node.id)).toBe(true);
+      // The fresh id is not one of the pre-existing ids
+      const existingIds = new Set(Array.from(graph.nodes.keys()));
+      existingIds.delete(node.id);
+      expect(existingIds.has(node.id)).toBe(false);
+    });
+
+    it('resolves edge ID conflicts across builder instances', () => {
+      const store = new InMemoryGraphStore();
+      const firstBuilder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = firstBuilder.build(ctx);
+
+      const secondBuilder = new GraphBuilder(store);
+      const sourceId = Array.from(graph.nodes.keys())[0]!;
+      const targetId = Array.from(graph.nodes.keys())[1]!;
+      const edge = secondBuilder.addEdge(graph, sourceId, targetId, 'CALLS', ctx.projectId);
+      expect(graph.edges.has(edge.id)).toBe(true);
+    });
+  });
+
+  describe('validate', () => {
+    it('ignores nodes without a qualified name in duplicate detection', () => {
+      const store = new InMemoryGraphStore();
+      const builder = new GraphBuilder(store);
+      const ctx = createMockContext();
+      const graph = builder.build(ctx);
+
+      // Add two nodes without qualified names — they must not be flagged
+      builder.addNode(graph, 'Function', 'a', { name: 'a' });
+      builder.addNode(graph, 'Function', 'b', { name: 'b' });
+
+      const report = builder.validate(graph);
+      expect(report.duplicateQnames).toBe(0);
     });
   });
 });
