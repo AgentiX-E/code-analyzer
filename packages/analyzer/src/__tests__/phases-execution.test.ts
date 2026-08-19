@@ -106,172 +106,204 @@ function writeFixtureFile(rootPath: string, relativePath: string, content: strin
 
 // A minimal TypeScript project fixture with import relationships
 function createTypeScriptFixture(rootPath: string): void {
-  writeFixtureFile(rootPath, 'package.json', JSON.stringify({
-    name: 'test-project',
-    version: '1.0.0',
-    description: 'A test project for phase execution tests',
-    main: 'src/index.ts',
-    scripts: {
-      build: 'tsc',
-      test: 'vitest',
-    },
-    dependencies: {
-      express: '^4.18.0',
-    },
-    devDependencies: {
-      typescript: '^5.0.0',
-      vitest: '^1.0.0',
-    },
-  }, null, 2));
+  writeFixtureFile(
+    rootPath,
+    'package.json',
+    JSON.stringify(
+      {
+        name: 'test-project',
+        version: '1.0.0',
+        description: 'A test project for phase execution tests',
+        main: 'src/index.ts',
+        scripts: {
+          build: 'tsc',
+          test: 'vitest',
+        },
+        dependencies: {
+          express: '^4.18.0',
+        },
+        devDependencies: {
+          typescript: '^5.0.0',
+          vitest: '^1.0.0',
+        },
+      },
+      null,
+      2,
+    ),
+  );
 
-  writeFixtureFile(rootPath, 'tsconfig.json', JSON.stringify({
-    compilerOptions: {
-      target: 'ES2022',
-      module: 'ESNext',
-      strict: true,
-    },
-    include: ['src'],
-    exclude: ['node_modules', 'dist'],
-  }, null, 2));
+  writeFixtureFile(
+    rootPath,
+    'tsconfig.json',
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'ES2022',
+          module: 'ESNext',
+          strict: true,
+        },
+        include: ['src'],
+        exclude: ['node_modules', 'dist'],
+      },
+      null,
+      2,
+    ),
+  );
 
   writeFixtureFile(rootPath, '.gitignore', 'node_modules\ndist\n.env\n*.log');
 
-  writeFixtureFile(rootPath, 'README.md', [
-    '# Test Project',
-    '',
-    'This is a test project for phase execution tests.',
-    '',
-    '## Installation',
-    '',
-    '```bash',
-    'npm install',
-    '```',
-    '',
-    '## Usage',
-    '',
-    'Import and use the functions.',
-    '',
-    '## Architecture',
-    '',
-    'The project follows a simple structure.',
-  ].join('\n'));
+  writeFixtureFile(
+    rootPath,
+    'README.md',
+    [
+      '# Test Project',
+      '',
+      'This is a test project for phase execution tests.',
+      '',
+      '## Installation',
+      '',
+      '```bash',
+      'npm install',
+      '```',
+      '',
+      '## Usage',
+      '',
+      'Import and use the functions.',
+      '',
+      '## Architecture',
+      '',
+      'The project follows a simple structure.',
+    ].join('\n'),
+  );
 
-  writeFixtureFile(rootPath, 'src/index.ts', [
-    "import { helperFunction, HelperClass } from './utils';",
-    "import express from 'express';",
-    '',
-    "const app = express();",
-    '',
-    '/**',
-    ' * Main function that does important work.',
-    ' */',
-    'export function mainFunction(): string {',
-    "  const result = helperFunction('world');",
-    "  console.log(result);",
-    '  return result;',
-    '}',
-    '',
-    '/**',
-    ' * An example class with a method.',
-    ' */',
-    'export class MainClass {',
-    '  private name: string;',
-    '',
-    '  constructor(name: string) {',
-    '    this.name = name;',
-    '  }',
-    '',
-    '  public greet(): string {',
-    "    return `Hello, ${this.name}!`;",
-    '  }',
-    '',
-    '  public process(): string {',
-    "    return helperFunction(this.name);",
-    '  }',
-    '}',
-    '',
-    "app.get('/api/users', (req, res) => {",
-    "  res.json({ users: [] });",
-    '});',
-    '',
-    "app.post('/api/users', (req, res) => {",
-    "  res.json({ created: true });",
-    '});',
-    '',
-    '// MCP tool definition',
-    'const searchTool = {',
-    "  name: 'search_code',",
-    "  description: 'Search the codebase for patterns',",
-    '  execute: async (query: string) => {',
-    '    return [];',
-    '  },',
-    '};',
-    '',
-    '// DI pattern with constructor injection',
-    'export class ServiceClass {',
-    '  constructor(private helper: HelperClass) {}',
-    '',
-    '  public execute(): void {',
-    '    this.helper.assist();',
-    '  }',
-    '}',
-    '',
-    'export { HelperClass };',
-  ].join('\n'));
+  writeFixtureFile(
+    rootPath,
+    'src/index.ts',
+    [
+      "import { helperFunction, HelperClass } from './utils';",
+      "import express from 'express';",
+      '',
+      'const app = express();',
+      '',
+      '/**',
+      ' * Main function that does important work.',
+      ' */',
+      'export function mainFunction(): string {',
+      "  const result = helperFunction('world');",
+      '  console.log(result);',
+      '  return result;',
+      '}',
+      '',
+      '/**',
+      ' * An example class with a method.',
+      ' */',
+      'export class MainClass {',
+      '  private name: string;',
+      '',
+      '  constructor(name: string) {',
+      '    this.name = name;',
+      '  }',
+      '',
+      '  public greet(): string {',
+      '    return `Hello, ${this.name}!`;',
+      '  }',
+      '',
+      '  public process(): string {',
+      '    return helperFunction(this.name);',
+      '  }',
+      '}',
+      '',
+      "app.get('/api/users', (req, res) => {",
+      '  res.json({ users: [] });',
+      '});',
+      '',
+      "app.post('/api/users', (req, res) => {",
+      '  res.json({ created: true });',
+      '});',
+      '',
+      '// MCP tool definition',
+      'const searchTool = {',
+      "  name: 'search_code',",
+      "  description: 'Search the codebase for patterns',",
+      '  execute: async (query: string) => {',
+      '    return [];',
+      '  },',
+      '};',
+      '',
+      '// DI pattern with constructor injection',
+      'export class ServiceClass {',
+      '  constructor(private helper: HelperClass) {}',
+      '',
+      '  public execute(): void {',
+      '    this.helper.assist();',
+      '  }',
+      '}',
+      '',
+      'export { HelperClass };',
+    ].join('\n'),
+  );
 
-  writeFixtureFile(rootPath, 'src/utils.ts', [
-    '/**',
-    ' * A helper function for the main module.',
-    ' */',
-    'export function helperFunction(name: string): string {',
-    "  return `Hello, ${name}!`;",
-    '}',
-    '',
-    '/**',
-    ' * A helper class used across the project.',
-    ' */',
-    'export class HelperClass {',
-    '  public assist(): string {',
-    "    return 'assisting...';",
-    '  }',
-    '',
-    '  public analyze(data: string): string {',
-    "    return `Analyzing: ${data}`;",
-    '  }',
-    '}',
-    '',
-    '/**',
-    ' * An interface for services.',
-    ' */',
-    'export interface ServiceInterface {',
-    '  execute(): void;',
-    '  getName(): string;',
-    '}',
-    '',
-    '/**',
-    ' * A constant value.',
-    ' */',
-    'export const DEFAULT_TIMEOUT = 5000;',
-  ].join('\n'));
+  writeFixtureFile(
+    rootPath,
+    'src/utils.ts',
+    [
+      '/**',
+      ' * A helper function for the main module.',
+      ' */',
+      'export function helperFunction(name: string): string {',
+      '  return `Hello, ${name}!`;',
+      '}',
+      '',
+      '/**',
+      ' * A helper class used across the project.',
+      ' */',
+      'export class HelperClass {',
+      '  public assist(): string {',
+      "    return 'assisting...';",
+      '  }',
+      '',
+      '  public analyze(data: string): string {',
+      '    return `Analyzing: ${data}`;',
+      '  }',
+      '}',
+      '',
+      '/**',
+      ' * An interface for services.',
+      ' */',
+      'export interface ServiceInterface {',
+      '  execute(): void;',
+      '  getName(): string;',
+      '}',
+      '',
+      '/**',
+      ' * A constant value.',
+      ' */',
+      'export const DEFAULT_TIMEOUT = 5000;',
+    ].join('\n'),
+  );
 
-  writeFixtureFile(rootPath, 'src/__tests__/index.test.ts', [
-    "import { mainFunction, MainClass } from '../index';",
-    "import { helperFunction } from '../utils';",
-    '',
-    "describe('mainFunction', () => {",
-    "  it('should return a greeting', () => {",
-    "    const result = mainFunction();",
-    "    expect(result).toContain('Hello');",
-    '  });',
-    '});',
-    '',
-    "describe('MainClass', () => {",
-    "  it('should greet with name', () => {",
-    "    const instance = new MainClass('test');",
-    "    expect(instance.greet()).toBe('Hello, test!');",
-    '  });',
-    '});',
-  ].join('\n'));
+  writeFixtureFile(
+    rootPath,
+    'src/__tests__/index.test.ts',
+    [
+      "import { mainFunction, MainClass } from '../index';",
+      "import { helperFunction } from '../utils';",
+      '',
+      "describe('mainFunction', () => {",
+      "  it('should return a greeting', () => {",
+      '    const result = mainFunction();',
+      "    expect(result).toContain('Hello');",
+      '  });',
+      '});',
+      '',
+      "describe('MainClass', () => {",
+      "  it('should greet with name', () => {",
+      "    const instance = new MainClass('test');",
+      "    expect(instance.greet()).toBe('Hello, test!');",
+      '  });',
+      '});',
+    ].join('\n'),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -351,15 +383,13 @@ describe('ScanPhase', () => {
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
 
     // node_modules should be skipped by gitignore pattern
-    const nodeModulesFiles = scanData.discoveredFiles.filter(
-      (f) => f.filePath.includes('node_modules'),
+    const nodeModulesFiles = scanData.discoveredFiles.filter((f) =>
+      f.filePath.includes('node_modules'),
     );
     expect(nodeModulesFiles.length).toBe(0);
 
     // dist and build should be skipped by default SKIP_DIRECTORIES
-    const distFiles = scanData.discoveredFiles.filter(
-      (f) => f.filePath.includes('dist/'),
-    );
+    const distFiles = scanData.discoveredFiles.filter((f) => f.filePath.includes('dist/'));
     expect(distFiles.length).toBe(0);
   });
 
@@ -371,12 +401,8 @@ describe('ScanPhase', () => {
     expect(ctx.graph).toBeDefined();
 
     // Should have Folder and File nodes
-    const folderNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Folder',
-    );
-    const fileNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'File',
-    );
+    const folderNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Folder');
+    const fileNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'File');
 
     expect(folderNodes.length).toBeGreaterThan(0);
     expect(fileNodes.length).toBeGreaterThanOrEqual(3); // Only .ts files
@@ -458,7 +484,10 @@ describe('StructurePhase', () => {
     await scanPhase.execute(ctx);
     await structurePhase.execute(ctx);
 
-    const structureData = ctx.phaseData.get('structure') as { directories: number; modules: number };
+    const structureData = ctx.phaseData.get('structure') as {
+      directories: number;
+      modules: number;
+    };
     expect(structureData).toBeDefined();
     expect(structureData.directories).toBeGreaterThan(0);
     expect(structureData.modules).toBeGreaterThan(0);
@@ -516,17 +545,13 @@ describe('ParsePhase', () => {
     const functionNodes = Array.from(ctx.graph!.nodes.values()).filter(
       (n) => n.label === 'Function',
     );
-    const classNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Class',
-    );
+    const classNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Class');
 
     expect(functionNodes.length).toBeGreaterThanOrEqual(1); // helperFunction or mainFunction
     expect(classNodes.length).toBeGreaterThanOrEqual(2); // MainClass, HelperClass
 
     // Should have DEFINES edges
-    const definesEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'DEFINES',
-    );
+    const definesEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'DEFINES');
     expect(definesEdges.length).toBeGreaterThan(0);
   });
 
@@ -614,10 +639,16 @@ describe('MarkdownPhase', () => {
 
     // Also need to ensure the file node exists in the graph for the phase
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', readmePath, {
-      name: 'README.md',
-      filePath: readmePath,
-    }, `file:${readmePath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      readmePath,
+      {
+        name: 'README.md',
+        filePath: readmePath,
+      },
+      `file:${readmePath}`,
+    );
 
     const result = await markdownPhase.execute(ctx);
     expect(result.status).toBe('success');
@@ -626,18 +657,14 @@ describe('MarkdownPhase', () => {
     expect(output.markdownFiles).toBe(1);
 
     // Should have Module nodes for markdown sections
-    const moduleNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Module',
-    );
+    const moduleNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Module');
     expect(moduleNodes.length).toBeGreaterThanOrEqual(2); // Installation, Usage
 
     // Should have CONTAINS edges from file to sections
-    const containsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => {
-        const target = ctx.graph!.nodes.get(e.targetId);
-        return target?.label === 'Module';
-      },
-    );
+    const containsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => {
+      const target = ctx.graph!.nodes.get(e.targetId);
+      return target?.label === 'Module';
+    });
     expect(containsEdges.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -723,10 +750,16 @@ describe('ConfigPhase', () => {
 
     // Add file node to graph so config phase can find it
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', pkgPath, {
-      name: 'package.json',
-      filePath: pkgPath,
-    }, `file:${pkgPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      pkgPath,
+      {
+        name: 'package.json',
+        filePath: pkgPath,
+      },
+      `file:${pkgPath}`,
+    );
 
     const result = await configPhase.execute(ctx);
     expect(result.status).toBe('success');
@@ -735,9 +768,7 @@ describe('ConfigPhase', () => {
     expect(output.configFiles).toBeGreaterThanOrEqual(1);
 
     // Should have Config nodes
-    const configNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Config',
-    );
+    const configNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Config');
     expect(configNodes.length).toBeGreaterThanOrEqual(3); // name, version, scripts, dependencies, etc.
 
     // Should have CONFIGURES edges
@@ -766,10 +797,16 @@ describe('ConfigPhase', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', tsconfigPath, {
-      name: 'tsconfig.json',
-      filePath: tsconfigPath,
-    }, `file:${tsconfigPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      tsconfigPath,
+      {
+        name: 'tsconfig.json',
+        filePath: tsconfigPath,
+      },
+      `file:${tsconfigPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -786,12 +823,8 @@ describe('ConfigPhase', () => {
     await configPhase.execute(ctx);
 
     // TypeScript files should not create Config nodes
-    const configNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Config',
-    );
-    const tsConfigNodes = configNodes.filter(
-      (n) => n.properties?.filePath?.endsWith('.ts'),
-    );
+    const configNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Config');
+    const tsConfigNodes = configNodes.filter((n) => n.properties?.filePath?.endsWith('.ts'));
     expect(tsConfigNodes.length).toBe(0);
   });
 
@@ -811,7 +844,11 @@ describe('ConfigPhase', () => {
     // .env files start with '.' which matches SKIP_FILE_PATTERNS /^\./
     // So they are NOT discovered by scan phase.
     // Instead, test with a non-dotfile that has env-like content.
-    writeFixtureFile(fixture.rootPath, 'config.env', 'DATABASE_URL=postgres://localhost\nAPI_KEY=secret123');
+    writeFixtureFile(
+      fixture.rootPath,
+      'config.env',
+      'DATABASE_URL=postgres://localhost\nAPI_KEY=secret123',
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -828,10 +865,16 @@ describe('ConfigPhase', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', envPath, {
-      name: 'config.env',
-      filePath: envPath,
-    }, `file:${envPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      envPath,
+      {
+        name: 'config.env',
+        filePath: envPath,
+      },
+      `file:${envPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -877,9 +920,7 @@ describe('CrossFilePhase', () => {
     expect(output.crossFileDeps).toBeGreaterThanOrEqual(1);
 
     // Should have IMPORTS edges
-    const importsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'IMPORTS',
-    );
+    const importsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'IMPORTS');
     expect(importsEdges.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -970,9 +1011,7 @@ describe('ScopeResolutionPhase', () => {
 
     // CALLS edges may not be created since tree-sitter providers don't
     // generate function.call captures yet. But the phase should work.
-    const callsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'CALLS',
-    );
+    const callsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'CALLS');
     expect(callsEdges).toBeDefined();
   });
 
@@ -982,9 +1021,7 @@ describe('ScopeResolutionPhase', () => {
     await parsePhase.execute(ctx);
     await scopeResolutionPhase.execute(ctx);
 
-    const extendsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'EXTENDS',
-    );
+    const extendsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'EXTENDS');
     // ServiceClass doesn't extend anything, so this might be 0
     expect(extendsEdges).toBeDefined();
   });
@@ -1053,9 +1090,7 @@ describe('RoutesPhase', () => {
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
-    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route',
-    );
+    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
     expect(routeNodes.length).toBeGreaterThanOrEqual(2);
 
     // Verify route properties
@@ -1080,13 +1115,17 @@ describe('RoutesPhase', () => {
   });
 
   it('should detect multiple HTTP methods', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/api.ts', [
-      "const router = require('express').Router();",
-      "router.get('/items', (req, res) => res.json([]));",
-      "router.post('/items', (req, res) => res.json({}));",
-      "router.put('/items/:id', (req, res) => res.json({}));",
-      "router.delete('/items/:id', (req, res) => res.json({}));",
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/api.ts',
+      [
+        "const router = require('express').Router();",
+        "router.get('/items', (req, res) => res.json([]));",
+        "router.post('/items', (req, res) => res.json({}));",
+        "router.put('/items/:id', (req, res) => res.json({}));",
+        "router.delete('/items/:id', (req, res) => res.json({}));",
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -1164,9 +1203,7 @@ describe('ToolsPhase', () => {
     await parsePhase.execute(ctx);
     await toolsPhase.execute(ctx);
 
-    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Tool',
-    );
+    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
     expect(toolNodes.length).toBeGreaterThanOrEqual(1);
 
     // Verify tool properties
@@ -1188,19 +1225,21 @@ describe('ToolsPhase', () => {
   });
 
   it('should detect CLI command definitions', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/cli.ts', [
-      "program.command('build').description('Build the project').action(() => {});",
-      "program.command('deploy').description('Deploy to production').action(() => {});",
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/cli.ts',
+      [
+        "program.command('build').description('Build the project').action(() => {});",
+        "program.command('deploy').description('Deploy to production').action(() => {});",
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await toolsPhase.execute(ctx);
 
-    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Tool',
-    );
+    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
     const cliTools = toolNodes.filter((n) => n.properties.toolType === 'cli-command');
     expect(cliTools.length).toBeGreaterThanOrEqual(2);
   });
@@ -1216,22 +1255,22 @@ describe('ToolsPhase', () => {
   });
 
   it('should filter out noise tool names (< 3 chars)', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/short.ts', [
-      "const x = { name: 'ab', description: 'too short' };",
-      "const y = { name: 'if', description: 'keyword name' };",
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/short.ts',
+      [
+        "const x = { name: 'ab', description: 'too short' };",
+        "const y = { name: 'if', description: 'keyword name' };",
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await toolsPhase.execute(ctx);
 
-    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Tool',
-    );
-    const shortTools = toolNodes.filter(
-      (n) => n.name === 'ab' || n.name === 'if',
-    );
+    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
+    const shortTools = toolNodes.filter((n) => n.name === 'ab' || n.name === 'if');
     expect(shortTools.length).toBe(0);
   });
 });
@@ -1279,9 +1318,7 @@ describe('DependencyInjectionPhase', () => {
     await parsePhase.execute(ctx);
     await diPhase.execute(ctx);
 
-    const injectsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'INJECTS',
-    );
+    const injectsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'INJECTS');
     // May be 0 if regex doesn't match exactly
     expect(injectsEdges).toBeDefined();
   });
@@ -1298,12 +1335,16 @@ describe('DependencyInjectionPhase', () => {
   });
 
   it('should detect NestJS-style provider patterns', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/module.ts', [
-      '@Injectable()',
-      'export class UserModule {',
-      '  providers: [UserService, AuthService, LoggerService]',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/module.ts',
+      [
+        '@Injectable()',
+        'export class UserModule {',
+        '  providers: [UserService, AuthService, LoggerService]',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -1363,11 +1404,38 @@ describe('PruneLocalSymbolsPhase', () => {
     // A File node (never pruned), an unreferenced Variable, an unreferenced
     // Function (file-scope prune), a filePath-less Function, and a referenced
     // Variable (kept).
-    const file = builder.addNode(g, 'File', 'main.ts', { name: 'main.ts', filePath: '/tmp/main.ts' });
-    const unreferencedVar = builder.addNode(g, 'Variable', 'localVar', { name: 'localVar', filePath: '/tmp/main.ts' }, 'localVar');
-    const unreferencedFunc = builder.addNode(g, 'Function', 'unusedFunc', { name: 'unusedFunc', filePath: '/tmp/main.ts' }, 'unusedFunc');
-    const noFilePathFunc = builder.addNode(g, 'Function', 'noPathFunc', { name: 'noPathFunc' }, 'noPathFunc');
-    const referencedVar = builder.addNode(g, 'Variable', 'usedVar', { name: 'usedVar', filePath: '/tmp/main.ts' }, 'usedVar');
+    const file = builder.addNode(g, 'File', 'main.ts', {
+      name: 'main.ts',
+      filePath: '/tmp/main.ts',
+    });
+    const unreferencedVar = builder.addNode(
+      g,
+      'Variable',
+      'localVar',
+      { name: 'localVar', filePath: '/tmp/main.ts' },
+      'localVar',
+    );
+    const unreferencedFunc = builder.addNode(
+      g,
+      'Function',
+      'unusedFunc',
+      { name: 'unusedFunc', filePath: '/tmp/main.ts' },
+      'unusedFunc',
+    );
+    const noFilePathFunc = builder.addNode(
+      g,
+      'Function',
+      'noPathFunc',
+      { name: 'noPathFunc' },
+      'noPathFunc',
+    );
+    const referencedVar = builder.addNode(
+      g,
+      'Variable',
+      'usedVar',
+      { name: 'usedVar', filePath: '/tmp/main.ts' },
+      'usedVar',
+    );
     builder.addEdge(g, file.id, referencedVar.id, 'DEFINES', 'test-proj');
 
     const result = await prunePhase.execute(ctx);
@@ -1557,9 +1625,7 @@ describe('ProcessesPhase', () => {
     await routesPhase.execute(ctx);
     await processesPhase.execute(ctx);
 
-    const processNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Process',
-    );
+    const processNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Process');
     const stepEdges = Array.from(ctx.graph!.edges.values()).filter(
       (e) => e.type === 'STEP_IN_PROCESS',
     );
@@ -1598,9 +1664,18 @@ describe('ProcessesPhase', () => {
     const builder = new GraphBuilder(new InMemoryGraphStore());
     const g = ctx.graph!;
 
-    const route = builder.addNode(g, 'Route', '/api/users', { name: '/api/users', routePath: '/api/users' });
+    const route = builder.addNode(g, 'Route', '/api/users', {
+      name: '/api/users',
+      routePath: '/api/users',
+    });
     const handler = builder.addNode(g, 'Function', 'getUsers', { name: 'getUsers' }, 'getUsers');
-    const helper = builder.addNode(g, 'Function', 'fetchUsers', { name: 'fetchUsers' }, 'fetchUsers');
+    const helper = builder.addNode(
+      g,
+      'Function',
+      'fetchUsers',
+      { name: 'fetchUsers' },
+      'fetchUsers',
+    );
     builder.addEdge(g, route.id, handler.id, 'CALLS', 'test-proj');
     builder.addEdge(g, handler.id, helper.id, 'CALLS', 'test-proj');
 
@@ -1647,14 +1722,16 @@ describe('TypeResolutionPhase', () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     const filePath = join(fixture.rootPath, 'src', 'index.ts');
     ctx.phaseData.set('parse', {
-      parsedFiles: [{
-        filePath,
-        language: 'typescript',
-        symbols: [],
-        references: [],
-        scopeTree: {},
-        ast: null,
-      }],
+      parsedFiles: [
+        {
+          filePath,
+          language: 'typescript',
+          symbols: [],
+          references: [],
+          scopeTree: {},
+          ast: null,
+        },
+      ],
     });
     ctx.phaseData.set('scan', {
       discoveredFiles: [{ filePath, content: 'interface User { name: string }\n' }],
@@ -1671,8 +1748,22 @@ describe('TypeResolutionPhase', () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     ctx.phaseData.set('parse', {
       parsedFiles: [
-        { filePath: '/tmp/a.unknown', language: 'cobol', symbols: [], references: [], scopeTree: {}, ast: null },
-        { filePath: '/tmp/b.ts', language: 'typescript', symbols: [], references: [], scopeTree: {}, ast: null },
+        {
+          filePath: '/tmp/a.unknown',
+          language: 'cobol',
+          symbols: [],
+          references: [],
+          scopeTree: {},
+          ast: null,
+        },
+        {
+          filePath: '/tmp/b.ts',
+          language: 'typescript',
+          symbols: [],
+          references: [],
+          scopeTree: {},
+          ast: null,
+        },
       ],
     });
     // No scan data for b.ts -> content lookup returns undefined -> skipped
@@ -1696,7 +1787,12 @@ describe('TypeResolutionPhase', () => {
     ];
     ctx.phaseData.set('parse', {
       parsedFiles: samples.map((s) => ({
-        filePath: s.path, language: s.lang, symbols: [], references: [], scopeTree: {}, ast: null,
+        filePath: s.path,
+        language: s.lang,
+        symbols: [],
+        references: [],
+        scopeTree: {},
+        ast: null,
       })),
     });
     ctx.phaseData.set('scan', {
@@ -1757,9 +1853,7 @@ describe('TestsPhase', () => {
     await crossFilePhase.execute(ctx);
     await testsPhase.execute(ctx);
 
-    const testsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'TESTS',
-    );
+    const testsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'TESTS');
     expect(testsEdges.length).toBeGreaterThanOrEqual(1);
 
     // Verify edges connect test files to source files
@@ -1780,21 +1874,23 @@ describe('TestsPhase', () => {
     await crossFilePhase.execute(ctx);
     await testsPhase.execute(ctx);
 
-    const testsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'TESTS',
-    );
+    const testsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'TESTS');
     expect(testsEdges.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should detect .spec.ts files', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/utils.spec.ts', [
-      "import { helperFunction } from './utils';",
-      "describe('helperFunction', () => {",
-      "  it('should work', () => {",
-      "    expect(helperFunction('test')).toBe('Hello, test!');",
-      '  });',
-      '});',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/utils.spec.ts',
+      [
+        "import { helperFunction } from './utils';",
+        "describe('helperFunction', () => {",
+        "  it('should work', () => {",
+        "    expect(helperFunction('test')).toBe('Hello, test!');",
+        '  });',
+        '});',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -1803,9 +1899,7 @@ describe('TestsPhase', () => {
     await crossFilePhase.execute(ctx);
     await testsPhase.execute(ctx);
 
-    const testsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'TESTS',
-    );
+    const testsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'TESTS');
     expect(testsEdges.length).toBeGreaterThanOrEqual(2); // index.test.ts + utils.spec.ts
   });
 
@@ -1888,7 +1982,11 @@ describe('DumpPhase', () => {
     const result = await dumpPhase.execute(ctx);
     expect(result.status).toBe('success');
 
-    const output = result.output as { dumpedToStore: boolean; nodeCount: number; edgeCount: number };
+    const output = result.output as {
+      dumpedToStore: boolean;
+      nodeCount: number;
+      edgeCount: number;
+    };
     expect(output.dumpedToStore).toBe(true);
     expect(output.nodeCount).toBeGreaterThan(0);
     expect(output.edgeCount).toBeGreaterThan(0);
@@ -1991,25 +2089,33 @@ describe('SimilarityPhase', () => {
 
   it('should create SIMILAR_TO edges for similar files', async () => {
     // Create two files with very similar content
-    writeFixtureFile(fixture.rootPath, 'src/moduleA.ts', [
-      'export function processData(input: string): string {',
-      "  const result = input.trim().toLowerCase();",
-      "  return result.replace(/[^a-z0-9]/g, '');",
-      '}',
-      'export function validateInput(data: string): boolean {',
-      '  return data.length > 0 && data.length < 1000;',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/moduleA.ts',
+      [
+        'export function processData(input: string): string {',
+        '  const result = input.trim().toLowerCase();',
+        "  return result.replace(/[^a-z0-9]/g, '');",
+        '}',
+        'export function validateInput(data: string): boolean {',
+        '  return data.length > 0 && data.length < 1000;',
+        '}',
+      ].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/moduleB.ts', [
-      'export function processData(input: string): string {',
-      "  const result = input.trim().toLowerCase();",
-      "  return result.replace(/[^a-z0-9]/g, '');",
-      '}',
-      'export function validateInput(data: string): boolean {',
-      '  return data.length > 0 && data.length < 1000;',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/moduleB.ts',
+      [
+        'export function processData(input: string): string {',
+        '  const result = input.trim().toLowerCase();',
+        "  return result.replace(/[^a-z0-9]/g, '');",
+        '}',
+        'export function validateInput(data: string): boolean {',
+        '  return data.length > 0 && data.length < 1000;',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -2333,11 +2439,7 @@ describe('EmbedPhase', () => {
     await embedPhase.execute(ctx);
 
     for (const [, node] of ctx.graph!.nodes) {
-      if (
-        node.label === 'File' ||
-        node.label === 'Folder' ||
-        node.label === 'Project'
-      ) {
+      if (node.label === 'File' || node.label === 'Folder' || node.label === 'Project') {
         expect(node.properties.embedding).toBeUndefined();
       }
     }
@@ -2367,7 +2469,13 @@ describe('EmbedPhase', () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     const builder = new GraphBuilder(new InMemoryGraphStore());
     const g = ctx.graph!;
-    builder.addNode(g, 'Function', 'signed', { name: 'signed', signature: '(a: number): number' }, 'signed');
+    builder.addNode(
+      g,
+      'Function',
+      'signed',
+      { name: 'signed', signature: '(a: number): number' },
+      'signed',
+    );
 
     const result = await embedPhase.execute(ctx);
     expect(result.status).toBe('success');
@@ -2498,7 +2606,14 @@ describe('Full Pipeline Integration', () => {
     expect(ctx.graph!.edges.size).toBeGreaterThan(5);
 
     // Verify core phase data is present (phases that always produce data)
-    const requiredPhaseIds = new Set(['scan', 'structure', 'parse', 'crossFile', 'scopeResolution', 'tests']);
+    const requiredPhaseIds = new Set([
+      'scan',
+      'structure',
+      'parse',
+      'crossFile',
+      'scopeResolution',
+      'tests',
+    ]);
     for (const phase of phases) {
       if (!requiredPhaseIds.has(phase.id)) continue;
       expect(ctx.phaseData.has(phase.id), `Phase ${phase.id} should have stored data`).toBe(true);
@@ -2595,7 +2710,11 @@ describe('MarkdownPhase - negative paths', () => {
   it('should handle markdown file with no headings gracefully', async () => {
     // Create a project with a markdown file that has no headings
     writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
-    writeFixtureFile(fixture.rootPath, 'empty.md', 'This is just some text\nwith no headings\nat all.');
+    writeFixtureFile(
+      fixture.rootPath,
+      'empty.md',
+      'This is just some text\nwith no headings\nat all.',
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -2613,10 +2732,16 @@ describe('MarkdownPhase - negative paths', () => {
 
     // Add file node to graph
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', mdPath, {
-      name: 'empty.md',
-      filePath: mdPath,
-    }, `file:${mdPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      mdPath,
+      {
+        name: 'empty.md',
+        filePath: mdPath,
+      },
+      `file:${mdPath}`,
+    );
 
     const result = await markdownPhase.execute(ctx);
     expect(result.status).toBe('success');
@@ -2658,6 +2783,51 @@ describe('MarkdownPhase - negative paths', () => {
     expect(result.status).toBe('failed');
     expect(result.error).toContain('Forced iteration error');
   });
+
+  it('should handle a markdown file absent from the graph file index', async () => {
+    writeFixtureFile(fixture.rootPath, 'src/index.ts', 'export const x = 1;');
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    const mdPath = join(fixture.rootPath, 'orphan.md');
+    scanData.discoveredFiles.push({
+      filePath: mdPath,
+      language: null,
+      content: '# Orphan\n\ncontent',
+      hash: 'orphan123',
+      size: 40,
+    });
+    // Deliberately do NOT add a File node for orphan.md to the graph
+
+    const result = await markdownPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    const output = result.output as { markdownFiles: number };
+    expect(output.markdownFiles).toBe(0);
+  });
+
+  it('should handle a non-Error exception through the catch block', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    await scanPhase.execute(ctx);
+
+    const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
+    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+      scanData.discoveredFiles,
+      {
+        get(target, prop) {
+          if (prop === Symbol.iterator) {
+            // eslint-disable-next-line @typescript-eslint/only-throw-error
+            throw 'string boom';
+          }
+          return Reflect.get(target, prop);
+        },
+      },
+    );
+
+    const result = await markdownPhase.execute(ctx);
+    expect(result.status).toBe('failed');
+    expect(result.error).toBe('string boom');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2690,16 +2860,23 @@ describe('ConfigPhase - more paths', () => {
     scanData.discoveredFiles.push({
       filePath: envPath,
       language: null,
-      content: 'DATABASE_URL=postgres://localhost:5432\nAPI_KEY=abc123\n# This is a comment\nEMPTY_VAR=\nSECRET_TOKEN=xyz789',
+      content:
+        'DATABASE_URL=postgres://localhost:5432\nAPI_KEY=abc123\n# This is a comment\nEMPTY_VAR=\nSECRET_TOKEN=xyz789',
       hash: 'env456',
       size: 100,
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', envPath, {
-      name: 'config.env',
-      filePath: envPath,
-    }, `file:${envPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      envPath,
+      {
+        name: 'config.env',
+        filePath: envPath,
+      },
+      `file:${envPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -2732,10 +2909,16 @@ describe('ConfigPhase - more paths', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', yamlPath, {
-      name: 'config.yaml',
-      filePath: yamlPath,
-    }, `file:${yamlPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      yamlPath,
+      {
+        name: 'config.yaml',
+        filePath: yamlPath,
+      },
+      `file:${yamlPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -2763,10 +2946,16 @@ describe('ConfigPhase - more paths', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', emptyJsonPath, {
-      name: 'empty.json',
-      filePath: emptyJsonPath,
-    }, `file:${emptyJsonPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      emptyJsonPath,
+      {
+        name: 'empty.json',
+        filePath: emptyJsonPath,
+      },
+      `file:${emptyJsonPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -2794,10 +2983,16 @@ describe('ConfigPhase - more paths', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', tomlPath, {
-      name: 'config.toml',
-      filePath: tomlPath,
-    }, `file:${tomlPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      tomlPath,
+      {
+        name: 'config.toml',
+        filePath: tomlPath,
+      },
+      `file:${tomlPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -2813,14 +3008,17 @@ describe('ConfigPhase - more paths', () => {
 
     // Corrupt scan data to trigger catch block
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(scanData.discoveredFiles, {
-      get(target, prop) {
-        if (prop === Symbol.iterator) {
-          throw new Error('Config phase forced error');
-        }
-        return Reflect.get(target, prop);
+    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+      scanData.discoveredFiles,
+      {
+        get(target, prop) {
+          if (prop === Symbol.iterator) {
+            throw new Error('Config phase forced error');
+          }
+          return Reflect.get(target, prop);
+        },
       },
-    });
+    );
 
     const result = await configPhase.execute(ctx);
     expect(result.status).toBe('failed');
@@ -2850,24 +3048,28 @@ describe('RoutesPhase - more frameworks', () => {
   });
 
   it('should detect Gin (Go) style routes', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/main.go', [
-      'package main',
-      '',
-      'import "github.com/gin-gonic/gin"',
-      '',
-      'func main() {',
-      '  r := gin.Default()',
-      '  r.GET("/api/ping", func(c *gin.Context) {',
-      '    c.JSON(200, gin.H{"message": "pong"})',
-      '  })',
-      '  r.POST("/api/users", func(c *gin.Context) {',
-      '    c.JSON(201, gin.H{"created": true})',
-      '  })',
-      '  r.PUT("/api/users/:id", func(c *gin.Context) {',
-      '    c.JSON(200, gin.H{"updated": true})',
-      '  })',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/main.go',
+      [
+        'package main',
+        '',
+        'import "github.com/gin-gonic/gin"',
+        '',
+        'func main() {',
+        '  r := gin.Default()',
+        '  r.GET("/api/ping", func(c *gin.Context) {',
+        '    c.JSON(200, gin.H{"message": "pong"})',
+        '  })',
+        '  r.POST("/api/users", func(c *gin.Context) {',
+        '    c.JSON(201, gin.H{"created": true})',
+        '  })',
+        '  r.PUT("/api/users/:id", func(c *gin.Context) {',
+        '    c.JSON(200, gin.H{"updated": true})',
+        '  })',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -2886,92 +3088,98 @@ describe('RoutesPhase - more frameworks', () => {
   });
 
   it('should detect FastAPI (Python) style routes', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/api.py', [
-      'from fastapi import FastAPI',
-      '',
-      'app = FastAPI()',
-      '',
-      '@app.get("/items")',
-      'async def get_items():',
-      '    return []',
-      '',
-      '@app.post("/items")',
-      'async def create_item():',
-      '    return {"created": True}',
-      '',
-      '@router.get("/users")',
-      'async def get_users():',
-      '    return []',
-      '',
-      '@router.put("/users/{id}")',
-      'async def update_user(id: int):',
-      '    return {"updated": True}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/api.py',
+      [
+        'from fastapi import FastAPI',
+        '',
+        'app = FastAPI()',
+        '',
+        '@app.get("/items")',
+        'async def get_items():',
+        '    return []',
+        '',
+        '@app.post("/items")',
+        'async def create_item():',
+        '    return {"created": True}',
+        '',
+        '@router.get("/users")',
+        'async def get_users():',
+        '    return []',
+        '',
+        '@router.put("/users/{id}")',
+        'async def update_user(id: int):',
+        '    return {"updated": True}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
-    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route',
-    );
+    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
     // FastAPI patterns use /gi flag; Python files parsed by tree-sitter may
     // have decorator lines that match as either 'fastapi' or 'flask'
     const fastapiRoutes = routeNodes.filter(
-      (n) => (n.properties?.framework as string)?.includes('fastapi') || (n.properties?.framework as string)?.includes('flask'),
+      (n) =>
+        (n.properties?.framework as string)?.includes('fastapi') ||
+        (n.properties?.framework as string)?.includes('flask'),
     );
     expect(fastapiRoutes.length).toBeGreaterThanOrEqual(0);
   });
 
   it('should detect Next.js app router file conventions', async () => {
-    writeFixtureFile(fixture.rootPath, 'app/api/hello/route.ts', [
-      "export async function GET() {",
-      "  return Response.json({ hello: 'world' });",
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'app/api/hello/route.ts',
+      ['export async function GET() {', "  return Response.json({ hello: 'world' });", '}'].join(
+        '\n',
+      ),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
-    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route',
-    );
-    const nextJsRoutes = routeNodes.filter(
-      (n) => n.properties?.framework === 'nextjs-app-router',
-    );
+    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
+    const nextJsRoutes = routeNodes.filter((n) => n.properties?.framework === 'nextjs-app-router');
     // route.ts file convention creates a route
     expect(nextJsRoutes.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should detect Koa style routes', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/koa-server.ts', [
-      "import Koa from 'koa';",
-      "import Router from 'koa-router';",
-      '',
-      'const router = new Router();',
-      '',
-      "router.get('/api/health', async (ctx) => {",
-      "  ctx.body = { status: 'ok' };",
-      '});',
-      '',
-      "router.post('/api/data', async (ctx) => {",
-      "  ctx.body = { received: true };",
-      '});',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/koa-server.ts',
+      [
+        "import Koa from 'koa';",
+        "import Router from 'koa-router';",
+        '',
+        'const router = new Router();',
+        '',
+        "router.get('/api/health', async (ctx) => {",
+        "  ctx.body = { status: 'ok' };",
+        '});',
+        '',
+        "router.post('/api/data', async (ctx) => {",
+        '  ctx.body = { received: true };',
+        '});',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await routesPhase.execute(ctx);
 
-    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route',
-    );
+    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
     const koaRoutes = routeNodes.filter(
-      (n) => (n.properties?.framework as string) === 'koa' || (n.properties?.framework as string) === 'express-router',
+      (n) =>
+        (n.properties?.framework as string) === 'koa' ||
+        (n.properties?.framework as string) === 'express-router',
     );
     // Koa routes use the same pattern as express-router so may be detected as either
     expect(koaRoutes.length).toBeGreaterThanOrEqual(0);
@@ -2984,14 +3192,17 @@ describe('RoutesPhase - more frameworks', () => {
 
     // Corrupt scan data
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(scanData.discoveredFiles, {
-      get(target, prop) {
-        if (prop === Symbol.iterator) {
-          throw new Error('Routes phase forced error');
-        }
-        return Reflect.get(target, prop);
+    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+      scanData.discoveredFiles,
+      {
+        get(target, prop) {
+          if (prop === Symbol.iterator) {
+            throw new Error('Routes phase forced error');
+          }
+          return Reflect.get(target, prop);
+        },
       },
-    });
+    );
 
     const result = await routesPhase.execute(ctx);
     expect(result.status).toBe('failed');
@@ -3021,66 +3232,66 @@ describe('ToolsPhase - noise filtering', () => {
   });
 
   it('should filter out tool names with common keywords (if, for, the)', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/noise-tools.ts', [
-      "const tool1 = { name: 'if', description: 'keyword name' };",
-      "const tool2 = { name: 'for', description: 'another keyword' };",
-      "const tool3 = { name: 'the', description: 'common word' };",
-      "const tool4 = { name: 'and', description: 'conjunction' };",
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/noise-tools.ts',
+      [
+        "const tool1 = { name: 'if', description: 'keyword name' };",
+        "const tool2 = { name: 'for', description: 'another keyword' };",
+        "const tool3 = { name: 'the', description: 'common word' };",
+        "const tool4 = { name: 'and', description: 'conjunction' };",
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await toolsPhase.execute(ctx);
 
-    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Tool',
-    );
-    const keywordTools = toolNodes.filter(
-      (n) => ['if', 'for', 'the', 'and'].includes(n.name),
-    );
+    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
+    const keywordTools = toolNodes.filter((n) => ['if', 'for', 'the', 'and'].includes(n.name));
     expect(keywordTools.length).toBe(0);
   });
 
   it('should filter out tool names shorter than 3 characters', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/short-tools.ts', [
-      "const a = { name: 'ab', description: 'two chars' };",
-      "const b = { name: 'x', description: 'one char' };",
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/short-tools.ts',
+      [
+        "const a = { name: 'ab', description: 'two chars' };",
+        "const b = { name: 'x', description: 'one char' };",
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await toolsPhase.execute(ctx);
 
-    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Tool',
-    );
-    const shortTools = toolNodes.filter(
-      (n) => n.name === 'ab' || n.name === 'x',
-    );
+    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
+    const shortTools = toolNodes.filter((n) => n.name === 'ab' || n.name === 'x');
     expect(shortTools.length).toBe(0);
   });
 
   it('should detect VSCode command definitions', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/extension.ts', [
-      "const command = {",
-      "  'command': 'extension.helloWorld',",
-      "  'title': 'Hello World'",
-      '};',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/extension.ts',
+      [
+        'const command = {',
+        "  'command': 'extension.helloWorld',",
+        "  'title': 'Hello World'",
+        '};',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
     await parsePhase.execute(ctx);
     await toolsPhase.execute(ctx);
 
-    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Tool',
-    );
-    const vscodeTools = toolNodes.filter(
-      (n) => n.properties?.toolType === 'vscode-command',
-    );
+    const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
+    const vscodeTools = toolNodes.filter((n) => n.properties?.toolType === 'vscode-command');
     expect(vscodeTools.length).toBeGreaterThanOrEqual(0);
   });
 
@@ -3090,14 +3301,17 @@ describe('ToolsPhase - noise filtering', () => {
     await parsePhase.execute(ctx);
 
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(scanData.discoveredFiles, {
-      get(target, prop) {
-        if (prop === Symbol.iterator) {
-          throw new Error('Tools phase forced error');
-        }
-        return Reflect.get(target, prop);
+    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+      scanData.discoveredFiles,
+      {
+        get(target, prop) {
+          if (prop === Symbol.iterator) {
+            throw new Error('Tools phase forced error');
+          }
+          return Reflect.get(target, prop);
+        },
       },
-    });
+    );
 
     const result = await toolsPhase.execute(ctx);
     expect(result.status).toBe('failed');
@@ -3127,15 +3341,19 @@ describe('DependencyInjectionPhase - more patterns', () => {
   });
 
   it('should detect @Injectable() with constructor injection', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/user.service.ts', [
-      '@Injectable()',
-      'export class UserService {',
-      '  constructor(private httpClient: HttpClient, private logger: Logger) {}',
-      '}',
-      '',
-      'export class HttpClient { connect() {} }',
-      'export class Logger { log(msg: string) {} }',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/user.service.ts',
+      [
+        '@Injectable()',
+        'export class UserService {',
+        '  constructor(private httpClient: HttpClient, private logger: Logger) {}',
+        '}',
+        '',
+        'export class HttpClient { connect() {} }',
+        'export class Logger { log(msg: string) {} }',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3149,15 +3367,19 @@ describe('DependencyInjectionPhase - more patterns', () => {
   });
 
   it('should detect services.AddScoped patterns (.NET DI)', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/Startup.cs', [
-      'public class Startup {',
-      '  public void ConfigureServices(IServiceCollection services) {',
-      '    services.AddScoped<IUserRepository, UserRepository>();',
-      '    services.AddSingleton<ILogger, ConsoleLogger>();',
-      '    services.AddTransient<IEmailService, EmailService>();',
-      '  }',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/Startup.cs',
+      [
+        'public class Startup {',
+        '  public void ConfigureServices(IServiceCollection services) {',
+        '    services.AddScoped<IUserRepository, UserRepository>();',
+        '    services.AddSingleton<ILogger, ConsoleLogger>();',
+        '    services.AddTransient<IEmailService, EmailService>();',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3170,12 +3392,16 @@ describe('DependencyInjectionPhase - more patterns', () => {
   });
 
   it('should detect NestJS provider arrays', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/app.module.ts', [
-      '@Injectable()',
-      'export class AppModule {',
-      '  providers: [UserService, AuthService, DatabaseProvider, CacheService]',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/app.module.ts',
+      [
+        '@Injectable()',
+        'export class AppModule {',
+        '  providers: [UserService, AuthService, DatabaseProvider, CacheService]',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3186,12 +3412,16 @@ describe('DependencyInjectionPhase - more patterns', () => {
   });
 
   it('should detect Spring @Autowired patterns', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/UserController.java', [
-      'public class UserController {',
-      '  @Autowired private UserService userService;',
-      '  @Autowired public Logger logger;',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/UserController.java',
+      [
+        'public class UserController {',
+        '  @Autowired private UserService userService;',
+        '  @Autowired public Logger logger;',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3207,14 +3437,17 @@ describe('DependencyInjectionPhase - more patterns', () => {
     await parsePhase.execute(ctx);
 
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(scanData.discoveredFiles, {
-      get(target, prop) {
-        if (prop === Symbol.iterator) {
-          throw new Error('DI phase forced error');
-        }
-        return Reflect.get(target, prop);
+    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+      scanData.discoveredFiles,
+      {
+        get(target, prop) {
+          if (prop === Symbol.iterator) {
+            throw new Error('DI phase forced error');
+          }
+          return Reflect.get(target, prop);
+        },
       },
-    });
+    );
 
     const result = await diPhase.execute(ctx);
     expect(result.status).toBe('failed');
@@ -3249,36 +3482,44 @@ describe('ProcessesPhase - multiple routes', () => {
 
   it('should create multiple processes from multiple route nodes', async () => {
     // Create a project with multiple routes calling different functions
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import express from 'express';",
-      "import { getUserService, createUserService } from './services';",
-      '',
-      "const app = express();",
-      '',
-      "app.get('/api/users', (req, res) => {",
-      "  const result = getUserService();",
-      "  res.json(result);",
-      '});',
-      '',
-      "app.post('/api/users', (req, res) => {",
-      "  const result = createUserService();",
-      "  res.json(result);",
-      '});',
-      '',
-      "app.get('/api/health', (req, res) => {",
-      "  res.json({ status: 'ok' });",
-      '});',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      [
+        "import express from 'express';",
+        "import { getUserService, createUserService } from './services';",
+        '',
+        'const app = express();',
+        '',
+        "app.get('/api/users', (req, res) => {",
+        '  const result = getUserService();',
+        '  res.json(result);',
+        '});',
+        '',
+        "app.post('/api/users', (req, res) => {",
+        '  const result = createUserService();',
+        '  res.json(result);',
+        '});',
+        '',
+        "app.get('/api/health', (req, res) => {",
+        "  res.json({ status: 'ok' });",
+        '});',
+      ].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/services.ts', [
-      'export function getUserService() {',
-      "  return { users: [] };",
-      '}',
-      '',
-      'export function createUserService() {',
-      "  return { created: true };",
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/services.ts',
+      [
+        'export function getUserService() {',
+        '  return { users: [] };',
+        '}',
+        '',
+        'export function createUserService() {',
+        '  return { created: true };',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3286,18 +3527,14 @@ describe('ProcessesPhase - multiple routes', () => {
     await scopeResolutionPhase.execute(ctx);
     await routesPhase.execute(ctx);
 
-    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route',
-    );
+    const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
     // Should have at least 2 routes
     expect(routeNodes.length).toBeGreaterThanOrEqual(2);
 
     const result = await processesPhase.execute(ctx);
     expect(result.status).toBe('success');
 
-    const processNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Process',
-    );
+    const processNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Process');
     // Each route with connected functions should create a process
     expect(processNodes.length).toBeGreaterThanOrEqual(0);
 
@@ -3355,20 +3592,28 @@ describe('TestsPhase - convention matching', () => {
   it('should match test file to source by filename convention', async () => {
     // Create a source file and a test file with matching name by convention
     // The test file should NOT import the source, so convention matching is used
-    writeFixtureFile(fixture.rootPath, 'src/utils.ts', [
-      'export function helperFunction(name: string): string {',
-      "  return `Hello, ${name}!`;",
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/utils.ts',
+      [
+        'export function helperFunction(name: string): string {',
+        '  return `Hello, ${name}!`;',
+        '}',
+      ].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/__tests__/utils.test.ts', [
-      "// Test for utils.ts - no direct import, matched by convention",
-      "describe('utils', () => {",
-      "  it('should work', () => {",
-      '    // Test code',
-      '  });',
-      '});',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/__tests__/utils.test.ts',
+      [
+        '// Test for utils.ts - no direct import, matched by convention',
+        "describe('utils', () => {",
+        "  it('should work', () => {",
+        '    // Test code',
+        '  });',
+        '});',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3379,28 +3624,30 @@ describe('TestsPhase - convention matching', () => {
     const result = await testsPhase.execute(ctx);
     expect(result.status).toBe('success');
 
-    const testsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'TESTS',
-    );
+    const testsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'TESTS');
     // Convention matching should find the source file
     expect(testsEdges.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should match spec file to source by convention', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/calculator.ts', [
-      'export function add(a: number, b: number): number {',
-      '  return a + b;',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/calculator.ts',
+      ['export function add(a: number, b: number): number {', '  return a + b;', '}'].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/calculator.spec.ts', [
-      "import { add } from './calculator';",
-      "describe('add', () => {",
-      "  it('should add two numbers', () => {",
-      '    expect(add(1, 2)).toBe(3);',
-      '  });',
-      '});',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/calculator.spec.ts',
+      [
+        "import { add } from './calculator';",
+        "describe('add', () => {",
+        "  it('should add two numbers', () => {",
+        '    expect(add(1, 2)).toBe(3);',
+        '  });',
+        '});',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3409,33 +3656,33 @@ describe('TestsPhase - convention matching', () => {
     await crossFilePhase.execute(ctx);
     await testsPhase.execute(ctx);
 
-    const testsEdges = Array.from(ctx.graph!.edges.values()).filter(
-      (e) => e.type === 'TESTS',
-    );
+    const testsEdges = Array.from(ctx.graph!.edges.values()).filter((e) => e.type === 'TESTS');
     expect(testsEdges.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should detect Go _test.go files as test files', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/handler.go', [
-      'package handler',
-      '',
-      'func Process() string {',
-      '  return "ok"',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/handler.go',
+      ['package handler', '', 'func Process() string {', '  return "ok"', '}'].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/handler_test.go', [
-      'package handler',
-      '',
-      'import "testing"',
-      '',
-      'func TestProcess(t *testing.T) {',
-      '  result := Process()',
-      '  if result != "ok" {',
-      '    t.Errorf("unexpected result")',
-      '  }',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/handler_test.go',
+      [
+        'package handler',
+        '',
+        'import "testing"',
+        '',
+        'func TestProcess(t *testing.T) {',
+        '  result := Process()',
+        '  if result != "ok" {',
+        '    t.Errorf("unexpected result")',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3510,7 +3757,7 @@ describe('SimilarityPhase - edge cases', () => {
   it('should detect identical files as similar', async () => {
     const identicalContent = [
       'export function processData(input: string): string {',
-      "  const result = input.trim().toLowerCase();",
+      '  const result = input.trim().toLowerCase();',
       "  return result.replace(/[^a-z0-9]/g, '');",
       '}',
     ].join('\n');
@@ -3542,25 +3789,33 @@ describe('SimilarityPhase - edge cases', () => {
   });
 
   it('should not mark completely different files as similar', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/moduleC.ts', [
-      'export function processData(input: string): string {',
-      "  const result = input.trim().toLowerCase();",
-      "  return result.replace(/[^a-z0-9]/g, '');",
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/moduleC.ts',
+      [
+        'export function processData(input: string): string {',
+        '  const result = input.trim().toLowerCase();',
+        "  return result.replace(/[^a-z0-9]/g, '');",
+        '}',
+      ].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/moduleD.ts', [
-      'import { createConnection } from "mysql2";',
-      'export class DatabaseManager {',
-      '  private pool: any;',
-      '  constructor(private config: { host: string }) {',
-      '    this.pool = createConnection(config);',
-      '  }',
-      '  async query(sql: string): Promise<any> {',
-      '    return [];',
-      '  }',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/moduleD.ts',
+      [
+        'import { createConnection } from "mysql2";',
+        'export class DatabaseManager {',
+        '  private pool: any;',
+        '  constructor(private config: { host: string }) {',
+        '    this.pool = createConnection(config);',
+        '  }',
+        '  async query(sql: string): Promise<any> {',
+        '    return [];',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -3931,19 +4186,22 @@ describe('Error paths for all phases', () => {
   it('DumpPhase should handle error catch block', async () => {
     const ctx = createContext('test-proj', fixture.rootPath);
     // Corrupt graph to trigger error during dump
-    ctx.graph = new Proxy({
-      nodes: new Map(),
-      edges: new Map(),
-      qnameIndex: new Map(),
-      fileIndex: new Map(),
-    } as unknown as KnowledgeGraph, {
-      get(target, prop) {
-        if (prop === 'nodes') {
-          throw new Error('Dump phase forced error');
-        }
-        return Reflect.get(target, prop);
+    ctx.graph = new Proxy(
+      {
+        nodes: new Map(),
+        edges: new Map(),
+        qnameIndex: new Map(),
+        fileIndex: new Map(),
+      } as unknown as KnowledgeGraph,
+      {
+        get(target, prop) {
+          if (prop === 'nodes') {
+            throw new Error('Dump phase forced error');
+          }
+          return Reflect.get(target, prop);
+        },
       },
-    });
+    );
 
     const phase = new DumpPhase();
     const result = await phase.execute(ctx);
@@ -4026,10 +4284,16 @@ describe('ConfigPhase - XML and edge cases', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', xmlPath, {
-      name: 'pom.xml',
-      filePath: xmlPath,
-    }, `file:${xmlPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      xmlPath,
+      {
+        name: 'pom.xml',
+        filePath: xmlPath,
+      },
+      `file:${xmlPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4056,10 +4320,16 @@ describe('ConfigPhase - XML and edge cases', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', eslintPath, {
-      name: '.eslintrc.yaml',
-      filePath: eslintPath,
-    }, `file:${eslintPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      eslintPath,
+      {
+        name: '.eslintrc.yaml',
+        filePath: eslintPath,
+      },
+      `file:${eslintPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4090,19 +4360,23 @@ describe('ScopeResolutionPhase - EXTENDS and IMPLEMENTS', () => {
 
   it('should attempt to resolve EXTENDS edges for class inheritance', async () => {
     // Create a base class and a derived class
-    writeFixtureFile(fixture.rootPath, 'src/base.ts', [
-      'export class BaseClass {',
-      '  public baseMethod(): void {}',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/base.ts',
+      ['export class BaseClass {', '  public baseMethod(): void {}', '}'].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/derived.ts', [
-      "import { BaseClass } from './base';",
-      '',
-      'export class DerivedClass extends BaseClass {',
-      '  public derivedMethod(): void {}',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/derived.ts',
+      [
+        "import { BaseClass } from './base';",
+        '',
+        'export class DerivedClass extends BaseClass {',
+        '  public derivedMethod(): void {}',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -4113,19 +4387,23 @@ describe('ScopeResolutionPhase - EXTENDS and IMPLEMENTS', () => {
   });
 
   it('should attempt to resolve IMPLEMENTS edges for interfaces', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/interfaces.ts', [
-      'export interface ServiceInterface {',
-      '  execute(): void;',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/interfaces.ts',
+      ['export interface ServiceInterface {', '  execute(): void;', '}'].join('\n'),
+    );
 
-    writeFixtureFile(fixture.rootPath, 'src/impl.ts', [
-      "import { ServiceInterface } from './interfaces';",
-      '',
-      'export class ServiceImpl implements ServiceInterface {',
-      '  public execute(): void {}',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/impl.ts',
+      [
+        "import { ServiceInterface } from './interfaces';",
+        '',
+        'export class ServiceImpl implements ServiceInterface {',
+        '  public execute(): void {}',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -4154,12 +4432,16 @@ describe('CrossFilePhase - package import resolution', () => {
   });
 
   it('should handle package imports without resolution (node_modules not available)', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import express from 'express';",
-      "import { something } from 'some-package';",
-      '',
-      'export const x = 1;',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      [
+        "import express from 'express';",
+        "import { something } from 'some-package';",
+        '',
+        'export const x = 1;',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -4184,11 +4466,11 @@ describe('CrossFilePhase - package import resolution', () => {
 
   it('should handle package imports with node_modules resolution', async () => {
     // Create a mock node_modules with a simple package
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import lodash from 'lodash';",
-      '',
-      'export const x = lodash.isEmpty({});',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      ["import lodash from 'lodash';", '', 'export const x = lodash.isEmpty({});'].join('\n'),
+    );
 
     // Create node_modules/lodash with package.json
     mkdirSync(join(fixture.rootPath, 'node_modules', 'lodash'), { recursive: true });
@@ -4221,11 +4503,11 @@ describe('CrossFilePhase - package import resolution', () => {
   });
 
   it('should handle package imports with node_modules that have no package.json', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import utils from 'utils-lib';",
-      '',
-      'export const x = utils.doSomething();',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      ["import utils from 'utils-lib';", '', 'export const x = utils.doSomething();'].join('\n'),
+    );
 
     // Create node_modules/utils-lib with index.js but no package.json
     mkdirSync(join(fixture.rootPath, 'node_modules', 'utils-lib'), { recursive: true });
@@ -4284,10 +4566,16 @@ describe('ConfigPhase - INI and CFG files', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', iniPath, {
-      name: 'config.ini',
-      filePath: iniPath,
-    }, `file:${iniPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      iniPath,
+      {
+        name: 'config.ini',
+        filePath: iniPath,
+      },
+      `file:${iniPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4314,10 +4602,16 @@ describe('ConfigPhase - INI and CFG files', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', cfgPath, {
-      name: 'setup.cfg',
-      filePath: cfgPath,
-    }, `file:${cfgPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      cfgPath,
+      {
+        name: 'setup.cfg',
+        filePath: cfgPath,
+      },
+      `file:${cfgPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4344,10 +4638,16 @@ describe('ConfigPhase - INI and CFG files', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', badJsonPath, {
-      name: 'malformed.json',
-      filePath: badJsonPath,
-    }, `file:${badJsonPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      badJsonPath,
+      {
+        name: 'malformed.json',
+        filePath: badJsonPath,
+      },
+      `file:${badJsonPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4382,10 +4682,16 @@ describe('ConfigPhase - INI and CFG files', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', deepJsonPath, {
-      name: 'deep.json',
-      filePath: deepJsonPath,
-    }, `file:${deepJsonPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      deepJsonPath,
+      {
+        name: 'deep.json',
+        filePath: deepJsonPath,
+      },
+      `file:${deepJsonPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4472,15 +4778,19 @@ describe('CommunitiesPhase - orphan nodes', () => {
 
   it('should assign orphan nodes to their own communities', async () => {
     // Create a project with only one file — all symbols are orphans
-    writeFixtureFile(fixture.rootPath, 'src/standalone.ts', [
-      'export function standaloneFunction(): string {',
-      "  return 'alone';",
-      '}',
-      '',
-      'export class StandaloneClass {',
-      '  public method(): void {}',
-      '}',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/standalone.ts',
+      [
+        'export function standaloneFunction(): string {',
+        "  return 'alone';",
+        '}',
+        '',
+        'export class StandaloneClass {',
+        '  public method(): void {}',
+        '}',
+      ].join('\n'),
+    );
 
     const ctx = createContext('test-proj', fixture.rootPath);
     await scanPhase.execute(ctx);
@@ -4627,11 +4937,11 @@ describe('CrossFilePhase - node_modules edge cases', () => {
   });
 
   it('should handle package import with node_modules fallback (index.ts)', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import helpers from 'helpers-pkg';",
-      '',
-      'export const x = helpers.help();',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      ["import helpers from 'helpers-pkg';", '', 'export const x = helpers.help();'].join('\n'),
+    );
 
     mkdirSync(join(fixture.rootPath, 'node_modules', 'helpers-pkg'), { recursive: true });
     writeFileSync(
@@ -4648,11 +4958,11 @@ describe('CrossFilePhase - node_modules edge cases', () => {
   });
 
   it('should handle node_modules package with malformed package.json', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import pkg from 'bad-pkg';",
-      '',
-      'export const x = pkg;',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      ["import pkg from 'bad-pkg';", '', 'export const x = pkg;'].join('\n'),
+    );
 
     mkdirSync(join(fixture.rootPath, 'node_modules', 'bad-pkg'), { recursive: true });
     writeFileSync(
@@ -4673,11 +4983,11 @@ describe('CrossFilePhase - node_modules edge cases', () => {
   });
 
   it('should handle node_modules package without main field (index fallback)', async () => {
-    writeFixtureFile(fixture.rootPath, 'src/index.ts', [
-      "import nopkg from 'nopkg-lib';",
-      '',
-      'export const x = nopkg;',
-    ].join('\n'));
+    writeFixtureFile(
+      fixture.rootPath,
+      'src/index.ts',
+      ["import nopkg from 'nopkg-lib';", '', 'export const x = nopkg;'].join('\n'),
+    );
 
     mkdirSync(join(fixture.rootPath, 'node_modules', 'nopkg-lib'), { recursive: true });
     writeFileSync(
@@ -4766,10 +5076,16 @@ describe('ConfigPhase - docker-compose and more', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', ymlPath, {
-      name: 'docker-compose.yml',
-      filePath: ymlPath,
-    }, `file:${ymlPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      ymlPath,
+      {
+        name: 'docker-compose.yml',
+        filePath: ymlPath,
+      },
+      `file:${ymlPath}`,
+    );
 
     await configPhase.execute(ctx);
 
@@ -4801,10 +5117,16 @@ describe('ConfigPhase - docker-compose and more', () => {
     });
 
     const builder = new GraphBuilder(new InMemoryGraphStore());
-    builder.addNode(ctx.graph!, 'File', jsonPath, {
-      name: 'array-config.json',
-      filePath: jsonPath,
-    }, `file:${jsonPath}`);
+    builder.addNode(
+      ctx.graph!,
+      'File',
+      jsonPath,
+      {
+        name: 'array-config.json',
+        filePath: jsonPath,
+      },
+      `file:${jsonPath}`,
+    );
 
     await configPhase.execute(ctx);
 
