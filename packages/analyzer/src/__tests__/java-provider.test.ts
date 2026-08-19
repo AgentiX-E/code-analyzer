@@ -32,6 +32,21 @@ describe('JavaProvider', () => {
       expect(classDefs.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('should record superclass and interfaces for a class declaration', () => {
+      const code = 'public class Foo extends Base implements A, B { }';
+      const captures = provider.parse(code, 'Foo.java');
+      const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(cls).toBeDefined();
+      expect((cls!.properties as Record<string, unknown>).baseClasses).toBe('Base');
+      expect((cls!.properties as Record<string, unknown>).interfaces).toBe('A,B');
+    });
+
+    it('should extract a single-identifier import', () => {
+      const captures = provider.parse('import Foo;\n', 'Test.java');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((c) => c.name === 'Foo')).toBe(true);
+    });
+
     it('should extract abstract class', () => {
       const code = 'public abstract class BaseService { }';
       const captures = provider.parse(code, 'BaseService.java');
@@ -61,7 +76,8 @@ describe('JavaProvider', () => {
     });
 
     it('should extract interface with default methods', () => {
-      const code = 'public interface Processor {\n  default void init() { }\n  static void reset() { }\n  void process();\n}';
+      const code =
+        'public interface Processor {\n  default void init() { }\n  static void reset() { }\n  void process();\n}';
       const captures = provider.parse(code, 'test.java');
       const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
       expect(ifaces.some((c) => c.name === 'Processor')).toBe(true);
@@ -70,7 +86,8 @@ describe('JavaProvider', () => {
     });
 
     it('should extract interface with static methods', () => {
-      const code = 'public interface Factory {\n  static Factory create() { return new FactoryImpl(); }\n}';
+      const code =
+        'public interface Factory {\n  static Factory create() { return new FactoryImpl(); }\n}';
       const captures = provider.parse(code, 'test.java');
       const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
       expect(ifaces.some((c) => c.name === 'Factory')).toBe(true);
@@ -84,7 +101,8 @@ describe('JavaProvider', () => {
     });
 
     it('should extract enum with constructors and methods', () => {
-      const code = 'public enum Status {\n  ACTIVE("A"), INACTIVE("I");\n  private String code;\n  Status(String c) { code = c; }\n  public String getCode() { return code; }\n}';
+      const code =
+        'public enum Status {\n  ACTIVE("A"), INACTIVE("I");\n  private String code;\n  Status(String c) { code = c; }\n  public String getCode() { return code; }\n}';
       const captures = provider.parse(code, 'Status.java');
       const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
       expect(enums.some((c) => c.name === 'Status')).toBe(true);
@@ -95,7 +113,8 @@ describe('JavaProvider', () => {
     });
 
     it('should extract enum with fields', () => {
-      const code = 'public enum Direction {\n  NORTH(0), SOUTH(180);\n  private int degrees;\n  Direction(int d) { degrees = d; }\n}';
+      const code =
+        'public enum Direction {\n  NORTH(0), SOUTH(180);\n  private int degrees;\n  Direction(int d) { degrees = d; }\n}';
       const captures = provider.parse(code, 'Direction.java');
       const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
       expect(enums.some((c) => c.name === 'Direction')).toBe(true);
@@ -176,35 +195,40 @@ describe('JavaProvider', () => {
     });
 
     it('should handle class with generics', () => {
-      const code = 'public class Box<T> {\n  private T value;\n  public T getValue() { return value; }\n}';
+      const code =
+        'public class Box<T> {\n  private T value;\n  public T getValue() { return value; }\n}';
       const captures = provider.parse(code, 'Test.java');
       const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classDefs.some((c) => c.name === 'Box')).toBe(true);
     });
 
     it('should handle class with bounded type parameter', () => {
-      const code = 'public class Comparable<T extends Comparable<T>> {\n  public int compare(T other) { return 0; }\n}';
+      const code =
+        'public class Comparable<T extends Comparable<T>> {\n  public int compare(T other) { return 0; }\n}';
       const captures = provider.parse(code, 'Test.java');
       const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classDefs.some((c) => c.name === 'Comparable')).toBe(true);
     });
 
     it('should handle class with extends and implements', () => {
-      const code = 'public class ArrayList<E> extends AbstractList<E> implements List<E>, RandomAccess { }';
+      const code =
+        'public class ArrayList<E> extends AbstractList<E> implements List<E>, RandomAccess { }';
       const captures = provider.parse(code, 'Test.java');
       const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classDefs.some((c) => c.name === 'ArrayList')).toBe(true);
     });
 
     it('should handle multiple methods in a class', () => {
-      const code = 'public class Calculator {\n  public int add(int a, int b) { return a + b; }\n  public int subtract(int a, int b) { return a - b; }\n  private void init() { }\n}';
+      const code =
+        'public class Calculator {\n  public int add(int a, int b) { return a + b; }\n  public int subtract(int a, int b) { return a - b; }\n  private void init() { }\n}';
       const captures = provider.parse(code, 'Test.java');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.length).toBeGreaterThanOrEqual(3);
     });
 
     it('should handle class with annotations', () => {
-      const code = '@Deprecated\npublic class OldClass {\n  @SuppressWarnings("unused")\n  public void legacyMethod() { }\n}';
+      const code =
+        '@Deprecated\npublic class OldClass {\n  @SuppressWarnings("unused")\n  public void legacyMethod() { }\n}';
       const captures = provider.parse(code, 'Test.java');
       // tree-sitter-java uses 'marker_annotation' and 'annotation' types
       // inside 'modifiers' nodes, not matched by current walkAndCapture
@@ -212,14 +236,16 @@ describe('JavaProvider', () => {
     });
 
     it('should handle try-with-resources', () => {
-      const code = 'public class FileReader {\n  public String readFirstLine() throws IOException {\n    try (BufferedReader br = new BufferedReader(new java.io.FileReader("file.txt"))) {\n      return br.readLine();\n    }\n  }\n}';
+      const code =
+        'public class FileReader {\n  public String readFirstLine() throws IOException {\n    try (BufferedReader br = new BufferedReader(new java.io.FileReader("file.txt"))) {\n      return br.readLine();\n    }\n  }\n}';
       const captures = provider.parse(code, 'Test.java');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.some((c) => c.name === 'readFirstLine')).toBe(true);
     });
 
     it('should handle class with inner class', () => {
-      const code = 'public class Outer {\n  public class Inner {\n    public void doWork() { }\n  }\n}';
+      const code =
+        'public class Outer {\n  public class Inner {\n    public void doWork() { }\n  }\n}';
       const captures = provider.parse(code, 'Test.java');
       const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classDefs.length).toBeGreaterThanOrEqual(2);
@@ -228,7 +254,8 @@ describe('JavaProvider', () => {
     });
 
     it('should handle class with static method', () => {
-      const code = 'public class Utils {\n  public static String format(String input) { return input.trim(); }\n}';
+      const code =
+        'public class Utils {\n  public static String format(String input) { return input.trim(); }\n}';
       const captures = provider.parse(code, 'Test.java');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.some((c) => c.name === 'format')).toBe(true);
@@ -251,6 +278,11 @@ describe('JavaProvider', () => {
       const code = 'import java.util.List;\nimport java.util.Map;';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should extract a single-identifier import', () => {
+      const imports = provider.extractImports('import Foo;\n');
+      expect(imports).toContainEqual(expect.objectContaining({ source: 'Foo', type: 'named' }));
     });
 
     it('should extract static imports', () => {
@@ -421,7 +453,12 @@ describe('JavaProvider', () => {
     });
 
     it('fallbackIsExported should detect public static method', () => {
-      expect(provider.fallbackIsExported('public static String format(String s) { return s; }', 'format')).toBe(true);
+      expect(
+        provider.fallbackIsExported(
+          'public static String format(String s) { return s; }',
+          'format',
+        ),
+      ).toBe(true);
     });
 
     it('fallbackIsExported should return false for non-public class', () => {
