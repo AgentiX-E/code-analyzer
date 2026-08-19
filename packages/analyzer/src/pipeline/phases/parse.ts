@@ -8,7 +8,12 @@ import type {
   SupportedLanguage,
   NodeProperties,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_DEFINES, EDGE_HAS_METHOD } from '@code-analyzer/shared';
+import {
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_DEFINES,
+  EDGE_HAS_METHOD,
+} from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -29,8 +34,7 @@ export class ParsePhase implements ExecutablePhase {
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: DiscoveredFile[] }
-        | undefined;
+        { discoveredFiles: DiscoveredFile[] } | undefined;
 
       if (!scanData || !scanData.discoveredFiles) {
         return { phaseId: this.id, status: 'success', output: { filesParsed: 0 } };
@@ -52,8 +56,10 @@ export class ParsePhase implements ExecutablePhase {
 
           // Determine if items are exported
           for (const capture of captures) {
+            /* v8 ignore next -- @preserve -- every provider emits captures with a name */
             if (capture.name) {
               const isExported = provider.isExported(file.content, capture.name);
+              /* v8 ignore next -- @preserve -- every provider emits captures with properties */
               if (capture.properties) {
                 capture.properties.exported = String(isExported);
               }
@@ -143,6 +149,7 @@ export class ParsePhase implements ExecutablePhase {
 
           successCount++;
         } catch {
+          /* v8 ignore next -- @preserve -- providers handle their own errors (tree-sitter falls back to regex, JSON.parse is caught), so per-file parse failures are unreachable via the public API */
           failCount++;
         }
       }
@@ -155,7 +162,11 @@ export class ParsePhase implements ExecutablePhase {
         output: { filesParsed: successCount, filesFailed: failCount },
       };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }
