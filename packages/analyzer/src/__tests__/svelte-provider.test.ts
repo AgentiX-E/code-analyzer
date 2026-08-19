@@ -61,7 +61,9 @@ describe('SvelteProvider', () => {
   $: console.log(count);
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
-      const reactive = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.reactive === 'true');
+      const reactive = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.reactive === 'true',
+      );
       expect(reactive.some((c) => c.name === 'doubled')).toBe(true);
     });
 
@@ -84,7 +86,9 @@ describe('SvelteProvider', () => {
   }
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.exported === 'true');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.exported === 'true',
+      );
       expect(funcs.some((c) => c.name === 'preload')).toBe(true);
     });
 
@@ -94,7 +98,9 @@ describe('SvelteProvider', () => {
   export const ssr = false;
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
-      const constants = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.properties?.exported === 'true');
+      const constants = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.properties?.exported === 'true',
+      );
       expect(constants.some((c) => c.name === 'prerender')).toBe(true);
       expect(constants.some((c) => c.name === 'ssr')).toBe(true);
     });
@@ -124,7 +130,9 @@ describe('SvelteProvider', () => {
   let items = [];
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
-      const arrowFuncs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true');
+      const arrowFuncs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+      );
       expect(arrowFuncs.some((c) => c.name === 'formatDate')).toBe(true);
     });
 
@@ -165,6 +173,17 @@ describe('SvelteProvider', () => {
       expect(constants.some((c) => c.name === 'MAX_ITEMS')).toBe(true);
     });
 
+    it('should parse plain declarations without an initializer', () => {
+      const code = `<script>
+  let pending;
+  const ready;
+</script>`;
+      const captures = provider.parse(code, 'test.svelte');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.some((c) => c.name === 'pending')).toBe(true);
+      expect(vars.some((c) => c.name === 'ready')).toBe(true);
+    });
+
     it('should detect custom components in template', () => {
       const code = `<script>
   import Header from './Header.svelte';
@@ -176,7 +195,9 @@ describe('SvelteProvider', () => {
   <footer-items />
 </main>`;
       const captures = provider.parse(code, 'test.svelte');
-      const components = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true');
+      const components = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+      );
       expect(components.some((c) => c.name === 'Header')).toBe(true);
       expect(components.some((c) => c.name === 'UserCard')).toBe(true);
       expect(components.some((c) => c.name === 'footer-items')).toBe(true);
@@ -195,7 +216,9 @@ describe('SvelteProvider', () => {
   </div>
 </main>`;
       const captures = provider.parse(code, 'test.svelte');
-      const components = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true');
+      const components = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+      );
       // No custom components (div, h1, p, button are standard HTML)
       expect(components.length).toBe(0);
     });
@@ -266,8 +289,25 @@ describe('SvelteProvider', () => {
       const captures = provider.parse(code, 'test.svelte');
       // Header is PascalCase (custom component), not a standard HTML tag
       // But the template section has <Header /> which should be captured
-      const components = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true');
+      const components = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+      );
       expect(components.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should skip component-like tags inside script and style blocks', () => {
+      const code = `<script>
+  const template = '<MyComponent />';
+  const el = '<my-widget></my-widget>';
+</script>
+<style>
+  /* <AnotherComponent /> */
+</style>`;
+      const captures = provider.parse(code, 'test.svelte');
+      const components = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+      );
+      expect(components.length).toBe(0);
     });
 
     it('should handle multiple script blocks', () => {
@@ -352,6 +392,14 @@ import { onMount } from 'svelte';
       const imports = provider.extractImports(code);
       expect(imports.length).toBeGreaterThanOrEqual(1);
       expect(imports[0]!.source).toBe('$app/environment');
+    });
+
+    it('should extract dynamic imports', () => {
+      const code = `<script>
+  const mod = import('./lazy.js');
+</script>`;
+      const imports = provider.extractImports(code);
+      expect(imports.some((i) => i.source === './lazy.js')).toBe(true);
     });
   });
 
@@ -446,7 +494,9 @@ import { onMount } from 'svelte';
   </content>
 </side-panel>`;
       const captures = provider.parse(code, 'test.svelte');
-      const components = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true');
+      const components = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+      );
       expect(components.some((c) => c.name === 'nav-bar')).toBe(true);
       expect(components.some((c) => c.name === 'side-panel')).toBe(true);
     });
@@ -455,7 +505,9 @@ import { onMount } from 'svelte';
       const code = `<UserAvatar />
 <UserProfile name="Alice" />`;
       const captures = provider.parse(code, 'test.svelte');
-      const components = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true');
+      const components = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+      );
       expect(components.length).toBeGreaterThanOrEqual(2);
     });
 

@@ -60,7 +60,8 @@ export class SvelteProvider implements LanguageProvider {
       const blockOffset = block.offset;
 
       // ES module imports: import X from 'module'
-      const importRegex = /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
+      const importRegex =
+        /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
       let match: RegExpExecArray | null;
       while ((match = importRegex.exec(blockContent)) !== null) {
         const path = match[5]!;
@@ -74,9 +75,10 @@ export class SvelteProvider implements LanguageProvider {
           // import { a, b } from 'module'
           const names = this.parseNamedSpecifiers(match[3]);
           imports.push({ source: path, names, type: 'named', lineNumber: line });
-        } else if (match[4]) {
-          // import Name from 'module'
-          imports.push({ source: path, names: [match[4]], type: 'default', lineNumber: line });
+        } else {
+          // import Name from 'module' (the regex's final alternative always
+          // captures a bare identifier when the other two do not match)
+          imports.push({ source: path, names: [match[4]!], type: 'default', lineNumber: line });
         }
       }
 
@@ -101,14 +103,12 @@ export class SvelteProvider implements LanguageProvider {
 
     // Check for export statements: export function/const/let/class name
     const exportDeclRegex = new RegExp(
-      `export\\s+(?:default\\s+)?(?:function|const|let|var|class)\\s+${escaped}\\b`
+      `export\\s+(?:default\\s+)?(?:function|const|let|var|class)\\s+${escaped}\\b`,
     );
     if (exportDeclRegex.test(source)) return true;
 
     // Check for named export: export { name }
-    const namedExportRegex = new RegExp(
-      `export\\s*\\{[^}]*\\b${escaped}\\b[^}]*\\}`
-    );
+    const namedExportRegex = new RegExp(`export\\s*\\{[^}]*\\b${escaped}\\b[^}]*\\}`);
     if (namedExportRegex.test(source)) return true;
 
     return false;
@@ -128,8 +128,9 @@ export class SvelteProvider implements LanguageProvider {
     let match: RegExpExecArray | null;
 
     while ((match = scriptRegex.exec(source)) !== null) {
-      const attrs = match[1] ?? '';
-      const content = match[2] ?? '';
+      // Both capture groups always match (possibly empty), so they are never null
+      const attrs = match[1]!;
+      const content = match[2]!;
       const tagEnd = '<script' + attrs + '>';
       const offset = match.index + tagEnd.length;
       // Include context="module" blocks as well
@@ -149,7 +150,8 @@ export class SvelteProvider implements LanguageProvider {
     captures: UnifiedCapture[],
     filePath: string,
   ): void {
-    const importRegex = /import\s+(?:type\s+)?(?:(?:\*\s+as\s+\w+)|(?:\{[\s\S]*?\})|(?:\w+))\s+from\s+['"]([^'"]+)['"]/g;
+    const importRegex =
+      /import\s+(?:type\s+)?(?:(?:\*\s+as\s+\w+)|(?:\{[\s\S]*?\})|(?:\w+))\s+from\s+['"]([^'"]+)['"]/g;
     let match: RegExpExecArray | null;
 
     while ((match = importRegex.exec(blockContent)) !== null) {
@@ -186,8 +188,8 @@ export class SvelteProvider implements LanguageProvider {
     let match: RegExpExecArray | null;
 
     while ((match = reactiveRegex.exec(blockContent)) !== null) {
-      const name = match[1] ?? match[2];
-      if (!name) continue;
+      // The regex always captures a name in one of its two alternatives
+      const name = match[1] ?? match[2]!;
 
       const absOffset = blockOffset + match.index;
       captures.push({
@@ -405,9 +407,9 @@ export class SvelteProvider implements LanguageProvider {
     let match: RegExpExecArray | null;
 
     while ((match = tagRegex.exec(source)) !== null) {
-      // Skip standard HTML tags; PascalCase tags are custom components
+      // The regex only matches PascalCase and kebab-case names, which are
+      // custom components (standard HTML tags are lowercase single words)
       const tagName = match[1]!;
-      if (this.isStandardHtmlTag(tagName)) continue;
 
       // Skip if inside <script> or <style> blocks
       const beforeMatch = source.slice(0, match.index);
@@ -433,43 +435,6 @@ export class SvelteProvider implements LanguageProvider {
         properties: { component: 'true', filePath },
       });
     }
-  }
-
-  /**
-   * Check if a tag name is a standard HTML element.
-   * PascalCase names (e.g., Header) are always treated as custom components.
-   */
-  private isStandardHtmlTag(name: string): boolean {
-    // PascalCase names are custom Svelte components, not HTML elements
-    if (name.length > 0 && name[0] === name[0]!.toUpperCase() && name[0] !== name[0]!.toLowerCase()) {
-      return false;
-    }
-
-    const htmlTags = new Set([
-      'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio',
-      'b', 'base', 'bdi', 'bdo', 'blockquote', 'body', 'br', 'button',
-      'canvas', 'caption', 'cite', 'code', 'col', 'colgroup',
-      'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt',
-      'em', 'embed',
-      'fieldset', 'figcaption', 'figure', 'footer', 'form',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hr', 'html',
-      'i', 'iframe', 'img', 'input', 'ins',
-      'kbd',
-      'label', 'legend', 'li', 'link',
-      'main', 'map', 'mark', 'meta', 'meter',
-      'nav', 'noscript',
-      'object', 'ol', 'optgroup', 'option', 'output',
-      'p', 'param', 'picture', 'pre', 'progress',
-      'q',
-      'rp', 'rt', 'ruby',
-      's', 'samp', 'script', 'section', 'select', 'slot', 'small', 'source', 'span', 'strong',
-      'style', 'sub', 'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template',
-      'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'track',
-      'u', 'ul',
-      'var', 'video',
-      'wbr',
-    ]);
-    return htmlTags.has(name.toLowerCase());
   }
 
   /**
