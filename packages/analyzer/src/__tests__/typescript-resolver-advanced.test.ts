@@ -287,8 +287,7 @@ describe('TypeScriptAdvancedResolver.extractTypes — interface/alias/enum/funct
 // ====================================================================
 
 describe('TypeScriptAdvancedResolver — fallback extraction', () => {
-  const makeFallback = (): TypeScriptAdvancedResolver =>
-    new TypeScriptAdvancedResolver(() => null);
+  const makeFallback = (): TypeScriptAdvancedResolver => new TypeScriptAdvancedResolver(() => null);
 
   it('extracts classes via regex', () => {
     const types = makeFallback().extractTypes(

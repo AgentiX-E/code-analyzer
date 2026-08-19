@@ -196,7 +196,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
 
     // Map known generic types to their semantic meaning
     const genericHandlers: Record<string, (args: string[]) => ResolvedType | null> = {
-      'Array': (a) => {
+      Array: (a) => {
         if (a.length !== 1) return null;
         const elemType = this.makeUnresolved(a[0]!);
         return {
@@ -204,22 +204,22 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           kind: 'generic',
           genericArgs: [elemType],
           members: {
-            'length': this.primitive('number'),
+            length: this.primitive('number'),
             '[index]': elemType,
           },
         };
       },
-      'ReadonlyArray': (a) => {
+      ReadonlyArray: (a) => {
         if (a.length !== 1) return null;
         const elemType = this.makeUnresolved(a[0]!);
         return {
           name: `ReadonlyArray<${elemType.name}>`,
           kind: 'generic',
           genericArgs: [elemType],
-          members: { 'length': this.primitive('number'), '[index]': elemType },
+          members: { length: this.primitive('number'), '[index]': elemType },
         };
       },
-      'Map': (a) => {
+      Map: (a) => {
         if (a.length !== 2) return null;
         const keyType = this.makeUnresolved(a[0]!);
         const valType = this.makeUnresolved(a[1]!);
@@ -228,23 +228,26 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           kind: 'generic',
           genericArgs: [keyType, valType],
           members: {
-            'size': this.primitive('number'),
-            'get': this.functionType('get', [keyType], valType),
-            'set': this.functionType('set', [keyType, valType], this.primitive('void')),
+            size: this.primitive('number'),
+            get: this.functionType('get', [keyType], valType),
+            set: this.functionType('set', [keyType, valType], this.primitive('void')),
           },
         };
       },
-      'Set': (a) => {
+      Set: (a) => {
         if (a.length !== 1) return null;
         const elemType = this.makeUnresolved(a[0]!);
         return {
           name: `Set<${elemType.name}>`,
           kind: 'generic',
           genericArgs: [elemType],
-          members: { 'size': this.primitive('number'), 'add': this.functionType('add', [elemType], this.primitive('void')) },
+          members: {
+            size: this.primitive('number'),
+            add: this.functionType('add', [elemType], this.primitive('void')),
+          },
         };
       },
-      'Promise': (a) => {
+      Promise: (a) => {
         if (a.length !== 1) return null;
         const innerType = this.makeUnresolved(a[0]!);
         return {
@@ -252,12 +255,12 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           kind: 'generic',
           genericArgs: [innerType],
           members: {
-            'then': this.functionType('then', [this.unknownType()], this.unknownType()),
-            'catch': this.functionType('catch', [this.unknownType()], this.unknownType()),
+            then: this.functionType('then', [this.unknownType()], this.unknownType()),
+            catch: this.functionType('catch', [this.unknownType()], this.unknownType()),
           },
         };
       },
-      'Partial': (a) => {
+      Partial: (a) => {
         if (a.length !== 1) return null;
         const inner = this.makeUnresolved(a[0]!);
         return {
@@ -267,7 +270,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           members: {},
         };
       },
-      'Required': (a) => {
+      Required: (a) => {
         if (a.length !== 1) return null;
         const inner = this.makeUnresolved(a[0]!);
         return {
@@ -277,7 +280,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           members: {},
         };
       },
-      'Readonly': (a) => {
+      Readonly: (a) => {
         if (a.length !== 1) return null;
         const inner = this.makeUnresolved(a[0]!);
         return {
@@ -287,7 +290,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           members: {},
         };
       },
-      'Pick': (a) => {
+      Pick: (a) => {
         if (a.length < 2) return null;
         const inner = this.makeUnresolved(a[0]!);
         return {
@@ -297,7 +300,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           members: {},
         };
       },
-      'Omit': (a) => {
+      Omit: (a) => {
         if (a.length < 2) return null;
         const inner = this.makeUnresolved(a[0]!);
         return {
@@ -307,7 +310,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           members: {},
         };
       },
-      'Record': (a) => {
+      Record: (a) => {
         if (a.length !== 2) return null;
         const keyType = this.makeUnresolved(a[0]!);
         const valType = this.makeUnresolved(a[1]!);
@@ -318,32 +321,32 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           members: {},
         };
       },
-      'Exclude': (a) => {
+      Exclude: (a) => {
         if (a.length !== 2) return null;
         return this.unionType([this.makeUnresolved(a[0]!), this.makeUnresolved(a[1]!)]);
       },
-      'Extract': (a) => {
+      Extract: (a) => {
         if (a.length !== 2) return null;
         return this.intersectionType([this.makeUnresolved(a[0]!), this.makeUnresolved(a[1]!)]);
       },
-      'NonNullable': (a) => {
+      NonNullable: (a) => {
         if (a.length !== 1) return null;
         const inner = this.makeUnresolved(a[0]!);
         return { ...inner, isNullable: false };
       },
-      'ReturnType': (a) => {
+      ReturnType: (a) => {
         if (a.length !== 1) return null;
         return this.unknownType(`ReturnType<${a[0]}>`);
       },
-      'Parameters': (a) => {
+      Parameters: (a) => {
         if (a.length !== 1) return null;
         return this.unknownType(`Parameters<${a[0]}>`);
       },
-      'InstanceType': (a) => {
+      InstanceType: (a) => {
         if (a.length !== 1) return null;
         return this.unknownType(`InstanceType<${a[0]}>`);
       },
-      'Awaited': (a) => {
+      Awaited: (a) => {
         if (a.length !== 1) return null;
         const inner = this.makeUnresolved(a[0]!);
         return { ...inner, name: `Awaited<${inner.name}>` };
@@ -400,7 +403,9 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
    * Resolve indexed access types: T[K], T["prop"]
    */
   private resolveIndexedAccessType(typeName: string, _context: TypeContext): ResolvedType | null {
-    const match = typeName.match(/^(\w[\w.]*)\s*\[\s*["'\u201C\u201D]?(\w+)["'\u201C\u201D]?\s*\]$/);
+    const match = typeName.match(
+      /^(\w[\w.]*)\s*\[\s*["'\u201C\u201D]?(\w+)["'\u201C\u201D]?\s*\]$/,
+    );
     if (!match) return null;
 
     const baseType = this.makeUnresolved(match[1]!);
@@ -536,7 +541,13 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       // Only top-level functions are extracted; TSX always wraps them in
       // `program` or `export_statement` (module/source_file are defensive).
       /* v8 ignore next -- @preserve -- TSX always wraps top-level functions in program or export_statement */
-      if (parent && (parent.type === 'program' || parent.type === 'export_statement' || parent.type === 'module' || parent.type === 'source_file')) {
+      if (
+        parent &&
+        (parent.type === 'program' ||
+          parent.type === 'export_statement' ||
+          parent.type === 'module' ||
+          parent.type === 'source_file')
+      ) {
         const info = this.extractFunction(node, source);
         /* v8 ignore next -- @preserve -- extractFunction always returns a TypeInfo for a function declaration */
         if (info) types.push(info);
@@ -573,10 +584,19 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const members = this.extractClassMembers(node);
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'class',
-      members, baseTypes, implementedInterfaces: impls,
-      typeParameters: typeParams, returnType: null, parameterTypes: [],
-      isExported: exported, isAbstract: isAbs, decorators,
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'class',
+      members,
+      baseTypes,
+      implementedInterfaces: impls,
+      typeParameters: typeParams,
+      returnType: null,
+      parameterTypes: [],
+      isExported: exported,
+      isAbstract: isAbs,
+      decorators,
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -591,10 +611,19 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const members = this.extractInterfaceMembers(node);
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'interface',
-      members, baseTypes, implementedInterfaces: [],
-      typeParameters: typeParams, returnType: null, parameterTypes: [],
-      isExported: this.isExported(node), isAbstract: false, decorators: [],
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'interface',
+      members,
+      baseTypes,
+      implementedInterfaces: [],
+      typeParameters: typeParams,
+      returnType: null,
+      parameterTypes: [],
+      isExported: this.isExported(node),
+      isAbstract: false,
+      decorators: [],
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -607,10 +636,19 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const typeParams = this.extractTypeParams(node);
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'type',
-      members: new Map(), baseTypes: [], implementedInterfaces: [],
-      typeParameters: typeParams, returnType: null, parameterTypes: [],
-      isExported: this.isExported(node), isAbstract: false, decorators: [],
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'type',
+      members: new Map(),
+      baseTypes: [],
+      implementedInterfaces: [],
+      typeParameters: typeParams,
+      returnType: null,
+      parameterTypes: [],
+      isExported: this.isExported(node),
+      isAbstract: false,
+      decorators: [],
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -629,15 +667,33 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       for (let i = 0; i < body.childCount; i++) {
         const c = body.child(i);
         if (c.type === 'property_identifier') {
-          members.set(c.text, { name: c.text, type: 'number', visibility: 'public', isStatic: true, isOptional: false, isAsync: false, parameterTypes: [], returnType: 'number' });
+          members.set(c.text, {
+            name: c.text,
+            type: 'number',
+            visibility: 'public',
+            isStatic: true,
+            isOptional: false,
+            isAsync: false,
+            parameterTypes: [],
+            returnType: 'number',
+          });
         }
       }
     }
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'enum',
-      members, baseTypes: [], implementedInterfaces: [],
-      typeParameters: [], returnType: null, parameterTypes: [],
-      isExported: this.isExported(node), isAbstract: false, decorators: [],
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'enum',
+      members,
+      baseTypes: [],
+      implementedInterfaces: [],
+      typeParameters: [],
+      returnType: null,
+      parameterTypes: [],
+      isExported: this.isExported(node),
+      isAbstract: false,
+      decorators: [],
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -655,11 +711,21 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     if (retNode) returnType = retNode.text.replace(/^:\s*/, '').trim();
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'function',
-      members: new Map(), baseTypes: [], implementedInterfaces: [],
-      typeParameters: [], returnType, parameterTypes: paramTypes,
-      isExported: this.isExported(node), isAbstract: false, decorators: [],
-      isAsync, location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'function',
+      members: new Map(),
+      baseTypes: [],
+      implementedInterfaces: [],
+      typeParameters: [],
+      returnType,
+      parameterTypes: paramTypes,
+      isExported: this.isExported(node),
+      isAbstract: false,
+      decorators: [],
+      isAsync,
+      location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
 
@@ -807,7 +873,11 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   private walkClassMembers(node: SyntaxNode, members: Map<string, any>): void {
     for (let i = 0; i < node.childCount; i++) {
       const c = node.child(i);
-      if (c.type === 'method_definition' || c.type === 'public_field_definition' || c.type === 'abstract_method_signature') {
+      if (
+        c.type === 'method_definition' ||
+        c.type === 'public_field_definition' ||
+        c.type === 'abstract_method_signature'
+      ) {
         const name = this.childText(c, 'property_identifier');
         /* v8 ignore next -- @preserve -- class member always has a property_identifier */
         if (!name) continue;
@@ -820,9 +890,20 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         if (ret) returnType = ret.text.replace(/^:\s*/, '').trim();
         const isField = c.type === 'public_field_definition';
         const mType = isField
-          ? (ret ? returnType : 'any')
+          ? ret
+            ? returnType
+            : 'any'
           : `(${paramTypes.join(', ')}) => ${returnType}`;
-        members.set(name, { name, type: mType, visibility, isStatic, isOptional: false, isAsync, parameterTypes: paramTypes, returnType });
+        members.set(name, {
+          name,
+          type: mType,
+          visibility,
+          isStatic,
+          isOptional: false,
+          isAsync,
+          parameterTypes: paramTypes,
+          returnType,
+        });
       }
       /* v8 ignore start -- @preserve -- tree-sitter-typescript (tsx) uses public_field_definition for class fields */
       if (c.type === 'property_definition' || c.type === 'field_definition') {
@@ -833,7 +914,16 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         let propType = 'any';
         const typeNode = this.findChild(c, 'type_annotation');
         if (typeNode) propType = typeNode.text.replace(/^:\s*/, '');
-        members.set(name, { name, type: propType, visibility, isStatic, isOptional: false, isAsync: false, parameterTypes: [], returnType: propType });
+        members.set(name, {
+          name,
+          type: propType,
+          visibility,
+          isStatic,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: [],
+          returnType: propType,
+        });
       }
       /* v8 ignore stop */
       this.walkClassMembers(c, members);
@@ -852,7 +942,11 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   private walkInterfaceMembers(node: SyntaxNode, members: Map<string, any>): void {
     for (let i = 0; i < node.childCount; i++) {
       const c = node.child(i);
-      if (c.type === 'method_signature' || c.type === 'property_signature' || c.type === 'call_signature') {
+      if (
+        c.type === 'method_signature' ||
+        c.type === 'property_signature' ||
+        c.type === 'call_signature'
+      ) {
         const name = this.childText(c, 'property_identifier');
         /* v8 ignore next -- @preserve -- interface member always has a property_identifier */
         if (!name) continue;
@@ -861,7 +955,16 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         const ret = this.findChild(c, 'type_annotation');
         /* v8 ignore next -- @preserve -- interface member without an annotation defaults to void */
         if (ret) returnType = ret.text.replace(/^:\s*/, '').trim();
-        members.set(name, { name, type: `(${paramTypes.join(', ')}) => ${returnType}`, visibility: 'public', isStatic: false, isOptional: false, isAsync: false, parameterTypes: paramTypes, returnType });
+        members.set(name, {
+          name,
+          type: `(${paramTypes.join(', ')}) => ${returnType}`,
+          visibility: 'public',
+          isStatic: false,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: paramTypes,
+          returnType,
+        });
       }
       this.walkInterfaceMembers(c, members);
     }
@@ -961,16 +1064,27 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const ln = (off: number) => source.slice(0, off).split('\n').length;
 
     // Class declarations
-    const classRx = /(?:export\s+)?(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+(\w+(?:<[^>]+>)?))?(?:\s+implements\s+(.+?))?\s*\{/g;
+    const classRx =
+      /(?:export\s+)?(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+(\w+(?:<[^>]+>)?))?(?:\s+implements\s+(.+?))?\s*\{/g;
     let m: RegExpExecArray | null;
     while ((m = classRx.exec(source)) !== null) {
       types.push({
-        name: m[1]!, qualifiedName: `file:${filePath}:${m[1]}`, filePath, kind: 'class',
-        members: new Map(), baseTypes: m[2] ? [m[2]] : [],
-        implementedInterfaces: m[3] ? m[3].split(/\s*,\s*/).map((s) => s.replace(/<[^>]+>/, '')) : [],
-        typeParameters: [], returnType: null, parameterTypes: [],
-        isExported: source.includes('export'), isAbstract: source.includes('abstract'),
-        decorators: [], location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
+        name: m[1]!,
+        qualifiedName: `file:${filePath}:${m[1]}`,
+        filePath,
+        kind: 'class',
+        members: new Map(),
+        baseTypes: m[2] ? [m[2]] : [],
+        implementedInterfaces: m[3]
+          ? m[3].split(/\s*,\s*/).map((s) => s.replace(/<[^>]+>/, ''))
+          : [],
+        typeParameters: [],
+        returnType: null,
+        parameterTypes: [],
+        isExported: source.includes('export'),
+        isAbstract: source.includes('abstract'),
+        decorators: [],
+        location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
     }
 
@@ -978,10 +1092,19 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const ifaceRx = /(?:export\s+)?interface\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+(.+?))?\s*\{/g;
     while ((m = ifaceRx.exec(source)) !== null) {
       types.push({
-        name: m[1]!, qualifiedName: `file:${filePath}:${m[1]}`, filePath, kind: 'interface',
-        members: new Map(), baseTypes: m[2] ? m[2].split(/\s*,\s*/).map((s) => s.trim()) : [],
-        implementedInterfaces: [], typeParameters: [], returnType: null, parameterTypes: [],
-        isExported: source.includes('export'), isAbstract: false, decorators: [],
+        name: m[1]!,
+        qualifiedName: `file:${filePath}:${m[1]}`,
+        filePath,
+        kind: 'interface',
+        members: new Map(),
+        baseTypes: m[2] ? m[2].split(/\s*,\s*/).map((s) => s.trim()) : [],
+        implementedInterfaces: [],
+        typeParameters: [],
+        returnType: null,
+        parameterTypes: [],
+        isExported: source.includes('export'),
+        isAbstract: false,
+        decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
     }
@@ -990,10 +1113,19 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const typeRx = /(?:export\s+)?type\s+(\w+)(?:<[^>]+>)?\s*=\s*.+/g;
     while ((m = typeRx.exec(source)) !== null) {
       types.push({
-        name: m[1]!, qualifiedName: `file:${filePath}:${m[1]}`, filePath, kind: 'type',
-        members: new Map(), baseTypes: [], implementedInterfaces: [],
-        typeParameters: [], returnType: null, parameterTypes: [],
-        isExported: source.includes('export'), isAbstract: false, decorators: [],
+        name: m[1]!,
+        qualifiedName: `file:${filePath}:${m[1]}`,
+        filePath,
+        kind: 'type',
+        members: new Map(),
+        baseTypes: [],
+        implementedInterfaces: [],
+        typeParameters: [],
+        returnType: null,
+        parameterTypes: [],
+        isExported: source.includes('export'),
+        isAbstract: false,
+        decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
     }

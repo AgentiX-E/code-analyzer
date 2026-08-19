@@ -19,7 +19,10 @@ function makeResolver(): JavaResolver {
 }
 
 // A structurally-compatible Java method signature (the interface is private).
-function sig(paramTypes: string[], returnType = 'void'): {
+function sig(
+  paramTypes: string[],
+  returnType = 'void',
+): {
   name: string;
   paramTypes: string[];
   returnType: string;
@@ -270,14 +273,13 @@ describe('JavaResolver.processAnnotation', () => {
     },
   );
 
-  it.each([
-    'NotNull',
-    'javax.validation.constraints.NotNull',
-    'org.jetbrains.annotations.NotNull',
-  ])('marks %s as non-null', (name) => {
-    const result = makeResolver().processAnnotation({ name, params: {} });
-    expect(result).toEqual({ name: 'null', kind: 'primitive', isNullable: false });
-  });
+  it.each(['NotNull', 'javax.validation.constraints.NotNull', 'org.jetbrains.annotations.NotNull'])(
+    'marks %s as non-null',
+    (name) => {
+      const result = makeResolver().processAnnotation({ name, params: {} });
+      expect(result).toEqual({ name: 'null', kind: 'primitive', isNullable: false });
+    },
+  );
 
   it.each(['NonNull', 'Override', 'Deprecated', 'SuppressWarnings'])(
     'returns null for %s (no type change)',
@@ -287,28 +289,36 @@ describe('JavaResolver.processAnnotation', () => {
   );
 
   it('maps FunctionalInterface to an object type', () => {
-    expect(makeResolver().processAnnotation({ name: 'FunctionalInterface', params: {} }))
-      .toEqual({ name: 'FunctionalInterface', kind: 'object' });
+    expect(makeResolver().processAnnotation({ name: 'FunctionalInterface', params: {} })).toEqual({
+      name: 'FunctionalInterface',
+      kind: 'object',
+    });
   });
 
   it.each(['Entity', 'javax.persistence.Entity'])('maps %s to an Entity object', (name) => {
-    expect(makeResolver().processAnnotation({ name, params: {} }))
-      .toEqual({ name: 'Entity', kind: 'object' });
+    expect(makeResolver().processAnnotation({ name, params: {} })).toEqual({
+      name: 'Entity',
+      kind: 'object',
+    });
   });
 
   it.each(['Repository', 'org.springframework.stereotype.Repository'])(
     'maps %s to a Repository object',
     (name) => {
-      expect(makeResolver().processAnnotation({ name, params: {} }))
-        .toEqual({ name: 'Repository', kind: 'object' });
+      expect(makeResolver().processAnnotation({ name, params: {} })).toEqual({
+        name: 'Repository',
+        kind: 'object',
+      });
     },
   );
 
   it.each(['Service', 'org.springframework.stereotype.Service'])(
     'maps %s to a Service object',
     (name) => {
-      expect(makeResolver().processAnnotation({ name, params: {} }))
-        .toEqual({ name: 'Service', kind: 'object' });
+      expect(makeResolver().processAnnotation({ name, params: {} })).toEqual({
+        name: 'Service',
+        kind: 'object',
+      });
     },
   );
 
@@ -562,10 +572,7 @@ describe('JavaResolver.extractTypes — interface/enum/annotation', () => {
 
   it('extracts an enum with constants as members', () => {
     const resolver = makeResolver();
-    const types = resolver.extractTypes(
-      'public enum Color { RED, GREEN, BLUE }',
-      '/test.java',
-    );
+    const types = resolver.extractTypes('public enum Color { RED, GREEN, BLUE }', '/test.java');
     const enm = types[0]!;
     expect(enm.name).toBe('Color');
     expect(enm.kind).toBe('enum');

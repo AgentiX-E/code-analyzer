@@ -187,29 +187,66 @@ export class JavaResolver extends TypeResolverBase {
 
     // Known Java collection types
     const knownCollections = new Set([
-      'List', 'Set', 'Map', 'Collection', 'Iterable', 'Iterator',
-      'ArrayList', 'LinkedList', 'HashSet', 'TreeSet',
-      'HashMap', 'TreeMap', 'LinkedHashMap',
-      'Optional', 'Stream', 'Supplier', 'Consumer', 'Function',
-      'Predicate', 'BiFunction', 'UnaryOperator',
-      'Comparable', 'Comparator',
+      'List',
+      'Set',
+      'Map',
+      'Collection',
+      'Iterable',
+      'Iterator',
+      'ArrayList',
+      'LinkedList',
+      'HashSet',
+      'TreeSet',
+      'HashMap',
+      'TreeMap',
+      'LinkedHashMap',
+      'Optional',
+      'Stream',
+      'Supplier',
+      'Consumer',
+      'Function',
+      'Predicate',
+      'BiFunction',
+      'UnaryOperator',
+      'Comparable',
+      'Comparator',
     ]);
 
     if (knownCollections.has(base)) {
       const members: Record<string, ResolvedType> = {};
       if (base === 'List' || base === 'ArrayList' || base === 'LinkedList') {
         members['size'] = this.primitive('int');
-        members['get'] = this.functionType('get', [this.primitive('int')], this.argAt(resolvedArgs, 0));
-        members['add'] = this.functionType('add', [this.argAt(resolvedArgs, 0)], this.primitive('boolean'));
+        members['get'] = this.functionType(
+          'get',
+          [this.primitive('int')],
+          this.argAt(resolvedArgs, 0),
+        );
+        members['add'] = this.functionType(
+          'add',
+          [this.argAt(resolvedArgs, 0)],
+          this.primitive('boolean'),
+        );
       }
       if (base === 'Map' || base === 'HashMap' || base === 'TreeMap') {
         members['size'] = this.primitive('int');
-        members['get'] = this.functionType('get', [this.primitive('Object')], this.argAt(resolvedArgs, 1));
-        members['put'] = this.functionType('put', [this.argAt(resolvedArgs, 0), this.argAt(resolvedArgs, 1)], this.argAt(resolvedArgs, 1));
+        members['get'] = this.functionType(
+          'get',
+          [this.primitive('Object')],
+          this.argAt(resolvedArgs, 1),
+        );
+        members['put'] = this.functionType(
+          'put',
+          [this.argAt(resolvedArgs, 0), this.argAt(resolvedArgs, 1)],
+          this.argAt(resolvedArgs, 1),
+        );
       }
       if (base === 'Set' || base === 'HashSet' || base === 'TreeSet') {
         members['size'] = this.primitive('int');
-        members['add'] = this.functionType('add', [this.argAt(resolvedArgs, 0)], this.primitive('boolean'));
+        members['add'] = this.functionType(
+          'add',
+          [this.argAt(resolvedArgs, 0)],
+          this.primitive('boolean'),
+        );
       }
       if (base === 'Optional') {
         members['get'] = this.functionType('get', [], this.argAt(resolvedArgs, 0));
@@ -344,7 +381,10 @@ export class JavaResolver extends TypeResolverBase {
           name: `@${annotation.name}`,
           kind: 'object',
           members: Object.fromEntries(
-            Object.entries(annotation.params).map(([k, v]) => [k, { name: v, kind: 'primitive' } as ResolvedType])
+            Object.entries(annotation.params).map(([k, v]) => [
+              k,
+              { name: v, kind: 'primitive' } as ResolvedType,
+            ]),
           ),
         };
     }
@@ -361,10 +401,7 @@ export class JavaResolver extends TypeResolverBase {
    * @param argTypes - The argument types at the call site
    * @returns The best matching overload, or null if no match
    */
-  resolveOverload(
-    methodName: string,
-    argTypes: string[],
-  ): JavaMethodSignature | null {
+  resolveOverload(methodName: string, argTypes: string[]): JavaMethodSignature | null {
     const overloads = this.overloadCache.get(methodName);
     if (!overloads || overloads.length === 0) return null;
 
@@ -416,12 +453,12 @@ export class JavaResolver extends TypeResolverBase {
    */
   private primitiveWideningScore(target: string, source: string): number {
     const wideningOrder: Record<string, string[]> = {
-      'byte': ['byte'],
-      'short': ['byte', 'short'],
-      'int': ['byte', 'short', 'int', 'char'],
-      'long': ['byte', 'short', 'int', 'long', 'char'],
-      'float': ['byte', 'short', 'int', 'long', 'float', 'char'],
-      'double': ['byte', 'short', 'int', 'long', 'float', 'double', 'char'],
+      byte: ['byte'],
+      short: ['byte', 'short'],
+      int: ['byte', 'short', 'int', 'char'],
+      long: ['byte', 'short', 'int', 'long', 'char'],
+      float: ['byte', 'short', 'int', 'long', 'float', 'char'],
+      double: ['byte', 'short', 'int', 'long', 'float', 'double', 'char'],
     };
     const order = wideningOrder[target];
     if (order && order.includes(source)) {
@@ -486,7 +523,8 @@ export class JavaResolver extends TypeResolverBase {
     const baseTypes: string[] = [];
     const superclass = this.findChild(node, 'superclass');
     if (superclass) {
-      let scName = this.childText(superclass, 'type_identifier') ||
+      let scName =
+        this.childText(superclass, 'type_identifier') ||
         this.childText(superclass, 'identifier') ||
         this.childText(superclass, 'scoped_type_identifier');
       // If superclass uses generics (e.g., AbstractList<T>), type_identifier is inside generic_type
@@ -533,10 +571,19 @@ export class JavaResolver extends TypeResolverBase {
     }
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: isAbstract ? 'interface' : 'class',
-      members, baseTypes, implementedInterfaces: implemented,
-      typeParameters: typeParams, returnType: null, parameterTypes: [],
-      isExported: exported, isAbstract, decorators: annotations.map((a) => `@${a.name}`),
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: isAbstract ? 'interface' : 'class',
+      members,
+      baseTypes,
+      implementedInterfaces: implemented,
+      typeParameters: typeParams,
+      returnType: null,
+      parameterTypes: [],
+      isExported: exported,
+      isAbstract,
+      decorators: annotations.map((a) => `@${a.name}`),
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -577,10 +624,19 @@ export class JavaResolver extends TypeResolverBase {
     }
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'interface',
-      members, baseTypes, implementedInterfaces: [],
-      typeParameters: typeParams, returnType: null, parameterTypes: [],
-      isExported: exported, isAbstract: true, decorators: annotations.map((a) => `@${a.name}`),
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'interface',
+      members,
+      baseTypes,
+      implementedInterfaces: [],
+      typeParameters: typeParams,
+      returnType: null,
+      parameterTypes: [],
+      isExported: exported,
+      isAbstract: true,
+      decorators: annotations.map((a) => `@${a.name}`),
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -606,9 +662,14 @@ export class JavaResolver extends TypeResolverBase {
           /* v8 ignore next -- @preserve -- enum_constant always has an identifier */
           if (constName) {
             members.set(constName, {
-              name: constName, type: 'enum_constant',
-              visibility: 'public', isStatic: true, isOptional: false, isAsync: false,
-              parameterTypes: [], returnType: 'enum_constant',
+              name: constName,
+              type: 'enum_constant',
+              visibility: 'public',
+              isStatic: true,
+              isOptional: false,
+              isAsync: false,
+              parameterTypes: [],
+              returnType: 'enum_constant',
             });
           }
         }
@@ -616,10 +677,19 @@ export class JavaResolver extends TypeResolverBase {
     }
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'enum',
-      members, baseTypes: [], implementedInterfaces: [],
-      typeParameters: [], returnType: null, parameterTypes: [],
-      isExported: exported, isAbstract: false, decorators: annotations.map((a) => `@${a.name}`),
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'enum',
+      members,
+      baseTypes: [],
+      implementedInterfaces: [],
+      typeParameters: [],
+      returnType: null,
+      parameterTypes: [],
+      isExported: exported,
+      isAbstract: false,
+      decorators: annotations.map((a) => `@${a.name}`),
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -646,9 +716,14 @@ export class JavaResolver extends TypeResolverBase {
             /* v8 ignore next -- @preserve -- element always has a type; String is a fallback */
             const elemType = typeNode ? typeNode.text : 'String';
             members.set(elemName, {
-              name: elemName, type: elemType,
-              visibility: 'public', isStatic: true, isOptional: false, isAsync: false,
-              parameterTypes: [], returnType: elemType,
+              name: elemName,
+              type: elemType,
+              visibility: 'public',
+              isStatic: true,
+              isOptional: false,
+              isAsync: false,
+              parameterTypes: [],
+              returnType: elemType,
             });
           }
         }
@@ -656,10 +731,19 @@ export class JavaResolver extends TypeResolverBase {
     }
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'interface',
-      members, baseTypes: [], implementedInterfaces: [],
-      typeParameters: [], returnType: null, parameterTypes: [],
-      isExported: exported, isAbstract: true, decorators: [],
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'interface',
+      members,
+      baseTypes: [],
+      implementedInterfaces: [],
+      typeParameters: [],
+      returnType: null,
+      parameterTypes: [],
+      isExported: exported,
+      isAbstract: true,
+      decorators: [],
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -681,12 +765,15 @@ export class JavaResolver extends TypeResolverBase {
         if (!mName) continue;
 
         const modifiers = this.extractModifiers(child);
-        const visibility = modifiers.includes('private') ? 'private' :
-          modifiers.includes('protected') ? 'protected' : 'public';
+        const visibility = modifiers.includes('private')
+          ? 'private'
+          : modifiers.includes('protected')
+            ? 'protected'
+            : 'public';
         const isStatic = modifiers.includes('static');
         const paramTypes = this.extractMethodParams(child);
-        const returnType = child.type === 'constructor_declaration' ? 'void' :
-          this.extractMethodReturn(child);
+        const returnType =
+          child.type === 'constructor_declaration' ? 'void' : this.extractMethodReturn(child);
 
         // Store method signature for overload resolution
         const sigs = this.overloadCache.get(mName) || [];
@@ -704,18 +791,25 @@ export class JavaResolver extends TypeResolverBase {
         this.overloadCache.set(mName, sigs);
 
         members.set(mName, {
-          name: mName, type: `(${paramTypes.join(', ')}) => ${returnType}`,
+          name: mName,
+          type: `(${paramTypes.join(', ')}) => ${returnType}`,
           visibility: visibility as 'public' | 'protected' | 'private',
-          isStatic, isOptional: false, isAsync: false,
-          parameterTypes: paramTypes, returnType,
+          isStatic,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: paramTypes,
+          returnType,
         });
       }
 
       // Field declaration
       if (child.type === 'field_declaration') {
         const modifiers = this.extractModifiers(child);
-        const visibility = modifiers.includes('private') ? 'private' :
-          modifiers.includes('protected') ? 'protected' : 'public';
+        const visibility = modifiers.includes('private')
+          ? 'private'
+          : modifiers.includes('protected')
+            ? 'protected'
+            : 'public';
         const isStatic = modifiers.includes('static');
 
         const typeNode = this.findTypeNode(child);
@@ -729,10 +823,14 @@ export class JavaResolver extends TypeResolverBase {
             /* v8 ignore next -- @preserve -- variable_declarator always has an identifier */
             if (fname) {
               members.set(fname, {
-                name: fname, type: fieldType,
+                name: fname,
+                type: fieldType,
                 visibility: visibility as 'public' | 'protected' | 'private',
-                isStatic, isOptional: false, isAsync: false,
-                parameterTypes: [], returnType: fieldType,
+                isStatic,
+                isOptional: false,
+                isAsync: false,
+                parameterTypes: [],
+                returnType: fieldType,
               });
             }
           }
@@ -786,8 +884,16 @@ export class JavaResolver extends TypeResolverBase {
 
   private isJavaPrimitive(name: string): boolean {
     const primitives = new Set([
-      'boolean', 'byte', 'short', 'int', 'long', 'float', 'double', 'char',
-      'void', 'null',
+      'boolean',
+      'byte',
+      'short',
+      'int',
+      'long',
+      'float',
+      'double',
+      'char',
+      'void',
+      'null',
     ]);
     return primitives.has(name);
   }
@@ -935,18 +1041,37 @@ export class JavaResolver extends TypeResolverBase {
     const ln = (off: number) => source.slice(0, off).split('\n').length;
 
     // Class declarations (including generics)
-    const classRx = /(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)*class\s+(\w+)(?:<([^>]+)>)?(?:\s+extends\s+([\w.<>,\s]+?))?(?:\s+implements\s+(.+?))?\s*\{/g;
+    const classRx =
+      /(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|final\s+)*class\s+(\w+)(?:<([^>]+)>)?(?:\s+extends\s+([\w.<>,\s]+?))?(?:\s+implements\s+(.+?))?\s*\{/g;
     let m: RegExpExecArray | null;
     while ((m = classRx.exec(source)) !== null) {
-      const baseType = m[3] ? m[3].replace(/<[^>]+>/, '').split(',')[0]!.trim() : null;
+      const baseType = m[3]
+        ? m[3]
+            .replace(/<[^>]+>/, '')
+            .split(',')[0]!
+            .trim()
+        : null;
       const impls = m[4] ? m[4].split(',').map((s) => s.replace(/<[^>]+>/, '').trim()) : [];
-      const typeParams = m[2] ? m[2].split(',').map((s) => s.trim().split(/\s+/)[0]!).filter(Boolean) : [];
+      const typeParams = m[2]
+        ? m[2]
+            .split(',')
+            .map((s) => s.trim().split(/\s+/)[0]!)
+            .filter(Boolean)
+        : [];
       types.push({
-        name: m[1]!, qualifiedName: `file:${filePath}:${m[1]}`, filePath, kind: 'class',
-        members: new Map(), baseTypes: baseType ? [baseType] : [],
-        implementedInterfaces: impls, typeParameters: typeParams,
-        returnType: null, parameterTypes: [],
-        isExported: true, isAbstract: false, decorators: [],
+        name: m[1]!,
+        qualifiedName: `file:${filePath}:${m[1]}`,
+        filePath,
+        kind: 'class',
+        members: new Map(),
+        baseTypes: baseType ? [baseType] : [],
+        implementedInterfaces: impls,
+        typeParameters: typeParams,
+        returnType: null,
+        parameterTypes: [],
+        isExported: true,
+        isAbstract: false,
+        decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
     }
@@ -955,12 +1080,26 @@ export class JavaResolver extends TypeResolverBase {
     const ifaceRx = /(?:public\s+)?interface\s+(\w+)(?:<([^>]+)>)?(?:\s+extends\s+(.+?))?\s*\{/g;
     while ((m = ifaceRx.exec(source)) !== null) {
       const bases = m[3] ? m[3].split(',').map((s) => s.trim()) : [];
-      const typeParams = m[2] ? m[2].split(',').map((s) => s.trim().split(/\s+/)[0]!).filter(Boolean) : [];
+      const typeParams = m[2]
+        ? m[2]
+            .split(',')
+            .map((s) => s.trim().split(/\s+/)[0]!)
+            .filter(Boolean)
+        : [];
       types.push({
-        name: m[1]!, qualifiedName: `file:${filePath}:${m[1]}`, filePath, kind: 'interface',
-        members: new Map(), baseTypes: bases, implementedInterfaces: [],
-        typeParameters: typeParams, returnType: null, parameterTypes: [],
-        isExported: true, isAbstract: true, decorators: [],
+        name: m[1]!,
+        qualifiedName: `file:${filePath}:${m[1]}`,
+        filePath,
+        kind: 'interface',
+        members: new Map(),
+        baseTypes: bases,
+        implementedInterfaces: [],
+        typeParameters: typeParams,
+        returnType: null,
+        parameterTypes: [],
+        isExported: true,
+        isAbstract: true,
+        decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
     }
@@ -969,10 +1108,19 @@ export class JavaResolver extends TypeResolverBase {
     const enumRx = /(?:public\s+)?enum\s+(\w+)\s*\{/g;
     while ((m = enumRx.exec(source)) !== null) {
       types.push({
-        name: m[1]!, qualifiedName: `file:${filePath}:${m[1]}`, filePath, kind: 'enum',
-        members: new Map(), baseTypes: [], implementedInterfaces: [],
-        typeParameters: [], returnType: null, parameterTypes: [],
-        isExported: true, isAbstract: false, decorators: [],
+        name: m[1]!,
+        qualifiedName: `file:${filePath}:${m[1]}`,
+        filePath,
+        kind: 'enum',
+        members: new Map(),
+        baseTypes: [],
+        implementedInterfaces: [],
+        typeParameters: [],
+        returnType: null,
+        parameterTypes: [],
+        isExported: true,
+        isAbstract: false,
+        decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
     }

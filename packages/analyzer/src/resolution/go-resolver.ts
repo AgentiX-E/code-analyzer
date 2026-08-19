@@ -215,7 +215,10 @@ export class GoResolver extends TypeResolverBase {
       const rawValue = match[2]!;
 
       // Split by comma: first part is name, rest are options
-      const parts = rawValue.split(',').map((p) => p.trim()).filter(Boolean);
+      const parts = rawValue
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
       const fieldName = parts.length > 0 && !parts[0]!.startsWith('=') ? parts[0] : undefined;
       const options = fieldName ? parts.slice(1) : parts;
 
@@ -275,9 +278,7 @@ export class GoResolver extends TypeResolverBase {
   /**
    * Find all interfaces satisfied by a given struct.
    */
-  findSatisfiedInterfaces(
-    structMethods: Map<string, GoMethodSig>,
-  ): string[] {
+  findSatisfiedInterfaces(structMethods: Map<string, GoMethodSig>): string[] {
     const satisfied: string[] = [];
     for (const [ifaceName, ifaceInfo] of this.interfaceCache) {
       if (this.checkInterfaceSatisfaction(ifaceName, structMethods, ifaceName, ifaceInfo)) {
@@ -471,10 +472,19 @@ export class GoResolver extends TypeResolverBase {
         }
 
         types.push({
-          name, qualifiedName: qn, filePath: this.filePath, kind,
-          members, baseTypes, implementedInterfaces: [],
-          typeParameters: typeParams, returnType: null, parameterTypes: [],
-          isExported: exported, isAbstract: false, decorators: [],
+          name,
+          qualifiedName: qn,
+          filePath: this.filePath,
+          kind,
+          members,
+          baseTypes,
+          implementedInterfaces: [],
+          typeParameters: typeParams,
+          returnType: null,
+          parameterTypes: [],
+          isExported: exported,
+          isAbstract: false,
+          decorators: [],
           location: {
             startLine: child.startPosition.row + 1,
             endLine: child.endPosition.row + 1,
@@ -506,11 +516,19 @@ export class GoResolver extends TypeResolverBase {
     const returnType = this.extractResultType(node, paramLists, 1);
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'function',
-      members: new Map(), baseTypes: [],
-      implementedInterfaces: [], typeParameters: typeParams,
-      returnType, parameterTypes: paramTypes,
-      isExported: exported, isAbstract: false, decorators: [],
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'function',
+      members: new Map(),
+      baseTypes: [],
+      implementedInterfaces: [],
+      typeParameters: typeParams,
+      returnType,
+      parameterTypes: paramTypes,
+      isExported: exported,
+      isAbstract: false,
+      decorators: [],
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -548,11 +566,19 @@ export class GoResolver extends TypeResolverBase {
     const returnType = this.extractResultType(node, paramLists, 2);
 
     return {
-      name, qualifiedName: qn, filePath: this.filePath, kind: 'function',
-      members: new Map(), baseTypes: [receiverType],
-      implementedInterfaces: [], typeParameters: [],
-      returnType, parameterTypes: paramTypes,
-      isExported: exported, isAbstract: false, decorators: [],
+      name,
+      qualifiedName: qn,
+      filePath: this.filePath,
+      kind: 'function',
+      members: new Map(),
+      baseTypes: [receiverType],
+      implementedInterfaces: [],
+      typeParameters: [],
+      returnType,
+      parameterTypes: paramTypes,
+      isExported: exported,
+      isAbstract: false,
+      decorators: [],
       location: { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 },
     };
   }
@@ -564,7 +590,10 @@ export class GoResolver extends TypeResolverBase {
   /**
    * Extract struct fields including embedded types and struct tags.
    */
-  private extractStructFields(structNode: SyntaxNode, _structName: string): Map<string, TypeMember> {
+  private extractStructFields(
+    structNode: SyntaxNode,
+    _structName: string,
+  ): Map<string, TypeMember> {
     const members = new Map<string, TypeMember>();
     const body = this.findChild(structNode, 'field_declaration_list');
     /* v8 ignore next -- @preserve -- struct_type always has a field_declaration_list */
@@ -661,9 +690,14 @@ export class GoResolver extends TypeResolverBase {
         }
 
         members.set(name, {
-          name, type: `(${paramTypes.join(', ')}) => ${returnType}`,
-          visibility: 'public', isStatic: false, isOptional: false, isAsync: false,
-          parameterTypes: paramTypes, returnType,
+          name,
+          type: `(${paramTypes.join(', ')}) => ${returnType}`,
+          visibility: 'public',
+          isStatic: false,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: paramTypes,
+          returnType,
         });
       }
     }
@@ -715,11 +749,33 @@ export class GoResolver extends TypeResolverBase {
 
   private isGoPrimitive(name: string): boolean {
     const primitives = new Set([
-      'bool', 'byte', 'complex128', 'complex64', 'error',
-      'float32', 'float64', 'int', 'int8', 'int16', 'int32', 'int64',
-      'rune', 'string', 'uint', 'uint8', 'uint16', 'uint32', 'uint64',
-      'uintptr', 'nil', 'any', 'comparable', 'true', 'false',
-      'iota', 'void',
+      'bool',
+      'byte',
+      'complex128',
+      'complex64',
+      'error',
+      'float32',
+      'float64',
+      'int',
+      'int8',
+      'int16',
+      'int32',
+      'int64',
+      'rune',
+      'string',
+      'uint',
+      'uint8',
+      'uint16',
+      'uint32',
+      'uint64',
+      'uintptr',
+      'nil',
+      'any',
+      'comparable',
+      'true',
+      'false',
+      'iota',
+      'void',
     ]);
     return primitives.has(name);
   }
@@ -905,10 +961,18 @@ export class GoResolver extends TypeResolverBase {
       const typeParams = m[2] ? m[2].split(',').map((p) => p.trim()) : [];
 
       types.push({
-        name, qualifiedName: `file:${filePath}:${name}`, filePath, kind,
-        members: new Map(), baseTypes: [], implementedInterfaces: [],
-        typeParameters: typeParams, returnType: null, parameterTypes: [],
-        isExported: name[0] === name[0]?.toUpperCase(), isAbstract: false,
+        name,
+        qualifiedName: `file:${filePath}:${name}`,
+        filePath,
+        kind,
+        members: new Map(),
+        baseTypes: [],
+        implementedInterfaces: [],
+        typeParameters: typeParams,
+        returnType: null,
+        parameterTypes: [],
+        isExported: name[0] === name[0]?.toUpperCase(),
+        isAbstract: false,
         decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });
@@ -919,11 +983,18 @@ export class GoResolver extends TypeResolverBase {
     while ((m = funcRx.exec(source)) !== null) {
       const name = m[2]!;
       types.push({
-        name, qualifiedName: `file:${filePath}:${name}`, filePath, kind: 'function',
-        members: new Map(), baseTypes: m[1] ? [m[1].replace(/^\*/, '')] : [],
-        implementedInterfaces: [], typeParameters: [],
-        returnType: null, parameterTypes: [],
-        isExported: name[0] === name[0]?.toUpperCase(), isAbstract: false,
+        name,
+        qualifiedName: `file:${filePath}:${name}`,
+        filePath,
+        kind: 'function',
+        members: new Map(),
+        baseTypes: m[1] ? [m[1].replace(/^\*/, '')] : [],
+        implementedInterfaces: [],
+        typeParameters: [],
+        returnType: null,
+        parameterTypes: [],
+        isExported: name[0] === name[0]?.toUpperCase(),
+        isAbstract: false,
         decorators: [],
         location: { startLine: ln(m.index), endLine: ln(m.index + m[0].length) },
       });

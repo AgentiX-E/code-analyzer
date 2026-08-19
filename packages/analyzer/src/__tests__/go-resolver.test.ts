@@ -106,10 +106,7 @@ describe('GoResolver.extractTypes — interfaces', () => {
 
   it('extracts a type alias as kind type', () => {
     const resolver = makeResolver();
-    const types = resolver.extractTypes(
-      'package main\n\ntype MyInt int',
-      '/test.go',
-    );
+    const types = resolver.extractTypes('package main\n\ntype MyInt int', '/test.go');
     expect(types).toHaveLength(1);
     expect(types[0]!.name).toBe('MyInt');
     expect(types[0]!.kind).toBe('type');
@@ -148,10 +145,7 @@ describe('GoResolver.extractTypes — functions and methods', () => {
 
   it('extracts a function with no result as null', () => {
     const resolver = makeResolver();
-    const types = resolver.extractTypes(
-      'package main\n\nfunc noop() { }',
-      '/test.go',
-    );
+    const types = resolver.extractTypes('package main\n\nfunc noop() { }', '/test.go');
     expect(types[0]!.returnType).toBeNull();
   });
 
@@ -221,18 +215,14 @@ describe('GoResolver.extractTypes — embedded interfaces', () => {
   it('registers embedded interfaces in the interface cache', () => {
     const resolver = makeResolver();
     resolver.extractTypes(
-      [
-        'package main',
-        '',
-        'type ReadWriter interface {',
-        '  io.Reader',
-        '  io.Writer',
-        '}',
-      ].join('\n'),
+      ['package main', '', 'type ReadWriter interface {', '  io.Reader', '  io.Writer', '}'].join(
+        '\n',
+      ),
       '/test.go',
     );
-    const cache = (resolver as unknown as { interfaceCache: Map<string, { embeddedInterfaces: string[] }> })
-      .interfaceCache;
+    const cache = (
+      resolver as unknown as { interfaceCache: Map<string, { embeddedInterfaces: string[] }> }
+    ).interfaceCache;
     expect(cache.has('ReadWriter')).toBe(true);
     expect(cache.get('ReadWriter')!.embeddedInterfaces).toEqual(['io.Reader', 'io.Writer']);
   });
@@ -249,16 +239,31 @@ describe('GoResolver — interface satisfaction integration', () => {
       'package main\n\ntype Reader interface {\n  Read(p []byte) (int, error)\n}',
       '/test.go',
     );
-    const structMethods = new Map<string, { name: string; params: { name: string; type: string }[]; results: { name: string; type: string }[] }>([
-      ['Read', {
-        name: 'Read',
-        params: [{ name: 'p', type: '[]byte' }],
-        results: [{ name: 'n', type: 'int' }, { name: 'err', type: 'error' }],
-      }],
+    const structMethods = new Map<
+      string,
+      {
+        name: string;
+        params: { name: string; type: string }[];
+        results: { name: string; type: string }[];
+      }
+    >([
+      [
+        'Read',
+        {
+          name: 'Read',
+          params: [{ name: 'p', type: '[]byte' }],
+          results: [
+            { name: 'n', type: 'int' },
+            { name: 'err', type: 'error' },
+          ],
+        },
+      ],
     ]);
-    const satisfied = (resolver as unknown as {
-      findSatisfiedInterfaces: (m: typeof structMethods) => string[];
-    }).findSatisfiedInterfaces(structMethods);
+    const satisfied = (
+      resolver as unknown as {
+        findSatisfiedInterfaces: (m: typeof structMethods) => string[];
+      }
+    ).findSatisfiedInterfaces(structMethods);
     expect(satisfied).toContain('Reader');
   });
 });
@@ -311,14 +316,18 @@ describe('GoResolver — edge cases', () => {
 
   it('detects a param type mismatch as unsatisfied', () => {
     const resolver = makeResolver();
-    const satisfied = (resolver as unknown as {
-      checkInterfaceSatisfaction: (
-        s: string,
-        m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
-        i: string,
-        info: { methods: Map<string, { params: { type: string }[]; results: { type: string }[] }> },
-      ) => boolean;
-    }).checkInterfaceSatisfaction(
+    const satisfied = (
+      resolver as unknown as {
+        checkInterfaceSatisfaction: (
+          s: string,
+          m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
+          i: string,
+          info: {
+            methods: Map<string, { params: { type: string }[]; results: { type: string }[] }>;
+          },
+        ) => boolean;
+      }
+    ).checkInterfaceSatisfaction(
       'X',
       new Map([['M', { params: [{ type: 'int' }], results: [] }]]),
       'I',
@@ -329,14 +338,18 @@ describe('GoResolver — edge cases', () => {
 
   it('detects a result count mismatch as unsatisfied', () => {
     const resolver = makeResolver();
-    const satisfied = (resolver as unknown as {
-      checkInterfaceSatisfaction: (
-        s: string,
-        m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
-        i: string,
-        info: { methods: Map<string, { params: { type: string }[]; results: { type: string }[] }> },
-      ) => boolean;
-    }).checkInterfaceSatisfaction(
+    const satisfied = (
+      resolver as unknown as {
+        checkInterfaceSatisfaction: (
+          s: string,
+          m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
+          i: string,
+          info: {
+            methods: Map<string, { params: { type: string }[]; results: { type: string }[] }>;
+          },
+        ) => boolean;
+      }
+    ).checkInterfaceSatisfaction(
       'X',
       new Map([['M', { params: [], results: [{ type: 'int' }] }]]),
       'I',
@@ -347,14 +360,18 @@ describe('GoResolver — edge cases', () => {
 
   it('detects a result type mismatch as unsatisfied', () => {
     const resolver = makeResolver();
-    const satisfied = (resolver as unknown as {
-      checkInterfaceSatisfaction: (
-        s: string,
-        m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
-        i: string,
-        info: { methods: Map<string, { params: { type: string }[]; results: { type: string }[] }> },
-      ) => boolean;
-    }).checkInterfaceSatisfaction(
+    const satisfied = (
+      resolver as unknown as {
+        checkInterfaceSatisfaction: (
+          s: string,
+          m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
+          i: string,
+          info: {
+            methods: Map<string, { params: { type: string }[]; results: { type: string }[] }>;
+          },
+        ) => boolean;
+      }
+    ).checkInterfaceSatisfaction(
       'X',
       new Map([['M', { params: [], results: [{ type: 'int' }] }]]),
       'I',
@@ -365,14 +382,18 @@ describe('GoResolver — edge cases', () => {
 
   it('accepts a result type that is compatibly assignable (any vs int)', () => {
     const resolver = makeResolver();
-    const satisfied = (resolver as unknown as {
-      checkInterfaceSatisfaction: (
-        s: string,
-        m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
-        i: string,
-        info: { methods: Map<string, { params: { type: string }[]; results: { type: string }[] }> },
-      ) => boolean;
-    }).checkInterfaceSatisfaction(
+    const satisfied = (
+      resolver as unknown as {
+        checkInterfaceSatisfaction: (
+          s: string,
+          m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
+          i: string,
+          info: {
+            methods: Map<string, { params: { type: string }[]; results: { type: string }[] }>;
+          },
+        ) => boolean;
+      }
+    ).checkInterfaceSatisfaction(
       'X',
       new Map([['M', { params: [], results: [{ type: 'any' }] }]]),
       'I',
@@ -401,10 +422,11 @@ describe('GoResolver — edge cases', () => {
 
   it('falls through when the external resolver returns null', async () => {
     const resolver = makeResolver();
-    const result = await resolver.resolveType(
-      'ExternalThing',
-      { filePath: '/test.go', imports: [], resolveExternal: () => null },
-    );
+    const result = await resolver.resolveType('ExternalThing', {
+      filePath: '/test.go',
+      imports: [],
+      resolveExternal: () => null,
+    });
     expect(result).toBeNull();
   });
 
@@ -456,13 +478,12 @@ describe('GoResolver — edge cases', () => {
 
   it('excludes a struct that does not satisfy the cached interface', () => {
     const resolver = makeResolver();
-    resolver.extractTypes(
-      'package main\n\ntype Reader interface {\n  Read() int\n}',
-      '/test.go',
-    );
-    const satisfied = (resolver as unknown as {
-      findSatisfiedInterfaces: (m: Map<string, unknown>) => string[];
-    }).findSatisfiedInterfaces(new Map());
+    resolver.extractTypes('package main\n\ntype Reader interface {\n  Read() int\n}', '/test.go');
+    const satisfied = (
+      resolver as unknown as {
+        findSatisfiedInterfaces: (m: Map<string, unknown>) => string[];
+      }
+    ).findSatisfiedInterfaces(new Map());
     expect(satisfied).toEqual([]);
   });
 });
@@ -505,10 +526,7 @@ describe('GoResolver — fallback extraction (grammar unavailable)', () => {
   });
 
   it('extracts generic type params via regex', () => {
-    const types = makeFallback().extractTypes(
-      'type Pair[T, U] struct {\n  A T\n}',
-      '/test.go',
-    );
+    const types = makeFallback().extractTypes('type Pair[T, U] struct {\n  A T\n}', '/test.go');
     const pair = types.find((t) => t.name === 'Pair');
     expect(pair).toBeDefined();
     expect(pair!.typeParameters).toEqual(['T', 'U']);
