@@ -9,7 +9,7 @@ overrides:
   fast-uri: '>=3.1.4'
   '@hono/node-server': '>=2.0.5'
 
-pnpmfileChecksum: 276ljmg7iwppovywid3xknt4we
+pnpmfileChecksum: k4u22ut4bgs7olczxbe2lxlooq
 
 importers:
 
@@ -64,10 +64,10 @@ importers:
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.1
-        version: 2.31.1(@types/node@22.20.1)
+        version: 2.31.1(@types/node@26.2.0)
       '@types/node':
-        specifier: ^22.0.0
-        version: 22.20.1
+        specifier: ^26.2.0
+        version: 26.2.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.65.0
         version: 8.65.0(@typescript-eslint/parser@8.65.0(eslint@9.39.5)(typescript@6.0.3))(eslint@9.39.5)(typescript@6.0.3)
@@ -109,7 +109,7 @@ importers:
         version: 8.65.0(eslint@9.39.5)(typescript@6.0.3)
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/analyzer:
     dependencies:
@@ -224,7 +224,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/cli:
     dependencies:
@@ -255,7 +255,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/core:
     dependencies:
@@ -268,7 +268,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/infra:
     dependencies:
@@ -291,7 +291,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/intelligence:
     dependencies:
@@ -319,7 +319,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/mcp:
     dependencies:
@@ -347,7 +347,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/server:
     dependencies:
@@ -387,10 +387,10 @@ importers:
         version: 6.0.3
       vite-tsconfig-paths:
         specifier: ^6.1.1
-        version: 6.1.1(typescript@6.0.3)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 6.1.1(typescript@6.0.3)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/shared:
     devDependencies:
@@ -399,7 +399,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/vscode:
     dependencies:
@@ -424,7 +424,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   packages/web:
     dependencies:
@@ -452,7 +452,7 @@ importers:
         version: 19.2.3(@types/react@19.2.17)
       '@vitejs/plugin-react':
         specifier: ^4.3.0
-        version: 4.7.0(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.7.0(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
@@ -461,10 +461,10 @@ importers:
         version: 6.0.3
       vite:
         specifier: ^6.0.0
-        version: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
+        version: 6.4.3(@types/node@26.2.0)(tsx@4.23.1)
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+        version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
 packages:
 
@@ -1267,13 +1267,11 @@ packages:
     resolution: {integrity: sha512-n1GJHPOvpIfhi3TmrCeh6S6URt9BFCt0KQE3qvexyGCTAKpR4Lg+eWvNZEqu7epxwus/8ElT3hacYEucm49SZg==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.62.2':
     resolution: {integrity: sha512-JqgflS8wEB+UXV/vS1RpRbifGBeN4D5lz8D8oOFbFZw4vedvdOgCFAjfBmIMdW3yL10XpQQ0Ambepw6MXrhOnA==}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.62.2':
     resolution: {integrity: sha512-wnFJkogWvN4jm/hQRF2UBaeUmk20j5+DmHvoyWii2b8HJDyvz1MF2OU/6ynXt2KR63rbZLWkFpoytpdc/yBuSA==}
@@ -1284,13 +1282,11 @@ packages:
     resolution: {integrity: sha512-HVu2bp0zhvJ8xHEV9+UUs7S90VadmBSY3LcIMvozbPo4AuMGDWlz3ymHLHZPX4hR67TKTt8Qp5PJ5RBg/i+RMQ==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-loong64-gnu@4.62.2':
     resolution: {integrity: sha512-mQqqAV8QaoSgr9I2fKDLY2BAVvmKjWoGiu/cSYQonsLvtqwEn1E4QYfnCOcp5zoEqNhsDYin1s6jx/VJmrxlZg==}
     cpu: [loong64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-loong64-musl@4.62.2':
     resolution: {integrity: sha512-IxKLoxCQ2IWi6bT2akyDUBGsOImDKB+sPp4EsTmwFQ/fMwpCKm8uLSSgP/Kx/QYUgKis6SEZ5/Nlhup0DIA0PQ==}
@@ -1306,7 +1302,6 @@ packages:
     resolution: {integrity: sha512-CjvEnqJL/0/TQ3TXX3OPIJ/kmBellrWd4heXUmHeJlTnmwjKpSJzoehLaL6Xk0ZnMHBu9dZuFADNOrtjF4v+2w==}
     cpu: [ppc64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-riscv64-gnu@4.62.2':
     resolution: {integrity: sha512-1SiZbzwdkaDURsew/tSOrooKiYy7EQGT6m8ufavAi9NEyQb/6VuIxFXAL1fqa4iZe3g4NbNk4P7J32z2tw5Mgg==}
@@ -1327,13 +1322,11 @@ packages:
     resolution: {integrity: sha512-5BqxR/pshjey51iliyzTD5Xi3EN0aLmQ2lZ3lvefVV9c82BvrLo2/6OT55iifpWBufs6kdwWbuOKS841DrmK9A==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.62.2':
     resolution: {integrity: sha512-uNN83XxQrRAh/w0/pmAfibcwyb6YWt4gP+dpnQKPVJshAloQ785ii8CT8ZCIxkGg9opVsvAlGhFitSm6D1Jjpg==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-openbsd-x64@4.62.2':
     resolution: {integrity: sha512-srjEIxSH3LRnJN6THczDHWQplqEMFiAJrTab0msUryh9kwNpkICf3Ea6q6MN/2cZwRFUNx5w+h6Hpi4QuHS6Zg==}
@@ -1488,8 +1481,8 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@22.20.1':
-    resolution: {integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==}
+  '@types/node@26.2.0':
+    resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -1635,7 +1628,6 @@ packages:
     resolution: {integrity: sha512-HYJtLfXq94q8iZNFT1lknx258wlkkWhZeUXJRqzKBBUJ00CvZ+N33zgbCqimLjsyw5Va6uUxhVa12mI+kaveEw==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-gnu@1.12.2':
     resolution: {integrity: sha512-mPsUhunKKDih5O96Y6enDQyHc1SqBPlY1E/SfMWDM3EdJ95Z9CArPeCVwCCqbP45ljvivdEk8Fxn+SIb1rDAJQ==}
@@ -2260,6 +2252,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -3826,8 +3819,8 @@ packages:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
   undici@7.28.0:
     resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
@@ -4200,7 +4193,7 @@ snapshots:
     dependencies:
       '@changesets/types': 6.1.0
 
-  '@changesets/cli@2.31.1(@types/node@22.20.1)':
+  '@changesets/cli@2.31.1(@types/node@26.2.0)':
     dependencies:
       '@changesets/apply-release-plan': 7.1.1
       '@changesets/assemble-release-plan': 6.0.10
@@ -4216,7 +4209,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3(@types/node@22.20.1)
+      '@inquirer/external-editor': 1.0.3(@types/node@26.2.0)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -4685,12 +4678,12 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@inquirer/external-editor@1.0.3(@types/node@22.20.1)':
+  '@inquirer/external-editor@1.0.3(@types/node@26.2.0)':
     dependencies:
       chardet: 2.2.0
       iconv-lite: 0.7.3
     optionalDependencies:
-      '@types/node': 22.20.1
+      '@types/node': 26.2.0
 
   '@istanbuljs/schema@0.1.6': {}
 
@@ -4951,7 +4944,7 @@ snapshots:
 
   '@types/better-sqlite3@7.6.12':
     dependencies:
-      '@types/node': 22.20.1
+      '@types/node': 26.2.0
 
   '@types/chai@5.2.3':
     dependencies:
@@ -4968,9 +4961,9 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@22.20.1':
+  '@types/node@26.2.0':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 8.3.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.17)':
     dependencies:
@@ -5143,7 +5136,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
 
-  '@vitejs/plugin-react@4.7.0(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))':
+  '@vitejs/plugin-react@4.7.0(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
@@ -5151,7 +5144,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@types/babel__core': 7.20.5
       react-refresh: 0.17.0
-      vite: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
+      vite: 6.4.3(@types/node@26.2.0)(tsx@4.23.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -5167,7 +5160,7 @@ snapshots:
       magicast: 0.5.3
       obug: 2.1.4
       tinyrainbow: 3.1.1
-      vitest: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+      vitest: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -5183,7 +5176,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+      vitest: 4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -5194,13 +5187,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.10(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))':
+  '@vitest/mocker@4.1.10(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
+      vite: 6.4.3(@types/node@26.2.0)(tsx@4.23.1)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -7599,7 +7592,7 @@ snapshots:
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
 
-  undici-types@6.21.0: {}
+  undici-types@8.3.0: {}
 
   undici@7.28.0: {}
 
@@ -7651,17 +7644,17 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite-tsconfig-paths@6.1.1(typescript@6.0.3)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1)):
+  vite-tsconfig-paths@6.1.1(typescript@6.0.3)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1)):
     dependencies:
       debug: 4.4.3
       globrex: 0.1.2
       tsconfck: 3.1.6(typescript@6.0.3)
-      vite: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
+      vite: 6.4.3(@types/node@26.2.0)(tsx@4.23.1)
     transitivePeerDependencies:
       - supports-color
       - typescript
 
-  vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1):
+  vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
@@ -7670,14 +7663,14 @@ snapshots:
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 22.20.1
+      '@types/node': 26.2.0
       fsevents: 2.3.3
       tsx: 4.23.1
 
-  vitest@4.1.10(@types/node@22.20.1)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1)):
+  vitest@4.1.10(@types/node@26.2.0)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1)(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@6.4.3(@types/node@22.20.1)(tsx@4.23.1))
+      '@vitest/mocker': 4.1.10(vite@6.4.3(@types/node@26.2.0)(tsx@4.23.1))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -7694,10 +7687,10 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 6.4.3(@types/node@22.20.1)(tsx@4.23.1)
+      vite: 6.4.3(@types/node@26.2.0)(tsx@4.23.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 22.20.1
+      '@types/node': 26.2.0
       '@vitest/coverage-istanbul': 4.1.10(vitest@4.1.10)
       '@vitest/coverage-v8': 4.1.10(vitest@4.1.10)
       jsdom: 29.1.1
