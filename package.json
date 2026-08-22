@@ -48,7 +48,7 @@
     "clean": "turbo clean",
     "bench": "vitest bench",
     "bench:ci": "vitest bench --run --reporter=json > bench-results.json",
-    "check:perf": "node scripts/check-benchmarks.js",
+    "check:perf": "tsx scripts/check-benchmarks.ts",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "turbo build && changeset publish",

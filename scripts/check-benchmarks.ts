@@ -28,9 +28,7 @@ const BASELINE_FILE = resolve(
 );
 
 const REGRESSION_THRESHOLD_PCT = Number(
-  process.argv.includes('--threshold')
-    ? process.argv[process.argv.indexOf('--threshold') + 1]
-    : 20,
+  process.argv.includes('--threshold') ? process.argv[process.argv.indexOf('--threshold') + 1] : 20,
 );
 
 // ---------------------------------------------------------------------------
@@ -60,12 +58,19 @@ function main(): void {
     baseline = loadBaseline(BASELINE_FILE);
     console.log(`Loaded baseline from ${BASELINE_FILE}`);
   } else {
-    console.log(`No baseline found at ${BASELINE_FILE}. Creating new baseline from current results.`);
+    console.log(
+      `No baseline found at ${BASELINE_FILE}. Creating new baseline from current results.`,
+    );
     baseline = new Map();
   }
 
   // Compare
-  const regressions: Array<{ name: string; baselineMs: number; currentMs: number; increasePercent: number }> = [];
+  const regressions: Array<{
+    name: string;
+    baselineMs: number;
+    currentMs: number;
+    increasePercent: number;
+  }> = [];
   let passCount = 0;
   let failCount = 0;
 
@@ -81,9 +86,7 @@ function main(): void {
     }
 
     const increasePercent =
-      baselineMs > 0
-        ? ((bench.durationMs - baselineMs) / baselineMs) * 100
-        : 0;
+      baselineMs > 0 ? ((bench.durationMs - baselineMs) / baselineMs) * 100 : 0;
 
     if (increasePercent > REGRESSION_THRESHOLD_PCT) {
       regressions.push({

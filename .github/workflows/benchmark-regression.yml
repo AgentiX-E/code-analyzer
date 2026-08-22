@@ -25,7 +25,7 @@ on:
       - 'packages/**/src/**'
       - 'tests/benchmarks/**'
   schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -77,7 +77,7 @@ jobs:
           # Compare against baseline if available
           if [ -f bench-baseline.json ]; then
             echo "Comparing against stored baseline..."
-            node scripts/check-benchmarks.js --baseline bench-baseline.json --threshold 10 2>&1 | tee regression-output.txt
+            npx tsx scripts/check-benchmarks.ts --baseline bench-baseline.json --threshold 10 2>&1 | tee regression-output.txt
             echo "REGRESSION_EXIT=$?" >> "$GITHUB_ENV"
           else
             echo "No baseline found — creating new baseline from current run."
