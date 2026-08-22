@@ -47,7 +47,7 @@
     "typecheck": "turbo typecheck",
     "clean": "turbo clean",
     "bench": "vitest bench",
-    "bench:ci": "vitest bench --run --reporter=json > bench-results.json",
+    "bench:ci": "vitest bench --run",
     "check:perf": "tsx scripts/check-benchmarks.ts",
     "changeset": "changeset",
     "version": "changeset version",

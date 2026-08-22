@@ -27,6 +27,12 @@ export default defineConfig({
     singleFork: true,
     testTimeout: 90_000,
     hookTimeout: 60_000,
+    // vitest 4 removed the `json` reporter for `bench` mode. Instead, the
+    // default benchmark reporter writes a machine-readable report to
+    // `benchmark.outputJson` at the end of the run (see check-benchmarks.ts).
+    benchmark: {
+      outputJson: 'bench-results.json',
+    },
     include: [
       'packages/*/src/**/*.test.ts',
       'tests/unit/**/*.test.ts',

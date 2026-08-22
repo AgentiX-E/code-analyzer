@@ -171,9 +171,24 @@ function parseVitestResults(data: unknown): BenchEntry[] {
       }
     }
 
-    // vitest bench single-level format
+    // vitest 4 benchmark outputJson format:
+    // { files: [ { groups: [ { benchmarks: [ { name, mean, ... } ] } ] } ] }
     if (Array.isArray(obj.files)) {
       for (const file of obj.files as Array<Record<string, unknown>>) {
+        // New vitest 4 format: nested groups → benchmarks
+        if (Array.isArray(file.groups)) {
+          for (const group of file.groups as Array<Record<string, unknown>>) {
+            if (Array.isArray(group.benchmarks)) {
+              for (const bench of group.benchmarks as Array<Record<string, unknown>>) {
+                entries.push({
+                  name: String(bench.name ?? bench.id ?? ''),
+                  durationMs: Number(bench.mean ?? 0),
+                });
+              }
+            }
+          }
+        }
+        // Legacy vitest <=3 format: flat tasks
         if (Array.isArray(file.tasks)) {
           for (const task of file.tasks as Array<Record<string, unknown>>) {
             entries.push({

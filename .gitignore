@@ -17,6 +17,8 @@ dist/
 coverage/
 benchmark-results/
 reports/
+bench-results.json
+bench-baseline.json
 
 # Code Analyzer runtime
 .code-analyzer/
