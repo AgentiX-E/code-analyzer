@@ -99,9 +99,9 @@ runs:
           --format markdown 2>/dev/null || echo "Analysis completed")
 
         cat >> comment.md << 'COMMENT_EOF'
-### 🤖 Code Analyzer Review
+        ### 🤖 Code Analyzer Review
 
-COMMENT_EOF
+        COMMENT_EOF
         echo "$SUMMARY" >> comment.md
         echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
 

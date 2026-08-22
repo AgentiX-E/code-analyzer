@@ -50,7 +50,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # GHCR requires lowercase repository names; github.repository resolves to
+  # the mixed-case "AgentiX-E/code-analyzer" and would fail the build with
+  # "repository name must be lowercase".
+  IMAGE_NAME: agentix-e/code-analyzer
 
 jobs:
   build-and-publish:
@@ -242,6 +245,6 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Image | Status | Registry |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-------|--------|----------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| code-analyzer (MCP) | ${{ needs.build-and-publish.result }} | ghcr.io/${{ github.repository }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| code-analyzer-cli | ${{ needs.build-and-publish.result }} | ghcr.io/${{ github.repository }}-cli |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| code-analyzer (MCP) | ${{ needs.build-and-publish.result }} | ghcr.io/${{ env.IMAGE_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| code-analyzer-cli | ${{ needs.build-and-publish.result }} | ghcr.io/${{ env.IMAGE_NAME }}-cli |" >> "$GITHUB_STEP_SUMMARY"
           echo "| SBOM | ${{ needs.sbom.result }} | artifact |" >> "$GITHUB_STEP_SUMMARY"
