@@ -191,10 +191,18 @@ describe('ReviewDashboardAggregator', () => {
 
     it('computes merge recommendation distribution', () => {
       const reviews = [
-        createReviewEntry({ summary: { totalComments: 0, riskLevel: 'low', mergeRecommendation: 'approve' } }),
-        createReviewEntry({ summary: { totalComments: 0, riskLevel: 'low', mergeRecommendation: 'approve' } }),
-        createReviewEntry({ summary: { totalComments: 0, riskLevel: 'medium', mergeRecommendation: 'comment' } }),
-        createReviewEntry({ summary: { totalComments: 0, riskLevel: 'high', mergeRecommendation: 'reject' } }),
+        createReviewEntry({
+          summary: { totalComments: 0, riskLevel: 'low', mergeRecommendation: 'approve' },
+        }),
+        createReviewEntry({
+          summary: { totalComments: 0, riskLevel: 'low', mergeRecommendation: 'approve' },
+        }),
+        createReviewEntry({
+          summary: { totalComments: 0, riskLevel: 'medium', mergeRecommendation: 'comment' },
+        }),
+        createReviewEntry({
+          summary: { totalComments: 0, riskLevel: 'high', mergeRecommendation: 'reject' },
+        }),
       ];
       const result = aggregator.aggregateReviews(reviews);
 
@@ -277,9 +285,7 @@ describe('ReviewDashboardAggregator', () => {
       ];
       const result = aggregator.aggregateReviews(reviews);
 
-      expect(result.reviewsOverTime).toEqual([
-        { date: '2024-03', count: 2 },
-      ]);
+      expect(result.reviewsOverTime).toEqual([{ date: '2024-03', count: 2 }]);
     });
 
     it('produces mostCommonIssues sorted by count descending', () => {
@@ -338,10 +344,7 @@ describe('ReviewDashboardAggregator', () => {
     });
 
     it('treats totalFindings correctly when all reviews have zero comments', () => {
-      const reviews = [
-        createReviewEntry({ comments: [] }),
-        createReviewEntry({ comments: [] }),
-      ];
+      const reviews = [createReviewEntry({ comments: [] }), createReviewEntry({ comments: [] })];
       const result = aggregator.aggregateReviews(reviews);
 
       expect(result.totalFindings).toBe(0);
@@ -387,9 +390,7 @@ describe('ReviewDashboardAggregator', () => {
     });
 
     it('penalizes score for critical security findings', () => {
-      const comments = [
-        createReviewComment({ severity: 'critical', category: 'security' }),
-      ];
+      const comments = [createReviewComment({ severity: 'critical', category: 'security' })];
       const review = createReviewEntry({ comments });
       const result = aggregator.computeCodeHealthScore([review]);
 
@@ -402,9 +403,7 @@ describe('ReviewDashboardAggregator', () => {
     });
 
     it('adds recommendation for critical security findings', () => {
-      const comments = [
-        createReviewComment({ severity: 'critical', category: 'security' }),
-      ];
+      const comments = [createReviewComment({ severity: 'critical', category: 'security' })];
       const review = createReviewEntry({ comments });
       const result = aggregator.computeCodeHealthScore([review]);
 
@@ -426,9 +425,7 @@ describe('ReviewDashboardAggregator', () => {
     });
 
     it('adds recommendation for critical bug findings', () => {
-      const comments = [
-        createReviewComment({ severity: 'critical', category: 'bug' }),
-      ];
+      const comments = [createReviewComment({ severity: 'critical', category: 'bug' })];
       const review = createReviewEntry({ comments });
       const result = aggregator.computeCodeHealthScore([review]);
 
@@ -531,7 +528,11 @@ describe('ReviewDashboardAggregator', () => {
 
       // performance: 100 - 15 = 85
       expect(result.byCategory.performance).toBe(85);
-      expect(result.recommendations.some((r) => r.includes('performance') && r.includes('focused cleanup'))).toBe(true);
+      expect(
+        result.recommendations.some(
+          (r) => r.includes('performance') && r.includes('focused cleanup'),
+        ),
+      ).toBe(true);
     });
 
     it('does not add findings penalty when total is below threshold', () => {
@@ -546,15 +547,13 @@ describe('ReviewDashboardAggregator', () => {
     });
 
     it('does not add recommendation for criticals in non-makeOrBreak categories', () => {
-      const comments = [
-        createReviewComment({ severity: 'critical', category: 'style' }),
-      ];
+      const comments = [createReviewComment({ severity: 'critical', category: 'style' })];
       const review = createReviewEntry({ comments });
       const result = aggregator.computeCodeHealthScore([review]);
 
       // Style is not makeOrBreak, so no critical recommendation
-      const styleRecs = result.recommendations.filter((r) =>
-        r.includes('style') && r.includes('critical'),
+      const styleRecs = result.recommendations.filter(
+        (r) => r.includes('style') && r.includes('critical'),
       );
       expect(styleRecs.length).toBe(0);
     });
@@ -624,9 +623,7 @@ describe('ReviewDashboardAggregator', () => {
       const review = createReviewEntry({ author: 'alice' });
       const result = aggregator.computeTeamInsights([review]);
 
-      expect(result.topContributors).toEqual([
-        { author: 'alice', reviewCount: 1 },
-      ]);
+      expect(result.topContributors).toEqual([{ author: 'alice', reviewCount: 1 }]);
     });
 
     it('ranks contributors by review count descending', () => {
@@ -651,9 +648,7 @@ describe('ReviewDashboardAggregator', () => {
       const review = { ...createReviewEntry(), author: undefined } as ReviewEntry;
       const result = aggregator.computeTeamInsights([review]);
 
-      expect(result.topContributors).toEqual([
-        { author: 'unknown', reviewCount: 1 },
-      ]);
+      expect(result.topContributors).toEqual([{ author: 'unknown', reviewCount: 1 }]);
     });
 
     it('limits top contributors to 10', () => {
@@ -752,9 +747,7 @@ describe('ReviewDashboardAggregator', () => {
       const review = createReviewEntry({ comments: [comment] });
       const result = aggregator.computeTeamInsights([review]);
 
-      expect(result.filesWithMostFindings).toEqual([
-        { filePath: 'unknown', count: 1 },
-      ]);
+      expect(result.filesWithMostFindings).toEqual([{ filePath: 'unknown', count: 1 }]);
     });
 
     it('computes repos with most cross-repo impact', () => {
@@ -1097,7 +1090,10 @@ describe('ReviewDashboardAggregator', () => {
       ];
       const review = createReviewEntry({ comments });
       // generateDashboardReport calls toAnalysisReport internally
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1111,7 +1107,10 @@ describe('ReviewDashboardAggregator', () => {
         createReviewComment({ severity: 'medium', category: 'performance' }),
       ];
       const review = createReviewEntry({ comments });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1120,7 +1119,10 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).id = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1129,7 +1131,10 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).category = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1138,7 +1143,10 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).severity = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1147,7 +1155,10 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).content = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1156,14 +1167,20 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).path = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
     it('handles comment with startLine 0 (null lineRange)', () => {
       const comment = createReviewComment({ startLine: 0, endLine: 0 });
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1172,7 +1189,10 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).endLine = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1181,31 +1201,50 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).existingCode = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
     it('handles review entry with undefined author in toAnalysisReport', () => {
       const review = { ...createReviewEntry(), author: undefined } as ReviewEntry;
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
     it('handles review entry with undefined durationMs in toAnalysisReport', () => {
       const review = { ...createReviewEntry(), durationMs: undefined } as ReviewEntry;
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
     it('handles review entry with undefined prTitle in toAnalysisReport', () => {
       const review = { ...createReviewEntry(), prTitle: undefined } as ReviewEntry;
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
     it('handles review entry with undefined prTitle and undefined prNumber', () => {
-      const review = { ...createReviewEntry(), prTitle: undefined, prNumber: undefined } as ReviewEntry;
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const review = {
+        ...createReviewEntry(),
+        prTitle: undefined,
+        prNumber: undefined,
+      } as ReviewEntry;
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1214,13 +1253,19 @@ describe('ReviewDashboardAggregator', () => {
         projectId: '',
         comments: [createReviewComment()],
       });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
     it('handles review entry with undefined branch in toAnalysisReport', () => {
       const review = { ...createReviewEntry(), branch: undefined } as ReviewEntry;
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1230,7 +1275,10 @@ describe('ReviewDashboardAggregator', () => {
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (review.summary as any).mergeRecommendation = undefined;
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1239,7 +1287,10 @@ describe('ReviewDashboardAggregator', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (comment as any).startLine = undefined;
       const review = createReviewEntry({ comments: [comment] });
-      const result = aggregator.generateDashboardReport([review, createReviewEntry({ comments: [] })]);
+      const result = aggregator.generateDashboardReport([
+        review,
+        createReviewEntry({ comments: [] }),
+      ]);
       expect(result.trendData).toBeDefined();
     });
 
@@ -1356,9 +1407,7 @@ describe('ReviewDashboardAggregator', () => {
     });
 
     it('renders recommendations section when present', () => {
-      const comments = [
-        createReviewComment({ severity: 'critical', category: 'security' }),
-      ];
+      const comments = [createReviewComment({ severity: 'critical', category: 'security' })];
       const review = createReviewEntry({ comments });
       const report = aggregator.generateDashboardReport([review]);
       const markdown = aggregator.formatDashboardMarkdown(report);

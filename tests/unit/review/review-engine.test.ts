@@ -4,7 +4,10 @@
 // error handling, graph analysis, session management, and configuration.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CodeReviewEngine, ReviewEngineError } from '@code-analyzer/intelligence/review/review-engine.js';
+import {
+  CodeReviewEngine,
+  ReviewEngineError,
+} from '@code-analyzer/intelligence/review/review-engine.js';
 
 // ---------------------------------------------------------------------------
 // Mocks & Fixtures
@@ -146,7 +149,11 @@ class GitOpsMock {
     return diff;
   }
 
-  async getDiffHunks(_filePath: string, _baseSha: string, _targetSha: string): Promise<MockDiffHunk[]> {
+  async getDiffHunks(
+    _filePath: string,
+    _baseSha: string,
+    _targetSha: string,
+  ): Promise<MockDiffHunk[]> {
     return [];
   }
 
@@ -178,7 +185,14 @@ describe('CodeReviewEngine — Construction', () => {
   it('should construct with GitOperations', () => {
     const store = new MockInMemoryStore();
     const gitOps = new GitOpsMock();
-    const engine = new CodeReviewEngine(store as never, {}, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {},
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
     expect(engine).toBeDefined();
   });
 });
@@ -199,11 +213,13 @@ describe('CodeReviewEngine — Metadata Fallback', () => {
       allowMetadataFallback: false,
     });
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/index.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/index.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
+      },
+    ];
 
     await expect(engine.reviewDiff('test-proj', diffs as never)).rejects.toThrow(ReviewEngineError);
   });
@@ -213,11 +229,13 @@ describe('CodeReviewEngine — Metadata Fallback', () => {
       allowMetadataFallback: true,
     });
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/index.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/index.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -227,15 +245,24 @@ describe('CodeReviewEngine — Metadata Fallback', () => {
   it('should use metadata fallback when allowMetadataFallback is enabled and gitOps throws', async () => {
     const gitOps = new GitOpsMock();
     // Don't set any files — all reads will fail
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: true,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: true,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/missing.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/missing.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -255,9 +282,16 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
   beforeEach(() => {
     store = new MockInMemoryStore();
     gitOps = new GitOpsMock();
-    engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
   });
 
   it('should analyze real code content for modified files', async () => {
@@ -271,11 +305,13 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
 
     gitOps.setFile('src/order.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/order.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/order.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -287,11 +323,13 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
     const content = 'export class NewService {}\n';
     gitOps.setFile('src/new-service.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/new-service.ts',
-      changeType: 'added',
-      ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 1, changeType: 'added' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/new-service.ts',
+        changeType: 'added',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 1, changeType: 'added' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -299,17 +337,21 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
   });
 
   it('should read range-specific content for files with multiple ranges', async () => {
-    const content = Array.from({ length: 50 }, (_, i) => `line ${i + 1}: const x${i} = ${i};`).join('\n');
+    const content = Array.from({ length: 50 }, (_, i) => `line ${i + 1}: const x${i} = ${i};`).join(
+      '\n',
+    );
     gitOps.setFile('src/large-file.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/large-file.ts',
-      changeType: 'modified',
-      ranges: [
-        { oldStart: 10, oldEnd: 15, newStart: 10, newEnd: 16, changeType: 'modified' },
-        { oldStart: 30, oldEnd: 35, newStart: 31, newEnd: 36, changeType: 'modified' },
-      ],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/large-file.ts',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 10, oldEnd: 15, newStart: 10, newEnd: 16, changeType: 'modified' },
+          { oldStart: 30, oldEnd: 35, newStart: 31, newEnd: 36, changeType: 'modified' },
+        ],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -327,11 +369,13 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
 
     gitOps.setFile('src/auth.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/auth.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/auth.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -348,11 +392,21 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
     const content = lines.join('\n');
     gitOps.setFile('src/long-func.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/long-func.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: lines.length, newStart: 1, newEnd: lines.length, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/long-func.ts',
+        changeType: 'modified',
+        ranges: [
+          {
+            oldStart: 1,
+            oldEnd: lines.length,
+            newStart: 1,
+            newEnd: lines.length,
+            changeType: 'modified',
+          },
+        ],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -367,11 +421,13 @@ describe('CodeReviewEngine — Real Code Analysis', () => {
     ].join('\n');
     gitOps.setFile('src/api.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/api.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 4, newStart: 1, newEnd: 4, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/api.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 4, newStart: 1, newEnd: 4, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -421,13 +477,9 @@ describe('CodeReviewEngine — reviewFile()', () => {
   });
 
   it('should skip naming checks for test files', async () => {
-    const content = [
-      'class TestHelper {',
-      '  setupTests() {',
-      '    return true;',
-      '  }',
-      '}',
-    ].join('\n');
+    const content = ['class TestHelper {', '  setupTests() {', '    return true;', '  }', '}'].join(
+      '\n',
+    );
 
     const comments = await engine.reviewFile('test-proj', 'src/__tests__/helper.ts', content);
     expect(Array.isArray(comments)).toBe(true);
@@ -443,18 +495,14 @@ describe('CodeReviewEngine — reviewFile()', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test-proj', 'src/worker.ts', content);
-    const logIssues = comments.filter((c: MockReviewComment) =>
-      c.content.includes('console.log'),
-    );
+    const logIssues = comments.filter((c: MockReviewComment) => c.content.includes('console.log'));
     expect(logIssues.length).toBeGreaterThan(0);
   });
 
   it('should not flag console.log in test files', async () => {
     const content = ['console.log("test output");'].join('\n');
     const comments = await engine.reviewFile('test-proj', 'src/worker.test.ts', content);
-    const logIssues = comments.filter((c: MockReviewComment) =>
-      c.content.includes('console.log'),
-    );
+    const logIssues = comments.filter((c: MockReviewComment) => c.content.includes('console.log'));
     expect(logIssues.length).toBe(0);
   });
 
@@ -485,20 +533,29 @@ describe('CodeReviewEngine — Relocate Phase', () => {
   beforeEach(() => {
     store = new MockInMemoryStore();
     gitOps = new GitOpsMock();
-    engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
   });
 
   it('should return unmodified comments when no ranges are present', async () => {
     const content = 'export const x = 1;\n';
     gitOps.setFile('src/simple.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/simple.ts',
-      changeType: 'modified',
-      ranges: [],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/simple.ts',
+        changeType: 'modified',
+        ranges: [],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -508,15 +565,21 @@ describe('CodeReviewEngine — Relocate Phase', () => {
     const oldContent = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
     gitOps.setFile('src/file.ts', oldContent);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/file.ts',
-      changeType: 'modified',
-      ranges: [{
-        oldStart: 5, oldEnd: 10,
-        newStart: 5, newEnd: 12,
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/file.ts',
         changeType: 'modified',
-      }],
-    }];
+        ranges: [
+          {
+            oldStart: 5,
+            oldEnd: 10,
+            newStart: 5,
+            newEnd: 12,
+            changeType: 'modified',
+          },
+        ],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -526,14 +589,16 @@ describe('CodeReviewEngine — Relocate Phase', () => {
     const oldContent = Array.from({ length: 50 }, (_, i) => `line ${i + 1}`).join('\n');
     gitOps.setFile('src/file.ts', oldContent);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/file.ts',
-      changeType: 'modified',
-      ranges: [
-        { oldStart: 5, oldEnd: 8, newStart: 5, newEnd: 10, changeType: 'modified' },
-        { oldStart: 30, oldEnd: 33, newStart: 33, newEnd: 35, changeType: 'modified' },
-      ],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/file.ts',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 5, oldEnd: 8, newStart: 5, newEnd: 10, changeType: 'modified' },
+          { oldStart: 30, oldEnd: 33, newStart: 33, newEnd: 35, changeType: 'modified' },
+        ],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -547,17 +612,21 @@ describe('CodeReviewEngine — Relocate Phase', () => {
     for (let block = 0; block < 5; block++) {
       const base = block * 20 + 5;
       ranges.push({
-        oldStart: base, oldEnd: base + 3,
-        newStart: base + block, newEnd: base + block + 5,
+        oldStart: base,
+        oldEnd: base + 3,
+        newStart: base + block,
+        newEnd: base + block + 5,
         changeType: 'modified',
       });
     }
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/complex.ts',
-      changeType: 'modified',
-      ranges,
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/complex.ts',
+        changeType: 'modified',
+        ranges,
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -565,11 +634,13 @@ describe('CodeReviewEngine — Relocate Phase', () => {
 
   it('should handle diffs with only additions (no old lines)', async () => {
     gitOps.setFile('src/new-only.ts', '');
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/new-only.ts',
-      changeType: 'added',
-      ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/new-only.ts',
+        changeType: 'added',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -579,11 +650,13 @@ describe('CodeReviewEngine — Relocate Phase', () => {
     const oldContent = Array.from({ length: 10 }, (_, i) => `line ${i + 1}`).join('\n');
     gitOps.setFile('src/to-delete.ts', oldContent);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/to-delete.ts',
-      changeType: 'deleted',
-      ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'deleted' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/to-delete.ts',
+        changeType: 'deleted',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'deleted' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -602,18 +675,27 @@ describe('CodeReviewEngine — Plan Phase', () => {
   beforeEach(() => {
     store = new MockInMemoryStore();
     gitOps = new GitOpsMock();
-    engine = new CodeReviewEngine(store as never, undefined, undefined, undefined, undefined, gitOps as never);
+    engine = new CodeReviewEngine(
+      store as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
   });
 
   it('should identify TypeScript-specific focus areas', async () => {
     const content = 'function foo(): void {}\n';
     gitOps.setFile('src/types.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/types.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/types.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -623,11 +705,13 @@ describe('CodeReviewEngine — Plan Phase', () => {
     const content = 'test("should work", () => { expect(true).toBe(true); });\n';
     gitOps.setFile('src/component.test.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/component.test.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/component.test.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -637,11 +721,13 @@ describe('CodeReviewEngine — Plan Phase', () => {
     const content = 'app.get("/users", handler);\n';
     gitOps.setFile('src/api/routes.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/api/routes.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/api/routes.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -655,11 +741,21 @@ describe('CodeReviewEngine — Plan Phase', () => {
     lines.push('}');
     gitOps.setFile('src/large.ts', lines.join('\n'));
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/large.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: lines.length, newStart: 1, newEnd: lines.length, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/large.ts',
+        changeType: 'modified',
+        ranges: [
+          {
+            oldStart: 1,
+            oldEnd: lines.length,
+            newStart: 1,
+            newEnd: lines.length,
+            changeType: 'modified',
+          },
+        ],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -678,18 +774,27 @@ describe('CodeReviewEngine — Session Management', () => {
   beforeEach(() => {
     store = new MockInMemoryStore();
     gitOps = new GitOpsMock();
-    engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
   });
 
   it('should create a review session with correct metadata', async () => {
     gitOps.setFile('src/a.ts', 'const a = 1;\n');
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/a.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/a.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('my-project', diffs as never);
     expect(session.projectId).toBe('my-project');
@@ -708,11 +813,13 @@ describe('CodeReviewEngine — Session Management', () => {
     ].join('\n');
     gitOps.setFile('src/risky.ts', content);
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/risky.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 4, newStart: 1, newEnd: 4, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/risky.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 4, newStart: 1, newEnd: 4, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.commentsGenerated).toBeGreaterThanOrEqual(0);
@@ -724,9 +831,21 @@ describe('CodeReviewEngine — Session Management', () => {
     gitOps.setFile('src/c.ts', 'const c = 3;\n');
 
     const diffs: MockGitDiff[] = [
-      { filePath: 'src/a.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] },
-      { filePath: 'src/b.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] },
-      { filePath: 'src/c.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] },
+      {
+        filePath: 'src/a.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+      {
+        filePath: 'src/b.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+      {
+        filePath: 'src/c.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
     ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
@@ -738,14 +857,33 @@ describe('CodeReviewEngine — Session Management', () => {
     // src/bad.ts is not set — reading it will fail
     gitOps.setFile('src/also-good.ts', 'const alsoGood = 2;\n');
 
-    const engineWithFallback = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: true,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engineWithFallback = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: true,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
     const diffs: MockGitDiff[] = [
-      { filePath: 'src/good.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] },
-      { filePath: 'src/missing.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }] },
-      { filePath: 'src/also-good.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] },
+      {
+        filePath: 'src/good.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+      {
+        filePath: 'src/missing.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
+      },
+      {
+        filePath: 'src/also-good.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
     ];
 
     const session = await engineWithFallback.reviewDiff('test-proj', diffs as never);
@@ -778,15 +916,24 @@ describe('CodeReviewEngine — Graph Analysis', () => {
     gitOps.setFile('src/a.ts', 'import { B } from "./b";\nexport const a = 1;\n');
     gitOps.setFile('src/b.ts', 'import { A } from "./a";\nexport const b = 2;\n');
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/a.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/a.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -797,15 +944,24 @@ describe('CodeReviewEngine — Graph Analysis', () => {
     // Store has no nodes for the reviewed file
     gitOps.setFile('src/isolated.ts', 'export const x = 1;\n');
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/isolated.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/isolated.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -822,17 +978,29 @@ describe('CodeReviewEngine — Graph Analysis', () => {
     store.addEdge({ sourceId: 1, targetId: 3 }); // a → c
     store.addEdge({ sourceId: 1, targetId: 4 }); // a → d
 
-    gitOps.setFile('src/a.ts', 'import { B } from "./b";\nimport { C } from "./c";\nimport { D } from "./d";\n');
+    gitOps.setFile(
+      'src/a.ts',
+      'import { B } from "./b";\nimport { C } from "./c";\nimport { D } from "./d";\n',
+    );
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/a.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/a.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test-proj', diffs as never);
     expect(session.status).toBe('completed');
@@ -855,11 +1023,13 @@ describe('CodeReviewEngine — Error Handling', () => {
       allowMetadataFallback: false,
     });
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/test.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/test.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     await expect(engine.reviewDiff('test', diffs as never)).rejects.toThrow(ReviewEngineError);
     try {
@@ -890,15 +1060,24 @@ describe('CodeReviewEngine — Error Handling', () => {
   it('should throw for non-existent files when fallback is disabled', async () => {
     const gitOps = new GitOpsMock();
     // File not set — will cause read error
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/nonexistent.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/nonexistent.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -952,9 +1131,16 @@ describe('CodeReviewEngine — Multi-File Scenarios', () => {
   beforeEach(() => {
     store = new MockInMemoryStore();
     gitOps = new GitOpsMock();
-    engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
   });
 
   it('should handle a mix of added, modified, and deleted files', async () => {
@@ -962,14 +1148,33 @@ describe('CodeReviewEngine — Multi-File Scenarios', () => {
     gitOps.setFile('src/modified.ts', 'export const modified = true;\n');
     // src/deleted.ts intentionally not set (we'll use metadata fallback override)
 
-    const engineWithFallback = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: true,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engineWithFallback = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: true,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
     const diffs: MockGitDiff[] = [
-      { filePath: 'src/new.ts', changeType: 'added', ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 1, changeType: 'added' }] },
-      { filePath: 'src/modified.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] },
-      { filePath: 'src/deleted.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'deleted' }] },
+      {
+        filePath: 'src/new.ts',
+        changeType: 'added',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 1, changeType: 'added' }],
+      },
+      {
+        filePath: 'src/modified.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+      {
+        filePath: 'src/deleted.ts',
+        changeType: 'deleted',
+        ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'deleted' }],
+      },
     ];
 
     const session = await engineWithFallback.reviewDiff('test', diffs as never);
@@ -978,16 +1183,25 @@ describe('CodeReviewEngine — Multi-File Scenarios', () => {
 
   it('should handle renamed files', async () => {
     gitOps.setFile('src/new-name.ts', 'export const named = true;\n');
-    const engineWithFallback = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: true,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engineWithFallback = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: true,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/new-name.ts',
-      oldPath: 'src/old-name.ts',
-      changeType: 'renamed',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'renamed' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/new-name.ts',
+        oldPath: 'src/old-name.ts',
+        changeType: 'renamed',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'renamed' }],
+      },
+    ];
 
     const session = await engineWithFallback.reviewDiff('test', diffs as never);
     expect(session.filesReviewed).toBe(1);
@@ -1021,18 +1235,30 @@ describe('CodeReviewEngine — Diff Content Extraction', () => {
   beforeEach(() => {
     store = new MockInMemoryStore();
     gitOps = new GitOpsMock();
-    engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
   });
 
   it('should read full content for added files via gitOps', async () => {
-    gitOps.setFile('src/new-file.ts', 'export class NewClass {}\nexport function newFunc(): void {}\n');
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/new-file.ts',
-      changeType: 'added',
-      ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 2, changeType: 'added' }],
-    }];
+    gitOps.setFile(
+      'src/new-file.ts',
+      'export class NewClass {}\nexport function newFunc(): void {}\n',
+    );
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/new-file.ts',
+        changeType: 'added',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 2, changeType: 'added' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1040,15 +1266,19 @@ describe('CodeReviewEngine — Diff Content Extraction', () => {
   });
 
   it('should attempt to get unified diff when both SHAs are provided', async () => {
-    gitOps.setDiff('src/file.ts:abc123:def456',
-      '@@ -1,4 +1,5 @@\n context\n-old\n+new\n+added\n context\n');
+    gitOps.setDiff(
+      'src/file.ts:abc123:def456',
+      '@@ -1,4 +1,5 @@\n context\n-old\n+new\n+added\n context\n',
+    );
     gitOps.setFile('src/file.ts', 'context\nnew\nadded\ncontext\n');
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/file.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 4, newStart: 1, newEnd: 5, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/file.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 4, newStart: 1, newEnd: 5, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never, {
       baseSha: 'abc123',
@@ -1086,15 +1316,24 @@ describe('CodeReviewEngine — Cycle Detection BLACK Revisit', () => {
     gitOps.setFile('src/b.ts', 'import { C1 } from "./c";\n');
     gitOps.setFile('src/c.ts', 'export const c = 1;\n');
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/a.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/a.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1116,15 +1355,24 @@ describe('CodeReviewEngine — Cycle Detection BLACK Revisit', () => {
     gitOps.setFile('src/b.ts', 'import { C1 } from "./c";\n');
     gitOps.setFile('src/c.ts', 'export const c = 1;\n');
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/a.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/a.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1146,15 +1394,24 @@ describe('CodeReviewEngine — Plan Phase Edge Cases', () => {
 
   it('should identify Go-specific focus areas', async () => {
     gitOps.setFile('src/handler.go', 'package main\nfunc main() {}\n');
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/handler.go',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/handler.go',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1162,15 +1419,24 @@ describe('CodeReviewEngine — Plan Phase Edge Cases', () => {
 
   it('should identify Python-specific focus areas', async () => {
     gitOps.setFile('src/main.py', 'def main():\n    pass\n');
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/main.py',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/main.py',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 2, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1178,15 +1444,24 @@ describe('CodeReviewEngine — Plan Phase Edge Cases', () => {
 
   it('should identify type-definition file risks', async () => {
     gitOps.setFile('src/types/types.d.ts', 'export interface Config {}\n');
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/types/types.d.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/types/types.d.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1200,16 +1475,33 @@ describe('CodeReviewEngine — Plan Phase Edge Cases', () => {
     lines.push('}');
     gitOps.setFile('src/medium.ts', lines.join('\n'));
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-      planLineThreshold: 200,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+        planLineThreshold: 200,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/medium.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: lines.length, newStart: 1, newEnd: lines.length, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/medium.ts',
+        changeType: 'modified',
+        ranges: [
+          {
+            oldStart: 1,
+            oldEnd: lines.length,
+            newStart: 1,
+            newEnd: lines.length,
+            changeType: 'modified',
+          },
+        ],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1233,32 +1525,43 @@ describe('CodeReviewEngine — Relocate with Hunks', () => {
     const content = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
     gitOps.setFile('src/file.ts', content);
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const hunks: MockDiffHunk[] = [{
-      oldStart: 5,
-      oldLines: 5,
-      newStart: 5,
-      newLines: 7,
-      lines: [
-        { type: 'context' },
-        { type: 'context' },
-        { type: 'addition' },
-        { type: 'addition' },
-        { type: 'context' },
-        { type: 'context' },
-        { type: 'context' },
-      ],
-    }];
+    const hunks: MockDiffHunk[] = [
+      {
+        oldStart: 5,
+        oldLines: 5,
+        newStart: 5,
+        newLines: 7,
+        lines: [
+          { type: 'context' },
+          { type: 'context' },
+          { type: 'addition' },
+          { type: 'addition' },
+          { type: 'context' },
+          { type: 'context' },
+          { type: 'context' },
+        ],
+      },
+    ];
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/file.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 5, oldEnd: 10, newStart: 5, newEnd: 12, changeType: 'modified' }],
-      hunks,
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/file.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 5, oldEnd: 10, newStart: 5, newEnd: 12, changeType: 'modified' }],
+        hunks,
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1277,15 +1580,24 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     const realCode = 'function real(): string { return "real"; }\n';
     gitOps.setFile('src/real.ts', realCode);
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/real.ts',
-      changeType: 'modified',
-      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/real.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
 
@@ -1302,9 +1614,16 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     gitOps.setFile('src/services/auth.ts', 'export class Auth {}\n');
     gitOps.setFile('tests/auth.test.ts', 'import { Auth } from "../src/services/auth";\n');
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
     const diffs: MockGitDiff[] = [
       {
@@ -1342,21 +1661,32 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     for (let block = 0; block < 7; block++) {
       const base = block * 14 + 3;
       ranges.push({
-        oldStart: base, oldEnd: base + 2,
-        newStart: base + block, newEnd: base + block + 4,
+        oldStart: base,
+        oldEnd: base + 2,
+        newStart: base + block,
+        newEnd: base + block + 4,
         changeType: 'modified' as const,
       });
     }
 
-    const engine = new CodeReviewEngine(store as never, {
-      allowMetadataFallback: false,
-    }, undefined, undefined, undefined, gitOps as never);
+    const engine = new CodeReviewEngine(
+      store as never,
+      {
+        allowMetadataFallback: false,
+      },
+      undefined,
+      undefined,
+      undefined,
+      gitOps as never,
+    );
 
-    const diffs: MockGitDiff[] = [{
-      filePath: 'src/large.ts',
-      changeType: 'modified',
-      ranges,
-    }];
+    const diffs: MockGitDiff[] = [
+      {
+        filePath: 'src/large.ts',
+        changeType: 'modified',
+        ranges,
+      },
+    ];
 
     const session = await engine.reviewDiff('test', diffs as never);
     expect(session.status).toBe('completed');
@@ -1435,7 +1765,9 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test', 'src/debug.ts', content);
-    const logComments = comments.filter((c: MockReviewComment) => c.content.includes('console.log'));
+    const logComments = comments.filter((c: MockReviewComment) =>
+      c.content.includes('console.log'),
+    );
     expect(logComments.length).toBeGreaterThan(0);
   });
 
@@ -1459,8 +1791,9 @@ describe('CodeReviewEngine — Acceptance Criteria', () => {
     ].join('\n');
 
     const comments = await engine.reviewFile('test', 'src/nested.ts', content);
-    const nestingComments = comments.filter((c: MockReviewComment) =>
-      c.content.includes('nesting') || c.content.includes('Deeply nested'),
+    const nestingComments = comments.filter(
+      (c: MockReviewComment) =>
+        c.content.includes('nesting') || c.content.includes('Deeply nested'),
     );
     expect(nestingComments.length).toBeGreaterThan(0);
   });

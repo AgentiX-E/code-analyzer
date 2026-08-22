@@ -20,34 +20,66 @@ function populateStore(): void {
   const projectId = 'e2e-mcp-project';
 
   store.insertNode({
-    id: 0, projectId, label: 'Project' as any, name: 'mcp-test-project',
-    qualifiedName: 'mcp-test-project', filePath: '/', startLine: 1, endLine: 1,
-    language: 'typescript', properties: { version: '2.0.0' },
-    signature: null, docstring: null, complexity: null,
-    isExported: true, fingerprint: null, createdAt: now, updatedAt: now,
+    id: 0,
+    projectId,
+    label: 'Project' as any,
+    name: 'mcp-test-project',
+    qualifiedName: 'mcp-test-project',
+    filePath: '/',
+    startLine: 1,
+    endLine: 1,
+    language: 'typescript',
+    properties: { version: '2.0.0' },
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   for (let i = 0; i < 10; i++) {
     store.insertNode({
-      id: 0, projectId, label: 'Class' as any,
-      name: `Service${i}`, qualifiedName: `Service${i}`,
-      filePath: `src/service${i}.ts`, startLine: 1, endLine: 20,
-      language: 'typescript', properties: { layer: 'service' },
-      signature: `class Service${i}`, docstring: `Service ${i}`,
-      complexity: 3 + i, isExported: true, fingerprint: null,
-      createdAt: now, updatedAt: now,
+      id: 0,
+      projectId,
+      label: 'Class' as any,
+      name: `Service${i}`,
+      qualifiedName: `Service${i}`,
+      filePath: `src/service${i}.ts`,
+      startLine: 1,
+      endLine: 20,
+      language: 'typescript',
+      properties: { layer: 'service' },
+      signature: `class Service${i}`,
+      docstring: `Service ${i}`,
+      complexity: 3 + i,
+      isExported: true,
+      fingerprint: null,
+      createdAt: now,
+      updatedAt: now,
     });
   }
 
   for (let i = 0; i < 5; i++) {
     store.insertNode({
-      id: 0, projectId, label: 'Function' as any,
-      name: `util${i}`, qualifiedName: `util${i}`,
-      filePath: `src/utils${i}.ts`, startLine: 1, endLine: 10,
-      language: 'typescript', properties: {},
-      signature: `function util${i}`, docstring: null,
-      complexity: 1, isExported: true, fingerprint: null,
-      createdAt: now, updatedAt: now,
+      id: 0,
+      projectId,
+      label: 'Function' as any,
+      name: `util${i}`,
+      qualifiedName: `util${i}`,
+      filePath: `src/utils${i}.ts`,
+      startLine: 1,
+      endLine: 10,
+      language: 'typescript',
+      properties: {},
+      signature: `function util${i}`,
+      docstring: null,
+      complexity: 1,
+      isExported: true,
+      fingerprint: null,
+      createdAt: now,
+      updatedAt: now,
     });
   }
 }
@@ -71,19 +103,45 @@ describe('MCP E2E — Tool Registry', () => {
   it('should have all required core tools', () => {
     const tools = registry.list().map((t) => t.name);
     const required = [
-      'analyze_repository', 'list_projects', 'delete_project', 'index_status',
-      'search_graph', 'search_code', 'semantic_search', 'trace_call_path',
-      'query_graph', 'get_code_snippet', 'get_architecture', 'get_graph_schema',
-      'explore_symbol', 'find_implementations',
-      'detect_changes', 'impact_analysis', 'route_map', 'check_cycles',
-      'review_diff', 'review_file',
-      'review_pr', 'check_standards',
-      'generate_report', 'export_report', 'get_recommendations',
-      'cross_repo_search', 'cross_repo_trace', 'cross_repo_impact',
-      'manage_repo_group', 'sync_contracts', 'discover_related_repos', 'cross_repo_review_pr',
-      'pdg_query', 'taint_analysis', 'explain_taint',
-      'list_standards', 'create_standard',
-      'manage_adr', 'install_skills',
+      'analyze_repository',
+      'list_projects',
+      'delete_project',
+      'index_status',
+      'search_graph',
+      'search_code',
+      'semantic_search',
+      'trace_call_path',
+      'query_graph',
+      'get_code_snippet',
+      'get_architecture',
+      'get_graph_schema',
+      'explore_symbol',
+      'find_implementations',
+      'detect_changes',
+      'impact_analysis',
+      'route_map',
+      'check_cycles',
+      'review_diff',
+      'review_file',
+      'review_pr',
+      'check_standards',
+      'generate_report',
+      'export_report',
+      'get_recommendations',
+      'cross_repo_search',
+      'cross_repo_trace',
+      'cross_repo_impact',
+      'manage_repo_group',
+      'sync_contracts',
+      'discover_related_repos',
+      'cross_repo_review_pr',
+      'pdg_query',
+      'taint_analysis',
+      'explain_taint',
+      'list_standards',
+      'create_standard',
+      'manage_adr',
+      'install_skills',
       'run_benchmark',
     ];
     for (const name of required) {
@@ -126,7 +184,11 @@ describe('MCP E2E — Tool Execution', () => {
   });
 
   it('should execute index_status successfully', async () => {
-    const result = await registry.execute('index_status', { projectId: 'e2e-mcp-project' }, toolContext);
+    const result = await registry.execute(
+      'index_status',
+      { projectId: 'e2e-mcp-project' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
     expect(result.content[0].text).toBeDefined();
   });
@@ -142,32 +204,56 @@ describe('MCP E2E — Tool Execution', () => {
   });
 
   it('should execute get_architecture', async () => {
-    const result = await registry.execute('get_architecture', { projectId: 'e2e-mcp-project' }, toolContext);
+    const result = await registry.execute(
+      'get_architecture',
+      { projectId: 'e2e-mcp-project' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
   });
 
   it('should execute explore_symbol', async () => {
-    const result = await registry.execute('explore_symbol', { symbolName: 'Service0', projectId: 'e2e-mcp-project' }, toolContext);
+    const result = await registry.execute(
+      'explore_symbol',
+      { symbolName: 'Service0', projectId: 'e2e-mcp-project' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
   });
 
   it('should execute impact_analysis', async () => {
-    const result = await registry.execute('impact_analysis', { targetSymbol: 'Service0', projectId: 'e2e-mcp-project', fromRef: 'HEAD~1', toRef: 'HEAD' }, toolContext);
+    const result = await registry.execute(
+      'impact_analysis',
+      { targetSymbol: 'Service0', projectId: 'e2e-mcp-project', fromRef: 'HEAD~1', toRef: 'HEAD' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
   });
 
   it('should execute check_cycles', async () => {
-    const result = await registry.execute('check_cycles', { projectId: 'e2e-mcp-project' }, toolContext);
+    const result = await registry.execute(
+      'check_cycles',
+      { projectId: 'e2e-mcp-project' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
   });
 
   it('should execute list_standards', async () => {
-    const result = await registry.execute('list_standards', { projectId: 'e2e-mcp-project' }, toolContext);
+    const result = await registry.execute(
+      'list_standards',
+      { projectId: 'e2e-mcp-project' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
   });
 
   it('should execute delete_project', async () => {
-    const result = await registry.execute('delete_project', { projectId: 'e2e-mcp-project' }, toolContext);
+    const result = await registry.execute(
+      'delete_project',
+      { projectId: 'e2e-mcp-project' },
+      toolContext,
+    );
     expect(result.isError).toBeFalsy();
   });
 
@@ -234,7 +320,11 @@ describe('MCP E2E — Error Handling', () => {
   });
 
   it('should handle tool execution with extra unknown args', async () => {
-    const result = await registry.execute('index_status', { unknownField: 'test', extra: 123 }, toolContext);
+    const result = await registry.execute(
+      'index_status',
+      { unknownField: 'test', extra: 123 },
+      toolContext,
+    );
     expect(result).toBeDefined();
   });
 

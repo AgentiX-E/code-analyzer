@@ -127,7 +127,9 @@ describe('createFileWatcher', () => {
     roots.push(root);
     const watcher = createFileWatcher();
     let count = 0;
-    watcher.watch(root, () => { count++; });
+    watcher.watch(root, () => {
+      count++;
+    });
     watcher.unwatch();
     fs.writeFileSync(path.join(root, 'after-unwatch.txt'), 'x');
     // Wait past debounce window.

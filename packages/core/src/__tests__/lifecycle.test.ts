@@ -54,7 +54,7 @@ describe('LifecycleManager', () => {
       const comp = new MockComponent('test');
       mgr.register({ component: comp });
       expect(() => mgr.register({ component: comp })).toThrow(
-        'Component "test" is already registered'
+        'Component "test" is already registered',
       );
     });
   });
@@ -117,7 +117,7 @@ describe('LifecycleManager', () => {
       mgr.register({ component: a, dependsOn: ['nonexistent'] });
 
       expect(() => mgr.resolveInitOrder()).toThrow(
-        'Dependency "nonexistent" referenced but not registered'
+        'Dependency "nonexistent" referenced but not registered',
       );
     });
   });

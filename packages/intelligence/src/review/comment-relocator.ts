@@ -71,10 +71,7 @@ export class CommentRelocator {
       }
 
       // Build fingerprint from original content
-      const fingerprint = this.buildFingerprint(
-        originalContent,
-        comment.startLine,
-      );
+      const fingerprint = this.buildFingerprint(originalContent, comment.startLine);
 
       // Try to find matching position in new content
       const match = this.findBestMatch(newContent, fingerprint);
@@ -118,10 +115,7 @@ export class CommentRelocator {
     return { context, hash };
   }
 
-  private findBestMatch(
-    newContent: string,
-    fingerprint: Fingerprint,
-  ): RelocatedPosition | null {
+  private findBestMatch(newContent: string, fingerprint: Fingerprint): RelocatedPosition | null {
     const newLines = newContent.split('\n');
     const fpLines = fingerprint.context.split('\n');
 
@@ -143,10 +137,7 @@ export class CommentRelocator {
     let bestLine = -1;
 
     for (let i = 0; i <= newLines.length - fpLines.length; i++) {
-      const score = this.fuzzyMatch(
-        fpLines,
-        newLines.slice(i, i + fpLines.length),
-      );
+      const score = this.fuzzyMatch(fpLines, newLines.slice(i, i + fpLines.length));
 
       if (score > bestScore) {
         bestScore = score;

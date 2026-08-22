@@ -73,17 +73,20 @@ All notable changes to Code Analyzer are documented in this file.
 ## Core Architecture (v0.1.0 base)
 
 ### Knowledge Graph
+
 - 33 node types, 43 relationship types with in-memory and SQLite (FTS5) storage
 - 43 centralized edge type constants in `@code-analyzer/shared/constants/edge-types`
 - Graph compression (BFS community detection), batch operations, integrity validation
 
 ### Analysis Engine
+
 - 20-language parsing: 10 tree-sitter providers + 12 regex fallback parsers + HCL/Dockerfile
 - 19-phase DAG pipeline with parallel execution
 - Scope resolution: same-file, cross-file named/default/namespace imports with 3-tier resolution
 - Incremental re-indexing with git change detection and stale node isolation
 
 ### Intelligence Layer
+
 - 50+ heuristic review rules across 6 categories (security w/ CWE, correctness, performance, maintainability, style, architecture)
 - Hybrid search: BM25 + vector semantic search with Reciprocal Rank Fusion
 - Impact analysis: BFS-based change propagation with IoU overlap detection
@@ -93,10 +96,12 @@ All notable changes to Code Analyzer are documented in this file.
 - 4 review lenses: Security, Performance, Structure, Test
 
 ### MCP Server
+
 - 39 tools, 15 resources, 5 prompts with auth middleware and sliding-window rate limiting
 - Cypher query engine: lexer → parser → planner → executor with full openCypher read subset
 
 ### Developer Experience
+
 - VS Code extension: Copilot Chat participant with 15 slash commands
 - Web Dashboard: 6 interactive views (Graph Explorer, Search, Dashboard, Cross-Repo, PR Review, Repo Group Manager)
 - CLI: init, analyze, search, review, status, agent commands
@@ -104,12 +109,14 @@ All notable changes to Code Analyzer are documented in this file.
 - GitHub integration: webhook receiver, check runs, repo sync, REST + GraphQL API client
 
 ### Operational Excellence
+
 - Health checks, graceful shutdown, structured JSON logging
 - RBAC: 5 roles with 25 granular permissions and audit logging
 - Multi-arch Docker images, Docker Compose, Kubernetes manifests, Homebrew formula
 - GitHub Action for CI integration with PR comment support
 
 ### Benchmarks
+
 - Internal test suite: 20 fixtures, 37 ground-truth issues across 5 languages
 - Competitive precision (79.4%), recall (73.0%), F1 (0.761) with zero LLM token cost
 - See [BENCHMARK_REPORT.md](docs/BENCHMARK_REPORT.md) for methodology and caveats

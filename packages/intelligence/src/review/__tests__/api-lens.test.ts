@@ -14,7 +14,7 @@ describe('API Lens', () => {
     ].join('\n');
 
     const findings = analyzeApi(content, '/src/routes.ts');
-    const validationFinding = findings.find(f => f.title.includes('Missing Input Validation'));
+    const validationFinding = findings.find((f) => f.title.includes('Missing Input Validation'));
     expect(validationFinding).toBeDefined();
     expect(validationFinding!.severity).toBe('high');
   });
@@ -28,7 +28,7 @@ describe('API Lens', () => {
     ].join('\n');
 
     const findings = analyzeApi(content, '/src/routes.ts');
-    const errorFinding = findings.find(f => f.title.includes('Missing Error Handling'));
+    const errorFinding = findings.find((f) => f.title.includes('Missing Error Handling'));
     expect(errorFinding).toBeDefined();
   });
 
@@ -40,7 +40,7 @@ describe('API Lens', () => {
     ].join('\n');
 
     const findings = analyzeApi(content, '/src/routes.ts');
-    const rateFinding = findings.find(f => f.title.includes('Consider Rate Limiting'));
+    const rateFinding = findings.find((f) => f.title.includes('Consider Rate Limiting'));
     expect(rateFinding).toBeDefined();
   });
 
@@ -54,7 +54,7 @@ describe('API Lens', () => {
     ].join('\n');
 
     const findings = analyzeApi(content, '/src/api.py');
-    const validationFinding = findings.find(f => f.title.includes('Missing Input Validation'));
+    const validationFinding = findings.find((f) => f.title.includes('Missing Input Validation'));
     expect(validationFinding).toBeDefined();
   });
 
@@ -73,7 +73,7 @@ describe('API Lens', () => {
     ].join('\n');
 
     const findings = analyzeApi(content, '/src/health.ts');
-    const validationFinding = findings.find(f => f.title.includes('Missing Input Validation'));
+    const validationFinding = findings.find((f) => f.title.includes('Missing Input Validation'));
     // GET /health should NOT trigger missing-input-validation
     expect(validationFinding).toBeUndefined();
   });

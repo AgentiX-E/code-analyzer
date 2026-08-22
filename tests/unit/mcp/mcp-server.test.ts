@@ -83,9 +83,7 @@ const mockSSETransport = {
 
 async function createTestServer(configOverrides: Record<string, unknown> = {}) {
   // Dynamic import to work in the monorepo context
-  const { CodeAnalyzerMCPServer } = await import(
-    '../../../packages/mcp/src/server/mcp-server.js'
-  );
+  const { CodeAnalyzerMCPServer } = await import('../../../packages/mcp/src/server/mcp-server.js');
 
   const server = new CodeAnalyzerMCPServer({
     name: 'test-code-analyzer',

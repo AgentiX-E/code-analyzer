@@ -75,10 +75,7 @@ export class HybridSearchEngine {
     useRRF: true,
   };
 
-  constructor(
-    embeddingEngine: EmbeddingEngine,
-    config?: Partial<HybridSearchConfig>,
-  ) {
+  constructor(embeddingEngine: EmbeddingEngine, config?: Partial<HybridSearchConfig>) {
     this.embeddingEngine = embeddingEngine;
     this.config = { ...HybridSearchEngine.DEFAULT_CONFIG, ...config };
   }
@@ -147,10 +144,7 @@ export class HybridSearchEngine {
 
     this.totalDocLength -= doc.length;
     this.documents.delete(id);
-    this.avgDocLength =
-      this.documents.size > 0
-        ? this.totalDocLength / this.documents.size
-        : 0;
+    this.avgDocLength = this.documents.size > 0 ? this.totalDocLength / this.documents.size : 0;
   }
 
   /**
@@ -235,13 +229,13 @@ export class HybridSearchEngine {
 
       // Weighted sum of all signals
       const signalWeights: Record<string, number> = {
-        bm25: 0.20,
+        bm25: 0.2,
         semantic: 0.25,
-        signature: 0.10,
-        astProfile: 0.10,
+        signature: 0.1,
+        astProfile: 0.1,
         moduleProximity: 0.05,
         pageRank: 0.05,
-        minHash: 0.10,
+        minHash: 0.1,
         exactMatch: 0.15,
       };
 
@@ -266,10 +260,7 @@ export class HybridSearchEngine {
   /**
    * BM25 search implementation.
    */
-  private searchBM25(
-    query: string,
-    topK: number,
-  ): Array<{ id: string; score: number }> {
+  private searchBM25(query: string, topK: number): Array<{ id: string; score: number }> {
     const queryTokens = this.tokenize(query);
     const scores = new Map<string, number>();
     const N = this.documents.size;
@@ -316,16 +307,11 @@ export class HybridSearchEngine {
     const results: Array<{ id: string; score: number }> = [];
 
     for (const [docId, cachedVec] of this.embeddingCache) {
-      const score = this.embeddingEngine.cosineSimilarity(
-        queryEmbedding,
-        cachedVec,
-      );
+      const score = this.embeddingEngine.cosineSimilarity(queryEmbedding, cachedVec);
       results.push({ id: docId, score });
     }
 
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    return results.sort((a, b) => b.score - a.score).slice(0, topK);
   }
 
   /**
@@ -366,8 +352,7 @@ export class HybridSearchEngine {
       } else {
         // Weighted sum
         combinedScore =
-          bm25Score * this.config.bm25Weight +
-          semanticScore * this.config.semanticWeight;
+          bm25Score * this.config.bm25Weight + semanticScore * this.config.semanticWeight;
       }
 
       if (combinedScore >= this.config.minScore) {
@@ -386,17 +371,13 @@ export class HybridSearchEngine {
       }
     }
 
-    return results
-      .sort((a, b) => b.combinedScore - a.combinedScore)
-      .slice(0, this.config.topK);
+    return results.sort((a, b) => b.combinedScore - a.combinedScore).slice(0, this.config.topK);
   }
 
   /**
    * Cache embeddings for documents to avoid recomputation.
    */
-  async cacheDocumentEmbeddings(
-    docs: Array<{ id: string; text: string }>,
-  ): Promise<void> {
+  async cacheDocumentEmbeddings(docs: Array<{ id: string; text: string }>): Promise<void> {
     const texts = docs.map((d) => d.text);
     const vectors = await this.embeddingEngine.embedBatch(texts);
 

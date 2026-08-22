@@ -96,20 +96,20 @@ export interface UnifiedCapture {
 
 ### Capture Tags
 
-| Tag | Node Type | Example Keywords |
-|-----|-----------|------------------|
-| `FUNCTION_DEFINITION` | Top-level or member function | `function`, `def`, `func` |
-| `METHOD_DEFINITION` | Class/interface member method | method inside a class |
-| `CLASS_DEFINITION` | Class declaration | `class`, `class` keyword |
-| `INTERFACE_DEFINITION` | Interface declaration | `interface`, `protocol` |
-| `ENUM_DEFINITION` | Enum declaration | `enum`, `enum class` |
-| `TYPE_DEFINITION` | Type alias | `type`, `typedef` |
-| `VARIABLE_DEFINITION` | Variable declaration | `let`, `var`, `val` |
-| `CONSTANT_DEFINITION` | Constant declaration | `const`, `final` |
-| `FUNCTION_CALL` | Function/method invocation | `foo()`, `bar.baz()` |
-| `METHOD_CALL` | Method invocation on an object | `obj.method()` |
-| `IMPORT_STATEMENT` | Import/require statement | `import`, `require` |
-| `DECORATOR` | Decorator/annotation | `@decorator`, `@Annotation` |
+| Tag                    | Node Type                      | Example Keywords            |
+| ---------------------- | ------------------------------ | --------------------------- |
+| `FUNCTION_DEFINITION`  | Top-level or member function   | `function`, `def`, `func`   |
+| `METHOD_DEFINITION`    | Class/interface member method  | method inside a class       |
+| `CLASS_DEFINITION`     | Class declaration              | `class`, `class` keyword    |
+| `INTERFACE_DEFINITION` | Interface declaration          | `interface`, `protocol`     |
+| `ENUM_DEFINITION`      | Enum declaration               | `enum`, `enum class`        |
+| `TYPE_DEFINITION`      | Type alias                     | `type`, `typedef`           |
+| `VARIABLE_DEFINITION`  | Variable declaration           | `let`, `var`, `val`         |
+| `CONSTANT_DEFINITION`  | Constant declaration           | `const`, `final`            |
+| `FUNCTION_CALL`        | Function/method invocation     | `foo()`, `bar.baz()`        |
+| `METHOD_CALL`          | Method invocation on an object | `obj.method()`              |
+| `IMPORT_STATEMENT`     | Import/require statement       | `import`, `require`         |
+| `DECORATOR`            | Decorator/annotation           | `@decorator`, `@Annotation` |
 
 Full tag list: `UnifiedCapture` and `CAPTURE_TAGS` are exported from `@code-analyzer/shared`.
 
@@ -158,9 +158,21 @@ export class MyLanguageProvider extends TreeSitterBaseProvider {
 
   protected getNodeMappings(): NodeTypeMapping[] {
     return [
-      { nodeType: 'function_definition', captureTag: CAPTURE_TAGS.FUNCTION_DEFINITION, nameChildType: 'identifier' },
-      { nodeType: 'class_definition', captureTag: CAPTURE_TAGS.CLASS_DEFINITION, nameChildType: 'identifier' },
-      { nodeType: 'variable_declaration', captureTag: CAPTURE_TAGS.VARIABLE_DEFINITION, useFirstNamedChild: true },
+      {
+        nodeType: 'function_definition',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEFINITION,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'class_definition',
+        captureTag: CAPTURE_TAGS.CLASS_DEFINITION,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'variable_declaration',
+        captureTag: CAPTURE_TAGS.VARIABLE_DEFINITION,
+        useFirstNamedChild: true,
+      },
     ];
   }
 
@@ -188,12 +200,12 @@ export class MyLanguageProvider extends TreeSitterBaseProvider {
 
 The `getNodeMappings()` method maps tree-sitter AST node types to capture tags. Each mapping specifies:
 
-| Field | Description |
-|-------|-------------|
-| `nodeType` | The tree-sitter node type string to match |
-| `captureTag` | The `UnifiedCapture` tag to emit |
-| `nameChildType` | (optional) The child node type that contains the symbol name |
-| `useFirstNamedChild` | (optional) Use the first named child as the name |
+| Field                | Description                                                  |
+| -------------------- | ------------------------------------------------------------ |
+| `nodeType`           | The tree-sitter node type string to match                    |
+| `captureTag`         | The `UnifiedCapture` tag to emit                             |
+| `nameChildType`      | (optional) The child node type that contains the symbol name |
+| `useFirstNamedChild` | (optional) Use the first named child as the name             |
 
 **Naming convention**: The AST walks recursively, so you only need to map the top-level syntactic forms — imports, calls, and container relationships are handled by the base class automatically.
 
@@ -425,28 +437,28 @@ Parse `resource`, `module`, `variable`, `output`, and `provider` blocks as struc
 
 ## Supported Language Matrix (Current)
 
-| Language | Provider Class | Type | Tree-sitter Grammar |
-|----------|---------------|------|---------------------|
-| TypeScript | `TypeScriptProvider` | Tree-sitter | `tree-sitter-typescript` |
-| JavaScript | `JavaScriptProvider` | Tree-sitter | `tree-sitter-javascript` |
-| Python | `PythonProvider` | Tree-sitter | `tree-sitter-python` |
-| Go | `GoProvider` | Tree-sitter | `tree-sitter-go` |
-| Java | `JavaProvider` | Tree-sitter | `tree-sitter-java` |
-| Kotlin | `KotlinProvider` | Tree-sitter | `tree-sitter-kotlin` |
-| C# | `CSharpProvider` | Tree-sitter | `tree-sitter-c-sharp` |
-| Rust | `RustProvider` | Tree-sitter | `tree-sitter-rust` |
-| Ruby | `RubyProvider` | Tree-sitter | `tree-sitter-ruby` |
-| PHP | `PhpProvider` | Tree-sitter | `tree-sitter-php` |
-| Swift | `SwiftProvider` | Tree-sitter | `tree-sitter-swift` |
-| C | `CProvider` | Tree-sitter | `tree-sitter-c` |
-| C++ | `CppProvider` | Tree-sitter | `tree-sitter-cpp` |
-| Dart | `DartProvider` | Tree-sitter | `tree-sitter-dart` |
-| Lua | `LuaProvider` | Tree-sitter | `tree-sitter-lua` |
-| Scala | `ScalaProvider` | Tree-sitter | `tree-sitter-scala` |
-| Zig | `ZigProvider` | Tree-sitter | `tree-sitter-zig` |
-| Elixir | `ElixirProvider` | Tree-sitter | `tree-sitter-elixir` |
-| HCL/Terraform | `HclProvider` | Tree-sitter | `tree-sitter-hcl` |
-| Dockerfile | `DockerfileProvider` | Regex | N/A |
+| Language      | Provider Class       | Type        | Tree-sitter Grammar      |
+| ------------- | -------------------- | ----------- | ------------------------ |
+| TypeScript    | `TypeScriptProvider` | Tree-sitter | `tree-sitter-typescript` |
+| JavaScript    | `JavaScriptProvider` | Tree-sitter | `tree-sitter-javascript` |
+| Python        | `PythonProvider`     | Tree-sitter | `tree-sitter-python`     |
+| Go            | `GoProvider`         | Tree-sitter | `tree-sitter-go`         |
+| Java          | `JavaProvider`       | Tree-sitter | `tree-sitter-java`       |
+| Kotlin        | `KotlinProvider`     | Tree-sitter | `tree-sitter-kotlin`     |
+| C#            | `CSharpProvider`     | Tree-sitter | `tree-sitter-c-sharp`    |
+| Rust          | `RustProvider`       | Tree-sitter | `tree-sitter-rust`       |
+| Ruby          | `RubyProvider`       | Tree-sitter | `tree-sitter-ruby`       |
+| PHP           | `PhpProvider`        | Tree-sitter | `tree-sitter-php`        |
+| Swift         | `SwiftProvider`      | Tree-sitter | `tree-sitter-swift`      |
+| C             | `CProvider`          | Tree-sitter | `tree-sitter-c`          |
+| C++           | `CppProvider`        | Tree-sitter | `tree-sitter-cpp`        |
+| Dart          | `DartProvider`       | Tree-sitter | `tree-sitter-dart`       |
+| Lua           | `LuaProvider`        | Tree-sitter | `tree-sitter-lua`        |
+| Scala         | `ScalaProvider`      | Tree-sitter | `tree-sitter-scala`      |
+| Zig           | `ZigProvider`        | Tree-sitter | `tree-sitter-zig`        |
+| Elixir        | `ElixirProvider`     | Tree-sitter | `tree-sitter-elixir`     |
+| HCL/Terraform | `HclProvider`        | Tree-sitter | `tree-sitter-hcl`        |
+| Dockerfile    | `DockerfileProvider` | Regex       | N/A                      |
 
 ---
 

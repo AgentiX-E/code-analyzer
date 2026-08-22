@@ -366,7 +366,9 @@ describe('getLanguageFromFilename', () => {
   });
 
   it('detects .ts with long path', () => {
-    expect(getLanguageFromFilename('/very/long/path/to/src/components/deep/utils/helper.ts')).toBe('typescript');
+    expect(getLanguageFromFilename('/very/long/path/to/src/components/deep/utils/helper.ts')).toBe(
+      'typescript',
+    );
   });
 
   it('detects .d.ts from path containing nested dots', () => {

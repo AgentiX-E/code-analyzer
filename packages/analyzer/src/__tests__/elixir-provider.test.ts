@@ -46,7 +46,9 @@ describe('ElixirProvider', () => {
       const code = 'def hello do\n  :world\nend';
       const captures = provider.parse(code, 't.ex');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'hello' && c.properties?.visibility === 'public')).toBe(true);
+      expect(funcs.some((c) => c.name === 'hello' && c.properties?.visibility === 'public')).toBe(
+        true,
+      );
     });
 
     it('should extract a public def with params', () => {
@@ -60,7 +62,9 @@ describe('ElixirProvider', () => {
       const code = 'defp secret(x) do\n  x\nend';
       const captures = provider.parse(code, 't.ex');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'secret' && c.properties?.visibility === 'private')).toBe(true);
+      expect(funcs.some((c) => c.name === 'secret' && c.properties?.visibility === 'private')).toBe(
+        true,
+      );
     });
 
     it('should extract a defmacro with isMacro flag', () => {

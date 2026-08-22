@@ -2,12 +2,27 @@
 // Enterprise RBAC engine with role inheritance and granular permissions.
 
 export type Permission =
-  | 'analysis:read' | 'analysis:write' | 'analysis:admin' | 'analysis:*'
-  | 'review:read' | 'review:write' | 'review:admin' | 'review:*'
-  | 'search:read' | 'search:write' | 'search:*'
-  | 'impact:read' | 'impact:write' | 'impact:*'
-  | 'crossrepo:read' | 'crossrepo:write' | 'crossrepo:*'
-  | 'standards:read' | 'standards:write' | 'standards:admin' | 'standards:*'
+  | 'analysis:read'
+  | 'analysis:write'
+  | 'analysis:admin'
+  | 'analysis:*'
+  | 'review:read'
+  | 'review:write'
+  | 'review:admin'
+  | 'review:*'
+  | 'search:read'
+  | 'search:write'
+  | 'search:*'
+  | 'impact:read'
+  | 'impact:write'
+  | 'impact:*'
+  | 'crossrepo:read'
+  | 'crossrepo:write'
+  | 'crossrepo:*'
+  | 'standards:read'
+  | 'standards:write'
+  | 'standards:admin'
+  | 'standards:*'
   | 'admin:*';
 
 export type Role = 'admin' | 'developer' | 'reviewer' | 'viewer' | 'ci-bot';
@@ -118,11 +133,7 @@ export class RBACEngine {
   }
 
   /** Recursively collect permissions from a role and its ancestors. */
-  private collectPermissions(
-    role: Role,
-    permissions: Set<Permission>,
-    visited: Set<Role>,
-  ): void {
+  private collectPermissions(role: Role, permissions: Set<Permission>, visited: Set<Role>): void {
     if (visited.has(role)) return;
     visited.add(role);
 
@@ -159,12 +170,17 @@ export class RBACEngine {
     engine.defineRole('developer', {
       name: 'developer',
       permissions: [
-        'analysis:read', 'analysis:write',
+        'analysis:read',
+        'analysis:write',
         'review:read',
-        'search:read', 'search:write',
-        'impact:read', 'impact:write',
-        'crossrepo:read', 'crossrepo:write',
-        'standards:read', 'standards:write',
+        'search:read',
+        'search:write',
+        'impact:read',
+        'impact:write',
+        'crossrepo:read',
+        'crossrepo:write',
+        'standards:read',
+        'standards:write',
       ],
       inherits: ['viewer'],
     });
@@ -172,7 +188,9 @@ export class RBACEngine {
     engine.defineRole('reviewer', {
       name: 'reviewer',
       permissions: [
-        'review:read', 'review:write', 'review:admin',
+        'review:read',
+        'review:write',
+        'review:admin',
         'search:read',
         'impact:read',
         'crossrepo:read',
@@ -195,12 +213,7 @@ export class RBACEngine {
 
     engine.defineRole('ci-bot', {
       name: 'ci-bot',
-      permissions: [
-        'analysis:read',
-        'search:read',
-        'impact:read',
-        'standards:read',
-      ],
+      permissions: ['analysis:read', 'search:read', 'impact:read', 'standards:read'],
     });
 
     return engine;

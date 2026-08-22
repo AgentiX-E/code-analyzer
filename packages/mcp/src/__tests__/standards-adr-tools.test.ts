@@ -234,9 +234,7 @@ describe('createStandard', () => {
       projectId: 'test-proj',
       name: 'Auto ID Rules',
       category: 'custom',
-      rules: [
-        { severity: 'high', description: 'No ID provided' },
-      ],
+      rules: [{ severity: 'high', description: 'No ID provided' }],
     });
 
     const data = JSON.parse(result.content[0].text);

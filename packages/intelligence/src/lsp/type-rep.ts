@@ -236,62 +236,104 @@ export const BUILTINS = {
 // ---------------------------------------------------------------------------
 
 export const t = {
-  named: (name: string, isBuiltin = false): NamedType =>
-    ({ kind: 'named', name, isBuiltin }),
+  named: (name: string, isBuiltin = false): NamedType => ({ kind: 'named', name, isBuiltin }),
 
-  typeParam: (name: string, constraint?: TypeRep): TypeParamType =>
-    ({ kind: 'typeParam', name, constraint }),
+  typeParam: (name: string, constraint?: TypeRep): TypeParamType => ({
+    kind: 'typeParam',
+    name,
+    constraint,
+  }),
 
-  union: (...members: TypeRep[]): UnionType =>
-    ({ kind: 'union', members }),
+  union: (...members: TypeRep[]): UnionType => ({ kind: 'union', members }),
 
-  intersection: (...members: TypeRep[]): IntersectionType =>
-    ({ kind: 'intersection', members }),
+  intersection: (...members: TypeRep[]): IntersectionType => ({ kind: 'intersection', members }),
 
-  func: (params: FuncParam[], returnType: TypeRep, opts?: { isAsync?: boolean; typeParams?: string[] }): FuncType =>
-    ({ kind: 'func', params, returnType, isAsync: opts?.isAsync ?? false, typeParams: opts?.typeParams ?? [] }),
+  func: (
+    params: FuncParam[],
+    returnType: TypeRep,
+    opts?: { isAsync?: boolean; typeParams?: string[] },
+  ): FuncType => ({
+    kind: 'func',
+    params,
+    returnType,
+    isAsync: opts?.isAsync ?? false,
+    typeParams: opts?.typeParams ?? [],
+  }),
 
-  template: (base: TypeRep, ...typeArgs: TypeRep[]): TemplateType =>
-    ({ kind: 'template', base, typeArgs }),
+  template: (base: TypeRep, ...typeArgs: TypeRep[]): TemplateType => ({
+    kind: 'template',
+    base,
+    typeArgs,
+  }),
 
-  param: (name: string, type: TypeRep, opts?: { isOptional?: boolean; isRest?: boolean }): FuncParam =>
-    ({ name, type, isOptional: opts?.isOptional ?? false, isRest: opts?.isRest ?? false }),
+  param: (
+    name: string,
+    type: TypeRep,
+    opts?: { isOptional?: boolean; isRest?: boolean },
+  ): FuncParam => ({
+    name,
+    type,
+    isOptional: opts?.isOptional ?? false,
+    isRest: opts?.isRest ?? false,
+  }),
 
-  literal: (value: string | number | boolean, literalKind?: 'string' | 'number' | 'boolean'): LiteralType => ({
+  literal: (
+    value: string | number | boolean,
+    literalKind?: 'string' | 'number' | 'boolean',
+  ): LiteralType => ({
     kind: 'literal',
     value,
     literalKind: literalKind ?? (typeof value as 'string' | 'number' | 'boolean'),
   }),
 
-  array: (elementType: TypeRep): ArrayType =>
-    ({ kind: 'array', elementType }),
+  array: (elementType: TypeRep): ArrayType => ({ kind: 'array', elementType }),
 
-  promise: (valueType: TypeRep): PromiseType =>
-    ({ kind: 'promise', valueType }),
+  promise: (valueType: TypeRep): PromiseType => ({ kind: 'promise', valueType }),
 
-  tuple: (...elements: TypeRep[]): TupleType =>
-    ({ kind: 'tuple', elements }),
+  tuple: (...elements: TypeRep[]): TupleType => ({ kind: 'tuple', elements }),
 
-  objectLiteral: (properties: ObjectProp[]): ObjectLiteralType =>
-    ({ kind: 'objectLiteral', properties, callSignatures: [] }),
+  objectLiteral: (properties: ObjectProp[]): ObjectLiteralType => ({
+    kind: 'objectLiteral',
+    properties,
+    callSignatures: [],
+  }),
 
-  prop: (name: string, type: TypeRep, opts?: { isOptional?: boolean; isReadonly?: boolean }): ObjectProp =>
-    ({ name, type, isOptional: opts?.isOptional ?? false, isReadonly: opts?.isReadonly ?? false }),
+  prop: (
+    name: string,
+    type: TypeRep,
+    opts?: { isOptional?: boolean; isReadonly?: boolean },
+  ): ObjectProp => ({
+    name,
+    type,
+    isOptional: opts?.isOptional ?? false,
+    isReadonly: opts?.isReadonly ?? false,
+  }),
 
-  indexedAccess: (objectType: TypeRep, indexType: TypeRep): IndexedAccessType =>
-    ({ kind: 'indexedAccess', objectType, indexType }),
+  indexedAccess: (objectType: TypeRep, indexType: TypeRep): IndexedAccessType => ({
+    kind: 'indexedAccess',
+    objectType,
+    indexType,
+  }),
 
-  keyof: (objectType: TypeRep): KeyofType =>
-    ({ kind: 'keyof', objectType }),
+  keyof: (objectType: TypeRep): KeyofType => ({ kind: 'keyof', objectType }),
 
-  mapped: (typeParam: string, constraint: TypeRep, valueType: TypeRep): MappedType =>
-    ({ kind: 'mapped', typeParam, constraint, valueType, readonly: false, optional: false }),
+  mapped: (typeParam: string, constraint: TypeRep, valueType: TypeRep): MappedType => ({
+    kind: 'mapped',
+    typeParam,
+    constraint,
+    valueType,
+    readonly: false,
+    optional: false,
+  }),
 
-  conditional: (checkType: TypeRep, extendsType: TypeRep, trueType: TypeRep, falseType: TypeRep): ConditionalType =>
-    ({ kind: 'conditional', checkType, extendsType, trueType, falseType }),
+  conditional: (
+    checkType: TypeRep,
+    extendsType: TypeRep,
+    trueType: TypeRep,
+    falseType: TypeRep,
+  ): ConditionalType => ({ kind: 'conditional', checkType, extendsType, trueType, falseType }),
 
-  infer: (name: string): InferType =>
-    ({ kind: 'infer', name }),
+  infer: (name: string): InferType => ({ kind: 'infer', name }),
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -301,32 +343,57 @@ export const t = {
 /** Display a type as a human-readable string (for diagnostics). */
 export function typeToString(type: TypeRep): string {
   switch (type.kind) {
-    case 'named': return type.name;
-    case 'typeParam': return type.constraint ? `${type.name} extends ${typeToString(type.constraint)}` : type.name;
-    case 'union': return type.members.map(typeToString).join(' | ');
-    case 'intersection': return type.members.map(typeToString).join(' & ');
+    case 'named':
+      return type.name;
+    case 'typeParam':
+      return type.constraint ? `${type.name} extends ${typeToString(type.constraint)}` : type.name;
+    case 'union':
+      return type.members.map(typeToString).join(' | ');
+    case 'intersection':
+      return type.members.map(typeToString).join(' & ');
     case 'func': {
-      const params = type.params.map((p) => `${p.name}${p.isOptional ? '?' : ''}: ${typeToString(p.type)}`).join(', ');
+      const params = type.params
+        .map((p) => `${p.name}${p.isOptional ? '?' : ''}: ${typeToString(p.type)}`)
+        .join(', ');
       const ret = typeToString(type.returnType);
       return type.isAsync ? `(${params}) => Promise<${ret}>` : `(${params}) => ${ret}`;
     }
-    case 'template': return `${typeToString(type.base)}<${type.typeArgs.map(typeToString).join(', ')}>`;
-    case 'literal': return typeof type.value === 'string' ? `"${type.value}"` : String(type.value);
-    case 'conditional': return `${typeToString(type.checkType)} extends ${typeToString(type.extendsType)} ? ${typeToString(type.trueType)} : ${typeToString(type.falseType)}`;
-    case 'indexedAccess': return `${typeToString(type.objectType)}[${typeToString(type.indexType)}]`;
-    case 'keyof': return `keyof ${typeToString(type.objectType)}`;
-    case 'mapped': return `{ [${type.typeParam} in ${typeToString(type.constraint)}]: ${typeToString(type.valueType)} }`;
+    case 'template':
+      return `${typeToString(type.base)}<${type.typeArgs.map(typeToString).join(', ')}>`;
+    case 'literal':
+      return typeof type.value === 'string' ? `"${type.value}"` : String(type.value);
+    case 'conditional':
+      return `${typeToString(type.checkType)} extends ${typeToString(type.extendsType)} ? ${typeToString(type.trueType)} : ${typeToString(type.falseType)}`;
+    case 'indexedAccess':
+      return `${typeToString(type.objectType)}[${typeToString(type.indexType)}]`;
+    case 'keyof':
+      return `keyof ${typeToString(type.objectType)}`;
+    case 'mapped':
+      return `{ [${type.typeParam} in ${typeToString(type.constraint)}]: ${typeToString(type.valueType)} }`;
     case 'objectLiteral': {
-      const props = type.properties.map((p) => `${p.isReadonly ? 'readonly ' : ''}${p.name}${p.isOptional ? '?' : ''}: ${typeToString(p.type)}`).join('; ');
+      const props = type.properties
+        .map(
+          (p) =>
+            `${p.isReadonly ? 'readonly ' : ''}${p.name}${p.isOptional ? '?' : ''}: ${typeToString(p.type)}`,
+        )
+        .join('; ');
       return `{ ${props} }`;
     }
-    case 'tuple': return `[${type.elements.map(typeToString).join(', ')}]`;
-    case 'array': return `Array<${typeToString(type.elementType)}>`;
-    case 'promise': return `Promise<${typeToString(type.valueType)}>`;
-    case 'infer': return `infer ${type.name}`;
-    case 'unknown': return 'unknown';
-    case 'any': return 'any';
-    case 'void': return 'void';
-    case 'never': return 'never';
+    case 'tuple':
+      return `[${type.elements.map(typeToString).join(', ')}]`;
+    case 'array':
+      return `Array<${typeToString(type.elementType)}>`;
+    case 'promise':
+      return `Promise<${typeToString(type.valueType)}>`;
+    case 'infer':
+      return `infer ${type.name}`;
+    case 'unknown':
+      return 'unknown';
+    case 'any':
+      return 'any';
+    case 'void':
+      return 'void';
+    case 'never':
+      return 'never';
   }
 }

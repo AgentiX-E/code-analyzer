@@ -33,10 +33,7 @@ export {
   EmbedPhase,
   TypeResolutionPhase,
 } from './pipeline/phases/index.js';
-export type {
-  ExecutablePhase,
-  PhaseExecutionResult,
-} from './pipeline/phases/index.js';
+export type { ExecutablePhase, PhaseExecutionResult } from './pipeline/phases/index.js';
 
 // Languages
 export type { LanguageProvider, ParsedImport } from './languages/provider.js';

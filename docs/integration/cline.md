@@ -22,11 +22,7 @@ Open Cline → MCP Servers → Configure, then add:
       "command": "npx",
       "args": ["@code-analyzer/mcp"],
       "disabled": false,
-      "autoApprove": [
-        "search_codebase",
-        "find_symbol",
-        "get_dependencies"
-      ]
+      "autoApprove": ["search_codebase", "find_symbol", "get_dependencies"]
     }
   }
 }
@@ -63,13 +59,13 @@ Cline requires explicit approval for each tool. Configure `autoApprove` to strea
 
 ## Features
 
-| Feature | How Cline Uses It |
-|---|---|
-| **Autonomous Review** | Cline can review its own code changes before committing |
-| **Architecture Analysis** | Understand project structure before making changes |
-| **Symbol Search** | Find relevant code across the entire codebase |
-| **Dependency Tracking** | Understand the impact of refactoring decisions |
-| **Cross-Repo Awareness** | Navigate monorepos and multi-repo projects |
+| Feature                   | How Cline Uses It                                       |
+| ------------------------- | ------------------------------------------------------- |
+| **Autonomous Review**     | Cline can review its own code changes before committing |
+| **Architecture Analysis** | Understand project structure before making changes      |
+| **Symbol Search**         | Find relevant code across the entire codebase           |
+| **Dependency Tracking**   | Understand the impact of refactoring decisions          |
+| **Cross-Repo Awareness**  | Navigate monorepos and multi-repo projects              |
 
 ## Cline-Specific Configuration
 
@@ -89,7 +85,7 @@ Create `.clinerules` in your project root:
 ```
 /cline
 > Task: Review the entire codebase and identify security vulnerabilities
-> Task: Find all places where we use hardcoded credentials 
+> Task: Find all places where we use hardcoded credentials
 > Task: Analyze the impact of removing the legacy API module
 ```
 

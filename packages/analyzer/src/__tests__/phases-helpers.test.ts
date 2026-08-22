@@ -22,7 +22,12 @@ import { basename, dirname, resolve, join } from 'node:path';
 import { existsSync } from 'node:fs';
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
-import type { UnifiedCapture, SymbolDefinition, ReferenceSite, ScopeTree } from '@code-analyzer/shared';
+import type {
+  UnifiedCapture,
+  SymbolDefinition,
+  ReferenceSite,
+  ScopeTree,
+} from '@code-analyzer/shared';
 
 // =========================================================================
 // Replicated helper implementations (identical to phases.ts)
@@ -37,10 +42,7 @@ function parseGitignore(content: string): string[] {
 }
 
 // ---------- matchesGitignore (line 78) ----------
-function matchesGitignore(
-  relativePath: string,
-  patterns: string[],
-): boolean {
+function matchesGitignore(relativePath: string, patterns: string[]): boolean {
   for (const pattern of patterns) {
     if (pattern.endsWith('/')) {
       const dirPattern = pattern.slice(0, -1);
@@ -48,9 +50,7 @@ function matchesGitignore(
         return true;
       }
     } else if (pattern.includes('*')) {
-      const regex = new RegExp(
-        '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$',
-      );
+      const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
       if (regex.test(relativePath) || regex.test(basename(relativePath))) {
         return true;
       }
@@ -64,11 +64,7 @@ function matchesGitignore(
 }
 
 // ---------- shouldSkipFile (line 106) ----------
-const SKIP_FILE_PATTERNS = [
-  /^\./,
-  /\.min\.(js|css)$/,
-  /\.d\.ts$/,
-];
+const SKIP_FILE_PATTERNS = [/^\./, /\.min\.(js|css)$/, /\.d\.ts$/];
 
 function shouldSkipFile(name: string): boolean {
   for (const pattern of SKIP_FILE_PATTERNS) {
@@ -79,8 +75,18 @@ function shouldSkipFile(name: string): boolean {
 
 // ---------- shouldSkipDirectory (line 114) ----------
 const SKIP_DIRECTORIES = new Set([
-  'node_modules', '.git', 'dist', 'build', '__pycache__', '.next', 'target',
-  '.cache', '.idea', '.vscode', 'coverage', '.nyc_output',
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '__pycache__',
+  '.next',
+  'target',
+  '.cache',
+  '.idea',
+  '.vscode',
+  'coverage',
+  '.nyc_output',
 ]);
 
 function shouldSkipDirectory(name: string): boolean {
@@ -159,10 +165,7 @@ interface CaptureGroup {
   scopeTree: ScopeTree;
 }
 
-function groupCaptures(
-  captures: UnifiedCapture[],
-  filePath: string,
-): CaptureGroup {
+function groupCaptures(captures: UnifiedCapture[], filePath: string): CaptureGroup {
   const symbols: SymbolDefinition[] = [];
   const references: ReferenceSite[] = [];
 
@@ -186,9 +189,7 @@ function groupCaptures(
       const name = capture.name ?? capture.text;
       const kind = captureTagToNodeLabel(tag) as SymbolDefinition['kind'];
       const containerName = capture.containerName;
-      const qualifiedName = containerName
-        ? `${containerName}.${name}`
-        : `file:${filePath}:${name}`;
+      const qualifiedName = containerName ? `${containerName}.${name}` : `file:${filePath}:${name}`;
 
       symbols.push({
         name,
@@ -234,9 +235,7 @@ function groupCaptures(
     name: basename(filePath),
     kind: 'File',
     startLine: 1,
-    endLine: captures.length > 0
-      ? captures.reduce((max, c) => Math.max(max, c.endLine), 0)
-      : 1,
+    endLine: captures.length > 0 ? captures.reduce((max, c) => Math.max(max, c.endLine), 0) : 1,
     children: symbols.map((s) => ({
       name: s.name,
       kind: s.kind,
@@ -311,22 +310,62 @@ function extractMarkdownSections(content: string): MarkdownSection[] {
 }
 
 // ---------- Config helpers (lines 865-980) ----------
-const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml', '.env', '.ini', '.cfg', '.xml']);
+const CONFIG_EXTENSIONS = new Set([
+  '.json',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.env',
+  '.ini',
+  '.cfg',
+  '.xml',
+]);
 const CONFIG_FILE_NAMES = new Set([
-  'package.json', 'tsconfig.json', 'tsconfig.base.json',
-  '.eslintrc', '.eslintrc.json', '.eslintrc.js', '.eslintrc.yaml',
-  '.prettierrc', '.prettierrc.json', '.prettierrc.yaml',
-  'pyproject.toml', 'setup.cfg', 'Cargo.toml', 'go.mod',
-  'pom.xml', 'build.gradle', 'build.gradle.kts',
-  'docker-compose.yaml', 'docker-compose.yml', 'Dockerfile',
-  '.env', '.env.local', '.env.development', '.env.production',
-  'Makefile', '.gitlab-ci.yml', '.github',
+  'package.json',
+  'tsconfig.json',
+  'tsconfig.base.json',
+  '.eslintrc',
+  '.eslintrc.json',
+  '.eslintrc.js',
+  '.eslintrc.yaml',
+  '.prettierrc',
+  '.prettierrc.json',
+  '.prettierrc.yaml',
+  'pyproject.toml',
+  'setup.cfg',
+  'Cargo.toml',
+  'go.mod',
+  'pom.xml',
+  'build.gradle',
+  'build.gradle.kts',
+  'docker-compose.yaml',
+  'docker-compose.yml',
+  'Dockerfile',
+  '.env',
+  '.env.local',
+  '.env.development',
+  '.env.production',
+  'Makefile',
+  '.gitlab-ci.yml',
+  '.github',
 ]);
 const CONFIG_RELEVANT_KEYS = new Set([
-  'name', 'version', 'description', 'main', 'module', 'exports',
-  'scripts', 'dependencies', 'devDependencies', 'peerDependencies',
-  'compilerOptions', 'include', 'exclude',
-  'project', 'tool', 'build-system',
+  'name',
+  'version',
+  'description',
+  'main',
+  'module',
+  'exports',
+  'scripts',
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'compilerOptions',
+  'include',
+  'exclude',
+  'project',
+  'tool',
+  'build-system',
 ]);
 
 interface ConfigEntry {
@@ -336,12 +375,7 @@ interface ConfigEntry {
   line: number;
 }
 
-function flattenObject(
-  obj: unknown,
-  prefix: string,
-  path: string,
-  depth: number,
-): ConfigEntry[] {
+function flattenObject(obj: unknown, prefix: string, path: string, depth: number): ConfigEntry[] {
   if (depth > 10) return [];
   if (typeof obj !== 'object' || obj === null) return [];
 
@@ -454,17 +488,62 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
 
 // ---------- detectRoutes (line 1329) ----------
 const ROUTE_PATTERNS: Array<{ regex: RegExp; framework: string; method: string }> = [
-  { regex: /(?:app|router)\.(get|post|put|delete|patch|options|all|head)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'express', method: '$1' },
-  { regex: /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)/g, framework: 'nextjs-app', method: '$1' },
-  { regex: /export\s+default\s+(?:async\s+)?function\s+handler|export\s+default\s+function\s+handler/g, framework: 'nextjs-api', method: 'ALL' },
-  { regex: /@(?:app|router|blueprint)\.(get|post|put|delete|patch|options)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'flask', method: '$1' },
-  { regex: /@(?:router|app)\.(get|post|put|delete|patch|options)\s*\(\s*['"`]([^'"`]+)['"`]/gi, framework: 'fastapi', method: '$1' },
+  {
+    regex:
+      /(?:app|router)\.(get|post|put|delete|patch|options|all|head)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    framework: 'express',
+    method: '$1',
+  },
+  {
+    regex: /export\s+(?:async\s+)?function\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)/g,
+    framework: 'nextjs-app',
+    method: '$1',
+  },
+  {
+    regex:
+      /export\s+default\s+(?:async\s+)?function\s+handler|export\s+default\s+function\s+handler/g,
+    framework: 'nextjs-api',
+    method: 'ALL',
+  },
+  {
+    regex:
+      /@(?:app|router|blueprint)\.(get|post|put|delete|patch|options)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    framework: 'flask',
+    method: '$1',
+  },
+  {
+    regex: /@(?:router|app)\.(get|post|put|delete|patch|options)\s*\(\s*['"`]([^'"`]+)['"`]/gi,
+    framework: 'fastapi',
+    method: '$1',
+  },
   { regex: /(?:path|re_path|url)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'django', method: 'ALL' },
-  { regex: /(?:r|router|engine)\.(?:GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'gin', method: 'ALL' },
-  { regex: /@(?:Get|Post|Put|Delete|Patch|Request)Mapping\s*\(\s*(?:value\s*=\s*)?['"`]([^'"`]+)['"`]/g, framework: 'spring', method: 'ALL' },
-  { regex: /router\.(get|post|put|delete|patch|options|all|head)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'express-router', method: '$1' },
-  { regex: /router\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'koa', method: '$1' },
-  { regex: /app\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g, framework: 'hono', method: '$1' },
+  {
+    regex:
+      /(?:r|router|engine)\.(?:GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    framework: 'gin',
+    method: 'ALL',
+  },
+  {
+    regex:
+      /@(?:Get|Post|Put|Delete|Patch|Request)Mapping\s*\(\s*(?:value\s*=\s*)?['"`]([^'"`]+)['"`]/g,
+    framework: 'spring',
+    method: 'ALL',
+  },
+  {
+    regex: /router\.(get|post|put|delete|patch|options|all|head)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    framework: 'express-router',
+    method: '$1',
+  },
+  {
+    regex: /router\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    framework: 'koa',
+    method: '$1',
+  },
+  {
+    regex: /app\.(get|post|put|delete|patch|options|all)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    framework: 'hono',
+    method: '$1',
+  },
 ];
 
 interface RouteInfo {
@@ -478,7 +557,12 @@ interface RouteInfo {
 function detectRoutes(filePath: string, content: string, fileName: string): RouteInfo[] {
   const routes: RouteInfo[] = [];
 
-  if (fileName === 'route.ts' || fileName === 'route.tsx' || fileName === 'route.js' || fileName === 'route.jsx') {
+  if (
+    fileName === 'route.ts' ||
+    fileName === 'route.tsx' ||
+    fileName === 'route.js' ||
+    fileName === 'route.jsx'
+  ) {
     const dirPath = dirname(filePath);
     const routePath = dirPath.split('/app/')[1] ?? dirPath;
     routes.push({
@@ -793,8 +877,18 @@ describe('shouldSkipFile', () => {
 
 describe('shouldSkipDirectory', () => {
   const skipDirs = [
-    'node_modules', '.git', 'dist', 'build', '__pycache__', '.next', 'target',
-    '.cache', '.idea', '.vscode', 'coverage', '.nyc_output',
+    'node_modules',
+    '.git',
+    'dist',
+    'build',
+    '__pycache__',
+    '.next',
+    'target',
+    '.cache',
+    '.idea',
+    '.vscode',
+    'coverage',
+    '.nyc_output',
   ];
 
   for (const dir of skipDirs) {
@@ -1074,9 +1168,7 @@ describe('groupCaptures', () => {
   });
 
   it('computes qualifiedName without containerName using file path', () => {
-    const captures: UnifiedCapture[] = [
-      makeCap({ tag: CAPTURE_TAGS.FUNCTION_DEF, name: 'main' }),
-    ];
+    const captures: UnifiedCapture[] = [makeCap({ tag: CAPTURE_TAGS.FUNCTION_DEF, name: 'main' })];
     const result = groupCaptures(captures, '/src/app.ts');
     expect(result.symbols[0].qualifiedName).toBe('file:/src/app.ts:main');
   });
@@ -1166,9 +1258,7 @@ describe('groupCaptures', () => {
     ];
 
     for (const tag of defTags) {
-      const captures: UnifiedCapture[] = [
-        makeCap({ tag, name: 'test', startLine: 1, endLine: 1 }),
-      ];
+      const captures: UnifiedCapture[] = [makeCap({ tag, name: 'test', startLine: 1, endLine: 1 })];
       const result = groupCaptures(captures, '/src/file.ts');
       expect(result.symbols).toHaveLength(1);
       expect(result.symbols[0].name).toBe('test');
@@ -1189,9 +1279,7 @@ describe('groupCaptures', () => {
     ];
 
     for (const tag of refTags) {
-      const captures: UnifiedCapture[] = [
-        makeCap({ tag, name: 'target', startLine: 1 }),
-      ];
+      const captures: UnifiedCapture[] = [makeCap({ tag, name: 'target', startLine: 1 })];
       const result = groupCaptures(captures, '/src/file.ts');
       expect(result.references).toHaveLength(1);
       expect(result.references[0].targetName).toBe('target');
@@ -1236,7 +1324,10 @@ describe('resolveImportPath', () => {
 
   it('resolves relative import with .ts extension when file exists', () => {
     // __dirname in ESM may not be available. Use resolve from process.cwd()
-    const testFilePath = resolve(process.cwd(), 'packages/analyzer/src/__tests__/phases-helpers.test.ts');
+    const testFilePath = resolve(
+      process.cwd(),
+      'packages/analyzer/src/__tests__/phases-helpers.test.ts',
+    );
     const result = resolveImportPath('./phases-helpers.test', testFilePath, process.cwd());
     expect(result).toBeTruthy();
     expect(result).toContain('phases-helpers.test');
@@ -1283,7 +1374,8 @@ describe('extractMarkdownSections', () => {
   });
 
   it('extracts multiple headings at different levels', () => {
-    const content = '# Title\n## Section 1\nContent here\n## Section 2\n### Subsection\nMore content';
+    const content =
+      '# Title\n## Section 1\nContent here\n## Section 2\n### Subsection\nMore content';
     const sections = extractMarkdownSections(content);
     expect(sections).toHaveLength(4);
     expect(sections[0].title).toBe('Title');
@@ -1545,12 +1637,17 @@ describe('extractConfigEntries', () => {
       const content = 'DATABASE_URL=postgres://localhost\nAPI_KEY=secret123\n';
       const entries = extractConfigEntries('/fake/.env', content);
       expect(entries).toHaveLength(2);
-      expect(entries[0]).toMatchObject({ key: 'DATABASE_URL', value: 'postgres://localhost', line: 1 });
+      expect(entries[0]).toMatchObject({
+        key: 'DATABASE_URL',
+        value: 'postgres://localhost',
+        line: 1,
+      });
       expect(entries[1]).toMatchObject({ key: 'API_KEY', value: 'secret123', line: 2 });
     });
 
     it('skips comments and empty lines in .env', () => {
-      const content = '# Database config\nDATABASE_URL=postgres://localhost\n\n# API key\nAPI_KEY=secret';
+      const content =
+        '# Database config\nDATABASE_URL=postgres://localhost\n\n# API key\nAPI_KEY=secret';
       const entries = extractConfigEntries('/fake/.env', content);
       expect(entries).toHaveLength(2);
     });
@@ -1665,7 +1762,7 @@ describe('detectRoutes', () => {
   });
 
   it('detects Spring Boot annotations', () => {
-    const content = "@GetMapping(\"/users\")\npublic List<User> getUsers() {}";
+    const content = '@GetMapping("/users")\npublic List<User> getUsers() {}';
     const routes = detectRoutes('/src/UserController.java', content, 'UserController.java');
     const route = routes.find((r) => r.framework === 'spring');
     expect(route).toBeDefined();
@@ -1706,7 +1803,7 @@ describe('detectRoutes', () => {
   });
 
   it('detects Next.js API handler', () => {
-    const content = "export default async function handler(req, res) {}";
+    const content = 'export default async function handler(req, res) {}';
     const routes = detectRoutes('/src/pages/api/users.ts', content, 'users.ts');
     const route = routes.find((r) => r.framework === 'nextjs-api');
     expect(route).toBeDefined();
@@ -1714,7 +1811,7 @@ describe('detectRoutes', () => {
   });
 
   it('detects Next.js App Router exported functions', () => {
-    const content = "export async function GET(request) {}";
+    const content = 'export async function GET(request) {}';
     const routes = detectRoutes('/src/app/api/data/route.ts', content, 'route.ts');
     const nextRoutes = routes.filter((r) => r.framework === 'nextjs-app');
     expect(nextRoutes.length).toBeGreaterThan(0);
@@ -1979,7 +2076,8 @@ describe('MinHash integration', () => {
 
   it('very different code has low similarity', () => {
     const code1 = 'function add ( a , b ) { return a + b }';
-    const code2 = 'class Calculator { multiply ( x , y ) { return x * y } divide ( a , b ) { return a / b } }';
+    const code2 =
+      'class Calculator { multiply ( x , y ) { return x * y } divide ( a , b ) { return a / b } }';
     const hash1 = computeMinHash(tokenizeCode(code1));
     const hash2 = computeMinHash(tokenizeCode(code2));
     const sim = jaccardSimilarity(hash1, hash2);

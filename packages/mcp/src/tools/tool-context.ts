@@ -14,9 +14,7 @@ import {
 } from '@code-analyzer/intelligence';
 import type { PipelineOrchestrator } from '@code-analyzer/analyzer';
 import type { PipelineResult } from '@code-analyzer/analyzer';
-import type {
-  GraphNode,
-} from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -64,7 +62,11 @@ export interface ToolContext {
   findReferences(projectId: string, symbolQname: string): GraphNode[];
 
   /** BFS dependency tree from a node. */
-  getDependencyTree(projectId: string, symbolQname: string, maxDepth?: number): DependencyTreeNode | null;
+  getDependencyTree(
+    projectId: string,
+    symbolQname: string,
+    maxDepth?: number,
+  ): DependencyTreeNode | null;
 
   /** Current analysis result if one is in progress. */
   currentAnalysis?: PipelineResult;
@@ -128,10 +130,7 @@ export class ToolContextImpl implements ToolContext {
 
   getPRReviewEngine(): PRReviewEngine {
     if (!this._prReviewEngine) {
-      this._prReviewEngine = new PRReviewEngine(
-        this.getReviewEngine(),
-        this.store,
-      );
+      this._prReviewEngine = new PRReviewEngine(this.getReviewEngine(), this.store);
     }
     return this._prReviewEngine;
   }
@@ -159,10 +158,7 @@ export class ToolContextImpl implements ToolContext {
 
   getCrossRepoIndexer(): CrossRepoIndexer {
     if (!this._crossRepoIndexer) {
-      this._crossRepoIndexer = new CrossRepoIndexer(
-        this.store,
-        this.getRepoGroupManager(),
-      );
+      this._crossRepoIndexer = new CrossRepoIndexer(this.store, this.getRepoGroupManager());
     }
     return this._crossRepoIndexer;
   }
@@ -225,9 +221,9 @@ export class ToolContextImpl implements ToolContext {
   // -------------------------------------------------------------------------
 
   getFileSymbols(projectId: string, filePath: string): GraphNode[] {
-    return this.store.getAllNodes().filter(
-      (n) => n.projectId === projectId && n.filePath === filePath,
-    );
+    return this.store
+      .getAllNodes()
+      .filter((n) => n.projectId === projectId && n.filePath === filePath);
   }
 
   // -------------------------------------------------------------------------
@@ -255,7 +251,11 @@ export class ToolContextImpl implements ToolContext {
   // BFS dependency tree
   // -------------------------------------------------------------------------
 
-  getDependencyTree(_projectId: string, symbolQname: string, maxDepth: number = 3): DependencyTreeNode | null {
+  getDependencyTree(
+    _projectId: string,
+    symbolQname: string,
+    maxDepth: number = 3,
+  ): DependencyTreeNode | null {
     const node = this.store.getNodeByQualifiedName(symbolQname);
     if (!node) return null;
 

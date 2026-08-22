@@ -7,12 +7,7 @@
 // ---------------------------------------------------------------------------
 
 export type RuleCategory =
-  | 'correctness'
-  | 'security'
-  | 'performance'
-  | 'maintainability'
-  | 'style'
-  | 'architecture';
+  'correctness' | 'security' | 'performance' | 'maintainability' | 'style' | 'architecture';
 
 export type RuleSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
 
@@ -53,7 +48,8 @@ export const NO_UNREACHABLE_CODE: RuleDefinition = {
   category: 'correctness',
   severity: 'medium',
   title: 'Unreachable code detected',
-  description: 'Code that appears after return, throw, break, or continue statements will never execute.',
+  description:
+    'Code that appears after return, throw, break, or continue statements will never execute.',
 };
 
 export const NO_CONSTANT_CONDITION: RuleDefinition = {
@@ -61,7 +57,8 @@ export const NO_CONSTANT_CONDITION: RuleDefinition = {
   category: 'correctness',
   severity: 'medium',
   title: 'Constant condition in control flow',
-  description: 'Condition always evaluates to true or false, making the branch dead code or the loop infinite.',
+  description:
+    'Condition always evaluates to true or false, making the branch dead code or the loop infinite.',
 };
 
 export const NO_EMPTY_CATCH: RuleDefinition = {
@@ -85,7 +82,8 @@ export const NO_UNSAFE_OPTIONAL_CHAINING: RuleDefinition = {
   category: 'correctness',
   severity: 'medium',
   title: 'Potentially unsafe optional chaining',
-  description: 'Optional chaining (?.) used where the left-hand value is known to be defined, suggesting a logic error.',
+  description:
+    'Optional chaining (?.) used where the left-hand value is known to be defined, suggesting a logic error.',
 };
 
 export const NO_ARRAY_INDEX_KEY: RuleDefinition = {
@@ -93,7 +91,8 @@ export const NO_ARRAY_INDEX_KEY: RuleDefinition = {
   category: 'correctness',
   severity: 'medium',
   title: 'Array index used as key',
-  description: 'Using array index as a key in list rendering can cause rendering issues when items are reordered.',
+  description:
+    'Using array index as a key in list rendering can cause rendering issues when items are reordered.',
   languageFilter: ['typescript', 'javascript'],
 };
 
@@ -106,7 +105,8 @@ export const NO_EVAL: RuleDefinition = {
   category: 'security',
   severity: 'critical',
   title: 'Dynamic code execution detected (eval/Function)',
-  description: 'eval() and Function() constructors allow arbitrary code execution, a critical security risk.',
+  description:
+    'eval() and Function() constructors allow arbitrary code execution, a critical security risk.',
   cwe: 'CWE-95',
 };
 
@@ -192,121 +192,162 @@ export const NO_INSECURE_RANDOM: RuleDefinition = {
 };
 
 export const NO_XXE: RuleDefinition = {
-  id: 'no-xxe', category: 'security', severity: 'high',
+  id: 'no-xxe',
+  category: 'security',
+  severity: 'high',
   title: 'XML External Entity (XXE) Processing',
   description: 'XML parser may process external entities, enabling XXE attacks.',
   cwe: 'CWE-611',
 };
 export const NO_SSTI: RuleDefinition = {
-  id: 'no-ssti', category: 'security', severity: 'high',
+  id: 'no-ssti',
+  category: 'security',
+  severity: 'high',
   title: 'Server-Side Template Injection (SSTI)',
   description: 'Template rendered with user-controlled input may enable code execution.',
   cwe: 'CWE-94',
 };
 export const NO_LDAP_INJECTION: RuleDefinition = {
-  id: 'no-ldap-injection', category: 'security', severity: 'high',
+  id: 'no-ldap-injection',
+  category: 'security',
+  severity: 'high',
   title: 'LDAP Injection',
   description: 'LDAP query built with user-controlled input may be manipulated.',
   cwe: 'CWE-90',
 };
 export const NO_NOSQL_INJECTION: RuleDefinition = {
-  id: 'no-nosql-injection', category: 'security', severity: 'high',
+  id: 'no-nosql-injection',
+  category: 'security',
+  severity: 'high',
   title: 'NoSQL Injection',
   description: 'MongoDB-style query with user-controlled input enables NoSQL injection.',
   cwe: 'CWE-943',
 };
 export const NO_LOG_INJECTION: RuleDefinition = {
-  id: 'no-log-injection', category: 'security', severity: 'medium',
+  id: 'no-log-injection',
+  category: 'security',
+  severity: 'medium',
   title: 'Log Injection / Forging',
   description: 'Log message includes user-controlled input, enabling log injection attacks.',
   cwe: 'CWE-117',
 };
 export const NO_REDOS: RuleDefinition = {
-  id: 'no-redos', category: 'security', severity: 'medium',
+  id: 'no-redos',
+  category: 'security',
+  severity: 'medium',
   title: 'Inefficient Regular Expression (ReDoS)',
   description: 'Regular expression with nested quantifiers may cause catastrophic backtracking.',
   cwe: 'CWE-1333',
 };
 export const NO_HARDCODED_KEY_IV: RuleDefinition = {
-  id: 'no-hardcoded-key-iv', category: 'security', severity: 'high',
+  id: 'no-hardcoded-key-iv',
+  category: 'security',
+  severity: 'high',
   title: 'Hardcoded Encryption Key or IV',
   description: 'Cryptographic key or initialization vector is hardcoded in source code.',
   cwe: 'CWE-321',
 };
 export const NO_MISSING_CERT_VALIDATION: RuleDefinition = {
-  id: 'no-missing-cert-validation', category: 'security', severity: 'high',
+  id: 'no-missing-cert-validation',
+  category: 'security',
+  severity: 'high',
   title: 'Missing TLS Certificate Validation',
   description: 'TLS certificate validation is disabled, enabling man-in-the-middle attacks.',
   cwe: 'CWE-295',
 };
 export const NO_PREDICTABLE_SEED: RuleDefinition = {
-  id: 'no-predictable-seed', category: 'security', severity: 'medium',
+  id: 'no-predictable-seed',
+  category: 'security',
+  severity: 'medium',
   title: 'Predictable Random Seed',
   description: 'PRNG seeded with a predictable value produces deterministic output.',
   cwe: 'CWE-335',
 };
 export const NO_INSECURE_PASSWORD_HASH: RuleDefinition = {
-  id: 'no-insecure-password-hash', category: 'security', severity: 'high',
+  id: 'no-insecure-password-hash',
+  category: 'security',
+  severity: 'high',
   title: 'Insecure Password Hash',
   description: 'Password hashed with fast hash function (MD5/SHA) instead of bcrypt/argon2.',
   cwe: 'CWE-256',
 };
 export const NO_MISSING_AUTH: RuleDefinition = {
-  id: 'no-missing-auth', category: 'security', severity: 'high',
+  id: 'no-missing-auth',
+  category: 'security',
+  severity: 'high',
   title: 'Missing Authentication Check',
   description: 'Sensitive route lacks visible authentication middleware.',
   cwe: 'CWE-306',
 };
 export const NO_PERMISSIVE_CORS: RuleDefinition = {
-  id: 'no-permissive-cors', category: 'security', severity: 'medium',
+  id: 'no-permissive-cors',
+  category: 'security',
+  severity: 'medium',
   title: 'Overly Permissive CORS Policy',
   description: 'CORS configured with wildcard (*) origin allows any website to access resources.',
   cwe: 'CWE-942',
 };
 export const NO_MISSING_RATE_LIMIT: RuleDefinition = {
-  id: 'no-missing-rate-limit', category: 'security', severity: 'medium',
+  id: 'no-missing-rate-limit',
+  category: 'security',
+  severity: 'medium',
   title: 'Missing Rate Limiting',
   description: 'No rate limiting detected, making the API vulnerable to brute-force and DoS.',
   cwe: 'CWE-770',
 };
 export const NO_ERROR_EXPOSURE: RuleDefinition = {
-  id: 'no-error-exposure', category: 'security', severity: 'medium',
+  id: 'no-error-exposure',
+  category: 'security',
+  severity: 'medium',
   title: 'Excessive Data Exposure in Error Responses',
-  description: 'Raw error objects sent in API responses may leak stack traces and internal details.',
+  description:
+    'Raw error objects sent in API responses may leak stack traces and internal details.',
   cwe: 'CWE-209',
 };
 export const NO_PROTOTYPE_POLLUTION: RuleDefinition = {
-  id: 'no-prototype-pollution', category: 'security', severity: 'high',
+  id: 'no-prototype-pollution',
+  category: 'security',
+  severity: 'high',
   title: 'Prototype Pollution',
   description: 'Object merge with user-controlled input may pollute Object.prototype.',
   cwe: 'CWE-1321',
 };
 export const NO_INTEGER_OVERFLOW: RuleDefinition = {
-  id: 'no-integer-overflow', category: 'security', severity: 'medium',
+  id: 'no-integer-overflow',
+  category: 'security',
+  severity: 'medium',
   title: 'Integer Overflow / Underflow',
   description: 'Numeric user input parsed without bounds checking may overflow.',
   cwe: 'CWE-190',
 };
 export const NO_UNSAFE_DYNAMIC_IMPORT: RuleDefinition = {
-  id: 'no-unsafe-dynamic-import', category: 'security', severity: 'high',
+  id: 'no-unsafe-dynamic-import',
+  category: 'security',
+  severity: 'high',
   title: 'Unsafe Dynamic Import',
   description: 'Dynamic import path derived from user input may load arbitrary modules.',
   cwe: 'CWE-914',
 };
 export const NO_MISSING_INPUT_SIZE_LIMIT: RuleDefinition = {
-  id: 'no-missing-input-size-limit', category: 'security', severity: 'medium',
+  id: 'no-missing-input-size-limit',
+  category: 'security',
+  severity: 'medium',
   title: 'Missing Input Size Validation',
   description: 'No request body size limit configured — vulnerable to resource exhaustion.',
   cwe: 'CWE-400',
 };
 export const NO_UNRESTRICTED_UPLOAD: RuleDefinition = {
-  id: 'no-unrestricted-upload', category: 'security', severity: 'high',
+  id: 'no-unrestricted-upload',
+  category: 'security',
+  severity: 'high',
   title: 'Unrestricted File Upload',
   description: 'File upload handler lacks type validation, allowing arbitrary file uploads.',
   cwe: 'CWE-434',
 };
 export const NO_TOCTOU: RuleDefinition = {
-  id: 'no-toctou', category: 'security', severity: 'medium',
+  id: 'no-toctou',
+  category: 'security',
+  severity: 'medium',
   title: 'TOCTOU Race Condition',
   description: 'File existence checked then operated on without atomicity creates a race window.',
   cwe: 'CWE-367',
@@ -363,7 +404,8 @@ export const NO_LOOP_AWAIT: RuleDefinition = {
   category: 'performance',
   severity: 'medium',
   title: 'Await inside a loop',
-  description: 'await inside for/while loops runs operations sequentially — use Promise.all for concurrency.',
+  description:
+    'await inside for/while loops runs operations sequentially — use Promise.all for concurrency.',
 };
 
 export const NO_REDUNDANT_COMPUTATION: RuleDefinition = {
@@ -463,7 +505,8 @@ export const NO_DEAD_CODE: RuleDefinition = {
   category: 'maintainability',
   severity: 'low',
   title: 'Commented-out code block',
-  description: 'Large blocks of commented-out code should be removed — use version control instead.',
+  description:
+    'Large blocks of commented-out code should be removed — use version control instead.',
 };
 
 export const NO_GOD_CLASS: RuleDefinition = {
@@ -543,7 +586,8 @@ export const NO_CIRCULAR_DEPS: RuleDefinition = {
   category: 'architecture',
   severity: 'high',
   title: 'Circular dependency detected',
-  description: 'Circular dependencies between modules cause tight coupling and make the codebase fragile.',
+  description:
+    'Circular dependencies between modules cause tight coupling and make the codebase fragile.',
 };
 
 export const NO_LAYER_VIOLATION: RuleDefinition = {
@@ -559,7 +603,8 @@ export const NO_BARREL_EXPORT: RuleDefinition = {
   category: 'architecture',
   severity: 'low',
   title: 'Barrel export anti-pattern',
-  description: 'Barrel exports (export * from) can cause circular dependencies and tree-shaking issues.',
+  description:
+    'Barrel exports (export * from) can cause circular dependencies and tree-shaking issues.',
 };
 
 export const MAX_MODULE_SIZE: RuleDefinition = {

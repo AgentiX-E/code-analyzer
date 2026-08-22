@@ -25,9 +25,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     filePath: '/src/test.ts',
     oldHash: 'abc123',
     newHash: 'def456',
-    ranges: [
-      { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' },
-    ],
+    ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
     changeType: 'modified',
     ...overrides,
   };
@@ -71,7 +69,10 @@ function createEdge(store: InMemoryGraphStore, overrides: Partial<GraphEdge> = {
 }
 
 function getTempDir(): string {
-  const dir = path.join(os.tmpdir(), `session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -91,9 +92,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
 
       expect(longFuncIssues.length).toBeGreaterThan(0);
       expect(longFuncIssues[0]!.category).toBe('maintainability');
@@ -107,9 +106,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
 
       expect(longFuncIssues.length).toBe(0);
     });
@@ -123,9 +120,7 @@ describe('Heuristic Analysis', () => {
       lines.push('};');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
 
       expect(longFuncIssues.length).toBeGreaterThan(0);
     });
@@ -149,9 +144,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const nestingIssues = results.filter(
-        (r) => r.title.includes('Deeply nested'),
-      );
+      const nestingIssues = results.filter((r) => r.title.includes('Deeply nested'));
 
       // Deep nesting check is on lines with many opening braces
       expect(nestingIssues.length).toBeGreaterThan(0);
@@ -168,9 +161,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const nestingIssues = results.filter(
-        (r) => r.title.includes('Deeply nested'),
-      );
+      const nestingIssues = results.filter((r) => r.title.includes('Deeply nested'));
 
       expect(nestingIssues.length).toBe(0);
     });
@@ -185,9 +176,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const errorIssues = results.filter(
-        (r) => r.category === 'bug',
-      );
+      const errorIssues = results.filter((r) => r.category === 'bug');
 
       expect(errorIssues.length).toBeGreaterThan(0);
     });
@@ -200,9 +189,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const errorIssues = results.filter(
-        (r) => r.category === 'bug',
-      );
+      const errorIssues = results.filter((r) => r.category === 'bug');
 
       expect(errorIssues.length).toBeGreaterThan(0);
     });
@@ -216,9 +203,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('PascalCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('PascalCase'));
 
       expect(namingIssues.length).toBeGreaterThan(0);
     });
@@ -228,9 +213,7 @@ describe('Heuristic Analysis', () => {
       lines.push('const BadName = 42;');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('camelCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('camelCase'));
 
       expect(namingIssues.length).toBeGreaterThan(0);
     });
@@ -244,9 +227,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const todoIssues = results.filter(
-        (r) => r.title.includes('TODO'),
-      );
+      const todoIssues = results.filter((r) => r.title.includes('TODO'));
 
       expect(todoIssues.length).toBeGreaterThan(0);
       expect(todoIssues[0]!.category).toBe('documentation');
@@ -259,9 +240,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const fixmeIssues = results.filter(
-        (r) => r.title.includes('FIXME'),
-      );
+      const fixmeIssues = results.filter((r) => r.title.includes('FIXME'));
 
       expect(fixmeIssues.length).toBeGreaterThan(0);
       expect(fixmeIssues[0]!.severity).toBe('medium');
@@ -276,9 +255,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/production.ts', lines);
-      const consoleIssues = results.filter(
-        (r) => r.title.includes('console.log'),
-      );
+      const consoleIssues = results.filter((r) => r.title.includes('console.log'));
 
       expect(consoleIssues.length).toBeGreaterThan(0);
     });
@@ -290,9 +267,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.test.ts', lines);
-      const consoleIssues = results.filter(
-        (r) => r.title.includes('console.log'),
-      );
+      const consoleIssues = results.filter((r) => r.title.includes('console.log'));
 
       // Test files may allow console.log for debugging
       expect(consoleIssues.length).toBe(0);
@@ -307,9 +282,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const returnIssues = results.filter(
-        (r) => r.title.includes('return type'),
-      );
+      const returnIssues = results.filter((r) => r.title.includes('return type'));
 
       expect(returnIssues.length).toBeGreaterThan(0);
     });
@@ -321,9 +294,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.js', lines);
-      const returnIssues = results.filter(
-        (r) => r.title.includes('return type'),
-      );
+      const returnIssues = results.filter((r) => r.title.includes('return type'));
 
       expect(returnIssues.length).toBe(0);
     });
@@ -335,9 +306,7 @@ describe('Heuristic Analysis', () => {
       const lines = ['// types file'];
 
       const results = analyzeFileHeuristics(diff.filePath, lines, diff);
-      const riskyIssues = results.filter(
-        (r) => r.title.includes('Risky change'),
-      );
+      const riskyIssues = results.filter((r) => r.title.includes('Risky change'));
 
       expect(riskyIssues.length).toBeGreaterThan(0);
       expect(riskyIssues[0]!.category).toBe('architecture');
@@ -348,9 +317,7 @@ describe('Heuristic Analysis', () => {
       const lines = ['// api routes'];
 
       const results = analyzeFileHeuristics(diff.filePath, lines, diff);
-      const riskyIssues = results.filter(
-        (r) => r.title.includes('Risky change'),
-      );
+      const riskyIssues = results.filter((r) => r.title.includes('Risky change'));
 
       expect(riskyIssues.length).toBeGreaterThan(0);
     });
@@ -360,9 +327,7 @@ describe('Heuristic Analysis', () => {
       const lines = ['// deleted file'];
 
       const results = analyzeFileHeuristics(diff.filePath, lines, diff);
-      const deletionIssues = results.filter(
-        (r) => r.title.includes('deletion'),
-      );
+      const deletionIssues = results.filter((r) => r.title.includes('deletion'));
 
       expect(deletionIssues.length).toBeGreaterThan(0);
     });
@@ -372,9 +337,7 @@ describe('Heuristic Analysis', () => {
       const lines = ['// config'];
 
       const results = analyzeFileHeuristics(diff.filePath, lines, diff);
-      const configIssues = results.filter(
-        (r) => r.title.includes('Configuration'),
-      );
+      const configIssues = results.filter((r) => r.title.includes('Configuration'));
 
       expect(configIssues.length).toBeGreaterThan(0);
     });
@@ -435,9 +398,7 @@ describe('Heuristic Analysis', () => {
       // No closing brace!
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
       expect(longFuncIssues.length).toBeGreaterThan(0);
     });
 
@@ -448,9 +409,7 @@ describe('Heuristic Analysis', () => {
       // No closing brace, but shorter than threshold
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
       expect(longFuncIssues.length).toBe(0);
     });
 
@@ -465,9 +424,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
       expect(longFuncIssues.length).toBeGreaterThan(0);
     });
 
@@ -480,9 +437,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
       // "async static function" won't match the regex pattern "export? async? static? function"
       // because the pattern expects "static" before "async", but this test verifies
       // that the regex-based detection handles the order correctly
@@ -491,9 +446,7 @@ describe('Heuristic Analysis', () => {
 
     it('should handle empty file', () => {
       const results = analyzeFileHeuristics('/src/empty.ts', []);
-      const longFuncIssues = results.filter(
-        (r) => r.title.includes('Long function'),
-      );
+      const longFuncIssues = results.filter((r) => r.title.includes('Long function'));
       expect(longFuncIssues.length).toBe(0);
     });
   });
@@ -510,9 +463,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const nestingIssues = results.filter(
-        (r) => r.title.includes('Deeply nested'),
-      );
+      const nestingIssues = results.filter((r) => r.title.includes('Deeply nested'));
       expect(nestingIssues.length).toBeGreaterThan(0);
     });
 
@@ -524,9 +475,7 @@ describe('Heuristic Analysis', () => {
       lines.push('}');
 
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const nestingIssues = results.filter(
-        (r) => r.title.includes('Deeply nested'),
-      );
+      const nestingIssues = results.filter((r) => r.title.includes('Deeply nested'));
       expect(nestingIssues.length).toBe(0);
     });
   });
@@ -606,9 +555,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const couplingIssues = results.filter(
-        (r) => r.title.includes('High coupling'),
-      );
+      const couplingIssues = results.filter((r) => r.title.includes('High coupling'));
       expect(couplingIssues.length).toBeGreaterThan(0);
       expect(couplingIssues[0]!.category).toBe('architecture');
       expect(couplingIssues[0]!.severity).toBe('high');
@@ -622,9 +569,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const couplingIssues = results.filter(
-        (r) => r.title.includes('High coupling'),
-      );
+      const couplingIssues = results.filter((r) => r.title.includes('High coupling'));
       expect(couplingIssues.length).toBe(0);
     });
 
@@ -636,9 +581,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const couplingIssues = results.filter(
-        (r) => r.title.includes('High coupling'),
-      );
+      const couplingIssues = results.filter((r) => r.title.includes('High coupling'));
       expect(couplingIssues.length).toBe(0);
     });
   });
@@ -652,9 +595,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const deadIssues = results.filter(
-        (r) => r.title.includes('dead code'),
-      );
+      const deadIssues = results.filter((r) => r.title.includes('dead code'));
       expect(deadIssues.length).toBeGreaterThan(0);
       expect(deadIssues[0]!.category).toBe('maintainability');
       expect(deadIssues[0]!.severity).toBe('low');
@@ -668,9 +609,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const deadIssues = results.filter(
-        (r) => r.title.includes('dead code'),
-      );
+      const deadIssues = results.filter((r) => r.title.includes('dead code'));
       expect(deadIssues.length).toBe(0);
     });
 
@@ -682,9 +621,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const deadIssues = results.filter(
-        (r) => r.title.includes('dead code'),
-      );
+      const deadIssues = results.filter((r) => r.title.includes('dead code'));
       expect(deadIssues.length).toBe(0);
     });
   });
@@ -698,9 +635,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [['/src/a.ts', '/src/b.ts', '/src/a.ts']],
         edgeCounts: new Map(),
       });
-      const cycleIssues = results.filter(
-        (r) => r.title.includes('Circular dependency'),
-      );
+      const cycleIssues = results.filter((r) => r.title.includes('Circular dependency'));
       expect(cycleIssues.length).toBeGreaterThan(0);
       expect(cycleIssues[0]!.category).toBe('architecture');
     });
@@ -713,9 +648,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [['/src/a.ts', '/src/b.ts', '/src/a.ts']],
         edgeCounts: new Map(),
       });
-      const cycleIssues = results.filter(
-        (r) => r.title.includes('Circular dependency'),
-      );
+      const cycleIssues = results.filter((r) => r.title.includes('Circular dependency'));
       expect(cycleIssues.length).toBe(0);
     });
 
@@ -727,9 +660,7 @@ describe('Heuristic Analysis', () => {
         cyclicPaths: [],
         edgeCounts: new Map(),
       });
-      const cycleIssues = results.filter(
-        (r) => r.title.includes('Circular dependency'),
-      );
+      const cycleIssues = results.filter((r) => r.title.includes('Circular dependency'));
       expect(cycleIssues.length).toBe(0);
     });
   });
@@ -738,64 +669,47 @@ describe('Heuristic Analysis', () => {
     it('should not flag PascalCase class names', () => {
       const lines = ['export class MyComponent {'];
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('PascalCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('PascalCase'));
       expect(namingIssues.length).toBe(0);
     });
 
     it('should not flag UPPER_CASE constants', () => {
       const lines = ['const MAX_RETRIES = 5;'];
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('camelCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('camelCase'));
       expect(namingIssues.length).toBe(0);
     });
 
     it('should skip variable checks in test files', () => {
       const lines = ['const BadName = 42;'];
       const results = analyzeFileHeuristics('/src/test.test.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('camelCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('camelCase'));
       expect(namingIssues.length).toBe(0);
     });
 
     it('should skip variable checks in __tests__ files', () => {
       const lines = ['const BadName = 42;'];
       const results = analyzeFileHeuristics('/src/__tests__/module.test.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('camelCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('camelCase'));
       expect(namingIssues.length).toBe(0);
     });
 
     it('should skip variable checks in __mocks__ files', () => {
       const lines = ['const BadName = 42;'];
       const results = analyzeFileHeuristics('/src/__mocks__/module.ts', lines);
-      const namingIssues = results.filter(
-        (r) => r.title.includes('camelCase'),
-      );
+      const namingIssues = results.filter((r) => r.title.includes('camelCase'));
       expect(namingIssues.length).toBe(0);
     });
 
     it('should skip console.log in test files', () => {
       const lines = ['console.log("debug");'];
       const results = analyzeFileHeuristics('/src/test.spec.ts', lines);
-      const consoleIssues = results.filter(
-        (r) => r.title.includes('console.log'),
-      );
+      const consoleIssues = results.filter((r) => r.title.includes('console.log'));
       expect(consoleIssues.length).toBe(0);
     });
 
     it('should detect both TODO and FIXME in same file', () => {
-      const lines = [
-        'function test() {',
-        '  // TODO: add feature',
-        '  // FIXME: broken code',
-        '}',
-      ];
+      const lines = ['function test() {', '  // TODO: add feature', '  // FIXME: broken code', '}'];
       const results = analyzeFileHeuristics('/src/test.ts', lines);
       const todoIssues = results.filter((r) => r.title.includes('TODO'));
       const fixmeIssues = results.filter((r) => r.title.includes('FIXME'));
@@ -810,36 +724,28 @@ describe('Heuristic Analysis', () => {
     it('should not flag function with return type annotation', () => {
       const lines = ['export function add(a: number, b: number): number {'];
       const results = analyzeFileHeuristics('/src/test.ts', lines);
-      const returnIssues = results.filter(
-        (r) => r.title.includes('return type'),
-      );
+      const returnIssues = results.filter((r) => r.title.includes('return type'));
       expect(returnIssues.length).toBe(0);
     });
 
     it('should not flag function in .tsx files without return type', () => {
       const lines = ['function render() {', '  return <div>hello</div>;', '}'];
       const results = analyzeFileHeuristics('/src/component.tsx', lines);
-      const returnIssues = results.filter(
-        (r) => r.title.includes('return type'),
-      );
+      const returnIssues = results.filter((r) => r.title.includes('return type'));
       expect(returnIssues.length).toBeGreaterThan(0);
     });
 
     it('should not analyze non-TypeScript files', () => {
       const lines = ['function test() {'];
       const results = analyzeFileHeuristics('/src/test.py', lines);
-      const returnIssues = results.filter(
-        (r) => r.title.includes('return type'),
-      );
+      const returnIssues = results.filter((r) => r.title.includes('return type'));
       expect(returnIssues.length).toBe(0);
     });
 
     it('should handle .tsx files for type checking', () => {
       const lines = ['export function Component(props: Props) {'];
       const results = analyzeFileHeuristics('/src/Component.tsx', lines);
-      const returnIssues = results.filter(
-        (r) => r.title.includes('return type'),
-      );
+      const returnIssues = results.filter((r) => r.title.includes('return type'));
       expect(returnIssues.length).toBeGreaterThan(0);
     });
   });
@@ -988,10 +894,7 @@ describe('Code Review Engine', () => {
 
   describe('reviewDiff()', () => {
     it('should review diffs and create a session', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/a.ts' }),
-        createDiff({ filePath: '/src/b.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/a.ts' }), createDiff({ filePath: '/src/b.ts' })];
 
       const session = await engine.reviewDiff('test-project', diffs);
 
@@ -1044,10 +947,7 @@ describe('Code Review Engine', () => {
     });
 
     it('should return completed files from resumed session', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/a.ts' }),
-        createDiff({ filePath: '/src/b.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/a.ts' }), createDiff({ filePath: '/src/b.ts' })];
       const session = await engine.reviewDiff('test-project', diffs);
 
       const resumed = await engine.resumeSession(session.id);
@@ -1092,12 +992,12 @@ describe('Code Review Engine', () => {
     it('should handle very large diffs', async () => {
       // const _content = Array(300).fill('// line with some code x = 1;').join('\n');
       // We can't directly control diff content, but large file paths mean more lines
-      const diffs = [createDiff({
-        filePath: '/src/large.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 300, newStart: 1, newEnd: 300, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/large.ts',
+          ranges: [{ oldStart: 1, oldEnd: 300, newStart: 1, newEnd: 300, changeType: 'added' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1117,11 +1017,13 @@ describe('Code Review Engine', () => {
     it('should trigger filter rules for comment-only diff content (L340)', async () => {
       // Diffs with only comment content may produce heuristic results
       // that get filtered out by the filter phase if existingCode is comment-only
-      const diffs = [createDiff({
-        filePath: '/src/empty.ts',
-        changeType: 'added',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/empty.ts',
+          changeType: 'added',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
       expect(session.filesReviewed).toBeGreaterThanOrEqual(0);
@@ -1206,10 +1108,12 @@ describe('Code Review Engine', () => {
     });
 
     it('should detect large file threshold in plan', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/huge.ts',
-        ranges: [{ oldStart: 1, oldEnd: 300, newStart: 1, newEnd: 300, changeType: 'modified' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/huge.ts',
+          ranges: [{ oldStart: 1, oldEnd: 300, newStart: 1, newEnd: 300, changeType: 'modified' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1217,45 +1121,49 @@ describe('Code Review Engine', () => {
 
   describe('Relocate phase — line number adjustments', () => {
     it('should handle diffs with no ranges', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/noranges.ts',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/noranges.ts',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle diffs with multiple overlapping ranges', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/multi-range.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 15, changeType: 'modified' },
-          { oldStart: 20, oldEnd: 25, newStart: 35, newEnd: 40, changeType: 'modified' },
-          { oldStart: 50, oldEnd: 55, newStart: 70, newEnd: 72, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/multi-range.ts',
+          ranges: [
+            { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 15, changeType: 'modified' },
+            { oldStart: 20, oldEnd: 25, newStart: 35, newEnd: 40, changeType: 'modified' },
+            { oldStart: 50, oldEnd: 55, newStart: 70, newEnd: 72, changeType: 'modified' },
+          ],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle diffs with zero-length ranges', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/zero.ts',
-        ranges: [
-          { oldStart: 5, oldEnd: 5, newStart: 5, newEnd: 10, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/zero.ts',
+          ranges: [{ oldStart: 5, oldEnd: 5, newStart: 5, newEnd: 10, changeType: 'added' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle relocation with negative offsets', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/negative.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 5, changeType: 'deleted' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/negative.ts',
+          ranges: [{ oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 5, changeType: 'deleted' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1263,48 +1171,50 @@ describe('Code Review Engine', () => {
 
   describe('Diff types — full pipeline', () => {
     it('should handle added diffs through pipeline', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/newfile.ts',
-        changeType: 'added',
-        ranges: [
-          { oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 50, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/newfile.ts',
+          changeType: 'added',
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 50, changeType: 'added' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle deleted diffs through pipeline', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/gone.ts',
-        changeType: 'deleted',
-        ranges: [
-          { oldStart: 1, oldEnd: 100, newStart: 0, newEnd: 0, changeType: 'deleted' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/gone.ts',
+          changeType: 'deleted',
+          ranges: [{ oldStart: 1, oldEnd: 100, newStart: 0, newEnd: 0, changeType: 'deleted' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle renamed diffs through pipeline', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/renamed.ts',
-        changeType: 'renamed',
-        oldPath: '/src/original.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'renamed' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/renamed.ts',
+          changeType: 'renamed',
+          oldPath: '/src/original.ts',
+          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'renamed' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle diffs with oldPath in metadata', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/moved.ts',
-        oldPath: '/src/previous-location.ts',
-        changeType: 'renamed',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/moved.ts',
+          oldPath: '/src/previous-location.ts',
+          changeType: 'renamed',
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1320,12 +1230,12 @@ describe('Code Review Engine', () => {
         undefined,
         { readFileContent: async () => mediumContent },
       );
-      const diffs = [createDiff({
-        filePath: '/src/medium.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/medium.ts',
+          ranges: [{ oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' }],
+        }),
+      ];
       const session = await engineWithMedium.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1448,14 +1358,18 @@ describe('Code Review Engine', () => {
       const customStore = createStore();
       const customDir = getTempDir();
       const customSession = new SessionStore(customDir);
-      const customEngine = new CodeReviewEngine(customStore, {
-        maxTokens: 16000,
-        maxToolCalls: 20,
-        planLineThreshold: 400,
-        timeout: 60000,
-        concurrency: 8,
-        allowMetadataFallback: true,
-      }, customSession);
+      const customEngine = new CodeReviewEngine(
+        customStore,
+        {
+          maxTokens: 16000,
+          maxToolCalls: 20,
+          planLineThreshold: 400,
+          timeout: 60000,
+          concurrency: 8,
+          allowMetadataFallback: true,
+        },
+        customSession,
+      );
 
       const diffs = [createDiff({ filePath: '/src/config-test.ts' })];
       const session = await customEngine.reviewDiff('test-project', diffs);
@@ -1486,21 +1400,23 @@ describe('Code Review Engine', () => {
 
   describe('Filter phase — filter rules coverage', () => {
     it('should filter comments with empty existingCode', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/filter-test.ts',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/filter-test.ts',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should filter comments with invalid line range', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/invalid-range.ts',
-        ranges: [
-          { oldStart: 0, oldEnd: 0, newStart: 0, newEnd: 0, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/invalid-range.ts',
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 0, newEnd: 0, changeType: 'modified' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1525,7 +1441,11 @@ describe('Code Review Engine', () => {
       const customStore = createStore();
       const customDir = getTempDir();
       const customSession = new SessionStore(customDir);
-      const customEngine = new CodeReviewEngine(customStore, { allowMetadataFallback: true }, customSession);
+      const customEngine = new CodeReviewEngine(
+        customStore,
+        { allowMetadataFallback: true },
+        customSession,
+      );
 
       const session = await customEngine.reviewDiff('test-project', []);
       const resumed = await customEngine.resumeSession(session.id);
@@ -1574,10 +1494,12 @@ describe('Code Review Engine', () => {
       // then verify that the filterPhase applies filtering.
       // The filter rules check for empty existingCode which can happen
       // with heuristic findings on diff content lines.
-      const diffs = [createDiff({
-        filePath: '/src/types/User.ts',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/types/User.ts',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1585,12 +1507,12 @@ describe('Code Review Engine', () => {
     it('should handle style comment on comment-only line matching filter rule', async () => {
       // Create a diff where the content starts with // and a naming
       // heuristic triggers a style finding
-      const diffs = [createDiff({
-        filePath: '/src/config.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/config.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1621,38 +1543,46 @@ describe('Code Review Engine', () => {
 
   describe('Plan phase — all path branches', () => {
     it('should handle renamed files in plan phase', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/new-name.ts',
-        changeType: 'renamed',
-        oldPath: '/src/old-name.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/new-name.ts',
+          changeType: 'renamed',
+          oldPath: '/src/old-name.ts',
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle deleted files in plan phase', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/to-delete.ts',
-        changeType: 'deleted',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/to-delete.ts',
+          changeType: 'deleted',
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should detect low complexity for small files', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/tiny.ts',
-        ranges: [{ oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'modified' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/tiny.ts',
+          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'modified' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should detect high complexity for very large files', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/massive.ts',
-        ranges: [{ oldStart: 1, oldEnd: 500, newStart: 1, newEnd: 500, changeType: 'modified' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/massive.ts',
+          ranges: [{ oldStart: 1, oldEnd: 500, newStart: 1, newEnd: 500, changeType: 'modified' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -1708,7 +1638,8 @@ describe('Code Review Engine', () => {
     it('handles diff with empty ranges array', async () => {
       const diff: GitDiff = {
         filePath: 'no-ranges.ts',
-        oldHash: '', newHash: '',
+        oldHash: '',
+        newHash: '',
         ranges: [],
         changeType: 'modified',
       };
@@ -1729,10 +1660,9 @@ describe('Code Review Engine', () => {
       // This causes offset calculation in relocatePhase
       const diff: GitDiff = {
         filePath: 'relocate-test.ts',
-        oldHash: '', newHash: '',
-        ranges: [
-          { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 10, changeType: 'modified' },
-        ],
+        oldHash: '',
+        newHash: '',
+        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 10, changeType: 'modified' }],
         changeType: 'modified',
       };
       const diffs = [diff];
@@ -1744,7 +1674,8 @@ describe('Code Review Engine', () => {
       // Multiple ranges where the first adds lines (affects offset for later lines)
       const diff: GitDiff = {
         filePath: 'multi-relocate.ts',
-        oldHash: '', newHash: '',
+        oldHash: '',
+        newHash: '',
         ranges: [
           { oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 8, changeType: 'modified' },
           { oldStart: 5, oldEnd: 7, newStart: 10, newEnd: 15, changeType: 'modified' },
@@ -1760,10 +1691,9 @@ describe('Code Review Engine', () => {
       // Range starts before the comment's line, causing offset calculation
       const diff: GitDiff = {
         filePath: 'offset-relocate.ts',
-        oldHash: '', newHash: '',
-        ranges: [
-          { oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 5, changeType: 'modified' },
-        ],
+        oldHash: '',
+        newHash: '',
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 5, changeType: 'modified' }],
         changeType: 'modified',
       };
       const diffs = [diff];
@@ -1776,10 +1706,9 @@ describe('Code Review Engine', () => {
       // and a range with oldStart=0 so that oldStart(0) < startLine(1)
       const diff: GitDiff = {
         filePath: '/src/routes/handler.ts',
-        oldHash: '', newHash: '',
-        ranges: [
-          { oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' },
-        ],
+        oldHash: '',
+        newHash: '',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }],
         changeType: 'added',
       };
       const diffs = [diff];
@@ -1791,10 +1720,9 @@ describe('Code Review Engine', () => {
       // Range with more added lines than removed → positive delta
       const diff: GitDiff = {
         filePath: '/src/api/config.ts',
-        oldHash: '', newHash: '',
-        ranges: [
-          { oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 15, changeType: 'added' },
-        ],
+        oldHash: '',
+        newHash: '',
+        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 15, changeType: 'added' }],
         changeType: 'added',
       };
       const diffs = [diff];
@@ -1806,10 +1734,9 @@ describe('Code Review Engine', () => {
       // Range with more removed lines than added → negative delta
       const diff: GitDiff = {
         filePath: '/src/types/handler.ts',
-        oldHash: '', newHash: '',
-        ranges: [
-          { oldStart: 0, oldEnd: 10, newStart: 1, newEnd: 1, changeType: 'deleted' },
-        ],
+        oldHash: '',
+        newHash: '',
+        ranges: [{ oldStart: 0, oldEnd: 10, newStart: 1, newEnd: 1, changeType: 'deleted' }],
         changeType: 'deleted',
       };
       const diffs = [diff];
@@ -1903,13 +1830,15 @@ describe('Code Review Engine', () => {
         changeType: 'modified' as const,
       }));
 
-      const diffs = [{
-        filePath: '/src/large-module.ts',
-        oldHash: 'abc',
-        newHash: 'def',
-        ranges,
-        changeType: 'modified' as const,
-      }];
+      const diffs = [
+        {
+          filePath: '/src/large-module.ts',
+          oldHash: 'abc',
+          newHash: 'def',
+          ranges,
+          changeType: 'modified' as const,
+        },
+      ];
 
       const result = await engine.reviewDiff('test', diffs);
       // The plan phase should detect this as a large file
@@ -1929,14 +1858,28 @@ describe('Code Review Engine', () => {
     it('reads content for added files via gitOps readFileContent', async () => {
       let called = false;
       const mockGitOps = {
-        readFileContent: async () => { called = true; return '// added\n'; },
+        readFileContent: async () => {
+          called = true;
+          return '// added\n';
+        },
         readFileRange: async () => '',
         getFileDiff: async () => '',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/new.ts', changeType: 'added', ranges: [] })], { targetSha: 'sha' });
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff(
+        'test-project',
+        [createDiff({ filePath: '/src/new.ts', changeType: 'added', ranges: [] })],
+        { targetSha: 'sha' },
+      );
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
@@ -1944,14 +1887,28 @@ describe('Code Review Engine', () => {
     it('reads content for deleted files via gitOps readFileContent', async () => {
       let called = false;
       const mockGitOps = {
-        readFileContent: async () => { called = true; return '// deleted\n'; },
+        readFileContent: async () => {
+          called = true;
+          return '// deleted\n';
+        },
         readFileRange: async () => '',
         getFileDiff: async () => '',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/old.ts', changeType: 'deleted', ranges: [] })], { baseSha: 'abc' });
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff(
+        'test-project',
+        [createDiff({ filePath: '/src/old.ts', changeType: 'deleted', ranges: [] })],
+        { baseSha: 'abc' },
+      );
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
@@ -1961,12 +1918,26 @@ describe('Code Review Engine', () => {
       const mockGitOps = {
         readFileContent: async () => 'content',
         readFileRange: async () => '',
-        getFileDiff: async () => { called = true; return 'diff'; },
+        getFileDiff: async () => {
+          called = true;
+          return 'diff';
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/mod.ts', changeType: 'modified' })], { baseSha: 'abc', targetSha: 'def' });
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff(
+        'test-project',
+        [createDiff({ filePath: '/src/mod.ts', changeType: 'modified' })],
+        { baseSha: 'abc', targetSha: 'def' },
+      );
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
@@ -1975,12 +1946,25 @@ describe('Code Review Engine', () => {
       const mockGitOps = {
         readFileContent: async () => 'fb',
         readFileRange: async () => '',
-        getFileDiff: async () => { throw new Error('diff fail'); },
+        getFileDiff: async () => {
+          throw new Error('diff fail');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/mod.ts', changeType: 'modified', ranges: [] })], { baseSha: 'abc', targetSha: 'def' });
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff(
+        'test-project',
+        [createDiff({ filePath: '/src/mod.ts', changeType: 'modified', ranges: [] })],
+        { baseSha: 'abc', targetSha: 'def' },
+      );
       expect(session.status).toBe('completed');
       expect(session.filesReviewed).toBe(1);
     });
@@ -1989,27 +1973,54 @@ describe('Code Review Engine', () => {
       let called = false;
       const mockGitOps = {
         readFileContent: async () => 'full',
-        readFileRange: async () => { called = true; return 'range'; },
+        readFileRange: async () => {
+          called = true;
+          return 'range';
+        },
         getFileDiff: async () => '',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/ranged.ts', changeType: 'modified' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/ranged.ts', changeType: 'modified' }),
+      ]);
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
 
     it('handles file read failure when allowMetadataFallback is false', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw new Error('not found'); },
-        readFileRange: async () => { throw new Error('not found'); },
-        getFileDiff: async () => { throw new Error('diff fail'); },
+        readFileContent: async () => {
+          throw new Error('not found');
+        },
+        readFileRange: async () => {
+          throw new Error('not found');
+        },
+        getFileDiff: async () => {
+          throw new Error('diff fail');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => false,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/missing.ts', changeType: 'modified', ranges: [] })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/missing.ts', changeType: 'modified', ranges: [] }),
+      ]);
       expect(session.status).toBe('completed');
       expect(session.filesReviewed).toBe(1);
     });
@@ -2022,27 +2033,131 @@ describe('Code Review Engine', () => {
   describe('detectCycles — edge cases (L932-1006)', () => {
     it('detects self-loop cycle (A→A)', async () => {
       const nid = store.insertNode({
-        id: 0, projectId: 'test-project', label: 'Module', name: 'selfA',
-        qualifiedName: 'selfA.' + Date.now(), filePath: '/src/self-a.ts', startLine: 1, endLine: 1,
-        language: 'typescript', properties: {}, signature: '', docstring: '', complexity: 1,
-        isExported: false, fingerprint: 'fp-sa', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+        id: 0,
+        projectId: 'test-project',
+        label: 'Module',
+        name: 'selfA',
+        qualifiedName: 'selfA.' + Date.now(),
+        filePath: '/src/self-a.ts',
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: '',
+        docstring: '',
+        complexity: 1,
+        isExported: false,
+        fingerprint: 'fp-sa',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
       });
       store.insertEdge({
-        id: 0, projectId: 'test-project', sourceId: nid, targetId: nid, type: 'IMPORTS',
-        properties: {}, weight: 1, createdAt: '2024-01-01T00:00:00Z',
+        id: 0,
+        projectId: 'test-project',
+        sourceId: nid,
+        targetId: nid,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01T00:00:00Z',
       });
-      const session = await engine.reviewDiff('test-project', [createDiff({ filePath: '/src/self-a.ts' })]);
+      const session = await engine.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/self-a.ts' }),
+      ]);
       expect(session.status).toBe('completed');
     });
 
     it('detects multi-node cycle A→B→C→A', async () => {
-      const a = store.insertNode({ id: 0, projectId: 'test-project', label: 'Module', name: 'cycA', qualifiedName: 'ca.' + Date.now(), filePath: '/src/ca.ts', startLine: 1, endLine: 1, language: 'typescript', properties: {}, signature: '', docstring: '', complexity: 1, isExported: false, fingerprint: 'fp-ca', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' });
-      const b = store.insertNode({ id: 0, projectId: 'test-project', label: 'Module', name: 'cycB', qualifiedName: 'cb.' + Date.now(), filePath: '/src/cb.ts', startLine: 1, endLine: 1, language: 'typescript', properties: {}, signature: '', docstring: '', complexity: 1, isExported: false, fingerprint: 'fp-cb', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' });
-      const c = store.insertNode({ id: 0, projectId: 'test-project', label: 'Module', name: 'cycC', qualifiedName: 'cc.' + Date.now(), filePath: '/src/cc.ts', startLine: 1, endLine: 1, language: 'typescript', properties: {}, signature: '', docstring: '', complexity: 1, isExported: false, fingerprint: 'fp-cc', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: a, targetId: b, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01T00:00:00Z' });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: b, targetId: c, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01T00:00:00Z' });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: c, targetId: a, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01T00:00:00Z' });
-      const session = await engine.reviewDiff('test-project', [createDiff({ filePath: '/src/ca.ts' })]);
+      const a = store.insertNode({
+        id: 0,
+        projectId: 'test-project',
+        label: 'Module',
+        name: 'cycA',
+        qualifiedName: 'ca.' + Date.now(),
+        filePath: '/src/ca.ts',
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: '',
+        docstring: '',
+        complexity: 1,
+        isExported: false,
+        fingerprint: 'fp-ca',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      });
+      const b = store.insertNode({
+        id: 0,
+        projectId: 'test-project',
+        label: 'Module',
+        name: 'cycB',
+        qualifiedName: 'cb.' + Date.now(),
+        filePath: '/src/cb.ts',
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: '',
+        docstring: '',
+        complexity: 1,
+        isExported: false,
+        fingerprint: 'fp-cb',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      });
+      const c = store.insertNode({
+        id: 0,
+        projectId: 'test-project',
+        label: 'Module',
+        name: 'cycC',
+        qualifiedName: 'cc.' + Date.now(),
+        filePath: '/src/cc.ts',
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: '',
+        docstring: '',
+        complexity: 1,
+        isExported: false,
+        fingerprint: 'fp-cc',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: a,
+        targetId: b,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01T00:00:00Z',
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: b,
+        targetId: c,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01T00:00:00Z',
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: c,
+        targetId: a,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01T00:00:00Z',
+      });
+      const session = await engine.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/ca.ts' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -2052,13 +2167,10 @@ describe('Code Review Engine', () => {
   // ==========================================================================
 
   describe('relocatePhase — hunk-based line mapping', () => {
-    function makeHunkGitOps(
-      fileContent: string,
-      throws = false,
-    ) {
+    function makeHunkGitOps(fileContent: string, throws = false) {
       return {
-        readFileContent: async () => throws ? Promise.reject(new Error('fail')) : fileContent,
-        readFileRange: async () => throws ? Promise.reject(new Error('fail')) : fileContent,
+        readFileContent: async () => (throws ? Promise.reject(new Error('fail')) : fileContent),
+        readFileRange: async () => (throws ? Promise.reject(new Error('fail')) : fileContent),
         getFileDiff: async () => fileContent,
         getDiffHunks: async () => [],
         fileExists: async () => !throws,
@@ -2067,95 +2179,170 @@ describe('Code Review Engine', () => {
 
     it('maps a context line through a single hunk', async () => {
       // Code with patterns that trigger heuristic findings
-      const code = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const code =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 7, newStart: 1, newLines: 7,
-        lines: [
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-        ],
-      }];
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 7,
+          newStart: 1,
+          newLines: 7,
+          lines: [
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
       const diff = createDiff({ filePath: '/src/hunk.ts', changeType: 'modified', hunks } as any);
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('maps a removed line to the nearest new line in hunk', async () => {
-      const code = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const code =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 7, newStart: 1, newLines: 7,
-        lines: [
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'removal' as const },
-          { type: 'addition' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-        ],
-      }];
-      const diff = createDiff({ filePath: '/src/removal.ts', changeType: 'modified', hunks } as any);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 7,
+          newStart: 1,
+          newLines: 7,
+          lines: [
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'removal' as const },
+            { type: 'addition' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
+      const diff = createDiff({
+        filePath: '/src/removal.ts',
+        changeType: 'modified',
+        hunks,
+      } as any);
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('maps a line before first hunk (no offset)', async () => {
-      const code = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const code =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 4, oldLines: 4, newStart: 4, newLines: 4,
-        lines: [
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-        ],
-      }];
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 4,
+          oldLines: 4,
+          newStart: 4,
+          newLines: 4,
+          lines: [
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
       // Ensure comment lines map before the first hunk
-      const fullCode = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const fullCode =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const fullMockGitOps = makeHunkGitOps(fullCode);
-      const fullEng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, fullMockGitOps);
+      const fullEng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        fullMockGitOps,
+      );
       const diff = createDiff({ filePath: '/src/before.ts', changeType: 'modified', hunks } as any);
       const session = await fullEng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('maps a line after last hunk (cumulative offset)', async () => {
-      const code = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const code =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 3, newStart: 1, newLines: 5,
-        lines: [
-          { type: 'context' as const },
-          { type: 'addition' as const },
-          { type: 'addition' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-        ],
-      }];
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 3,
+          newStart: 1,
+          newLines: 5,
+          lines: [
+            { type: 'context' as const },
+            { type: 'addition' as const },
+            { type: 'addition' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
       const diff = createDiff({ filePath: '/src/after.ts', changeType: 'modified', hunks } as any);
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('handles multiple hunks with different offsets', async () => {
-      const code = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const code =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const hunks = [
         {
-          oldStart: 1, oldLines: 3, newStart: 1, newLines: 5,
+          oldStart: 1,
+          oldLines: 3,
+          newStart: 1,
+          newLines: 5,
           lines: [
             { type: 'context' as const },
             { type: 'addition' as const },
@@ -2165,7 +2352,10 @@ describe('Code Review Engine', () => {
           ],
         },
         {
-          oldStart: 4, oldLines: 4, newStart: 6, newLines: 4,
+          oldStart: 4,
+          oldLines: 4,
+          newStart: 6,
+          newLines: 4,
           lines: [
             { type: 'context' as const },
             { type: 'context' as const },
@@ -2180,22 +2370,39 @@ describe('Code Review Engine', () => {
     });
 
     it('covers context line equal to oldLine in hunk walk', async () => {
-      const code = 'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
+      const code =
+        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
       const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 7, newStart: 1, newLines: 7,
-        lines: [
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-        ],
-      }];
-      const diff = createDiff({ filePath: '/src/ctxline.ts', changeType: 'modified', hunks } as any);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 7,
+          newStart: 1,
+          newLines: 7,
+          lines: [
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
+      const diff = createDiff({
+        filePath: '/src/ctxline.ts',
+        changeType: 'modified',
+        hunks,
+      } as any);
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -2207,11 +2414,21 @@ describe('Code Review Engine', () => {
 
   describe('mergeAndDeduplicate — edge cases', () => {
     it('should return heuristic results when LLM results are empty', () => {
-      const heuristic = [{
-        path: '/src/test.ts', content: 'Test', existingCode: 'code', thinking: '',
-        startLine: 1, endLine: 3, category: 'bug' as const, severity: 'high' as const,
-        filtered: false, id: 'h1', createdAt: '2024-01-01T00:00:00Z',
-      }];
+      const heuristic = [
+        {
+          path: '/src/test.ts',
+          content: 'Test',
+          existingCode: 'code',
+          thinking: '',
+          startLine: 1,
+          endLine: 3,
+          category: 'bug' as const,
+          severity: 'high' as const,
+          filtered: false,
+          id: 'h1',
+          createdAt: '2024-01-01T00:00:00Z',
+        },
+      ];
       // Test that merge works by accessing the private method
       // Actually this is tested indirectly via reviewDiff, let's just test the filter phase
     });
@@ -2219,12 +2436,14 @@ describe('Code Review Engine', () => {
 
   describe('getDiffContentSync — metadata fallback', () => {
     it('should include oldPath in metadata output', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/renamed-file.ts',
-        oldPath: '/src/old-location.ts',
-        changeType: 'renamed',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/renamed-file.ts',
+          oldPath: '/src/old-location.ts',
+          changeType: 'renamed',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2238,7 +2457,9 @@ describe('Code Review Engine', () => {
     it('should throw NO_GIT_OPS error without GitOps and fallback disabled', async () => {
       const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore);
       const diff = createDiff({ filePath: '/src/no-git.ts' });
-      await expect(eng.reviewDiff('test-project', [diff])).rejects.toThrow('GitOperations is required');
+      await expect(eng.reviewDiff('test-project', [diff])).rejects.toThrow(
+        'GitOperations is required',
+      );
     });
   });
 
@@ -2256,18 +2477,34 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 2, newStart: 1, newLines: 4,
-        lines: [
-          { type: 'context' as const },
-          { type: 'addition' as const },
-          { type: 'addition' as const },
-          { type: 'context' as const },
-        ],
-      }];
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 2,
+          newStart: 1,
+          newLines: 4,
+          lines: [
+            { type: 'context' as const },
+            { type: 'addition' as const },
+            { type: 'addition' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
       // Line 4 (after hunk that ends at oldStart+oldLines=3) → cumulative offset
-      const diff = createDiff({ filePath: '/src/after-hunks.ts', changeType: 'modified', hunks } as any);
+      const diff = createDiff({
+        filePath: '/src/after-hunks.ts',
+        changeType: 'modified',
+        hunks,
+      } as any);
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -2291,13 +2528,26 @@ describe('Code Review Engine', () => {
       // When getDiffContent throws and allowMetadataFallback=false,
       // the error is caught by reviewDiff's per-file error handler and recorded
       const mockGitOps = {
-        readFileContent: async () => { throw new Error('File read error'); },
-        readFileRange: async () => { throw new Error('Range read error'); },
-        getFileDiff: async () => { throw new Error('Diff error'); },
+        readFileContent: async () => {
+          throw new Error('File read error');
+        },
+        readFileRange: async () => {
+          throw new Error('Range read error');
+        },
+        getFileDiff: async () => {
+          throw new Error('Diff error');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({ filePath: '/src/missing.ts', changeType: 'added' });
       // Per-file errors are recorded, not thrown — reviewDiff returns completed
       const session = await eng.reviewDiff('test-project', [diff]);
@@ -2308,13 +2558,26 @@ describe('Code Review Engine', () => {
 
     it('should fall back to metadata when getDiffContent fails and allowMetadataFallback is true', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw new Error('File read error'); },
-        readFileRange: async () => { throw new Error('Range read error'); },
-        getFileDiff: async () => { throw new Error('Diff error'); },
+        readFileContent: async () => {
+          throw new Error('File read error');
+        },
+        readFileRange: async () => {
+          throw new Error('Range read error');
+        },
+        getFileDiff: async () => {
+          throw new Error('Diff error');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: true }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: true },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({ filePath: '/src/metadata-fallback.ts', changeType: 'added' });
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
@@ -2324,13 +2587,26 @@ describe('Code Review Engine', () => {
       // ReviewEngineError is rethrown by getDiffContent (L780)
       // When thrown from planPhase/analyzePhase, it's caught by reviewDiff's catch
       const mockGitOps = {
-        readFileContent: async () => { throw new ReviewEngineError('Test rethrow', 'FILE_NOT_FOUND'); },
-        readFileRange: async () => { throw new Error('Range error'); },
-        getFileDiff: async () => { throw new Error('Diff error'); },
+        readFileContent: async () => {
+          throw new ReviewEngineError('Test rethrow', 'FILE_NOT_FOUND');
+        },
+        readFileRange: async () => {
+          throw new Error('Range error');
+        },
+        getFileDiff: async () => {
+          throw new Error('Diff error');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({ filePath: '/src/rethrow.ts', changeType: 'added' });
       const session = await eng.reviewDiff('test-project', [diff]);
       // The error is caught per-file and recorded
@@ -2340,13 +2616,26 @@ describe('Code Review Engine', () => {
     it('should handle error in getDiffContent where error is not an Error instance', async () => {
       // L786-789: when error is not an Error instance, String(error) is used
       const mockGitOps = {
-        readFileContent: async () => { throw 'string error'; },
-        readFileRange: async () => { throw new Error('Range error'); },
-        getFileDiff: async () => { throw new Error('Diff error'); },
+        readFileContent: async () => {
+          throw 'string error';
+        },
+        readFileRange: async () => {
+          throw new Error('Range error');
+        },
+        getFileDiff: async () => {
+          throw new Error('Diff error');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({ filePath: '/src/string-error.ts', changeType: 'added' });
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
@@ -2363,15 +2652,42 @@ describe('Code Review Engine', () => {
       // When C is first reached via A->B->C and fully processed (BLACK),
       // the second visit via A->C should be skipped
       const nodeA: GraphNode = {
-        id: 0, projectId: 'test-project', label: 'Function', name: 'A',
-        qualifiedName: 'pkg.A', filePath: '/src/a.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: '2024-01-01', updatedAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        label: 'Function',
+        name: 'A',
+        qualifiedName: 'pkg.A',
+        filePath: '/src/a.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: '2024-01-01',
+        updatedAt: '2024-01-01',
       };
-      const nodeB: GraphNode = { ...nodeA, name: 'B', qualifiedName: 'pkg.B', filePath: '/src/b.ts' };
-      const nodeC: GraphNode = { ...nodeA, name: 'C', qualifiedName: 'pkg.C', filePath: '/src/c.ts' };
-      const nodeD: GraphNode = { ...nodeA, name: 'D', qualifiedName: 'pkg.D', filePath: '/src/d.ts' };
+      const nodeB: GraphNode = {
+        ...nodeA,
+        name: 'B',
+        qualifiedName: 'pkg.B',
+        filePath: '/src/b.ts',
+      };
+      const nodeC: GraphNode = {
+        ...nodeA,
+        name: 'C',
+        qualifiedName: 'pkg.C',
+        filePath: '/src/c.ts',
+      };
+      const nodeD: GraphNode = {
+        ...nodeA,
+        name: 'D',
+        qualifiedName: 'pkg.D',
+        filePath: '/src/d.ts',
+      };
 
       const idA = store.insertNode(nodeA);
       const idB = store.insertNode(nodeB);
@@ -2380,22 +2696,46 @@ describe('Code Review Engine', () => {
 
       // A -> B -> C -> D (linear chain, plus A -> C creates a shortcut)
       store.insertEdge({
-        id: 0, projectId: 'test-project', sourceId: idA, targetId: idB,
-        type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0, projectId: 'test-project', sourceId: idB, targetId: idC,
-        type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idB,
+        targetId: idC,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0, projectId: 'test-project', sourceId: idC, targetId: idD,
-        type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idC,
+        targetId: idD,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
       });
       // Shortcut: A -> C — when DFS processes C via A->B->C first (BLACK),
       // the A->C edge should skip C entirely
       store.insertEdge({
-        id: 0, projectId: 'test-project', sourceId: idA, targetId: idC,
-        type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idA,
+        targetId: idC,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
       });
 
       // Just verify the store is properly set up
@@ -2422,25 +2762,33 @@ describe('Code Review Engine', () => {
     });
 
     it('should add type definition risk for .d.ts files', async () => {
-      const diffs = [createDiff({ filePath: '/src/globals.d.ts', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/globals.d.ts', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should add API contract risk for files in /api/ directory', async () => {
-      const diffs = [createDiff({ filePath: '/src/api/handlers.ts', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/api/handlers.ts', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should add API contract risk for files in /routes/ directory', async () => {
-      const diffs = [createDiff({ filePath: '/src/routes/users.ts', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/routes/users.ts', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should add public type change risk for files in /types/ directory', async () => {
-      const diffs = [createDiff({ filePath: '/src/types/User.ts', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/types/User.ts', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2453,14 +2801,29 @@ describe('Code Review Engine', () => {
   describe('reviewDiff — non-Error thrown during review', () => {
     it('should handle non-Error thrown from getDiffContent', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw 'string error from plan'; },
-        readFileRange: async () => { throw new Error('range error'); },
-        getFileDiff: async () => { throw new Error('diff error'); },
+        readFileContent: async () => {
+          throw 'string error from plan';
+        },
+        readFileRange: async () => {
+          throw new Error('range error');
+        },
+        getFileDiff: async () => {
+          throw new Error('diff error');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/string.ts', changeType: 'added' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/string.ts', changeType: 'added' }),
+      ]);
       expect(session.status).toBe('completed');
       expect(session.filesReviewed).toBe(1);
     });
@@ -2473,14 +2836,29 @@ describe('Code Review Engine', () => {
   describe('getDiffContent — ReviewEngineError rethrow', () => {
     it('should let ReviewEngineError propagate from getDiffContent and be caught per-file', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw new ReviewEngineError('parse failure', 'PARSE_ERROR'); },
-        readFileRange: async () => { throw new Error('range'); },
-        getFileDiff: async () => { throw new Error('diff'); },
+        readFileContent: async () => {
+          throw new ReviewEngineError('parse failure', 'PARSE_ERROR');
+        },
+        readFileRange: async () => {
+          throw new Error('range');
+        },
+        getFileDiff: async () => {
+          throw new Error('diff');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/parse-error.ts', changeType: 'added' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/parse-error.ts', changeType: 'added' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -2494,18 +2872,31 @@ describe('Code Review Engine', () => {
       const mockGitOps = {
         readFileContent: async () => 'code',
         readFileRange: async () => 'code',
-        getFileDiff: async () => { throw new Error('fail'); },
+        getFileDiff: async () => {
+          throw new Error('fail');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const llmProvider: any = {
-        complete: async () => { throw new Error('LLM failure'); },
+        complete: async () => {
+          throw new Error('LLM failure');
+        },
         model: 'test',
         maxTokens: 1000,
         temperature: 0,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/llm-fail.ts', changeType: 'modified' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        llmProvider,
+        {},
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/llm-fail.ts', changeType: 'modified' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -2517,24 +2908,35 @@ describe('Code Review Engine', () => {
   describe('mergeAndDeduplicate — overlapping comments', () => {
     it('should merge llm comments when both heuristic and llm have results', async () => {
       const mockGitOps = {
-        readFileContent: async () => [
-          'export function longFunc() {',
-          ...Array(60).fill('  const x = db.query("SELECT 1");'),
-          '}',
-        ].join('\n'),
+        readFileContent: async () =>
+          [
+            'export function longFunc() {',
+            ...Array(60).fill('  const x = db.query("SELECT 1");'),
+            '}',
+          ].join('\n'),
         readFileRange: async () => 'code',
         getFileDiff: async () => 'diff',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const llmProvider: any = {
-        complete: async () => '{"comments":[{"path":"/src/test.ts","content":"Test","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"bug","severity":"high","filtered":false,"id":"llm-1","createdAt":"2024-01-01T00:00:00Z"}]}',
+        complete: async () =>
+          '{"comments":[{"path":"/src/test.ts","content":"Test","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"bug","severity":"high","filtered":false,"id":"llm-1","createdAt":"2024-01-01T00:00:00Z"}]}',
         model: 'test',
         maxTokens: 1000,
         temperature: 0,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/merge.ts', changeType: 'modified' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        llmProvider,
+        {},
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/merge.ts', changeType: 'modified' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -2546,20 +2948,29 @@ describe('Code Review Engine', () => {
   describe('Filter rules — inverted range and style+comment', () => {
     it('should pass comments with valid inverted range to filter phase', async () => {
       // Create a diff that triggers a heuristic finding
-      const diffs = [createDiff({
-        filePath: '/src/routes/filter.ts',
-        changeType: 'added',
-        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 30, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/routes/filter.ts',
+          changeType: 'added',
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 30, changeType: 'added' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should filter comments with empty content', async () => {
       const comment: any = {
-        path: '/src/test.ts', content: '   ', existingCode: 'code',
-        startLine: 1, endLine: 1, category: 'style', severity: 'low',
-        filtered: false, id: 'test-empty-content', createdAt: new Date().toISOString(),
+        path: '/src/test.ts',
+        content: '   ',
+        existingCode: 'code',
+        startLine: 1,
+        endLine: 1,
+        category: 'style',
+        severity: 'low',
+        filtered: false,
+        id: 'test-empty-content',
+        createdAt: new Date().toISOString(),
       };
       const filtered = await (engine as any).filterPhase?.([comment], createDiff());
       expect(filtered).toHaveLength(0);
@@ -2572,12 +2983,14 @@ describe('Code Review Engine', () => {
 
   describe('planPhase — renamed file risk', () => {
     it('should flag renamed files with file rename risk area', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/new.ts',
-        oldPath: '/src/old.ts',
-        changeType: 'renamed',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/new.ts',
+          oldPath: '/src/old.ts',
+          changeType: 'renamed',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2597,7 +3010,14 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({
         filePath: '/src/ranges-only.ts',
         changeType: 'modified',
@@ -2622,12 +3042,27 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 5, oldLines: 2, newStart: 5, newLines: 2,
-        lines: [{ type: 'addition' as const }, { type: 'context' as const }],
-      }];
-      const diff = { ...createDiff({ filePath: '/src/before-hunk.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 5,
+          oldLines: 2,
+          newStart: 5,
+          newLines: 2,
+          lines: [{ type: 'addition' as const }, { type: 'context' as const }],
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/before-hunk.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -2639,10 +3074,14 @@ describe('Code Review Engine', () => {
 
   describe('Config — contextLines', () => {
     it('should accept contextLines in custom config', async () => {
-      const eng = new CodeReviewEngine(store, {
-        contextLines: 10,
-        allowMetadataFallback: true,
-      }, sessionStore);
+      const eng = new CodeReviewEngine(
+        store,
+        {
+          contextLines: 10,
+          allowMetadataFallback: true,
+        },
+        sessionStore,
+      );
       const diffs = [createDiff({ filePath: '/src/ctx.ts' })];
       const session = await eng.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
@@ -2675,12 +3114,31 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 1, newStart: 1, newLines: 3,
-        lines: [{ type: 'context' as const }, { type: 'addition' as const }, { type: 'addition' as const }],
-      }];
-      const diff = { ...createDiff({ filePath: '/src/after-all.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 3,
+          lines: [
+            { type: 'context' as const },
+            { type: 'addition' as const },
+            { type: 'addition' as const },
+          ],
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/after-all.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -2692,7 +3150,9 @@ describe('Code Review Engine', () => {
 
   describe('planPhase — non-TS/Python/Go file type false branches', () => {
     it('should handle .java files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/Main.java', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/Main.java', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2704,7 +3164,9 @@ describe('Code Review Engine', () => {
     });
 
     it('should handle .php files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/index.php', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/index.php', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2716,7 +3178,9 @@ describe('Code Review Engine', () => {
     });
 
     it('should handle .swift files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/App.swift', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/App.swift', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2728,7 +3192,9 @@ describe('Code Review Engine', () => {
     });
 
     it('should handle .cs files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/Program.cs', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({ filePath: '/src/Program.cs', changeType: 'modified', ranges: [] }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2746,13 +3212,25 @@ describe('Code Review Engine', () => {
 
   describe('planPhase — __tests__ directory detection', () => {
     it('should detect test quality focus for files in __tests__ directory', async () => {
-      const diffs = [createDiff({ filePath: '/src/__tests__/module.test.ts', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/__tests__/module.test.ts',
+          changeType: 'modified',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should detect spec quality focus for __tests__ spec files', async () => {
-      const diffs = [createDiff({ filePath: '/src/__tests__/module.spec.ts', changeType: 'modified', ranges: [] })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/__tests__/module.spec.ts',
+          changeType: 'modified',
+          ranges: [],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2772,12 +3250,21 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const diffs = [createDiff({
-        filePath: '/src/medium.ts',
-        changeType: 'modified',
-        ranges: [{ oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' }],
-      })];
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const diffs = [
+        createDiff({
+          filePath: '/src/medium.ts',
+          changeType: 'modified',
+          ranges: [{ oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' }],
+        }),
+      ];
       const session = await eng.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
@@ -2789,7 +3276,13 @@ describe('Code Review Engine', () => {
 
   describe('relocatePhase — mapLineThroughHunks addition/removal/context lines', () => {
     it('should handle addition line type within hunk walk', async () => {
-      const code = ['// header', 'function fetchData() {', '  const x = 1;', '  return x;', '}'].join('\n');
+      const code = [
+        '// header',
+        'function fetchData() {',
+        '  const x = 1;',
+        '  return x;',
+        '}',
+      ].join('\n');
       const mockGitOps = {
         readFileContent: async () => code,
         readFileRange: async () => code,
@@ -2797,23 +3290,46 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 2, oldLines: 3, newStart: 2, newLines: 4,
-        lines: [
-          { type: 'context' as const },
-          { type: 'addition' as const },
-          { type: 'context' as const },
-          { type: 'context' as const },
-        ],
-      }];
-      const diff = { ...createDiff({ filePath: '/src/addition-line.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 2,
+          oldLines: 3,
+          newStart: 2,
+          newLines: 4,
+          lines: [
+            { type: 'context' as const },
+            { type: 'addition' as const },
+            { type: 'context' as const },
+            { type: 'context' as const },
+          ],
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/addition-line.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('should handle removal line equal to target oldLine', async () => {
-      const code = ['// header', 'function oldFunc() {', '  return 1;', '}', 'function newFunc() {', '  return 2;', '}'].join('\n');
+      const code = [
+        '// header',
+        'function oldFunc() {',
+        '  return 1;',
+        '}',
+        'function newFunc() {',
+        '  return 2;',
+        '}',
+      ].join('\n');
       const mockGitOps = {
         readFileContent: async () => code,
         readFileRange: async () => code,
@@ -2821,16 +3337,31 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 2, oldLines: 3, newStart: 2, newLines: 3,
-        lines: [
-          { type: 'removal' as const },
-          { type: 'removal' as const },
-          { type: 'removal' as const },
-        ],
-      }];
-      const diff = { ...createDiff({ filePath: '/src/removal-eq.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 2,
+          oldLines: 3,
+          newStart: 2,
+          newLines: 3,
+          lines: [
+            { type: 'removal' as const },
+            { type: 'removal' as const },
+            { type: 'removal' as const },
+          ],
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/removal-eq.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -2844,18 +3375,43 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 5, newStart: 1, newLines: 5,
-        lines: Array(5).fill({ type: 'context' as const }),
-      }];
-      const diff = { ...createDiff({ filePath: '/src/ctx-match.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 5,
+          newStart: 1,
+          newLines: 5,
+          lines: Array(5).fill({ type: 'context' as const }),
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/ctx-match.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('should break after passing oldLine in hunk walk', async () => {
-      const code = ['import x;', '', 'function test() {', '  return 1;', '}', '', 'function other() {', '  return 2;', '}'].join('\n');
+      const code = [
+        'import x;',
+        '',
+        'function test() {',
+        '  return 1;',
+        '}',
+        '',
+        'function other() {',
+        '  return 2;',
+        '}',
+      ].join('\n');
       const mockGitOps = {
         readFileContent: async () => code,
         readFileRange: async () => code,
@@ -2863,18 +3419,41 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 1, oldLines: 9, newStart: 1, newLines: 9,
-        lines: Array(9).fill({ type: 'context' as const }),
-      }];
-      const diff = { ...createDiff({ filePath: '/src/past-target.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 1,
+          oldLines: 9,
+          newStart: 1,
+          newLines: 9,
+          lines: Array(9).fill({ type: 'context' as const }),
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/past-target.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('should return original line when before first hunk', async () => {
-      const code = ['// header comment', '', '// another header', '', 'function test() {', '  return 1;', '}'].join('\n');
+      const code = [
+        '// header comment',
+        '',
+        '// another header',
+        '',
+        'function test() {',
+        '  return 1;',
+        '}',
+      ].join('\n');
       const mockGitOps = {
         readFileContent: async () => code,
         readFileRange: async () => code,
@@ -2882,12 +3461,27 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const hunks = [{
-        oldStart: 5, oldLines: 3, newStart: 5, newLines: 3,
-        lines: Array(3).fill({ type: 'context' as const }),
-      }];
-      const diff = { ...createDiff({ filePath: '/src/before-first.ts', changeType: 'modified' }), hunks } as any;
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const hunks = [
+        {
+          oldStart: 5,
+          oldLines: 3,
+          newStart: 5,
+          newLines: 3,
+          lines: Array(3).fill({ type: 'context' as const }),
+        },
+      ];
+      const diff = {
+        ...createDiff({ filePath: '/src/before-first.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -2907,7 +3501,14 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({
         filePath: '/src/after-ranges.ts',
         changeType: 'modified',
@@ -2921,7 +3522,8 @@ describe('Code Review Engine', () => {
     });
 
     it('should handle comment.endLine within a range', async () => {
-      const content = '// TODO: fix this\nasync function fetchData() {\n  const x = await query();\n  return x;\n}\n';
+      const content =
+        '// TODO: fix this\nasync function fetchData() {\n  const x = await query();\n  return x;\n}\n';
       const mockGitOps = {
         readFileContent: async () => content,
         readFileRange: async () => content,
@@ -2929,20 +3531,26 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({
         filePath: '/src/within-range.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 25, changeType: 'modified' },
-        ],
+        ranges: [{ oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 25, changeType: 'modified' }],
       });
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
 
     it('should handle comment spanning multiple diff ranges', async () => {
-      const content = '// TODO: refactor this section\n\nfunction step1() {\n  return 1;\n}\n\nfunction step2() {\n  return 2;\n}\n';
+      const content =
+        '// TODO: refactor this section\n\nfunction step1() {\n  return 1;\n}\n\nfunction step2() {\n  return 2;\n}\n';
       const mockGitOps = {
         readFileContent: async () => content,
         readFileRange: async () => content,
@@ -2950,7 +3558,14 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const diff = createDiff({
         filePath: '/src/spanning.ts',
         changeType: 'modified',
@@ -2970,7 +3585,15 @@ describe('Code Review Engine', () => {
 
   describe('applyCumulativeOffset — multi-hunk accumulation', () => {
     it('should accumulate offset from multiple hunks when line is after all', async () => {
-      const code = ['import a;', 'import b;', 'import c;', '', 'function test() {', '  return 1;', '}'].join('\n');
+      const code = [
+        'import a;',
+        'import b;',
+        'import c;',
+        '',
+        'function test() {',
+        '  return 1;',
+        '}',
+      ].join('\n');
       const mockGitOps = {
         readFileContent: async () => code,
         readFileRange: async () => code,
@@ -2978,18 +3601,44 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const hunks = [
         {
-          oldStart: 2, oldLines: 1, newStart: 2, newLines: 3,
-          lines: [{ type: 'context' as const }, { type: 'addition' as const }, { type: 'addition' as const }],
+          oldStart: 2,
+          oldLines: 1,
+          newStart: 2,
+          newLines: 3,
+          lines: [
+            { type: 'context' as const },
+            { type: 'addition' as const },
+            { type: 'addition' as const },
+          ],
         },
         {
-          oldStart: 3, oldLines: 1, newStart: 4, newLines: 5,
-          lines: [{ type: 'context' as const }, { type: 'addition' as const }, { type: 'addition' as const }, { type: 'addition' as const }, { type: 'context' as const }],
+          oldStart: 3,
+          oldLines: 1,
+          newStart: 4,
+          newLines: 5,
+          lines: [
+            { type: 'context' as const },
+            { type: 'addition' as const },
+            { type: 'addition' as const },
+            { type: 'addition' as const },
+            { type: 'context' as const },
+          ],
         },
       ];
-      const diff = { ...createDiff({ filePath: '/src/multi-offset.ts', changeType: 'modified' }), hunks } as any;
+      const diff = {
+        ...createDiff({ filePath: '/src/multi-offset.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -3003,18 +3652,34 @@ describe('Code Review Engine', () => {
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
       const hunks = [
         {
-          oldStart: 1, oldLines: 1, newStart: 1, newLines: 1,
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 1,
           lines: [{ type: 'context' as const }],
         },
         {
-          oldStart: 5, oldLines: 1, newStart: 5, newLines: 1,
+          oldStart: 5,
+          oldLines: 1,
+          newStart: 5,
+          newLines: 1,
           lines: [{ type: 'context' as const }],
         },
       ];
-      const diff = { ...createDiff({ filePath: '/src/skip-hunks.ts', changeType: 'modified' }), hunks } as any;
+      const diff = {
+        ...createDiff({ filePath: '/src/skip-hunks.ts', changeType: 'modified' }),
+        hunks,
+      } as any;
       const session = await eng.reviewDiff('test-project', [diff]);
       expect(session.status).toBe('completed');
     });
@@ -3034,13 +3699,27 @@ describe('Code Review Engine', () => {
         fileExists: async () => true,
       };
       const llmProvider: any = {
-        complete: async () => '{"comments":[{"path":"/src/generated.ts","content":"LLM finding","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"documentation","severity":"low","filtered":false,"id":"llm-gen","createdAt":"2024-01-01T00:00:00Z"}]}',
+        complete: async () =>
+          '{"comments":[{"path":"/src/generated.ts","content":"LLM finding","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"documentation","severity":"low","filtered":false,"id":"llm-gen","createdAt":"2024-01-01T00:00:00Z"}]}',
         model: 'test',
         maxTokens: 1000,
         temperature: 0,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/generated.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }] })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        llmProvider,
+        {},
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({
+          filePath: '/src/generated.ts',
+          changeType: 'modified',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+        }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -3052,39 +3731,65 @@ describe('Code Review Engine', () => {
   describe('mergeAndDeduplicate — dedup logic branches', () => {
     it('should merge non-duplicate LLM comments with different category', async () => {
       const mockGitOps = {
-        readFileContent: async () => '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
-        readFileRange: async () => '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
-        getFileDiff: async () => '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
+        readFileContent: async () =>
+          '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
+        readFileRange: async () =>
+          '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
+        getFileDiff: async () =>
+          '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const llmProvider: any = {
-        complete: async () => '{"comments":[{"path":"/src/dedup.ts","content":"Different","existingCode":"code","thinking":"","startLine":2,"endLine":2,"category":"style","severity":"low","filtered":false,"id":"llm-diff","createdAt":"2024-01-01T00:00:00Z"}]}',
+        complete: async () =>
+          '{"comments":[{"path":"/src/dedup.ts","content":"Different","existingCode":"code","thinking":"","startLine":2,"endLine":2,"category":"style","severity":"low","filtered":false,"id":"llm-diff","createdAt":"2024-01-01T00:00:00Z"}]}',
         model: 'test',
         maxTokens: 1000,
         temperature: 0,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/dedup.ts', changeType: 'modified' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        llmProvider,
+        {},
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/dedup.ts', changeType: 'modified' }),
+      ]);
       expect(session.status).toBe('completed');
     });
 
     it('should deduplicate overlapping comments in same category', async () => {
       const mockGitOps = {
-        readFileContent: async () => '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
-        readFileRange: async () => '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
-        getFileDiff: async () => '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
+        readFileContent: async () =>
+          '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
+        readFileRange: async () =>
+          '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
+        getFileDiff: async () =>
+          '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const llmProvider: any = {
-        complete: async () => '{"comments":[{"path":"/src/overlap.ts","content":"LLM bug","existingCode":"code","thinking":"","startLine":2,"endLine":4,"category":"bug","severity":"high","filtered":false,"id":"llm-overlap","createdAt":"2024-01-01T00:00:00Z"}]}',
+        complete: async () =>
+          '{"comments":[{"path":"/src/overlap.ts","content":"LLM bug","existingCode":"code","thinking":"","startLine":2,"endLine":4,"category":"bug","severity":"high","filtered":false,"id":"llm-overlap","createdAt":"2024-01-01T00:00:00Z"}]}',
         model: 'test',
         maxTokens: 1000,
         temperature: 0,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, llmProvider, {}, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/overlap.ts', changeType: 'modified' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        llmProvider,
+        {},
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/overlap.ts', changeType: 'modified' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -3096,9 +3801,16 @@ describe('Code Review Engine', () => {
   describe('filterPhase — inverted range and empty content', () => {
     it('should filter comments with inverted line range (startLine > endLine)', async () => {
       const comment: any = {
-        path: '/src/test.ts', content: 'Test', existingCode: 'code',
-        startLine: 10, endLine: 5, category: 'bug', severity: 'high',
-        filtered: false, id: 'test-inverted', createdAt: new Date().toISOString(),
+        path: '/src/test.ts',
+        content: 'Test',
+        existingCode: 'code',
+        startLine: 10,
+        endLine: 5,
+        category: 'bug',
+        severity: 'high',
+        filtered: false,
+        id: 'test-inverted',
+        createdAt: new Date().toISOString(),
       };
       const filtered = await (engine as any).filterPhase?.([comment], createDiff());
       expect(filtered).toHaveLength(0);
@@ -3106,9 +3818,16 @@ describe('Code Review Engine', () => {
 
     it('should filter comments with whitespace-only content', async () => {
       const comment: any = {
-        path: '/src/test.ts', content: ' \t  ', existingCode: 'code',
-        startLine: 1, endLine: 1, category: 'style', severity: 'low',
-        filtered: false, id: 'test-whitespace', createdAt: new Date().toISOString(),
+        path: '/src/test.ts',
+        content: ' \t  ',
+        existingCode: 'code',
+        startLine: 1,
+        endLine: 1,
+        category: 'style',
+        severity: 'low',
+        filtered: false,
+        id: 'test-whitespace',
+        createdAt: new Date().toISOString(),
       };
       const filtered = await (engine as any).filterPhase?.([comment], createDiff());
       expect(filtered).toHaveLength(0);
@@ -3116,9 +3835,16 @@ describe('Code Review Engine', () => {
 
     it('should filter style comment on comment-only line', async () => {
       const comment: any = {
-        path: '/src/test.ts', content: 'Style issue', existingCode: '// some comment',
-        startLine: 1, endLine: 1, category: 'style', severity: 'low',
-        filtered: false, id: 'test-style-comment', createdAt: new Date().toISOString(),
+        path: '/src/test.ts',
+        content: 'Style issue',
+        existingCode: '// some comment',
+        startLine: 1,
+        endLine: 1,
+        category: 'style',
+        severity: 'low',
+        filtered: false,
+        id: 'test-style-comment',
+        createdAt: new Date().toISOString(),
       };
       const filtered = await (engine as any).filterPhase?.([comment], createDiff());
       expect(filtered).toHaveLength(0);
@@ -3131,17 +3857,40 @@ describe('Code Review Engine', () => {
 
   describe('buildFileContext — root directory and change icons', () => {
     it('should group files in root directory correctly', async () => {
-      const diffs = [createDiff({ filePath: 'root.ts', changeType: 'modified', ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' }] })];
+      const diffs = [
+        createDiff({
+          filePath: 'root.ts',
+          changeType: 'modified',
+          ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' }],
+        }),
+      ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
 
     it('should handle all four change types with oldPath and ranges', async () => {
       const diffs = [
-        createDiff({ filePath: '/src/added.ts', changeType: 'added', ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }] }),
-        createDiff({ filePath: '/src/modified.ts', changeType: 'modified', ranges: [{ oldStart: 5, oldEnd: 15, newStart: 5, newEnd: 20, changeType: 'modified' }] }),
-        createDiff({ filePath: '/src/deleted.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 50, newStart: 0, newEnd: 0, changeType: 'deleted' }] }),
-        createDiff({ filePath: '/src/renamed.ts', changeType: 'renamed', oldPath: '/src/orig.ts', ranges: [{ oldStart: 1, oldEnd: 30, newStart: 1, newEnd: 30, changeType: 'renamed' }] }),
+        createDiff({
+          filePath: '/src/added.ts',
+          changeType: 'added',
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }],
+        }),
+        createDiff({
+          filePath: '/src/modified.ts',
+          changeType: 'modified',
+          ranges: [{ oldStart: 5, oldEnd: 15, newStart: 5, newEnd: 20, changeType: 'modified' }],
+        }),
+        createDiff({
+          filePath: '/src/deleted.ts',
+          changeType: 'deleted',
+          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 0, newEnd: 0, changeType: 'deleted' }],
+        }),
+        createDiff({
+          filePath: '/src/renamed.ts',
+          changeType: 'renamed',
+          oldPath: '/src/orig.ts',
+          ranges: [{ oldStart: 1, oldEnd: 30, newStart: 1, newEnd: 30, changeType: 'renamed' }],
+        }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
@@ -3156,27 +3905,92 @@ describe('Code Review Engine', () => {
     it('should skip fully processed nodes in cycle detection', async () => {
       const suffix = Date.now();
       const nodeA: GraphNode = {
-        id: 0, projectId: 'test-project', label: 'Function', name: 'A',
-        qualifiedName: `blackA.${suffix}`, filePath: '/src/black-a.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: '2024-01-01', updatedAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        label: 'Function',
+        name: 'A',
+        qualifiedName: `blackA.${suffix}`,
+        filePath: '/src/black-a.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: '2024-01-01',
+        updatedAt: '2024-01-01',
       };
-      const nodeB: GraphNode = { ...nodeA, name: 'B', qualifiedName: `blackB.${suffix}`, filePath: '/src/black-b.ts' };
-      const nodeC: GraphNode = { ...nodeA, name: 'C', qualifiedName: `blackC.${suffix}`, filePath: '/src/black-c.ts' };
-      const nodeD: GraphNode = { ...nodeA, name: 'D', qualifiedName: `blackD.${suffix}`, filePath: '/src/black-d.ts' };
+      const nodeB: GraphNode = {
+        ...nodeA,
+        name: 'B',
+        qualifiedName: `blackB.${suffix}`,
+        filePath: '/src/black-b.ts',
+      };
+      const nodeC: GraphNode = {
+        ...nodeA,
+        name: 'C',
+        qualifiedName: `blackC.${suffix}`,
+        filePath: '/src/black-c.ts',
+      };
+      const nodeD: GraphNode = {
+        ...nodeA,
+        name: 'D',
+        qualifiedName: `blackD.${suffix}`,
+        filePath: '/src/black-d.ts',
+      };
 
       const idA = store.insertNode(nodeA);
       const idB = store.insertNode(nodeB);
       const idC = store.insertNode(nodeC);
       const idD = store.insertNode(nodeD);
 
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idA, targetId: idB, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idB, targetId: idD, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idA, targetId: idC, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: idC, targetId: idD, type: 'IMPORTS', properties: {}, weight: 1, createdAt: '2024-01-01' });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idA,
+        targetId: idB,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idB,
+        targetId: idD,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idA,
+        targetId: idC,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: idC,
+        targetId: idD,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
+      });
 
-      const session = await engine.reviewDiff('test-project', [createDiff({ filePath: '/src/black-a.ts' })]);
+      const session = await engine.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/black-a.ts' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -3189,7 +4003,11 @@ describe('Code Review Engine', () => {
     it('should handle session with mode=scan in metadata', async () => {
       const customDir = getTempDir();
       const customSession = new SessionStore(customDir);
-      const customEngine = new CodeReviewEngine(store, { allowMetadataFallback: true }, customSession);
+      const customEngine = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: true },
+        customSession,
+      );
 
       const meta: SessionMetadata = {
         repository: 'test-project',
@@ -3199,7 +4017,9 @@ describe('Code Review Engine', () => {
         toRef: 'def',
       };
       (customSession as any).startSession('test-project', meta);
-      const session = await customEngine.reviewDiff('test-project', [createDiff({ filePath: '/src/scan.ts' })]);
+      const session = await customEngine.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/scan.ts' }),
+      ]);
       const resumed = await customEngine.resumeSession(session.id);
       expect(resumed.status).toBeDefined();
 
@@ -3233,27 +4053,57 @@ describe('Code Review Engine', () => {
   describe('getDiffContent — metadata fallback on error', () => {
     it('should fall back to metadata when read fails and allowMetadataFallback is true', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw new Error('Cannot read file'); },
-        readFileRange: async () => { throw new Error('Cannot read range'); },
-        getFileDiff: async () => { throw new Error('Cannot get diff'); },
+        readFileContent: async () => {
+          throw new Error('Cannot read file');
+        },
+        readFileRange: async () => {
+          throw new Error('Cannot read range');
+        },
+        getFileDiff: async () => {
+          throw new Error('Cannot get diff');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => false,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: true }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/fallback-meta.ts', changeType: 'modified', ranges: [] })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: true },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/fallback-meta.ts', changeType: 'modified', ranges: [] }),
+      ]);
       expect(session.status).toBe('completed');
     });
 
     it('should throw FILE_NOT_FOUND when read fails and fallback is disabled', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw new Error('File not readable'); },
-        readFileRange: async () => { throw new Error('Range not readable'); },
-        getFileDiff: async () => { throw new Error('Diff unavailable'); },
+        readFileContent: async () => {
+          throw new Error('File not readable');
+        },
+        readFileRange: async () => {
+          throw new Error('Range not readable');
+        },
+        getFileDiff: async () => {
+          throw new Error('Diff unavailable');
+        },
         getDiffHunks: async () => [],
         fileExists: async () => false,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/unreadable.ts', changeType: 'modified', ranges: [] })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/unreadable.ts', changeType: 'modified', ranges: [] }),
+      ]);
       expect(session.status).toBe('completed');
       expect(session.filesReviewed).toBe(1);
     });
@@ -3266,27 +4116,57 @@ describe('Code Review Engine', () => {
   describe('reviewDiff — non-Error thrown during file review', () => {
     it('should record string error via String(error) path', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw 'string error'; },
-        readFileRange: async () => { throw 'range error'; },
-        getFileDiff: async () => { throw 'diff error'; },
+        readFileContent: async () => {
+          throw 'string error';
+        },
+        readFileRange: async () => {
+          throw 'range error';
+        },
+        getFileDiff: async () => {
+          throw 'diff error';
+        },
         getDiffHunks: async () => [],
         fileExists: async () => false,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/string-throw.ts', changeType: 'added' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/string-throw.ts', changeType: 'added' }),
+      ]);
       expect(session.status).toBe('completed');
     });
 
     it('should record number error via String(error) path', async () => {
       const mockGitOps = {
-        readFileContent: async () => { throw 404; },
-        readFileRange: async () => { throw 500; },
-        getFileDiff: async () => { throw 403; },
+        readFileContent: async () => {
+          throw 404;
+        },
+        readFileRange: async () => {
+          throw 500;
+        },
+        getFileDiff: async () => {
+          throw 403;
+        },
         getDiffHunks: async () => [],
         fileExists: async () => false,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/number-throw.ts', changeType: 'added' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/number-throw.ts', changeType: 'added' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -3299,14 +4179,21 @@ describe('Code Review Engine', () => {
     it('should use gitOps from options parameter when provided', async () => {
       let called = false;
       const optionsGitOps = {
-        readFileContent: async () => { called = true; return 'from options'; },
+        readFileContent: async () => {
+          called = true;
+          return 'from options';
+        },
         readFileRange: async () => 'from options',
         getFileDiff: async () => 'from options',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/opt-git.ts', changeType: 'added', ranges: [] })], { gitOps: optionsGitOps, targetSha: 'abc' });
+      const session = await eng.reviewDiff(
+        'test-project',
+        [createDiff({ filePath: '/src/opt-git.ts', changeType: 'added', ranges: [] })],
+        { gitOps: optionsGitOps, targetSha: 'abc' },
+      );
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
@@ -3314,14 +4201,28 @@ describe('Code Review Engine', () => {
     it('should use constructor gitOps when options do not provide gitOps', async () => {
       let called = false;
       const constructorGitOps = {
-        readFileContent: async () => { called = true; return 'from constructor'; },
+        readFileContent: async () => {
+          called = true;
+          return 'from constructor';
+        },
         readFileRange: async () => 'from constructor',
         getFileDiff: async () => 'from constructor',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, constructorGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/constr-git.ts', changeType: 'added', ranges: [] })], { targetSha: 'abc' });
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        constructorGitOps,
+      );
+      const session = await eng.reviewDiff(
+        'test-project',
+        [createDiff({ filePath: '/src/constr-git.ts', changeType: 'added', ranges: [] })],
+        { targetSha: 'abc' },
+      );
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
@@ -3339,8 +4240,16 @@ describe('Code Review Engine', () => {
         maxTokens: 1000,
         temperature: 0,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: true }, sessionStore, llmProvider, {});
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/llm-no-git.ts' })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: true },
+        sessionStore,
+        llmProvider,
+        {},
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/llm-no-git.ts' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });
@@ -3353,14 +4262,26 @@ describe('Code Review Engine', () => {
     it('should read full file when no specific conditions match', async () => {
       let called = false;
       const mockGitOps = {
-        readFileContent: async () => { called = true; return 'full file'; },
+        readFileContent: async () => {
+          called = true;
+          return 'full file';
+        },
         readFileRange: async () => 'should not be called',
         getFileDiff: async () => 'should not be called',
         getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore, undefined, undefined, mockGitOps);
-      const session = await eng.reviewDiff('test-project', [createDiff({ filePath: '/src/default-read.ts', changeType: 'modified', ranges: [] })]);
+      const eng = new CodeReviewEngine(
+        store,
+        { allowMetadataFallback: false },
+        sessionStore,
+        undefined,
+        undefined,
+        mockGitOps,
+      );
+      const session = await eng.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/default-read.ts', changeType: 'modified', ranges: [] }),
+      ]);
       expect(session.status).toBe('completed');
       expect(called).toBe(true);
     });
@@ -3374,21 +4295,56 @@ describe('Code Review Engine', () => {
     it('should skip edges where source or target lacks filePath', async () => {
       const suffix = Date.now();
       const node1 = store.insertNode({
-        id: 0, projectId: 'test-project', label: 'Function', name: 'noPath1',
-        qualifiedName: `np1.${suffix}`, filePath: undefined,
-        startLine: 1, endLine: 1, language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null, isExported: false,
-        fingerprint: null, createdAt: '2024-01-01', updatedAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        label: 'Function',
+        name: 'noPath1',
+        qualifiedName: `np1.${suffix}`,
+        filePath: undefined,
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: '2024-01-01',
+        updatedAt: '2024-01-01',
       });
       const node2 = store.insertNode({
-        id: 0, projectId: 'test-project', label: 'Function', name: 'noPath2',
-        qualifiedName: `np2.${suffix}`, filePath: undefined,
-        startLine: 1, endLine: 1, language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null, isExported: false,
-        fingerprint: null, createdAt: '2024-01-01', updatedAt: '2024-01-01',
+        id: 0,
+        projectId: 'test-project',
+        label: 'Function',
+        name: 'noPath2',
+        qualifiedName: `np2.${suffix}`,
+        filePath: undefined,
+        startLine: 1,
+        endLine: 1,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: '2024-01-01',
+        updatedAt: '2024-01-01',
       });
-      store.insertEdge({ id: 0, projectId: 'test-project', sourceId: node1, targetId: node2, type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01' });
-      const session = await engine.reviewDiff('test-project', [createDiff({ filePath: '/src/no-filepath.ts' })]);
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: node1,
+        targetId: node2,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01',
+      });
+      const session = await engine.reviewDiff('test-project', [
+        createDiff({ filePath: '/src/no-filepath.ts' }),
+      ]);
       expect(session.status).toBe('completed');
     });
   });

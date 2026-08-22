@@ -4,15 +4,15 @@ Code Analyzer integrates with every major AI coding agent via the MCP (Model Con
 
 ## Supported Agents
 
-| Agent | Auto-Detect | Transport | Config File |
-|---|---|---|---|
-| [Claude Code](./claude-code.md) | ✅ `ANTHROPIC_API_KEY` | stdio | `~/.claude/claude_desktop_config.json` |
-| [Cursor](./cursor.md) | ✅ `.cursorrules` | stdio | `~/.cursor/mcp.json` |
-| [Windsurf](./windsurf.md) | ✅ `.windsurfrules` | stdio | `~/.codeium/windsurf/mcp_config.json` |
-| [Continue.dev](./continue-dev.md) | ✅ `.continue` | stdio | `~/.continue/config.json` |
-| [Aider](./aider.md) | ✅ `AIDER_MODEL` | stdio | `.aider.conf.yml` |
-| [Cline](./cline.md) | ✅ `.clinerules` | stdio | `~/.cline/mcp_settings.json` |
-| [GitHub Copilot](./github-copilot.md) | ✅ Extension | stdio | `.github/copilot/mcp.json` |
+| Agent                                 | Auto-Detect            | Transport | Config File                            |
+| ------------------------------------- | ---------------------- | --------- | -------------------------------------- |
+| [Claude Code](./claude-code.md)       | ✅ `ANTHROPIC_API_KEY` | stdio     | `~/.claude/claude_desktop_config.json` |
+| [Cursor](./cursor.md)                 | ✅ `.cursorrules`      | stdio     | `~/.cursor/mcp.json`                   |
+| [Windsurf](./windsurf.md)             | ✅ `.windsurfrules`    | stdio     | `~/.codeium/windsurf/mcp_config.json`  |
+| [Continue.dev](./continue-dev.md)     | ✅ `.continue`         | stdio     | `~/.continue/config.json`              |
+| [Aider](./aider.md)                   | ✅ `AIDER_MODEL`       | stdio     | `.aider.conf.yml`                      |
+| [Cline](./cline.md)                   | ✅ `.clinerules`       | stdio     | `~/.cline/mcp_settings.json`           |
+| [GitHub Copilot](./github-copilot.md) | ✅ Extension           | stdio     | `.github/copilot/mcp.json`             |
 
 ## Quick Start (Auto-Detect)
 
@@ -69,6 +69,7 @@ If configured correctly, the agent will use Code Analyzer's tools to provide a s
 ### Performance issues
 
 For large codebases (>100K files), configure:
+
 ```json
 {
   "codeAnalyzer.indexMode": "moderate",

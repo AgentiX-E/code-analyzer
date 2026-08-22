@@ -286,7 +286,11 @@ describe('PRReviewEventHandler', () => {
     it('should return null for missing repository', () => {
       const details = handler.extractPRDetails({
         action: 'opened',
-        pull_request: { number: 1, base: { ref: 'main', sha: 'abc' }, head: { ref: 'feat', sha: 'def' } },
+        pull_request: {
+          number: 1,
+          base: { ref: 'main', sha: 'abc' },
+          head: { ref: 'feat', sha: 'def' },
+        },
       });
       expect(details).toBeNull();
     });
@@ -509,7 +513,13 @@ describe('StatusCheckManager', () => {
     it('should add annotations to check run', async () => {
       await manager.createCheckRun('abc123', 'code-review', 'Review');
       await manager.addAnnotations('abc123', 'code-review', [
-        { path: 'src/api.ts', startLine: 10, endLine: 15, annotationLevel: 'warning', message: 'Consider refactoring.' },
+        {
+          path: 'src/api.ts',
+          startLine: 10,
+          endLine: 15,
+          annotationLevel: 'warning',
+          message: 'Consider refactoring.',
+        },
       ]);
 
       const checkRun = manager.getCheckRun('abc123', 'code-review');
@@ -529,7 +539,12 @@ describe('StatusCheckManager', () => {
   describe('completeCheckRun', () => {
     it('should complete a check run with conclusion', async () => {
       await manager.createCheckRun('abc123', 'code-review', 'Review');
-      const result = await manager.completeCheckRun('abc123', 'code-review', 'success', 'All good!');
+      const result = await manager.completeCheckRun(
+        'abc123',
+        'code-review',
+        'success',
+        'All good!',
+      );
 
       expect(result).toBeDefined();
       expect(result!.conclusion).toBe('success');
@@ -545,9 +560,27 @@ describe('StatusCheckManager', () => {
   describe('commentsToAnnotations', () => {
     it('should convert review comments to annotations', () => {
       const comments = [
-        { filePath: 'src/api.ts', startLine: 10, endLine: 15, severity: 'critical', message: 'Security issue' },
-        { filePath: 'src/util.ts', startLine: 20, endLine: 25, severity: 'warning', message: 'Style issue' },
-        { filePath: 'src/types.ts', startLine: 5, endLine: 5, severity: 'info', message: 'Consider adding docs' },
+        {
+          filePath: 'src/api.ts',
+          startLine: 10,
+          endLine: 15,
+          severity: 'critical',
+          message: 'Security issue',
+        },
+        {
+          filePath: 'src/util.ts',
+          startLine: 20,
+          endLine: 25,
+          severity: 'warning',
+          message: 'Style issue',
+        },
+        {
+          filePath: 'src/types.ts',
+          startLine: 5,
+          endLine: 5,
+          severity: 'info',
+          message: 'Consider adding docs',
+        },
       ];
 
       const annotations = manager.commentsToAnnotations(comments);

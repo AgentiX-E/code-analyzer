@@ -36,13 +36,13 @@ claude mcp add code-analyzer -- npx @code-analyzer/mcp
 
 Once configured, use these commands in Claude Code:
 
-| Command | Description |
-|---|---|
-| `/review` | Review current changes or a specific file |
-| `/explain` | Explain a function, class, or module |
-| `/impact` | Analyze the impact of proposed changes |
-| `/find` | Search for symbols, patterns, or references |
-| `/deps` | Show dependency graph for a file or module |
+| Command    | Description                                 |
+| ---------- | ------------------------------------------- |
+| `/review`  | Review current changes or a specific file   |
+| `/explain` | Explain a function, class, or module        |
+| `/impact`  | Analyze the impact of proposed changes      |
+| `/find`    | Search for symbols, patterns, or references |
+| `/deps`    | Show dependency graph for a file or module  |
 
 ## Configuration Options
 
@@ -53,8 +53,10 @@ Once configured, use these commands in Claude Code:
       "command": "npx",
       "args": [
         "@code-analyzer/mcp",
-        "--standards", ".code-analyzer/standards.json",
-        "--max-files", "200"
+        "--standards",
+        ".code-analyzer/standards.json",
+        "--max-files",
+        "200"
       ],
       "env": {
         "LOG_LEVEL": "info",
@@ -76,9 +78,11 @@ If Code Analyzer is configured correctly, Claude will use the `search_symbols` o
 ## Troubleshooting
 
 ### "MCP server not found"
+
 - Ensure Node.js >= 20: `node --version`
 - Verify npx can find the package: `npx @code-analyzer/mcp --version`
 - Check the config file exists: `cat ~/.claude/claude_desktop_config.json`
 
 ### Slow first query
+
 The first query triggers codebase indexing. For large projects, pass `--mode fast` for incremental index builds, or `--mode full` for complete indexing.

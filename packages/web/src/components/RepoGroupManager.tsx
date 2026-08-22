@@ -54,7 +54,9 @@ const RepoGroupManager: React.FC = () => {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [newRepoUrl, setNewRepoUrl] = useState('');
-  const [newRepoRole, setNewRepoRole] = useState<'primary' | 'dependency' | 'consumer'>('dependency');
+  const [newRepoRole, setNewRepoRole] = useState<'primary' | 'dependency' | 'consumer'>(
+    'dependency',
+  );
 
   const currentGroup = groups.find((g) => g.id === selectedGroup) ?? null;
 
@@ -78,8 +80,9 @@ const RepoGroupManager: React.FC = () => {
   const handleAddRepo = useCallback(() => {
     if (!newRepoUrl.trim() || !selectedGroup) return;
     // Parse owner/repo from URL or input
-    const match = newRepoUrl.match(/github\.com\/([^/]+)\/([^/\s.#?]+)/)
-      ?? newRepoUrl.match(/^([^/]+)\/([^/\s]+)$/);
+    const match =
+      newRepoUrl.match(/github\.com\/([^/]+)\/([^/\s.#?]+)/) ??
+      newRepoUrl.match(/^([^/]+)\/([^/\s]+)$/);
     if (!match) return;
 
     const owner = match[1]!;
@@ -92,25 +95,39 @@ const RepoGroupManager: React.FC = () => {
       role: newRepoRole,
     };
 
-    setGroups(groups.map((g) => {
-      if (g.id !== selectedGroup) return g;
-      return { ...g, repos: [...g.repos, repo], updatedAt: new Date().toISOString() };
-    }));
+    setGroups(
+      groups.map((g) => {
+        if (g.id !== selectedGroup) return g;
+        return { ...g, repos: [...g.repos, repo], updatedAt: new Date().toISOString() };
+      }),
+    );
     setNewRepoUrl('');
   }, [newRepoUrl, newRepoRole, selectedGroup, groups]);
 
-  const handleDeleteGroup = useCallback((id: string) => {
-    setGroups(groups.filter((g) => g.id !== id));
-    if (selectedGroup === id) setSelectedGroup(null);
-  }, [groups, selectedGroup]);
+  const handleDeleteGroup = useCallback(
+    (id: string) => {
+      setGroups(groups.filter((g) => g.id !== id));
+      if (selectedGroup === id) setSelectedGroup(null);
+    },
+    [groups, selectedGroup],
+  );
 
-  const handleRemoveRepo = useCallback((fullName: string) => {
-    if (!selectedGroup) return;
-    setGroups(groups.map((g) => {
-      if (g.id !== selectedGroup) return g;
-      return { ...g, repos: g.repos.filter((r) => r.fullName !== fullName), updatedAt: new Date().toISOString() };
-    }));
-  }, [selectedGroup, groups]);
+  const handleRemoveRepo = useCallback(
+    (fullName: string) => {
+      if (!selectedGroup) return;
+      setGroups(
+        groups.map((g) => {
+          if (g.id !== selectedGroup) return g;
+          return {
+            ...g,
+            repos: g.repos.filter((r) => r.fullName !== fullName),
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      );
+    },
+    [selectedGroup, groups],
+  );
 
   return (
     <div className="repo-group-manager">
@@ -163,7 +180,10 @@ const RepoGroupManager: React.FC = () => {
                   {group.repos.length} repos
                   <button
                     className="btn-danger-icon"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteGroup(group.id);
+                    }}
                     title="Delete group"
                   >
                     ×
@@ -184,7 +204,9 @@ const RepoGroupManager: React.FC = () => {
                   <p className="text-muted">{currentGroup.description}</p>
                 </div>
                 <div className="detail-meta">
-                  <span className="meta-item">Created: {new Date(currentGroup.createdAt).toLocaleDateString()}</span>
+                  <span className="meta-item">
+                    Created: {new Date(currentGroup.createdAt).toLocaleDateString()}
+                  </span>
                   <span className="meta-item">{currentGroup.repos.length} repositories</span>
                 </div>
               </div>
@@ -226,12 +248,8 @@ const RepoGroupManager: React.FC = () => {
                         {repo.indexed && <span className="status-badge indexed">indexed</span>}
                       </div>
                       <div className="repo-stats">
-                        {repo.nodeCount !== undefined && (
-                          <span>{repo.nodeCount} nodes</span>
-                        )}
-                        {repo.edgeCount !== undefined && (
-                          <span>{repo.edgeCount} edges</span>
-                        )}
+                        {repo.nodeCount !== undefined && <span>{repo.nodeCount} nodes</span>}
+                        {repo.edgeCount !== undefined && <span>{repo.edgeCount} edges</span>}
                       </div>
                       <button
                         className="btn-danger-icon"
@@ -256,8 +274,8 @@ const RepoGroupManager: React.FC = () => {
             <div className="empty-state">
               <h3>Select a Group</h3>
               <p className="text-muted">
-                Choose an existing repo group from the sidebar or create a new one
-                to start managing cross-repo analysis.
+                Choose an existing repo group from the sidebar or create a new one to start managing
+                cross-repo analysis.
               </p>
             </div>
           )}

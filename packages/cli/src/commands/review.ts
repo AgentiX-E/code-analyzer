@@ -62,7 +62,9 @@ export interface ReviewOutput {
  */
 async function collectFiles(dir: string, maxFiles: number): Promise<string[]> {
   const files: string[] = [];
-  const entries = await import('node:fs/promises').then((fs) => fs.readdir(dir, { withFileTypes: true }));
+  const entries = await import('node:fs/promises').then((fs) =>
+    fs.readdir(dir, { withFileTypes: true }),
+  );
 
   for (const entry of entries) {
     if (files.length >= maxFiles) break;
@@ -101,9 +103,7 @@ async function collectFiles(dir: string, maxFiles: number): Promise<string[]> {
  *   - `file`: reviews a single file
  *   - `dir`: reviews all files in a directory
  */
-export async function reviewCode(
-  options: ReviewOptions = {},
-): Promise<ReviewOutput> {
+export async function reviewCode(options: ReviewOptions = {}): Promise<ReviewOutput> {
   const startTime = Date.now();
   const mode = options.mode ?? 'file';
   const maxIssues = options.maxIssues ?? 500;
@@ -115,10 +115,10 @@ export async function reviewCode(
       // Get git diff content
       let diffContent = '';
       try {
-        diffContent = execSync(
-          'git diff --staged --unified=0',
-          { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] },
-        );
+        diffContent = execSync('git diff --staged --unified=0', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+        });
       } catch {
         // May fail if not in a git repo
       }
@@ -162,7 +162,6 @@ export async function reviewCode(
           }
         }
       }
-
     } else if (mode === 'file' && options.target) {
       const filePath = resolve(options.target);
       if (!existsSync(filePath)) {
@@ -201,7 +200,6 @@ export async function reviewCode(
           }
         }
       }
-
     } else if (mode === 'dir' && options.target) {
       const dir = resolve(options.target);
       const files = await collectFiles(dir, maxIssues);
@@ -272,7 +270,8 @@ const BUILT_IN_RULES: Rule[] = [
     category: 'security',
     severity: 'critical',
     pattern: /\beval\s*\(/,
-    message: 'eval() is a security risk (CWE-95). Use alternatives like JSON.parse or Function constructor only when absolutely necessary.',
+    message:
+      'eval() is a security risk (CWE-95). Use alternatives like JSON.parse or Function constructor only when absolutely necessary.',
     suggestion: 'Replace eval() with a safer alternative.',
   },
   {
@@ -304,7 +303,8 @@ const BUILT_IN_RULES: Rule[] = [
     category: 'security',
     severity: 'critical',
     pattern: /\.query\s*\(\s*['"`].*\$\{/,
-    message: 'Potential SQL injection via string interpolation (CWE-89). Use parameterized queries.',
+    message:
+      'Potential SQL injection via string interpolation (CWE-89). Use parameterized queries.',
     suggestion: 'Use parameterized queries or ORM escape functions.',
   },
   {
@@ -367,7 +367,9 @@ export function formatReviewResult(
   if (format === 'markdown') {
     lines.push(`## Code Review: ${result.target}`);
     lines.push('');
-    lines.push(`**Mode:** ${result.mode} | **Issues:** ${result.totalIssues} | **Duration:** ${result.duration}ms`);
+    lines.push(
+      `**Mode:** ${result.mode} | **Issues:** ${result.totalIssues} | **Duration:** ${result.duration}ms`,
+    );
     lines.push('');
     lines.push('| Severity | Count |');
     lines.push('|----------|-------|');
@@ -378,9 +380,14 @@ export function formatReviewResult(
     lines.push('');
 
     for (const issue of result.issues) {
-      const icon = issue.severity === 'critical' ? '🔴' :
-        issue.severity === 'error' ? '🟠' :
-        issue.severity === 'warning' ? '🟡' : '🔵';
+      const icon =
+        issue.severity === 'critical'
+          ? '🔴'
+          : issue.severity === 'error'
+            ? '🟠'
+            : issue.severity === 'warning'
+              ? '🟡'
+              : '🔵';
       lines.push(`- ${icon} **${issue.ruleId}** — ${issue.file}:${issue.line}`);
       lines.push(`  ${issue.message}`);
       if (issue.suggestion) {
@@ -394,9 +401,13 @@ export function formatReviewResult(
   lines.push(`${'='.repeat(60)}`);
   lines.push(`Code Analyzer — Review: ${result.target}`);
   lines.push(`${'='.repeat(60)}`);
-  lines.push(`Mode: ${result.mode} | Issues: ${result.totalIssues} | Duration: ${result.duration}ms`);
+  lines.push(
+    `Mode: ${result.mode} | Issues: ${result.totalIssues} | Duration: ${result.duration}ms`,
+  );
   lines.push(` `);
-  lines.push(`  Critical: ${result.summary.critical}  Error: ${result.summary.error}  Warning: ${result.summary.warning}  Info: ${result.summary.info}`);
+  lines.push(
+    `  Critical: ${result.summary.critical}  Error: ${result.summary.error}  Warning: ${result.summary.warning}  Info: ${result.summary.info}`,
+  );
   lines.push(` `);
 
   if (result.error) {

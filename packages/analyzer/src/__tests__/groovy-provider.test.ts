@@ -29,7 +29,9 @@ describe('GroovyProvider', () => {
       const code = 'class Foo extends Bar {}';
       const captures = provider.parse(code, 'Foo.groovy');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classes.some((c) => c.name === 'Foo' && c.properties?.baseClasses === 'Bar')).toBe(true);
+      expect(classes.some((c) => c.name === 'Foo' && c.properties?.baseClasses === 'Bar')).toBe(
+        true,
+      );
     });
 
     it('should extract a trait', () => {
@@ -52,7 +54,9 @@ describe('GroovyProvider', () => {
       const code = 'class Foo {\n  def bar() {}\n}';
       const captures = provider.parse(code, 't.groovy');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some((c) => c.name === 'bar' && c.properties?.containerName === 'Foo')).toBe(true);
+      expect(methods.some((c) => c.name === 'bar' && c.properties?.containerName === 'Foo')).toBe(
+        true,
+      );
     });
 
     it('should extract a constructor', () => {
@@ -97,7 +101,9 @@ describe('GroovyProvider', () => {
     it('should extract a gstring', () => {
       const code = 'def s = "hello ${name}"';
       const captures = provider.parse(code, 't.groovy');
-      const gstrings = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.isGString === 'true');
+      const gstrings = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.isGString === 'true',
+      );
       expect(gstrings.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -120,7 +126,11 @@ describe('GroovyProvider', () => {
     it('should extract import with last segment as name', () => {
       const code = 'import groovy.json.JsonSlurper';
       const imports = provider.extractImports(code, 't.groovy');
-      expect(imports.some((i) => i.source === 'groovy.json.JsonSlurper' && i.names.includes('JsonSlurper'))).toBe(true);
+      expect(
+        imports.some(
+          (i) => i.source === 'groovy.json.JsonSlurper' && i.names.includes('JsonSlurper'),
+        ),
+      ).toBe(true);
     });
   });
 

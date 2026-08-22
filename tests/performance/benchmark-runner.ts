@@ -120,12 +120,7 @@ export class BenchmarkRunner {
     this.startTime = Date.now();
 
     for (const bench of benchmarks) {
-      await this.runSingle(
-        bench.name,
-        bench.fn,
-        bench.thresholdMs,
-        bench.thresholdMemoryBytes,
-      );
+      await this.runSingle(bench.name, bench.fn, bench.thresholdMs, bench.thresholdMemoryBytes);
     }
 
     const totalDuration = Date.now() - this.startTime;
@@ -171,9 +166,7 @@ export class BenchmarkRunner {
 
       const increasePercent =
         base.durationMs > 0
-          ? Math.round(
-              ((current.durationMs - base.durationMs) / base.durationMs) * 100,
-            )
+          ? Math.round(((current.durationMs - base.durationMs) / base.durationMs) * 100)
           : 0;
 
       // More than 20% regression is flagged

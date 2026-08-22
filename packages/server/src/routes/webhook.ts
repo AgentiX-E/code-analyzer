@@ -41,66 +41,70 @@ export function registerWebhookRoutes(
 ): void {
   const prefix = config.apiPrefix;
 
-  app.post(`${prefix}/webhook/github`, {
-    config: { skipAuth: true }, // Webhook has its own signature verification
-  }, async (request: FastifyRequest, reply) => {
-    // 1. Verify webhook signature
-    if (webhookConfig.secret) {
-      const signature = request.headers['x-hub-signature-256'] as string | undefined;
-      if (!verifySignature(
-        webhookConfig.secret,
-        signature,
-        JSON.stringify(request.body),
-      )) {
-        return reply.status(401).send({
-          error: 'INVALID_SIGNATURE',
-          message: 'Webhook signature verification failed.',
-          statusCode: 401,
+  app.post(
+    `${prefix}/webhook/github`,
+    {
+      config: { skipAuth: true }, // Webhook has its own signature verification
+    },
+    async (request: FastifyRequest, reply) => {
+      // 1. Verify webhook signature
+      if (webhookConfig.secret) {
+        const signature = request.headers['x-hub-signature-256'] as string | undefined;
+        if (!verifySignature(webhookConfig.secret, signature, JSON.stringify(request.body))) {
+          return reply.status(401).send({
+            error: 'INVALID_SIGNATURE',
+            message: 'Webhook signature verification failed.',
+            statusCode: 401,
+          });
+        }
+      }
+
+      // 2. Validate event type header
+      const eventType = request.headers['x-github-event'] as string | undefined;
+      if (!eventType) {
+        return reply.status(400).send({
+          error: 'MISSING_EVENT_TYPE',
+          message: 'X-GitHub-Event header is required.',
+          statusCode: 400,
         });
       }
-    }
 
-    // 2. Validate event type header
-    const eventType = request.headers['x-github-event'] as string | undefined;
-    if (!eventType) {
-      return reply.status(400).send({
-        error: 'MISSING_EVENT_TYPE',
-        message: 'X-GitHub-Event header is required.',
-        statusCode: 400,
+      // 3. Respond immediately (GitHub timeout: 10 seconds)
+      void reply.status(200).send({
+        received: true,
+        event: eventType,
+        deliveryId: request.headers['x-github-delivery'] ?? 'unknown',
+        timestamp: new Date().toISOString(),
       });
-    }
 
-    // 3. Respond immediately (GitHub timeout: 10 seconds)
-    void reply.status(200).send({
-      received: true,
-      event: eventType,
-      deliveryId: request.headers['x-github-delivery'] ?? 'unknown',
-      timestamp: new Date().toISOString(),
-    });
-
-    // 4. Process payload asynchronously
-    try {
-      await webhookConfig.handler.process(request.body);
-    } catch (err) {
-      // Log but don't fail — response already sent
-      if (config.logging.enabled) {
-        console.error(
-          `[code-analyzer] Webhook processing error: ${err instanceof Error ? err.message : /* v8 ignore next */ String(err)}`,
-        );
+      // 4. Process payload asynchronously
+      try {
+        await webhookConfig.handler.process(request.body);
+      } catch (err) {
+        // Log but don't fail — response already sent
+        if (config.logging.enabled) {
+          console.error(
+            `[code-analyzer] Webhook processing error: ${err instanceof Error ? err.message : /* v8 ignore next */ String(err)}`,
+          );
+        }
       }
-    }
-  });
+    },
+  );
 
   // Health endpoint for webhook status
-  app.get(`${prefix}/webhook/github/status`, {
-    config: { skipAuth: true },
-  }, async (_req, reply) => {
-    return reply.status(200).send({
-      configured: webhookConfig.secret !== undefined,
-      eventTypes: ['pull_request'],
-      contentType: 'application/json',
-    });
-  });
+  app.get(
+    `${prefix}/webhook/github/status`,
+    {
+      config: { skipAuth: true },
+    },
+    async (_req, reply) => {
+      return reply.status(200).send({
+        configured: webhookConfig.secret !== undefined,
+        eventTypes: ['pull_request'],
+        contentType: 'application/json',
+      });
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -1,12 +1,7 @@
 // @code-analyzer/infra — Infra-Specific Types
 // Types used exclusively within the infrastructure layer.
 
-import type {
-  GraphNode,
-  GraphEdge,
-  NodeLabel,
-  RelationshipType,
-} from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
 export type { GraphNode, GraphEdge };
 

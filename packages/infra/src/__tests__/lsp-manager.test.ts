@@ -5,11 +5,7 @@
 // graceful degradation, shutdown, and edge cases.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  LSPManager,
-  createLSPManager,
-  isLSPServerAvailable,
-} from '../lsp-manager.js';
+import { LSPManager, createLSPManager, isLSPServerAvailable } from '../lsp-manager.js';
 import type { LSPLanguage } from '../lsp-manager.js';
 
 // ---------------------------------------------------------------------------
@@ -128,9 +124,7 @@ describe('LSPManager — Graceful Degradation', () => {
   });
 
   it('should not throw on notifyFileClose when disabled', async () => {
-    await expect(
-      mgr.notifyFileClose('/test/file.ts', 'typescript'),
-    ).resolves.toBeUndefined();
+    await expect(mgr.notifyFileClose('/test/file.ts', 'typescript')).resolves.toBeUndefined();
   });
 });
 
@@ -205,9 +199,7 @@ describe('LSPManager — Type Info Fallback', () => {
 
   it('should handle notifyFileClose when LSP is enabled and language is supported', async () => {
     const mgr = new LSPManager({ projectRoot: '/test', enabled: true });
-    await expect(
-      mgr.notifyFileClose('/test/file.ts', 'typescript'),
-    ).resolves.toBeUndefined();
+    await expect(mgr.notifyFileClose('/test/file.ts', 'typescript')).resolves.toBeUndefined();
   });
 });
 

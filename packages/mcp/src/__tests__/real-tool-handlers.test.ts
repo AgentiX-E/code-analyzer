@@ -18,155 +18,318 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   const nodes: GraphNode[] = [
     // File and Module nodes
     {
-      id: 0, projectId, label: 'Module', name: 'core', qualifiedName: 'core',
-      filePath: '/app/src/core', startLine: null, endLine: null, language: null,
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Module',
+      name: 'core',
+      qualifiedName: 'core',
+      filePath: '/app/src/core',
+      startLine: null,
+      endLine: null,
+      language: null,
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Interface
     {
-      id: 0, projectId, label: 'Interface', name: 'IService', qualifiedName: 'core.IService',
-      filePath: '/app/src/core/service.ts', startLine: 1, endLine: 10, language: 'typescript',
-      properties: {}, signature: null, docstring: 'Service interface', complexity: null,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Interface',
+      name: 'IService',
+      qualifiedName: 'core.IService',
+      filePath: '/app/src/core/service.ts',
+      startLine: 1,
+      endLine: 10,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: 'Service interface',
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Class implementing interface
     {
-      id: 0, projectId, label: 'Class', name: 'MyService', qualifiedName: 'core.MyService',
-      filePath: '/app/src/core/my-service.ts', startLine: 1, endLine: 50, language: 'typescript',
-      properties: { baseClasses: 'ServiceBase' }, signature: null, docstring: 'Main service',
-      complexity: 15, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Class',
+      name: 'MyService',
+      qualifiedName: 'core.MyService',
+      filePath: '/app/src/core/my-service.ts',
+      startLine: 1,
+      endLine: 50,
+      language: 'typescript',
+      properties: { baseClasses: 'ServiceBase' },
+      signature: null,
+      docstring: 'Main service',
+      complexity: 15,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Method
     {
-      id: 0, projectId, label: 'Method', name: 'doWork', qualifiedName: 'core.MyService.doWork',
-      filePath: '/app/src/core/my-service.ts', startLine: 10, endLine: 30, language: 'typescript',
+      id: 0,
+      projectId,
+      label: 'Method',
+      name: 'doWork',
+      qualifiedName: 'core.MyService.doWork',
+      filePath: '/app/src/core/my-service.ts',
+      startLine: 10,
+      endLine: 30,
+      language: 'typescript',
       properties: { signature: 'doWork(input: string): Promise<Result>' },
-      signature: 'doWork(input: string): Promise<Result>', docstring: 'Processes work items',
-      complexity: 8, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      signature: 'doWork(input: string): Promise<Result>',
+      docstring: 'Processes work items',
+      complexity: 8,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Another method
     {
-      id: 0, projectId, label: 'Method', name: 'validate', qualifiedName: 'core.MyService.validate',
-      filePath: '/app/src/core/my-service.ts', startLine: 32, endLine: 48, language: 'typescript',
-      properties: {}, signature: 'validate(data: unknown): boolean', docstring: null,
-      complexity: 4, isExported: false, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Method',
+      name: 'validate',
+      qualifiedName: 'core.MyService.validate',
+      filePath: '/app/src/core/my-service.ts',
+      startLine: 32,
+      endLine: 48,
+      language: 'typescript',
+      properties: {},
+      signature: 'validate(data: unknown): boolean',
+      docstring: null,
+      complexity: 4,
+      isExported: false,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Standalone function
     {
-      id: 0, projectId, label: 'Function', name: 'fetchData', qualifiedName: 'core.fetchData',
-      filePath: '/app/src/core/data.ts', startLine: 1, endLine: 25, language: 'typescript',
-      properties: {}, signature: 'fetchData(url: string): Promise<Data>', docstring: 'Fetches data from API',
-      complexity: 5, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Function',
+      name: 'fetchData',
+      qualifiedName: 'core.fetchData',
+      filePath: '/app/src/core/data.ts',
+      startLine: 1,
+      endLine: 25,
+      language: 'typescript',
+      properties: {},
+      signature: 'fetchData(url: string): Promise<Data>',
+      docstring: 'Fetches data from API',
+      complexity: 5,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Test node
     {
-      id: 0, projectId, label: 'Test', name: 'testDoWork', qualifiedName: 'core.testDoWork',
-      filePath: '/app/src/core/__tests__/my-service.test.ts', startLine: 1, endLine: 20, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: false, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Test',
+      name: 'testDoWork',
+      qualifiedName: 'core.testDoWork',
+      filePath: '/app/src/core/__tests__/my-service.test.ts',
+      startLine: 1,
+      endLine: 20,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // High complexity function
     {
-      id: 0, projectId, label: 'Function', name: 'complexFn', qualifiedName: 'core.complexFn',
-      filePath: '/app/src/core/complex.ts', startLine: 1, endLine: 120, language: 'typescript',
-      properties: {}, signature: 'complexFn(): void', docstring: null,
-      complexity: 35, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Function',
+      name: 'complexFn',
+      qualifiedName: 'core.complexFn',
+      filePath: '/app/src/core/complex.ts',
+      startLine: 1,
+      endLine: 120,
+      language: 'typescript',
+      properties: {},
+      signature: 'complexFn(): void',
+      docstring: null,
+      complexity: 35,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Route node
     {
-      id: 0, projectId, label: 'Route', name: 'getItems', qualifiedName: 'routes.getItems',
-      filePath: '/app/src/routes/items.ts', startLine: 5, endLine: 15, language: 'typescript',
-      properties: { routePath: '/api/items', routeMethod: 'GET' }, signature: null,
-      docstring: 'Get items endpoint', complexity: null, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Route',
+      name: 'getItems',
+      qualifiedName: 'routes.getItems',
+      filePath: '/app/src/routes/items.ts',
+      startLine: 5,
+      endLine: 15,
+      language: 'typescript',
+      properties: { routePath: '/api/items', routeMethod: 'GET' },
+      signature: null,
+      docstring: 'Get items endpoint',
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Folder node
     {
-      id: 0, projectId, label: 'Folder', name: 'src', qualifiedName: 'src',
-      filePath: '/app/src', startLine: null, endLine: null, language: null,
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: false, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Folder',
+      name: 'src',
+      qualifiedName: 'src',
+      filePath: '/app/src',
+      startLine: null,
+      endLine: null,
+      language: null,
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   ];
 
   store.insertNodes(nodes);
 
   // Get the actual IDs that were assigned
-  const allInserted = store.getAllNodes().filter(n => n.projectId === projectId);
+  const allInserted = store.getAllNodes().filter((n) => n.projectId === projectId);
 
-  const modules = allInserted.filter(n => n.label === 'Module');
-  const interfaces = allInserted.filter(n => n.label === 'Interface');
-  const classes = allInserted.filter(n => n.label === 'Class');
-  const methods = allInserted.filter(n => n.label === 'Method');
-  const functions = allInserted.filter(n => n.label === 'Function');
-  const tests = allInserted.filter(n => n.label === 'Test');
-  const routes = allInserted.filter(n => n.label === 'Route');
+  const modules = allInserted.filter((n) => n.label === 'Module');
+  const interfaces = allInserted.filter((n) => n.label === 'Interface');
+  const classes = allInserted.filter((n) => n.label === 'Class');
+  const methods = allInserted.filter((n) => n.label === 'Method');
+  const functions = allInserted.filter((n) => n.label === 'Function');
+  const tests = allInserted.filter((n) => n.label === 'Test');
+  const routes = allInserted.filter((n) => n.label === 'Route');
 
   const moduleNode = modules[0];
   const ifaceNode = interfaces[0];
   const classNode = classes[0];
-  const doWorkMethod = methods.find(n => n.name === 'doWork');
-  const validateMethod = methods.find(n => n.name === 'validate');
-  const fetchDataFn = functions.find(n => n.name === 'fetchData');
-  const complexFn = functions.find(n => n.name === 'complexFn');
+  const doWorkMethod = methods.find((n) => n.name === 'doWork');
+  const validateMethod = methods.find((n) => n.name === 'validate');
+  const fetchDataFn = functions.find((n) => n.name === 'fetchData');
+  const complexFn = functions.find((n) => n.name === 'complexFn');
   const testNode = tests[0];
   const routeNode = routes[0];
 
   // Create edges
   if (moduleNode && classNode) {
     store.insertEdge({
-      id: 0, projectId, sourceId: moduleNode.id, targetId: classNode.id,
-      type: 'DEFINES', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: moduleNode.id,
+      targetId: classNode.id,
+      type: 'DEFINES',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (classNode && ifaceNode) {
     store.insertEdge({
-      id: 0, projectId, sourceId: classNode.id, targetId: ifaceNode.id,
-      type: 'IMPLEMENTS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: classNode.id,
+      targetId: ifaceNode.id,
+      type: 'IMPLEMENTS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (classNode && doWorkMethod) {
     store.insertEdge({
-      id: 0, projectId, sourceId: classNode.id, targetId: doWorkMethod.id,
-      type: 'HAS_METHOD', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: classNode.id,
+      targetId: doWorkMethod.id,
+      type: 'HAS_METHOD',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (classNode && validateMethod) {
     store.insertEdge({
-      id: 0, projectId, sourceId: classNode.id, targetId: validateMethod.id,
-      type: 'HAS_METHOD', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: classNode.id,
+      targetId: validateMethod.id,
+      type: 'HAS_METHOD',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (doWorkMethod && fetchDataFn) {
     store.insertEdge({
-      id: 0, projectId, sourceId: doWorkMethod.id, targetId: fetchDataFn.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: doWorkMethod.id,
+      targetId: fetchDataFn.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (validateMethod && doWorkMethod) {
     store.insertEdge({
-      id: 0, projectId, sourceId: validateMethod.id, targetId: doWorkMethod.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: validateMethod.id,
+      targetId: doWorkMethod.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (testNode && doWorkMethod) {
     store.insertEdge({
-      id: 0, projectId, sourceId: testNode.id, targetId: doWorkMethod.id,
-      type: 'TESTS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: testNode.id,
+      targetId: doWorkMethod.id,
+      type: 'TESTS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
@@ -174,15 +337,27 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   if (fetchDataFn && routeNode && doWorkMethod) {
     // Route handled by doWork and called by fetchData
     store.insertEdge({
-      id: 0, projectId, sourceId: doWorkMethod.id, targetId: routeNode.id,
-      type: 'HANDLES_ROUTE', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: doWorkMethod.id,
+      targetId: routeNode.id,
+      type: 'HANDLES_ROUTE',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
   if (moduleNode && fetchDataFn) {
     store.insertEdge({
-      id: 0, projectId, sourceId: moduleNode.id, targetId: fetchDataFn.id,
-      type: 'DEFINES', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: moduleNode.id,
+      targetId: fetchDataFn.id,
+      type: 'DEFINES',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 }
@@ -214,11 +389,23 @@ describe('ToolContext', () => {
 
       // Add a document and verify it's indexed in the cached engine
       store.insertNode({
-        id: 0, projectId: 'test', label: 'Function', name: 'foo',
-        qualifiedName: 'foo', filePath: '/foo.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'test',
+        label: 'Function',
+        name: 'foo',
+        qualifiedName: 'foo',
+        filePath: '/foo.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
       const engine2 = ctx.getSearchEngine(); // Should return same instance
@@ -269,7 +456,7 @@ describe('ToolContext', () => {
       const ctx = createTestContext();
       const symbols = ctx.getFileSymbols('test-project', '/app/src/core/my-service.ts');
       expect(symbols.length).toBeGreaterThan(0);
-      expect(symbols.every(s => s.filePath === '/app/src/core/my-service.ts')).toBe(true);
+      expect(symbols.every((s) => s.filePath === '/app/src/core/my-service.ts')).toBe(true);
     });
 
     it('should return empty array for unknown file', () => {
@@ -372,7 +559,9 @@ describe('ToolContext', () => {
     });
 
     it('isToolContext should return false for object without getSearchEngine', () => {
-      expect(ToolContextImpl.isToolContext({ store: {}, getSearchEngine: 'not-a-function' })).toBe(false);
+      expect(ToolContextImpl.isToolContext({ store: {}, getSearchEngine: 'not-a-function' })).toBe(
+        false,
+      );
       expect(ToolContextImpl.isToolContext({ store: {} })).toBe(false);
     });
 
@@ -398,42 +587,87 @@ describe('ToolContext', () => {
       const store = new InMemoryGraphStore();
       // Target node
       store.insertNode({
-        id: 0, projectId: 'proj-a', label: 'Function', name: 'target',
-        qualifiedName: 'proj.target', filePath: '/proj/target.ts',
-        startLine: 1, endLine: 10, language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'proj-a',
+        label: 'Function',
+        name: 'target',
+        qualifiedName: 'proj.target',
+        filePath: '/proj/target.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       // Source node with DIFFERENT projectId
       store.insertNode({
-        id: 0, projectId: 'proj-b', label: 'Function', name: 'caller',
-        qualifiedName: 'other.caller', filePath: '/other/caller.ts',
-        startLine: 1, endLine: 10, language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'proj-b',
+        label: 'Function',
+        name: 'caller',
+        qualifiedName: 'other.caller',
+        filePath: '/other/caller.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       // Source node with SAME projectId
       store.insertNode({
-        id: 0, projectId: 'proj-a', label: 'Function', name: 'localCaller',
-        qualifiedName: 'proj.localCaller', filePath: '/proj/local.ts',
-        startLine: 1, endLine: 10, language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'proj-a',
+        label: 'Function',
+        name: 'localCaller',
+        qualifiedName: 'proj.localCaller',
+        filePath: '/proj/local.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
       const targetNode = store.getNodeByQualifiedName('proj.target')!;
       const otherCaller = store.getNodeByQualifiedName('other.caller')!;
       const localCaller = store.getNodeByQualifiedName('proj.localCaller')!;
       // Both source nodes point to target
       store.insertEdge({
-        id: 0, projectId: 'proj-a', sourceId: otherCaller.id, targetId: targetNode.id,
-        type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'proj-a',
+        sourceId: otherCaller.id,
+        targetId: targetNode.id,
+        type: 'CALLS',
+        properties: {},
+        weight: 1.0,
+        createdAt: new Date().toISOString(),
       });
       store.insertEdge({
-        id: 0, projectId: 'proj-a', sourceId: localCaller.id, targetId: targetNode.id,
-        type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'proj-a',
+        sourceId: localCaller.id,
+        targetId: targetNode.id,
+        type: 'CALLS',
+        properties: {},
+        weight: 1.0,
+        createdAt: new Date().toISOString(),
       });
 
       const ctx = new ToolContextImpl(store);
@@ -491,9 +725,13 @@ describe('Codebase Analysis Tools', () => {
   });
 
   it('index_status returns real data from graph store', async () => {
-    const result = await registry.execute('index_status', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'index_status',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
@@ -508,9 +746,13 @@ describe('Codebase Analysis Tools', () => {
 
   it('index_status handles empty project gracefully', async () => {
     const emptyCtx = new ToolContextImpl(new InMemoryGraphStore());
-    const result = await registry.execute('index_status', {
-      projectId: 'nonexistent',
-    }, emptyCtx);
+    const result = await registry.execute(
+      'index_status',
+      {
+        projectId: 'nonexistent',
+      },
+      emptyCtx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.nodeCount).toBe(0);
@@ -519,9 +761,13 @@ describe('Codebase Analysis Tools', () => {
   });
 
   it('get_graph_schema returns label distribution', async () => {
-    const result = await registry.execute('get_graph_schema', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'get_graph_schema',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.nodeLabels).toBeDefined();
@@ -537,9 +783,13 @@ describe('Codebase Analysis Tools', () => {
   });
 
   it('get_architecture returns project overview', async () => {
-    const result = await registry.execute('get_architecture', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'get_architecture',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -548,10 +798,14 @@ describe('Codebase Analysis Tools', () => {
   });
 
   it('analyze_repository runs pipeline with path', async () => {
-    const result = await registry.execute('analyze_repository', {
-      path: '/app',
-      projectId: 'test-analyze',
-    }, ctx);
+    const result = await registry.execute(
+      'analyze_repository',
+      {
+        path: '/app',
+        projectId: 'test-analyze',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-analyze');
@@ -559,10 +813,14 @@ describe('Codebase Analysis Tools', () => {
   });
 
   it('analyze_repository returns error for non-existent path', async () => {
-    const result = await registry.execute('analyze_repository', {
-      path: '/nonexistent/path/12345',
-      projectId: 'test-bad',
-    }, ctx);
+    const result = await registry.execute(
+      'analyze_repository',
+      {
+        path: '/nonexistent/path/12345',
+        projectId: 'test-bad',
+      },
+      ctx,
+    );
 
     expect(result.isError).toBe(true);
   });
@@ -582,10 +840,14 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('search_graph finds nodes by name', async () => {
-    const result = await registry.execute('search_graph', {
-      query: 'MyService',
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'search_graph',
+      {
+        query: 'MyService',
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items.length).toBeGreaterThan(0);
@@ -593,10 +855,14 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('search_graph returns empty for no-match query', async () => {
-    const result = await registry.execute('search_graph', {
-      query: 'zzzz_nonexistent_query',
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'search_graph',
+      {
+        query: 'zzzz_nonexistent_query',
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items).toEqual([]);
@@ -604,10 +870,14 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('search_code uses hybrid search engine', async () => {
-    const result = await registry.execute('search_code', {
-      query: 'doWork',
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'search_code',
+      {
+        query: 'doWork',
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items.length).toBeGreaterThan(0);
@@ -618,11 +888,15 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('explore_symbol finds symbol with relationships', async () => {
-    const result = await registry.execute('explore_symbol', {
-      symbolName: 'core.MyService.doWork',
-      projectId: 'test-project',
-      includeRelationships: true,
-    }, ctx);
+    const result = await registry.execute(
+      'explore_symbol',
+      {
+        symbolName: 'core.MyService.doWork',
+        projectId: 'test-project',
+        includeRelationships: true,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.symbol).toBeDefined();
@@ -632,11 +906,15 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('explore_symbol returns file siblings', async () => {
-    const result = await registry.execute('explore_symbol', {
-      symbolName: 'core.MyService',
-      projectId: 'test-project',
-      includeRelationships: false,
-    }, ctx);
+    const result = await registry.execute(
+      'explore_symbol',
+      {
+        symbolName: 'core.MyService',
+        projectId: 'test-project',
+        includeRelationships: false,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.symbol).toBeDefined();
@@ -644,10 +922,14 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('find_implementations finds interface implementations', async () => {
-    const result = await registry.execute('find_implementations', {
-      interfaceName: 'core.IService',
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'find_implementations',
+      {
+        interfaceName: 'core.IService',
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.interface).toBeDefined();
@@ -656,11 +938,15 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('trace_call_path traces BFS path', async () => {
-    const result = await registry.execute('trace_call_path', {
-      sourceSymbol: 'core.MyService.doWork',
-      projectId: 'test-project',
-      maxDepth: 5,
-    }, ctx);
+    const result = await registry.execute(
+      'trace_call_path',
+      {
+        sourceSymbol: 'core.MyService.doWork',
+        projectId: 'test-project',
+        maxDepth: 5,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.path.length).toBeGreaterThan(0);
@@ -668,10 +954,14 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('query_graph executes cypher queries', async () => {
-    const result = await registry.execute('query_graph', {
-      cypher: 'MATCH (n) RETURN n',
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'query_graph',
+      {
+        cypher: 'MATCH (n) RETURN n',
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.columns).toBeDefined();
@@ -680,9 +970,13 @@ describe('Querying & Exploration Tools', () => {
   });
 
   it('query_graph returns error for invalid cypher', async () => {
-    const result = await registry.execute('query_graph', {
-      cypher: 'INVALID QUERY !!!',
-    }, ctx);
+    const result = await registry.execute(
+      'query_graph',
+      {
+        cypher: 'INVALID QUERY !!!',
+      },
+      ctx,
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Cypher query error');
@@ -703,10 +997,14 @@ describe('Code Review Tools', () => {
   });
 
   it('review_file returns graph-based analysis without content', async () => {
-    const result = await registry.execute('review_file', {
-      projectId: 'test-project',
-      filePath: '/app/src/core/my-service.ts',
-    }, ctx);
+    const result = await registry.execute(
+      'review_file',
+      {
+        projectId: 'test-project',
+        filePath: '/app/src/core/my-service.ts',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -740,11 +1038,15 @@ export class BadClass {
 }
 `;
 
-    const result = await registry.execute('review_file', {
-      projectId: 'test-project',
-      filePath: '/app/src/test.ts',
-      content: code,
-    }, ctx);
+    const result = await registry.execute(
+      'review_file',
+      {
+        projectId: 'test-project',
+        filePath: '/app/src/test.ts',
+        content: code,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasContent).toBe(true);
@@ -753,9 +1055,13 @@ export class BadClass {
   });
 
   it('review_diff handles empty diff gracefully', async () => {
-    const result = await registry.execute('review_diff', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'review_diff',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
 
@@ -765,10 +1071,14 @@ export class BadClass {
 
   it('review_diff analyzes complex functions from graph', async () => {
     // complexFn has complexity 35 > threshold
-    const result = await registry.execute('review_diff', {
-      projectId: 'test-project',
-      severity: 'medium',
-    }, ctx);
+    const result = await registry.execute(
+      'review_diff',
+      {
+        projectId: 'test-project',
+        severity: 'medium',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     // Should find the complex function
@@ -793,12 +1103,16 @@ describe('PR Review Tools', () => {
   });
 
   it('review_pr returns graph-based analysis', async () => {
-    const result = await registry.execute('review_pr', {
-      projectId: 'test-project',
-      prNumber: 42,
-      baseRef: 'main',
-      headRef: 'feature',
-    }, ctx);
+    const result = await registry.execute(
+      'review_pr',
+      {
+        projectId: 'test-project',
+        prNumber: 42,
+        baseRef: 'main',
+        headRef: 'feature',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -824,20 +1138,28 @@ index abc123..def456 100644
 +  console.log(result);
  }`;
 
-    const result = await registry.execute('review_pr', {
-      projectId: 'test-project',
-      diff: diffContent,
-    }, ctx);
+    const result = await registry.execute(
+      'review_pr',
+      {
+        projectId: 'test-project',
+        diff: diffContent,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.metrics.filesChanged).toBeGreaterThan(0);
   });
 
   it('check_standards validates project standards', async () => {
-    const result = await registry.execute('check_standards', {
-      projectId: 'test-project',
-      filePath: '/app/src/core/my-service.ts',
-    }, ctx);
+    const result = await registry.execute(
+      'check_standards',
+      {
+        projectId: 'test-project',
+        filePath: '/app/src/core/my-service.ts',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -861,13 +1183,17 @@ describe('Change & Impact Tools', () => {
   });
 
   it('impact_analysis with target symbol returns full impact tree', async () => {
-    const result = await registry.execute('impact_analysis', {
-      projectId: 'test-project',
-      targetSymbol: 'core.MyService.doWork',
-      fromRef: 'HEAD~1',
-      toRef: 'HEAD',
-      depth: 3,
-    }, ctx);
+    const result = await registry.execute(
+      'impact_analysis',
+      {
+        projectId: 'test-project',
+        targetSymbol: 'core.MyService.doWork',
+        fromRef: 'HEAD~1',
+        toRef: 'HEAD',
+        depth: 3,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.range).toBeDefined();
@@ -878,21 +1204,29 @@ describe('Change & Impact Tools', () => {
   });
 
   it('impact_analysis without target shows root symbols', async () => {
-    const result = await registry.execute('impact_analysis', {
-      projectId: 'test-project',
-      fromRef: 'HEAD~1',
-      toRef: 'HEAD',
-    }, ctx);
+    const result = await registry.execute(
+      'impact_analysis',
+      {
+        projectId: 'test-project',
+        fromRef: 'HEAD~1',
+        toRef: 'HEAD',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.range).toBeDefined();
   });
 
   it('detect_changes returns graph-based change hints', async () => {
-    const result = await registry.execute('detect_changes', {
-      projectId: 'test-project',
-      includeFiles: true,
-    }, ctx);
+    const result = await registry.execute(
+      'detect_changes',
+      {
+        projectId: 'test-project',
+        includeFiles: true,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -901,10 +1235,14 @@ describe('Change & Impact Tools', () => {
   });
 
   it('route_map lists routes from the graph', async () => {
-    const result = await registry.execute('route_map', {
-      projectId: 'test-project',
-      includeHandlers: true,
-    }, ctx);
+    const result = await registry.execute(
+      'route_map',
+      {
+        projectId: 'test-project',
+        includeHandlers: true,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.routeCount).toBeGreaterThan(0);
@@ -916,9 +1254,13 @@ describe('Change & Impact Tools', () => {
   });
 
   it('check_cycles detects circular dependencies', async () => {
-    const result = await registry.execute('check_cycles', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'check_cycles',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.cyclesFound).toBeDefined();
@@ -945,9 +1287,13 @@ describe('Error Handling', () => {
   });
 
   it('tools handle invalid cypher gracefully', async () => {
-    const result = await registry.execute('query_graph', {
-      cypher: 'INVALID SYNTAX !!!',
-    }, ctx);
+    const result = await registry.execute(
+      'query_graph',
+      {
+        cypher: 'INVALID SYNTAX !!!',
+      },
+      ctx,
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Cypher query error');
@@ -955,10 +1301,14 @@ describe('Error Handling', () => {
 
   it('tools work with empty store (no graph data)', async () => {
     const emptyCtx = new ToolContextImpl(new InMemoryGraphStore());
-    const result = await registry.execute('search_graph', {
-      query: 'anything',
-      projectId: 'empty',
-    }, emptyCtx);
+    const result = await registry.execute(
+      'search_graph',
+      {
+        query: 'anything',
+        projectId: 'empty',
+      },
+      emptyCtx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items).toEqual([]);
@@ -970,10 +1320,14 @@ describe('Error Handling', () => {
     const store = new InMemoryGraphStore();
     createSampleGraph(store, 'test-raw');
 
-    const result = await registry.execute('search_graph', {
-      query: 'MyService',
-      projectId: 'test-raw',
-    }, store);
+    const result = await registry.execute(
+      'search_graph',
+      {
+        query: 'MyService',
+        projectId: 'test-raw',
+      },
+      store,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items.length).toBeGreaterThan(0);
@@ -1004,9 +1358,13 @@ describe('Lifecycle Tools', () => {
   });
 
   it('list_projects returns projects from store', async () => {
-    const result = await registry.execute('list_projects', {
-      limit: 10,
-    }, ctx);
+    const result = await registry.execute(
+      'list_projects',
+      {
+        limit: 10,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items).toBeDefined();
@@ -1016,9 +1374,13 @@ describe('Lifecycle Tools', () => {
   });
 
   it('delete_project removes project data', async () => {
-    const result = await registry.execute('delete_project', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'delete_project',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.deleted).toBe(true);
@@ -1057,11 +1419,13 @@ describe('MCP Server Integration', () => {
     createSampleGraph(store, 'integration-test');
 
     // Execute through registry with toolContext
-    const result = await server.getRegistry().execute(
-      'search_graph',
-      { query: 'MyService', projectId: 'integration-test' },
-      server.getToolContext(),
-    );
+    const result = await server
+      .getRegistry()
+      .execute(
+        'search_graph',
+        { query: 'MyService', projectId: 'integration-test' },
+        server.getToolContext(),
+      );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items.length).toBeGreaterThan(0);

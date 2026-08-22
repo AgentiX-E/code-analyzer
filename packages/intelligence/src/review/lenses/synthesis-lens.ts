@@ -23,14 +23,18 @@ function iouOverlap(a: LensFinding, b: LensFinding): number {
   if (intersectStart > intersectEnd) return 0;
 
   const intersection = intersectEnd - intersectStart + 1;
-  const union = (aEnd - aStart + 1) + (bEnd - bStart + 1) - intersection;
+  const union = aEnd - aStart + 1 + (bEnd - bStart + 1) - intersection;
   return union === 0 ? 0 : intersection / union;
 }
 
 /** Deduplicate findings — merge overlapping ones, keep the higher-severity */
 function deduplicate(findings: LensFinding[]): LensFinding[] {
   const severityRank: Record<string, number> = {
-    critical: 4, high: 3, medium: 2, low: 1, info: 0,
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+    info: 0,
   };
   const result: LensFinding[] = [];
   const used = new Set<number>();
@@ -98,13 +102,13 @@ function ensembleVoting(findings: LensFinding[]): LensFinding[] {
 
   const boosted = new Set<string>();
 
-  return findings.map(f => {
+  return findings.map((f) => {
     const key = `${f.evidence.filePath}:${f.evidence.startLine}-${f.evidence.endLine}`;
     const group = locationMap.get(key);
 
     if (group && group.length >= 3) {
       // Count distinct lenses in this group
-      const distinctLenses = new Set(group.map(g => g.lens));
+      const distinctLenses = new Set(group.map((g) => g.lens));
       if (distinctLenses.size >= 3) {
         const newSeverity = severityUpgrade[f.severity] ?? f.severity;
         if (newSeverity !== f.severity) {
@@ -132,7 +136,7 @@ function calibrateSeverity(findings: LensFinding[]): LensFinding[] {
     titleCounts.set(f.title, (titleCounts.get(f.title) ?? 0) + 1);
   }
 
-  return findings.map(f => {
+  return findings.map((f) => {
     const count = titleCounts.get(f.title) ?? 1;
     if (count > 3 && f.severity === 'low') return { ...f, severity: 'medium' as const };
     if (count > 3 && f.severity === 'medium') return { ...f, severity: 'high' as const };
@@ -150,15 +154,15 @@ function calibrateSeverity(findings: LensFinding[]): LensFinding[] {
  * that calibrate severity based on observed false-positive ratios.
  */
 const LENS_FP_RATES: Record<string, Record<string, number>> = {
-  structure: { architecture: 0.15, maintainability: 0.20 },
-  security: { security: 0.10 },
+  structure: { architecture: 0.15, maintainability: 0.2 },
+  security: { security: 0.1 },
   performance: { performance: 0.25 },
-  testing: { test: 0.30 },
-  style: { style: 0.35, maintainability: 0.40 },
-  api: { api: 0.20, security: 0.15 },
-  deps: { security: 0.10, maintainability: 0.25 },
-  contract: { api: 0.15, maintainability: 0.20 },
-  docs: { documentation: 0.30 },
+  testing: { test: 0.3 },
+  style: { style: 0.35, maintainability: 0.4 },
+  api: { api: 0.2, security: 0.15 },
+  deps: { security: 0.1, maintainability: 0.25 },
+  contract: { api: 0.15, maintainability: 0.2 },
+  docs: { documentation: 0.3 },
 };
 
 /**
@@ -168,12 +172,12 @@ const LENS_FP_RATES: Record<string, Record<string, number>> = {
  * have their severity preserved or upgraded.
  */
 function mlCalibration(findings: LensFinding[]): LensFinding[] {
-  return findings.map(f => {
+  return findings.map((f) => {
     const lensFP = LENS_FP_RATES[f.lens] ?? {};
     const catFP = lensFP[f.category] ?? 0.3; // default 30% FP rate assumption
 
     // High FP rate (>30%) with uncertain confidence → downgrade
-    if (catFP > 0.30 && f.confidence !== 'rule') {
+    if (catFP > 0.3 && f.confidence !== 'rule') {
       if (f.severity === 'high') {
         return { ...f, severity: 'medium' as const };
       }
@@ -183,7 +187,7 @@ function mlCalibration(findings: LensFinding[]): LensFinding[] {
     }
 
     // Very low FP rate (<10%) → we can trust high-confidence findings
-    if (catFP < 0.10 && f.confidence === 'rule' && f.severity === 'medium') {
+    if (catFP < 0.1 && f.confidence === 'rule' && f.severity === 'medium') {
       return { ...f, severity: 'high' as const };
     }
 
@@ -242,8 +246,8 @@ function generateExecutiveSummary(
   topIssues: Array<{ title: string; count: number; severity: string }>,
   totalFindings: number,
 ): ExecutiveSummary {
-  const criticalCount = findings.filter(f => f.severity === 'critical').length;
-  const highCount = findings.filter(f => f.severity === 'high').length;
+  const criticalCount = findings.filter((f) => f.severity === 'critical').length;
+  const highCount = findings.filter((f) => f.severity === 'high').length;
 
   // Determine overall assessment
   let overallAssessment: ExecutiveSummary['overallAssessment'];
@@ -268,9 +272,9 @@ function generateExecutiveSummary(
 
   // Key risks from top issues
   const keyRisks = topIssues
-    .filter(i => i.severity === 'critical' || i.severity === 'high')
+    .filter((i) => i.severity === 'critical' || i.severity === 'high')
     .slice(0, 5)
-    .map(i => `${i.title} (${i.count} occurrences, ${i.severity})`);
+    .map((i) => `${i.title} (${i.count} occurrences, ${i.severity})`);
 
   // Recommended actions
   const recommendedActions: string[] = [];
@@ -280,13 +284,16 @@ function generateExecutiveSummary(
   if (highCount > 0) {
     recommendedActions.push(`Address ${highCount} high-severity issues within this sprint`);
   }
-  if (findings.some(f => f.lens === 'structure')) {
+  if (findings.some((f) => f.lens === 'structure')) {
     recommendedActions.push('Review architecture: structural issues detected');
   }
-  if (findings.some(f => f.lens === 'security')) {
+  if (findings.some((f) => f.lens === 'security')) {
     recommendedActions.push('Security audit required: vulnerabilities detected');
   }
-  if (findings.some(f => f.lens === 'docs') && findings.some(f => f.category === 'documentation')) {
+  if (
+    findings.some((f) => f.lens === 'docs') &&
+    findings.some((f) => f.category === 'documentation')
+  ) {
     recommendedActions.push('Improve documentation coverage for public APIs');
   }
 
@@ -303,7 +310,8 @@ function generateExecutiveSummary(
   return {
     overview,
     keyRisks: keyRisks.length > 0 ? keyRisks : ['No critical or high-severity risks identified.'],
-    recommendedActions: recommendedActions.length > 0 ? recommendedActions : ['No urgent actions required.'],
+    recommendedActions:
+      recommendedActions.length > 0 ? recommendedActions : ['No urgent actions required.'],
     overallAssessment,
     recommendation,
   };
@@ -347,7 +355,7 @@ export function synthesizeFindings(
 
   // 1. Ensemble voting — boost when 3+ lenses agree (before dedup)
   allFindings = ensembleVoting(allFindings);
-  const preEnsembleCount = allFindings.filter(f =>
+  const preEnsembleCount = allFindings.filter((f) =>
     f.description.includes('[Ensemble Boosted:'),
   ).length;
 
@@ -355,7 +363,7 @@ export function synthesizeFindings(
   allFindings = deduplicate(allFindings);
   const deduplicatedCount = rawCount - allFindings.length;
 
-  const ensembleBoostedCount = allFindings.filter(f =>
+  const ensembleBoostedCount = allFindings.filter((f) =>
     f.description.includes('[Ensemble Boosted:'),
   ).length;
 
@@ -369,10 +377,10 @@ export function synthesizeFindings(
   const healthScore = computeHealthScore(allFindings, totalLinesAnalyzed);
 
   // 6. Count by severity
-  const critical = allFindings.filter(f => f.severity === 'critical').length;
-  const high = allFindings.filter(f => f.severity === 'high').length;
-  const medium = allFindings.filter(f => f.severity === 'medium').length;
-  const low = allFindings.filter(f => f.severity === 'low' || f.severity === 'info').length;
+  const critical = allFindings.filter((f) => f.severity === 'critical').length;
+  const high = allFindings.filter((f) => f.severity === 'high').length;
+  const medium = allFindings.filter((f) => f.severity === 'medium').length;
+  const low = allFindings.filter((f) => f.severity === 'low' || f.severity === 'info').length;
 
   // 7. Top issues by frequency
   const titleFreq = new Map<string, { count: number; severity: string }>();
@@ -397,14 +405,21 @@ export function synthesizeFindings(
 
   // 9. Generate executive summary
   const executiveSummary = generateExecutiveSummary(
-    allFindings, healthScore, lanesActive, topIssues, allFindings.length,
+    allFindings,
+    healthScore,
+    lanesActive,
+    topIssues,
+    allFindings.length,
   );
 
   return {
     findings: allFindings,
     summary: {
       totalFindings: allFindings.length,
-      critical, high, medium, low,
+      critical,
+      high,
+      medium,
+      low,
       healthScore,
       lanesActive,
       topIssues,
@@ -425,7 +440,7 @@ function buildActionPlan(
 
   for (let priority = 0; priority < severityOrder.length; priority++) {
     const sev = severityOrder[priority]!;
-    const matching = findings.filter(f => f.severity === sev);
+    const matching = findings.filter((f) => f.severity === sev);
     if (matching.length === 0) continue;
 
     // Group by file
@@ -440,7 +455,7 @@ function buildActionPlan(
       actions.push({
         priority: priority + 1,
         action: `Fix ${fileFindings.length} ${sev}-severity issues in ${file}`,
-        findings: fileFindings.map(f => f.id),
+        findings: fileFindings.map((f) => f.id),
       });
     }
   }
@@ -449,10 +464,7 @@ function buildActionPlan(
 }
 
 /** Generate a synthesis lens report with executive summary */
-export function generateSynthesisReport(
-  reports: LensReport[],
-  totalLines: number,
-): LensReport {
+export function generateSynthesisReport(reports: LensReport[], totalLines: number): LensReport {
   const start = Date.now();
   const result = synthesizeFindings(reports, totalLines);
 
@@ -461,10 +473,14 @@ export function generateSynthesisReport(
     filePath: 'SYNTHESIS',
     startLine: 1,
     endLine: 1,
-    codeSnippet: JSON.stringify({
-      summary: result.summary,
-      executiveSummary: result.executiveSummary,
-    }, null, 2),
+    codeSnippet: JSON.stringify(
+      {
+        summary: result.summary,
+        executiveSummary: result.executiveSummary,
+      },
+      null,
+      2,
+    ),
     lens: 'synthesis',
   };
 
@@ -475,10 +491,10 @@ export function generateSynthesisReport(
     executiveSummary.overview,
     '',
     `### Key Risks`,
-    ...executiveSummary.keyRisks.map(r => `- ${r}`),
+    ...executiveSummary.keyRisks.map((r) => `- ${r}`),
     '',
     `### Recommended Actions`,
-    ...executiveSummary.recommendedActions.map(a => `- ${a}`),
+    ...executiveSummary.recommendedActions.map((a) => `- ${a}`),
     '',
     `### Statistics`,
     `- Total findings: ${summary.totalFindings}`,
@@ -491,10 +507,15 @@ export function generateSynthesisReport(
     executiveSummary.recommendation,
   ].join('\n');
 
-  const finding = createLensFinding('synthesis', 'maintainability', 'info',
+  const finding = createLensFinding(
+    'synthesis',
+    'maintainability',
+    'info',
     `Code Health Score: ${summary.healthScore}/100 — ${executiveSummary.overallAssessment.toUpperCase()}`,
     description,
-    evidence, { ruleId: 'synthesis' });
+    evidence,
+    { ruleId: 'synthesis' },
+  );
 
   return {
     lens: 'synthesis',

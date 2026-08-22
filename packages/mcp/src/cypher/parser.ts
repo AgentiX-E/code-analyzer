@@ -68,7 +68,9 @@ class ParserState {
     if (!tok) throw new Error(`Expected ${type}${value ? ` "${value}"` : ''} but got end of input`);
     /* v8 ignore stop */
     if (tok.type !== type) {
-      throw new Error(`Expected ${type} but got ${tok.type} "${tok.value}" at position ${tok.position}`);
+      throw new Error(
+        `Expected ${type} but got ${tok.type} "${tok.value}" at position ${tok.position}`,
+      );
     }
     if (value !== undefined && tok.value.toUpperCase() !== value.toUpperCase()) {
       throw new Error(`Expected "${value}" but got "${tok.value}" at position ${tok.position}`);
@@ -225,7 +227,7 @@ function parseNodePattern(state: ParserState): NodePattern {
     if (state.current()?.value === '{') {
       properties = parsePropertyBlock(state);
     }
-  /* v8 ignore start */
+    /* v8 ignore start */
   } else if (state.current()?.value === ':') {
     // Anonymous node with label
     state.advance();
@@ -276,7 +278,7 @@ function parseRelationship(state: ParserState): RelationshipPattern {
     state.advance(); // consume -
     if (state.current()?.value === '[') {
       state.advance();
-    /* v8 ignore start */
+      /* v8 ignore start */
     } else if (state.current()?.value === '>') {
       // Simple forward: -->(b)
       state.advance();
@@ -349,19 +351,24 @@ function parseRelationship(state: ParserState): RelationshipPattern {
   state.expect('PUNCTUATION', ']');
 
   // Handle direction after ]
-  if (state.current()?.value === '>' || (state.current()?.type === 'OPERATOR' && state.current()?.value === '-' && state.peek()?.value === '>')) {
+  if (
+    state.current()?.value === '>' ||
+    (state.current()?.type === 'OPERATOR' &&
+      state.current()?.value === '-' &&
+      state.peek()?.value === '>')
+  ) {
     /* v8 ignore start */
     if (state.current()?.value === '-') state.advance();
     if (direction === 'left') direction = 'both';
     else direction = 'right';
     state.advance(); // consume >
     /* v8 ignore stop */
-  /* v8 ignore start */
+    /* v8 ignore start */
   } else if (state.current()?.type === 'OPERATOR' && state.current()?.value === '-') {
     // Just -- without arrow: keep initial direction; if no initial, it's bidirectional
     if (direction === 'right') direction = 'both';
     state.advance();
-  /* v8 ignore stop */
+    /* v8 ignore stop */
   }
 
   const target = parseNodePattern(state);
@@ -569,7 +576,17 @@ function parseExpression(state: ParserState, minPrecedence = 0): CypherExpressio
       prec = precedence(opValue);
     } else if (tok.type === 'KEYWORD') {
       const upper = tok.value.toUpperCase();
-      const binopKeywords = ['AND', 'OR', 'IN', 'IS', 'CONTAINS', 'STARTS', 'ENDS', 'REGEX', 'WITH'];
+      const binopKeywords = [
+        'AND',
+        'OR',
+        'IN',
+        'IS',
+        'CONTAINS',
+        'STARTS',
+        'ENDS',
+        'REGEX',
+        'WITH',
+      ];
       if (binopKeywords.includes(upper)) {
         opValue = upper;
         prec = precedence(opValue);
@@ -589,7 +606,15 @@ function parseExpression(state: ParserState, minPrecedence = 0): CypherExpressio
       }
       if (state.isKeyword('NULL')) {
         state.advance();
-        left = { type: 'binary', operator: not ? 'IS NOT' : 'IS', left, right: { type: 'literal' as const, value: null as unknown as string | number | boolean } as CypherExpression };
+        left = {
+          type: 'binary',
+          operator: not ? 'IS NOT' : 'IS',
+          left,
+          right: {
+            type: 'literal' as const,
+            value: null as unknown as string | number | boolean,
+          } as CypherExpression,
+        };
       } else {
         const right = parsePrimary(state);
         left = { type: 'binary', operator: 'IS', left, right };
@@ -651,12 +676,20 @@ function parsePrimary(state: ParserState): CypherExpression {
   }
   if (state.isKeyword('NULL')) {
     state.advance();
-    return { type: 'literal', value: null as unknown as string | number | boolean } as CypherExpression;
+    return {
+      type: 'literal',
+      value: null as unknown as string | number | boolean,
+    } as CypherExpression;
   }
 
   // Function calls: COUNT(expr), SUM(expr), etc.
-  if (state.isKeyword('COUNT') || state.isKeyword('SUM') || state.isKeyword('AVG') ||
-      state.isKeyword('MIN') || state.isKeyword('MAX')) {
+  if (
+    state.isKeyword('COUNT') ||
+    state.isKeyword('SUM') ||
+    state.isKeyword('AVG') ||
+    state.isKeyword('MIN') ||
+    state.isKeyword('MAX')
+  ) {
     const funcName = state.advance()!.value;
     state.expect('PUNCTUATION', '(');
     const args: CypherExpression[] = [];
@@ -716,7 +749,10 @@ function parsePrimary(state: ParserState): CypherExpression {
       if (state.current()?.value === ',') state.advance();
     }
     state.expect('PUNCTUATION', ']');
-    return { type: 'literal', value: items as unknown as string | number | boolean } as CypherExpression;
+    return {
+      type: 'literal',
+      value: items as unknown as string | number | boolean,
+    } as CypherExpression;
   }
 
   // Nested expression with dot access on function result
@@ -725,7 +761,9 @@ function parsePrimary(state: ParserState): CypherExpression {
   }
 
   /* v8 ignore start */
-  throw new Error(`Unexpected token: ${state.current()?.value ?? 'EOF'} at position ${state.current()?.position ?? 'end'}`);
+  throw new Error(
+    `Unexpected token: ${state.current()?.value ?? 'EOF'} at position ${state.current()?.position ?? 'end'}`,
+  );
   /* v8 ignore stop */
 }
 

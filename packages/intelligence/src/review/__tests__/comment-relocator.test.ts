@@ -42,7 +42,7 @@ describe('CommentRelocator', () => {
 
     const modified = [
       'import foo from "./foo";',
-      'import bar from "./bar";',  // new line inserted before
+      'import bar from "./bar";', // new line inserted before
       '',
       'function main() {',
       '  const x = 1;',
@@ -124,11 +124,7 @@ describe('CommentRelocator', () => {
 
   it('should mark comments as lost when file is deleted from both sides', () => {
     const comments = [makeComment({ path: 'nonexistent.ts', startLine: 1 })];
-    const result = relocator.relocate(
-      comments,
-      new Map(),
-      new Map(),
-    );
+    const result = relocator.relocate(comments, new Map(), new Map());
     expect(result.lost).toContain(comments[0]!.id);
   });
 
@@ -335,7 +331,7 @@ describe('CommentRelocator', () => {
     const original = [
       'import { foo, bar, baz } from "./util";',
       'import { qux, quux } from "./other";',
-      't1 t2 t3 t4 t5 t6 t7 t8 t9 t10',           // <-- comment at line 3
+      't1 t2 t3 t4 t5 t6 t7 t8 t9 t10', // <-- comment at line 3
       'export function main(): void {',
       '  return;',
       '}',
@@ -356,7 +352,12 @@ describe('CommentRelocator', () => {
       existingCode: 't1 t2 t3 t4 t5 t6 t7 t8 t9 t10',
       startLine: 3, // Ensures fingerprint includes surrounding context lines
     });
-    const result = relocator.relocateFromDiff([comment], filePath, original, modifiedLines.join('\n'));
+    const result = relocator.relocateFromDiff(
+      [comment],
+      filePath,
+      original,
+      modifiedLines.join('\n'),
+    );
     // Token overlap: 10 common tokens >= Math.min(3, 10) = 3
     if (result.relocated.size > 0) {
       const pos = result.relocated.get(comment.id)!;
@@ -407,8 +408,16 @@ describe('CommentRelocator', () => {
     // This means newLines.length - fpLines.length is negative, loop doesn't execute
     const relocatorWide = new CommentRelocator(5); // wide context
     const original = [
-      'line1', 'line2', 'line3', 'line4', 'line5',
-      'line6', 'line7', 'line8', 'line9', 'line10',
+      'line1',
+      'line2',
+      'line3',
+      'line4',
+      'line5',
+      'line6',
+      'line7',
+      'line8',
+      'line9',
+      'line10',
       'line11',
     ].join('\n');
     // Very short new content — shorter than the fingerprint width

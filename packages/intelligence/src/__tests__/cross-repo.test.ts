@@ -11,21 +11,14 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode } from '@code-analyzer/shared';
 
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
-import {
-  CrossRepoIndexer,
-  levenshteinDistance,
-} from '../cross-repo/cross-repo-indexer.js';
+import { CrossRepoIndexer, levenshteinDistance } from '../cross-repo/cross-repo-indexer.js';
 import { FederatedSearchEngine } from '../cross-repo/federated-search.js';
 
 // ---------------------------------------------------------------------------
 // Test Helpers
 // ---------------------------------------------------------------------------
 
-function createTestRepoDir(
-  baseDir: string,
-  name: string,
-  files: Record<string, string>,
-): string {
+function createTestRepoDir(baseDir: string, name: string, files: Record<string, string>): string {
   const repoDir = join(baseDir, name);
   mkdirSync(repoDir, { recursive: true });
   for (const [filePath, content] of Object.entries(files)) {
@@ -105,10 +98,7 @@ describe('levenshteinDistance', () => {
   });
 
   it('should handle long strings', () => {
-    const dist = levenshteinDistance(
-      'function getUserProfile',
-      'function getXSerProfile',
-    );
+    const dist = levenshteinDistance('function getUserProfile', 'function getXSerProfile');
     expect(dist).toBe(2);
   });
 
@@ -148,16 +138,12 @@ describe('RepoGroupManager', () => {
     });
 
     it('should throw if name is empty', () => {
-      expect(() => manager.createGroup('id', '', 'Desc')).toThrow(
-        'Group id and name are required',
-      );
+      expect(() => manager.createGroup('id', '', 'Desc')).toThrow('Group id and name are required');
     });
 
     it('should throw on duplicate group ID', () => {
       manager.createGroup('g1', 'First', '');
-      expect(() => manager.createGroup('g1', 'Second', '')).toThrow(
-        '"g1" already exists',
-      );
+      expect(() => manager.createGroup('g1', 'Second', '')).toThrow('"g1" already exists');
     });
   });
 
@@ -169,9 +155,7 @@ describe('RepoGroupManager', () => {
     });
 
     it('should throw if group does not exist', () => {
-      expect(() => manager.deleteGroup('nonexistent')).toThrow(
-        '"nonexistent" not found',
-      );
+      expect(() => manager.deleteGroup('nonexistent')).toThrow('"nonexistent" not found');
     });
   });
 
@@ -181,7 +165,13 @@ describe('RepoGroupManager', () => {
     });
 
     it('should add a repo to a group', () => {
-      manager.addRepo('g1', 'owner', 'my-repo', 'https://github.com/owner/my-repo', '/path/to/repo');
+      manager.addRepo(
+        'g1',
+        'owner',
+        'my-repo',
+        'https://github.com/owner/my-repo',
+        '/path/to/repo',
+      );
       const repos = manager.getRepos('g1');
       expect(repos.length).toBe(1);
       expect(repos[0]!.fullName).toBe('owner/my-repo');
@@ -190,9 +180,9 @@ describe('RepoGroupManager', () => {
 
     it('should throw on duplicate repo', () => {
       manager.addRepo('g1', 'owner', 'my-repo', 'url', '/path');
-      expect(() =>
-        manager.addRepo('g1', 'owner', 'my-repo', 'url', '/path'),
-      ).toThrow('already exists in group');
+      expect(() => manager.addRepo('g1', 'owner', 'my-repo', 'url', '/path')).toThrow(
+        'already exists in group',
+      );
     });
 
     it('should remove a repo from a group', () => {
@@ -202,15 +192,11 @@ describe('RepoGroupManager', () => {
     });
 
     it('should throw when removing non-existent repo', () => {
-      expect(() => manager.removeRepo('g1', 'nonexistent/repo')).toThrow(
-        'not found in group',
-      );
+      expect(() => manager.removeRepo('g1', 'nonexistent/repo')).toThrow('not found in group');
     });
 
     it('should throw when getting repos for non-existent group', () => {
-      expect(() => manager.getRepos('nonexistent')).toThrow(
-        '"nonexistent" not found',
-      );
+      expect(() => manager.getRepos('nonexistent')).toThrow('"nonexistent" not found');
     });
   });
 
@@ -333,26 +319,34 @@ describe('RepoGroupManager', () => {
       manager.createGroup('g1', 'Clone Test', '');
       // Manually insert a contract into the internal groups map to test clone
       const internal = (manager as any).groups.get('g1');
-      internal.contracts = [{
-        id: 'contract-1',
-        name: 'UserDTO',
-        description: 'Shared DTO',
-        uri: '/api/user',
-        version: '1.0.0',
-        definition: { kind: 'shared_interface', fields: ['id', 'name'] },
-        dependencies: ['o/repo-a', 'o/repo-b'],
-      }];
+      internal.contracts = [
+        {
+          id: 'contract-1',
+          name: 'UserDTO',
+          description: 'Shared DTO',
+          uri: '/api/user',
+          version: '1.0.0',
+          definition: { kind: 'shared_interface', fields: ['id', 'name'] },
+          dependencies: ['o/repo-a', 'o/repo-b'],
+        },
+      ];
 
       const group = manager.getGroup('g1')!;
       expect(group.contracts).toHaveLength(1);
-      expect(group.contracts[0]!.definition).toEqual({ kind: 'shared_interface', fields: ['id', 'name'] });
+      expect(group.contracts[0]!.definition).toEqual({
+        kind: 'shared_interface',
+        fields: ['id', 'name'],
+      });
       expect(group.contracts[0]!.dependencies).toEqual(['o/repo-a', 'o/repo-b']);
 
       // Verify it's a deep clone — modifying the returned object shouldn't affect original
       group.contracts[0]!.definition = { modified: true } as any;
       group.contracts[0]!.dependencies.push('o/repo-c');
       const fresh = manager.getGroup('g1')!;
-      expect(fresh.contracts[0]!.definition).toEqual({ kind: 'shared_interface', fields: ['id', 'name'] });
+      expect(fresh.contracts[0]!.definition).toEqual({
+        kind: 'shared_interface',
+        fields: ['id', 'name'],
+      });
       expect(fresh.contracts[0]!.dependencies).toEqual(['o/repo-a', 'o/repo-b']);
     });
   });
@@ -384,25 +378,19 @@ describe('RepoGroupManager', () => {
     });
 
     it('should throw loading non-existent file', () => {
-      expect(() => manager.loadConfig('/nonexistent/config.json')).toThrow(
-        'Config file not found',
-      );
+      expect(() => manager.loadConfig('/nonexistent/config.json')).toThrow('Config file not found');
     });
 
     it('should throw loading invalid JSON', () => {
       const configPath = join(tmpDir, 'bad.json');
       writeFileSync(configPath, 'not valid json', 'utf-8');
-      expect(() => manager.loadConfig(configPath)).toThrow(
-        'Invalid JSON',
-      );
+      expect(() => manager.loadConfig(configPath)).toThrow('Invalid JSON');
     });
 
     it('should throw if config is not an array', () => {
       const configPath = join(tmpDir, 'obj.json');
       writeFileSync(configPath, '{"key": "value"}', 'utf-8');
-      expect(() => manager.loadConfig(configPath)).toThrow(
-        'must contain an array',
-      );
+      expect(() => manager.loadConfig(configPath)).toThrow('must contain an array');
     });
 
     it('should load config with multiple groups and contracts', () => {
@@ -486,9 +474,7 @@ describe('CrossRepoIndexer', () => {
 
   describe('indexGroup', () => {
     it('should throw for non-existent group', async () => {
-      await expect(indexer.indexGroup('nonexistent')).rejects.toThrow(
-        '"nonexistent" not found',
-      );
+      await expect(indexer.indexGroup('nonexistent')).rejects.toThrow('"nonexistent" not found');
     });
 
     it('should handle empty group gracefully', async () => {
@@ -546,9 +532,7 @@ describe('CrossRepoIndexer', () => {
 
     it('should throw for non-existent repo', async () => {
       groupManager.createGroup('g1', 'Test', '');
-      await expect(indexer.indexRepo('g1', 'nonexistent')).rejects.toThrow(
-        'not found in group',
-      );
+      await expect(indexer.indexRepo('g1', 'nonexistent')).rejects.toThrow('not found in group');
     });
   });
 
@@ -665,7 +649,13 @@ describe('CrossRepoIndexer', () => {
     });
 
     it('should count orphan symbols', async () => {
-      const exportedNode = createProjectNode('o/repo-a', 'orphanFunc', 'Function', 'src/util.ts', true);
+      const exportedNode = createProjectNode(
+        'o/repo-a',
+        'orphanFunc',
+        'Function',
+        'src/util.ts',
+        true,
+      );
       store.insertNode(exportedNode);
 
       groupManager.createGroup('g1', 'Orphan', '');
@@ -709,7 +699,13 @@ describe('CrossRepoIndexer', () => {
     });
 
     it('should not flag interfaces unique to one repo', async () => {
-      const ifaceA = createProjectNode('o/repo-a', 'UniqueInterface', 'Interface', 'types.ts', true);
+      const ifaceA = createProjectNode(
+        'o/repo-a',
+        'UniqueInterface',
+        'Interface',
+        'types.ts',
+        true,
+      );
       store.insertNode(ifaceA);
 
       groupManager.createGroup('g1', 'Contracts', '');
@@ -759,14 +755,12 @@ describe('CrossRepoIndexer', () => {
         signature: '(id: string): User',
       };
 
-      store.insertNode(
-        {
-          ...nodeA,
-          signature: '(id: number): User',
-          createdAt: now,
-          updatedAt: now,
-        },
-      );
+      store.insertNode({
+        ...nodeA,
+        signature: '(id: number): User',
+        createdAt: now,
+        updatedAt: now,
+      });
       store.insertNode(nodeB2);
 
       groupManager.createGroup('g1', 'Compat', '');
@@ -799,9 +793,9 @@ describe('CrossRepoIndexer', () => {
   describe('analyzeCrossRepoImpact', () => {
     it('should throw for repos not in group', async () => {
       groupManager.createGroup('g1', 'Impact', '');
-      await expect(
-        indexer.analyzeCrossRepoImpact('g1', 'unknown-repo'),
-      ).rejects.toThrow('not in group');
+      await expect(indexer.analyzeCrossRepoImpact('g1', 'unknown-repo')).rejects.toThrow(
+        'not in group',
+      );
     });
 
     it('should return empty affected list for repos with no cross-repo deps', async () => {
@@ -870,9 +864,9 @@ describe('CrossRepoIndexer', () => {
 
     it('should throw for repo not in group', async () => {
       groupManager.createGroup('g1', 'Trace', '');
-      await expect(
-        indexer.traceSymbolDependencies('g1', 'unknown-repo', 'fn'),
-      ).rejects.toThrow('not in group');
+      await expect(indexer.traceSymbolDependencies('g1', 'unknown-repo', 'fn')).rejects.toThrow(
+        'not in group',
+      );
     });
 
     it('should return empty array for symbol with no matches', async () => {
@@ -897,9 +891,13 @@ describe('CrossRepoIndexer', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'o/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_CALLS', properties: {}, weight: 1,
+        id: 0,
+        projectId: 'o/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_CALLS',
+        properties: {},
+        weight: 1,
         createdAt: new Date().toISOString(),
       });
 
@@ -925,9 +923,7 @@ describe('FederatedSearchEngine', () => {
 
   describe('search', () => {
     it('should throw on empty query', async () => {
-      await expect(engine.search('')).rejects.toThrow(
-        'Search query is required',
-      );
+      await expect(engine.search('')).rejects.toThrow('Search query is required');
     });
 
     it('should return empty results for empty store', async () => {
@@ -948,12 +944,7 @@ describe('FederatedSearchEngine', () => {
 
     it('should respect maxResults option', async () => {
       for (let i = 0; i < 10; i++) {
-        const node = createProjectNode(
-          'repo-a',
-          `getUser${i}`,
-          'Function',
-          'users.ts',
-        );
+        const node = createProjectNode('repo-a', `getUser${i}`, 'Function', 'users.ts');
         store.insertNode(node);
       }
 
@@ -992,9 +983,7 @@ describe('FederatedSearchEngine', () => {
 
   describe('findSymbol', () => {
     it('should throw on empty name', async () => {
-      await expect(engine.findSymbol('')).rejects.toThrow(
-        'Symbol name is required',
-      );
+      await expect(engine.findSymbol('')).rejects.toThrow('Symbol name is required');
     });
 
     it('should find exact symbol match', async () => {
@@ -1032,7 +1021,13 @@ describe('FederatedSearchEngine', () => {
     });
 
     it('should return exact match via qualified name lookup', async () => {
-      const node = createProjectNode('repo-a', 'qualifiedNameMatch', 'Function', 'src/utils.ts', true);
+      const node = createProjectNode(
+        'repo-a',
+        'qualifiedNameMatch',
+        'Function',
+        'src/utils.ts',
+        true,
+      );
       // Set qualifiedName to exactly match the search term for getNodeByQualifiedName
       node.qualifiedName = 'qualifiedNameMatch';
       store.insertNode(node);
@@ -1063,15 +1058,15 @@ describe('FederatedSearchEngine', () => {
       expect(results.length).toBe(2);
 
       // Verify no duplicate repos
-      const repoList = results.map(r => r.repo);
+      const repoList = results.map((r) => r.repo);
       expect(new Set(repoList).size).toBe(repoList.length);
 
       // Verify both repos are present
-      const repos = results.map(r => r.repo).sort();
+      const repos = results.map((r) => r.repo).sort();
       expect(repos).toEqual(['repo-a', 'repo-b']);
 
       // Find the exact qualified name match
-      const exactResult = results.find(r => r.qualifiedName === 'sharedSymbol');
+      const exactResult = results.find((r) => r.qualifiedName === 'sharedSymbol');
       expect(exactResult).toBeTruthy();
       expect(exactResult!.matchType).toBe('exact');
     });
@@ -1079,9 +1074,7 @@ describe('FederatedSearchEngine', () => {
 
   describe('findDuplicates', () => {
     it('should throw on empty groupId', async () => {
-      await expect(engine.findDuplicates('')).rejects.toThrow(
-        'Group ID is required',
-      );
+      await expect(engine.findDuplicates('')).rejects.toThrow('Group ID is required');
     });
 
     it('should handle repos with no files', async () => {
@@ -1106,10 +1099,34 @@ describe('FederatedSearchEngine', () => {
       });
 
       // Create symbols with identical names across repos
-      const funcA1 = createProjectNode('o/repo-a', 'getUser', 'Function', 'UserController.ts', true);
-      const funcA2 = createProjectNode('o/repo-a', 'listUsers', 'Function', 'UserController.ts', true);
-      const funcB1 = createProjectNode('o/repo-b', 'getUser', 'Function', 'UserController.ts', true);
-      const funcB2 = createProjectNode('o/repo-b', 'listUsers', 'Function', 'UserController.ts', true);
+      const funcA1 = createProjectNode(
+        'o/repo-a',
+        'getUser',
+        'Function',
+        'UserController.ts',
+        true,
+      );
+      const funcA2 = createProjectNode(
+        'o/repo-a',
+        'listUsers',
+        'Function',
+        'UserController.ts',
+        true,
+      );
+      const funcB1 = createProjectNode(
+        'o/repo-b',
+        'getUser',
+        'Function',
+        'UserController.ts',
+        true,
+      );
+      const funcB2 = createProjectNode(
+        'o/repo-b',
+        'listUsers',
+        'Function',
+        'UserController.ts',
+        true,
+      );
 
       const fa1 = store.insertNode(funcA1);
       const fa2 = store.insertNode(funcA2);
@@ -1174,13 +1191,16 @@ describe('FederatedSearchEngine', () => {
     });
 
     it('should throw on empty group ID', async () => {
-      await expect(engine.getCrossRepoUsage('lodash', '')).rejects.toThrow(
-        'Group ID is required',
-      );
+      await expect(engine.getCrossRepoUsage('lodash', '')).rejects.toThrow('Group ID is required');
     });
 
     it('should find repos using a dependency', async () => {
-      const nodeA = createProjectNode('repo-a', 'lodash.map', 'Function', 'node_modules/lodash/map.js');
+      const nodeA = createProjectNode(
+        'repo-a',
+        'lodash.map',
+        'Function',
+        'node_modules/lodash/map.js',
+      );
       store.insertNode(nodeA);
 
       // File that uses the dependency
@@ -1228,23 +1248,11 @@ describe('Cross-Repo Edge Cases', () => {
   it('should handle duplicate symbols across repos', async () => {
     // Two reps with identical function name
     for (let i = 0; i < 5; i++) {
-      const node = createProjectNode(
-        'o/repo-a',
-        `handler${i}`,
-        'Function',
-        'handlers.ts',
-        true,
-      );
+      const node = createProjectNode('o/repo-a', `handler${i}`, 'Function', 'handlers.ts', true);
       store.insertNode(node);
     }
     for (let i = 0; i < 3; i++) {
-      const node = createProjectNode(
-        'o/repo-b',
-        `handler${i}`,
-        'Function',
-        'handlers.ts',
-        true,
-      );
+      const node = createProjectNode('o/repo-b', `handler${i}`, 'Function', 'handlers.ts', true);
       store.insertNode(node);
     }
 
@@ -1505,12 +1513,24 @@ describe('Cross-Repo Edge Cases', () => {
     const fB = store.insertNode(funcB);
 
     store.insertEdge({
-      id: 0, projectId: 'repo-a', sourceId: insertedA, targetId: fA,
-      type: 'DEFINES', properties: {}, weight: 1, createdAt: now,
+      id: 0,
+      projectId: 'repo-a',
+      sourceId: insertedA,
+      targetId: fA,
+      type: 'DEFINES',
+      properties: {},
+      weight: 1,
+      createdAt: now,
     });
     store.insertEdge({
-      id: 0, projectId: 'repo-b', sourceId: insertedB, targetId: fB,
-      type: 'DEFINES', properties: {}, weight: 1, createdAt: now,
+      id: 0,
+      projectId: 'repo-b',
+      sourceId: insertedB,
+      targetId: fB,
+      type: 'DEFINES',
+      properties: {},
+      weight: 1,
+      createdAt: now,
     });
 
     const report = await engine.findDuplicates('test-g', 0.3);
@@ -1601,7 +1621,8 @@ describe('Cross-Repo Edge Cases', () => {
       ...createProjectNode('o/repo-a', 'LanguageFunc', 'Function', 'src/func.py', true),
       language: 'python',
       properties: {
-        ...createProjectNode('o/repo-a', 'LanguageFunc', 'Function', 'src/func.py', true).properties,
+        ...createProjectNode('o/repo-a', 'LanguageFunc', 'Function', 'src/func.py', true)
+          .properties,
         language: 'python',
       },
     };
@@ -1609,7 +1630,8 @@ describe('Cross-Repo Edge Cases', () => {
       ...createProjectNode('o/repo-b', 'LanguageFunc', 'Function', 'src/func.ts', true),
       language: 'typescript',
       properties: {
-        ...createProjectNode('o/repo-b', 'LanguageFunc', 'Function', 'src/func.ts', true).properties,
+        ...createProjectNode('o/repo-b', 'LanguageFunc', 'Function', 'src/func.ts', true)
+          .properties,
         language: 'typescript',
       },
     };
@@ -1758,23 +1780,41 @@ describe('Cross-Repo Edge Cases', () => {
 
   it('should handle findDuplicates with pairwise comparison across different repos', async () => {
     const engine = new FederatedSearchEngine(store);
-    
+
     const fileA = createProjectNode('rx', 'FileX.ts', 'File', 'FileX.ts');
     const fileB = createProjectNode('ry', 'FileY.ts', 'File', 'FileY.ts');
-    
+
     const faRef = store.insertNode({ ...fileA, qualifiedName: 'file:rx:FileX.ts' });
     const fbRef = store.insertNode({ ...fileB, qualifiedName: 'file:ry:FileY.ts' });
-    
+
     const funcA = createProjectNode('rx', 'fnA', 'Function', 'FileX.ts', true);
     const funcB = createProjectNode('ry', 'fnA', 'Function', 'FileY.ts', true);
-    
+
     const fA = store.insertNode(funcA);
     const fB = store.insertNode(funcB);
-    
+
     const now = new Date().toISOString();
-    store.insertEdge({ id: 0, projectId: 'rx', sourceId: faRef, targetId: fA, type: 'DEFINES', properties: {}, weight: 1, createdAt: now });
-    store.insertEdge({ id: 0, projectId: 'ry', sourceId: fbRef, targetId: fB, type: 'DEFINES', properties: {}, weight: 1, createdAt: now });
-    
+    store.insertEdge({
+      id: 0,
+      projectId: 'rx',
+      sourceId: faRef,
+      targetId: fA,
+      type: 'DEFINES',
+      properties: {},
+      weight: 1,
+      createdAt: now,
+    });
+    store.insertEdge({
+      id: 0,
+      projectId: 'ry',
+      sourceId: fbRef,
+      targetId: fB,
+      type: 'DEFINES',
+      properties: {},
+      weight: 1,
+      createdAt: now,
+    });
+
     const report = await engine.findDuplicates('pair-test', 0.3);
     expect(Array.isArray(report.duplicates)).toBe(true);
   });
@@ -1977,7 +2017,9 @@ describe('CrossRepoIndexer — additional coverage', () => {
 
   describe('checkTypeCompatibility — edge cases', () => {
     it('should throw for non-existent group', async () => {
-      await expect(indexer.checkTypeCompatibility('nonexistent', 'a', 'b')).rejects.toThrow('not found');
+      await expect(indexer.checkTypeCompatibility('nonexistent', 'a', 'b')).rejects.toThrow(
+        'not found',
+      );
     });
   });
 
@@ -1989,12 +2031,16 @@ describe('CrossRepoIndexer — additional coverage', () => {
 
   describe('traceSymbolDependencies — edge cases', () => {
     it('should throw for non-existent group', async () => {
-      await expect(indexer.traceSymbolDependencies('nonexistent', 'r', 's')).rejects.toThrow('not found');
+      await expect(indexer.traceSymbolDependencies('nonexistent', 'r', 's')).rejects.toThrow(
+        'not found',
+      );
     });
 
     it('should throw for repo not in group', async () => {
       groupManager.createGroup('g1', 'Trace Group', '');
-      await expect(indexer.traceSymbolDependencies('g1', 'unknown', 'fn')).rejects.toThrow('not in group');
+      await expect(indexer.traceSymbolDependencies('g1', 'unknown', 'fn')).rejects.toThrow(
+        'not in group',
+      );
     });
   });
 
@@ -2052,9 +2098,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
@@ -2072,9 +2123,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
@@ -2087,7 +2143,13 @@ describe('CrossRepoIndexer — branch coverage', () => {
     it('should use changedSymbols filter to scope source nodes', async () => {
       const { allNodes } = setupTwoRepos();
       // Add a second source node that won't match the filter
-      const extraNode = createProjectNode('org/repo-a', 'extraFn', 'Function', 'src/extra.ts', true);
+      const extraNode = createProjectNode(
+        'org/repo-a',
+        'extraFn',
+        'Function',
+        'src/extra.ts',
+        true,
+      );
       store.insertNode(extraNode);
 
       const allN = store.getAllNodes();
@@ -2097,9 +2159,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Only sourceFn has a CROSS_REPO edge to targetFn
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       // When filtering by 'sourceFn', only its edges should be traversed
@@ -2118,9 +2185,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const report = await indexer.buildCrossRepoGraph('g1');
@@ -2135,9 +2207,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CALLS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const report = await indexer.buildCrossRepoGraph('g1');
@@ -2151,9 +2228,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'IMPLEMENTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'IMPLEMENTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const report = await indexer.buildCrossRepoGraph('g1');
@@ -2167,9 +2249,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_DEPENDS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_DEPENDS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const report = await indexer.buildCrossRepoGraph('g1');
@@ -2194,9 +2281,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Create a cross-repo edge referencing targetFn from another repo's node
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const report = await indexer.buildCrossRepoGraph('g1');
@@ -2219,16 +2311,26 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Cross-repo edge: sourceFn (repo-a) → targetFn (repo-b)
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       // Cross-repo edge: targetFn (repo-b) → deepTarget (repo-c)
       store.insertEdge({
-        id: 0, projectId: 'org/repo-b',
-        sourceId: idB, targetId: idC,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-b',
+        sourceId: idB,
+        targetId: idC,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'sourceFn');
@@ -2253,9 +2355,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idFileB = store.insertNode(fileB);
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-b',
-        sourceId: idFileB, targetId: sourceFn.id,
-        type: 'IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-b',
+        sourceId: idFileB,
+        targetId: sourceFn.id,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       const matches = await indexer.resolveCrossRepoSymbols('g1');
@@ -2294,7 +2401,13 @@ describe('CrossRepoIndexer — branch coverage', () => {
       groupManager.addRepo('g1', 'org', 'repo-b', 'https://b', '/b');
 
       const nodeA = createProjectNode('org/repo-a', 'getOrders', 'Function', 'src/orders.ts', true);
-      const nodeB = createProjectNode('org/repo-b', 'listOrders', 'Function', 'src/orders.ts', true);
+      const nodeB = createProjectNode(
+        'org/repo-b',
+        'listOrders',
+        'Function',
+        'src/orders.ts',
+        true,
+      );
       // Set routePath to be the same
       nodeA.properties.routePath = '/api/v1/orders';
       nodeB.properties.routePath = '/api/v1/orders';
@@ -2358,7 +2471,10 @@ describe('CrossRepoIndexer — branch coverage', () => {
       groupManager.addRepo('g1', 'org', 'repo-b', 'https://b', '/b');
 
       const nodeA = createProjectNode('org/repo-a', 'sigFn', 'Function', 'src/s.ts', true);
-      const nodeB = { ...createProjectNode('org/repo-b', 'sigFn', 'Function', 'src/s.ts', true), signature: null as null };
+      const nodeB = {
+        ...createProjectNode('org/repo-b', 'sigFn', 'Function', 'src/s.ts', true),
+        signature: null as null,
+      };
 
       store.insertNode(nodeA);
       store.insertNode(nodeB);
@@ -2374,11 +2490,17 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       const nodeA: GraphNode = {
         ...createProjectNode('org/repo-a', 'retFn', 'Function', 'src/r.ts', true),
-        properties: { ...createProjectNode('org/repo-a', 'retFn', 'Function', 'src/r.ts', true).properties, returnType: 'number' },
+        properties: {
+          ...createProjectNode('org/repo-a', 'retFn', 'Function', 'src/r.ts', true).properties,
+          returnType: 'number',
+        },
       };
       const nodeB: GraphNode = {
         ...createProjectNode('org/repo-b', 'retFn', 'Function', 'src/r.ts', true),
-        properties: { ...createProjectNode('org/repo-b', 'retFn', 'Function', 'src/r.ts', true).properties, returnType: 'string' },
+        properties: {
+          ...createProjectNode('org/repo-b', 'retFn', 'Function', 'src/r.ts', true).properties,
+          returnType: 'string',
+        },
       };
 
       store.insertNode(nodeA);
@@ -2419,14 +2541,30 @@ describe('CrossRepoIndexer — branch coverage', () => {
       groupManager.addRepo('g1', 'org', 'repo-b', 'https://b', '/b');
 
       // Node in repo-a with camelCase name
-      const nodeA = createProjectNode('org/repo-a', 'camelCaseFunction', 'Function', 'src/camel.ts', true);
+      const nodeA = createProjectNode(
+        'org/repo-a',
+        'camelCaseFunction',
+        'Function',
+        'src/camel.ts',
+        true,
+      );
       // Node in repo-b with same name to match via case-insensitive search
-      const nodeB = createProjectNode('org/repo-b', 'CAMELCASEFUNCTION', 'Function', 'src/camel.ts', true);
+      const nodeB = createProjectNode(
+        'org/repo-b',
+        'CAMELCASEFUNCTION',
+        'Function',
+        'src/camel.ts',
+        true,
+      );
       store.insertNode(nodeA);
       store.insertNode(nodeB);
 
       // Search with different case — the checkTypeCompatibility uses findSymbolAcrossRepos
-      const result = await indexer.checkTypeCompatibility('g1', 'camelCaseFunction', 'camelCaseFunction');
+      const result = await indexer.checkTypeCompatibility(
+        'g1',
+        'camelCaseFunction',
+        'camelCaseFunction',
+      );
       // Should find both symbols (exact match in repo-a, then repo-b)
       expect(result.compatible).toBe(true);
       expect(result.sourceType).toContain('Function');
@@ -2537,9 +2675,14 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0, projectId: 'org/repo-a',
-        sourceId: idA, targetId: idB,
-        type: 'IMPORTS', properties: {}, weight: 1, createdAt: now,
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
       });
 
       await indexer.buildCrossRepoGraph('g1');
@@ -2558,17 +2701,45 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       const classA = createProjectNode('org/repo-a', 'ApiService', 'Class', 'src/service.ts', true);
       const classB = createProjectNode('org/repo-b', 'ApiService', 'Class', 'src/service.ts', true);
-      const ifaceA = createProjectNode('org/repo-a', 'IApiService', 'Interface', 'src/types.ts', true);
-      const ifaceB = createProjectNode('org/repo-b', 'IApiService', 'Interface', 'src/types.ts', true);
-      const typeA = createProjectNode('org/repo-a', 'ConfigMap', 'TypeAlias', 'src/config.ts', true);
-      const typeB = createProjectNode('org/repo-b', 'ConfigMap', 'TypeAlias', 'src/config.ts', true);
+      const ifaceA = createProjectNode(
+        'org/repo-a',
+        'IApiService',
+        'Interface',
+        'src/types.ts',
+        true,
+      );
+      const ifaceB = createProjectNode(
+        'org/repo-b',
+        'IApiService',
+        'Interface',
+        'src/types.ts',
+        true,
+      );
+      const typeA = createProjectNode(
+        'org/repo-a',
+        'ConfigMap',
+        'TypeAlias',
+        'src/config.ts',
+        true,
+      );
+      const typeB = createProjectNode(
+        'org/repo-b',
+        'ConfigMap',
+        'TypeAlias',
+        'src/config.ts',
+        true,
+      );
       const enumA = createProjectNode('org/repo-a', 'Status', 'Enum', 'src/status.ts', true);
       const enumB = createProjectNode('org/repo-b', 'Status', 'Enum', 'src/status.ts', true);
 
-      store.insertNode(classA); store.insertNode(classB);
-      store.insertNode(ifaceA); store.insertNode(ifaceB);
-      store.insertNode(typeA); store.insertNode(typeB);
-      store.insertNode(enumA); store.insertNode(enumB);
+      store.insertNode(classA);
+      store.insertNode(classB);
+      store.insertNode(ifaceA);
+      store.insertNode(ifaceB);
+      store.insertNode(typeA);
+      store.insertNode(typeB);
+      store.insertNode(enumA);
+      store.insertNode(enumB);
 
       const matches = await indexer.resolveCrossRepoSymbols('g1');
       const exactMatches = matches.filter((m) => m.matchType === 'exact_name');
@@ -2649,8 +2820,16 @@ describe('CrossRepoIndexer — branch coverage', () => {
       mkdirSync(libDir, { recursive: true });
       mkdirSync(nodeModulesDir, { recursive: true });
       writeFileSync(join(srcDir, 'index.ts'), 'export function app() { return true; }', 'utf-8');
-      writeFileSync(join(libDir, 'utils.ts'), 'export function helper() { return false; }', 'utf-8');
-      writeFileSync(join(nodeModulesDir, 'dep.ts'), 'export function external() { return null; }', 'utf-8');
+      writeFileSync(
+        join(libDir, 'utils.ts'),
+        'export function helper() { return false; }',
+        'utf-8',
+      );
+      writeFileSync(
+        join(nodeModulesDir, 'dep.ts'),
+        'export function external() { return null; }',
+        'utf-8',
+      );
 
       groupManager.createGroup('g1', 'Subdir Test', '');
       groupManager.addRepo('g1', 'org', 'sub-repo', 'https://a.example.com', repoDir);
@@ -2677,11 +2856,27 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idC = store.insertNode(nodeC);
 
       // repo-a → repo-b (depth 1)
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
       // repo-b → repo-c (depth 2)
-      store.insertEdge({ id: 0, projectId: 'org/repo-b', sourceId: idB, targetId: idC,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-b',
+        sourceId: idB,
+        targetId: idC,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
       expect(result.affectedRepos).toContain('org/repo-b');
@@ -2703,12 +2898,36 @@ describe('CrossRepoIndexer — branch coverage', () => {
         nodes[r] = store.insertNode(n);
       });
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: nodes['repo-a']!, targetId: nodes['repo-b']!,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
-      store.insertEdge({ id: 0, projectId: 'org/repo-b', sourceId: nodes['repo-b']!, targetId: nodes['repo-c']!,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
-      store.insertEdge({ id: 0, projectId: 'org/repo-c', sourceId: nodes['repo-c']!, targetId: nodes['repo-d']!,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: nodes['repo-a']!,
+        targetId: nodes['repo-b']!,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-b',
+        sourceId: nodes['repo-b']!,
+        targetId: nodes['repo-c']!,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-c',
+        sourceId: nodes['repo-c']!,
+        targetId: nodes['repo-d']!,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
       // repo-b (depth 1), repo-c (depth 2), repo-d (depth 3) — but depth >= 3 stops traversal from expanding further
@@ -2727,8 +2946,16 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idA = store.insertNode(nodeA);
       const idB = store.insertNode(nodeB);
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_CALLS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'caller');
       const direct = traces.find((t) => t.dependencyType === 'CROSS_REPO_CALLS');
@@ -2750,10 +2977,26 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = store.insertNode(nodeB);
       const idC = store.insertNode(nodeC);
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
-      store.insertEdge({ id: 0, projectId: 'org/repo-b', sourceId: idB, targetId: idC,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-b',
+        sourceId: idB,
+        targetId: idC,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'start');
       // Should have both depth 1 (repo-a → repo-b) and depth 2 (repo-a → repo-b → repo-c)
@@ -2812,7 +3055,8 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const tmpDir = join(tmpdir(), `import-req-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
       const repoDir = createTestRepoDir(tmpDir, 'req-repo', {
-        'src/app.js': 'const express = require("express");\nmodule.exports = function() { return true; };',
+        'src/app.js':
+          'const express = require("express");\nmodule.exports = function() { return true; };',
       });
       groupManager.createGroup('g1', 'Req Import', '');
       groupManager.addRepo('g1', 'org', 'req-repo', 'https://a.example.com', repoDir);
@@ -2833,7 +3077,9 @@ describe('CrossRepoIndexer — branch coverage', () => {
       store.insertNode(methodB);
 
       const matches = await indexer.resolveCrossRepoSymbols('g1');
-      const exactMatch = matches.find((m) => m.matchType === 'exact_name' && m.sourceSymbol.includes('getData'));
+      const exactMatch = matches.find(
+        (m) => m.matchType === 'exact_name' && m.sourceSymbol.includes('getData'),
+      );
       expect(exactMatch).toBeTruthy();
     });
   });
@@ -2843,7 +3089,8 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const tmpDir = join(tmpdir(), `import-edges2-${Date.now()}`);
       mkdirSync(tmpDir, { recursive: true });
       const repoDir = createTestRepoDir(tmpDir, 'import-repo2', {
-        'src/index.ts': 'import { helper } from "./utils";\nexport function main() { return helper(); }',
+        'src/index.ts':
+          'import { helper } from "./utils";\nexport function main() { return helper(); }',
         'src/utils.ts': 'export function helper() { return 42; }',
       });
       groupManager.createGroup('g1', 'Import Edge', '');
@@ -2873,8 +3120,16 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idA = allNodes.find((n) => n.name === 'sourceFn')!.id;
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idB,
-        type: 'IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       // Build graph twice to test idempotent CrossRepoModule creation
       await indexer.buildCrossRepoGraph('g1');
@@ -2930,15 +3185,29 @@ describe('CrossRepoIndexer — branch coverage', () => {
       groupManager.addRepo('g1', 'org', 'repo-b', 'https://b', '/b');
 
       const fnA = createProjectNode('org/repo-a', 'matchingFn', 'Function', 'src/a.ts', true);
-      const extraA = createProjectNode('org/repo-a', 'unrelatedFn', 'Function', 'src/extra.ts', true);
+      const extraA = createProjectNode(
+        'org/repo-a',
+        'unrelatedFn',
+        'Function',
+        'src/extra.ts',
+        true,
+      );
       const fnB = createProjectNode('org/repo-b', 'targetFn', 'Function', 'src/b.ts', true);
 
       const idA = store.insertNode(fnA);
       store.insertNode(extraA);
       const idB = store.insertNode(fnB);
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       // Only trace from 'matchingFn'
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a', ['matchingFn']);
@@ -2954,7 +3223,13 @@ describe('CrossRepoIndexer — branch coverage', () => {
       groupManager.addRepo('g1', 'org', 'repo-b', 'https://b', '/b');
 
       // Exported symbol in repo-b
-      const exportedNode = createProjectNode('org/repo-b', 'exportedHelper', 'Function', 'src/helper.ts', true);
+      const exportedNode = createProjectNode(
+        'org/repo-b',
+        'exportedHelper',
+        'Function',
+        'src/helper.ts',
+        true,
+      );
       store.insertNode(exportedNode);
 
       // File node in repo-a that imports from repo-b
@@ -2965,8 +3240,16 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idExported = allN.find((n) => n.name === 'exportedHelper')!.id;
 
       // Create IMPORTS edge from file in repo-a to exported symbol in repo-b
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idFileA, targetId: idExported,
-        type: 'IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idFileA,
+        targetId: idExported,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const matches = await indexer.resolveCrossRepoSymbols('g1');
       // Should find at least an import_reference match
@@ -2982,11 +3265,25 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idA = allNodes.find((n) => n.name === 'sourceFn')!.id;
 
       // Insert a node in a repo not in the group
-      const outsideNode = createProjectNode('outside/repo', 'outsider', 'Function', 'src/o.ts', true);
+      const outsideNode = createProjectNode(
+        'outside/repo',
+        'outsider',
+        'Function',
+        'src/o.ts',
+        true,
+      );
       const idOut = store.insertNode(outsideNode);
 
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idOut,
-        type: 'IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idOut,
+        type: 'IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const report = await indexer.buildCrossRepoGraph('g1');
       expect(report.repos).toHaveLength(2);
@@ -3006,17 +3303,35 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = store.insertNode(nodeB);
 
       // Direct edge from repo-a to repo-b
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       // Self-referencing edge in repo-b (should be skipped in transitive traversal)
-      store.insertEdge({ id: 0, projectId: 'org/repo-b', sourceId: idB, targetId: idB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-b',
+        sourceId: idB,
+        targetId: idB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'fn');
       expect(traces.length).toBeGreaterThanOrEqual(1);
       // No self-referencing traces
-      const selfTrace = traces.find((t) => t.targetRepo === 'org/repo-b' && t.targetSymbol.includes('target'));
+      const selfTrace = traces.find(
+        (t) => t.targetRepo === 'org/repo-b' && t.targetSymbol.includes('target'),
+      );
       expect(selfTrace).toBeTruthy();
     });
   });
@@ -3038,18 +3353,38 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // repo-b: nodes of ALL label types (depth 2, via transitive BFS)
       store.insertNode(createProjectNode('org/repo-b', 'MyClass', 'Class', 'src/c.ts', true));
-      store.insertNode(createProjectNode('org/repo-b', 'MyInterface', 'Interface', 'src/i.ts', true));
+      store.insertNode(
+        createProjectNode('org/repo-b', 'MyInterface', 'Interface', 'src/i.ts', true),
+      );
       store.insertNode(createProjectNode('org/repo-b', 'MyAlias', 'TypeAlias', 'src/a.ts', true));
       store.insertNode(createProjectNode('org/repo-b', 'MyEnum', 'Enum', 'src/e.ts', true));
       store.insertNode(createProjectNode('org/repo-b', 'myMethod', 'Method', 'src/m.ts', true));
-      const idFnB = store.insertNode(createProjectNode('org/repo-b', 'myFunction', 'Function', 'src/f.ts', true));
+      const idFnB = store.insertNode(
+        createProjectNode('org/repo-b', 'myFunction', 'Function', 'src/f.ts', true),
+      );
 
       // repo-a → repo-x (depth 1 direct)
-      store.insertEdge({ id: 0, projectId: 'org/repo-a', sourceId: idA, targetId: idX,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-a',
+        sourceId: idA,
+        targetId: idX,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
       // repo-x → repo-b (depth 2 transitive — getSymbolsInRepo triggered here)
-      store.insertEdge({ id: 0, projectId: 'org/repo-x', sourceId: idX, targetId: idFnB,
-        type: 'CROSS_REPO_IMPORTS', properties: {}, weight: 1, createdAt: now });
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/repo-x',
+        sourceId: idX,
+        targetId: idFnB,
+        type: 'CROSS_REPO_IMPORTS',
+        properties: {},
+        weight: 1,
+        createdAt: now,
+      });
 
       const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
       const repoBAnalysis = result.analysis.find((a) => a.repo === 'org/repo-b');

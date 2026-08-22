@@ -73,8 +73,11 @@ export function computeConfidence(
     if (finding.filePath === context.targetFile) {
       directMatches++;
       factors.push('exact file path match');
-    } else if (typeof finding.filePath === 'string' && typeof context.targetFile === 'string' &&
-               finding.filePath.includes(context.targetFile)) {
+    } else if (
+      typeof finding.filePath === 'string' &&
+      typeof context.targetFile === 'string' &&
+      finding.filePath.includes(context.targetFile)
+    ) {
       heuristicMatches++;
       factors.push('partial file path match');
     }
@@ -98,14 +101,15 @@ export function computeConfidence(
   }
 
   // Line range overlap check
-  if (typeof finding.startLine === 'number' && typeof finding.endLine === 'number' &&
-      typeof context.lineNumber === 'number') {
+  if (
+    typeof finding.startLine === 'number' &&
+    typeof finding.endLine === 'number' &&
+    typeof context.lineNumber === 'number'
+  ) {
     if (finding.startLine <= context.lineNumber && finding.endLine >= context.lineNumber) {
       directMatches++;
       factors.push('line range contains target');
-    } else if (
-      Math.abs(finding.startLine - context.lineNumber) <= 5
-    ) {
+    } else if (Math.abs(finding.startLine - context.lineNumber) <= 5) {
       heuristicMatches++;
       factors.push('proximity-based line match');
     }
@@ -147,8 +151,11 @@ export function computeConfidence(
 
   // --- Inferred matches ---
   // Same project but no direct edge
-  if (typeof finding.projectId === 'string' && typeof context.projectId === 'string' &&
-      finding.projectId === context.projectId) {
+  if (
+    typeof finding.projectId === 'string' &&
+    typeof context.projectId === 'string' &&
+    finding.projectId === context.projectId
+  ) {
     if (!context.hasDirectEdge) {
       inferredMatches++;
       factors.push('same project (no direct edge)');
@@ -156,8 +163,12 @@ export function computeConfidence(
   }
 
   // Same file but different symbol
-  if (typeof finding.filePath === 'string' && typeof context.targetFile === 'string' &&
-      finding.filePath === context.targetFile && context.hasDirectEdge === false) {
+  if (
+    typeof finding.filePath === 'string' &&
+    typeof context.targetFile === 'string' &&
+    finding.filePath === context.targetFile &&
+    context.hasDirectEdge === false
+  ) {
     inferredMatches++;
     factors.push('same file (no direct edge)');
   }

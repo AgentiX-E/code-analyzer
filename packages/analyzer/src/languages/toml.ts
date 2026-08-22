@@ -31,17 +31,29 @@ export class TomlProvider implements LanguageProvider {
       const tableMatch = line.match(/^\s*\[([^\]]+)\]\s*$/);
       if (tableMatch) {
         currentTable = tableMatch[1]!;
-        captures.push(this.makeCapture(CAPTURE_TAGS.CLASS_DEF, currentTable, i + 1, filePath, { isTable: 'true' }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.CLASS_DEF, currentTable, i + 1, filePath, {
+            isTable: 'true',
+          }),
+        );
         continue;
       }
       const arrMatch = line.match(/^\s*\[\[([^\]]+)\]\]\s*$/);
       if (arrMatch) {
-        captures.push(this.makeCapture(CAPTURE_TAGS.CLASS_DEF, arrMatch[1]!, i + 1, filePath, { isArrayTable: 'true' }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.CLASS_DEF, arrMatch[1]!, i + 1, filePath, {
+            isArrayTable: 'true',
+          }),
+        );
         continue;
       }
       const kvMatch = line.match(/^\s*([\w.-]+)\s*=\s*(.+?)\s*$/);
       if (kvMatch) {
-        captures.push(this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, kvMatch[1]!, i + 1, filePath, { section: currentTable }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, kvMatch[1]!, i + 1, filePath, {
+            section: currentTable,
+          }),
+        );
       }
     }
     return captures;
@@ -71,7 +83,7 @@ export class TomlProvider implements LanguageProvider {
   }
 
   private makeCapture(
-    tag: typeof CAPTURE_TAGS[keyof typeof CAPTURE_TAGS],
+    tag: (typeof CAPTURE_TAGS)[keyof typeof CAPTURE_TAGS],
     name: string,
     line: number,
     filePath: string,

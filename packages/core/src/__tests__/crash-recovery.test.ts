@@ -381,13 +381,9 @@ describe('RecoveryManager', () => {
   });
 
   it('should save checkpoint with metadata', () => {
-    recoveryManager.saveCheckpointWithMetadata(
-      'parse',
-      ['a.ts'],
-      10,
-      5,
-      { customKey: 'customValue' },
-    );
+    recoveryManager.saveCheckpointWithMetadata('parse', ['a.ts'], 10, 5, {
+      customKey: 'customValue',
+    });
 
     const state = recoveryManager.loadRecoveryState();
     expect(state.lastCheckpoint!.metadata).toEqual({ customKey: 'customValue' });
@@ -444,12 +440,14 @@ describe('Crash Recovery - Crash Simulation', () => {
   it('should recover checkpoint after simulated crash', () => {
     // Simulate: save checkpoint, then "crash"
     const store = new CheckpointStore(tempDir);
-    store.save(makeCheckpoint({
-      phaseId: 'parse',
-      processedFiles: ['f1.ts', 'f2.ts'],
-      nodeCount: 42,
-      edgeCount: 21,
-    }));
+    store.save(
+      makeCheckpoint({
+        phaseId: 'parse',
+        processedFiles: ['f1.ts', 'f2.ts'],
+        nodeCount: 42,
+        edgeCount: 21,
+      }),
+    );
 
     // Simulate recovery: create new store instance
     const recoveredStore = new CheckpointStore(tempDir);
@@ -487,10 +485,12 @@ describe('Crash Recovery - Crash Simulation', () => {
 
     for (let i = 0; i < cycles; i++) {
       // Save checkpoint
-      store.save(makeCheckpoint({
-        phaseId: `phase_${i}`,
-        nodeCount: i * 10,
-      }));
+      store.save(
+        makeCheckpoint({
+          phaseId: `phase_${i}`,
+          nodeCount: i * 10,
+        }),
+      );
 
       // "Crash" and recover
       const recovered = store.load();

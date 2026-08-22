@@ -21,8 +21,8 @@ export class GoProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-go') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -99,7 +99,8 @@ export class GoProvider extends TreeSitterBaseProvider {
     } else if (nodeType === 'method_declaration') {
       // Find receiver type and method name
       /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-      const nameNode = this.findChildType(node, 'field_identifier') || this.findChildType(node, 'identifier');
+      const nameNode =
+        this.findChildType(node, 'field_identifier') || this.findChildType(node, 'identifier');
       let receiverType: string | undefined;
       for (let i = 0; i < node.childCount; i++) {
         const child = node.child(i);
@@ -108,13 +109,15 @@ export class GoProvider extends TreeSitterBaseProvider {
           for (let j = 0; j < child.childCount; j++) {
             const p = child.child(j);
             if (p.type === 'parameter_declaration') {
-              const typeId = this.findChildType(p, 'type_identifier') || this.findChildType(p, 'pointer_type');
+              const typeId =
+                this.findChildType(p, 'type_identifier') || this.findChildType(p, 'pointer_type');
               /* v8 ignore next -- @preserve -- defensive null / boundary branch */
               if (typeId) {
-                receiverType = typeId.type === 'pointer_type'
-                  /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                  ? this.findChildType(typeId, 'type_identifier')?.text
-                  : typeId.text;
+                receiverType =
+                  typeId.type === 'pointer_type'
+                    ? /* v8 ignore next -- @preserve -- defensive null / boundary branch */
+                      this.findChildType(typeId, 'type_identifier')?.text
+                    : typeId.text;
               }
               break;
             }
@@ -261,7 +264,10 @@ export class GoProvider extends TreeSitterBaseProvider {
 
   protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
     if (!symbolName) return false;
-    return symbolName[0] === symbolName[0]?.toUpperCase() && symbolName[0] !== symbolName[0]?.toLowerCase();
+    return (
+      symbolName[0] === symbolName[0]?.toUpperCase() &&
+      symbolName[0] !== symbolName[0]?.toLowerCase()
+    );
   }
 
   // Fallbacks
@@ -271,26 +277,82 @@ export class GoProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
     const funcRegex = /func\s+(\w+)\s*\(/g;
     while ((m = funcRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const methRegex = /func\s+\((\w+)\s+\*?(\w+)\)\s+(\w+)\s*\(/g;
     while ((m = methRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.METHOD_DEF, text: m[3]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[3]!, containerName: m[2]!, properties: { receiver: m[1]!, receiverType: m[2]!, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.METHOD_DEF,
+        text: m[3]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[3]!,
+        containerName: m[2]!,
+        properties: { receiver: m[1]!, receiverType: m[2]!, filePath },
+      });
     }
     const structRegex = /type\s+(\w+)\s+struct/g;
     while ((m = structRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.STRUCT_DEF, text: `struct ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.STRUCT_DEF,
+        text: `struct ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const ifaceRegex = /type\s+(\w+)\s+interface/g;
     while ((m = ifaceRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.INTERFACE_DEF, text: `interface ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `interface ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const pkgRegex = /^package\s+(\w+)/m;
     m = pkgRegex.exec(source);
-    if (m) captures.push({ tag: CAPTURE_TAGS.VARIABLE_DEF, text: `package ${m[1]!}`, startLine: 1, endLine: 1, startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+    if (m)
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: `package ${m[1]!}`,
+        startLine: 1,
+        endLine: 1,
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     const imps = this.fallbackExtractImports(source);
     for (const imp of imps) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: imp.source,
+        startLine: imp.lineNumber,
+        endLine: imp.lineNumber,
+        startByte: 0,
+        endByte: 0,
+        name: imp.source,
+        properties: { names: imp.names.join(','), importType: imp.type, filePath },
+      });
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
@@ -301,18 +363,33 @@ export class GoProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
     const singleRegex = /import\s+"([^"]+)"/g;
     while ((m = singleRegex.exec(source)) !== null) {
-      imports.push({ source: m[1]!, names: [m[1]!.split('/').pop() ?? m[1]!], type: 'named', lineNumber: this.ln(source, m.index) });
+      imports.push({
+        source: m[1]!,
+        names: [m[1]!.split('/').pop() ?? m[1]!],
+        type: 'named',
+        lineNumber: this.ln(source, m.index),
+      });
     }
     const namedRegex = /import\s+(\w+)\s+"([^"]+)"/g;
     while ((m = namedRegex.exec(source)) !== null) {
-      imports.push({ source: m[2]!, names: [m[1]!], type: 'namespace', lineNumber: this.ln(source, m.index) });
+      imports.push({
+        source: m[2]!,
+        names: [m[1]!],
+        type: 'namespace',
+        lineNumber: this.ln(source, m.index),
+      });
     }
     const multiRegex = /import\s*\(([\s\S]*?)\)/g;
     while ((m = multiRegex.exec(source)) !== null) {
       const lineRegex = /(?:(\w+)\s+)?"([^"]+)"/g;
       let inner: RegExpExecArray | null;
       while ((inner = lineRegex.exec(m[1]!))) {
-        imports.push({ source: inner[2]!, names: [inner[1] ?? inner[2]!.split('/').pop() ?? inner[2]!], type: inner[1] ? 'namespace' : 'named', lineNumber: this.ln(source, m.index) });
+        imports.push({
+          source: inner[2]!,
+          names: [inner[1] ?? inner[2]!.split('/').pop() ?? inner[2]!],
+          type: inner[1] ? 'namespace' : 'named',
+          lineNumber: this.ln(source, m.index),
+        });
       }
     }
     return imports;
@@ -321,7 +398,10 @@ export class GoProvider extends TreeSitterBaseProvider {
   /* v8 ignore next */
   protected override fallbackIsExported(_source: string, symbolName: string): boolean {
     if (!symbolName) return false;
-    return symbolName[0] === symbolName[0]?.toUpperCase() && symbolName[0] !== symbolName[0]?.toLowerCase();
+    return (
+      symbolName[0] === symbolName[0]?.toUpperCase() &&
+      symbolName[0] !== symbolName[0]?.toLowerCase()
+    );
   }
 
   private findChildType(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {

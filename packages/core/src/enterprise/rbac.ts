@@ -24,48 +24,27 @@ export const ALL_ROLES: readonly RBACRole[] = [
 // ---------------------------------------------------------------------------
 
 /** Indexing permissions: control over repository analysis. */
-export type IndexingPermission =
-  | 'index:read'
-  | 'index:create'
-  | 'index:delete'
-  | 'index:status';
+export type IndexingPermission = 'index:read' | 'index:create' | 'index:delete' | 'index:status';
 
 /** Querying permissions: search and exploration operations. */
 export type QueryPermission =
-  | 'query:search'
-  | 'query:graph'
-  | 'query:semantic'
-  | 'query:calls'
-  | 'query:architecture';
+  'query:search' | 'query:graph' | 'query:semantic' | 'query:calls' | 'query:architecture';
 
 /** Code Review permissions: review and report operations. */
 export type ReviewPermission =
-  | 'review:diff'
-  | 'review:file'
-  | 'review:pr'
-  | 'review:standards'
-  | 'review:report';
+  'review:diff' | 'review:file' | 'review:pr' | 'review:standards' | 'review:report';
 
 /** Cross-Repo permissions: multi-repository operations. */
 export type CrossRepoPermission =
-  | 'crossrepo:search'
-  | 'crossrepo:trace'
-  | 'crossrepo:impact'
-  | 'crossrepo:manage';
+  'crossrepo:search' | 'crossrepo:trace' | 'crossrepo:impact' | 'crossrepo:manage';
 
 /** Security permissions: security and audit operations. */
 export type SecurityPermission =
-  | 'security:taint'
-  | 'security:pdg'
-  | 'security:secret-scan'
-  | 'security:audit-log';
+  'security:taint' | 'security:pdg' | 'security:secret-scan' | 'security:audit-log';
 
 /** Admin permissions: system-level operations. */
 export type AdminPermission =
-  | 'admin:manage-users'
-  | 'admin:manage-roles'
-  | 'admin:system-config'
-  | 'admin:benchmark';
+  'admin:manage-users' | 'admin:manage-roles' | 'admin:system-config' | 'admin:benchmark';
 
 /** All permission strings. */
 export type RBACPermission =

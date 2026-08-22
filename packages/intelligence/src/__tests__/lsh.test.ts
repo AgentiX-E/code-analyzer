@@ -208,8 +208,18 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
     const fingerprints = new Map<number, number[]>();
     fingerprints.set(1, mh.computeFingerprint(tokenizeCode('function getUser(id: number): User')));
     fingerprints.set(2, mh.computeFingerprint(tokenizeCode('function getUser(id: number): User'))); // Same code
-    fingerprints.set(3, mh.computeFingerprint(tokenizeCode('function getUserWithDefaults(id: number, opts: Options): User')));
-    fingerprints.set(4, mh.computeFingerprint(tokenizeCode('class DatabaseConnection connect close query execute disconnect')));
+    fingerprints.set(
+      3,
+      mh.computeFingerprint(
+        tokenizeCode('function getUserWithDefaults(id: number, opts: Options): User'),
+      ),
+    );
+    fingerprints.set(
+      4,
+      mh.computeFingerprint(
+        tokenizeCode('class DatabaseConnection connect close query execute disconnect'),
+      ),
+    );
 
     lsh.clear(); // Clear any previous state
 
@@ -222,9 +232,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
     // Nodes 1 and 2 should form a pair (identical code)
     const pair12 = edges.find(
-      (e) =>
-        (e.sourceId === 1 && e.targetId === 2) ||
-        (e.sourceId === 2 && e.targetId === 1),
+      (e) => (e.sourceId === 1 && e.targetId === 2) || (e.sourceId === 2 && e.targetId === 1),
     );
 
     expect(pair12).toBeDefined();
@@ -282,12 +290,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
     const fp = mh.computeFingerprint(tokenizeCode('function test() {}'));
 
-    const edges = lsh.buildSimilarityEdges(
-      store,
-      [1, 2],
-      () => fp,
-      0.3,
-    );
+    const edges = lsh.buildSimilarityEdges(store, [1, 2], () => fp, 0.3);
 
     // No self-pairs (sourceId !== targetId)
     for (const edge of edges) {
@@ -359,12 +362,7 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
     fingerprintMap.set(1, fp1);
     // node 2 not in fingerprintMap but might be in LSH buckets from first build
 
-    const edges = lsh.buildSimilarityEdges(
-      store,
-      [1],
-      (id) => fingerprintMap.get(id) ?? [],
-      0.5,
-    );
+    const edges = lsh.buildSimilarityEdges(store, [1], (id) => fingerprintMap.get(id) ?? [], 0.5);
 
     expect(Array.isArray(edges)).toBe(true);
   });
@@ -413,11 +411,7 @@ describe('LSHSearcher.insertSimilarityEdge', () => {
     store.insertNode(createNode(1, 'func_a'));
     store.insertNode(createNode(2, 'func_b'));
 
-    lsh.insertSimilarityEdge(
-      store,
-      { sourceId: 1, targetId: 2, similarity: 0.85 },
-      'test-project',
-    );
+    lsh.insertSimilarityEdge(store, { sourceId: 1, targetId: 2, similarity: 0.85 }, 'test-project');
 
     const edges = store.queryEdges({ projectId: 'test-project' });
     expect(edges.items.length).toBe(1);
@@ -460,23 +454,13 @@ describe('LSHSearcher.insertSimilarityEdge', () => {
     const fp1 = mh.computeFingerprint(tokenizeCode('function stale_func() { return "abc"; }'));
     const fp2 = mh.computeFingerprint(tokenizeCode('function another_func() { return "abc"; }'));
 
-    lsh.buildSimilarityEdges(
-      store,
-      [1, 2],
-      (id) => id === 1 ? fp1 : fp2,
-      0.9,
-    );
+    lsh.buildSimilarityEdges(store, [1, 2], (id) => (id === 1 ? fp1 : fp2), 0.9);
 
     // Second call: node 3 with a fingerprint that collides with previous LSH bucket
     // This may cause LSH to return stale candidates (1 or 2) not in the current map
     const fp3 = mh.computeFingerprint(tokenizeCode('function another_func() { return "abc"; }'));
 
-    const edges = lsh.buildSimilarityEdges(
-      store,
-      [3],
-      (id) => id === 3 ? fp3 : [],
-      0.5,
-    );
+    const edges = lsh.buildSimilarityEdges(store, [3], (id) => (id === 3 ? fp3 : []), 0.5);
 
     // Should not crash regardless of whether stale candidates are found
     expect(Array.isArray(edges)).toBe(true);

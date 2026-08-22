@@ -8,7 +8,12 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { cpus } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { getLanguageFromFilename, EDGE_CALLS, EDGE_DEFINES, EDGE_IMPORTS } from '@code-analyzer/shared';
+import {
+  getLanguageFromFilename,
+  EDGE_CALLS,
+  EDGE_DEFINES,
+  EDGE_IMPORTS,
+} from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import type {
   DiscoveredFile,
@@ -159,10 +164,7 @@ export class ParallelIndexer {
   // -----------------------------------------------------------------------
 
   /** Index a directory with parallel file parsing. */
-  async indexDirectory(
-    rootPath: string,
-    options?: IndexerOptions,
-  ): Promise<IndexerResult> {
+  async indexDirectory(rootPath: string, options?: IndexerOptions): Promise<IndexerResult> {
     this.reset();
     this.startTime = Date.now();
 
@@ -217,7 +219,11 @@ export class ParallelIndexer {
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error('Index directory failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.indexDirectory', filePath: rootPath });
+      this.logger.error(
+        'Index directory failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: 'parallel-indexer.indexDirectory', filePath: rootPath },
+      );
       this.errors.push({
         filePath: rootPath,
         message,
@@ -231,10 +237,7 @@ export class ParallelIndexer {
   }
 
   /** Incremental index — only re-parse changed files. */
-  async incrementalIndex(
-    rootPath: string,
-    changedFiles: string[],
-  ): Promise<IndexerResult> {
+  async incrementalIndex(rootPath: string, changedFiles: string[]): Promise<IndexerResult> {
     this.reset();
     this.startTime = Date.now();
 
@@ -257,7 +260,11 @@ export class ParallelIndexer {
             size: Buffer.byteLength(content),
           });
         } catch (err) {
-          this.logger.error('Failed to read file for incremental index', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.incrementalIndex', filePath });
+          this.logger.error(
+            'Failed to read file for incremental index',
+            err instanceof Error ? err : new Error(String(err)),
+            { phaseId: 'parallel-indexer.incrementalIndex', filePath },
+          );
           this.errors.push({
             filePath,
             message: 'Failed to read file for incremental index',
@@ -289,7 +296,11 @@ export class ParallelIndexer {
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error('Incremental index failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.incrementalIndex', filePath: rootPath });
+      this.logger.error(
+        'Incremental index failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: 'parallel-indexer.incrementalIndex', filePath: rootPath },
+      );
       this.errors.push({
         filePath: rootPath,
         message,
@@ -348,10 +359,7 @@ export class ParallelIndexer {
     });
   }
 
-  private filterByPatterns(
-    files: DiscoveredFile[],
-    patterns: string[],
-  ): DiscoveredFile[] {
+  private filterByPatterns(files: DiscoveredFile[], patterns: string[]): DiscoveredFile[] {
     return files.filter((f) => {
       const relPath = f.filePath;
       for (const pattern of patterns) {
@@ -365,10 +373,7 @@ export class ParallelIndexer {
   // Private: Parallel Processing
   // -----------------------------------------------------------------------
 
-  private async processInParallel(
-    rootPath: string,
-    files: DiscoveredFile[],
-  ): Promise<void> {
+  private async processInParallel(rootPath: string, files: DiscoveredFile[]): Promise<void> {
     const batches: DiscoveredFile[][] = [];
     for (let i = 0; i < files.length; i += this.config.batchSize) {
       batches.push(files.slice(i, i + this.config.batchSize));
@@ -378,21 +383,16 @@ export class ParallelIndexer {
     let batchIndex = 0;
 
     while (batchIndex < batches.length && !this.canceled) {
-      const groupSize = Math.min(
-        this.config.concurrency,
-        batches.length - batchIndex,
-      );
+      const groupSize = Math.min(this.config.concurrency, batches.length - batchIndex);
       const group = batches.slice(batchIndex, batchIndex + groupSize);
 
       // Submit all batches in the group
-      const tasks: WorkerTask<BatchParseResult[]>[] = group.map(
-        (batch, groupIdx) => ({
-          id: `batch-${batchIndex + groupIdx}`,
-          execute: () => this.parseBatch(batch),
-          timeout: 60000,
-          retries: 1,
-        }),
-      );
+      const tasks: WorkerTask<BatchParseResult[]>[] = group.map((batch, groupIdx) => ({
+        id: `batch-${batchIndex + groupIdx}`,
+        execute: () => this.parseBatch(batch),
+        timeout: 60000,
+        retries: 1,
+      }));
 
       let results: BatchParseResult[][];
       try {
@@ -401,7 +401,11 @@ export class ParallelIndexer {
         // Pool shutdown — likely due to cancellation
         if (this.canceled) return;
         const message = err instanceof Error ? err.message : String(err);
-        this.logger.error('Batch execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.processInParallel', filePath: rootPath });
+        this.logger.error(
+          'Batch execution failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: 'parallel-indexer.processInParallel', filePath: rootPath },
+        );
         this.errors.push({
           filePath: rootPath,
           message: `Batch execution failed: ${message}`,
@@ -422,9 +426,7 @@ export class ParallelIndexer {
     }
   }
 
-  private async parseBatch(
-    files: DiscoveredFile[],
-  ): Promise<BatchParseResult[]> {
+  private async parseBatch(files: DiscoveredFile[]): Promise<BatchParseResult[]> {
     const results: BatchParseResult[] = [];
 
     for (const file of files) {
@@ -441,7 +443,11 @@ export class ParallelIndexer {
         results.push(parsed);
       } catch (err) {
         // File-level errors are recorded but don't crash the batch
-        this.logger.error('File parse failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.parseBatch', filePath: file.filePath });
+        this.logger.error(
+          'File parse failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: 'parallel-indexer.parseBatch', filePath: file.filePath },
+        );
         this.errors.push({
           filePath: file.filePath,
           message: err instanceof Error ? err.message : String(err),
@@ -471,10 +477,7 @@ export class ParallelIndexer {
       const fnMatch =
         line.match(
           /(?:export\s+)?(?:async\s+)?function\s+(\w+)|(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:\w+\s*=>|function)/,
-        ) ??
-        line.match(
-          /(?:def|fn)\s+(\w+)/,
-        );
+        ) ?? line.match(/(?:def|fn)\s+(\w+)/);
 
       if (fnMatch) {
         const name = (fnMatch[1] || fnMatch[2] || fnMatch[3])!;
@@ -531,9 +534,7 @@ export class ParallelIndexer {
       }
 
       // Imports
-      const importMatch = line.match(
-        /(?:import|require)\s*.*?['"](\S+?)['"]/,
-      );
+      const importMatch = line.match(/(?:import|require)\s*.*?['"](\S+?)['"]/);
       if (importMatch) {
         references.push({
           sourceFile: file.filePath,
@@ -574,12 +575,7 @@ export class ParallelIndexer {
           this.nodeCount++;
 
           // Create DEFINES edge from File to symbol
-          const edge = this.createEdge(
-            fileNode.id,
-            node.id,
-            EDGE_DEFINES,
-            `project:${rootPath}`,
-          );
+          const edge = this.createEdge(fileNode.id, node.id, EDGE_DEFINES, `project:${rootPath}`);
           this.addToBuffer(edge);
           this.edgeCount++;
         }
@@ -601,7 +597,11 @@ export class ParallelIndexer {
 
         this.processedFileCount++;
       } catch (err) {
-        this.logger.error('Batch result processing failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'parallel-indexer.processBatchResults', filePath });
+        this.logger.error(
+          'Batch result processing failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: 'parallel-indexer.processBatchResults', filePath },
+        );
         this.errors.push({
           filePath: filePath,
           message: err instanceof Error ? err.message : String(err),
@@ -623,10 +623,7 @@ export class ParallelIndexer {
   private nextNodeId = 1;
   private nextEdgeId = 1;
 
-  private createFileNode(
-    _rootPath: string,
-    file: DiscoveredFile,
-  ): GraphNode {
+  private createFileNode(_rootPath: string, file: DiscoveredFile): GraphNode {
     const key = `file:${file.filePath}`;
 
     if (this.fileNodeMap.has(key)) {
@@ -804,9 +801,7 @@ export class ParallelIndexer {
     return { changed, total: files.length };
   }
 
-  private async loadFileHashes(
-    rootPath: string,
-  ): Promise<Map<string, string>> {
+  private async loadFileHashes(rootPath: string): Promise<Map<string, string>> {
     const hashesDir = join(rootPath, HASHES_DIR);
     const hashesFile = join(hashesDir, HASHES_FILE);
 
@@ -818,16 +813,16 @@ export class ParallelIndexer {
       }
     } catch (err) {
       // File doesn't exist or is corrupt — treat as fresh index
-      this.logger.warn('Failed to load file hashes', { phaseId: 'parallel-indexer.loadFileHashes', filePath: hashesFile });
+      this.logger.warn('Failed to load file hashes', {
+        phaseId: 'parallel-indexer.loadFileHashes',
+        filePath: hashesFile,
+      });
     }
 
     return new Map();
   }
 
-  private async saveFileHashes(
-    rootPath: string,
-    files: DiscoveredFile[],
-  ): Promise<void> {
+  private async saveFileHashes(rootPath: string, files: DiscoveredFile[]): Promise<void> {
     // Load existing hashes and merge with current
     const existing = await this.loadFileHashes(rootPath);
     for (const file of files) {
@@ -846,7 +841,10 @@ export class ParallelIndexer {
       await writeFile(hashesFile, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
       // Non-fatal: hash persistence failure doesn't break indexing
-      this.logger.warn('Failed to save file hashes', { phaseId: 'parallel-indexer.saveFileHashes', filePath: hashesFile });
+      this.logger.warn('Failed to save file hashes', {
+        phaseId: 'parallel-indexer.saveFileHashes',
+        filePath: hashesFile,
+      });
     }
   }
 
@@ -902,10 +900,7 @@ export class ParallelIndexer {
     }
   }
 
-  private finalizeProgress(
-    phase: IndexProgress['phase'],
-    progress: number,
-  ): void {
+  private finalizeProgress(phase: IndexProgress['phase'], progress: number): void {
     this.currentProgress = {
       phase,
       filesDiscovered: this.totalFiles,
@@ -995,8 +990,7 @@ function minimatchCheck(str: string, pattern: string): boolean {
 
   // If pattern doesn't contain path separators, match basename too
   if (!pattern.includes('/')) {
-    return new RegExp(`^${regexStr}$`).test(str) ||
-      new RegExp(`^${regexStr}$`).test(basename(str));
+    return new RegExp(`^${regexStr}$`).test(str) || new RegExp(`^${regexStr}$`).test(basename(str));
   }
 
   return new RegExp(`^${regexStr}$`).test(str);

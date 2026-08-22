@@ -160,7 +160,11 @@ describe('Graph Store E2E', () => {
     store = new infra.InMemoryGraphStore(':memory:');
   });
 
-  function makeNode(name: string, label = 'Class', projectId = 'e2e'): Parameters<typeof store.insertNode>[0] {
+  function makeNode(
+    name: string,
+    label = 'Class',
+    projectId = 'e2e',
+  ): Parameters<typeof store.insertNode>[0] {
     const now = new Date().toISOString();
     return {
       id: 0,
@@ -183,7 +187,11 @@ describe('Graph Store E2E', () => {
     };
   }
 
-  function makeEdge(srcId: number, tgtId: number, type = 'IMPORTS'): Parameters<typeof store.insertEdge>[0] {
+  function makeEdge(
+    srcId: number,
+    tgtId: number,
+    type = 'IMPORTS',
+  ): Parameters<typeof store.insertEdge>[0] {
     return {
       id: 0,
       projectId: 'e2e',
@@ -324,8 +332,14 @@ describe('Resilience E2E', () => {
     }
     for (let i = 0; i < 9; i++) {
       store.insertEdge({
-        id: 0, projectId: 'resilience', sourceId: ids[i]!, targetId: ids[i + 1]!,
-        type: 'CALLS' as any, properties: {}, weight: 1, createdAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'resilience',
+        sourceId: ids[i]!,
+        targetId: ids[i + 1]!,
+        type: 'CALLS' as any,
+        properties: {},
+        weight: 1,
+        createdAt: new Date().toISOString(),
       });
     }
     const result = store.bfs(ids[0]!, 10);
@@ -388,7 +402,14 @@ describe('Core Services Smoke', () => {
     const { GracefulShutdown } = await import('@code-analyzer/core');
     const sd = new GracefulShutdown({ shutdownTimeout: 500, forceExitTimeout: 200 });
     let called = false;
-    sd.register({ name: 'test', priority: 10, timeout: 100, shutdown: async () => { called = true; } });
+    sd.register({
+      name: 'test',
+      priority: 10,
+      timeout: 100,
+      shutdown: async () => {
+        called = true;
+      },
+    });
     const result = await sd.shutdown('SIGTERM', true);
     expect(result.success).toBe(true);
     expect(called).toBe(true);

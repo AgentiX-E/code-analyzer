@@ -70,9 +70,10 @@ describe('Logger', () => {
 
     const levels: LogLevel[] = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'];
     for (const level of levels) {
-      const logMethod = level === 'fatal' || level === 'error'
-        ? (msg: string) => (logger as LoggerImpl)[level](msg, new Error('test'))
-        : (msg: string) => (logger as LoggerImpl)[level](msg);
+      const logMethod =
+        level === 'fatal' || level === 'error'
+          ? (msg: string) => (logger as LoggerImpl)[level](msg, new Error('test'))
+          : (msg: string) => (logger as LoggerImpl)[level](msg);
 
       logMethod(`test ${level}`);
     }
@@ -130,7 +131,13 @@ describe('Logger', () => {
     expect(transport.entries[0]?.error?.context).toEqual({ field: 'value' });
 
     // Cover non-string code and null context branches
-    const weirdErr = { code: 123, context: null, name: 'WeirdError', message: 'weird', stack: 'fake' };
+    const weirdErr = {
+      code: 123,
+      context: null,
+      name: 'WeirdError',
+      message: 'weird',
+      stack: 'fake',
+    };
     logger.error('weird error', weirdErr);
 
     expect(transport.entries).toHaveLength(2);
@@ -154,9 +161,7 @@ describe('Logger', () => {
     const logger = createLogger('test', {
       minLevel: 'trace',
       transports: [transport],
-      filters: [
-        (entry: LogEntry) => !entry.message.includes('secret'),
-      ],
+      filters: [(entry: LogEntry) => !entry.message.includes('secret')],
     });
 
     logger.info('public message');

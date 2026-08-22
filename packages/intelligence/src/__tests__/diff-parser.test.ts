@@ -231,13 +231,7 @@ describe('DiffParser - Single File Parsing', () => {
   it('should parse a single file diff with patch string', () => {
     const parser = createParser();
     const result = parser.parseFileDiff('test.ts', {
-      patch: [
-        '@@ -1,3 +1,4 @@',
-        ' context',
-        '-removed',
-        '+added',
-        ' context2',
-      ].join('\n'),
+      patch: ['@@ -1,3 +1,4 @@', ' context', '-removed', '+added', ' context2'].join('\n'),
     });
 
     expect(result.filePath).toBe('test.ts');
@@ -257,12 +251,7 @@ describe('DiffParser - Single File Parsing', () => {
     const parser = createParser();
     const result = parser.parseFileDiff('new.ts', {
       oldPath: 'old.ts',
-      patch: [
-        '@@ -1,3 +1,3 @@',
-        ' context',
-        ' context',
-        ' context',
-      ].join('\n'),
+      patch: ['@@ -1,3 +1,3 @@', ' context', ' context', ' context'].join('\n'),
     });
 
     expect(result.filePath).toBe('new.ts');
@@ -282,9 +271,7 @@ describe('DiffParser - Extract Additions and Deletions', () => {
       filePath: 'test.ts',
       oldHash: 'a',
       newHash: 'b',
-      ranges: [
-        { oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 5, changeType: 'added' },
-      ],
+      ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 5, changeType: 'added' }],
       changeType: 'modified',
     };
 
@@ -300,9 +287,7 @@ describe('DiffParser - Extract Additions and Deletions', () => {
       filePath: 'test.ts',
       oldHash: 'a',
       newHash: 'b',
-      ranges: [
-        { oldStart: 5, oldEnd: 10, newStart: 5, newEnd: 5, changeType: 'removed' },
-      ],
+      ranges: [{ oldStart: 5, oldEnd: 10, newStart: 5, newEnd: 5, changeType: 'removed' }],
       changeType: 'modified',
     };
 
@@ -357,17 +342,23 @@ describe('DiffParser - Module Grouping', () => {
     const diffs: GitDiff[] = [
       {
         filePath: 'src/foo/a.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
       {
         filePath: 'src/foo/b.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
       {
         filePath: 'src/bar/c.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
     ];
@@ -383,7 +374,9 @@ describe('DiffParser - Module Grouping', () => {
     const diffs: GitDiff[] = [
       {
         filePath: 'README.md',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
     ];
@@ -404,17 +397,23 @@ describe('DiffParser - Module Grouping', () => {
     const diffs: GitDiff[] = [
       {
         filePath: 'src/components/ui/button/index.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
       {
         filePath: 'src/components/ui/input/index.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
       {
         filePath: 'src/utils/helpers.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
     ];
@@ -437,7 +436,9 @@ describe('DiffParser - Rename Detection', () => {
       {
         filePath: 'new-name.ts',
         oldPath: 'old-name.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'renamed',
       },
     ];
@@ -453,7 +454,9 @@ describe('DiffParser - Rename Detection', () => {
     const diffs: GitDiff[] = [
       {
         filePath: 'test.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'modified',
       },
     ];
@@ -468,13 +471,17 @@ describe('DiffParser - Rename Detection', () => {
       {
         filePath: 'new-a.ts',
         oldPath: 'old-a.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'renamed',
       },
       {
         filePath: 'new-b.ts',
         oldPath: 'old-b.ts',
-        oldHash: 'a', newHash: 'b', ranges: [],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [],
         changeType: 'renamed',
       },
     ];
@@ -494,18 +501,16 @@ describe('DiffParser - Statistics', () => {
     const diffs: GitDiff[] = [
       {
         filePath: 'src/app.ts',
-        oldHash: 'a', newHash: 'b',
-        ranges: [
-          { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 10, changeType: 'modified' },
-        ],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 10, changeType: 'modified' }],
         changeType: 'modified',
       },
       {
         filePath: 'src/lib.py',
-        oldHash: 'a', newHash: 'b',
-        ranges: [
-          { oldStart: 1, oldEnd: 0, newStart: 1, newEnd: 3, changeType: 'added' },
-        ],
+        oldHash: 'a',
+        newHash: 'b',
+        ranges: [{ oldStart: 1, oldEnd: 0, newStart: 1, newEnd: 3, changeType: 'added' }],
         changeType: 'added',
       },
     ];
@@ -597,12 +602,7 @@ describe('DiffParser - Hunk Parsing', () => {
 
   it('should handle "No newline at end of file" markers', () => {
     const parser = createParser();
-    const lines = [
-      '@@ -1,1 +1,1 @@',
-      '-old line',
-      '+new line',
-      '\\ No newline at end of file',
-    ];
+    const lines = ['@@ -1,1 +1,1 @@', '-old line', '+new line', '\\ No newline at end of file'];
 
     const hunks = parser.parseHunks(lines);
     expect(hunks).toHaveLength(1);
@@ -665,10 +665,10 @@ describe('DiffParser - Hunk Parsing', () => {
     const parser = createParser();
     const lines = [
       '@@ -5,3 +10,4 @@',
-      ' context',       // old:5 new:10
-      '+added line',    // old:0 new:11
-      '-removed body',  // old:6 new:0
-      ' end context',   // old:7 new:11
+      ' context', // old:5 new:10
+      '+added line', // old:0 new:11
+      '-removed body', // old:6 new:0
+      ' end context', // old:7 new:11
     ];
 
     const hunks = parser.parseHunks(lines);
@@ -716,9 +716,7 @@ describe('DiffParser - Edge Cases', () => {
 
     const result = parser.parseUnifiedDiff(diff);
     // Binary files should be skipped
-    expect(
-      result.filter((r) => r.filePath === 'image.png'),
-    ).toHaveLength(0);
+    expect(result.filter((r) => r.filePath === 'image.png')).toHaveLength(0);
   });
 
   it('should handle diff with file mode changes only', () => {
@@ -742,10 +740,7 @@ describe('DiffParser - Edge Cases', () => {
 
   it('should parse hunks with @@ in code content', () => {
     const parser = createParser();
-    const lines = [
-      '@@ -1,1 +1,1 @@',
-      ' // This is not a hunk header @@ -2,1 +2,1 @@',
-    ];
+    const lines = ['@@ -1,1 +1,1 @@', ' // This is not a hunk header @@ -2,1 +2,1 @@'];
 
     const hunks = parser.parseHunks(lines);
     expect(hunks).toHaveLength(1);

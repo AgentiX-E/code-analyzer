@@ -112,7 +112,7 @@
 1. **Tune concurrency settings.** Increase worker threads in `.code-analyzerrc`:
 
    ```yaml
-   concurrency: 8  # or auto (uses all CPUs)
+   concurrency: 8 # or auto (uses all CPUs)
    ```
 
    Or via environment: `CODE_ANALYZER_PARSE_WORKERS=8`
@@ -120,7 +120,7 @@
 2. **Reduce file size limits.** Skip very large files that don't benefit from analysis:
 
    ```yaml
-   maxFileSize: 1048576  # 1 MB instead of 10 MB
+   maxFileSize: 1048576 # 1 MB instead of 10 MB
    ```
 
 3. **Skip unnecessary directories.** Add build artifacts, generated code, and vendor directories:

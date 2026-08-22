@@ -50,7 +50,8 @@ function analyzeSourceFile(filePath: string): SourceModule {
   }
 
   // Count branches (if/else/switch/case/ternary/&&/||/??)
-  const branchCount = (source.match(/\bif\s*\(/g) || []).length +
+  const branchCount =
+    (source.match(/\bif\s*\(/g) || []).length +
     (source.match(/\belse\b/g) || []).length +
     (source.match(/\bcase\b/g) || []).length +
     (source.match(/\?[^.?]/g) || []).length +
@@ -80,12 +81,13 @@ interface TestModule {
 function analyzeTestFile(filePath: string): TestModule {
   const source = readFileSync(filePath, 'utf-8');
 
-  const testCount = (source.match(/\bit\s*\(/g) || []).length +
+  const testCount =
+    (source.match(/\bit\s*\(/g) || []).length +
     (source.match(/\btest\s*\(/g) || []).length +
     (source.match(/\bdescribe\s*\(/g) || []).length;
 
-  const assertionCount = (source.match(/\bexpect\s*\(/g) || []).length +
-    (source.match(/\bassert\b/g) || []).length;
+  const assertionCount =
+    (source.match(/\bexpect\s*\(/g) || []).length + (source.match(/\bassert\b/g) || []).length;
 
   // Detect test patterns
   const patterns: string[] = [];
@@ -113,32 +115,35 @@ function computeQualityScore(source: SourceModule, test: TestModule): TestQualit
   const sourceLines = source.source.split('\n').length;
   const testLines = readFileSync(test.path, 'utf-8').split('\n').length;
   const testToSourceRatio = sourceLines > 0 ? testLines / sourceLines : 0;
-  const assertionsPerFunction = source.functions.length > 0
-    ? test.assertionCount / source.functions.length
-    : 0;
+  const assertionsPerFunction =
+    source.functions.length > 0 ? test.assertionCount / source.functions.length : 0;
 
   // Branch coverage estimation based on test patterns
   let branchCoverage = 0.5; // base
   if (test.patterns.includes('parameterized')) branchCoverage += 0.15;
-  if (test.patterns.includes('error testing')) branchCoverage += 0.10;
-  if (test.patterns.includes('mocking')) branchCoverage += 0.10;
+  if (test.patterns.includes('error testing')) branchCoverage += 0.1;
+  if (test.patterns.includes('mocking')) branchCoverage += 0.1;
   if (test.assertionCount > source.branches * 2) branchCoverage += 0.15;
   branchCoverage = Math.min(branchCoverage, 1.0);
 
   // Quality score: weighted combination
-  const qualityScore = (
+  const qualityScore =
     Math.min(testToSourceRatio / 3, 1) * 0.2 +
     Math.min(assertionsPerFunction / 5, 1) * 0.3 +
     branchCoverage * 0.3 +
-    Math.min(test.patterns.length / 4, 1) * 0.2
-  );
+    Math.min(test.patterns.length / 4, 1) * 0.2;
 
   const recommendations: string[] = [];
-  if (testToSourceRatio < 1) recommendations.push('Low test-to-source ratio — add more test coverage');
-  if (assertionsPerFunction < 2) recommendations.push('Low assertions per function — add more assertion checks');
-  if (branchCoverage < 0.7) recommendations.push('Estimated low branch coverage — add edge case tests');
-  if (!test.patterns.includes('parameterized')) recommendations.push('Consider parameterized tests for broader input coverage');
-  if (!test.patterns.includes('error testing')) recommendations.push('Add error/exception path tests');
+  if (testToSourceRatio < 1)
+    recommendations.push('Low test-to-source ratio — add more test coverage');
+  if (assertionsPerFunction < 2)
+    recommendations.push('Low assertions per function — add more assertion checks');
+  if (branchCoverage < 0.7)
+    recommendations.push('Estimated low branch coverage — add edge case tests');
+  if (!test.patterns.includes('parameterized'))
+    recommendations.push('Consider parameterized tests for broader input coverage');
+  if (!test.patterns.includes('error testing'))
+    recommendations.push('Add error/exception path tests');
 
   return {
     file: source.path,
@@ -173,15 +178,22 @@ const SOURCE_MODULES = [
 const CORRESPONDING_TESTS: Record<string, string> = {
   'packages/shared/src/utils/lru-cache.ts': 'packages/shared/src/__tests__/lru-cache.test.ts',
   'packages/infra/src/cache/content-cache.ts': 'packages/infra/src/__tests__/content-cache.test.ts',
-  'packages/infra/src/cache/incremental-indexer.ts': 'packages/infra/src/__tests__/incremental-indexer.test.ts',
+  'packages/infra/src/cache/incremental-indexer.ts':
+    'packages/infra/src/__tests__/incremental-indexer.test.ts',
   'packages/infra/src/resilience/retry.ts': 'packages/infra/src/__tests__/resilience/retry.test.ts',
-  'packages/infra/src/resilience/health-check.ts': 'packages/infra/src/__tests__/resilience/health-check.test.ts',
-  'packages/infra/src/performance/batch-processor.ts': 'packages/infra/src/__tests__/perf/batch-processor.test.ts',
-  'packages/infra/src/performance/memoizer.ts': 'packages/infra/src/__tests__/perf/memoizer.test.ts',
-  'packages/intelligence/src/search/hybrid-search.ts': 'packages/intelligence/src/__tests__/search/hybrid-search.test.ts',
-  'packages/core/src/security/secret-scanner.ts': 'packages/core/src/__tests__/supply-chain-integrity.test.ts',
+  'packages/infra/src/resilience/health-check.ts':
+    'packages/infra/src/__tests__/resilience/health-check.test.ts',
+  'packages/infra/src/performance/batch-processor.ts':
+    'packages/infra/src/__tests__/perf/batch-processor.test.ts',
+  'packages/infra/src/performance/memoizer.ts':
+    'packages/infra/src/__tests__/perf/memoizer.test.ts',
+  'packages/intelligence/src/search/hybrid-search.ts':
+    'packages/intelligence/src/__tests__/search/hybrid-search.test.ts',
+  'packages/core/src/security/secret-scanner.ts':
+    'packages/core/src/__tests__/supply-chain-integrity.test.ts',
   'packages/core/src/security/rbac.ts': 'packages/core/src/__tests__/rbac.test.ts',
-  'packages/intelligence/src/review/review-engine.ts': 'packages/intelligence/src/__tests__/review-engine.test.ts',
+  'packages/intelligence/src/review/review-engine.ts':
+    'packages/intelligence/src/__tests__/review-engine.test.ts',
 };
 
 export function runMutationAnalysis(rootDir: string): TestQualityMetrics[] {
@@ -223,12 +235,14 @@ export function generateMutationReport(results: TestQualityMetrics[]): string {
   lines.push('');
 
   // Summary
-  const avgScore = results.length > 0
-    ? Math.round(results.reduce((s, r) => s + r.qualityScore, 0) / results.length)
-    : 0;
-  const avgBranchCov = results.length > 0
-    ? Math.round(results.reduce((s, r) => s + r.branchCoverage, 0) / results.length)
-    : 0;
+  const avgScore =
+    results.length > 0
+      ? Math.round(results.reduce((s, r) => s + r.qualityScore, 0) / results.length)
+      : 0;
+  const avgBranchCov =
+    results.length > 0
+      ? Math.round(results.reduce((s, r) => s + r.branchCoverage, 0) / results.length)
+      : 0;
 
   lines.push('## Summary');
   lines.push('');
@@ -247,13 +261,17 @@ export function generateMutationReport(results: TestQualityMetrics[]): string {
 
   for (const r of results) {
     const name = r.file.replace(/^.*packages\//, '');
-    lines.push(`| ${name} | ${r.sourceLines} | ${r.testLines} | ${r.testToSourceRatio} | ${r.assertionsPerFunction} | ${r.branchCoverage}% | **${r.qualityScore}%** |`);
+    lines.push(
+      `| ${name} | ${r.sourceLines} | ${r.testLines} | ${r.testToSourceRatio} | ${r.assertionsPerFunction} | ${r.branchCoverage}% | **${r.qualityScore}%** |`,
+    );
   }
 
   lines.push('');
 
   // Recommendations
-  const allRecs = results.flatMap((r) => r.recommendations.map((rec) => ({ file: r.file.replace(/^.*packages\//, ''), rec })));
+  const allRecs = results.flatMap((r) =>
+    r.recommendations.map((rec) => ({ file: r.file.replace(/^.*packages\//, ''), rec })),
+  );
   if (allRecs.length > 0) {
     lines.push('## Recommendations');
     lines.push('');
@@ -267,11 +285,15 @@ export function generateMutationReport(results: TestQualityMetrics[]): string {
   const totalAssertions = results.reduce((s, r) => s + (r.assertionsPerFunction > 0 ? 1 : 0), 0);
   lines.push('## Interpretation');
   lines.push('');
-  lines.push(`- **Quality Score** ≥ 80%: strong kill rate proxy — tests are likely to catch mutations`);
+  lines.push(
+    `- **Quality Score** ≥ 80%: strong kill rate proxy — tests are likely to catch mutations`,
+  );
   lines.push(`- **Quality Score** 60-79%: adequate coverage — some edge cases may survive`);
   lines.push(`- **Quality Score** < 60%: weak coverage — significant mutation survival risk`);
   lines.push('');
-  lines.push(`**Verdict**: ${avgScore >= 80 ? '✅ Strong' : avgScore >= 60 ? '⚠️ Adequate' : '❌ Weak'} (${avgScore}% avg quality score across ${results.length} modules)`);
+  lines.push(
+    `**Verdict**: ${avgScore >= 80 ? '✅ Strong' : avgScore >= 60 ? '⚠️ Adequate' : '❌ Weak'} (${avgScore}% avg quality score across ${results.length} modules)`,
+  );
 
   return lines.join('\n');
 }

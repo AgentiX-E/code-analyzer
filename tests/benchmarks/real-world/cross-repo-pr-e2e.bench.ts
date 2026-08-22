@@ -10,12 +10,8 @@ import { ContractValidator } from '@code-analyzer/intelligence/cross-repo/contra
 import { ImpactGraphBuilder } from '@code-analyzer/intelligence/cross-repo/impact-graph.js';
 import { CrossRepoIndexer } from '@code-analyzer/intelligence/cross-repo/cross-repo-indexer.js';
 import { RepoGroupManager } from '@code-analyzer/intelligence/cross-repo/repo-group-manager.js';
-import type {
-  ContractValidationResult,
-} from '@code-analyzer/intelligence/cross-repo/contract-validator.js';
-import type {
-  BlastRadiusResult,
-} from '@code-analyzer/intelligence/cross-repo/impact-graph.js';
+import type { ContractValidationResult } from '@code-analyzer/intelligence/cross-repo/contract-validator.js';
+import type { BlastRadiusResult } from '@code-analyzer/intelligence/cross-repo/impact-graph.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -257,7 +253,10 @@ export interface CrossRepoPRE2EResult {
 }
 
 function createTempDir(): string {
-  const dir = path.join(os.tmpdir(), `code-analyzer-e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `code-analyzer-e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -309,8 +308,9 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
     // Phase 3: Identify symbols that changed in the PR
     // The PR removes `email` from User type — extract ALL symbol names
     const allNodes = Array.from(store.nodes.values());
-    const changedSymbols = collectSymbols(allNodes)
-      .filter((s) => s.toLowerCase().includes('user') || s.toLowerCase() === 'email');
+    const changedSymbols = collectSymbols(allNodes).filter(
+      (s) => s.toLowerCase().includes('user') || s.toLowerCase() === 'email',
+    );
 
     // Phase 4: Cross-repo contract validation
     // Create cross-repo indexer and group manager for the analysis
@@ -321,7 +321,12 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
     groupManager.createGroup('microservices', 'Microservice Architecture', [
       { id: 'api-gateway', path: apiGatewayDir, name: 'API Gateway', language: 'typescript' },
       { id: 'user-service', path: userServiceDir, name: 'User Service', language: 'typescript' },
-      { id: 'payment-service', path: paymentServiceDir, name: 'Payment Service', language: 'typescript' },
+      {
+        id: 'payment-service',
+        path: paymentServiceDir,
+        name: 'Payment Service',
+        language: 'typescript',
+      },
     ]);
 
     // Run contract validation
@@ -332,7 +337,12 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
       await crossRepoIndexer.indexGroup('microservices', [
         { id: 'api-gateway', path: apiGatewayDir, name: 'API Gateway', language: 'typescript' },
         { id: 'user-service', path: userServiceDir, name: 'User Service', language: 'typescript' },
-        { id: 'payment-service', path: paymentServiceDir, name: 'Payment Service', language: 'typescript' },
+        {
+          id: 'payment-service',
+          path: paymentServiceDir,
+          name: 'Payment Service',
+          language: 'typescript',
+        },
       ]);
 
       contractResult = await contractValidator.validateCrossRepo(
@@ -369,9 +379,7 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
     const breakingCount = contractResult?.breakingCount ?? 0;
     const recommendations = [
       ...(contractResult?.recommendations ?? []),
-      ...(breakingCount > 0
-        ? ['Run full integration test suite before merging']
-        : []),
+      ...(breakingCount > 0 ? ['Run full integration test suite before merging'] : []),
     ];
 
     const durationMs = Date.now() - startTime;
@@ -390,7 +398,11 @@ export async function runCrossRepoPRE2E(): Promise<CrossRepoPRE2EResult> {
     };
   } finally {
     // Cleanup
-    try { fs.rmSync(baseDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    try {
+      fs.rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -403,9 +415,9 @@ function buildManualContractValidation(
   changedSymbols: string[],
 ): ContractValidationResult {
   const changes = changedSymbols.map((symbol) => {
-    const relatedNodes = nodes.filter((n) =>
-      (n.name as string)?.toLowerCase() === symbol.toLowerCase() ||
-      (n.properties?.type === symbol),
+    const relatedNodes = nodes.filter(
+      (n) =>
+        (n.name as string)?.toLowerCase() === symbol.toLowerCase() || n.properties?.type === symbol,
     );
 
     return {
@@ -414,9 +426,7 @@ function buildManualContractValidation(
       oldSignature: symbol,
       severity: 'critical' as const,
       description: `Symbol "${symbol}" was removed or modified`,
-      affectedRepos: relatedNodes.length > 1
-        ? ['api-gateway', 'payment-service']
-        : ['api-gateway'],
+      affectedRepos: relatedNodes.length > 1 ? ['api-gateway', 'payment-service'] : ['api-gateway'],
     };
   });
 

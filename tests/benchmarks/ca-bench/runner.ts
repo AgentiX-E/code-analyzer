@@ -59,7 +59,9 @@ export class CaBenchRunner {
   async runSuite(name: string): Promise<BenchmarkResult> {
     const suite = this.suites.get(name);
     if (!suite) {
-      throw new Error(`Benchmark suite "${name}" not found. Available: ${[...this.suites.keys()].join(', ')}`);
+      throw new Error(
+        `Benchmark suite "${name}" not found. Available: ${[...this.suites.keys()].join(', ')}`,
+      );
     }
 
     const start = Date.now();
@@ -171,9 +173,7 @@ export class CaBenchRunner {
       for (const m of suite.measurements) {
         const threshold = m.threshold.target;
         const statusIcon = m.passed ? '✅' : '❌';
-        lines.push(
-          `| ${m.name} | ${m.value} | ${m.unit} | ${threshold} | ${statusIcon} |`,
-        );
+        lines.push(`| ${m.name} | ${m.value} | ${m.unit} | ${threshold} | ${statusIcon} |`);
       }
 
       if (suite.details.length > 0) {
@@ -191,16 +191,19 @@ export class CaBenchRunner {
 
   /** Generate an HTML report string. */
   generateHtmlReport(report: CaBenchReport): string {
-    const suiteCards = report.suites.map((suite) => {
-      const icon = suite.passed ? '&#9989;' : '&#10060;';
-      const statusColor = suite.passed ? '#2e7d32' : '#c62828';
-      const rows = suite.measurements.map((m) => {
-        const statusIcon = m.passed ? '&#9989;' : '&#10060;';
-        const rowColor = m.passed ? '#e8f5e9' : '#ffebee';
-        return `<tr style="background:${rowColor}"><td>${m.name}</td><td>${m.value}</td><td>${m.unit}</td><td>${m.threshold.target}</td><td>${statusIcon}</td></tr>`;
-      }).join('');
+    const suiteCards = report.suites
+      .map((suite) => {
+        const icon = suite.passed ? '&#9989;' : '&#10060;';
+        const statusColor = suite.passed ? '#2e7d32' : '#c62828';
+        const rows = suite.measurements
+          .map((m) => {
+            const statusIcon = m.passed ? '&#9989;' : '&#10060;';
+            const rowColor = m.passed ? '#e8f5e9' : '#ffebee';
+            return `<tr style="background:${rowColor}"><td>${m.name}</td><td>${m.value}</td><td>${m.unit}</td><td>${m.threshold.target}</td><td>${statusIcon}</td></tr>`;
+          })
+          .join('');
 
-      return `
+        return `
       <div class="suite-card" style="border-left: 4px solid ${statusColor}; margin: 16px 0; padding: 12px; background: #fafafa;">
         <h3>${icon} ${suite.suiteName} <span style="font-size:0.8em;color:#666">(${suite.durationMs}ms)</span></h3>
         <p>${suite.description}</p>
@@ -209,7 +212,8 @@ export class CaBenchRunner {
           <tbody>${rows}</tbody>
         </table>
       </div>`;
-    }).join('');
+      })
+      .join('');
 
     return `<!DOCTYPE html>
 <html lang="en">

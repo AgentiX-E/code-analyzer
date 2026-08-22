@@ -147,25 +147,25 @@ export class IncrementalReindexer {
     if (changes.deleted.length > 0) {
       const allNodes = store.getAllNodes();
       for (const node of allNodes) {
-          if (node.filePath && changes.deleted.includes(node.filePath)) {
-            try {
-              const edges = store.getEdgesForNode?.(node.id) ?? [];
-              for (const edge of edges) {
-                try {
-                  store.deleteEdge?.(edge.id);
-                } catch {
-                  // Edge may not be deletable
-                }
+        if (node.filePath && changes.deleted.includes(node.filePath)) {
+          try {
+            const edges = store.getEdgesForNode?.(node.id) ?? [];
+            for (const edge of edges) {
+              try {
+                store.deleteEdge?.(edge.id);
+              } catch {
+                // Edge may not be deletable
               }
-            } catch {
-              // Node may have no edges
             }
-            try {
-              store.deleteNode?.(node.id);
-            } catch {
-              // Node may not be deletable
-            }
+          } catch {
+            // Node may have no edges
           }
+          try {
+            store.deleteNode?.(node.id);
+          } catch {
+            // Node may not be deletable
+          }
+        }
       }
     }
 
@@ -173,11 +173,7 @@ export class IncrementalReindexer {
     const filesToProcess = [...changes.added, ...changes.modified];
     if (filesToProcess.length > 0) {
       try {
-        await indexer.indexSingleRepo(
-          repoPath,
-          repoPath,
-          { force: true } as IndexOptions,
-        );
+        await indexer.indexSingleRepo(repoPath, repoPath, { force: true } as IndexOptions);
         filesProcessed = filesToProcess.length;
       } catch {
         filesSkipped = filesToProcess.length;
@@ -268,22 +264,25 @@ export class IncrementalReindexer {
    * Run `git diff --name-status` between the stored commit and HEAD.
    */
   private gitDiffNameOnly(repoPath: string, sinceCommit: string): string[] {
-    const output = execSync(
-      `git diff --name-status ${sinceCommit} HEAD`,
-      { cwd: repoPath, encoding: 'utf-8' },
-    );
-    return output.trim().split('\n').filter((line) => line.length > 0);
+    const output = execSync(`git diff --name-status ${sinceCommit} HEAD`, {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    });
+    return output
+      .trim()
+      .split('\n')
+      .filter((line) => line.length > 0);
   }
 
   /**
    * Run `git ls-files` to list all tracked files.
    */
   private gitLsFiles(repoPath: string): string[] {
-    const output = execSync(
-      'git ls-files',
-      { cwd: repoPath, encoding: 'utf-8' },
-    );
-    return output.trim().split('\n').filter((line) => line.length > 0);
+    const output = execSync('git ls-files', { cwd: repoPath, encoding: 'utf-8' });
+    return output
+      .trim()
+      .split('\n')
+      .filter((line) => line.length > 0);
   }
 
   /**

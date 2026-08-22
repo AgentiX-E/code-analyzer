@@ -20,32 +20,44 @@ function makePlugin(overrides: Partial<CodeAnalyzerPlugin> = {}): CodeAnalyzerPl
 function makeRulePlugin(name: string, ruleId: string): CodeAnalyzerPlugin {
   return makePlugin({
     name,
-    rules: [{
-      id: ruleId, name: 'Test Rule', category: 'bug', severity: 'high',
-      description: 'A test rule',
-      check: () => null,
-    }],
+    rules: [
+      {
+        id: ruleId,
+        name: 'Test Rule',
+        category: 'bug',
+        severity: 'high',
+        description: 'A test rule',
+        check: () => null,
+      },
+    ],
   });
 }
 
 function makeLensPlugin(name: string, lensId: string): CodeAnalyzerPlugin {
   return makePlugin({
     name,
-    lenses: [{
-      id: lensId, name: 'Test Lens', description: 'A test lens',
-      scan: () => [],
-    }],
+    lenses: [
+      {
+        id: lensId,
+        name: 'Test Lens',
+        description: 'A test lens',
+        scan: () => [],
+      },
+    ],
   });
 }
 
 function makeToolPlugin(name: string, toolName: string): CodeAnalyzerPlugin {
   return makePlugin({
     name,
-    mcpTools: [{
-      name: toolName, description: 'A test tool',
-      schema: { type: 'object', properties: {} },
-      handler: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
-    }],
+    mcpTools: [
+      {
+        name: toolName,
+        description: 'A test tool',
+        schema: { type: 'object', properties: {} },
+        handler: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+      },
+    ],
   });
 }
 
@@ -149,10 +161,12 @@ describe('PluginRegistry', () => {
 
   describe('getStandards', () => {
     it('should aggregate standards', () => {
-      registry.register(makePlugin({
-        name: 'std-plugin',
-        standards: [{ id: 'std-1', name: 'Standard 1', category: 'security', rules: [] }],
-      }));
+      registry.register(
+        makePlugin({
+          name: 'std-plugin',
+          standards: [{ id: 'std-1', name: 'Standard 1', category: 'security', rules: [] }],
+        }),
+      );
       expect(registry.getStandards()).toHaveLength(1);
     });
 
@@ -192,10 +206,14 @@ describe('PluginRegistry', () => {
   describe('reload', () => {
     it('should call onUnload and remove plugin', async () => {
       let unloaded = false;
-      registry.register(makePlugin({
-        name: 'reload-me',
-        onUnload: () => { unloaded = true; },
-      }));
+      registry.register(
+        makePlugin({
+          name: 'reload-me',
+          onUnload: () => {
+            unloaded = true;
+          },
+        }),
+      );
       const result = await registry.reload('reload-me');
       expect(result).toBe(true);
       expect(unloaded).toBe(true);
@@ -214,7 +232,8 @@ describe('PluginRegistry', () => {
 
 describe('getPluginRegistry / resetPluginRegistry', () => {
   it('should return the same singleton instance', async () => {
-    const { getPluginRegistry, resetPluginRegistry } = await import('../plugins/plugin-registry.js');
+    const { getPluginRegistry, resetPluginRegistry } =
+      await import('../plugins/plugin-registry.js');
     resetPluginRegistry();
     const a = getPluginRegistry();
     const b = getPluginRegistry();

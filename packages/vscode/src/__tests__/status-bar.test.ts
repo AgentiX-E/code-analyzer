@@ -13,14 +13,30 @@ function createMockItem(): StatusBarItem {
     visible: false,
   };
   return {
-    get text() { return state.text; },
-    set text(v: string) { state.text = v; },
-    get tooltip() { return state.tooltip; },
-    set tooltip(v: string) { state.tooltip = v; },
-    get command() { return state.command; },
-    set command(v: string) { state.command = v; },
-    show() { state.visible = true; },
-    hide() { state.visible = false; },
+    get text() {
+      return state.text;
+    },
+    set text(v: string) {
+      state.text = v;
+    },
+    get tooltip() {
+      return state.tooltip;
+    },
+    set tooltip(v: string) {
+      state.tooltip = v;
+    },
+    get command() {
+      return state.command;
+    },
+    set command(v: string) {
+      state.command = v;
+    },
+    show() {
+      state.visible = true;
+    },
+    hide() {
+      state.visible = false;
+    },
     dispose() {
       state.text = '';
       state.tooltip = '';
@@ -62,7 +78,9 @@ describe('StatusBarManager', () => {
       const manager = new StatusBarManager();
       const item = createMockItem();
       manager.setItem(item);
-      const styleItem = item as unknown as { _state: { visible: boolean; text: string; tooltip: string } };
+      const styleItem = item as unknown as {
+        _state: { visible: boolean; text: string; tooltip: string };
+      };
       expect(styleItem._state.visible).toBe(true);
       expect(item.text).toBe('$(search) Code Analyzer');
       expect(item.tooltip).toContain('click to open sidebar');

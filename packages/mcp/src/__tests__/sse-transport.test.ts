@@ -154,7 +154,7 @@ describe('SSETransport', () => {
       // Make a connection request and read the response
       const response = await fetch(`http://127.0.0.1:${port}/sse`, {
         method: 'GET',
-        headers: { 'Accept': 'text/event-stream' },
+        headers: { Accept: 'text/event-stream' },
       });
 
       expect(response.status).toBe(200);

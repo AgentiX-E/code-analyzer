@@ -5,11 +5,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { FlowSearchEngine } from '../search/flow-search.js';
+import type { FlowSearchResult, FlowPath } from '../search/flow-search.js';
 import type {
-  FlowSearchResult,
-  FlowPath,
-} from '../search/flow-search.js';
-import type { GraphNode, GraphEdge, RelationshipType, NodeProperties, EdgeProperties } from '@code-analyzer/shared';
+  GraphNode,
+  GraphEdge,
+  RelationshipType,
+  NodeProperties,
+  EdgeProperties,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -32,7 +35,7 @@ function createNode(
     startLine,
     endLine: startLine + 1,
     language: 'typescript',
-    properties: { name, filePath, startLine }as unknown as NodeProperties,
+    properties: { name, filePath, startLine } as unknown as NodeProperties,
     signature: null,
     docstring: null,
     complexity: null,
@@ -831,7 +834,7 @@ describe('FlowSearchEngine', () => {
 
     const results = engine.search([a.id], { maxDepth: 2 });
     // Should find b (depth 1) and c (depth 2), but not d (depth 3, exceeds maxDepth)
-    const nodeIds = results.map(r => r.node.nodeId);
+    const nodeIds = results.map((r) => r.node.nodeId);
     expect(nodeIds).toContain(b.id);
     expect(nodeIds).toContain(c.id);
     expect(nodeIds).not.toContain(d.id);
@@ -927,7 +930,7 @@ describe('FlowSearchEngine', () => {
     });
     // Should match nodes under deep/ directory
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results.every(r => r.node.filePath.includes('deep'))).toBe(true);
+    expect(results.every((r) => r.node.filePath.includes('deep'))).toBe(true);
   });
 
   // ==========================================================================
@@ -943,7 +946,7 @@ describe('FlowSearchEngine', () => {
     createEdge(store, helper.id, util.id, 'CALLS');
 
     const results = engine.search([util.id], { maxDepth: 3, direction: 'backward' });
-    expect(results.some(r => r.node.nodeId === helper.id)).toBe(true);
+    expect(results.some((r) => r.node.nodeId === helper.id)).toBe(true);
   });
 
   // ==========================================================================
@@ -1078,7 +1081,13 @@ describe('FlowSearchEngine', () => {
     // Give each start node 5 children
     for (const parent of [a, b]) {
       for (let i = 0; i < 8; i++) {
-        const child = createNode(store, `Child_${parent.name}_${i}`, 'Function', `/test/c_${parent.name}_${i}.ts`, 1);
+        const child = createNode(
+          store,
+          `Child_${parent.name}_${i}`,
+          'Function',
+          `/test/c_${parent.name}_${i}.ts`,
+          1,
+        );
         createEdge(store, parent.id, child.id, 'CALLS');
       }
     }
@@ -1290,7 +1299,11 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'nullLine', filePath: '/test/null.ts', startLine: null }as unknown as NodeProperties,
+      properties: {
+        name: 'nullLine',
+        filePath: '/test/null.ts',
+        startLine: null,
+      } as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1367,7 +1380,7 @@ describe('FlowSearchEngine', () => {
     });
 
     // Backward from base: derived extends base, so derived should be found
-    expect(results.some(r => r.node.nodeId === derived.id)).toBe(true);
+    expect(results.some((r) => r.node.nodeId === derived.id)).toBe(true);
   });
 
   // ==========================================================================
@@ -1401,7 +1414,7 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'midFunc', filePath: null, startLine: null }as unknown as NodeProperties,
+      properties: { name: 'midFunc', filePath: null, startLine: null } as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1437,7 +1450,7 @@ describe('FlowSearchEngine', () => {
     const paths = engine.findFlowPaths([mainId, mainId], 3);
     expect(paths.length).toBeGreaterThan(0);
     // Paths should be deduplicated — no duplicates
-    const keys = paths.map(p => p.nodes.map(n => n.nodeId).join(':'));
+    const keys = paths.map((p) => p.nodes.map((n) => n.nodeId).join(':'));
     const uniqueKeys = new Set(keys);
     expect(keys.length).toBe(uniqueKeys.size);
   });
@@ -1476,7 +1489,7 @@ describe('FlowSearchEngine', () => {
       startLine: 1,
       endLine: 2,
       language: 'typescript',
-      properties: { name: 'noFile', filePath: null, startLine: 1 }as unknown as NodeProperties,
+      properties: { name: 'noFile', filePath: null, startLine: 1 } as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1496,7 +1509,7 @@ describe('FlowSearchEngine', () => {
     });
 
     // Node with null filePath should NOT be filtered (can't match a pattern on null)
-    expect(results.some(r => r.node.nodeId === b.id)).toBe(true);
+    expect(results.some((r) => r.node.nodeId === b.id)).toBe(true);
   });
 
   // ==========================================================================
@@ -1516,7 +1529,7 @@ describe('FlowSearchEngine', () => {
     });
 
     // Backward from class: instance instantiates class → instance found
-    expect(results.some(r => r.node.nodeId === instance.id)).toBe(true);
+    expect(results.some((r) => r.node.nodeId === instance.id)).toBe(true);
   });
 
   // ==========================================================================
@@ -1557,7 +1570,7 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'nullSrc', filePath: null, startLine: null }as unknown as NodeProperties,
+      properties: { name: 'nullSrc', filePath: null, startLine: null } as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,
@@ -1594,7 +1607,11 @@ describe('FlowSearchEngine', () => {
       startLine: null,
       endLine: null,
       language: 'typescript',
-      properties: { name: 'selfNull', filePath: null, startLine: null }as unknown as NodeProperties,
+      properties: {
+        name: 'selfNull',
+        filePath: null,
+        startLine: null,
+      } as unknown as NodeProperties,
       signature: null,
       docstring: null,
       complexity: null,

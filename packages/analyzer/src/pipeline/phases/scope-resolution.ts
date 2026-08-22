@@ -7,7 +7,13 @@ import type {
   ResolvedImport,
   NodeLabel,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
+import {
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_CALLS,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+} from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -26,9 +32,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
-      const parseData = ctx.phaseData.get('parse') as
-        | { parsedFiles: ParsedFile[] }
-        | undefined;
+      const parseData = ctx.phaseData.get('parse') as { parsedFiles: ParsedFile[] } | undefined;
 
       if (!parseData || !parseData.parsedFiles || !ctx.graph) {
         return { phaseId: this.id, status: 'success', output: { referencesResolved: 0 } };
@@ -36,8 +40,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
 
       // Read crossFile phase data for import resolution
       const crossFileData = ctx.phaseData.get('crossFile') as
-        | { resolvedImports: ResolvedImport[]; importEdgesCreated: number }
-        | undefined;
+        { resolvedImports: ResolvedImport[]; importEdgesCreated: number } | undefined;
 
       const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
       let referencesResolved = 0;
@@ -186,7 +189,10 @@ export class ScopeResolutionPhase implements ExecutablePhase {
           if (symbol.kind === 'Class') {
             const baseClasses = symbol.properties.baseClasses as string | undefined;
             if (baseClasses) {
-              for (const baseClass of baseClasses.split(',').map((s) => s.trim()).filter(Boolean)) {
+              for (const baseClass of baseClasses
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)) {
                 let target = qnameIndex.get(baseClass);
                 // Try cross-file resolution for extends
                 if (!target && fileImports) {
@@ -229,7 +235,10 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             // IMPLEMENTS edges for interfaces
             const interfaces = symbol.properties.interfaces as string | undefined;
             if (interfaces) {
-              for (const iface of interfaces.split(',').map((s) => s.trim()).filter(Boolean)) {
+              for (const iface of interfaces
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)) {
                 let target = qnameIndex.get(iface);
                 if (!target && fileImports) {
                   for (const [resolvedFile] of fileImports) {
@@ -279,7 +288,11 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         output: { referencesResolved },
       };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }

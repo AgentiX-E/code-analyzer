@@ -18,10 +18,7 @@ let store: InMemoryGraphStore;
 let ctx: GraphQLContext;
 let yoga: ReturnType<typeof createYoga>;
 
-async function executeQuery(
-  query: string,
-  variables?: Record<string, unknown>,
-) {
+async function executeQuery(query: string, variables?: Record<string, unknown>) {
   const resp = await yoga.fetch('http://localhost/graphql', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -63,7 +60,13 @@ function populateStore(): void {
     startLine: 10,
     endLine: 50,
     language: 'typescript',
-    properties: { name: 'UserService', filePath: 'src/services/UserService.ts', startLine: 10, endLine: 50, isExported: true },
+    properties: {
+      name: 'UserService',
+      filePath: 'src/services/UserService.ts',
+      startLine: 10,
+      endLine: 50,
+      isExported: true,
+    },
     signature: 'class UserService',
     docstring: 'Handles user operations',
     complexity: 5,
@@ -83,7 +86,14 @@ function populateStore(): void {
     startLine: 20,
     endLine: 30,
     language: 'typescript',
-    properties: { name: 'getUser', filePath: 'src/services/UserService.ts', startLine: 20, endLine: 30, visibility: 'public', isExported: true },
+    properties: {
+      name: 'getUser',
+      filePath: 'src/services/UserService.ts',
+      startLine: 20,
+      endLine: 30,
+      visibility: 'public',
+      isExported: true,
+    },
     signature: 'async getUser(id: string): Promise<User>',
     docstring: 'Retrieves a user by ID',
     complexity: 3,
@@ -112,16 +122,38 @@ function populateStore(): void {
 describe('GraphQL API', () => {
   beforeEach(() => {
     store = new InMemoryGraphStore();
-    ctx = createGraphQLContext(store, {
-      host: '0.0.0.0', port: 3000, apiPrefix: '/api/v1',
-      cors: { origin: '*', methods: [], allowedHeaders: [], exposedHeaders: [], credentials: false, maxAge: 0 },
-      auth: { enabled: false, apiKeys: [], headerName: '' },
-      logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
-      metadata: { name: 'test', version: '0.0.0', environment: 'test' },
-      rateLimit: { enabled: false, windowMs: 60000, maxRequests: 100, addHeaders: false },
-      mtls: { enabled: false, caCerts: [], requireCert: false, skipHealthEndpoints: true, failureMode: 'reject' },
-      maxBodySize: 1048576, keepAliveTimeout: 61000, sseHeartbeatMs: 15000, maxConnections: 0,
-    }, Date.now());
+    ctx = createGraphQLContext(
+      store,
+      {
+        host: '0.0.0.0',
+        port: 3000,
+        apiPrefix: '/api/v1',
+        cors: {
+          origin: '*',
+          methods: [],
+          allowedHeaders: [],
+          exposedHeaders: [],
+          credentials: false,
+          maxAge: 0,
+        },
+        auth: { enabled: false, apiKeys: [], headerName: '' },
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+        metadata: { name: 'test', version: '0.0.0', environment: 'test' },
+        rateLimit: { enabled: false, windowMs: 60000, maxRequests: 100, addHeaders: false },
+        mtls: {
+          enabled: false,
+          caCerts: [],
+          requireCert: false,
+          skipHealthEndpoints: true,
+          failureMode: 'reject',
+        },
+        maxBodySize: 1048576,
+        keepAliveTimeout: 61000,
+        sseHeartbeatMs: 15000,
+        maxConnections: 0,
+      },
+      Date.now(),
+    );
     const schema = makeExecutableSchema({ typeDefs, resolvers });
     yoga = createYoga({
       schema,
@@ -198,7 +230,10 @@ describe('GraphQL API', () => {
 
     it('should return project by ID', async () => {
       populateStore();
-      const result = await executeQuery('query($id: ID!) { project(id: $id) { id name language status } }', { id: 'test-project-1' });
+      const result = await executeQuery(
+        'query($id: ID!) { project(id: $id) { id name language status } }',
+        { id: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       const project = result.data.project;
       expect(project.id).toBe('test-project-1');
@@ -212,14 +247,20 @@ describe('GraphQL API', () => {
   // -----------------------------------------------------------------------
   describe('graph', () => {
     it('should return empty items for empty project', async () => {
-      const result = await executeQuery('query($pid: ID!) { graph(projectId: $pid) { items { id } pageInfo { total } } }', { pid: 'nonexistent' });
+      const result = await executeQuery(
+        'query($pid: ID!) { graph(projectId: $pid) { items { id } pageInfo { total } } }',
+        { pid: 'nonexistent' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.graph.items).toEqual([]);
     });
 
     it('should return nodes for a project', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { graph(projectId: $pid) { items { id name label } pageInfo { total hasMore } } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { graph(projectId: $pid) { items { id name label } pageInfo { total hasMore } } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.graph.items.length).toBeGreaterThanOrEqual(1);
       expect(result.data.graph.pageInfo.total).toBeGreaterThanOrEqual(1);
@@ -227,7 +268,10 @@ describe('GraphQL API', () => {
 
     it('should support label filtering', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!, $label: String) { graph(projectId: $pid, label: $label) { items { label } } }', { pid: 'test-project-1', label: 'Function' });
+      const result = await executeQuery(
+        'query($pid: ID!, $label: String) { graph(projectId: $pid, label: $label) { items { label } } }',
+        { pid: 'test-project-1', label: 'Function' },
+      );
       expect(result.errors).toBeUndefined();
       for (const item of result.data.graph.items) {
         expect(item.label).toBe('Function');
@@ -236,7 +280,10 @@ describe('GraphQL API', () => {
 
     it('should support pagination', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { graph(projectId: $pid, limit: 1) { pageInfo { limit hasMore } } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { graph(projectId: $pid, limit: 1) { pageInfo { limit hasMore } } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.graph.pageInfo.limit).toBe(1);
     });
@@ -245,7 +292,10 @@ describe('GraphQL API', () => {
   describe('edges', () => {
     it('should return edges for a project', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { edges(projectId: $pid) { items { id type sourceId targetId } pageInfo { total } } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { edges(projectId: $pid) { items { id type sourceId targetId } pageInfo { total } } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.edges.pageInfo.total).toBeGreaterThanOrEqual(1);
       expect(result.data.edges.items[0].type).toBe('DEFINES');
@@ -258,14 +308,20 @@ describe('GraphQL API', () => {
   describe('searchGraph', () => {
     it('should find nodes by name', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!, $q: String!) { searchGraph(projectId: $pid, query: $q) { items { node { name } score } } }', { pid: 'test-project-1', q: 'UserService' });
+      const result = await executeQuery(
+        'query($pid: ID!, $q: String!) { searchGraph(projectId: $pid, query: $q) { items { node { name } score } } }',
+        { pid: 'test-project-1', q: 'UserService' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.searchGraph.items.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should return empty for no matches', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { searchGraph(projectId: $pid, query: "zzz_nonexistent_zzz") { items { node { name } } } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { searchGraph(projectId: $pid, query: "zzz_nonexistent_zzz") { items { node { name } } } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.searchGraph.items).toEqual([]);
     });
@@ -274,13 +330,18 @@ describe('GraphQL API', () => {
   describe('crossRepoSearch', () => {
     it('should search across all projects', async () => {
       populateStore();
-      const result = await executeQuery('query($q: String!) { crossRepoSearch(query: $q) { items { node { name projectId } } pageInfo { total } } }', { q: 'UserService' });
+      const result = await executeQuery(
+        'query($q: String!) { crossRepoSearch(query: $q) { items { node { name projectId } } pageInfo { total } } }',
+        { q: 'UserService' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.crossRepoSearch.items.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should return empty for no matches', async () => {
-      const result = await executeQuery('{ crossRepoSearch(query: "zzz_nonexistent") { items { node { name } } } }');
+      const result = await executeQuery(
+        '{ crossRepoSearch(query: "zzz_nonexistent") { items { node { name } } } }',
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.crossRepoSearch.items).toEqual([]);
     });
@@ -291,7 +352,10 @@ describe('GraphQL API', () => {
   // -----------------------------------------------------------------------
   describe('reviewDiff', () => {
     it('should accept a diff and return review placeholder', async () => {
-      const result = await executeQuery('query($pid: ID!, $diff: String!) { reviewDiff(projectId: $pid, diff: $diff) { summary stats { totalComments } } }', { pid: 'test-project-1', diff: '+console.log("hello");' });
+      const result = await executeQuery(
+        'query($pid: ID!, $diff: String!) { reviewDiff(projectId: $pid, diff: $diff) { summary stats { totalComments } } }',
+        { pid: 'test-project-1', diff: '+console.log("hello");' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.reviewDiff.summary).toBeTruthy();
       expect(result.data.reviewDiff.stats.totalComments).toBe(0);
@@ -300,7 +364,10 @@ describe('GraphQL API', () => {
 
   describe('reviewPR', () => {
     it('should accept PR review parameters', async () => {
-      const result = await executeQuery('query($pid: ID!, $pr: Int!, $owner: String!, $repo: String!) { reviewPR(projectId: $pid, prNumber: $pr, owner: $owner, repo: $repo) { summary } }', { pid: 'test-project-1', pr: 42, owner: 'AgentiX-E', repo: 'code-analyzer' });
+      const result = await executeQuery(
+        'query($pid: ID!, $pr: Int!, $owner: String!, $repo: String!) { reviewPR(projectId: $pid, prNumber: $pr, owner: $owner, repo: $repo) { summary } }',
+        { pid: 'test-project-1', pr: 42, owner: 'AgentiX-E', repo: 'code-analyzer' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.reviewPR.summary).toBeTruthy();
     });
@@ -312,7 +379,10 @@ describe('GraphQL API', () => {
   describe('impactAnalysis', () => {
     it('should analyze impact of changed files', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!, $files: [String!]!) { impactAnalysis(projectId: $pid, changedFiles: $files) { riskLevel changedFiles changedSymbols { symbolQname } } }', { pid: 'test-project-1', files: ['src/services/UserService.ts'] });
+      const result = await executeQuery(
+        'query($pid: ID!, $files: [String!]!) { impactAnalysis(projectId: $pid, changedFiles: $files) { riskLevel changedFiles changedSymbols { symbolQname } } }',
+        { pid: 'test-project-1', files: ['src/services/UserService.ts'] },
+      );
       expect(result.errors).toBeUndefined();
       const impact = result.data.impactAnalysis;
       expect(impact.changedFiles).toContain('src/services/UserService.ts');
@@ -320,7 +390,10 @@ describe('GraphQL API', () => {
     });
 
     it('should return low risk for no changed files', async () => {
-      const result = await executeQuery('query($pid: ID!) { impactAnalysis(projectId: $pid, changedFiles: []) { riskLevel estimatedEffort } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { impactAnalysis(projectId: $pid, changedFiles: []) { riskLevel estimatedEffort } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.impactAnalysis.riskLevel).toBe('LOW');
       expect(result.data.impactAnalysis.estimatedEffort).toBe('low');
@@ -333,7 +406,10 @@ describe('GraphQL API', () => {
   describe('projectStats', () => {
     it('should return stats for a project', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { projectStats(projectId: $pid) { projectId nodeCount edgeCount nodeLabelDistribution languageDistribution } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { projectStats(projectId: $pid) { projectId nodeCount edgeCount nodeLabelDistribution languageDistribution } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       const stats = result.data.projectStats;
       expect(stats.projectId).toBe('test-project-1');
@@ -343,7 +419,10 @@ describe('GraphQL API', () => {
     });
 
     it('should return zeros for empty project', async () => {
-      const result = await executeQuery('query($pid: ID!) { projectStats(projectId: $pid) { nodeCount edgeCount } }', { pid: 'nonexistent' });
+      const result = await executeQuery(
+        'query($pid: ID!) { projectStats(projectId: $pid) { nodeCount edgeCount } }',
+        { pid: 'nonexistent' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.projectStats.nodeCount).toBe(0);
       expect(result.data.projectStats.edgeCount).toBe(0);
@@ -355,7 +434,10 @@ describe('GraphQL API', () => {
   // -----------------------------------------------------------------------
   describe('indexProject', () => {
     it('should create a project node', async () => {
-      const result = await executeQuery('mutation($path: String!, $pid: String) { indexProject(path: $path, projectId: $pid) { id name status nodeCount } }', { path: '/tmp/my-project', pid: 'my-test-project' });
+      const result = await executeQuery(
+        'mutation($path: String!, $pid: String) { indexProject(path: $path, projectId: $pid) { id name status nodeCount } }',
+        { path: '/tmp/my-project', pid: 'my-test-project' },
+      );
       expect(result.errors).toBeUndefined();
       const project = result.data.indexProject;
       expect(project.id).toBe('my-test-project');
@@ -364,7 +446,10 @@ describe('GraphQL API', () => {
     });
 
     it('should auto-generate project ID when not provided', async () => {
-      const result = await executeQuery('mutation($path: String!) { indexProject(path: $path) { id name } }', { path: '/tmp/another-project' });
+      const result = await executeQuery(
+        'mutation($path: String!) { indexProject(path: $path) { id name } }',
+        { path: '/tmp/another-project' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.indexProject.id).toBeTruthy();
       expect(result.data.indexProject.name).toBeTruthy();
@@ -374,7 +459,9 @@ describe('GraphQL API', () => {
   describe('deleteProject', () => {
     it('should delete a project', async () => {
       populateStore();
-      const result = await executeQuery('mutation($id: ID!) { deleteProject(id: $id) }', { id: 'test-project-1' });
+      const result = await executeQuery('mutation($id: ID!) { deleteProject(id: $id) }', {
+        id: 'test-project-1',
+      });
       expect(result.errors).toBeUndefined();
       expect(result.data.deleteProject).toBe(true);
     });
@@ -388,7 +475,10 @@ describe('GraphQL API', () => {
 
   describe('runBenchmark', () => {
     it('should return benchmark metadata', async () => {
-      const result = await executeQuery('mutation($pid: ID!, $suite: String!) { runBenchmark(projectId: $pid, suite: $suite) { suite totalTests passed failed } }', { pid: 'test-project-1', suite: 'search' });
+      const result = await executeQuery(
+        'mutation($pid: ID!, $suite: String!) { runBenchmark(projectId: $pid, suite: $suite) { suite totalTests passed failed } }',
+        { pid: 'test-project-1', suite: 'search' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.runBenchmark.suite).toBe('search');
     });
@@ -396,7 +486,10 @@ describe('GraphQL API', () => {
 
   describe('manageRepoGroup', () => {
     it('should create a repository group', async () => {
-      const result = await executeQuery('mutation($action: String!, $name: String) { manageRepoGroup(action: $action, name: $name) { id name repos { fullName } } }', { action: 'create', name: 'my-group' });
+      const result = await executeQuery(
+        'mutation($action: String!, $name: String) { manageRepoGroup(action: $action, name: $name) { id name repos { fullName } } }',
+        { action: 'create', name: 'my-group' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.manageRepoGroup.name).toBe('my-group');
     });
@@ -451,10 +544,9 @@ describe('GraphQL API', () => {
 
     it('should return project config as JSON', async () => {
       populateStore();
-      const result = await executeQuery(
-        'query($id: ID!) { project(id: $id) { config } }',
-        { id: 'test-project-1' },
-      );
+      const result = await executeQuery('query($id: ID!) { project(id: $id) { config } }', {
+        id: 'test-project-1',
+      });
       expect(result.errors).toBeUndefined();
       expect(result.data.project.config).toBeDefined();
     });
@@ -530,14 +622,20 @@ describe('GraphQL API', () => {
   describe('pagination', () => {
     it('should handle large offset', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { graph(projectId: $pid, offset: 9999) { items { id } } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { graph(projectId: $pid, offset: 9999) { items { id } } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       expect(result.data.graph.items).toEqual([]);
     });
 
     it('should set hasMore correctly', async () => {
       populateStore();
-      const result = await executeQuery('query($pid: ID!) { graph(projectId: $pid, limit: 1) { pageInfo { hasMore total } } }', { pid: 'test-project-1' });
+      const result = await executeQuery(
+        'query($pid: ID!) { graph(projectId: $pid, limit: 1) { pageInfo { hasMore total } } }',
+        { pid: 'test-project-1' },
+      );
       expect(result.errors).toBeUndefined();
       if (result.data.graph.pageInfo.total > 1) {
         expect(result.data.graph.pageInfo.hasMore).toBe(true);

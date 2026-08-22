@@ -22,8 +22,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const py = require('tree-sitter-python') as { python: TreeSitterLanguage };
       return py.python || (py as unknown as TreeSitterLanguage);
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -84,7 +84,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
           const called = this.findNamedChild(child, 'call');
           let text = '@';
           if (called) {
-            const func = this.findNamedChild(called, 'identifier') || this.findNamedChild(called, 'attribute');
+            const func =
+              this.findNamedChild(called, 'identifier') || this.findNamedChild(called, 'attribute');
             text += called.text;
             /* v8 ignore next -- @preserve -- defensive null / boundary branch */
             const name = func ? func.text : called.text.split('(')[0];
@@ -100,7 +101,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
             });
           } else {
             /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-            const id = this.findNamedChild(child, 'identifier') || this.findNamedChild(child, 'attribute');
+            const id =
+              this.findNamedChild(child, 'identifier') || this.findNamedChild(child, 'attribute');
             /* v8 ignore next -- @preserve -- defensive null / boundary branch */
             if (id) {
               captures.push({
@@ -194,7 +196,12 @@ export class PythonProvider extends TreeSitterBaseProvider {
         const child = node.namedChild(i);
         /* v8 ignore next -- @preserve -- import_statement children are dotted_name or aliased_import */
         if (child.type === 'dotted_name') {
-          imports.push({ source: child.text, names: [child.text], type: 'named', lineNumber: line });
+          imports.push({
+            source: child.text,
+            names: [child.text],
+            type: 'named',
+            lineNumber: line,
+          });
         } else if (child.type === 'aliased_import') {
           const alias = this.findNamedChild(child, 'identifier');
           /* v8 ignore next -- @preserve -- defensive null / boundary branch */
@@ -226,7 +233,12 @@ export class PythonProvider extends TreeSitterBaseProvider {
       /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (source) {
         /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-        imports.push({ source, names: names.length > 0 ? names : [source], type: 'named', lineNumber: line });
+        imports.push({
+          source,
+          names: names.length > 0 ? names : [source],
+          type: 'named',
+          lineNumber: line,
+        });
       }
       return;
     }
@@ -258,23 +270,67 @@ export class PythonProvider extends TreeSitterBaseProvider {
     const funcRegex = /(?:async\s+)?def\s+(\w+)/g;
     let m: RegExpExecArray | null;
     while ((m = funcRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const clsRegex = /class\s+(\w+)/g;
     while ((m = clsRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const decRegex = /@(\w+(?:\.\w+)*)/g;
     while ((m = decRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.DECORATOR, text: m[0], startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { decorator: m[1]!, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.DECORATOR,
+        text: m[0],
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { decorator: m[1]!, filePath },
+      });
     }
     const docRegex = /("""|''')[\s\S]*?\1/g;
     while ((m = docRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.DOCSTRING, text: m[0], startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.DOCSTRING,
+        text: m[0],
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        properties: { filePath },
+      });
     }
     const imps = this.fallbackExtractImports(source);
     for (const imp of imps) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: imp.source,
+        startLine: imp.lineNumber,
+        endLine: imp.lineNumber,
+        startByte: 0,
+        endByte: 0,
+        name: imp.source,
+        properties: { names: imp.names.join(','), importType: imp.type, filePath },
+      });
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
@@ -285,13 +341,26 @@ export class PythonProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
     const fromRegex = /from\s+([\w.]+)\s+import\s+([\w\s,]+)/g;
     while ((m = fromRegex.exec(source)) !== null) {
-      imports.push({ source: m[1]!, names: m[2]!.split(',').map((s) => s.trim().split(/\s+as\s+/)[0]!).filter(Boolean), type: 'named', lineNumber: this.ln(source, m.index) });
+      imports.push({
+        source: m[1]!,
+        names: m[2]!
+          .split(',')
+          .map((s) => s.trim().split(/\s+as\s+/)[0]!)
+          .filter(Boolean),
+        type: 'named',
+        lineNumber: this.ln(source, m.index),
+      });
     }
     const impRegex = /^import\s+([\w\s,.]+?)(?:\s+#.*)?$/gm;
     while ((m = impRegex.exec(source)) !== null) {
       for (const mod of m[1]!.split(',')) {
         const parts = mod.trim().split(/\s+as\s+/);
-        imports.push({ source: parts[0]!.trim(), names: [parts[1]?.trim() ?? parts[0]!.trim()], type: parts.length > 1 ? 'namespace' : 'named', lineNumber: this.ln(source, m.index) });
+        imports.push({
+          source: parts[0]!.trim(),
+          names: [parts[1]?.trim() ?? parts[0]!.trim()],
+          type: parts.length > 1 ? 'namespace' : 'named',
+          lineNumber: this.ln(source, m.index),
+        });
       }
     }
     return imports;
@@ -302,7 +371,10 @@ export class PythonProvider extends TreeSitterBaseProvider {
     if (symbolName.startsWith('_') && !symbolName.startsWith('__')) return false;
     const allMatch = this.source.match(/__all__\s*=\s*\[([\s\S]*?)\]/);
     if (allMatch) {
-      return allMatch[1]!.split(',').map((s) => s.trim().replace(/['"]/g, '')).includes(symbolName);
+      return allMatch[1]!
+        .split(',')
+        .map((s) => s.trim().replace(/['"]/g, ''))
+        .includes(symbolName);
     }
     return true;
   }

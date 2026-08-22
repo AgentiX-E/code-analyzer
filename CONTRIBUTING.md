@@ -125,7 +125,7 @@ pnpm vitest run --coverage
 Unit tests must meet strict coverage thresholds:
 
 | Metric     | Threshold |
-|------------|-----------|
+| ---------- | --------- |
 | Lines      | 95%       |
 | Branches   | 90%       |
 | Functions  | 95%       |
@@ -145,12 +145,12 @@ Barrel files (`src/index.ts`) are excluded from coverage as they are covered by 
 
 ### Naming Conventions
 
-| Convention | Usage |
-|------------|-------|
-| `PascalCase` | Classes, interfaces, types, enums |
-| `camelCase` | Variables, functions, methods, properties |
-| `UPPER_SNAKE_CASE` | Constants and enum members |
-| `kebab-case` | File names, package names |
+| Convention         | Usage                                     |
+| ------------------ | ----------------------------------------- |
+| `PascalCase`       | Classes, interfaces, types, enums         |
+| `camelCase`        | Variables, functions, methods, properties |
+| `UPPER_SNAKE_CASE` | Constants and enum members                |
+| `kebab-case`       | File names, package names                 |
 
 ### Import Order
 
@@ -167,6 +167,7 @@ Imports are enforced by ESLint in this order with blank lines between groups:
 We use ESLint 9 with flat config and `@typescript-eslint` strict-type-checked rules.
 
 Key rules:
+
 - **No unused variables** — prefix with `_` to explicitly mark as unused
 - **No `console.log`** — use `console.warn` and `console.error` for diagnostics
 - **No `any`** — use `unknown` or proper types instead
@@ -201,18 +202,18 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 ### Types
 
-| Type       | Description                                      |
-|------------|--------------------------------------------------|
-| `feat`     | A new feature                                    |
-| `fix`      | A bug fix                                        |
-| `docs`     | Documentation changes                            |
-| `style`    | Formatting, missing semicolons, etc.             |
+| Type       | Description                                             |
+| ---------- | ------------------------------------------------------- |
+| `feat`     | A new feature                                           |
+| `fix`      | A bug fix                                               |
+| `docs`     | Documentation changes                                   |
+| `style`    | Formatting, missing semicolons, etc.                    |
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
-| `perf`     | Performance improvement                          |
-| `test`     | Adding or updating tests                         |
-| `chore`    | Maintenance tasks, dependency updates            |
-| `ci`       | CI/CD changes                                    |
-| `build`    | Build system or external dependency changes      |
+| `perf`     | Performance improvement                                 |
+| `test`     | Adding or updating tests                                |
+| `chore`    | Maintenance tasks, dependency updates                   |
+| `ci`       | CI/CD changes                                           |
+| `build`    | Build system or external dependency changes             |
 
 ### Scopes
 
@@ -333,11 +334,13 @@ Releases to npm are automated via GitHub Actions. To publish:
    - Click "Publish release"
 
 The `.github/workflows/publish-npm.yml` workflow triggers on release publish and will:
+
 - Build all packages
 - Run the full test suite with coverage
 - Publish all packages to npm with `--access public`
 
 **Prerequisites:**
+
 - An `npm` environment in GitHub repository settings
 - `NPM_TOKEN` secret configured in that environment
 
@@ -351,6 +354,7 @@ Multi-arch Docker images are built and pushed automatically:
 4. Tags: `latest`, `vX.Y.Z`, `vX.Y`, `vX`
 
 **Prerequisites:**
+
 - A `docker` environment in GitHub repository settings
 - `DOCKER_USERNAME` and `DOCKER_TOKEN` secrets configured
 
@@ -372,6 +376,7 @@ The VS Code extension is published to both VS Code Marketplace and Open VSX Regi
 2. The `.github/workflows/publish-vscode.yml` workflow triggers on release publish
 
 **Prerequisites:**
+
 - A `vscode-marketplace` environment in GitHub repository settings
 - `VSCODE_MARKETPLACE_TOKEN` and `OPEN_VSX_TOKEN` secrets configured
 
@@ -392,12 +397,15 @@ Example entry:
 ## [0.2.0] — YYYY-MM-DD
 
 ### Added
+
 - Feature description (#123)
 
 ### Changed
+
 - Breaking change description with migration guide (#456)
 
 ### Fixed
+
 - Bug fix description (#789)
 ```
 

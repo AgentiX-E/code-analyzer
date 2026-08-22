@@ -2,11 +2,7 @@
 // Reviews pull requests with cross-repo context, detects API breaking changes,
 // predicts test impact across repos, and checks version compatibility.
 
-import type {
-  PullRequest,
-  GitDiff,
-  ReviewComment,
-} from '@code-analyzer/shared';
+import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
 
 import type { CrossRepoIndexer } from './cross-repo-indexer.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
@@ -143,21 +139,16 @@ export class CrossRepoPRReviewEngine {
     const changedSymbols = this.extractChangedSymbols(diffs, sourceRepoId);
 
     // 2. Run cross-repo impact analysis
-    const impactResult = await this.indexer.analyzeCrossRepoImpact(
-      groupId,
-      sourceRepoId,
-    );
+    const impactResult = await this.indexer.analyzeCrossRepoImpact(groupId, sourceRepoId);
 
     // 3. Build cross-repo impact entries
-    const crossRepoImpacts: CrossRepoImpactEntry[] = impactResult.analysis.map(
-      (a) => ({
-        affectedRepo: a.repo,
-        affectedSymbols: a.affectedSymbols,
-        impactLevel: a.impactLevel,
-        description: a.reason,
-        suggestedActions: this.buildSuggestedActions(a.impactLevel, a.repo),
-      }),
-    );
+    const crossRepoImpacts: CrossRepoImpactEntry[] = impactResult.analysis.map((a) => ({
+      affectedRepo: a.repo,
+      affectedSymbols: a.affectedSymbols,
+      impactLevel: a.impactLevel,
+      description: a.reason,
+      suggestedActions: this.buildSuggestedActions(a.impactLevel, a.repo),
+    }));
 
     // 4. Run review engine on the diffs
     const sessionId = `cross-repo-${pr.number}-${Date.now().toString(36)}`;
@@ -178,11 +169,7 @@ export class CrossRepoPRReviewEngine {
     );
 
     // 6. Predict test impact
-    const testPredictions = await this.predictTests(
-      groupId,
-      sourceRepoId,
-      changedSymbols,
-    );
+    const testPredictions = await this.predictTests(groupId, sourceRepoId, changedSymbols);
 
     // 7. Generate summary
     const summary = this.buildCrossRepoSummary(
@@ -220,25 +207,16 @@ export class CrossRepoPRReviewEngine {
     }
 
     const changedSymbols = this.extractChangedSymbols(diffs, sourceRepoId);
-    const breaking = await this.detectBreakingChanges(
-      diffs,
-      groupId,
-      sourceRepoId,
-      changedSymbols,
-    );
+    const breaking = await this.detectBreakingChanges(diffs, groupId, sourceRepoId, changedSymbols);
 
-    const affectedRepos = [
-      ...new Set(breaking.flatMap((b) => b.affectedInRepos)),
-    ];
+    const affectedRepos = [...new Set(breaking.flatMap((b) => b.affectedInRepos))];
 
     let severity: 'critical' | 'high' | 'medium' | 'low' = 'low';
-    if (breaking.some((b) =>
-      b.changeType === 'removed' || b.changeType === 'signature_changed',
-    )) {
+    if (breaking.some((b) => b.changeType === 'removed' || b.changeType === 'signature_changed')) {
       severity = 'critical';
-    } else if (breaking.some((b) =>
-      b.changeType === 'type_changed' || b.changeType === 'visibility_changed',
-    )) {
+    } else if (
+      breaking.some((b) => b.changeType === 'type_changed' || b.changeType === 'visibility_changed')
+    ) {
       severity = 'high';
     } else if (breaking.length > 2) {
       severity = 'medium';
@@ -267,11 +245,7 @@ export class CrossRepoPRReviewEngine {
     }
 
     const changedSymbols = this.extractChangedSymbols(diffs, sourceRepoId);
-    const predictions = await this.predictTests(
-      groupId,
-      sourceRepoId,
-      changedSymbols,
-    );
+    const predictions = await this.predictTests(groupId, sourceRepoId, changedSymbols);
 
     const reposWithAffectedTests = [
       ...new Set(predictions.filter((p) => p.testFiles.length > 0).map((p) => p.repo)),
@@ -280,10 +254,7 @@ export class CrossRepoPRReviewEngine {
     return {
       sourceRepo: sourceRepoId,
       affectedTests: predictions,
-      totalTestsAffected: predictions.reduce(
-        (sum, p) => sum + p.testFiles.length,
-        0,
-      ),
+      totalTestsAffected: predictions.reduce((sum, p) => sum + p.testFiles.length, 0),
       reposWithAffectedTests,
     };
   }
@@ -306,26 +277,14 @@ export class CrossRepoPRReviewEngine {
     // Get cross-repo impact
     let impactResult;
     try {
-      impactResult = await this.indexer.analyzeCrossRepoImpact(
-        groupId,
-        sourceRepoId,
-      );
+      impactResult = await this.indexer.analyzeCrossRepoImpact(groupId, sourceRepoId);
     } catch {
       impactResult = { changedRepo: sourceRepoId, affectedRepos: [], analysis: [] };
     }
 
-    const breaking = await this.detectBreakingChanges(
-      diffs,
-      groupId,
-      sourceRepoId,
-      changedSymbols,
-    );
+    const breaking = await this.detectBreakingChanges(diffs, groupId, sourceRepoId, changedSymbols);
 
-    const testPredictions = await this.predictTests(
-      groupId,
-      sourceRepoId,
-      changedSymbols,
-    );
+    const testPredictions = await this.predictTests(groupId, sourceRepoId, changedSymbols);
 
     return this.buildCrossRepoSummary(
       sourceRepoId,
@@ -344,9 +303,7 @@ export class CrossRepoPRReviewEngine {
   /**
    * Check for cross-repo version compatibility issues.
    */
-  async checkVersionCompatibility(
-    groupId: string,
-  ): Promise<VersionCompatibilityReport> {
+  async checkVersionCompatibility(groupId: string): Promise<VersionCompatibilityReport> {
     if (!groupId) {
       throw new Error('groupId is required');
     }
@@ -486,10 +443,7 @@ export class CrossRepoPRReviewEngine {
    * When a graph store is available through the review engine, queries
    * the graph for precise symbol resolution. Falls back to file-name extraction.
    */
-  private extractChangedSymbols(
-    diffs: GitDiff[],
-    sourceRepoId: string,
-  ): string[] {
+  private extractChangedSymbols(diffs: GitDiff[], sourceRepoId: string): string[] {
     const symbols = new Set<string>();
 
     for (const diff of diffs) {
@@ -510,7 +464,11 @@ export class CrossRepoPRReviewEngine {
       }
 
       // Always extract from file path as baseline
-      const baseName = diff.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+      const baseName =
+        diff.filePath
+          .split('/')
+          .pop()
+          ?.replace(/\.[^.]+$/, '') ?? '';
       if (baseName) {
         symbols.add(baseName);
       }
@@ -545,11 +503,7 @@ export class CrossRepoPRReviewEngine {
     const dependencyMap = new Map<string, string[]>();
     const tracePromises = changedSymbols.map(async (symbol) => {
       try {
-        const traces = await this.indexer.traceSymbolDependencies(
-          groupId,
-          _sourceRepoId,
-          symbol,
-        );
+        const traces = await this.indexer.traceSymbolDependencies(groupId, _sourceRepoId, symbol);
         if (traces.length > 0) {
           const repos = [...new Set(traces.map((t) => t.targetRepo))];
           dependencyMap.set(symbol, repos);
@@ -571,11 +525,7 @@ export class CrossRepoPRReviewEngine {
       }
       for (const symbol of changedSymbols) {
         const dependentRepos = matches
-          .filter(
-            (m) =>
-              m.targetRepo === _sourceRepoId &&
-              m.targetSymbol.includes(symbol),
-          )
+          .filter((m) => m.targetRepo === _sourceRepoId && m.targetSymbol.includes(symbol))
           .map((m) => m.sourceRepo);
         if (dependentRepos.length > 0) {
           dependencyMap.set(symbol, dependentRepos);
@@ -596,15 +546,20 @@ export class CrossRepoPRReviewEngine {
             changeType: 'removed',
             description: `Symbol "${symbol}" was removed, affecting ${dependentRepos.length} repos`,
             affectedInRepos: dependentRepos,
-            suggestedFix: dependentRepos.length > 0
-              ? 'Consider deprecating before removal, or update dependent repos'
-              : undefined,
+            suggestedFix:
+              dependentRepos.length > 0
+                ? 'Consider deprecating before removal, or update dependent repos'
+                : undefined,
           });
           continue;
         }
 
         if (diff.changeType === 'renamed' && diff.oldPath) {
-          const oldSymbol = diff.oldPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+          const oldSymbol =
+            diff.oldPath
+              .split('/')
+              .pop()
+              ?.replace(/\.[^.]+$/, '') ?? '';
           breakingChanges.push({
             symbol: oldSymbol,
             changeType: 'renamed',
@@ -722,11 +677,7 @@ export class CrossRepoPRReviewEngine {
         }
 
         const confidence: 'high' | 'medium' | 'low' =
-          relatedTestFiles.length > 5
-            ? 'high'
-            : relatedTestFiles.length > 0
-              ? 'medium'
-              : 'low';
+          relatedTestFiles.length > 5 ? 'high' : relatedTestFiles.length > 0 ? 'medium' : 'low';
 
         predictions.push({
           repo: repo.fullName,
@@ -770,9 +721,7 @@ export class CrossRepoPRReviewEngine {
         b.changeType === 'return_type_changed',
     );
 
-    const hasCriticalImpact = crossRepoImpacts.some(
-      (i) => i.impactLevel === 'critical',
-    );
+    const hasCriticalImpact = crossRepoImpacts.some((i) => i.impactLevel === 'critical');
 
     // Determine risk
     let crossRepoRisk: 'critical' | 'high' | 'medium' | 'low' = 'low';
@@ -796,9 +745,7 @@ export class CrossRepoPRReviewEngine {
       mergeRecommendation = 'approve';
     }
 
-    const reposImpacted = new Set(
-      crossRepoImpacts.map((i) => i.affectedRepo),
-    ).size;
+    const reposImpacted = new Set(crossRepoImpacts.map((i) => i.affectedRepo)).size;
 
     const recommendations: string[] = [];
 
@@ -814,9 +761,7 @@ export class CrossRepoPRReviewEngine {
       }
     }
 
-    const reposWithTests = testPredictions.filter(
-      (p) => p.testFiles.length > 0,
-    );
+    const reposWithTests = testPredictions.filter((p) => p.testFiles.length > 0);
     if (reposWithTests.length > 0) {
       recommendations.push(
         `Run tests in ${reposWithTests.length} affected repos: ${reposWithTests.map((p) => p.repo).join(', ')}`,
@@ -878,7 +823,11 @@ export class CrossRepoPRReviewEngine {
     const symbols: string[] = [];
 
     // Get the base name without extension
-    const baseName = diff.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+    const baseName =
+      diff.filePath
+        .split('/')
+        .pop()
+        ?.replace(/\.[^.]+$/, '') ?? '';
     if (baseName) {
       symbols.push(baseName);
 
@@ -899,14 +848,21 @@ export class CrossRepoPRReviewEngine {
     // For modified files, check if any range represents a function signature change
     // This is a heuristic — in production we'd parse the actual diff content
     for (const range of _diff.ranges) {
-      if (range.changeType === 'modified' && (range.newEnd - range.newStart) !== (range.oldEnd - range.oldStart)) {
+      if (
+        range.changeType === 'modified' &&
+        range.newEnd - range.newStart !== range.oldEnd - range.oldStart
+      ) {
         // Line count changed, potentially a signature change
         return true;
       }
     }
     // If it's a modified TypeScript/JavaScript file with ranges, flag as potential
     const fileName = _diff.filePath.split('/').pop() ?? '';
-    if (_diff.changeType === 'modified' && _diff.ranges.length > 0 && /\.(ts|js|py|go)$/.test(fileName)) {
+    if (
+      _diff.changeType === 'modified' &&
+      _diff.ranges.length > 0 &&
+      /\.(ts|js|py|go)$/.test(fileName)
+    ) {
       return true;
     }
     return false;
@@ -953,7 +909,9 @@ export class CrossRepoPRReviewEngine {
   /**
    * Try to read a non-package.json manifest file for version info.
    */
-  private tryReadManifest(localPath: string): { version: string; dependencies: Record<string, string> } | null {
+  private tryReadManifest(
+    localPath: string,
+  ): { version: string; dependencies: Record<string, string> } | null {
     /* v8 ignore next 19 */
     try {
       // Try go.mod

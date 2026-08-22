@@ -38,14 +38,23 @@ export const analyzeRepositorySchema = {
   type: 'object',
   properties: {
     path: { type: 'string', description: 'Path to the repository to analyze' },
-    projectId: { type: 'string', description: 'Project identifier (auto-generated if not provided)' },
-    language: { type: 'string', description: 'Programming language (auto-detected if not provided)' },
+    projectId: {
+      type: 'string',
+      description: 'Project identifier (auto-generated if not provided)',
+    },
+    language: {
+      type: 'string',
+      description: 'Programming language (auto-detected if not provided)',
+    },
     force: { type: 'boolean', description: 'Force re-index even if already indexed' },
   },
   required: ['path'],
 };
 
-export async function analyzeRepository(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function analyzeRepository(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as AnalyzeRepositoryParams;
   const path = params.path;
   const projectId = params.projectId ?? `project_${Date.now()}`;
@@ -56,12 +65,21 @@ export async function analyzeRepository(args: Record<string, unknown>, store?: u
     // Validate path exists
     if (!existsSync(path)) {
       return {
-        content: [{ type: 'text', text: JSON.stringify({
-          projectId,
-          path,
-          status: 'failed',
-          error: `Path does not exist: ${path}`,
-        }, null, 2) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                path,
+                status: 'failed',
+                error: `Path does not exist: ${path}`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
         isError: true,
       };
     }
@@ -109,23 +127,29 @@ export async function analyzeRepository(args: Record<string, unknown>, store?: u
       }));
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            path,
-            language: language ?? result.graph.nodes.size > 0 ? 'auto-detected' : 'unknown',
-            status: result.status,
-            force,
-            nodeCount,
-            edgeCount,
-            phaseCount: result.phases.length,
-            phases: phaseStatuses,
-            errors: result.errors,
-            duration: result.duration,
-            message: `Analysis ${result.status}: ${nodeCount} nodes, ${edgeCount} edges in ${result.duration}ms`,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                path,
+                language: (language ?? result.graph.nodes.size > 0) ? 'auto-detected' : 'unknown',
+                status: result.status,
+                force,
+                nodeCount,
+                edgeCount,
+                phaseCount: result.phases.length,
+                phases: phaseStatuses,
+                errors: result.errors,
+                duration: result.duration,
+                message: `Analysis ${result.status}: ${nodeCount} nodes, ${edgeCount} edges in ${result.duration}ms`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
@@ -134,44 +158,65 @@ export async function analyzeRepository(args: Record<string, unknown>, store?: u
     if (graphStore && force) {
       const integrity = graphStore.validateIntegrity(projectId);
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            path,
-            language: language ?? 'auto-detected',
-            status: force ? 're-indexed' : 'indexed',
-            force,
-            nodeCount: integrity.nodeCount,
-            edgeCount: integrity.edgeCount,
-            message: `Store-based analysis: ${integrity.nodeCount} nodes, ${integrity.edgeCount} edges`,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                path,
+                language: language ?? 'auto-detected',
+                status: force ? 're-indexed' : 'indexed',
+                force,
+                nodeCount: integrity.nodeCount,
+                edgeCount: integrity.edgeCount,
+                message: `Store-based analysis: ${integrity.nodeCount} nodes, ${integrity.edgeCount} edges`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          path,
-          language: language ?? 'auto-detected',
-          status: 'indexing',
-          force,
-          message: `Repository analysis started for ${path}. Use get_graph_schema or cypher_query to inspect results after indexing.`,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              path,
+              language: language ?? 'auto-detected',
+              status: 'indexing',
+              force,
+              message: `Repository analysis started for ${path}. Use get_graph_schema or cypher_query to inspect results after indexing.`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     return {
-      content: [{ type: 'text', text: JSON.stringify({
-        projectId,
-        path,
-        status: 'failed',
-        error: `Analysis failed: ${message}`,
-      }, null, 2) }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              path,
+              status: 'failed',
+              error: `Analysis failed: ${message}`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
       isError: true,
     };
   }
@@ -190,7 +235,10 @@ export const listProjectsSchema = {
   },
 };
 
-export async function listProjects(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function listProjects(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as Record<string, unknown>;
   const limit = (params['limit'] as number) ?? 50;
   const offset = (params['offset'] as number) ?? 0;
@@ -199,16 +247,22 @@ export async function listProjects(args: Record<string, unknown>, store?: unknow
     const graphStore = getStore(store);
     if (!graphStore) {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            items: [],
-            total: 0,
-            returned: 0,
-            hasMore: false,
-            message: 'No graph store available',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                items: [],
+                total: 0,
+                returned: 0,
+                hasMore: false,
+                message: 'No graph store available',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
@@ -233,15 +287,21 @@ export async function listProjects(args: Record<string, unknown>, store?: unknow
       });
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          items: projects,
-          total: projectIds.size,
-          returned: projects.length,
-          hasMore: offset + limit < projectIds.size,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              items: projects,
+              total: projectIds.size,
+              returned: projects.length,
+              hasMore: offset + limit < projectIds.size,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -270,7 +330,10 @@ export const deleteProjectSchema = {
   required: ['projectId'],
 };
 
-export async function deleteProject(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function deleteProject(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as DeleteProjectParams;
   const projectId = params.projectId;
   const force = Boolean(params.force);
@@ -294,26 +357,41 @@ export async function deleteProject(args: Record<string, unknown>, store?: unkno
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          deleted: true,
-          force,
-          deletedNodes,
-          deletedEdges,
-          message: `Project "${projectId}" deleted: ${deletedNodes} nodes, ${deletedEdges} edges removed`,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              deleted: true,
+              force,
+              deletedNodes,
+              deletedEdges,
+              message: `Project "${projectId}" deleted: ${deletedNodes} nodes, ${deletedEdges} edges removed`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     return {
-      content: [{ type: 'text', text: JSON.stringify({
-        projectId,
-        deleted: false,
-        error: message,
-      }, null, 2) }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              deleted: false,
+              error: message,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
       isError: true,
     };
   }
@@ -335,7 +413,10 @@ export const indexStatusSchema = {
   required: ['projectId'],
 };
 
-export async function indexStatus(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function indexStatus(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as IndexStatusParams;
   const projectId = params.projectId;
 
@@ -347,21 +428,27 @@ export async function indexStatus(args: Record<string, unknown>, store?: unknown
       const integrity = ctx.store.validateIntegrity(projectId);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            status: stats.nodeCount > 0 ? 'ready' : 'empty',
-            nodeCount: stats.nodeCount,
-            edgeCount: stats.edgeCount,
-            labelDistribution: stats.labelDistribution,
-            relationshipDistribution: stats.relationshipDistribution,
-            valid: integrity.valid,
-            issues: integrity.issues.length > 0 ? integrity.issues : undefined,
-            indexedAt: integrity.checkedAt,
-            message: `${stats.nodeCount} nodes, ${stats.edgeCount} edges indexed for project "${projectId}"`,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                status: stats.nodeCount > 0 ? 'ready' : 'empty',
+                nodeCount: stats.nodeCount,
+                edgeCount: stats.edgeCount,
+                labelDistribution: stats.labelDistribution,
+                relationshipDistribution: stats.relationshipDistribution,
+                valid: integrity.valid,
+                issues: integrity.issues.length > 0 ? integrity.issues : undefined,
+                indexedAt: integrity.checkedAt,
+                message: `${stats.nodeCount} nodes, ${stats.edgeCount} edges indexed for project "${projectId}"`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
@@ -370,43 +457,64 @@ export async function indexStatus(args: Record<string, unknown>, store?: unknown
     if (graphStore) {
       const integrity = graphStore.validateIntegrity(projectId);
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            status: integrity.nodeCount > 0 ? 'ready' : 'empty',
-            nodeCount: integrity.nodeCount,
-            edgeCount: integrity.edgeCount,
-            valid: integrity.valid,
-            issues: integrity.issues.length > 0 ? integrity.issues : undefined,
-            indexedAt: integrity.checkedAt,
-            message: `${integrity.nodeCount} nodes, ${integrity.edgeCount} edges indexed for project "${projectId}"`,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                status: integrity.nodeCount > 0 ? 'ready' : 'empty',
+                nodeCount: integrity.nodeCount,
+                edgeCount: integrity.edgeCount,
+                valid: integrity.valid,
+                issues: integrity.issues.length > 0 ? integrity.issues : undefined,
+                indexedAt: integrity.checkedAt,
+                message: `${integrity.nodeCount} nodes, ${integrity.edgeCount} edges indexed for project "${projectId}"`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          status: 'unknown',
-          nodeCount: 0,
-          edgeCount: 0,
-          indexedAt: null,
-          message: `No store available to check index status for "${projectId}"`,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              status: 'unknown',
+              nodeCount: 0,
+              edgeCount: 0,
+              indexedAt: null,
+              message: `No store available to check index status for "${projectId}"`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     return {
-      content: [{ type: 'text', text: JSON.stringify({
-        projectId,
-        status: 'error',
-        error: message,
-      }, null, 2) }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              status: 'error',
+              error: message,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
       isError: true,
     };
   }
@@ -426,13 +534,19 @@ export const autoIndexSchema = {
   type: 'object',
   properties: {
     path: { type: 'string', description: 'Path to the project to auto-index' },
-    indexOnConnect: { type: 'boolean', description: 'Whether to run indexing immediately (default: true)' },
+    indexOnConnect: {
+      type: 'boolean',
+      description: 'Whether to run indexing immediately (default: true)',
+    },
     projectIdPrefix: { type: 'string', description: 'Project ID prefix (default: "project")' },
   },
   required: ['path'],
 };
 
-export async function autoIndex(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function autoIndex(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as AutoIndexParams;
   const path = params.path;
   const indexOnConnect = params.indexOnConnect ?? true;
@@ -442,11 +556,20 @@ export async function autoIndex(args: Record<string, unknown>, store?: unknown):
     // Validate path exists
     if (!existsSync(path)) {
       return {
-        content: [{ type: 'text', text: JSON.stringify({
-          path,
-          status: 'failed',
-          error: `Path does not exist: ${path}`,
-        }, null, 2) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                path,
+                status: 'failed',
+                error: `Path does not exist: ${path}`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
         isError: true,
       };
     }
@@ -454,11 +577,20 @@ export async function autoIndex(args: Record<string, unknown>, store?: unknown):
     const graphStore = getStore(store);
     if (!graphStore) {
       return {
-        content: [{ type: 'text', text: JSON.stringify({
-          path,
-          status: 'failed',
-          error: 'No graph store available for auto-indexing',
-        }, null, 2) }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                path,
+                status: 'failed',
+                error: 'No graph store available for auto-indexing',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
         isError: true,
       };
     }
@@ -476,32 +608,47 @@ export async function autoIndex(args: Record<string, unknown>, store?: unknown):
     const result = await indexer.onProjectOpen(path);
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId: result.projectId,
-          path: result.rootPath,
-          status: 'indexed',
-          type: result.projectInfo.type,
-          languages: result.projectInfo.languages,
-          hasDocker: result.projectInfo.hasDocker,
-          hasK8s: result.projectInfo.hasK8s,
-          packageManager: result.projectInfo.packageManager,
-          filesDiscovered: result.filesDiscovered,
-          nodesIndexed: result.nodesIndexed,
-          durationMs: result.durationMs,
-          message: `Auto-indexed ${result.nodesIndexed} nodes from ${result.filesDiscovered} files in ${result.durationMs}ms`,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId: result.projectId,
+              path: result.rootPath,
+              status: 'indexed',
+              type: result.projectInfo.type,
+              languages: result.projectInfo.languages,
+              hasDocker: result.projectInfo.hasDocker,
+              hasK8s: result.projectInfo.hasK8s,
+              packageManager: result.projectInfo.packageManager,
+              filesDiscovered: result.filesDiscovered,
+              nodesIndexed: result.nodesIndexed,
+              durationMs: result.durationMs,
+              message: `Auto-indexed ${result.nodesIndexed} nodes from ${result.filesDiscovered} files in ${result.durationMs}ms`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     return {
-      content: [{ type: 'text', text: JSON.stringify({
-        path,
-        status: 'failed',
-        error: `Auto-index failed: ${message}`,
-      }, null, 2) }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              path,
+              status: 'failed',
+              error: `Auto-index failed: ${message}`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
       isError: true,
     };
   }

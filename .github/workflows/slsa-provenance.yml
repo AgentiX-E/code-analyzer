@@ -21,4 +21,4 @@ jobs:
       - name: Generate provenance
         uses: slsa-framework/slsa-github-generator/.github/actions/generate-provenance@v2
         with:
-          base64-subjects: "${{ needs.build.outputs.hashes }}"
+          base64-subjects: '${{ needs.build.outputs.hashes }}'

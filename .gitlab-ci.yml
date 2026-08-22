@@ -59,11 +59,11 @@ pr-review:
   script:
     # Automated PR review against project standards
     - npx code-analyzer review pr \
-        --repo . \
-        --target-branch $CI_MERGE_REQUEST_TARGET_BRANCH_NAME \
-        --source-branch $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME \
-        --format markdown \
-        --output review-report.md
+      --repo . \
+      --target-branch $CI_MERGE_REQUEST_TARGET_BRANCH_NAME \
+      --source-branch $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME \
+      --format markdown \
+      --output review-report.md
   artifacts:
     paths:
       - review-report.md
@@ -80,10 +80,10 @@ standards-check:
   script:
     # Check against project coding standards
     - npx code-analyzer standards check \
-        --repo . \
-        --standard .code-analyzer-standards.yml \
-        --format markdown \
-        --output standards-report.md
+      --repo . \
+      --standard .code-analyzer-standards.yml \
+      --format markdown \
+      --output standards-report.md
   artifacts:
     paths:
       - standards-report.md
@@ -98,14 +98,14 @@ generate-report:
   script:
     # Generate HTML report with trends
     - npx code-analyzer report generate \
-        --input analysis.json \
-        --format html \
-        --output codebase-report.html
+      --input analysis.json \
+      --format html \
+      --output codebase-report.html
     # Generate actionable recommendations
     - npx code-analyzer report recommend \
-        --input analysis.json \
-        --format markdown \
-        --output recommendations.md
+      --input analysis.json \
+      --format markdown \
+      --output recommendations.md
   artifacts:
     paths:
       - codebase-report.html

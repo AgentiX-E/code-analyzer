@@ -37,7 +37,9 @@ describe('JsonProvider', () => {
       const code = '{"name": "Alice"}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'name' && c.properties?.valueType === 'string')).toBe(true);
+      expect(vars.some((c) => c.name === 'name' && c.properties?.valueType === 'string')).toBe(
+        true,
+      );
     });
 
     it('should extract a number value', () => {
@@ -51,7 +53,9 @@ describe('JsonProvider', () => {
       const code = '{"active": true, "deleted": false}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'active' && c.properties?.valueType === 'boolean')).toBe(true);
+      expect(vars.some((c) => c.name === 'active' && c.properties?.valueType === 'boolean')).toBe(
+        true,
+      );
     });
 
     it('should extract a null value', () => {
@@ -65,14 +69,18 @@ describe('JsonProvider', () => {
       const code = '{"user": {"id": 1}}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'user' && c.properties?.valueType === 'object')).toBe(true);
+      expect(vars.some((c) => c.name === 'user' && c.properties?.valueType === 'object')).toBe(
+        true,
+      );
     });
 
     it('should extract an array value', () => {
       const code = '{"items": [1, 2]}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'items' && c.properties?.valueType === 'array')).toBe(true);
+      expect(vars.some((c) => c.name === 'items' && c.properties?.valueType === 'array')).toBe(
+        true,
+      );
     });
   });
 
@@ -95,7 +103,9 @@ describe('JsonProvider', () => {
   describe('taint analysis', () => {
     it('should detect password as config_secret source', () => {
       const sources = provider.extractTaintSources('{"password": "secret123"}');
-      expect(sources.some((s) => s.name === 'password' && s.sourceType === 'config_secret')).toBe(true);
+      expect(sources.some((s) => s.name === 'password' && s.sourceType === 'config_secret')).toBe(
+        true,
+      );
     });
 
     it('should detect api_key as config_secret source', () => {
@@ -105,7 +115,9 @@ describe('JsonProvider', () => {
 
     it('should detect allowed list as config_validation sanitizer', () => {
       const sanitizers = provider.extractSanitizers('{"allowed_ips": ["1.2.3.4"]}');
-      expect(sanitizers.some((s) => s.name === 'allowed_ips' && s.sanitizerType === 'config_validation')).toBe(true);
+      expect(
+        sanitizers.some((s) => s.name === 'allowed_ips' && s.sanitizerType === 'config_validation'),
+      ).toBe(true);
     });
 
     it('should return no taint sinks (JSON has no code-execution sinks)', () => {

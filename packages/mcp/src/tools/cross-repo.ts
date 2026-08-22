@@ -13,9 +13,13 @@ import { EDGE_CALLS } from '@code-analyzer/shared';
 
 /* v8 ignore start */
 
-let _groupManagerPromise: Promise<InstanceType<typeof import('@code-analyzer/intelligence')['RepoGroupManager']>> | null = null;
+let _groupManagerPromise: Promise<
+  InstanceType<(typeof import('@code-analyzer/intelligence'))['RepoGroupManager']>
+> | null = null;
 
-async function getGroupManager(): Promise<InstanceType<typeof import('@code-analyzer/intelligence')['RepoGroupManager']>> {
+async function getGroupManager(): Promise<
+  InstanceType<(typeof import('@code-analyzer/intelligence'))['RepoGroupManager']>
+> {
   if (!_groupManagerPromise) {
     _groupManagerPromise = (async () => {
       const { RepoGroupManager } = await import('@code-analyzer/intelligence');
@@ -38,7 +42,9 @@ function parseRepoRef(ref: string): { owner: string; name: string } {
     const u = new URL(ref.includes('://') ? ref : `https://${ref}`);
     const parts = u.pathname.replace(/^\//, '').split('/');
     if (parts.length >= 2 && parts[0] && parts[1]) return { owner: parts[0]!, name: parts[1]! };
-  } catch { /* not a URL */ }
+  } catch {
+    /* not a URL */
+  }
   // Plain name — use as repo name with default owner
   return { owner: '_', name: ref };
 }
@@ -75,7 +81,10 @@ export const crossRepoSearchSchema = {
   required: ['query'],
 };
 
-export async function crossRepoSearch(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function crossRepoSearch(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as CrossRepoSearchParams;
   const query = params.query;
   const repos = params.repos ?? [];
@@ -126,7 +135,7 @@ export async function crossRepoSearch(args: Record<string, unknown>, store?: unk
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     const gstore = ctx.store;
-    const rawItems = items.map(item => ({
+    const rawItems = items.map((item) => ({
       nodeId: 0,
       name: item['symbol'] as string,
       qualifiedName: item['qualifiedName'] as string,
@@ -139,17 +148,23 @@ export async function crossRepoSearch(args: Record<string, unknown>, store?: unk
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        query,
-        totalResults: items.length,
-        repoBreakdown,
-        items,
-        reposSearched: Object.keys(repoBreakdown),
-        enriched,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            query,
+            totalResults: items.length,
+            repoBreakdown,
+            items,
+            reposSearched: Object.keys(repoBreakdown),
+            enriched,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -175,7 +190,10 @@ export const crossRepoTraceSchema = {
   required: ['sourceSymbol', 'groupId'],
 };
 
-export async function crossRepoTrace(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function crossRepoTrace(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as CrossRepoTraceParams;
   const sourceSymbol = params.sourceSymbol;
   const groupId = params.groupId;
@@ -204,7 +222,9 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
 
         // BFS to find cross-repo connections
         const visited = new Set<number>([sourceNode.id]);
-        const queue: Array<{ nodeId: number; depth: number }> = [{ nodeId: sourceNode.id, depth: 0 }];
+        const queue: Array<{ nodeId: number; depth: number }> = [
+          { nodeId: sourceNode.id, depth: 0 },
+        ];
 
         while (queue.length > 0) {
           const current = queue.shift()!;
@@ -220,7 +240,10 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
             if (!targetNode) continue;
 
             // Check if this is a cross-repo call
-            if (targetNode.projectId !== sourceNode.projectId && !reposVisited.has(targetNode.projectId)) {
+            if (
+              targetNode.projectId !== sourceNode.projectId &&
+              !reposVisited.has(targetNode.projectId)
+            ) {
               reposVisited.add(targetNode.projectId);
               crossRepoEdges.push({
                 fromRepo: sourceNode.projectId,
@@ -255,7 +278,7 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
     const gstore = ctx.store;
     enrichedTrace = buildTraceResponse(
       {
-        path: path.map(p => ({
+        path: path.map((p) => ({
           symbol: p['symbol'] as string,
           depth: p['depth'] as number,
           relationship: EDGE_CALLS,
@@ -269,19 +292,25 @@ export async function crossRepoTrace(args: Record<string, unknown>, store?: unkn
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        sourceSymbol,
-        groupId,
-        maxDepth,
-        path,
-        crossRepoEdges,
-        reposVisited: Array.from(reposVisited),
-        crossRepoConnections: crossRepoEdges.length,
-        enriched: enrichedTrace,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            sourceSymbol,
+            groupId,
+            maxDepth,
+            path,
+            crossRepoEdges,
+            reposVisited: Array.from(reposVisited),
+            crossRepoConnections: crossRepoEdges.length,
+            enriched: enrichedTrace,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -305,7 +334,10 @@ export const crossRepoImpactSchema = {
   required: ['symbol', 'groupId'],
 };
 
-export async function crossRepoImpact(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function crossRepoImpact(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as CrossRepoImpactParams;
   const symbolName = params.symbol;
   const groupId = params.groupId;
@@ -330,7 +362,9 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
               if (edge.targetId === node.id) {
                 // Found a caller — check if it's in a different repo
                 if (potentialCaller.projectId !== node.projectId) {
-                  const existing = impactedRepos.find((r) => r['repo'] === potentialCaller.projectId);
+                  const existing = impactedRepos.find(
+                    (r) => r['repo'] === potentialCaller.projectId,
+                  );
                   if (existing) {
                     (existing['callers'] as string[]).push(potentialCaller.name);
                   } else {
@@ -367,7 +401,10 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
       riskLevel,
       processesAffected: [] as unknown[],
       estimatedEffort: riskLevel === 'high' ? 'high' : riskLevel === 'medium' ? 'medium' : 'low',
-      directDependents: impactedRepos.reduce((sum, r) => sum + ((r['callers'] as string[])?.length ?? 0), 0),
+      directDependents: impactedRepos.reduce(
+        (sum, r) => sum + ((r['callers'] as string[])?.length ?? 0),
+        0,
+      ),
       indirectDependents: 0,
       totalImpact: impactedRepos.length,
     };
@@ -390,19 +427,28 @@ export async function crossRepoImpact(args: Record<string, unknown>, store?: unk
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        symbol: symbolName,
-        groupId,
-        riskLevel,
-        impactedRepos,
-        totalImpactedRepos: impactedRepos.length,
-        totalCallers: impactedRepos.reduce((sum, r) => sum + ((r['callers'] as string[])?.length ?? 0), 0),
-        includeConsumers,
-        enriched: enrichedImpact,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            symbol: symbolName,
+            groupId,
+            riskLevel,
+            impactedRepos,
+            totalImpactedRepos: impactedRepos.length,
+            totalCallers: impactedRepos.reduce(
+              (sum, r) => sum + ((r['callers'] as string[])?.length ?? 0),
+              0,
+            ),
+            includeConsumers,
+            enriched: enrichedImpact,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -421,7 +467,11 @@ interface ManageRepoGroupParams {
 export const manageRepoGroupSchema = {
   type: 'object',
   properties: {
-    action: { type: 'string', description: 'Group action', enum: ['create', 'list', 'get', 'update', 'delete', 'add_repo', 'remove_repo'] },
+    action: {
+      type: 'string',
+      description: 'Group action',
+      enum: ['create', 'list', 'get', 'update', 'delete', 'add_repo', 'remove_repo'],
+    },
     groupId: { type: 'string', description: 'Group ID' },
     name: { type: 'string', description: 'Group name (for create/update)' },
     description: { type: 'string', description: 'Group description' },
@@ -498,12 +548,20 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
               // Remove all existing repos
               const currentRepos = manager.getGroup(groupId)?.repos ?? [];
               for (const r of currentRepos) {
-                try { manager.removeRepo(groupId, r.fullName); } catch { /* ignore */ }
+                try {
+                  manager.removeRepo(groupId, r.fullName);
+                } catch {
+                  /* ignore */
+                }
               }
               // Add new repos
               for (const repo of repos) {
                 const parsed = parseRepoRef(repo);
-                try { manager.addRepo(groupId, parsed.owner, parsed.name, repo, ''); } catch { /* skip duplicate */ }
+                try {
+                  manager.addRepo(groupId, parsed.owner, parsed.name, repo, '');
+                } catch {
+                  /* skip duplicate */
+                }
               }
             }
             result['groupId'] = groupId;
@@ -542,7 +600,9 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
               try {
                 manager.addRepo(groupId, parsed.owner, parsed.name, repo, '');
                 added.push(toExternalRepoRef(`${parsed.owner}/${parsed.name}`));
-              } catch { /* skip duplicate */ }
+              } catch {
+                /* skip duplicate */
+              }
             }
             result['groupId'] = groupId;
             result['addedRepos'] = added;
@@ -566,7 +626,9 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
               try {
                 manager.removeRepo(groupId, repoFullName);
                 removed.push(toExternalRepoRef(repoFullName));
-              } catch { /* not in group */ }
+              } catch {
+                /* not in group */
+              }
             }
             result['groupId'] = groupId;
             result['removedRepos'] = removed;
@@ -601,13 +663,24 @@ export const syncContractsSchema = {
   type: 'object',
   properties: {
     groupId: { type: 'string', description: 'Repository group ID' },
-    direction: { type: 'string', description: 'Sync direction', enum: ['upstream', 'downstream', 'bidirectional'] },
-    contracts: { type: 'array', items: { type: 'object' }, description: 'Contract definitions to sync' },
+    direction: {
+      type: 'string',
+      description: 'Sync direction',
+      enum: ['upstream', 'downstream', 'bidirectional'],
+    },
+    contracts: {
+      type: 'array',
+      items: { type: 'object' },
+      description: 'Contract definitions to sync',
+    },
   },
   required: ['groupId'],
 };
 
-export async function syncContracts(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function syncContracts(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as SyncContractsParams;
   const groupId = params.groupId;
   const direction = params.direction ?? 'bidirectional';
@@ -626,9 +699,7 @@ export async function syncContracts(args: Record<string, unknown>, store?: unkno
     const repoPlainNames = extractRepoNames(group.repos);
     for (const repo of repoPlainNames) {
       const allNodes = gstore.getAllNodes();
-      const repoRoutes = allNodes.filter(
-        (n) => n.label === 'Route' && n.projectId === repo
-      );
+      const repoRoutes = allNodes.filter((n) => n.label === 'Route' && n.projectId === repo);
 
       for (const route of repoRoutes) {
         const routePath = (route.properties?.routePath as string) ?? 'unknown';
@@ -643,7 +714,7 @@ export async function syncContracts(args: Record<string, unknown>, store?: unkno
               n.label === 'Route' &&
               n.projectId === otherRepo &&
               (n.properties?.routePath as string) === routePath &&
-              (n.properties?.routeMethod as string) === routeMethod
+              (n.properties?.routeMethod as string) === routeMethod,
           );
 
           if (otherRoute) {
@@ -660,18 +731,24 @@ export async function syncContracts(args: Record<string, unknown>, store?: unkno
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        groupId,
-        direction,
-        synced: synced.length,
-        conflicts: conflicts.length,
-        syncDetails: synced.map((s) => ({ contract: s, status: 'synced' })),
-        conflictDetails: conflicts.map((c) => ({ contract: c, reason: 'mismatch' })),
-        status: conflicts.length > 0 ? 'partial' : synced.length > 0 ? 'success' : 'no-changes',
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            groupId,
+            direction,
+            synced: synced.length,
+            conflicts: conflicts.length,
+            syncDetails: synced.map((s) => ({ contract: s, status: 'synced' })),
+            conflictDetails: conflicts.map((c) => ({ contract: c, reason: 'mismatch' })),
+            status: conflicts.length > 0 ? 'partial' : synced.length > 0 ? 'success' : 'no-changes',
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -693,12 +770,20 @@ export const discoverRelatedReposSchema = {
   required: ['projectId'],
 };
 
-export async function discoverRelatedRepos(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function discoverRelatedRepos(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as DiscoverRelatedReposParams;
   const projectId = params.projectId;
   const maxResults = params.maxResults ?? 10;
 
-  const relatedRepos: Array<{ repo: string; relationType: string; sharedSymbols: string[]; relevance: number }> = [];
+  const relatedRepos: Array<{
+    repo: string;
+    relationType: string;
+    sharedSymbols: string[];
+    relevance: number;
+  }> = [];
 
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
@@ -779,14 +864,20 @@ export async function discoverRelatedRepos(args: Record<string, unknown>, store?
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        projectId,
-        relatedRepos: relatedRepos.slice(0, maxResults),
-        total: relatedRepos.length,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            projectId,
+            relatedRepos: relatedRepos.slice(0, maxResults),
+            total: relatedRepos.length,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -827,7 +918,10 @@ export const crossRepoReviewPRSchema = {
   required: ['groupId', 'sourceRepoId'],
 };
 
-export async function crossRepoReviewPR(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function crossRepoReviewPR(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as CrossRepoReviewPRParams;
   const groupId = params.groupId;
   const sourceRepoId = params.sourceRepoId;
@@ -835,12 +929,19 @@ export async function crossRepoReviewPR(args: Record<string, unknown>, store?: u
 
   if (!store || !ToolContextImpl.isToolContext(store)) {
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          error: 'ToolContext with graph store is required for cross-repo PR review. Run analyze_repository first.',
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              error:
+                'ToolContext with graph store is required for cross-repo PR review. Run analyze_repository first.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   }
 
@@ -925,38 +1026,54 @@ export async function crossRepoReviewPR(args: Record<string, unknown>, store?: u
       const sg = singletonMgr.getGroup(groupId)!;
       engineMgr.createGroup(groupId, sg.name, sg.description);
       for (const repo of sg.repos) {
-        try { engineMgr.addRepo(groupId, repo.owner, repo.repo, repo.fullName, repo.localPath); } catch { /* skip */ }
+        try {
+          engineMgr.addRepo(groupId, repo.owner, repo.repo, repo.fullName, repo.localPath);
+        } catch {
+          /* skip */
+        }
       }
     }
 
     const result = await engine.reviewPRWithCrossRepoContext(pr, groupId, parsedSourceRepo, diffs);
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          sourceRepo: toExternalRepoRef(parsedSourceRepo),
-          crossRepoRisk: result.summary.crossRepoRisk,
-          mergeRecommendation: result.summary.mergeRecommendation,
-          reposImpacted: result.summary.reposImpacted,
-          breakingChanges: result.summary.breakingChanges,
-          crossRepoImpacts: result.crossRepoImpacts,
-          apiBreakingChanges: result.apiBreakingChanges,
-          testPredictions: result.testPredictions,
-          recommendations: result.summary.recommendations,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              sourceRepo: toExternalRepoRef(parsedSourceRepo),
+              crossRepoRisk: result.summary.crossRepoRisk,
+              mergeRecommendation: result.summary.mergeRecommendation,
+              reposImpacted: result.summary.reposImpacted,
+              breakingChanges: result.summary.breakingChanges,
+              crossRepoImpacts: result.crossRepoImpacts,
+              apiBreakingChanges: result.apiBreakingChanges,
+              testPredictions: result.testPredictions,
+              recommendations: result.summary.recommendations,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (err) {
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          error: err instanceof Error ? err.message : String(err),
-          groupId,
-          sourceRepoId: toExternalRepoRef(parsedSourceRepo),
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              error: err instanceof Error ? err.message : String(err),
+              groupId,
+              sourceRepoId: toExternalRepoRef(parsedSourceRepo),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   }
 }

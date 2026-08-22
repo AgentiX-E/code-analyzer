@@ -29,7 +29,8 @@ describe('matchCrossProjectRoutes', () => {
     const matches = matchCrossProjectRoutes(
       [{ qn: 'r1', urlPath: '/orders', sourceQn: 'caller.order' }],
       [{ qn: 'order-handler', urlPath: '/orders' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(1);
     expect(matches[0]!.targetQn).toBe('order-handler');
@@ -39,14 +40,17 @@ describe('matchCrossProjectRoutes', () => {
     const matches = matchCrossProjectRoutes(
       [{ qn: 'r1', urlPath: '/nope', sourceQn: 'caller.x' }],
       [{ qn: 'h', urlPath: '/yes' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(0);
   });
 
   it('returns empty for empty source or target routes', () => {
     expect(matchCrossProjectRoutes([], [{ qn: 'h', urlPath: '/x' }], 'a', 'b')).toHaveLength(0);
-    expect(matchCrossProjectRoutes([{ qn: 'r', urlPath: '/x', sourceQn: 'c' }], [], 'a', 'b')).toHaveLength(0);
+    expect(
+      matchCrossProjectRoutes([{ qn: 'r', urlPath: '/x', sourceQn: 'c' }], [], 'a', 'b'),
+    ).toHaveLength(0);
   });
 
   it('deduplicates target routes by first urlPath occurrence', () => {
@@ -56,7 +60,8 @@ describe('matchCrossProjectRoutes', () => {
         { qn: 'first', urlPath: '/dup' },
         { qn: 'second', urlPath: '/dup' },
       ],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(1);
     expect(matches[0]!.targetQn).toBe('first');
@@ -68,7 +73,8 @@ describe('matchCrossProjectChannels', () => {
     const matches = matchCrossProjectChannels(
       [{ channelName: 'orders', funcQn: 'emit.main', direction: 'emit' }],
       [{ channelName: 'orders', direction: 'listen' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(1);
     expect(matches[0]).toEqual({
@@ -85,7 +91,8 @@ describe('matchCrossProjectChannels', () => {
     const matches = matchCrossProjectChannels(
       [{ channelName: 'events', funcQn: 'listen.main', direction: 'listen' }],
       [{ channelName: 'events', direction: 'emit' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(1);
     expect(matches[0]!.sourceQn).toBe('listen.main');
@@ -95,7 +102,8 @@ describe('matchCrossProjectChannels', () => {
     const matches = matchCrossProjectChannels(
       [{ channelName: 'x', funcQn: 'e1', direction: 'emit' }],
       [{ channelName: 'x', direction: 'emit' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(0);
   });
@@ -104,14 +112,24 @@ describe('matchCrossProjectChannels', () => {
     const matches = matchCrossProjectChannels(
       [{ channelName: 'foo', funcQn: 'e1', direction: 'emit' }],
       [{ channelName: 'bar', direction: 'listen' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(0);
   });
 
   it('returns empty for empty inputs', () => {
-    expect(matchCrossProjectChannels([], [{ channelName: 'x', direction: 'listen' }], 'a', 'b')).toHaveLength(0);
-    expect(matchCrossProjectChannels([{ channelName: 'x', funcQn: 'e', direction: 'emit' }], [], 'a', 'b')).toHaveLength(0);
+    expect(
+      matchCrossProjectChannels([], [{ channelName: 'x', direction: 'listen' }], 'a', 'b'),
+    ).toHaveLength(0);
+    expect(
+      matchCrossProjectChannels(
+        [{ channelName: 'x', funcQn: 'e', direction: 'emit' }],
+        [],
+        'a',
+        'b',
+      ),
+    ).toHaveLength(0);
   });
 });
 
@@ -120,7 +138,8 @@ describe('matchCrossProjectGrpc', () => {
     const matches = matchCrossProjectGrpc(
       [{ service: 'cart.CartService', method: 'GetCart', sourceQn: 'caller.main' }],
       [{ service: 'cart.CartService', method: 'GetCart' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(1);
     expect(matches[0]).toEqual({
@@ -137,13 +156,16 @@ describe('matchCrossProjectGrpc', () => {
     const matches = matchCrossProjectGrpc(
       [{ service: 'S', method: 'M1', sourceQn: 'c' }],
       [{ service: 'S', method: 'M2' }],
-      'a', 'b',
+      'a',
+      'b',
     );
     expect(matches).toHaveLength(0);
   });
 
   it('returns empty for empty inputs', () => {
     expect(matchCrossProjectGrpc([], [{ service: 'S', method: 'M' }], 'a', 'b')).toHaveLength(0);
-    expect(matchCrossProjectGrpc([{ service: 'S', method: 'M', sourceQn: 'c' }], [], 'a', 'b')).toHaveLength(0);
+    expect(
+      matchCrossProjectGrpc([{ service: 'S', method: 'M', sourceQn: 'c' }], [], 'a', 'b'),
+    ).toHaveLength(0);
   });
 });

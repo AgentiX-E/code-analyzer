@@ -89,7 +89,12 @@ describe('ReportGenerator — PR Report', () => {
   it('should convert review comments to findings', () => {
     const comments = [
       makeReviewComment({ severity: 'high', category: 'bug', content: 'Potential bug' }),
-      makeReviewComment({ id: 'rc-2', severity: 'critical', category: 'security', content: 'SQL injection' }),
+      makeReviewComment({
+        id: 'rc-2',
+        severity: 'critical',
+        category: 'security',
+        content: 'SQL injection',
+      }),
     ];
 
     const report = generator.generatePRReport({
@@ -340,9 +345,7 @@ describe('ReportGenerator — Standards Report', () => {
       ],
     };
 
-    const results = [
-      makeStandardsResult({ ruleResults: [ruleResult] }),
-    ];
+    const results = [makeStandardsResult({ ruleResults: [ruleResult] })];
 
     const report = generator.generateStandardsReport({
       projectId: 'proj-1',
@@ -385,7 +388,10 @@ describe('ReportGenerator — Architecture Report', () => {
   });
 
   it('should include risk level in summary', () => {
-    const findings = [makeFinding({ severity: 'critical' }), makeFinding({ id: 'f-2', severity: 'high' })];
+    const findings = [
+      makeFinding({ severity: 'critical' }),
+      makeFinding({ id: 'f-2', severity: 'high' }),
+    ];
     const report = generator.generateArchitectureReport({
       projectId: 'proj-1',
       findings,
@@ -405,48 +411,74 @@ describe('ReportGenerator — merge recommendation', () => {
 
   it('should block for critical findings', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'main', headRef: 'feat',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'main',
+      headRef: 'feat',
       reviewComments: [makeReviewComment({ severity: 'critical' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('block');
   });
 
   it('should request changes for multiple high findings', () => {
-    const comments = Array(5).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-${i}`, severity: 'high' }));
+    const comments = Array(5)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'high' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'main', headRef: 'feat',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'main',
+      headRef: 'feat',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
 
   it('should approve with comments for medium findings', () => {
-    const comments = Array(6).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-${i}`, severity: 'medium' }));
+    const comments = Array(6)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'medium' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'main', headRef: 'feat',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'main',
+      headRef: 'feat',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
 
   it('should approve clean PRs', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'main', headRef: 'feat',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'main',
+      headRef: 'feat',
       reviewComments: [],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve');
     expect(report.summary.mergeRationale).toContain('Approved');
@@ -463,19 +495,31 @@ describe('ReportGenerator — overall scoring', () => {
 
   it('should compute lower score for critical findings', () => {
     const r1 = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'critical' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
 
     const r2 = generator.generatePRReport({
-      projectId: 'p', prNumber: 2, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 2,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'low' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
 
     expect(r1.summary.overallScore).toBeLessThan(r2.summary.overallScore);
@@ -483,30 +527,48 @@ describe('ReportGenerator — overall scoring', () => {
 
   it('should give full score for clean report', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.overallScore).toBe(100);
   });
 
   it('should factor compliance score into overall score', () => {
     const r1 = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 100 })],
       metrics: { complianceScore: 100 },
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
 
     const r2 = generator.generatePRReport({
-      projectId: 'p', prNumber: 2, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 2,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 50 })],
       metrics: { complianceScore: 50 },
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
 
     expect(r1.summary.overallScore).toBeGreaterThan(r2.summary.overallScore);
@@ -522,57 +584,88 @@ describe('ReportGenerator — merge with compliance scores', () => {
 
   it('should block when min compliance < 50', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 40 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('block');
   });
 
   it('should request changes when min compliance < 70 (>= 50)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 60 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
 
   it('should approve with comments when min compliance < 90 (>= 70)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 80 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
 
   it('should approve when compliance >= 90 and no findings', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 95 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve');
   });
 
   it('should request changes when high findings > 3', () => {
-    const comments = Array(4).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-${i}`, severity: 'high' }));
+    const comments = Array(4)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'high' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
@@ -590,11 +683,17 @@ describe('ReportGenerator — key takeaways', () => {
       makeReviewComment({ severity: 'medium', category: 'style', content: 'Style issue' }),
     ];
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.keyTakeaways.length).toBeGreaterThan(0);
   });
@@ -602,7 +701,9 @@ describe('ReportGenerator — key takeaways', () => {
   it('should handle standards key takeaways with single standard', () => {
     const results = [makeStandardsResult()];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.keyTakeaways.length).toBeGreaterThan(0);
   });
@@ -613,7 +714,9 @@ describe('ReportGenerator — key takeaways', () => {
       makeStandardsResult({ standardId: 'std-b', complianceScore: 70 }),
     ];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.keyTakeaways.length).toBeGreaterThanOrEqual(2);
   });
@@ -642,7 +745,9 @@ describe('ReportGenerator — architecture report extended', () => {
       makeFinding({ id: 'a2', severity: 'high', category: 'architecture' }),
     ];
     const report = generator.generateArchitectureReport({
-      projectId: 'proj-1', findings, repository: 'org/repo',
+      projectId: 'proj-1',
+      findings,
+      repository: 'org/repo',
     });
     expect(report.recommendations.length).toBeGreaterThan(0);
   });
@@ -656,12 +761,17 @@ describe('ReportGenerator — estimate effort boundaries', () => {
   const generator = new ReportGenerator();
 
   function makeFindingsList(count: number): Finding[] {
-    return Array(count).fill(null).map((_, i) => makeFinding({ id: `f-${i}` }));
+    return Array(count)
+      .fill(null)
+      .map((_, i) => makeFinding({ id: `f-${i}` }));
   }
 
   it('should estimate trivial for <= 2 findings', () => {
     const report = generator.generateAuditReport({
-      projectId: 'p', findings: makeFindingsList(2), metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings: makeFindingsList(2),
+      metrics: {},
+      repository: 'r',
     });
     expect(report.recommendations.length).toBeGreaterThanOrEqual(0);
     if (report.recommendations.length > 0) {
@@ -671,7 +781,10 @@ describe('ReportGenerator — estimate effort boundaries', () => {
 
   it('should estimate small for 3-5 findings', () => {
     const report = generator.generateAuditReport({
-      projectId: 'p', findings: makeFindingsList(4), metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings: makeFindingsList(4),
+      metrics: {},
+      repository: 'r',
     });
     if (report.recommendations.length > 0) {
       expect(report.recommendations[0]!.estimatedEffort).toBe('small');
@@ -680,7 +793,10 @@ describe('ReportGenerator — estimate effort boundaries', () => {
 
   it('should estimate medium for 6-10 findings', () => {
     const report = generator.generateAuditReport({
-      projectId: 'p', findings: makeFindingsList(8), metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings: makeFindingsList(8),
+      metrics: {},
+      repository: 'r',
     });
     if (report.recommendations.length > 0) {
       expect(report.recommendations[0]!.estimatedEffort).toBe('medium');
@@ -689,7 +805,10 @@ describe('ReportGenerator — estimate effort boundaries', () => {
 
   it('should estimate large for 11-20 findings', () => {
     const report = generator.generateAuditReport({
-      projectId: 'p', findings: makeFindingsList(15), metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings: makeFindingsList(15),
+      metrics: {},
+      repository: 'r',
     });
     if (report.recommendations.length > 0) {
       expect(report.recommendations[0]!.estimatedEffort).toBe('large');
@@ -698,7 +817,10 @@ describe('ReportGenerator — estimate effort boundaries', () => {
 
   it('should estimate xlarge for > 20 findings', () => {
     const report = generator.generateAuditReport({
-      projectId: 'p', findings: makeFindingsList(25), metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings: makeFindingsList(25),
+      metrics: {},
+      repository: 'r',
     });
     if (report.recommendations.length > 0) {
       expect(report.recommendations[0]!.estimatedEffort).toBe('xlarge');
@@ -716,7 +838,9 @@ describe('ReportGenerator — standards report edge cases', () => {
   it('should handle exactly at compliance threshold of 90', () => {
     const results = [makeStandardsResult({ complianceScore: 90 })];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
@@ -724,28 +848,34 @@ describe('ReportGenerator — standards report edge cases', () => {
   it('should handle exactly at compliance threshold of 89', () => {
     const results = [makeStandardsResult({ complianceScore: 89 })];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
 
   it('should handle zero standards results', () => {
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: [], repository: 'r',
+      projectId: 'p',
+      standardsResults: [],
+      repository: 'r',
     });
     expect(report.summary.overallScore).toBe(0);
   });
 
   it('should include key takeaways for empty standards results', () => {
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: [], repository: 'r',
+      projectId: 'p',
+      standardsResults: [],
+      repository: 'r',
     });
     expect(report.summary.keyTakeaways).toContain('No standards checked.');
   });
 });
 
 // ---------------------------------------------------------------------------
-// PR report — results edge cases  
+// PR report — results edge cases
 // ---------------------------------------------------------------------------
 
 describe('ReportGenerator — PR report recommendations', () => {
@@ -758,22 +888,34 @@ describe('ReportGenerator — PR report recommendations', () => {
       makeReviewComment({ id: 'rc-3', severity: 'medium', category: 'style' }),
     ];
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.recommendations.length).toBeGreaterThan(0);
   });
 
   it('should have empty recommendations for no findings', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.recommendations).toHaveLength(0);
   });
@@ -781,43 +923,69 @@ describe('ReportGenerator — PR report recommendations', () => {
   it('should compute merge rationale for all recommendation types', () => {
     // Test approve
     const r1 = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(r1.summary.mergeRationale).toBe('All checks passed. Approved.');
 
     // Test block via critical finding
     const r2 = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'critical' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(r2.summary.mergeRationale).toContain('Blocking');
 
     // Test request-changes
     const r3 = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
-      reviewComments: Array(4).fill(null).map((_, i) =>
-        makeReviewComment({ id: `rc-${i}`, severity: 'high' })),
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
+      reviewComments: Array(4)
+        .fill(null)
+        .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'high' })),
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(r3.summary.mergeRationale).toContain('Requesting changes');
 
     // Test approve-with-comments
     const r4 = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
-      reviewComments: Array(6).fill(null).map((_, i) =>
-        makeReviewComment({ id: `rc-${i}`, severity: 'medium' })),
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
+      reviewComments: Array(6)
+        .fill(null)
+        .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'medium' })),
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(r4.summary.mergeRationale).toContain('Approved with comments');
   });
@@ -832,11 +1000,17 @@ describe('ReportGenerator — overall scoring edge cases', () => {
 
   it('should compute score with complianceScore=0 (penalty-only path)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'high' })],
       standardsResults: [],
       metrics: { complianceScore: 0 },
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.overallScore).toBeGreaterThanOrEqual(0);
     expect(report.summary.overallScore).toBeLessThan(100);
@@ -846,7 +1020,10 @@ describe('ReportGenerator — overall scoring edge cases', () => {
     // 3 critical = -60, 2 high = -20, 4 medium = -12, 0 low = 0, total penalty = -92
     // complianceScore=50: 50*0.6 + max(0,100-92)*0.4 = 30 + 8*0.4 = 30 + 3.2 = 33.2
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [
         makeReviewComment({ severity: 'critical' }),
         makeReviewComment({ id: 'rc-2', severity: 'critical' }),
@@ -860,53 +1037,82 @@ describe('ReportGenerator — overall scoring edge cases', () => {
       ],
       standardsResults: [],
       metrics: { complianceScore: 50 },
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.overallScore).toBeGreaterThanOrEqual(0);
   });
 
   it('should handle info severity findings in countSeverities', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'info' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.lowFindings).toBe(1);
   });
 
   it('should derive medium risk level for medium findings > 5', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
-      reviewComments: Array(6).fill(null).map((_, i) =>
-        makeReviewComment({ id: `rc-${i}`, severity: 'medium' })),
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
+      reviewComments: Array(6)
+        .fill(null)
+        .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'medium' })),
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.riskLevel).toBe('medium');
   });
 
   it('should derive high risk level for high findings > 2', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
-      reviewComments: Array(3).fill(null).map((_, i) =>
-        makeReviewComment({ id: `rc-${i}`, severity: 'high' })),
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
+      reviewComments: Array(3)
+        .fill(null)
+        .map((_, i) => makeReviewComment({ id: `rc-${i}`, severity: 'high' })),
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.riskLevel).toBe('high');
   });
 
   it('should derive low risk level with only 1 low finding', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'low' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.riskLevel).toBe('low');
   });
@@ -921,14 +1127,20 @@ describe('ReportGenerator — key takeaways extended', () => {
 
   it('should include both critical and high when both present', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [
         makeReviewComment({ severity: 'critical', category: 'security' }),
         makeReviewComment({ id: 'rc-2', severity: 'high', category: 'bug' }),
       ],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.keyTakeaways.some((t) => t.includes('critical'))).toBe(true);
     expect(report.summary.keyTakeaways.some((t) => t.includes('high'))).toBe(true);
@@ -936,11 +1148,17 @@ describe('ReportGenerator — key takeaways extended', () => {
 
   it('should return fallback takeaway when no special categories', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [makeReviewComment({ severity: 'low', category: 'style' })],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.keyTakeaways.length).toBeGreaterThan(0);
   });
@@ -952,7 +1170,9 @@ describe('ReportGenerator — key takeaways extended', () => {
       makeStandardsResult({ standardId: 'worst', complianceScore: 50 }),
     ];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.keyTakeaways.some((t) => t.includes('Best'))).toBe(true);
     expect(report.summary.keyTakeaways.some((t) => t.includes('Worst'))).toBe(true);
@@ -960,11 +1180,17 @@ describe('ReportGenerator — key takeaways extended', () => {
 
   it('should handle merge rationale for approve-with-comments via compliance', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 80 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
     expect(report.summary.mergeRationale).toContain('Approved with comments');
@@ -985,11 +1211,17 @@ describe('ReportGenerator — merge rationale default', () => {
     // The default case at line 332 is only reached with an invalid type.
     // Since the function is private, we test all public paths.
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRationale).toBe('All checks passed. Approved.');
   });
@@ -1004,63 +1236,97 @@ describe('ReportGenerator — boundary thresholds', () => {
 
   it('should not block for exactly 0 critical findings', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).not.toBe('block');
   });
 
   it('should request-changes for exactly 4 high findings (> 3)', () => {
-    const comments = Array(4).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-h-${i}`, severity: 'high' }));
+    const comments = Array(4)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-h-${i}`, severity: 'high' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
 
   it('should approve-with-comments for exactly 6 medium findings (> 5)', () => {
-    const comments = Array(6).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-m-${i}`, severity: 'medium' }));
+    const comments = Array(6)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-m-${i}`, severity: 'medium' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
 
   it('should derive medium risk level for exactly 6 medium findings (> 5)', () => {
-    const comments = Array(6).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-rm-${i}`, severity: 'medium' }));
+    const comments = Array(6)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-rm-${i}`, severity: 'medium' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.riskLevel).toBe('medium');
   });
 
   it('should derive high risk level for exactly 3 high findings (> 2)', () => {
-    const comments = Array(3).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-rh-${i}`, severity: 'high' }));
+    const comments = Array(3)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-rh-${i}`, severity: 'high' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.riskLevel).toBe('high');
   });
@@ -1080,7 +1346,10 @@ describe('ReportGenerator — findingsToRecommendations', () => {
       makeFinding({ id: 'f-3', severity: 'high', category: 'security', filePath: 'src/c.ts' }),
     ];
     const report = generator.generateAuditReport({
-      projectId: 'p', findings, metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings,
+      metrics: {},
+      repository: 'r',
     });
     // Should create 2 recommendations: high:bug and high:security
     expect(report.recommendations.length).toBe(2);
@@ -1092,7 +1361,10 @@ describe('ReportGenerator — findingsToRecommendations', () => {
       makeFinding({ id: 'f-2', severity: 'high', category: 'bug', filePath: 'src/a.ts' }),
     ];
     const report = generator.generateAuditReport({
-      projectId: 'p', findings, metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings,
+      metrics: {},
+      repository: 'r',
     });
     expect(report.recommendations.length).toBe(1);
     // affectedFiles should be deduplicated (only one 'src/a.ts')
@@ -1100,41 +1372,52 @@ describe('ReportGenerator — findingsToRecommendations', () => {
   });
 
   it('should assign priority 1 for critical and high severity', () => {
-    const findings = [
-      makeFinding({ severity: 'critical', category: 'bug', filePath: 'src/a.ts' }),
-    ];
+    const findings = [makeFinding({ severity: 'critical', category: 'bug', filePath: 'src/a.ts' })];
     const report = generator.generateAuditReport({
-      projectId: 'p', findings, metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings,
+      metrics: {},
+      repository: 'r',
     });
     expect(report.recommendations[0]!.priority).toBe(1);
   });
 
   it('should assign priority 2 for medium severity', () => {
-    const findings = [
-      makeFinding({ severity: 'medium', category: 'bug', filePath: 'src/a.ts' }),
-    ];
+    const findings = [makeFinding({ severity: 'medium', category: 'bug', filePath: 'src/a.ts' })];
     const report = generator.generateAuditReport({
-      projectId: 'p', findings, metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings,
+      metrics: {},
+      repository: 'r',
     });
     expect(report.recommendations[0]!.priority).toBe(2);
   });
 
   it('should assign priority 3 for low and info severity', () => {
-    const findings = [
-      makeFinding({ severity: 'low', category: 'style', filePath: 'src/a.ts' }),
-    ];
+    const findings = [makeFinding({ severity: 'low', category: 'style', filePath: 'src/a.ts' })];
     const report = generator.generateAuditReport({
-      projectId: 'p', findings, metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings,
+      metrics: {},
+      repository: 'r',
     });
     expect(report.recommendations[0]!.priority).toBe(3);
   });
 
   it('should handle findings without lineRange', () => {
     const findings = [
-      makeFinding({ severity: 'high', category: 'bug', filePath: 'src/a.ts', lineRange: undefined }),
+      makeFinding({
+        severity: 'high',
+        category: 'bug',
+        filePath: 'src/a.ts',
+        lineRange: undefined,
+      }),
     ];
     const report = generator.generateAuditReport({
-      projectId: 'p', findings, metrics: {}, repository: 'r',
+      projectId: 'p',
+      findings,
+      metrics: {},
+      repository: 'r',
     });
     expect(report.recommendations.length).toBe(1);
     expect(report.recommendations[0]!.actionItems[0]!.lineRange).toBeUndefined();
@@ -1155,22 +1438,30 @@ describe('ReportGenerator — standards report mixed', () => {
       passed: false,
       severity: 'high',
       autoFixable: true,
-      violations: [{
-        filePath: 'src/test.ts',
-        lineNumber: 1,
-        message: 'Violation found',
-        codeSnippet: 'bad code',
-        standardRef: 'r1',
-      }],
+      violations: [
+        {
+          filePath: 'src/test.ts',
+          lineNumber: 1,
+          message: 'Violation found',
+          codeSnippet: 'bad code',
+          standardRef: 'r1',
+        },
+      ],
     };
 
     const results = [
       makeStandardsResult({ standardId: 'std-pass', ruleResults: [], complianceScore: 100 }),
-      makeStandardsResult({ standardId: 'std-fail', ruleResults: [ruleResult], complianceScore: 50 }),
+      makeStandardsResult({
+        standardId: 'std-fail',
+        ruleResults: [ruleResult],
+        complianceScore: 50,
+      }),
     ];
 
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
 
     expect(report.findings.length).toBeGreaterThan(0);
@@ -1181,7 +1472,9 @@ describe('ReportGenerator — standards report mixed', () => {
   it('should compute compliance at exactly 89 (approve-with-comments threshold)', () => {
     const results = [makeStandardsResult({ complianceScore: 89 })];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
@@ -1189,7 +1482,9 @@ describe('ReportGenerator — standards report mixed', () => {
   it('should compute compliance at exactly 90 (approve threshold)', () => {
     const results = [makeStandardsResult({ complianceScore: 90 })];
     const report = generator.generateStandardsReport({
-      projectId: 'p', standardsResults: results, repository: 'r',
+      projectId: 'p',
+      standardsResults: results,
+      repository: 'r',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
@@ -1230,93 +1525,143 @@ describe('ReportGenerator — computeMergeRecommendation edge', () => {
 
   it('should handle min compliance exactly at 49 (block threshold)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 49 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('block');
   });
 
   it('should handle min compliance exactly at 50 (request-changes threshold)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 50 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
 
   it('should handle min compliance exactly at 69 (request-changes threshold)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 69 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('request-changes');
   });
 
   it('should handle min compliance exactly at 70 (approve-with-comments threshold)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 70 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
 
   it('should handle min compliance exactly at 89 (approve-with-comments threshold)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 89 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve-with-comments');
   });
 
   it('should handle min compliance exactly at 90 (approve threshold)', () => {
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: [],
       standardsResults: [makeStandardsResult({ complianceScore: 90 })],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     expect(report.summary.mergeRecommendation).toBe('approve');
   });
 
   it('should handle exactly 3 high findings (not > 3, so fallthrough to next check)', () => {
-    const comments = Array(3).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-eh-${i}`, severity: 'high' }));
+    const comments = Array(3)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-eh-${i}`, severity: 'high' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     // 3 high is NOT > 3, 0 medium is NOT > 5, minCompliance=100 >= 90 → approve
     expect(report.summary.mergeRecommendation).toBe('approve');
   });
 
   it('should handle exactly 5 medium findings (not > 5)', () => {
-    const comments = Array(5).fill(null).map((_, i) =>
-      makeReviewComment({ id: `rc-em-${i}`, severity: 'medium' }));
+    const comments = Array(5)
+      .fill(null)
+      .map((_, i) => makeReviewComment({ id: `rc-em-${i}`, severity: 'medium' }));
     const report = generator.generatePRReport({
-      projectId: 'p', prNumber: 1, baseRef: 'm', headRef: 'f',
+      projectId: 'p',
+      prNumber: 1,
+      baseRef: 'm',
+      headRef: 'f',
       reviewComments: comments,
       standardsResults: [],
       metrics: {},
-      repository: 'r', branch: 'b', commitSha: 's', author: 'a',
+      repository: 'r',
+      branch: 'b',
+      commitSha: 's',
+      author: 'a',
     });
     // 5 medium is NOT > 5, so approve
     expect(report.summary.mergeRecommendation).toBe('approve');

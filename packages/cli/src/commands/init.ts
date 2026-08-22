@@ -55,12 +55,7 @@ const DEFAULT_CONFIG = {
   index: {
     mode: 'full',
     maxFileSize: 10485760,
-    excludePatterns: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.git/**',
-      '**/*.min.*',
-    ],
+    excludePatterns: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/*.min.*'],
     languages: 'auto',
   },
   review: {
@@ -136,7 +131,7 @@ export function initProject(options: InitOptions = {}): InitResult {
         filesCreated.push('.gitignore (updated)');
       }
     }
-  /* v8 ignore start */ // .gitignore write failure requires filesystem error
+    /* v8 ignore start */ // .gitignore write failure requires filesystem error
   } catch {
     // .gitignore write failed — non-critical
   }
@@ -149,8 +144,9 @@ export function initProject(options: InitOptions = {}): InitResult {
     configDir,
     filesCreated,
     filesExisting,
-    message: allCreated > 0
-      ? `Initialized Code Analyzer in ${configDir}. Created: ${filesCreated.join(', ')}.`
-      : `Code Analyzer already initialized in ${configDir}. Use --force to overwrite.`,
+    message:
+      allCreated > 0
+        ? `Initialized Code Analyzer in ${configDir}. Created: ${filesCreated.join(', ')}.`
+        : `Code Analyzer already initialized in ${configDir}. Use --force to overwrite.`,
   };
 }

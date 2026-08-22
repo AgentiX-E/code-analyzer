@@ -255,9 +255,9 @@ describe('GraphExplorerLogic', () => {
 
     it('builds call graph with single node and no edges', async () => {
       engine.setProjectId('test-project');
-      const traceSpy = vi.spyOn(engine, 'traceCallPath').mockResolvedValue([
-        { name: 'singleFunc', filePath: 'src/single.ts' },
-      ]);
+      const traceSpy = vi
+        .spyOn(engine, 'traceCallPath')
+        .mockResolvedValue([{ name: 'singleFunc', filePath: 'src/single.ts' }]);
 
       const data = await logic.getGraphData('singleFunc');
 

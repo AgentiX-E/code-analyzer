@@ -1,10 +1,7 @@
 // @code-analyzer/vscode — Sidebar Provider Tests
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  SidebarLogic,
-  generateSidebarHtml,
-} from '../providers/sidebar-provider.js';
+import { SidebarLogic, generateSidebarHtml } from '../providers/sidebar-provider.js';
 import { EngineBridge } from '../services/engine-bridge.js';
 
 describe('SidebarLogic', () => {
@@ -220,10 +217,10 @@ describe('generateSidebarHtml', () => {
 
   it('contains all 4 tab buttons', () => {
     const html = generateSidebarHtml();
-    expect(html).toContain('switchTab(\'search\')');
-    expect(html).toContain('switchTab(\'review\')');
-    expect(html).toContain('switchTab(\'graph\')');
-    expect(html).toContain('switchTab(\'info\')');
+    expect(html).toContain("switchTab('search')");
+    expect(html).toContain("switchTab('review')");
+    expect(html).toContain("switchTab('graph')");
+    expect(html).toContain("switchTab('info')");
   });
 
   it('contains all 4 tab content sections', () => {
@@ -397,9 +394,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         { id: 1, name: 'funcA', label: 'Function', filePath: '/a.ts' },
         { id: 2, name: 'funcB', label: 'Function', filePath: '/b.ts' },
       ]);
-      expect(response.edges).toEqual([
-        { sourceId: 1, targetId: 2, type: 'CALLS' },
-      ]);
+      expect(response.edges).toEqual([{ sourceId: 1, targetId: 2, type: 'CALLS' }]);
     });
 
     it('returns empty arrays when traceCallPath throws', async () => {

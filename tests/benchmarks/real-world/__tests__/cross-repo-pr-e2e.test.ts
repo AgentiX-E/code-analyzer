@@ -26,9 +26,7 @@ describe('Cross-Repo PR Review E2E', () => {
   });
 
   it('should detect user-related symbols in the changes', () => {
-    const hasUserSymbol = result.changedSymbols.some(
-      (s) => s.toLowerCase().includes('user'),
-    );
+    const hasUserSymbol = result.changedSymbols.some((s) => s.toLowerCase().includes('user'));
     expect(hasUserSymbol).toBe(true);
   });
 

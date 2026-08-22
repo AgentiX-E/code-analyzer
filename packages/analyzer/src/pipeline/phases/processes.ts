@@ -1,10 +1,14 @@
 // @code-analyzer/analyzer — Pipeline Phase: Processes
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
+import {
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_BELONGS_TO,
+  EDGE_CALLS,
+  EDGE_IMPORTS,
+  EDGE_STEP_IN_PROCESS,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_BELONGS_TO, EDGE_CALLS, EDGE_IMPORTS, EDGE_STEP_IN_PROCESS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -69,14 +73,26 @@ export class ProcessesPhase implements ExecutablePhase {
           const processName = `process_${routeName.replace(/[^a-zA-Z0-9]/g, '_')}`;
           const qname = `process:${ctx.projectId}:${processName}`;
 
-          const processNode = builder.addNode(ctx.graph, 'Process', processName, {
-            name: processName,
-            stepCount: steps.length,
-          }, qname);
+          const processNode = builder.addNode(
+            ctx.graph,
+            'Process',
+            processName,
+            {
+              name: processName,
+              stepCount: steps.length,
+            },
+            qname,
+          );
 
           // Create STEP_IN_PROCESS edges
           for (let i = 0; i < steps.length; i++) {
-            builder.addEdge(ctx.graph, steps[i], processNode.id, EDGE_STEP_IN_PROCESS, ctx.projectId);
+            builder.addEdge(
+              ctx.graph,
+              steps[i],
+              processNode.id,
+              EDGE_STEP_IN_PROCESS,
+              ctx.projectId,
+            );
           }
 
           processesFound++;
@@ -87,7 +103,11 @@ export class ProcessesPhase implements ExecutablePhase {
       return { phaseId: this.id, status: 'success', output: { processesFound } };
     } catch (err) {
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };

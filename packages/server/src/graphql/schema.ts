@@ -6,17 +6,23 @@ export const typeDefs = /* GraphQL */ `
   # Scalars
   # -------------------------------------------------------------------------
 
-  """JSON value — maps to a plain Record<string, unknown>"""
+  """
+  JSON value — maps to a plain Record<string, unknown>
+  """
   scalar JSON
 
-  """A date-time string in ISO 8601 format"""
+  """
+  A date-time string in ISO 8601 format
+  """
   scalar DateTime
 
   # -------------------------------------------------------------------------
   # Core Types
   # -------------------------------------------------------------------------
 
-  """A project tracked by code-analyzer"""
+  """
+  A project tracked by code-analyzer
+  """
   type Project {
     id: ID!
     rootPath: String!
@@ -37,7 +43,9 @@ export const typeDefs = /* GraphQL */ `
     ERROR
   }
 
-  """A node in the knowledge graph"""
+  """
+  A node in the knowledge graph
+  """
   type GraphNode {
     id: Int!
     projectId: String!
@@ -58,7 +66,9 @@ export const typeDefs = /* GraphQL */ `
     updatedAt: DateTime!
   }
 
-  """An edge in the knowledge graph"""
+  """
+  An edge in the knowledge graph
+  """
   type GraphEdge {
     id: Int!
     projectId: String!
@@ -70,7 +80,9 @@ export const typeDefs = /* GraphQL */ `
     createdAt: DateTime!
   }
 
-  """Page info for cursor-based pagination"""
+  """
+  Page info for cursor-based pagination
+  """
   type PageInfo {
     hasMore: Boolean!
     total: Int!
@@ -78,13 +90,17 @@ export const typeDefs = /* GraphQL */ `
     limit: Int!
   }
 
-  """Paginated node results"""
+  """
+  Paginated node results
+  """
   type NodeConnection {
     items: [GraphNode!]!
     pageInfo: PageInfo!
   }
 
-  """Paginated edge results"""
+  """
+  Paginated edge results
+  """
   type EdgeConnection {
     items: [GraphEdge!]!
     pageInfo: PageInfo!
@@ -94,7 +110,9 @@ export const typeDefs = /* GraphQL */ `
   # Review Types
   # -------------------------------------------------------------------------
 
-  """Severity of a review finding"""
+  """
+  Severity of a review finding
+  """
   enum Severity {
     CRITICAL
     HIGH
@@ -103,7 +121,9 @@ export const typeDefs = /* GraphQL */ `
     INFO
   }
 
-  """Category of a review finding"""
+  """
+  Category of a review finding
+  """
   enum ReviewCategory {
     BUG
     SECURITY
@@ -116,7 +136,9 @@ export const typeDefs = /* GraphQL */ `
     OTHER
   }
 
-  """A single review comment"""
+  """
+  A single review comment
+  """
   type ReviewComment {
     id: String!
     path: String!
@@ -132,14 +154,18 @@ export const typeDefs = /* GraphQL */ `
     createdAt: DateTime!
   }
 
-  """A complete review result"""
+  """
+  A complete review result
+  """
   type ReviewResult {
     comments: [ReviewComment!]!
     summary: String!
     stats: ReviewStats!
   }
 
-  """Statistics for a review"""
+  """
+  Statistics for a review
+  """
   type ReviewStats {
     totalComments: Int!
     critical: Int!
@@ -150,7 +176,9 @@ export const typeDefs = /* GraphQL */ `
     filesReviewed: Int!
   }
 
-  """Risk level for impact analysis"""
+  """
+  Risk level for impact analysis
+  """
   enum RiskLevel {
     CRITICAL
     HIGH
@@ -158,7 +186,9 @@ export const typeDefs = /* GraphQL */ `
     LOW
   }
 
-  """Impact node in dependency tree"""
+  """
+  Impact node in dependency tree
+  """
   type ImpactNode {
     symbolQname: String!
     label: String!
@@ -168,7 +198,9 @@ export const typeDefs = /* GraphQL */ `
     children: [ImpactNode!]!
   }
 
-  """Full impact analysis result"""
+  """
+  Full impact analysis result
+  """
   type ImpactResult {
     changedFiles: [String!]!
     changedSymbols: [ChangedSymbol!]!
@@ -191,7 +223,9 @@ export const typeDefs = /* GraphQL */ `
   # Search Types
   # -------------------------------------------------------------------------
 
-  """A search result from the knowledge graph"""
+  """
+  A search result from the knowledge graph
+  """
   type SearchResult {
     node: GraphNode!
     score: Float!
@@ -199,7 +233,9 @@ export const typeDefs = /* GraphQL */ `
     matchedValue: String!
   }
 
-  """Paginated search results"""
+  """
+  Paginated search results
+  """
   type SearchResultConnection {
     items: [SearchResult!]!
     pageInfo: PageInfo!
@@ -240,7 +276,9 @@ export const typeDefs = /* GraphQL */ `
   # Stats & Health
   # -------------------------------------------------------------------------
 
-  """Project-level statistics"""
+  """
+  Project-level statistics
+  """
   type ProjectStats {
     projectId: String!
     nodeCount: Int!
@@ -250,7 +288,9 @@ export const typeDefs = /* GraphQL */ `
     languageDistribution: JSON!
   }
 
-  """Server health information"""
+  """
+  Server health information
+  """
   type Health {
     status: String!
     uptime: Int!
@@ -267,7 +307,9 @@ export const typeDefs = /* GraphQL */ `
     rssMB: Int!
   }
 
-  """Benchmark result"""
+  """
+  Benchmark result
+  """
   type BenchmarkResult {
     suite: String!
     totalTests: Int!
@@ -277,7 +319,9 @@ export const typeDefs = /* GraphQL */ `
     metrics: JSON!
   }
 
-  """Where and how often a symbol is referenced in the codebase"""
+  """
+  Where and how often a symbol is referenced in the codebase
+  """
   type SymbolUsage {
     symbolName: String!
     qualifiedName: String!
@@ -285,26 +329,44 @@ export const typeDefs = /* GraphQL */ `
     filePath: String!
     line: Int!
     kind: String!
-    """Number of times this symbol is called/referenced"""
+    """
+    Number of times this symbol is called/referenced
+    """
     referenceCount: Int!
-    """Files that reference this symbol"""
+    """
+    Files that reference this symbol
+    """
     referencedBy: [String!]!
-    """Functions that call this symbol"""
+    """
+    Functions that call this symbol
+    """
     callers: [String!]!
   }
 
-  """Dependency graph for a project — nodes as packages, edges as dependencies"""
+  """
+  Dependency graph for a project — nodes as packages, edges as dependencies
+  """
   type DependencyGraph {
     projectId: String!
-    """Number of nodes in the dependency graph"""
+    """
+    Number of nodes in the dependency graph
+    """
     nodeCount: Int!
-    """Number of edges (dependency relationships)"""
+    """
+    Number of edges (dependency relationships)
+    """
     edgeCount: Int!
-    """Top-level packages"""
+    """
+    Top-level packages
+    """
     packages: [String!]!
-    """Circular dependencies detected (if any)"""
+    """
+    Circular dependencies detected (if any)
+    """
     circularDeps: [String!]!
-    """Dependency tree as adjacency list (package -> dependencies)"""
+    """
+    Dependency tree as adjacency list (package -> dependencies)
+    """
     adjacencyList: JSON!
   }
 
@@ -313,21 +375,24 @@ export const typeDefs = /* GraphQL */ `
   # -------------------------------------------------------------------------
 
   type Query {
-    """Get a project by ID"""
+    """
+    Get a project by ID
+    """
     project(id: ID!): Project
 
-    """List all projects"""
+    """
+    List all projects
+    """
     projects(status: ProjectStatus): [Project!]!
 
-    """Get the knowledge graph for a project"""
-    graph(
-      projectId: ID!
-      label: String
-      limit: Int
-      offset: Int
-    ): NodeConnection!
+    """
+    Get the knowledge graph for a project
+    """
+    graph(projectId: ID!, label: String, limit: Int, offset: Int): NodeConnection!
 
-    """Get edges for a project"""
+    """
+    Get edges for a project
+    """
     edges(
       projectId: ID!
       sourceId: Int
@@ -337,57 +402,59 @@ export const typeDefs = /* GraphQL */ `
       offset: Int
     ): EdgeConnection!
 
-    """Full-text search the knowledge graph"""
-    searchGraph(
-      projectId: ID!
-      query: String!
-      limit: Int
-      offset: Int
-    ): SearchResultConnection!
+    """
+    Full-text search the knowledge graph
+    """
+    searchGraph(projectId: ID!, query: String!, limit: Int, offset: Int): SearchResultConnection!
 
-    """Review a git diff for a project"""
-    reviewDiff(
-      projectId: ID!
-      diff: String!
-      fileContext: String
-    ): ReviewResult!
+    """
+    Review a git diff for a project
+    """
+    reviewDiff(projectId: ID!, diff: String!, fileContext: String): ReviewResult!
 
-    """Review a pull request"""
-    reviewPR(
-      projectId: ID!
-      prNumber: Int!
-      owner: String!
-      repo: String!
-    ): ReviewResult!
+    """
+    Review a pull request
+    """
+    reviewPR(projectId: ID!, prNumber: Int!, owner: String!, repo: String!): ReviewResult!
 
-    """Cross-repo search across all indexed projects"""
-    crossRepoSearch(
-      query: String!
-      limit: Int
-    ): SearchResultConnection!
+    """
+    Cross-repo search across all indexed projects
+    """
+    crossRepoSearch(query: String!, limit: Int): SearchResultConnection!
 
-    """Analyze the impact of a set of changed files"""
-    impactAnalysis(
-      projectId: ID!
-      changedFiles: [String!]!
-    ): ImpactResult!
+    """
+    Analyze the impact of a set of changed files
+    """
+    impactAnalysis(projectId: ID!, changedFiles: [String!]!): ImpactResult!
 
-    """Get statistics for a project"""
+    """
+    Get statistics for a project
+    """
     projectStats(projectId: ID!): ProjectStats!
 
-    """Server health check"""
+    """
+    Server health check
+    """
     health: Health!
 
-    """List repository groups"""
+    """
+    List repository groups
+    """
     repoGroups: [RepoGroup!]!
 
-    """Get a repository group by ID"""
+    """
+    Get a repository group by ID
+    """
     repoGroup(id: ID!): RepoGroup
 
-    """Get symbol usage data — where and how a symbol is referenced"""
+    """
+    Get symbol usage data — where and how a symbol is referenced
+    """
     symbolUsage(projectId: ID!, symbolName: String!, limit: Int): [SymbolUsage!]!
 
-    """Get the dependency graph for a project"""
+    """
+    Get the dependency graph for a project
+    """
     dependencyGraph(projectId: ID!): DependencyGraph!
   }
 
@@ -396,16 +463,24 @@ export const typeDefs = /* GraphQL */ `
   # -------------------------------------------------------------------------
 
   type Mutation {
-    """Index a project from a local path"""
+    """
+    Index a project from a local path
+    """
     indexProject(path: String!, projectId: String, language: String): Project!
 
-    """Delete a project and its data"""
+    """
+    Delete a project and its data
+    """
     deleteProject(id: ID!): Boolean!
 
-    """Run a benchmark suite for a project"""
+    """
+    Run a benchmark suite for a project
+    """
     runBenchmark(projectId: ID!, suite: String!): BenchmarkResult!
 
-    """Manage a repository group"""
+    """
+    Manage a repository group
+    """
     manageRepoGroup(
       action: String!
       groupId: String
@@ -420,13 +495,19 @@ export const typeDefs = /* GraphQL */ `
   # -------------------------------------------------------------------------
 
   type Subscription {
-    """Fired when a project finishes indexing"""
+    """
+    Fired when a project finishes indexing
+    """
     projectIndexed: Project!
 
-    """Fired when a review completes"""
+    """
+    Fired when a review completes
+    """
     reviewCompleted(projectId: ID): ReviewResult!
 
-    """Fired when server health status changes"""
+    """
+    Fired when server health status changes
+    """
     healthChanged: Health!
   }
 `;

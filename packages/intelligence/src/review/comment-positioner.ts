@@ -36,10 +36,7 @@ export class CommentPositioner {
    *    to find the most likely position.
    * 3. **fallback** — use the original line numbers with reduced confidence.
    */
-  positionComment(
-    comment: ReviewComment,
-    fileContent: string,
-  ): PositionedComment {
+  positionComment(comment: ReviewComment, fileContent: string): PositionedComment {
     const fileLines = fileContent.split('\n');
     const totalLines = fileLines.length;
 
@@ -84,10 +81,7 @@ export class CommentPositioner {
    * Validates that the positioned comment's line range points to valid code.
    * Returns a PositionResult indicating validity and any adjustments needed.
    */
-  validatePosition(
-    comment: PositionedComment,
-    fileContent: string,
-  ): PositionResult {
+  validatePosition(comment: PositionedComment, fileContent: string): PositionResult {
     const fileLines = fileContent.split('\n');
     const totalLines = fileLines.length;
 
@@ -129,13 +123,8 @@ export class CommentPositioner {
     }
 
     // Check that the range actually spans meaningful content
-    const contentLines = fileLines.slice(
-      comment.startLine - 1,
-      comment.endLine,
-    );
-    const hasContent = contentLines.some(
-      (line) => line.trim().length > 0,
-    );
+    const contentLines = fileLines.slice(comment.startLine - 1, comment.endLine);
+    const hasContent = contentLines.some((line) => line.trim().length > 0);
 
     if (!hasContent) {
       return {
@@ -154,11 +143,7 @@ export class CommentPositioner {
    * @param fileContent — the source file content
    * @param contextLines — number of lines of context above and below (default 2)
    */
-  adjustContext(
-    comment: PositionedComment,
-    fileContent: string,
-    contextLines = 2,
-  ): string {
+  adjustContext(comment: PositionedComment, fileContent: string, contextLines = 2): string {
     const fileLines = fileContent.split('\n');
     const totalLines = fileLines.length;
 
@@ -172,8 +157,7 @@ export class CommentPositioner {
 
     const lines: string[] = [];
     for (let i = contextStart; i <= contextEnd; i++) {
-      const marker =
-        i >= comment.startLine && i <= comment.endLine ? '>' : ' ';
+      const marker = i >= comment.startLine && i <= comment.endLine ? '>' : ' ';
       lines.push(`${marker} ${String(i).padStart(4, ' ')}| ${fileLines[i - 1]}`);
     }
 
@@ -188,10 +172,7 @@ export class CommentPositioner {
    * Check if the existingCode matches the file content at the claimed
    * startLine/endLine exactly.
    */
-  private isExactMatch(
-    comment: ReviewComment,
-    fileLines: string[],
-  ): boolean {
+  private isExactMatch(comment: ReviewComment, fileLines: string[]): boolean {
     const { startLine, endLine, existingCode } = comment;
 
     // Quick bounds check
@@ -231,8 +212,7 @@ export class CommentPositioner {
 
     const coreSnippet = existingTrimmed.slice(firstNonEmpty, lastNonEmpty + 1);
 
-    let bestMatch: { start: number; end: number; confidence: number } | null =
-      null;
+    let bestMatch: { start: number; end: number; confidence: number } | null = null;
     let bestScore = 0;
 
     // Slide a window over the file
@@ -296,9 +276,7 @@ export class CommentPositioner {
    */
   private tokenize(line: string): string[] {
     // Split on whitespace and common code separators
-    return line
-      .split(/[\s,;{}()[\].=+\-*/<>!&|^~?:@#]+/)
-      .filter((t) => t.length > 0);
+    return line.split(/[\s,;{}()[\].=+\-*/<>!&|^~?:@#]+/).filter((t) => t.length > 0);
   }
 }
 
@@ -306,10 +284,7 @@ export class CommentPositioner {
 // Utility
 // ---------------------------------------------------------------------------
 
-function findLastIndex<T>(
-  arr: T[],
-  predicate: (item: T) => boolean,
-): number {
+function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
   for (let i = arr.length - 1; i >= 0; i--) {
     const item = arr[i];
     if (item && predicate(item)) {

@@ -110,7 +110,9 @@ describe('SecretScanner', () => {
     it('should detect GitHub personal access tokens (classic)', () => {
       const scanner = new SecretScanner();
       // Exactly 36 chars after ghp_ (40 total with ghp_)
-      const results = scanner.scanText('export GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r');
+      const results = scanner.scanText(
+        'export GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r',
+      );
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('token');
       expect(results[0]!.severity).toBe('critical');
@@ -118,7 +120,9 @@ describe('SecretScanner', () => {
 
     it('should detect GitHub fine-grained PATs', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText('GH_TOKEN=github_pat_11ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdef');
+      const results = scanner.scanText(
+        'GH_TOKEN=github_pat_11ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890abcdef',
+      );
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('token');
     });
@@ -137,7 +141,8 @@ describe('SecretScanner', () => {
   describe('scanText — JWT tokens', () => {
     it('should detect JWT tokens', () => {
       const scanner = new SecretScanner();
-      const token = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      const token =
+        'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
       const results = scanner.scanText(`Authorization: Bearer ${token}`);
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('token');
@@ -193,41 +198,45 @@ MIIDXTCCAkWgAwIBAgIJAKlK6nNsd09PMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
   describe('scanText — Connection Strings', () => {
     it('should detect MongoDB connection strings', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("const uri = 'mongodb://admin:pass123@localhost:27017/mydb'");
+      const results = scanner.scanText(
+        "const uri = 'mongodb://admin:pass123@localhost:27017/mydb'",
+      );
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('connection_string');
     });
 
     it('should detect MongoDB SRV connection strings', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("const uri = 'mongodb+srv://user:password@cluster.mongodb.net/db'");
+      const results = scanner.scanText(
+        "const uri = 'mongodb+srv://user:password@cluster.mongodb.net/db'",
+      );
       expect(results.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should detect PostgreSQL connection strings', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("DATABASE_URL=postgres://user:pass@localhost:5432/db");
+      const results = scanner.scanText('DATABASE_URL=postgres://user:pass@localhost:5432/db');
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('connection_string');
     });
 
     it('should detect MySQL connection strings', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("DB=mysql://root:secret@localhost:3306/mydb");
+      const results = scanner.scanText('DB=mysql://root:secret@localhost:3306/mydb');
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('connection_string');
     });
 
     it('should detect Redis connection strings', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("CACHE_URL=redis://:redispwd@redis.example.com:6379/0");
+      const results = scanner.scanText('CACHE_URL=redis://:redispwd@redis.example.com:6379/0');
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('connection_string');
     });
 
     it('should detect URLs with embedded credentials', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("ENDPOINT=http://admin:secret123@api.example.com/v1");
+      const results = scanner.scanText('ENDPOINT=http://admin:secret123@api.example.com/v1');
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]!.type).toBe('connection_string');
     });
@@ -408,7 +417,7 @@ GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r`;
   describe('result structure', () => {
     it('should return well-formed scan results', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanText("AKIAIOSFODNN7EXAMPLE");
+      const results = scanner.scanText('AKIAIOSFODNN7EXAMPLE');
 
       expect(results.length).toBeGreaterThanOrEqual(1);
       const result: SecretScanResult = results[0]!;
@@ -419,7 +428,14 @@ GITHUB_TOKEN=ghp_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r`;
       expect(result).toHaveProperty('severity');
       expect(result).toHaveProperty('confidence');
       expect(result.confidence).toBeCloseTo(0.9, 1);
-      expect(['password', 'api_key', 'token', 'private_key', 'certificate', 'connection_string']).toContain(result.type);
+      expect([
+        'password',
+        'api_key',
+        'token',
+        'private_key',
+        'certificate',
+        'connection_string',
+      ]).toContain(result.type);
       expect(['critical', 'high']).toContain(result.severity);
     });
   });

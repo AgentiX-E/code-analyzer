@@ -76,10 +76,7 @@ export interface LeidenConfig {
  * @param config - Algorithm configuration
  * @returns Community detection result with modularity score
  */
-export function leiden(
-  input: LeidenInput,
-  config: LeidenConfig = {},
-): LeidenCommunityResult {
+export function leiden(input: LeidenInput, config: LeidenConfig = {}): LeidenCommunityResult {
   const resolution = config.resolution ?? 1.0;
   const maxIterations = config.maxIterations ?? 100;
   const minImprovement = config.minImprovement ?? 1e-6;
@@ -142,7 +139,11 @@ export function leiden(
   }
 
   let currentModularity = computeModularity(
-    nodeToCommunity, adjacency, totalWeight, communityWeights, resolution,
+    nodeToCommunity,
+    adjacency,
+    totalWeight,
+    communityWeights,
+    resolution,
   );
   let iterations = 0;
   let improved = true;
@@ -188,10 +189,8 @@ export function leiden(
         // Modularity gain for moving node to target community
         const deltaQ =
           weightToTarget / (2 * totalWeight) -
-          (resolution * targetCommWeight * nodeWeight) /
-            (2 * totalWeight * totalWeight) +
-          (resolution * currentCommWeight * nodeWeight) /
-            (2 * totalWeight * totalWeight);
+          (resolution * targetCommWeight * nodeWeight) / (2 * totalWeight * totalWeight) +
+          (resolution * currentCommWeight * nodeWeight) / (2 * totalWeight * totalWeight);
 
         if (deltaQ > bestDeltaQ) {
           bestDeltaQ = deltaQ;
@@ -202,8 +201,13 @@ export function leiden(
       // Move if beneficial
       if (bestCommunity !== currentNodeCommunity && bestDeltaQ > minImprovement) {
         moveNode(
-          nodeId, currentNodeCommunity, bestCommunity,
-          nodeToCommunity, communityToNodes, communityWeights, nodeWeight,
+          nodeId,
+          currentNodeCommunity,
+          bestCommunity,
+          nodeToCommunity,
+          communityToNodes,
+          communityWeights,
+          nodeWeight,
         );
         improved = true;
       }
@@ -213,13 +217,24 @@ export function leiden(
     // Phase 2: Refinement — split communities into well-connected sub-parts
     // -----------------------------------------------------------------------
     refineCommunities(
-      nodeToCommunity, communityToNodes, communityWeights,
-      adjacency, totalWeight, nodeWeights, resolution, minImprovement, random,
+      nodeToCommunity,
+      communityToNodes,
+      communityWeights,
+      adjacency,
+      totalWeight,
+      nodeWeights,
+      resolution,
+      minImprovement,
+      random,
     );
 
     // Recompute modularity
     const newModularity = computeModularity(
-      nodeToCommunity, adjacency, totalWeight, communityWeights, resolution,
+      nodeToCommunity,
+      adjacency,
+      totalWeight,
+      communityWeights,
+      resolution,
     );
 
     if (newModularity - currentModularity < minImprovement) {
@@ -308,9 +323,7 @@ function computeTotalWeight(adj: Map<number, Map<number, number>>): number {
 
   for (const [sourceId, targets] of adj) {
     for (const [targetId, weight] of targets) {
-      const key = sourceId < targetId
-        ? `${sourceId}-${targetId}`
-        : `${targetId}-${sourceId}`;
+      const key = sourceId < targetId ? `${sourceId}-${targetId}` : `${targetId}-${sourceId}`;
       if (!counted.has(key)) {
         counted.add(key);
         total += weight;
@@ -337,9 +350,7 @@ function computeModularity(
 
   for (const [sourceId, targets] of adjacency) {
     for (const [targetId, weight] of targets) {
-      const key = sourceId < targetId
-        ? `${sourceId}-${targetId}`
-        : `${targetId}-${sourceId}`;
+      const key = sourceId < targetId ? `${sourceId}-${targetId}` : `${targetId}-${sourceId}`;
       if (counted.has(key)) continue;
       counted.add(key);
 
@@ -378,10 +389,7 @@ function moveNode(
   }
 
   // Update old community weight
-  communityWeights.set(
-    fromCommunity,
-    (communityWeights.get(fromCommunity) ?? 0) - nodeWeight,
-  );
+  communityWeights.set(fromCommunity, (communityWeights.get(fromCommunity) ?? 0) - nodeWeight);
 
   // Add to target community
   let targetNodes = communityToNodes.get(toCommunity);
@@ -392,10 +400,7 @@ function moveNode(
   targetNodes.push(nodeId);
 
   // Update target community weight
-  communityWeights.set(
-    toCommunity,
-    (communityWeights.get(toCommunity) ?? 0) + nodeWeight,
-  );
+  communityWeights.set(toCommunity, (communityWeights.get(toCommunity) ?? 0) + nodeWeight);
 }
 
 // ---------------------------------------------------------------------------
@@ -464,8 +469,7 @@ function refineCommunities(
           const deltaQ =
             weightToTarget / (2 * totalWeight) -
             (resolution * targetSW * nWeight) / (2 * totalWeight * totalWeight) +
-            (resolution * currentSubWeight * nWeight) /
-              (2 * totalWeight * totalWeight);
+            (resolution * currentSubWeight * nWeight) / (2 * totalWeight * totalWeight);
 
           if (deltaQ > bestDelta) {
             bestDelta = deltaQ;
@@ -486,7 +490,10 @@ function refineCommunities(
     const subCommGroups = new Map<number, number[]>();
     for (const [nodeId, subId] of refinedComm) {
       let group = subCommGroups.get(subId);
-      if (!group) { group = []; subCommGroups.set(subId, group); }
+      if (!group) {
+        group = [];
+        subCommGroups.set(subId, group);
+      }
       group.push(nodeId);
     }
 
@@ -537,7 +544,10 @@ function renumber(
   const communities = new Map<number, number[]>();
   for (const [nid, cid] of n2c) {
     let m = communities.get(cid);
-    if (!m) { m = []; communities.set(cid, m); }
+    if (!m) {
+      m = [];
+      communities.set(cid, m);
+    }
     m.push(nid);
   }
 

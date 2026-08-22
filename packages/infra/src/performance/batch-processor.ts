@@ -112,9 +112,8 @@ export class BatchProcessor<T> {
           processedItems += batch.length;
         } else {
           // Batch-level failure
-          const errors = result.reason instanceof Error
-            ? [result.reason]
-            : [new Error(String(result.reason))];
+          const errors =
+            result.reason instanceof Error ? [result.reason] : [new Error(String(result.reason))];
           batchErrors.set(batchIndex, errors);
           if (!this.continueOnError) break;
         }
@@ -185,9 +184,8 @@ export class BatchProcessor<T> {
           allResults.push(...result.value);
           processedItems += batch.length;
         } else {
-          const errors = result.reason instanceof Error
-            ? [result.reason]
-            : [new Error(String(result.reason))];
+          const errors =
+            result.reason instanceof Error ? [result.reason] : [new Error(String(result.reason))];
           batchErrors.set(batchIndex, errors);
           if (!this.continueOnError) break;
         }

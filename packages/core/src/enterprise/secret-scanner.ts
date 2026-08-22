@@ -195,10 +195,7 @@ export class SecretScanner {
   constructor(config?: Partial<SecretScannerConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     if (config?.excludePatterns) {
-      this.config.excludePatterns = [
-        ...DEFAULT_CONFIG.excludePatterns,
-        ...config.excludePatterns,
-      ];
+      this.config.excludePatterns = [...DEFAULT_CONFIG.excludePatterns, ...config.excludePatterns];
     }
   }
 
@@ -284,8 +281,14 @@ export class SecretScanner {
     const context = line.slice(contextStart, contextEnd).toLowerCase();
 
     const exclusionKeywords = [
-      'example', 'placeholder', 'replace_me', '<your_', 'test_secret',
-      'your-key', 'your_api', 'your_password',
+      'example',
+      'placeholder',
+      'replace_me',
+      '<your_',
+      'test_secret',
+      'your-key',
+      'your_api',
+      'your_password',
     ];
 
     for (const keyword of exclusionKeywords) {

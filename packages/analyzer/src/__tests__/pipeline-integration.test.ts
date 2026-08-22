@@ -82,7 +82,8 @@ describe('Pipeline Integration — End-to-End', () => {
     let discoveredFiles: DiscoveredFile[];
 
     beforeAll(() => {
-      const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] } | undefined;
+      const scanData = ctx.phaseData.get('scan') as
+        { discoveredFiles: DiscoveredFile[] } | undefined;
       discoveredFiles = scanData?.discoveredFiles ?? [];
     });
 
@@ -115,7 +116,8 @@ describe('Pipeline Integration — End-to-End', () => {
 
   describe('Phase 2: Structure — Module Organization', () => {
     it('should detect directory structure', () => {
-      const data = ctx.phaseData.get('structure') as { directories: number; modules: number } | undefined;
+      const data = ctx.phaseData.get('structure') as
+        { directories: number; modules: number } | undefined;
       expect(data).toBeDefined();
       expect(data!.directories).toBeGreaterThanOrEqual(3); // models, services, utils, routes
       expect(data!.modules).toBeGreaterThanOrEqual(3);
@@ -139,9 +141,7 @@ describe('Pipeline Integration — End-to-End', () => {
     });
 
     it('should extract class definitions', () => {
-      const allClasses = parsedFiles.flatMap((f) =>
-        f.symbols.filter((s) => s.kind === 'Class'),
-      );
+      const allClasses = parsedFiles.flatMap((f) => f.symbols.filter((s) => s.kind === 'Class'));
       // User, AdminUser, Post, UserService
       expect(allClasses.length).toBeGreaterThanOrEqual(4);
     });
@@ -189,17 +189,13 @@ describe('Pipeline Integration — End-to-End', () => {
     });
 
     it('should extract function definitions', () => {
-      const functions = parsedFiles.flatMap((f) =>
-        f.symbols.filter((s) => s.kind === 'Function'),
-      );
+      const functions = parsedFiles.flatMap((f) => f.symbols.filter((s) => s.kind === 'Function'));
       // formatEmail, truncate, slugify, getUserPosts, main
       expect(functions.length).toBeGreaterThanOrEqual(4);
     });
 
     it('should extract method definitions from classes', () => {
-      const methods = parsedFiles.flatMap((f) =>
-        f.symbols.filter((s) => s.kind === 'Method'),
-      );
+      const methods = parsedFiles.flatMap((f) => f.symbols.filter((s) => s.kind === 'Method'));
       expect(methods.length).toBeGreaterThanOrEqual(4);
     });
 
@@ -242,8 +238,7 @@ describe('Pipeline Integration — End-to-End', () => {
 
     beforeAll(() => {
       const crossData = ctx.phaseData.get('crossFile') as
-        | { resolvedImports: ResolvedImport[]; importEdgesCreated: number }
-        | undefined;
+        { resolvedImports: ResolvedImport[]; importEdgesCreated: number } | undefined;
       resolvedImports = crossData?.resolvedImports ?? [];
     });
 
@@ -252,9 +247,7 @@ describe('Pipeline Integration — End-to-End', () => {
     });
 
     it('should resolve user-service.ts imports from models/user.ts', () => {
-      const usImports = resolvedImports.filter((imp) =>
-        imp.sourceFile.endsWith('user-service.ts'),
-      );
+      const usImports = resolvedImports.filter((imp) => imp.sourceFile.endsWith('user-service.ts'));
       expect(usImports.length).toBeGreaterThanOrEqual(2);
       const resolvedToUser = usImports.some((imp) =>
         imp.resolvedFiles.some((rf: string) => rf.endsWith('models/user.ts')),
@@ -263,9 +256,7 @@ describe('Pipeline Integration — End-to-End', () => {
     });
 
     it('should resolve imports with correct symbol names', () => {
-      const usImports = resolvedImports.filter((imp) =>
-        imp.sourceFile.endsWith('user-service.ts'),
-      );
+      const usImports = resolvedImports.filter((imp) => imp.sourceFile.endsWith('user-service.ts'));
       const userImport = usImports.find((imp) =>
         imp.resolvedFiles.some((rf) => rf.endsWith('models/user.ts')),
       );
@@ -277,8 +268,7 @@ describe('Pipeline Integration — End-to-End', () => {
 
     it('should create IMPORTS edges in the graph', () => {
       const crossData = ctx.phaseData.get('crossFile') as
-        | { importEdgesCreated: number }
-        | undefined;
+        { importEdgesCreated: number } | undefined;
       expect(crossData!.importEdgesCreated).toBeGreaterThanOrEqual(2);
     });
   });
@@ -292,8 +282,7 @@ describe('Pipeline Integration — End-to-End', () => {
 
     beforeAll(() => {
       const data = ctx.phaseData.get('scopeResolution') as
-        | { referencesResolved: number }
-        | undefined;
+        { referencesResolved: number } | undefined;
       resolutionData = data ?? { referencesResolved: 0 };
     });
 
@@ -308,9 +297,7 @@ describe('Pipeline Integration — End-to-End', () => {
 
   describe('Phase 8: Routes — API Route Detection', () => {
     it('should detect Express routes in api.ts', () => {
-      const routesData = ctx.phaseData.get('routes') as
-        | { routesFound: number }
-        | undefined;
+      const routesData = ctx.phaseData.get('routes') as { routesFound: number } | undefined;
       expect(routesData).toBeDefined();
       expect(routesData!.routesFound).toBeGreaterThanOrEqual(3);
     });
@@ -328,16 +315,12 @@ describe('Pipeline Integration — End-to-End', () => {
     });
 
     it('should have file nodes', () => {
-      const fileNodes = Array.from(ctx.graph!.nodes.values()).filter(
-        (n) => n.label === 'File',
-      );
+      const fileNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'File');
       expect(fileNodes.length).toBeGreaterThanOrEqual(6);
     });
 
     it('should have class nodes', () => {
-      const classNodes = Array.from(ctx.graph!.nodes.values()).filter(
-        (n) => n.label === 'Class',
-      );
+      const classNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Class');
       expect(classNodes.length).toBeGreaterThanOrEqual(4); // User, AdminUser, Post, UserService
     });
 
@@ -415,7 +398,10 @@ describe('Pipeline Integration — End-to-End', () => {
       const { resolve: r } = await import('node:path');
       const tmpDir = r(FIXTURE_SRC, '..', '.tmp-test');
       await fs.mkdir(tmpDir, { recursive: true });
-      await fs.writeFile(r(tmpDir, 'bad.ts'), 'import { foo } from "./nonexistent"; const x: Foo = bar();;;{{{}');
+      await fs.writeFile(
+        r(tmpDir, 'bad.ts'),
+        'import { foo } from "./nonexistent"; const x: Foo = bar();;;{{{}',
+      );
 
       const badCtx: PipelineContext = {
         projectId: 'bad-ts-test',

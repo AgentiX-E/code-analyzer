@@ -4,14 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execSync } from 'node:child_process';
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  existsSync,
-  rmSync,
-} from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -168,7 +161,8 @@ describe('IncrementalReindexer', () => {
 
       // Get current HEAD which should be the same as commit1
       const currentHead = execSync('git rev-parse HEAD', {
-        cwd: repoPath, encoding: 'utf-8',
+        cwd: repoPath,
+        encoding: 'utf-8',
       }).trim();
       reindexer.saveLastIndexCommit(repoPath, currentHead);
 
@@ -454,13 +448,20 @@ describe('IncrementalReindexer', () => {
     });
 
     it('should throw when indexer has no accessible store', async () => {
-      const mockIndexer = { getStore: () => { throw new Error("store not available"); } } as unknown as CrossRepoIndexer;
+      const mockIndexer = {
+        getStore: () => {
+          throw new Error('store not available');
+        },
+      } as unknown as CrossRepoIndexer;
       const changes: ChangedFiles = {
-        added: [], modified: [], deleted: [], allChanged: [],
+        added: [],
+        modified: [],
+        deleted: [],
+        allChanged: [],
       };
-      await expect(
-        reindexer.reindexChanged(repoPath, changes, mockIndexer)
-      ).rejects.toThrow('store not available');
+      await expect(reindexer.reindexChanged(repoPath, changes, mockIndexer)).rejects.toThrow(
+        'store not available',
+      );
     });
 
     it('should handle store without getNodeCount and getEdgeCount', async () => {
@@ -469,7 +470,10 @@ describe('IncrementalReindexer', () => {
         getEdgeCount: () => 0,
         getAllNodes: () => [],
       };
-      const mockIndexer = { store: mockStore, getStore: () => mockStore } as unknown as CrossRepoIndexer;
+      const mockIndexer = {
+        store: mockStore,
+        getStore: () => mockStore,
+      } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
         added: [],
@@ -489,7 +493,10 @@ describe('IncrementalReindexer', () => {
         getEdgeCount: () => 0,
         getAllNodes: () => [],
       };
-      const mockIndexer = { store: mockStore, getStore: () => mockStore } as unknown as CrossRepoIndexer;
+      const mockIndexer = {
+        store: mockStore,
+        getStore: () => mockStore,
+      } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
         added: [],
@@ -550,29 +557,34 @@ describe('IncrementalReindexer', () => {
       const mockStore = {
         getNodeCount: () => 0,
         getEdgeCount: () => 0,
-        getAllNodes: () => [{
-          id: 1,
-          filePath: 'src/deleted.ts',
-          projectId: 'test',
-          label: 'Function',
-          name: 'test',
-          qualifiedName: 'test:src/deleted.ts:test',
-          isExported: false,
-          properties: {},
-          signature: null,
-          docstring: null,
-          complexity: null,
-          fingerprint: null,
-          startLine: null,
-          endLine: null,
-          language: null,
-          createdAt: '2024-01-01T00:00:00.000Z',
-          updatedAt: '2024-01-01T00:00:00.000Z',
-        }],
+        getAllNodes: () => [
+          {
+            id: 1,
+            filePath: 'src/deleted.ts',
+            projectId: 'test',
+            label: 'Function',
+            name: 'test',
+            qualifiedName: 'test:src/deleted.ts:test',
+            isExported: false,
+            properties: {},
+            signature: null,
+            docstring: null,
+            complexity: null,
+            fingerprint: null,
+            startLine: null,
+            endLine: null,
+            language: null,
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
         deleteNode: () => {},
         deleteEdge: () => {},
       };
-      const mockIndexer = { store: mockStore, getStore: () => mockStore } as unknown as CrossRepoIndexer;
+      const mockIndexer = {
+        store: mockStore,
+        getStore: () => mockStore,
+      } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
         added: [],
@@ -628,7 +640,9 @@ describe('IncrementalReindexer', () => {
       const mockIndexer = {
         store,
         getStore: () => store,
-        indexSingleRepo: async () => { throw new Error('index failed'); },
+        indexSingleRepo: async () => {
+          throw new Error('index failed');
+        },
       } as unknown as CrossRepoIndexer;
 
       const changes: ChangedFiles = {
@@ -655,7 +669,11 @@ describe('IncrementalReindexer', () => {
 
       customReindexer.saveLastIndexCommit(repoPath, 'custom123');
 
-      const cachePath = join(customCache, repoPath.replace(/[/\\:*?"<>|]/g, '_'), 'last-commit.json');
+      const cachePath = join(
+        customCache,
+        repoPath.replace(/[/\\:*?"<>|]/g, '_'),
+        'last-commit.json',
+      );
       expect(existsSync(cachePath)).toBe(true);
     });
 

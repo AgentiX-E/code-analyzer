@@ -41,10 +41,7 @@ export class AutoWatcher {
   private rootPath: string | null = null;
   private isWatching = false;
 
-  constructor(
-    watcher: FileWatcher,
-    options: AutoWatcherOptions = {},
-  ) {
+  constructor(watcher: FileWatcher, options: AutoWatcherOptions = {}) {
     this.watcher = watcher;
     this.options = {
       debounceMs: options.debounceMs ?? 500,
@@ -217,21 +214,41 @@ export class AutoWatcher {
 
     // Check if it's a known source file extension
     const sourceExtensions = [
-      '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-      '.py', '.pyw', '.pyx',
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+      '.mjs',
+      '.cjs',
+      '.py',
+      '.pyw',
+      '.pyx',
       '.rs',
       '.go',
-      '.java', '.kt', '.kts',
+      '.java',
+      '.kt',
+      '.kts',
       '.rb',
       '.php',
       '.swift',
       '.cs',
-      '.cpp', '.c', '.h', '.hpp',
-      '.vue', '.svelte',
-      '.json', '.yaml', '.yml', '.toml',
-      '.md', '.mdx',
-      '.css', '.scss', '.less',
-      '.graphql', '.gql',
+      '.cpp',
+      '.c',
+      '.h',
+      '.hpp',
+      '.vue',
+      '.svelte',
+      '.json',
+      '.yaml',
+      '.yml',
+      '.toml',
+      '.md',
+      '.mdx',
+      '.css',
+      '.scss',
+      '.less',
+      '.graphql',
+      '.gql',
       '.prisma',
       '.sql',
     ];
@@ -242,12 +259,7 @@ export class AutoWatcher {
     }
 
     // Also check special files (no extension but are source configs)
-    const specialFiles = [
-      'Dockerfile',
-      'Makefile',
-      '.env.example',
-      '.env.sample',
-    ];
+    const specialFiles = ['Dockerfile', 'Makefile', '.env.example', '.env.sample'];
 
     /* v8 ignore next -- @preserve */
     const basename = filePath.split('/').pop() ?? '';

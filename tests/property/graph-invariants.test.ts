@@ -12,21 +12,36 @@ function createStore(): InMemoryGraphStore {
 function addNode(store: InMemoryGraphStore, name: string, label = 'Function'): number {
   const now = new Date().toISOString();
   return store.insertNode({
-    id: 0, projectId: 'prop-test', label: label as any,
-    name, qualifiedName: name, filePath: `src/${name}.ts`,
-    startLine: 1, endLine: 10, language: 'typescript',
-    properties: {}, signature: null, docstring: null,
-    complexity: null, isExported: true, fingerprint: null,
-    createdAt: now, updatedAt: now,
+    id: 0,
+    projectId: 'prop-test',
+    label: label as any,
+    name,
+    qualifiedName: name,
+    filePath: `src/${name}.ts`,
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
 function addEdge(store: InMemoryGraphStore, src: number, tgt: number, type = 'IMPORTS'): number {
   return store.insertEdge({
-    id: 0, projectId: 'prop-test',
-    sourceId: src, targetId: tgt,
-    type: type as any, properties: {},
-    weight: 1, createdAt: new Date().toISOString(),
+    id: 0,
+    projectId: 'prop-test',
+    sourceId: src,
+    targetId: tgt,
+    type: type as any,
+    properties: {},
+    weight: 1,
+    createdAt: new Date().toISOString(),
   });
 }
 
@@ -52,13 +67,23 @@ describe('Graph Store Invariants', () => {
       const s = createStore();
       const now = new Date().toISOString();
       const nodes = Array.from({ length: 50 }, (_, i) => ({
-        id: 0, projectId: 'prop-test', label: 'Function' as any,
-        name: `Batch${i}`, qualifiedName: `Batch${i}`,
-        filePath: `src/Batch${i}.ts`, startLine: 1, endLine: 10,
-        language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'prop-test',
+        label: 'Function' as any,
+        name: `Batch${i}`,
+        qualifiedName: `Batch${i}`,
+        filePath: `src/Batch${i}.ts`,
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       }));
       expect(s.insertNodes(nodes).length).toBe(50);
     });

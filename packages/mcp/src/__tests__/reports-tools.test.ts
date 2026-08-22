@@ -16,73 +16,181 @@ import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   const nodes: GraphNode[] = [
     {
-      id: 0, projectId, label: 'Module', name: 'core', qualifiedName: 'core',
-      filePath: '/app/src/core', startLine: null, endLine: null, language: null,
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Module',
+      name: 'core',
+      qualifiedName: 'core',
+      filePath: '/app/src/core',
+      startLine: null,
+      endLine: null,
+      language: null,
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId, label: 'Function', name: 'doWork', qualifiedName: 'core.doWork',
-      filePath: '/app/src/core/work.ts', startLine: 1, endLine: 30, language: 'typescript',
-      properties: {}, signature: 'doWork(): void', docstring: null, complexity: 8,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Function',
+      name: 'doWork',
+      qualifiedName: 'core.doWork',
+      filePath: '/app/src/core/work.ts',
+      startLine: 1,
+      endLine: 30,
+      language: 'typescript',
+      properties: {},
+      signature: 'doWork(): void',
+      docstring: null,
+      complexity: 8,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId, label: 'Function', name: 'validate', qualifiedName: 'core.validate',
-      filePath: '/app/src/core/validate.ts', startLine: 1, endLine: 15, language: 'typescript',
-      properties: {}, signature: 'validate(): void', docstring: null, complexity: 4,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Function',
+      name: 'validate',
+      qualifiedName: 'core.validate',
+      filePath: '/app/src/core/validate.ts',
+      startLine: 1,
+      endLine: 15,
+      language: 'typescript',
+      properties: {},
+      signature: 'validate(): void',
+      docstring: null,
+      complexity: 4,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId, label: 'Class', name: 'MyService', qualifiedName: 'core.MyService',
-      filePath: '/app/src/core/service.ts', startLine: 1, endLine: 50, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: 15,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Class',
+      name: 'MyService',
+      qualifiedName: 'core.MyService',
+      filePath: '/app/src/core/service.ts',
+      startLine: 1,
+      endLine: 50,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: 15,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId, label: 'Route', name: 'getUsers', qualifiedName: 'routes.getUsers',
-      filePath: '/app/src/routes/users.ts', startLine: 5, endLine: 15, language: 'typescript',
-      properties: { routePath: '/api/users', routeMethod: 'GET' }, signature: null,
-      docstring: null, complexity: null, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Route',
+      name: 'getUsers',
+      qualifiedName: 'routes.getUsers',
+      filePath: '/app/src/routes/users.ts',
+      startLine: 5,
+      endLine: 15,
+      language: 'typescript',
+      properties: { routePath: '/api/users', routeMethod: 'GET' },
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId, label: 'Test', name: 'testDoWork', qualifiedName: 'tests.testDoWork',
-      filePath: '/app/src/__tests__/work.test.ts', startLine: 1, endLine: 20, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: false, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Test',
+      name: 'testDoWork',
+      qualifiedName: 'tests.testDoWork',
+      filePath: '/app/src/__tests__/work.test.ts',
+      startLine: 1,
+      endLine: 20,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId, label: 'Function', name: 'complexFn', qualifiedName: 'core.complexFn',
-      filePath: '/app/src/core/complex.ts', startLine: 1, endLine: 120, language: 'typescript',
-      properties: {}, signature: 'complexFn(): void', docstring: null, complexity: 35,
-      isExported: true, fingerprint: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      label: 'Function',
+      name: 'complexFn',
+      qualifiedName: 'core.complexFn',
+      filePath: '/app/src/core/complex.ts',
+      startLine: 1,
+      endLine: 120,
+      language: 'typescript',
+      properties: {},
+      signature: 'complexFn(): void',
+      docstring: null,
+      complexity: 35,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   ];
 
   store.insertNodes(nodes);
-  const allInserted = store.getAllNodes().filter(n => n.projectId === projectId);
-  const doWorkNode = allInserted.find(n => n.name === 'doWork');
-  const classNode = allInserted.find(n => n.name === 'MyService');
-  const validateNode = allInserted.find(n => n.name === 'validate');
-  const complexNode = allInserted.find(n => n.name === 'complexFn');
+  const allInserted = store.getAllNodes().filter((n) => n.projectId === projectId);
+  const doWorkNode = allInserted.find((n) => n.name === 'doWork');
+  const classNode = allInserted.find((n) => n.name === 'MyService');
+  const validateNode = allInserted.find((n) => n.name === 'validate');
+  const complexNode = allInserted.find((n) => n.name === 'complexFn');
 
   if (doWorkNode && classNode) {
     store.insertEdge({
-      id: 0, projectId, sourceId: classNode.id, targetId: doWorkNode.id,
-      type: 'HAS_METHOD', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: classNode.id,
+      targetId: doWorkNode.id,
+      type: 'HAS_METHOD',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
   if (doWorkNode && validateNode) {
     store.insertEdge({
-      id: 0, projectId, sourceId: doWorkNode.id, targetId: validateNode.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: doWorkNode.id,
+      targetId: validateNode.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
   if (validateNode && complexNode) {
     store.insertEdge({
-      id: 0, projectId, sourceId: validateNode.id, targetId: complexNode.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: validateNode.id,
+      targetId: complexNode.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 }
@@ -107,10 +215,14 @@ describe('generateReport', () => {
   });
 
   it('should generate a pr-review report with store data', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.id).toMatch(/^report_/);
@@ -122,10 +234,14 @@ describe('generateReport', () => {
   });
 
   it('should generate a codebase-audit report with store data', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'codebase-audit',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'codebase-audit',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.type).toBe('codebase-audit');
@@ -135,10 +251,14 @@ describe('generateReport', () => {
   });
 
   it('should generate an impact-analysis report', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'impact-analysis',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'impact-analysis',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.type).toBe('impact-analysis');
@@ -146,10 +266,14 @@ describe('generateReport', () => {
   });
 
   it('should generate an architecture-review report', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'architecture-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'architecture-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.type).toBe('architecture-review');
@@ -157,10 +281,14 @@ describe('generateReport', () => {
   });
 
   it('should generate a standards-compliance report', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'standards-compliance',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'standards-compliance',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.type).toBe('standards-compliance');
@@ -181,10 +309,14 @@ describe('generateReport', () => {
   });
 
   it('should include metrics in report', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.metrics).toBeDefined();
@@ -196,10 +328,14 @@ describe('generateReport', () => {
   });
 
   it('should include recommendations when test nodes exist', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.recommendations).toBeDefined();
@@ -211,18 +347,34 @@ describe('generateReport', () => {
   it('should generate recommendations for project with no tests', async () => {
     const emptyCtx = new ToolContextImpl(new InMemoryGraphStore());
     const node: GraphNode = {
-      id: 0, projectId: 'no-tests', label: 'Function', name: 'foo', qualifiedName: 'foo',
-      filePath: '/foo.ts', startLine: 1, endLine: 10, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: 5,
-      isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: 'no-tests',
+      label: 'Function',
+      name: 'foo',
+      qualifiedName: 'foo',
+      filePath: '/foo.ts',
+      startLine: 1,
+      endLine: 10,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: 5,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     emptyCtx.store.insertNode(node);
 
-    const result = await registry.execute('generate_report', {
-      projectId: 'no-tests',
-      type: 'codebase-audit',
-    }, emptyCtx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'no-tests',
+        type: 'codebase-audit',
+      },
+      emptyCtx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     // No tests means no recommendation for testing, compliance lower
@@ -234,43 +386,59 @@ describe('generateReport', () => {
   });
 
   it('should respect format parameter (markdown)', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-      format: 'markdown',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+        format: 'markdown',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.format).toBe('markdown');
   });
 
   it('should respect format parameter (json)', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-      format: 'json',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+        format: 'json',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.format).toBe('json');
   });
 
   it('should respect format parameter (html)', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-      format: 'html',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+        format: 'html',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.format).toBe('html');
   });
 
   it('should include key takeaways in summary', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.summary.keyTakeaways).toBeDefined();
@@ -279,10 +447,14 @@ describe('generateReport', () => {
   });
 
   it('should include findings array', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.findings).toBeDefined();
@@ -290,10 +462,14 @@ describe('generateReport', () => {
   });
 
   it('should include metadata with project name', async () => {
-    const result = await registry.execute('generate_report', {
-      projectId: 'test-project',
-      type: 'pr-review',
-    }, ctx);
+    const result = await registry.execute(
+      'generate_report',
+      {
+        projectId: 'test-project',
+        type: 'pr-review',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.metadata).toBeDefined();
@@ -404,9 +580,13 @@ describe('getRecommendations', () => {
   });
 
   it('should return recommendations with store data', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -430,10 +610,14 @@ describe('getRecommendations', () => {
   });
 
   it('should filter by security category', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-      category: 'security',
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+        category: 'security',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.category).toBe('security');
@@ -443,10 +627,14 @@ describe('getRecommendations', () => {
   });
 
   it('should filter by performance category', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-      category: 'performance',
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+        category: 'performance',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.category).toBe('performance');
@@ -456,10 +644,14 @@ describe('getRecommendations', () => {
   });
 
   it('should filter by maintainability category', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-      category: 'maintainability',
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+        category: 'maintainability',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.category).toBe('maintainability');
@@ -469,10 +661,14 @@ describe('getRecommendations', () => {
   });
 
   it('should filter by architecture category', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-      category: 'architecture',
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+        category: 'architecture',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.category).toBe('architecture');
@@ -482,10 +678,14 @@ describe('getRecommendations', () => {
   });
 
   it('should respect the limit parameter', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-      limit: 1,
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+        limit: 1,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.recommendations.length).toBeLessThanOrEqual(1);
@@ -496,34 +696,68 @@ describe('getRecommendations', () => {
     // Create a store with a high-degree node (many outgoing calls)
     const store = new InMemoryGraphStore();
     const center: GraphNode = {
-      id: 0, projectId: 'high-degree', label: 'Class', name: 'GodClass', qualifiedName: 'core.GodClass',
-      filePath: '/app/src/god.ts', startLine: 1, endLine: 500, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: 'high-degree',
+      label: 'Class',
+      name: 'GodClass',
+      qualifiedName: 'core.GodClass',
+      filePath: '/app/src/god.ts',
+      startLine: 1,
+      endLine: 500,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     center.id = store.insertNode(center);
 
     // Create 25 leaf nodes and connect them
     for (let i = 0; i < 25; i++) {
       const leaf: GraphNode = {
-        id: 0, projectId: 'high-degree', label: 'Function', name: `leaf${i}`, qualifiedName: `core.leaf${i}`,
-        filePath: '/app/src/leaf.ts', startLine: i * 2, endLine: i * 2 + 1, language: 'typescript',
-        properties: {}, signature: null, docstring: null, complexity: null,
-        isExported: false, fingerprint: null,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'high-degree',
+        label: 'Function',
+        name: `leaf${i}`,
+        qualifiedName: `core.leaf${i}`,
+        filePath: '/app/src/leaf.ts',
+        startLine: i * 2,
+        endLine: i * 2 + 1,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: false,
+        fingerprint: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
       const leafId = store.insertNode(leaf);
       store.insertEdge({
-        id: 0, projectId: 'high-degree', sourceId: center.id, targetId: leafId,
-        type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+        id: 0,
+        projectId: 'high-degree',
+        sourceId: center.id,
+        targetId: leafId,
+        type: 'CALLS',
+        properties: {},
+        weight: 1.0,
+        createdAt: new Date().toISOString(),
       });
     }
 
     const highDegreeCtx = new ToolContextImpl(store);
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'high-degree',
-    }, highDegreeCtx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'high-degree',
+      },
+      highDegreeCtx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     // Should find architecture recommendations for high-degree node
@@ -533,9 +767,13 @@ describe('getRecommendations', () => {
 
   it('should handle empty project gracefully', async () => {
     const emptyCtx = new ToolContextImpl(new InMemoryGraphStore());
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'empty-project',
-    }, emptyCtx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'empty-project',
+      },
+      emptyCtx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.recommendations).toBeDefined();
@@ -545,9 +783,13 @@ describe('getRecommendations', () => {
   });
 
   it('should return total matching recommendations count', async () => {
-    const result = await registry.execute('get_recommendations', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'get_recommendations',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(typeof data.total).toBe('number');

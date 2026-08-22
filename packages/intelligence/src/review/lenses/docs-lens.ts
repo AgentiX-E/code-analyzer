@@ -24,10 +24,7 @@ interface DocCheckResult {
 }
 
 /** Extract exported function information */
-function extractFunctionInfo(
-  lines: string[],
-  i: number,
-): DocCheckResult | null {
+function extractFunctionInfo(lines: string[], i: number): DocCheckResult | null {
   const line = lines[i]!.trim();
   const exportMatch = line.match(/export\s+(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/);
   const noExportMatch = line.match(/(?:async\s+)?function\s+(\w+)\s*\(([^)]*)\)/);
@@ -36,7 +33,7 @@ function extractFunctionInfo(
   if (!match) return null;
 
   const name = match[1]!;
-  const params = match[2]!.split(',').filter(p => p.trim()).length;
+  const params = match[2]!.split(',').filter((p) => p.trim()).length;
   const isExported = !!exportMatch;
 
   // Check preceding lines for JSDoc
@@ -58,8 +55,10 @@ function extractFunctionInfo(
   }
 
   return {
-    name, line: i + 1,
-    hasDoc, hasParams,
+    name,
+    line: i + 1,
+    hasDoc,
+    hasParams,
     paramCount: params,
     documentedParams,
     hasReturn,
@@ -69,10 +68,7 @@ function extractFunctionInfo(
 }
 
 /** Check a single function for documentation gaps */
-function checkFunctionDocs(
-  info: DocCheckResult,
-  filePath: string,
-): LensFinding[] {
+function checkFunctionDocs(info: DocCheckResult, filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
 
   // Only flag exported functions (internal functions don't need docs)
@@ -81,60 +77,94 @@ function checkFunctionDocs(
   // 1. Missing JSDoc entirely (critical for exported functions)
   if (!info.hasDoc && info.isExported) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: info.line, endLine: info.line,
+      filePath,
+      startLine: info.line,
+      endLine: info.line,
       codeSnippet: `export function ${info.name}(...)`,
-      lens: 'docs', ruleId: 'docs-missing-jsdoc',
+      lens: 'docs',
+      ruleId: 'docs-missing-jsdoc',
     };
-    const f = createLensFinding('docs', 'documentation', 'medium',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'medium',
       `Missing JSDoc: ${info.name}`,
       `Exported function "${info.name}" has no JSDoc/TSDoc comment. Add a documentation block describing purpose, parameters, return value, and examples.`,
       evidence,
-      { suggestion: `Add:\n/**\n * Description of ${info.name}\n * @param {Type} name - description\n * @returns {Type} description\n */`, ruleId: 'docs-missing-jsdoc' });
+      {
+        suggestion: `Add:\n/**\n * Description of ${info.name}\n * @param {Type} name - description\n * @returns {Type} description\n */`,
+        ruleId: 'docs-missing-jsdoc',
+      },
+    );
     if (f) findings.push(f);
   }
 
   // 2. Missing parameter documentation
   if (info.paramCount > 0 && !info.hasParams && info.isExported) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: info.line, endLine: info.line,
+      filePath,
+      startLine: info.line,
+      endLine: info.line,
       codeSnippet: `function ${info.name}(${info.paramCount} params)`,
-      lens: 'docs', ruleId: 'docs-missing-params',
+      lens: 'docs',
+      ruleId: 'docs-missing-params',
     };
-    const f = createLensFinding('docs', 'documentation', 'low',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'low',
       `Missing @param Docs: ${info.name}`,
       `Function "${info.name}" has ${info.paramCount} parameter(s) but no @param documentation.`,
       evidence,
-      { suggestion: `Add @param tags for each parameter.`, ruleId: 'docs-missing-params' });
+      { suggestion: `Add @param tags for each parameter.`, ruleId: 'docs-missing-params' },
+    );
     if (f) findings.push(f);
   }
 
   // 3. Under-documented parameters
   if (info.hasParams && info.documentedParams < info.paramCount) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: info.line, endLine: info.line,
+      filePath,
+      startLine: info.line,
+      endLine: info.line,
       codeSnippet: `function ${info.name}: ${info.documentedParams}/${info.paramCount} params documented`,
-      lens: 'docs', ruleId: 'docs-incomplete-params',
+      lens: 'docs',
+      ruleId: 'docs-incomplete-params',
     };
-    const f = createLensFinding('docs', 'documentation', 'low',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'low',
       `Incomplete @param Docs: ${info.name}`,
       `Function "${info.name}" only documents ${info.documentedParams} of ${info.paramCount} parameter(s).`,
       evidence,
-      { suggestion: 'Document all parameters with @param tags.', ruleId: 'docs-incomplete-params' });
+      { suggestion: 'Document all parameters with @param tags.', ruleId: 'docs-incomplete-params' },
+    );
     if (f) findings.push(f);
   }
 
   // 4. Missing @returns
   if (info.hasReturn && !info.documentedReturn && info.isExported) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: info.line, endLine: info.line,
+      filePath,
+      startLine: info.line,
+      endLine: info.line,
       codeSnippet: `function ${info.name}(...): returnType`,
-      lens: 'docs', ruleId: 'docs-missing-returns',
+      lens: 'docs',
+      ruleId: 'docs-missing-returns',
     };
-    const f = createLensFinding('docs', 'documentation', 'low',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'low',
       `Missing @returns Doc: ${info.name}`,
       `Function "${info.name}" has a return type but no @returns JSDoc tag.`,
       evidence,
-      { suggestion: 'Add @returns {Type} description of the return value.', ruleId: 'docs-missing-returns' });
+      {
+        suggestion: 'Add @returns {Type} description of the return value.',
+        ruleId: 'docs-missing-returns',
+      },
+    );
     if (f) findings.push(f);
   }
 
@@ -149,10 +179,7 @@ function checkFunctionDocs(
  * Detect stale README files by checking content completeness.
  * A short README or one missing key sections is flagged as incomplete.
  */
-function detectReadmeStaleness(
-  lines: string[],
-  filePath: string,
-): LensFinding[] {
+function detectReadmeStaleness(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
   const fileName = filePath.split('/').pop()?.toLowerCase() ?? '';
 
@@ -166,19 +193,29 @@ function detectReadmeStaleness(
 
   if (isTooShort || !hasSections) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: 1, endLine: lines.length,
+      filePath,
+      startLine: 1,
+      endLine: lines.length,
       codeSnippet: `README.md: ${lines.length} lines, hash=${contentHash}`,
-      lens: 'docs', ruleId: 'docs-stale-readme',
+      lens: 'docs',
+      ruleId: 'docs-stale-readme',
     };
     const reason = isTooShort
       ? `README.md is only ${lines.length} lines. Comprehensive README should include setup, usage, API docs, and contribution guide.`
       : `README.md is missing key sections (Setup/Install/Usage/API). Add essential documentation sections.`;
 
-    const f = createLensFinding('docs', 'documentation', 'medium',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'medium',
       'Incomplete README',
       reason,
       evidence,
-      { suggestion: 'Add sections: ## Setup, ## Usage, ## API, ## Contributing.', ruleId: 'docs-stale-readme' });
+      {
+        suggestion: 'Add sections: ## Setup, ## Usage, ## API, ## Contributing.',
+        ruleId: 'docs-stale-readme',
+      },
+    );
     if (f) findings.push(f);
   }
 
@@ -207,26 +244,36 @@ function detectMissingChangelog(
 
   // If we have PR file context, check for non-trivial changes
   if (prFiles && prFiles.length > 0) {
-    const nontrivialChanges = prFiles.filter(f => {
+    const nontrivialChanges = prFiles.filter((f) => {
       const ext = f.split('.').pop()?.toLowerCase() ?? '';
       return ['ts', 'js', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'rb'].includes(ext);
     });
 
-    const hasChangelogContent = lines.some(l =>
+    const hasChangelogContent = lines.some((l) =>
       /\b(?:Added|Fixed|Changed|Removed|Deprecated|Security)\b/.test(l),
     );
 
     if (nontrivialChanges.length > 0 && !hasChangelogContent) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: 1, endLine: lines.length,
+        filePath,
+        startLine: 1,
+        endLine: lines.length,
         codeSnippet: `${nontrivialChanges.length} source files changed but CHANGELOG appears empty`,
-        lens: 'docs', ruleId: 'docs-missing-changelog',
+        lens: 'docs',
+        ruleId: 'docs-missing-changelog',
       };
-      const f = createLensFinding('docs', 'documentation', 'medium',
+      const f = createLensFinding(
+        'docs',
+        'documentation',
+        'medium',
         'Missing CHANGELOG Entry',
         `${nontrivialChanges.length} source files were changed but CHANGELOG has no entries. Document user-facing changes following Keep a Changelog format (Added, Fixed, Changed, Removed).`,
         evidence,
-        { suggestion: 'Add entry: ## [Unreleased]\n### Added\n- New feature description', ruleId: 'docs-missing-changelog' });
+        {
+          suggestion: 'Add entry: ## [Unreleased]\n### Added\n- New feature description',
+          ruleId: 'docs-missing-changelog',
+        },
+      );
       if (f) findings.push(f);
     }
   }
@@ -242,10 +289,7 @@ function detectMissingChangelog(
  * Count exported symbols without JSDoc and report coverage percentage.
  * Flags files where < 50% of exported symbols have documentation.
  */
-function detectApiDocCoverage(
-  lines: string[],
-  filePath: string,
-): LensFinding[] {
+function detectApiDocCoverage(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
 
   let exportedCount = 0;
@@ -255,15 +299,18 @@ function detectApiDocCoverage(
     const line = lines[i]!.trim();
 
     // Detect exported symbols
-    const exportMatch = line.match(/\bexport\s+(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\s+(\w+)/);
+    const exportMatch = line.match(
+      /\bexport\s+(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\s+(\w+)/,
+    );
     if (!exportMatch) continue;
 
     exportedCount++;
 
     // Check preceding lines for JSDoc
     const precedingLines = lines.slice(Math.max(0, i - 10), i);
-    const hasDoc = precedingLines.some(l => /\/\*\*/.test(l)) ||
-                   precedingLines.some(l => /^\/\/\//.test(l.trim()));
+    const hasDoc =
+      precedingLines.some((l) => /\/\*\*/.test(l)) ||
+      precedingLines.some((l) => /^\/\/\//.test(l.trim()));
     if (hasDoc) documentedCount++;
   }
 
@@ -271,15 +318,25 @@ function detectApiDocCoverage(
     const coverage = (documentedCount / exportedCount) * 100;
     if (coverage < 50) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: 1, endLine: lines.length,
+        filePath,
+        startLine: 1,
+        endLine: lines.length,
         codeSnippet: `Doc coverage: ${documentedCount}/${exportedCount} (${coverage.toFixed(0)}%)`,
-        lens: 'docs', ruleId: 'docs-low-coverage',
+        lens: 'docs',
+        ruleId: 'docs-low-coverage',
       };
-      const f = createLensFinding('docs', 'documentation', 'medium',
+      const f = createLensFinding(
+        'docs',
+        'documentation',
+        'medium',
         `Low API Documentation Coverage: ${coverage.toFixed(0)}%`,
         `Only ${documentedCount} of ${exportedCount} exported symbols have JSDoc documentation (${coverage.toFixed(0)}%). Target >= 80% coverage for public API surfaces.`,
         evidence,
-        { suggestion: 'Add JSDoc comments to all exported functions, classes, and interfaces.', ruleId: 'docs-low-coverage' });
+        {
+          suggestion: 'Add JSDoc comments to all exported functions, classes, and interfaces.',
+          ruleId: 'docs-low-coverage',
+        },
+      );
       if (f) findings.push(f);
     }
   }
@@ -296,62 +353,81 @@ function detectApiDocCoverage(
  * Detects: missing operationId, missing response schemas,
  * undocumented parameters, duplicate paths.
  */
-function detectOpenApiIssues(
-  lines: string[],
-  filePath: string,
-): LensFinding[] {
+function detectOpenApiIssues(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
   const fileName = filePath.split('/').pop()?.toLowerCase() ?? '';
   const isOpenApiFile =
-    fileName.includes('openapi') || fileName.includes('swagger') ||
-    fileName.endsWith('.yaml') || fileName.endsWith('.yml') ||
+    fileName.includes('openapi') ||
+    fileName.includes('swagger') ||
+    fileName.endsWith('.yaml') ||
+    fileName.endsWith('.yml') ||
     fileName.endsWith('.json');
 
   if (!isOpenApiFile) return findings;
 
   const content = lines.join('\n');
-  const hasOpenApi = /\bopenapi\s*:\s*["']?3\./i.test(content) ||
-                     /\bswagger\s*:\s*["']?2\./i.test(content);
+  const hasOpenApi =
+    /\bopenapi\s*:\s*["']?3\./i.test(content) || /\bswagger\s*:\s*["']?2\./i.test(content);
 
   if (!hasOpenApi) return findings;
 
   // Check for paths without operationId
   const pathEntries = content.match(/(?:get|post|put|delete|patch|options|head)\s*:/g);
   const operationIds = content.match(/operationId\s*:/g);
-  const pathCount = (pathEntries?.length ?? 0);
-  const opIdCount = (operationIds?.length ?? 0);
+  const pathCount = pathEntries?.length ?? 0;
+  const opIdCount = operationIds?.length ?? 0;
 
   if (pathCount > 0 && opIdCount < pathCount) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: 1, endLine: 1,
+      filePath,
+      startLine: 1,
+      endLine: 1,
       codeSnippet: `${opIdCount}/${pathCount} paths have operationId`,
-      lens: 'docs', ruleId: 'docs-openapi-missing-operationid',
+      lens: 'docs',
+      ruleId: 'docs-openapi-missing-operationid',
     };
-    const f = createLensFinding('docs', 'documentation', 'medium',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'medium',
       `OpenAPI: Missing operationId`,
       `Only ${opIdCount} of ${pathCount} paths define operationId. Every operation should have a unique operationId for code generation and documentation.`,
       evidence,
-      { suggestion: 'Add operationId to each path operation.', ruleId: 'docs-openapi-missing-operationid' });
+      {
+        suggestion: 'Add operationId to each path operation.',
+        ruleId: 'docs-openapi-missing-operationid',
+      },
+    );
     if (f) findings.push(f);
   }
 
   // Check for responses without schema
   const responses = content.match(/(?:'?200'?|'?201'?|'?400'?|'?404'?|'?500'?)\s*:/g);
   const schemas = content.match(/schema\s*:/g);
-  const responseCount = (responses?.length ?? 0);
-  const schemaCount = (schemas?.length ?? 0);
+  const responseCount = responses?.length ?? 0;
+  const schemaCount = schemas?.length ?? 0;
 
   if (responseCount > 0 && schemaCount < responseCount) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: 1, endLine: 1,
+      filePath,
+      startLine: 1,
+      endLine: 1,
       codeSnippet: `${schemaCount}/${responseCount} responses have schema`,
-      lens: 'docs', ruleId: 'docs-openapi-missing-schema',
+      lens: 'docs',
+      ruleId: 'docs-openapi-missing-schema',
     };
-    const f = createLensFinding('docs', 'documentation', 'medium',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'medium',
       `OpenAPI: Missing Response Schema`,
       `Only ${schemaCount} of ${responseCount} responses define a schema. Each response should document its shape for client generation.`,
       evidence,
-      { suggestion: 'Add schema definitions to all response status codes.', ruleId: 'docs-openapi-missing-schema' });
+      {
+        suggestion: 'Add schema definitions to all response status codes.',
+        ruleId: 'docs-openapi-missing-schema',
+      },
+    );
     if (f) findings.push(f);
   }
 
@@ -359,15 +435,25 @@ function detectOpenApiIssues(
   const descriptions = content.match(/description\s*:\s*["']?\s*["']?\s*$/gm);
   if (descriptions && descriptions.length > 0) {
     const evidence: EvidenceAnchor = {
-      filePath, startLine: 1, endLine: 1,
+      filePath,
+      startLine: 1,
+      endLine: 1,
       codeSnippet: `${descriptions.length} empty description fields`,
-      lens: 'docs', ruleId: 'docs-openapi-empty-description',
+      lens: 'docs',
+      ruleId: 'docs-openapi-empty-description',
     };
-    const f = createLensFinding('docs', 'documentation', 'low',
+    const f = createLensFinding(
+      'docs',
+      'documentation',
+      'low',
       `OpenAPI: Empty Descriptions`,
       `${descriptions.length} description fields are empty. Descriptions help developers understand the API.`,
       evidence,
-      { suggestion: 'Add meaningful descriptions to all fields.', ruleId: 'docs-openapi-empty-description' });
+      {
+        suggestion: 'Add meaningful descriptions to all fields.',
+        ruleId: 'docs-openapi-empty-description',
+      },
+    );
     if (f) findings.push(f);
   }
 
@@ -404,18 +490,25 @@ export function analyzeDocs(
 
   // Check for missing README in root (only for package directories)
   if (filePath.endsWith('package.json')) {
-    const hasReadme = lines.some(l => /"readme"/i.test(l));
+    const hasReadme = lines.some((l) => /"readme"/i.test(l));
     if (!hasReadme) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: 1, endLine: 1,
+        filePath,
+        startLine: 1,
+        endLine: 1,
         codeSnippet: 'No README referenced in package.json',
-        lens: 'docs', ruleId: 'docs-missing-readme',
+        lens: 'docs',
+        ruleId: 'docs-missing-readme',
       };
-      const f = createLensFinding('docs', 'documentation', 'low',
+      const f = createLensFinding(
+        'docs',
+        'documentation',
+        'low',
         'Missing README Reference',
         `No "readme" field in package.json. Add a README.md for project documentation.`,
         evidence,
-        { suggestion: 'Add "readme": "README.md" to package.json', ruleId: 'docs-missing-readme' });
+        { suggestion: 'Add "readme": "README.md" to package.json', ruleId: 'docs-missing-readme' },
+      );
       if (f) findings.push(f);
     }
   }

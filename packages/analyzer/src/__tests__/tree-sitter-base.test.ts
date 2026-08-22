@@ -4,8 +4,17 @@
 import { describe, it, expect } from 'vitest';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import type { ParsedImport, UnifiedCapture, CaptureTag, ImportSemantics } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from '../languages/tree-sitter-base.js';
+import type {
+  ParsedImport,
+  UnifiedCapture,
+  CaptureTag,
+  ImportSemantics,
+} from '@code-analyzer/shared';
+import type {
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from '../languages/tree-sitter-base.js';
 
 import { TreeSitterBaseProvider } from '../languages/tree-sitter-base.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
@@ -26,8 +35,16 @@ class TestProvider extends TreeSitterBaseProvider {
 
   protected getNodeMappings(): NodeTypeMapping[] {
     return [
-      { nodeType: 'function_definition', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-      { nodeType: 'class_definition', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'identifier' },
+      {
+        nodeType: 'function_definition',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'class_definition',
+        captureTag: CAPTURE_TAGS.CLASS_DEF,
+        nameChildType: 'identifier',
+      },
     ];
   }
 
@@ -206,7 +223,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should return captures with correct tags', () => {
       const source = 'function hello(): string { return "hi"; }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const funcDefs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      const funcDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcDefs.length).toBeGreaterThanOrEqual(1);
       expect(funcDefs[0]!.name).toBe('hello');
     });
@@ -214,7 +231,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should return captures with positions', () => {
       const source = 'class MyClass {\n  method(): void {}\n}';
       const captures = tsProvider.parse(source, 'test.ts');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       expect(classes[0]!.startLine).toBeGreaterThanOrEqual(1);
     });
@@ -222,7 +239,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect container names', () => {
       const source = 'class User {\n  getInfo(): string { return ""; }\n}';
       const captures = tsProvider.parse(source, 'test.ts');
-      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.length).toBeGreaterThanOrEqual(1);
       expect(methods[0]!.containerName).toBe('User');
     });
@@ -230,7 +247,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect base class extraction', () => {
       const source = 'class Dog extends Animal {\n  bark(): void {}\n}';
       const captures = tsProvider.parse(source, 'test.ts');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       if (classes.length > 0 && classes[0]!.properties?.baseClasses) {
         expect(classes[0]!.properties.baseClasses).toBe('Animal');
@@ -240,8 +257,8 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect call site capture', () => {
       const source = 'function test() { console.log("hello"); }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const calls = captures.filter(c =>
-        c.tag === CAPTURE_TAGS.FUNCTION_CALL || c.tag === CAPTURE_TAGS.METHOD_CALL
+      const calls = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL || c.tag === CAPTURE_TAGS.METHOD_CALL,
       );
       expect(Array.isArray(captures)).toBe(true);
     });
@@ -276,15 +293,19 @@ describe('TreeSitterBaseProvider', () => {
     it('multiple parse calls should work correctly', () => {
       const captures1 = tsProvider.parse('function first() {}', 'first.ts');
       const captures2 = tsProvider.parse('function second() {}', 'second.ts');
-      expect(captures1.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'first').length).toBe(1);
-      expect(captures2.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'second').length).toBe(1);
+      expect(
+        captures1.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'first').length,
+      ).toBe(1);
+      expect(
+        captures2.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'second').length,
+      ).toBe(1);
     });
 
     it('parse with both source and filePath set correctly', () => {
       const source = 'const x: number = 42;';
       const captures = tsProvider.parse(source, 'my-file.ts');
-      const vars = captures.filter(c =>
-        c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF
+      const vars = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF,
       );
       expect(vars.length).toBeGreaterThanOrEqual(1);
     });
@@ -292,7 +313,7 @@ describe('TreeSitterBaseProvider', () => {
     it('queryTree should work with TypeScript provider', () => {
       const results = tsProvider.queryTree(
         'function hello(): void {}',
-        '(function_declaration) @func'
+        '(function_declaration) @func',
       );
       expect(Array.isArray(results)).toBe(true);
     });
@@ -311,14 +332,14 @@ describe('TreeSitterBaseProvider', () => {
 
     it('parse should detect function declarations', () => {
       const captures = jsProvider.parse('function test() {}', 'test.js');
-      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some(f => f.name === 'test')).toBe(true);
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((f) => f.name === 'test')).toBe(true);
     });
 
     it('parse should detect class declarations', () => {
       const captures = jsProvider.parse('class MyClass {}', 'test.js');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classes.some(c => c.name === 'MyClass')).toBe(true);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some((c) => c.name === 'MyClass')).toBe(true);
     });
 
     it('extractImports should return correct types', () => {
@@ -336,7 +357,10 @@ describe('TreeSitterBaseProvider', () => {
     });
 
     it('parse should detect new expressions', () => {
-      const captures = jsProvider.parse('function test() { const d = new Date(); return d; }', 'test.js');
+      const captures = jsProvider.parse(
+        'function test() { const d = new Date(); return d; }',
+        'test.js',
+      );
       expect(Array.isArray(captures)).toBe(true);
     });
 
@@ -355,8 +379,8 @@ describe('TreeSitterBaseProvider', () => {
     it('queryTree should return matches with TypeScript provider', () => {
       const tsProvider = new TypeScriptProvider();
       const results = tsProvider.queryTree(
-        'function hello(): void {}', 
-        '(function_declaration) @func'
+        'function hello(): void {}',
+        '(function_declaration) @func',
       );
       expect(Array.isArray(results)).toBe(true);
     });
@@ -375,7 +399,7 @@ describe('TreeSitterBaseProvider', () => {
       const tsProvider = new TypeScriptProvider();
       const results = tsProvider.queryTree(
         'function hello(): void { return "hi"; }',
-        '(function_declaration name: (identifier) @func_name)'
+        '(function_declaration name: (identifier) @func_name)',
       );
       expect(Array.isArray(results)).toBe(true);
     });
@@ -398,9 +422,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect call expressions (function calls)', () => {
       const source = 'function test() { foo(); }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const calls = captures.filter(c =>
-        c.tag === CAPTURE_TAGS.FUNCTION_CALL
-      );
+      const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
       expect(Array.isArray(captures)).toBe(true);
     });
 
@@ -413,53 +435,53 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect new expressions', () => {
       const source = 'function test() { const d = new Date(); return d; }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const newExprs = captures.filter(c => c.tag === CAPTURE_TAGS.NEW_EXPRESSION);
+      const newExprs = captures.filter((c) => c.tag === CAPTURE_TAGS.NEW_EXPRESSION);
       expect(Array.isArray(captures)).toBe(true);
     });
 
     it('parse should detect method calls on object members', () => {
       const source = 'function test() { console.log("hello"); }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const methodCalls = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_CALL);
+      const methodCalls = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_CALL);
       expect(Array.isArray(captures)).toBe(true);
     });
 
     it('parse should detect class with extends (baseClasses property)', () => {
       const source = 'class Dog extends Animal { bark(): void {} }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       // At least one class should have baseClasses
-      const hasBaseClasses = classes.some(c => c.properties?.baseClasses);
+      const hasBaseClasses = classes.some((c) => c.properties?.baseClasses);
       expect(hasBaseClasses).toBe(true);
     });
 
     it('parse should detect interface definitions', () => {
       const source = 'interface Animal { name: string; }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const interfaces = captures.filter(c => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      const interfaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
       expect(interfaces.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should detect enum definitions', () => {
       const source = 'enum Color { Red, Green, Blue }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const enums = captures.filter(c => c.tag === CAPTURE_TAGS.ENUM_DEF);
+      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
       expect(enums.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should detect type definitions', () => {
       const source = 'type Name = string;';
       const captures = tsProvider.parse(source, 'test.ts');
-      const types = captures.filter(c => c.tag === CAPTURE_TAGS.TYPE_DEF);
+      const types = captures.filter((c) => c.tag === CAPTURE_TAGS.TYPE_DEF);
       expect(types.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should detect variable definitions', () => {
       const source = 'const x = 42;';
       const captures = tsProvider.parse(source, 'test.ts');
-      const vars = captures.filter(c =>
-        c.tag === CAPTURE_TAGS.VARIABLE_DEF || c.tag === CAPTURE_TAGS.CONSTANT_DEF
+      const vars = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF || c.tag === CAPTURE_TAGS.CONSTANT_DEF,
       );
       expect(vars.length).toBeGreaterThanOrEqual(1);
     });
@@ -473,7 +495,7 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect method definitions with containerName', () => {
       const source = 'class User { getName(): string { return "Alice"; } }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.length).toBeGreaterThanOrEqual(1);
       expect(methods[0]!.containerName).toBe('User');
     });
@@ -481,25 +503,25 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect class heritage with extends and baseClasses property', () => {
       const source = 'class Dog extends Animal {}';
       const captures = tsProvider.parse(source, 'test.ts');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
-      const dogClass = classes.find(c => c.name === 'Dog');
+      const dogClass = classes.find((c) => c.name === 'Dog');
       expect(dogClass).toBeDefined();
     });
 
     it('parse should detect call expressions in nested scopes', () => {
       const source = 'function outer() { function inner() { doWork(); } }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.length).toBeGreaterThanOrEqual(2);
     });
 
     it('parse should detect class with extends clause in class_heritage', () => {
       const source = 'class Child extends Parent { method(): void {} }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
-      const child = classes.find(c => c.name === 'Child');
+      const child = classes.find((c) => c.name === 'Child');
       expect(child?.properties?.baseClasses).toBeDefined();
     });
   });
@@ -510,9 +532,9 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect class heritage with extends', () => {
       const source = 'class Rectangle extends Shape { area() { return 1; } }';
       const captures = jsProvider.parse(source, 'test.js');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
-      const rect = classes.find(c => c.name === 'Rectangle');
+      const rect = classes.find((c) => c.name === 'Rectangle');
       expect(rect).toBeDefined();
       if (rect?.properties?.baseClasses) {
         expect(rect.properties.baseClasses).toBe('Shape');
@@ -528,8 +550,8 @@ describe('TreeSitterBaseProvider', () => {
     it('parse should detect variable declarations', () => {
       const source = 'var x = 1; let y = 2; const z = 3;';
       const captures = jsProvider.parse(source, 'test.js');
-      const vars = captures.filter(c =>
-        c.tag === CAPTURE_TAGS.VARIABLE_DEF || c.tag === CAPTURE_TAGS.CONSTANT_DEF
+      const vars = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF || c.tag === CAPTURE_TAGS.CONSTANT_DEF,
       );
       expect(vars.length).toBeGreaterThanOrEqual(1);
     });
@@ -576,7 +598,9 @@ describe('TreeSitterBaseProvider', () => {
 
     it('should handle complex import statements', () => {
       const jsProvider = new JavaScriptProvider();
-      const imports = jsProvider.extractImports("import def from 'pkg'; import { a, b } from 'other';");
+      const imports = jsProvider.extractImports(
+        "import def from 'pkg'; import { a, b } from 'other';",
+      );
       expect(imports.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -599,7 +623,7 @@ describe('TreeSitterBaseProvider', () => {
     it('should detect exported functions', () => {
       const source = 'export function exportedFn(): string { return "hi"; }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.length).toBeGreaterThanOrEqual(1);
       expect(funcs[0]!.name).toBe('exportedFn');
     });
@@ -607,7 +631,7 @@ describe('TreeSitterBaseProvider', () => {
     it('should detect exported classes', () => {
       const source = 'export class ExportedClass { method(): void {} }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       expect(classes[0]!.name).toBe('ExportedClass');
     });
@@ -615,22 +639,23 @@ describe('TreeSitterBaseProvider', () => {
     it('should detect async functions', () => {
       const source = 'async function fetchData(): Promise<string> { return "data"; }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const funcs = captures.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.length).toBeGreaterThanOrEqual(1);
       expect(funcs[0]!.name).toBe('fetchData');
     });
 
     it('should detect class with multiple methods', () => {
-      const source = 'class Service { get(): string { return "a"; } post(): string { return "b"; } }';
+      const source =
+        'class Service { get(): string { return "a"; } post(): string { return "b"; } }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.length).toBeGreaterThanOrEqual(2);
     });
 
     it('should detect class with constructor', () => {
       const source = 'class MyService { constructor(private name: string) {} }';
       const captures = tsProvider.parse(source, 'test.ts');
-      const constructors = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+      const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
       expect(constructors.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -677,7 +702,7 @@ describe('TreeSitterBaseProvider', () => {
     it('should detect class with constructor', () => {
       const source = 'class Person { constructor(name) { this.name = name; } }';
       const captures = jsProvider.parse(source, 'test.js');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       expect(classes[0]!.name).toBe('Person');
     });

@@ -29,7 +29,9 @@ describe('EmbeddingCache', () => {
   });
 
   describe('Set & Get', () => {
-    beforeEach(() => { cache = new EmbeddingCache({ maxEntries: 100 }); });
+    beforeEach(() => {
+      cache = new EmbeddingCache({ maxEntries: 100 });
+    });
 
     it('stores and retrieves an embedding', () => {
       cache.set('key1', vec1, 'hash1');
@@ -74,7 +76,9 @@ describe('EmbeddingCache', () => {
   });
 
   describe('Has', () => {
-    beforeEach(() => { cache = new EmbeddingCache(); });
+    beforeEach(() => {
+      cache = new EmbeddingCache();
+    });
     it('returns true for existing key', () => {
       cache.set('k', vec1, 'hash');
       expect(cache.has('k')).toBe(true);
@@ -89,7 +93,9 @@ describe('EmbeddingCache', () => {
   });
 
   describe('Delete', () => {
-    beforeEach(() => { cache = new EmbeddingCache(); });
+    beforeEach(() => {
+      cache = new EmbeddingCache();
+    });
     it('removes existing entry', () => {
       cache.set('k', vec1, 'hash');
       expect(cache.delete('k')).toBe(true);
@@ -101,7 +107,9 @@ describe('EmbeddingCache', () => {
   });
 
   describe('Invalidation', () => {
-    beforeEach(() => { cache = new EmbeddingCache(); });
+    beforeEach(() => {
+      cache = new EmbeddingCache();
+    });
     it('invalidates by prefix', () => {
       cache.set('file:a:1', vec1, 'h1');
       cache.set('file:a:2', vec2, 'h2');
@@ -127,7 +135,9 @@ describe('EmbeddingCache', () => {
   });
 
   describe('Clear & Stats', () => {
-    beforeEach(() => { cache = new EmbeddingCache(); });
+    beforeEach(() => {
+      cache = new EmbeddingCache();
+    });
     it('clears all entries', () => {
       cache.set('a', vec1, 'h1');
       cache.set('b', vec2, 'h2');
@@ -432,7 +442,7 @@ describe('EmbeddingCache', () => {
     it('evicts entry after TTL expires', async () => {
       const c = new EmbeddingCache({ ttl: 5 });
       c.set('k', vec1, 'h');
-      await new Promise(r => setTimeout(r, 15));
+      await new Promise((r) => setTimeout(r, 15));
       expect(c.get('k')).toBeUndefined();
       expect(c.size).toBe(0);
     });

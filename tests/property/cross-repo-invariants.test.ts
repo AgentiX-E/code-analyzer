@@ -26,14 +26,23 @@ function populateRepo(store: InMemoryGraphStore, projectId: string, symbols: str
   for (const sym of symbols) {
     const uniqueName = `${projectId}__${sym}`;
     const id = store.insertNode({
-      id: 0, projectId, label: 'Class' as any,
-      name: sym, qualifiedName: uniqueName,
-      filePath: `src/${sym}.ts`, startLine: 1, endLine: 20,
+      id: 0,
+      projectId,
+      label: 'Class' as any,
+      name: sym,
+      qualifiedName: uniqueName,
+      filePath: `src/${sym}.ts`,
+      startLine: 1,
+      endLine: 20,
       language: 'typescript',
       properties: { exported: 'true', signature: `class ${sym}` },
-      signature: `class ${sym}`, docstring: null,
-      complexity: 2, isExported: true, fingerprint: null,
-      createdAt: now, updatedAt: now,
+      signature: `class ${sym}`,
+      docstring: null,
+      complexity: 2,
+      isExported: true,
+      fingerprint: null,
+      createdAt: now,
+      updatedAt: now,
     });
     ids.push(id);
   }
@@ -73,13 +82,15 @@ function createMockGroupManager(): RepoGroupManager {
   return mgr;
 }
 
-function createMockPR(overrides: Partial<{
-  number: number;
-  title: string;
-  headSha: string;
-  baseSha: string;
-  repo: string;
-}> = {}) {
+function createMockPR(
+  overrides: Partial<{
+    number: number;
+    title: string;
+    headSha: string;
+    baseSha: string;
+    repo: string;
+  }> = {},
+) {
   return {
     number: overrides.number ?? 1,
     title: overrides.title ?? 'Test PR',
@@ -236,7 +247,13 @@ describe('Property — PR Review Bridge', () => {
   it('should always produce a non-null review result', async () => {
     populateRepo(store, 'org/repo-a', ['Service1', 'Service2']);
     groupManager.createGroup('test-group', 'Test Group', 'desc');
-    groupManager.addRepo('test-group', 'org', 'repo-a', 'https://github.com/org/repo-a', '/tmp/repo-a');
+    groupManager.addRepo(
+      'test-group',
+      'org',
+      'repo-a',
+      'https://github.com/org/repo-a',
+      '/tmp/repo-a',
+    );
 
     const pr = createMockPR({ number: 1, repo: 'org/repo-a' });
     const result = await bridge.reviewPR(pr, 'test-group', 'org/repo-a', []);
@@ -249,7 +266,13 @@ describe('Property — PR Review Bridge', () => {
   it('should produce consistent result structure', async () => {
     populateRepo(store, 'org/repo-x', ['Service1', 'Service2', 'Service3']);
     groupManager.createGroup('group-x', 'Group X', 'desc');
-    groupManager.addRepo('group-x', 'org', 'repo-x', 'https://github.com/org/repo-x', '/tmp/repo-x');
+    groupManager.addRepo(
+      'group-x',
+      'org',
+      'repo-x',
+      'https://github.com/org/repo-x',
+      '/tmp/repo-x',
+    );
 
     const pr = createMockPR({ number: 42, repo: 'org/repo-x' });
     const result = await bridge.reviewPR(pr, 'group-x', 'org/repo-x', []);
@@ -265,14 +288,18 @@ describe('Property — PR Review Bridge', () => {
 
   it('should throw for non-existent group id', async () => {
     const pr = createMockPR({ number: 1, repo: 'org/repo-a' });
-    await expect(
-      bridge.reviewPR(pr, 'nonexistent-group', 'org/repo-a', []),
-    ).rejects.toThrow();
+    await expect(bridge.reviewPR(pr, 'nonexistent-group', 'org/repo-a', [])).rejects.toThrow();
   });
 
   it('should handle empty repo', async () => {
     groupManager.createGroup('empty-group', 'Empty', 'desc');
-    groupManager.addRepo('empty-group', 'empty', 'repo', 'https://github.com/empty/repo', '/tmp/empty-repo');
+    groupManager.addRepo(
+      'empty-group',
+      'empty',
+      'repo',
+      'https://github.com/empty/repo',
+      '/tmp/empty-repo',
+    );
 
     const pr = createMockPR({ number: 1, repo: 'empty/repo' });
     const result = await bridge.reviewPR(pr, 'empty-group', 'empty/repo', []);

@@ -50,14 +50,14 @@ Requires Node.js >= 22.
 
 ## Key Exports
 
-| Category | Exports | Description |
-|----------|---------|-------------|
-| **Config** | `getDefaultConfig`, `loadConfig`, `validateConfig`, `CodeAnalyzerConfig` | Layered config system with env var overrides |
-| **Logging** | `createLogger`, `createNoopLogger`, `LoggerImpl`, `formatJson`, `formatPretty`, `createLevelFilter` | Structured logging with console & file transports |
-| **Errors** | `CodeAnalyzerError`, `ConfigError`, `IOError`, `ParseError`, `ResolutionError`, `GraphIntegrityError`, `EmbeddingError`, `LLMProviderError`, `MCPProtocolError`, `RateLimitError` | Typed error hierarchy with JSON serialization |
-| **i18n** | `DefaultTranslator`, `getTranslator`, `setTranslator`, `resetTranslator`, `DEFAULT_MESSAGES` | Template-based i18n with `{variable}` interpolation |
-| **Metrics** | `DefaultMetricsCollector`, `NoopMetricsCollector`, `createMetrics` | Counter, histogram, and gauge metrics |
-| **Lifecycle** | `LifecycleManager`, `Component`, `HealthStatus`, `HealthCheckResult` | Dependency-ordered init/shutdown/health-check |
+| Category      | Exports                                                                                                                                                                           | Description                                         |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Config**    | `getDefaultConfig`, `loadConfig`, `validateConfig`, `CodeAnalyzerConfig`                                                                                                          | Layered config system with env var overrides        |
+| **Logging**   | `createLogger`, `createNoopLogger`, `LoggerImpl`, `formatJson`, `formatPretty`, `createLevelFilter`                                                                               | Structured logging with console & file transports   |
+| **Errors**    | `CodeAnalyzerError`, `ConfigError`, `IOError`, `ParseError`, `ResolutionError`, `GraphIntegrityError`, `EmbeddingError`, `LLMProviderError`, `MCPProtocolError`, `RateLimitError` | Typed error hierarchy with JSON serialization       |
+| **i18n**      | `DefaultTranslator`, `getTranslator`, `setTranslator`, `resetTranslator`, `DEFAULT_MESSAGES`                                                                                      | Template-based i18n with `{variable}` interpolation |
+| **Metrics**   | `DefaultMetricsCollector`, `NoopMetricsCollector`, `createMetrics`                                                                                                                | Counter, histogram, and gauge metrics               |
+| **Lifecycle** | `LifecycleManager`, `Component`, `HealthStatus`, `HealthCheckResult`                                                                                                              | Dependency-ordered init/shutdown/health-check       |
 
 ## Usage
 
@@ -222,14 +222,22 @@ import type { Component, ComponentDescriptor } from '@code-analyzer/core';
 // Define managed components
 class DatabaseComponent implements Component {
   name = 'database';
-  async init() { /* open connection */ }
-  async shutdown() { /* close connection */ }
+  async init() {
+    /* open connection */
+  }
+  async shutdown() {
+    /* close connection */
+  }
 }
 
 class CacheComponent implements Component {
   name = 'cache';
-  async init() { /* warm cache */ }
-  async shutdown() { /* flush cache */ }
+  async init() {
+    /* warm cache */
+  }
+  async shutdown() {
+    /* flush cache */
+  }
 }
 
 // Register with dependency ordering (database must init first)
@@ -269,21 +277,21 @@ const shutdown = await manager.shutdown();
 
 ### LoggerOptions
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `minLevel` | `LogLevel` | `'info'` | Minimum log severity |
-| `format` | `'json' \| 'pretty'` | `'pretty'` | Output format |
-| `enableFile` | `boolean` | `false` | Enable file transport |
-| `logDir` | `string` | `'./logs'` | File transport directory |
-| `filters` | `LogFilter[]` | — | Additional log filters |
-| `transports` | `LogTransport[]` | — | Custom transports |
+| Field        | Type                 | Default    | Description              |
+| ------------ | -------------------- | ---------- | ------------------------ |
+| `minLevel`   | `LogLevel`           | `'info'`   | Minimum log severity     |
+| `format`     | `'json' \| 'pretty'` | `'pretty'` | Output format            |
+| `enableFile` | `boolean`            | `false`    | Enable file transport    |
+| `logDir`     | `string`             | `'./logs'` | File transport directory |
+| `filters`    | `LogFilter[]`        | —          | Additional log filters   |
+| `transports` | `LogTransport[]`     | —          | Custom transports        |
 
 ### LifecycleOptions
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `shutdownTimeout` | `number` | `5000` | Max ms per component shutdown |
-| `onInitError` | `(name, error) => void` | — | Init failure callback |
+| Field             | Type                    | Default | Description                   |
+| ----------------- | ----------------------- | ------- | ----------------------------- |
+| `shutdownTimeout` | `number`                | `5000`  | Max ms per component shutdown |
+| `onInitError`     | `(name, error) => void` | —       | Init failure callback         |
 
 ## Package Dependencies
 

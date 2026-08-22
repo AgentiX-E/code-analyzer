@@ -11,12 +11,23 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 function makeNode(name: string, qualName: string) {
   const now = new Date().toISOString();
   return {
-    id: 0, projectId: 'concur-test', label: 'Function' as any,
-    name, qualifiedName: qualName, filePath: `src/${name}.ts`,
-    startLine: 1, endLine: 10, language: 'typescript',
-    properties: {}, signature: null, docstring: null,
-    complexity: null, isExported: true, fingerprint: null,
-    createdAt: now, updatedAt: now,
+    id: 0,
+    projectId: 'concur-test',
+    label: 'Function' as any,
+    name,
+    qualifiedName: qualName,
+    filePath: `src/${name}.ts`,
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -43,7 +54,7 @@ describe('InMemoryGraphStore Concurrency', () => {
       });
 
       const results = await Promise.all(readTasks);
-      expect(results.every(r => r === true)).toBe(true);
+      expect(results.every((r) => r === true)).toBe(true);
     });
 
     it('concurrent getAllNodes returns consistent results', async () => {
@@ -59,7 +70,7 @@ describe('InMemoryGraphStore Concurrency', () => {
       const results = await Promise.all(tasks);
       // All concurrent reads should see the same count
       const first = results[0]!;
-      expect(results.every(r => r === first)).toBe(true);
+      expect(results.every((r) => r === first)).toBe(true);
     });
 
     it('concurrent getEdges returns consistent results', async () => {
@@ -69,9 +80,13 @@ describe('InMemoryGraphStore Concurrency', () => {
 
       for (let i = 0; i < 20; i++) {
         store.insertEdge({
-          id: 0, projectId: 'concur-test',
-          sourceId: a, targetId: b,
-          type: 'IMPORTS' as any, properties: {}, weight: 1,
+          id: 0,
+          projectId: 'concur-test',
+          sourceId: a,
+          targetId: b,
+          type: 'IMPORTS' as any,
+          properties: {},
+          weight: 1,
           createdAt: new Date().toISOString(),
         });
       }
@@ -82,7 +97,7 @@ describe('InMemoryGraphStore Concurrency', () => {
 
       const results = await Promise.all(tasks);
       const first = results[0]!;
-      expect(results.every(r => r === first)).toBe(true);
+      expect(results.every((r) => r === first)).toBe(true);
       expect(first).toBe(20);
     });
   });
@@ -131,8 +146,8 @@ describe('InMemoryGraphStore Concurrency', () => {
 
       const results = await Promise.all(tasks);
       // At least one should succeed, rest should detect collision
-      expect(results.filter(r => r === 'success').length).toBe(1);
-      expect(results.filter(r => r === 'collision').length).toBe(19);
+      expect(results.filter((r) => r === 'success').length).toBe(1);
+      expect(results.filter((r) => r === 'collision').length).toBe(19);
     });
   });
 
@@ -153,7 +168,7 @@ describe('InMemoryGraphStore Concurrency', () => {
       });
 
       const results = await Promise.all(tasks);
-      expect(results.every(r => r !== null && r.id === id)).toBe(true);
+      expect(results.every((r) => r !== null && r.id === id)).toBe(true);
     });
 
     it('batched inserts are visible to all subsequent reads', async () => {
@@ -161,13 +176,23 @@ describe('InMemoryGraphStore Concurrency', () => {
       const now = new Date().toISOString();
 
       const nodes = Array.from({ length: 30 }, (_, i) => ({
-        id: 0, projectId: 'concur-test', label: 'Function' as any,
-        name: `BatchVisible${i}`, qualifiedName: `BatchVisible${i}`,
-        filePath: `src/BatchVisible${i}.ts`, startLine: 1, endLine: 10,
-        language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'concur-test',
+        label: 'Function' as any,
+        name: `BatchVisible${i}`,
+        qualifiedName: `BatchVisible${i}`,
+        filePath: `src/BatchVisible${i}.ts`,
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       }));
 
       const ids = store.insertNodes(nodes);
@@ -179,7 +204,7 @@ describe('InMemoryGraphStore Concurrency', () => {
       });
 
       const results = await Promise.all(tasks);
-      expect(results.every(r => r === true)).toBe(true);
+      expect(results.every((r) => r === true)).toBe(true);
     });
   });
 
@@ -195,21 +220,33 @@ describe('InMemoryGraphStore Concurrency', () => {
       // Insert edges synchronously
       for (let i = 0; i < 30; i++) {
         store.insertEdge({
-          id: 0, projectId: 'concur-test',
-          sourceId: nodeId, targetId: nodeId,
-          type: 'SELF_REF' as any, properties: {}, weight: 1,
+          id: 0,
+          projectId: 'concur-test',
+          sourceId: nodeId,
+          targetId: nodeId,
+          type: 'SELF_REF' as any,
+          properties: {},
+          weight: 1,
           createdAt: new Date().toISOString(),
         });
       }
 
       // Concurrent reads while data is stable
-      const reads = await Promise.all(Array.from({ length: 10 }, async () => {
-        const edges = store.queryEdges({ sourceId: nodeId, projectId: 'concur-test', limit: 100 }).items;
-        return edges.length;
-      }));
+      const reads = await Promise.all(
+        Array.from({ length: 10 }, async () => {
+          const edges = store.queryEdges({
+            sourceId: nodeId,
+            projectId: 'concur-test',
+            limit: 100,
+          }).items;
+          return edges.length;
+        }),
+      );
 
-      expect(reads.every(r => r === 30)).toBe(true);
-      expect(store.queryEdges({ sourceId: nodeId, projectId: 'concur-test', limit: 100 }).items.length).toBe(30);
+      expect(reads.every((r) => r === 30)).toBe(true);
+      expect(
+        store.queryEdges({ sourceId: nodeId, projectId: 'concur-test', limit: 100 }).items.length,
+      ).toBe(30);
     });
 
     it('concurrent getNodeCount is consistent during inserts', async () => {
@@ -224,11 +261,13 @@ describe('InMemoryGraphStore Concurrency', () => {
 
       // Writers
       for (let i = 0; i < 20; i++) {
-        tasks.push(Promise.resolve().then(() => {
-          const name = `Count${i}`;
-          store.insertNode(makeNode(name, name));
-          return store.getNodeCount();
-        }));
+        tasks.push(
+          Promise.resolve().then(() => {
+            const name = `Count${i}`;
+            store.insertNode(makeNode(name, name));
+            return store.getNodeCount();
+          }),
+        );
       }
 
       const results = await Promise.all(tasks);
@@ -236,7 +275,7 @@ describe('InMemoryGraphStore Concurrency', () => {
       const finalCount = store.getNodeCount();
       expect(finalCount).toBe(20);
       // Some results may be from before all inserts complete
-      expect(results.every(r => r >= 0 && r <= 20)).toBe(true);
+      expect(results.every((r) => r >= 0 && r <= 20)).toBe(true);
     });
   });
 });

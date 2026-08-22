@@ -20,11 +20,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['packages/*/src/**/*.test.ts', 'tests/integration/**/*.test.ts', 'tests/e2e/**/*.test.ts', 'tests/property/**/*.test.ts'],
+    include: [
+      'packages/*/src/**/*.test.ts',
+      'tests/integration/**/*.test.ts',
+      'tests/e2e/**/*.test.ts',
+      'tests/property/**/*.test.ts',
+    ],
     exclude: [
       'packages/web/**',
       'packages/vscode/**',
-      '**/benchmarks/**',  // Performance benchmarks are environment-sensitive
+      '**/benchmarks/**', // Performance benchmarks are environment-sensitive
     ],
     coverage: {
       provider: 'istanbul',
@@ -41,10 +46,10 @@ export default defineConfig({
       ],
       exclude: [
         '**/*.test.ts',
-        '**/index.ts',                       // Barrel files (tested via consumer tests)
-        '**/provider.ts',                     // Pure interface definitions (0% exec code)
-        '**/fixtures/**',                     // Test fixtures (no exec code)
-        '**/benchmarks/**',                   // Performance benchmarks (not functional tests)
+        '**/index.ts', // Barrel files (tested via consumer tests)
+        '**/provider.ts', // Pure interface definitions (0% exec code)
+        '**/fixtures/**', // Test fixtures (no exec code)
+        '**/benchmarks/**', // Performance benchmarks (not functional tests)
         'packages/infra/src/storage/types.ts', // Pure type definitions
         'packages/core/src/agents/types.ts', // Pure type definitions
         'packages/infra/src/filesystem/watcher.ts', // Future iteration stub

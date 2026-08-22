@@ -12,17 +12,14 @@ import type { CodeAnalyzerConfig } from '@code-analyzer/shared';
  */
 export function deepMerge<T extends Record<string, unknown>>(
   target: T,
-  source: Record<string, unknown>
+  source: Record<string, unknown>,
 ): T {
   const mutableTarget = target as Record<string, unknown>;
   for (const key of Object.keys(source)) {
     const srcVal = source[key];
     const tgtVal = mutableTarget[key];
     if (isPlainObject(srcVal) && isPlainObject(tgtVal)) {
-      mutableTarget[key] = deepMerge(
-        tgtVal,
-        srcVal
-      );
+      mutableTarget[key] = deepMerge(tgtVal, srcVal);
     } else {
       mutableTarget[key] = srcVal;
     }

@@ -83,9 +83,7 @@ function topologicalSort(phases: PhaseNode[]): TopologicalResult {
 
   // Detect cycles: remaining nodes with non-zero in-degree
   const cycles: string[][] = [];
-  const remaining = [...inDegree.entries()]
-    .filter(([_, deg]) => deg > 0)
-    .map(([id]) => id);
+  const remaining = [...inDegree.entries()].filter(([_, deg]) => deg > 0).map(([id]) => id);
 
   if (remaining.length > 0) {
     cycles.push(remaining);
@@ -245,7 +243,17 @@ describe('Pipeline — Topological Sort', () => {
       { id: 'build_index', deps: ['generate_embeddings'] },
       { id: 'community_detect', deps: ['build_imports', 'build_calls'] },
       { id: 'route_detect', deps: ['resolve_names'] },
-      { id: 'finalize', deps: ['build_index', 'detect_cycles', 'compute_impact', 'community_detect', 'route_detect', 'detect_dead'] },
+      {
+        id: 'finalize',
+        deps: [
+          'build_index',
+          'detect_cycles',
+          'compute_impact',
+          'community_detect',
+          'route_detect',
+          'detect_dead',
+        ],
+      },
       { id: 'cleanup', deps: ['finalize'] },
     ];
     const result = topologicalSort(phases);
@@ -282,9 +290,7 @@ describe('Pipeline — Cycle Detection', () => {
   });
 
   it('should detect a self-loop: A → A', () => {
-    const phases: PhaseNode[] = [
-      { id: 'A', deps: ['A'] },
-    ];
+    const phases: PhaseNode[] = [{ id: 'A', deps: ['A'] }];
     const result = topologicalSort(phases);
     expect(result.cycles.length).toBeGreaterThan(0);
   });
@@ -395,9 +401,7 @@ describe('Pipeline — Validation', () => {
   });
 
   it('should detect missing dependency references', () => {
-    const phases: PhaseNode[] = [
-      { id: 'A', deps: ['NONEXISTENT'] },
-    ];
+    const phases: PhaseNode[] = [{ id: 'A', deps: ['NONEXISTENT'] }];
     const errors = validatePipeline(phases);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors[0]).toContain('unknown phase');
@@ -550,9 +554,7 @@ describe('Pipeline — Edge Cases', () => {
   });
 
   it('should handle phases with no dependencies and no dependents', () => {
-    const phases: PhaseNode[] = [
-      { id: 'orphan', deps: [] },
-    ];
+    const phases: PhaseNode[] = [{ id: 'orphan', deps: [] }];
     const result = topologicalSort(phases);
     expect(result.sorted).toEqual(['orphan']);
   });
@@ -656,7 +658,9 @@ describe('Pipeline — Cycle Detection (Iterative DFS)', () => {
       }
     }
 
-    const WHITE = 0, GRAY = 1, BLACK = 2;
+    const WHITE = 0,
+      GRAY = 1,
+      BLACK = 2;
     const color = new Map<string, number>();
     const cycles: string[][] = [];
 

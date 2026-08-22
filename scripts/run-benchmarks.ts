@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   console.log(`  Platform:   ${platform()} ${arch()}`);
   console.log(`  Node.js:    ${nodeVersion}`);
   console.log(`  CPUs:       ${cpus().length}`);
-  console.log(`  Memory:     ${(totalmem() / (1024 ** 3)).toFixed(1)} GB`);
+  console.log(`  Memory:     ${(totalmem() / 1024 ** 3).toFixed(1)} GB`);
   console.log('');
 
   // Determine which benchmark suites to run
@@ -183,7 +183,7 @@ async function main(): Promise<void> {
     platform: platform(),
     arch: arch(),
     cpuCount: cpus().length,
-    totalMemoryGB: Math.round(totalmem() / (1024 ** 3) * 10) / 10,
+    totalMemoryGB: Math.round((totalmem() / 1024 ** 3) * 10) / 10,
     commitSha: (() => {
       try {
         return execSync('git rev-parse HEAD', { cwd: rootDir }).toString().trim();
@@ -194,7 +194,9 @@ async function main(): Promise<void> {
     cases: [],
     summary: {
       totalDurationMs: totalDuration,
-      categoriesTested: suites.map((s) => s.pattern.split('/').pop()?.replace('.bench.ts', '') ?? ''),
+      categoriesTested: suites.map(
+        (s) => s.pattern.split('/').pop()?.replace('.bench.ts', '') ?? '',
+      ),
       casesPassed: passed,
       casesWithRegressions: 0,
     },
@@ -214,7 +216,9 @@ async function main(): Promise<void> {
         if (prev && current.duration.mean > prev.duration.mean * 1.15) {
           const pct = ((current.duration.mean / prev.duration.mean - 1) * 100).toFixed(1);
           console.log(`│ ⚠ REGRESSION: ${current.category}/${current.name}`);
-          console.log(`│   ${prev.duration.mean.toFixed(2)}ms → ${current.duration.mean.toFixed(2)}ms (+${pct}%)`);
+          console.log(
+            `│   ${prev.duration.mean.toFixed(2)}ms → ${current.duration.mean.toFixed(2)}ms (+${pct}%)`,
+          );
           regressions++;
         }
       }
@@ -234,9 +238,15 @@ async function main(): Promise<void> {
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║                     BENCHMARK SUMMARY                       ║');
   console.log('╠══════════════════════════════════════════════════════════════╣');
-  console.log(`║ Suites: ${String(passed).padStart(3)} passed, ${String(failed).padStart(3)} failed, ${String(passed + failed).padStart(3)} total          ║`);
-  console.log(`║ Duration: ${(totalDuration / 1000).toFixed(1)}s${' '.repeat(40 - (totalDuration / 1000).toFixed(1).length)}║`);
-  console.log(`║ Regressions: ${report.summary.casesWithRegressions}${' '.repeat(48 - String(report.summary.casesWithRegressions).length)}║`);
+  console.log(
+    `║ Suites: ${String(passed).padStart(3)} passed, ${String(failed).padStart(3)} failed, ${String(passed + failed).padStart(3)} total          ║`,
+  );
+  console.log(
+    `║ Duration: ${(totalDuration / 1000).toFixed(1)}s${' '.repeat(40 - (totalDuration / 1000).toFixed(1).length)}║`,
+  );
+  console.log(
+    `║ Regressions: ${report.summary.casesWithRegressions}${' '.repeat(48 - String(report.summary.casesWithRegressions).length)}║`,
+  );
   console.log('╚══════════════════════════════════════════════════════════════╝');
 
   // Write report

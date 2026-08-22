@@ -37,11 +37,11 @@ Runs heuristic analysis on the diff content (LLM integration is planned for deep
 
 Removes noise from review comments:
 
-| Filter Rule | Rationale |
-|-------------|-----------|
-| Empty code context | Comments on empty code are meaningless |
-| Invalid line ranges | Comments with non-positive line numbers are invalid |
-| Style comments on comment lines | Style issues on lines that are only comments |
+| Filter Rule                     | Rationale                                           |
+| ------------------------------- | --------------------------------------------------- |
+| Empty code context              | Comments on empty code are meaningless              |
+| Invalid line ranges             | Comments with non-positive line numbers are invalid |
+| Style comments on comment lines | Style issues on lines that are only comments        |
 
 ### Phase 4: Relocate
 
@@ -59,44 +59,44 @@ Each review comment includes:
 
 ```typescript
 interface ReviewComment {
-  id: string;              // Unique comment identifier
-  path: string;            // File path
-  content: string;         // Review feedback text
+  id: string; // Unique comment identifier
+  path: string; // File path
+  content: string; // Review feedback text
   suggestionCode?: string; // Suggested fix code
-  existingCode: string;    // Current code being reviewed
-  startLine: number;       // Starting line number
-  endLine: number;         // Ending line number
-  thinking?: string;       // Reviewer reasoning
+  existingCode: string; // Current code being reviewed
+  startLine: number; // Starting line number
+  endLine: number; // Ending line number
+  thinking?: string; // Reviewer reasoning
   category: ReviewCategory; // Issue category
-  severity: Severity;      // Issue severity
-  filtered: boolean;       // Whether filtered out
-  createdAt: string;       // Timestamp
+  severity: Severity; // Issue severity
+  filtered: boolean; // Whether filtered out
+  createdAt: string; // Timestamp
 }
 ```
 
 ### Review Categories
 
-| Category | Description |
-|----------|-------------|
-| `bug` | Potential bugs or logic errors |
-| `security` | Security vulnerabilities |
-| `performance` | Performance issues |
-| `maintainability` | Code maintainability concerns |
-| `test` | Test coverage or quality issues |
-| `style` | Code style violations |
-| `documentation` | Missing or inadequate documentation |
-| `architecture` | Architectural concerns |
-| `other` | Other issues |
+| Category          | Description                         |
+| ----------------- | ----------------------------------- |
+| `bug`             | Potential bugs or logic errors      |
+| `security`        | Security vulnerabilities            |
+| `performance`     | Performance issues                  |
+| `maintainability` | Code maintainability concerns       |
+| `test`            | Test coverage or quality issues     |
+| `style`           | Code style violations               |
+| `documentation`   | Missing or inadequate documentation |
+| `architecture`    | Architectural concerns              |
+| `other`           | Other issues                        |
 
 ### Severity Levels
 
-| Severity | Description | Example |
-|----------|-------------|---------|
-| `critical` | Must be fixed before merge | Security vulnerability, data loss risk |
-| `high` | Should be fixed before merge | Broken error handling, logic error |
-| `medium` | Should be addressed soon | Function too long, deep nesting |
-| `low` | Nice to have | Style improvement, minor cleanup |
-| `info` | Informational only | Suggested optimization, alternative approach |
+| Severity   | Description                  | Example                                      |
+| ---------- | ---------------------------- | -------------------------------------------- |
+| `critical` | Must be fixed before merge   | Security vulnerability, data loss risk       |
+| `high`     | Should be fixed before merge | Broken error handling, logic error           |
+| `medium`   | Should be addressed soon     | Function too long, deep nesting              |
+| `low`      | Nice to have                 | Style improvement, minor cleanup             |
+| `info`     | Informational only           | Suggested optimization, alternative approach |
 
 ---
 
@@ -108,46 +108,46 @@ Code Analyzer includes a standards engine with 10 built-in templates planned for
 
 ### 10 Built-in Templates
 
-| Standard ID | Name | Category | Language |
-|-------------|------|----------|----------|
-| `typescript-coding` | TypeScript Coding Standards | `code-style` | TypeScript |
-| `python-pep8` | Python PEP8 Standards | `code-style` | Python |
-| `go-idiomatic` | Go Idiomatic Standards | `code-style` | Go |
-| `security-baseline` | Security Baseline | `security` | Any |
-| `api-design` | API Design Standards | `api-design` | Any |
-| `testing-standards` | Testing Standards | `testing` | Any |
-| `error-handling` | Error Handling Standards | `error-handling` | Any |
-| `documentation` | Documentation Standards | `documentation` | Any |
-| `architecture-layered` | Architecture Layered Standards | `architecture` | Any |
-| `dependency-management` | Dependency Management Standards | `dependency` | Any |
+| Standard ID             | Name                            | Category         | Language   |
+| ----------------------- | ------------------------------- | ---------------- | ---------- |
+| `typescript-coding`     | TypeScript Coding Standards     | `code-style`     | TypeScript |
+| `python-pep8`           | Python PEP8 Standards           | `code-style`     | Python     |
+| `go-idiomatic`          | Go Idiomatic Standards          | `code-style`     | Go         |
+| `security-baseline`     | Security Baseline               | `security`       | Any        |
+| `api-design`            | API Design Standards            | `api-design`     | Any        |
+| `testing-standards`     | Testing Standards               | `testing`        | Any        |
+| `error-handling`        | Error Handling Standards        | `error-handling` | Any        |
+| `documentation`         | Documentation Standards         | `documentation`  | Any        |
+| `architecture-layered`  | Architecture Layered Standards  | `architecture`   | Any        |
+| `dependency-management` | Dependency Management Standards | `dependency`     | Any        |
 
 ### Rule Check Types
 
-| Check Type | Description | Example |
-|------------|-------------|---------|
-| `regex` | Regular expression pattern matching | Detect `console.log`, hardcoded secrets |
-| `metric` | Numeric threshold checks | Function line count, nesting depth |
-| `ast-pattern` | AST-based structural checks | Missing docstrings, unused imports |
-| `graph-query` | Knowledge graph queries | Circular dependencies, upward imports |
-| `llm-check` | LLM-based semantic checks | Complex logic review, intent analysis |
+| Check Type    | Description                         | Example                                 |
+| ------------- | ----------------------------------- | --------------------------------------- |
+| `regex`       | Regular expression pattern matching | Detect `console.log`, hardcoded secrets |
+| `metric`      | Numeric threshold checks            | Function line count, nesting depth      |
+| `ast-pattern` | AST-based structural checks         | Missing docstrings, unused imports      |
+| `graph-query` | Knowledge graph queries             | Circular dependencies, upward imports   |
+| `llm-check`   | LLM-based semantic checks           | Complex logic review, intent analysis   |
 
 ### Standards Check Result
 
 ```typescript
 interface StandardsCheckResult {
-  standardId: string;         // Which standard was checked
+  standardId: string; // Which standard was checked
   ruleResults: RuleCheckResult[]; // Per-rule results
-  complianceScore: number;    // 0-100 overall score
-  filesChecked: number;       // Number of files checked
+  complianceScore: number; // 0-100 overall score
+  filesChecked: number; // Number of files checked
   summary: {
-    critical: number;         // Critical violations count
-    high: number;             // High violations count
-    medium: number;           // Medium violations count
-    low: number;              // Low violations count
-    info: number;             // Info-level findings count
-    passed: number;           // Rules that passed
+    critical: number; // Critical violations count
+    high: number; // High violations count
+    medium: number; // Medium violations count
+    low: number; // Low violations count
+    info: number; // Info-level findings count
+    passed: number; // Rules that passed
   };
-  duration: number;           // Check duration in ms
+  duration: number; // Check duration in ms
 }
 ```
 
@@ -172,7 +172,7 @@ engine.registerStandard({
       description: 'TODOs must reference a ticket number',
       checkType: 'regex',
       checkConfig: {
-        pattern: '// TODO(?!\\s*\\()',  // No ticket reference
+        pattern: '// TODO(?!\\s*\\()', // No ticket reference
         flags: 'g',
       },
       severity: 'medium',
@@ -219,30 +219,30 @@ The `ImpactAnalyzer` (`packages/intelligence/src/impact/impact-analyzer.ts`) is 
 
 ### Risk Score Weights
 
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Changed symbols | 30% | Number and severity of changes |
-| Impact breadth | 25% | Number of impacted nodes |
-| Process impact | 20% | Affected business processes |
-| File count | 15% | Number of changed files |
-| Change magnitude | 10% | Total symbols changed |
+| Factor           | Weight | Description                    |
+| ---------------- | ------ | ------------------------------ |
+| Changed symbols  | 30%    | Number and severity of changes |
+| Impact breadth   | 25%    | Number of impacted nodes       |
+| Process impact   | 20%    | Affected business processes    |
+| File count       | 15%    | Number of changed files        |
+| Change magnitude | 10%    | Total symbols changed          |
 
 ### Risk Levels
 
-| Level | Criteria |
-|-------|----------|
-| `critical` | Blocked processes OR 20+ impacted nodes |
-| `high` | 10-19 impacted nodes OR critical symbol risk |
-| `medium` | 5-9 impacted nodes OR high symbol risk |
-| `low` | <5 impacted nodes |
+| Level      | Criteria                                     |
+| ---------- | -------------------------------------------- |
+| `critical` | Blocked processes OR 20+ impacted nodes      |
+| `high`     | 10-19 impacted nodes OR critical symbol risk |
+| `medium`   | 5-9 impacted nodes OR high symbol risk       |
+| `low`      | <5 impacted nodes                            |
 
 ### Estimated Effort
 
-| Level | Criteria |
-|-------|----------|
-| `high` | Risk score >= 70 OR 20+ impacted nodes OR 10+ affected tests |
-| `medium` | Risk score >= 40 OR 10+ impacted nodes |
-| `low` | All other cases |
+| Level    | Criteria                                                     |
+| -------- | ------------------------------------------------------------ |
+| `high`   | Risk score >= 70 OR 20+ impacted nodes OR 10+ affected tests |
+| `medium` | Risk score >= 40 OR 10+ impacted nodes                       |
+| `low`    | All other cases                                              |
 
 ---
 
@@ -269,11 +269,11 @@ Code Analyzer tracks review sessions for resumability and caching.
 
 ```typescript
 const reviewEngine = new CodeReviewEngine(store, {
-  maxTokens: 8000,         // Max tokens per review item
-  maxToolCalls: 10,        // Max tool calls per review
-  planLineThreshold: 200,  // Threshold for "large file" classification
-  timeout: 30000,          // Per-item timeout (ms)
-  concurrency: 4,          // Concurrent review items
+  maxTokens: 8000, // Max tokens per review item
+  maxToolCalls: 10, // Max tool calls per review
+  planLineThreshold: 200, // Threshold for "large file" classification
+  timeout: 30000, // Per-item timeout (ms)
+  concurrency: 4, // Concurrent review items
 });
 ```
 
@@ -373,6 +373,7 @@ Always run impact analysis before merging changes to shared modules or core libr
 ### 6. Monitor review metrics
 
 Track review comments over time:
+
 - **Comment volume**: Are we generating too many comments? Tighten filters.
 - **Resolution rate**: Are comments being addressed? Adjust severity levels.
 - **False positive rate**: Are comments accurate? Refine heuristic rules.

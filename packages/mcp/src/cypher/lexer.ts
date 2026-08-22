@@ -2,17 +2,63 @@
 // Tokenizes a Cypher-like query string into a stream of tokens.
 
 import type { CypherToken } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_EXPOSES, EDGE_EXTENDS, EDGE_HANDLES, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_EXPOSES,
+  EDGE_EXTENDS,
+  EDGE_HANDLES,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
+  EDGE_TESTS,
+} from '@code-analyzer/shared';
 
 const KEYWORDS = new Set([
-  'MATCH', 'OPTIONAL', 'WHERE', 'RETURN', 'WITH', 'ORDER', 'BY',
-  'ASC', 'DESC', 'LIMIT', 'SKIP', 'UNION', 'ALL', 'DISTINCT',
-  'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
-  'AND', 'OR', 'NOT', 'IN', 'IS', 'NULL', 'TRUE', 'FALSE',
-  'AS', 'ON', 'CREATE', 'DELETE', 'SET', 'MERGE', 'DETACH',
-  'CONTAINS', 'STARTS', 'ENDS', 'WITH', 'REGEX',
-  EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS, EDGE_IMPORTS,
-  EDGE_HANDLES, EDGE_EXPOSES, EDGE_TESTS,
+  'MATCH',
+  'OPTIONAL',
+  'WHERE',
+  'RETURN',
+  'WITH',
+  'ORDER',
+  'BY',
+  'ASC',
+  'DESC',
+  'LIMIT',
+  'SKIP',
+  'UNION',
+  'ALL',
+  'DISTINCT',
+  'COUNT',
+  'SUM',
+  'AVG',
+  'MIN',
+  'MAX',
+  'AND',
+  'OR',
+  'NOT',
+  'IN',
+  'IS',
+  'NULL',
+  'TRUE',
+  'FALSE',
+  'AS',
+  'ON',
+  'CREATE',
+  'DELETE',
+  'SET',
+  'MERGE',
+  'DETACH',
+  'CONTAINS',
+  'STARTS',
+  'ENDS',
+  'WITH',
+  'REGEX',
+  EDGE_CALLS,
+  EDGE_IMPLEMENTS,
+  EDGE_EXTENDS,
+  EDGE_IMPORTS,
+  EDGE_HANDLES,
+  EDGE_EXPOSES,
+  EDGE_TESTS,
   '*', // wildcard
 ]);
 
@@ -92,9 +138,17 @@ export function tokenize(query: string): CypherToken[] {
 
       const upper = value.toUpperCase();
       if (KEYWORDS.has(upper)) {
-        tokens.push({ type: 'KEYWORD', value: upper, position: pos - value.length - (isBacktick ? 2 : 0) });
+        tokens.push({
+          type: 'KEYWORD',
+          value: upper,
+          position: pos - value.length - (isBacktick ? 2 : 0),
+        });
       } else {
-        tokens.push({ type: 'IDENTIFIER', value, position: pos - value.length - (isBacktick ? 2 : 0) });
+        tokens.push({
+          type: 'IDENTIFIER',
+          value,
+          position: pos - value.length - (isBacktick ? 2 : 0),
+        });
       }
       continue;
     }

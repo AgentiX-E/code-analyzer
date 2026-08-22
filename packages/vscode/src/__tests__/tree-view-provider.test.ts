@@ -189,9 +189,7 @@ describe('GraphTreeDataProviderLogic', () => {
     });
 
     it('handles symbol children with empty filePath', async () => {
-      const mockResults: SearchResultItem[] = [
-        { name: 'NoFile', filePath: '', label: 'Function' },
-      ];
+      const mockResults: SearchResultItem[] = [{ name: 'NoFile', filePath: '', label: 'Function' }];
       vi.spyOn(engine, 'search').mockResolvedValue(mockResults);
 
       const children = await logic.getChildren('module:/test:');

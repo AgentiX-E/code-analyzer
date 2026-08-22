@@ -51,11 +51,7 @@ export function registerLogging(app: FastifyInstance, config: LoggingConfig): vo
   });
 }
 
-function logStructured(
-  entry: Record<string, unknown>,
-  level: string,
-  statusCode: number,
-): void {
+function logStructured(entry: Record<string, unknown>, level: string, statusCode: number): void {
   if (!shouldLog(level, statusCode)) return;
 
   const logLevel = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info';

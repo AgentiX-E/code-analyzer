@@ -8,9 +8,7 @@ import type { CommentRegion } from '../impact/iou-overlap.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createRegion(
-  overrides: Partial<CommentRegion> = {},
-): CommentRegion {
+function createRegion(overrides: Partial<CommentRegion> = {}): CommentRegion {
   return {
     filePath: '/src/app.ts',
     startLine: 10,
@@ -162,9 +160,7 @@ describe('IoUOverlapDetector.detectOverlap', () => {
   });
 
   it('should ignore comments in different files', () => {
-    const existing = [
-      createRegion({ filePath: '/src/other.ts', startLine: 1, endLine: 10 }),
-    ];
+    const existing = [createRegion({ filePath: '/src/other.ts', startLine: 1, endLine: 10 })];
     const newComment = createRegion({ startLine: 1, endLine: 10 });
 
     const result = detector.detectOverlap(newComment, existing);
@@ -233,9 +229,7 @@ describe('IoUOverlapDetector.filterOverlapping', () => {
   });
 
   it('should not filter comments from different files', () => {
-    const existing = [
-      createRegion({ filePath: '/src/other.ts', startLine: 1, endLine: 10 }),
-    ];
+    const existing = [createRegion({ filePath: '/src/other.ts', startLine: 1, endLine: 10 })];
     const newComments = [createRegion({ startLine: 1, endLine: 10 })];
 
     const filtered = detector.filterOverlapping(newComments, existing);

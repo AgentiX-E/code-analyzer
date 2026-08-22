@@ -117,7 +117,9 @@ function main() {
     console.log(`✅ All ${results.length} dimensions meet the ≥${THRESHOLD}% threshold.`);
   } else {
     const failures = results.filter((r) => !r.pass);
-    console.error(`\n❌ Coverage threshold NOT met! ${failures.length} dimension(s) below ${THRESHOLD}%:`);
+    console.error(
+      `\n❌ Coverage threshold NOT met! ${failures.length} dimension(s) below ${THRESHOLD}%:`,
+    );
     for (const f of failures) {
       console.error(`   ${f.label}: ${f.pct.toFixed(1)}% < ${THRESHOLD}%`);
     }

@@ -38,13 +38,19 @@ export class ThroughputSuite implements BenchmarkSuite {
     measurements.push(
       measurement('Nodes Inserted', nodeCount, 'count', { target: nodeCount, min: nodeCount }),
       measurement('Insert Duration', insertDurationMs, 'ms', { target: 100, max: 500 }),
-      measurement('Insert Throughput', Math.round(nodesPerSec), 'nodes/s', { target: 5000, min: 1000 }),
+      measurement('Insert Throughput', Math.round(nodesPerSec), 'nodes/s', {
+        target: 5000,
+        min: 1000,
+      }),
     );
 
     // Test 2: Node count verification
     const nodeCountResult = store.getNodeCount();
     measurements.push(
-      measurement('Node Count Accuracy', nodeCountResult === nodeCount ? 1 : 0, 'boolean', { target: 1, min: 1 }),
+      measurement('Node Count Accuracy', nodeCountResult === nodeCount ? 1 : 0, 'boolean', {
+        target: 1,
+        min: 1,
+      }),
     );
 
     // Test 3: Search engine initialization time
@@ -91,7 +97,10 @@ export class ThroughputSuite implements BenchmarkSuite {
     const edgesPerSec = (edgeCount / edgeDurationMs) * 1000;
 
     measurements.push(
-      measurement('Edge Insert Throughput', Math.round(edgesPerSec), 'edges/s', { target: 5000, min: 1000 }),
+      measurement('Edge Insert Throughput', Math.round(edgesPerSec), 'edges/s', {
+        target: 5000,
+        min: 1000,
+      }),
     );
 
     details.push(

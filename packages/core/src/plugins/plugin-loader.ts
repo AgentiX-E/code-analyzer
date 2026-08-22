@@ -26,7 +26,7 @@ export class PluginLoader {
     }
 
     // Dynamic import for ESM and CJS interop
-    const module = await import(resolvedPath) as {
+    const module = (await import(resolvedPath)) as {
       default?: unknown;
       plugin?: unknown;
     };
@@ -49,7 +49,7 @@ export class PluginLoader {
    */
   async loadFromNpm(packageName: string): Promise<CodeAnalyzerPlugin> {
     try {
-      const module = await import(packageName) as {
+      const module = (await import(packageName)) as {
         default?: unknown;
         plugin?: unknown;
       };
@@ -90,9 +90,7 @@ export class PluginLoader {
   private validateAndReturn(candidate: unknown): CodeAnalyzerPlugin {
     if (!isValidPlugin(candidate)) {
       const errors = getValidationErrors(candidate);
-      throw new Error(
-        `Invalid plugin: ${errors.join('; ')}`,
-      );
+      throw new Error(`Invalid plugin: ${errors.join('; ')}`);
     }
 
     this.loadedCount++;

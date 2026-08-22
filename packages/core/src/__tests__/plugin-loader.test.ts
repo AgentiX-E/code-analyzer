@@ -20,7 +20,11 @@ function createTempPlugin(content: string): { path: string; cleanup: () => void 
   return {
     path: filePath,
     cleanup: () => {
-      try { unlinkSync(filePath); } catch { /* */ }
+      try {
+        unlinkSync(filePath);
+      } catch {
+        /* */
+      }
     },
   };
 }
@@ -42,9 +46,13 @@ describe('PluginLoader', () => {
 
   describe('validatePlugin', () => {
     it('should return true for valid plugin', () => {
-      expect(loader.validatePlugin({
-        name: 'valid', version: '1.0.0', description: 'desc',
-      })).toBe(true);
+      expect(
+        loader.validatePlugin({
+          name: 'valid',
+          version: '1.0.0',
+          description: 'desc',
+        }),
+      ).toBe(true);
     });
 
     it('should return false for invalid plugin', () => {
@@ -100,9 +108,7 @@ describe('PluginLoader', () => {
     });
 
     it('should throw when plugin has missing required fields', async () => {
-      const { path, cleanup } = createTempPlugin(
-        'export default { name: "bad" };',
-      );
+      const { path, cleanup } = createTempPlugin('export default { name: "bad" };');
       try {
         await expect(loader.loadFromPath(path)).rejects.toThrow(/Invalid plugin/);
       } finally {
@@ -113,7 +119,7 @@ describe('PluginLoader', () => {
     it('should prefer default export over named export', async () => {
       const { path, cleanup } = createTempPlugin(
         'export default { name: "default-plugin", version: "1.0.0", description: "default wins" };\n' +
-        'export const plugin = { name: "named-plugin", version: "2.0.0", description: "named loses" };',
+          'export const plugin = { name: "named-plugin", version: "2.0.0", description: "named loses" };',
       );
       try {
         const plugin = await loader.loadFromPath(path);

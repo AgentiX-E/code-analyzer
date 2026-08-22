@@ -151,9 +151,7 @@ const AGENT_CONFIGS: AgentConfig[] = [
 ];
 
 /** Lookup map for fast agent config retrieval. */
-const AGENT_MAP = new Map<SupportedAgent, AgentConfig>(
-  AGENT_CONFIGS.map((c) => [c.name, c]),
-);
+const AGENT_MAP = new Map<SupportedAgent, AgentConfig>(AGENT_CONFIGS.map((c) => [c.name, c]));
 
 // ---------------------------------------------------------------------------
 // Serialization helpers
@@ -258,7 +256,7 @@ function serializeYaml(
   lines.push(`  - name: ${MCP_SERVER_NAME}`);
   lines.push(`    command: ${serverEntry['command']}`);
   lines.push('    args:');
-  for (const arg of (serverEntry['args'] as string[])) {
+  for (const arg of serverEntry['args'] as string[]) {
     lines.push(`      - ${arg}`);
   }
   const env = serverEntry['env'] as Record<string, string> | undefined;
@@ -364,15 +362,11 @@ export class AgentSetupManager {
       const parsed = JSON.parse(content) as Record<string, unknown>;
 
       if (agent === 'copilot-chat') {
-        const mcp = parsed['github.copilot.chat.mcpServers'] as
-          | Record<string, unknown>
-          | undefined;
+        const mcp = parsed['github.copilot.chat.mcpServers'] as Record<string, unknown> | undefined;
         return mcp != null && MCP_SERVER_NAME in mcp;
       }
 
-      const mcpServers = parsed['mcpServers'] as
-        | Record<string, unknown>
-        | undefined;
+      const mcpServers = parsed['mcpServers'] as Record<string, unknown> | undefined;
       if (mcpServers == null) return false;
 
       return MCP_SERVER_NAME in mcpServers;
@@ -532,12 +526,8 @@ export class AgentSetupManager {
     const installed = this.detectInstalled();
     const installedSet = new Set(installed);
 
-    lines.push(
-      'Agent                     Installed    Configured',
-    );
-    lines.push(
-      '------------------------- ------------ ------------',
-    );
+    lines.push('Agent                     Installed    Configured');
+    lines.push('------------------------- ------------ ------------');
 
     for (const config of AGENT_CONFIGS) {
       const isInstalled = installedSet.has(config.name);
@@ -550,9 +540,7 @@ export class AgentSetupManager {
 
     lines.push('');
     lines.push('Run `code-analyzer agent configure` to set up detected agents.');
-    lines.push(
-      'Run `code-analyzer agent configure --all` to configure all supported agents.',
-    );
+    lines.push('Run `code-analyzer agent configure --all` to configure all supported agents.');
 
     return lines.join('\n');
   }
@@ -563,10 +551,7 @@ export class AgentSetupManager {
   cleanupBackups(): number {
     let removed = 0;
     for (const config of AGENT_CONFIGS) {
-      const backupPath = path.join(
-        this.homeDir,
-        config.configPath + this.backupSuffix,
-      );
+      const backupPath = path.join(this.homeDir, config.configPath + this.backupSuffix);
       if (fs.existsSync(backupPath)) {
         fs.unlinkSync(backupPath);
         removed++;

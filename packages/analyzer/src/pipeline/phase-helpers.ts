@@ -21,7 +21,12 @@ import type {
   NodeProperties,
 } from '@code-analyzer/shared';
 
-import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
+import {
+  getLanguageFromFilename,
+  CAPTURE_TAGS,
+  PhaseLogger,
+  createNoopPhaseLogger,
+} from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { LanguageProvider } from '../languages/provider.js';
 import type { ParsedImport } from '../languages/provider.js';
@@ -54,8 +59,18 @@ export interface PhaseExecutionResult {
 /* v8 ignore start */
 
 export const SKIP_DIRECTORIES = new Set([
-  'node_modules', '.git', 'dist', 'build', '__pycache__', '.next', 'target',
-  '.cache', '.idea', '.vscode', 'coverage', '.nyc_output',
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '__pycache__',
+  '.next',
+  'target',
+  '.cache',
+  '.idea',
+  '.vscode',
+  'coverage',
+  '.nyc_output',
 ]);
 
 export const SKIP_FILE_PATTERNS = [
@@ -80,10 +95,7 @@ export function parseGitignore(rootPath: string): string[] {
     .filter((line) => line.length > 0 && !line.startsWith('#'));
 }
 
-export function matchesGitignore(
-  relativePath: string,
-  patterns: string[],
-): boolean {
+export function matchesGitignore(relativePath: string, patterns: string[]): boolean {
   for (const pattern of patterns) {
     // Simple glob matching
     if (pattern.endsWith('/')) {
@@ -93,9 +105,7 @@ export function matchesGitignore(
         return true;
       }
     } else if (pattern.includes('*')) {
-      const regex = new RegExp(
-        '^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$',
-      );
+      const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
       if (regex.test(relativePath) || regex.test(basename(relativePath))) {
         return true;
       }
@@ -254,10 +264,7 @@ export interface CaptureGroup {
   scopeTree: ScopeTree;
 }
 
-export function groupCaptures(
-  captures: UnifiedCapture[],
-  filePath: string,
-): CaptureGroup {
+export function groupCaptures(captures: UnifiedCapture[], filePath: string): CaptureGroup {
   const symbols: SymbolDefinition[] = [];
   const references: ReferenceSite[] = [];
   let symbolCounter = 0;
@@ -286,9 +293,7 @@ export function groupCaptures(
       const name = capture.name ?? capture.text;
       const kind = captureTagToNodeLabel(tag);
       const containerName = capture.containerName;
-      const qualifiedName = containerName
-        ? `${containerName}.${name}`
-        : `file:${filePath}:${name}`;
+      const qualifiedName = containerName ? `${containerName}.${name}` : `file:${filePath}:${name}`;
 
       symbols.push({
         name,
@@ -339,9 +344,7 @@ export function groupCaptures(
     name: basename(filePath),
     kind: 'File',
     startLine: 1,
-    endLine: captures.length > 0
-      ? captures.reduce((max, c) => Math.max(max, c.endLine), 0)
-      : 1,
+    endLine: captures.length > 0 ? captures.reduce((max, c) => Math.max(max, c.endLine), 0) : 1,
     children: symbols.map((s) => ({
       name: s.name,
       kind: s.kind,

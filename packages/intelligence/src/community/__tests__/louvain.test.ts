@@ -15,21 +15,44 @@ function makeGraph(): KnowledgeGraph {
 
 function addNode(g: KnowledgeGraph, id: number, label: string, name: string): GraphNode {
   const node: GraphNode = {
-    id, projectId: g.projectId, label: label as any, name,
+    id,
+    projectId: g.projectId,
+    label: label as any,
+    name,
     qualifiedName: `${label}:${name}`,
-    filePath: null, startLine: null, endLine: null, language: null,
-    properties: { name }, signature: null, docstring: null, complexity: null,
-    isExported: false, fingerprint: null,
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    filePath: null,
+    startLine: null,
+    endLine: null,
+    language: null,
+    properties: { name },
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: false,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   g.nodes.set(id, node);
   return node;
 }
 
-function addEdge(g: KnowledgeGraph, id: number, sourceId: number, targetId: number, type: string, weight = 1): void {
+function addEdge(
+  g: KnowledgeGraph,
+  id: number,
+  sourceId: number,
+  targetId: number,
+  type: string,
+  weight = 1,
+): void {
   const edge: GraphEdge = {
-    id, projectId: g.projectId, sourceId, targetId,
-    type: type as any, properties: {}, weight,
+    id,
+    projectId: g.projectId,
+    sourceId,
+    targetId,
+    type: type as any,
+    properties: {},
+    weight,
     createdAt: new Date().toISOString(),
   };
   g.edges.set(id, edge);

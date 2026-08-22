@@ -168,10 +168,7 @@ export class ContractValidator {
   /**
    * Compare two contract sets and identify changes.
    */
-  compareContracts(
-    before: ExtractedContract,
-    after: ExtractedContract,
-  ): ContractChange[] {
+  compareContracts(before: ExtractedContract, after: ExtractedContract): ContractChange[] {
     const changes: ContractChange[] = [];
     const beforeMap = new Map(before.symbols.map((s) => [s.name, s]));
     const afterMap = new Map(after.symbols.map((s) => [s.name, s]));
@@ -272,14 +269,22 @@ export class ContractValidator {
   private inferSymbolKind(node: GraphNode): ExtractedContract['symbols'][number]['kind'] {
     const label = node.label;
     switch (label) {
-      case 'Function': return 'function';
-      case 'Class': return 'class';
-      case 'Interface': return 'interface';
-      case 'TypeAlias': return 'type';
-      case 'Enum': return 'enum';
-      case 'Variable': return 'variable';
-      case 'Module': return 'module';
-      default: return 'function';
+      case 'Function':
+        return 'function';
+      case 'Class':
+        return 'class';
+      case 'Interface':
+        return 'interface';
+      case 'TypeAlias':
+        return 'type';
+      case 'Enum':
+        return 'enum';
+      case 'Variable':
+        return 'variable';
+      case 'Module':
+        return 'module';
+      default:
+        return 'function';
     }
   }
 
@@ -311,10 +316,7 @@ export class ContractValidator {
     }
   }
 
-  private async findReposConsumingSymbol(
-    groupId: string,
-    symbolName: string,
-  ): Promise<string[]> {
+  private async findReposConsumingSymbol(groupId: string, symbolName: string): Promise<string[]> {
     try {
       const traces = await this.indexer.traceSymbolDependencies(
         groupId,

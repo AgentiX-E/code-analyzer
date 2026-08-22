@@ -181,7 +181,8 @@ const PROVIDER_MAP: Record<string, LanguageProvider> = {
 
 export class ParseAccuracySuite implements BenchmarkSuite {
   readonly name = 'parse-accuracy';
-  readonly description = 'Measures AST parse accuracy across 20 supported languages using canonical code snippets';
+  readonly description =
+    'Measures AST parse accuracy across 20 supported languages using canonical code snippets';
 
   async run(): Promise<BenchmarkResult> {
     const measurements = [];
@@ -221,9 +222,15 @@ export class ParseAccuracySuite implements BenchmarkSuite {
     const accuracy = totalCases > 0 ? passedCases / totalCases : 0;
 
     measurements.push(
-      measurement('Parse Cases Passed', passedCases, 'count', { target: totalCases, min: totalCases }),
+      measurement('Parse Cases Passed', passedCases, 'count', {
+        target: totalCases,
+        min: totalCases,
+      }),
       measurement('Parse Accuracy', accuracy, 'ratio', { target: 1.0, min: 0.9 }),
-      measurement('Total Languages Tested', Object.keys(PROVIDER_MAP).length, 'count', { target: 9, min: 9 }),
+      measurement('Total Languages Tested', Object.keys(PROVIDER_MAP).length, 'count', {
+        target: 9,
+        min: 9,
+      }),
     );
 
     return makeResult(this.name, this.description, measurements, details);

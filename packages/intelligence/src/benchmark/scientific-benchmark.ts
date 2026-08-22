@@ -35,12 +35,7 @@ export interface GroundTruthIssue {
 
 /** Categories for benchmark issues. */
 export type IssueCategory =
-  | 'security'
-  | 'correctness'
-  | 'performance'
-  | 'maintainability'
-  | 'style'
-  | 'architecture';
+  'security' | 'correctness' | 'performance' | 'maintainability' | 'style' | 'architecture';
 
 /** Severity levels for benchmark issues. */
 export type IssueSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -294,10 +289,7 @@ export function computeBootstrapConfidenceIntervals(
  * @param systemB - Results from system B (treatment)
  * @returns McNemar test result with p-value
  */
-export function mcnemarTest(
-  systemA: CaseResult[],
-  systemB: CaseResult[],
-): SignificanceTest {
+export function mcnemarTest(systemA: CaseResult[], systemB: CaseResult[]): SignificanceTest {
   // Build contingency table at the issue-detection level
   let n10 = 0; // A correct, B wrong
   let n01 = 0; // B correct, A wrong
@@ -359,19 +351,14 @@ export function mcnemarTest(
  * @param end2 - End line of range 2 (1-based)
  * @returns IoU score in [0, 1]
  */
-export function computeIoU(
-  start1: number,
-  end1: number,
-  start2: number,
-  end2: number,
-): number {
+export function computeIoU(start1: number, end1: number, start2: number, end2: number): number {
   const intersectionStart = Math.max(start1, start2);
   const intersectionEnd = Math.min(end1, end2);
 
   if (intersectionStart > intersectionEnd) return 0;
 
   const intersection = intersectionEnd - intersectionStart + 1;
-  const union = (end1 - start1 + 1) + (end2 - start2 + 1) - intersection;
+  const union = end1 - start1 + 1 + (end2 - start2 + 1) - intersection;
 
   return union > 0 ? intersection / union : 0;
 }
@@ -403,12 +390,7 @@ export function matchDetections(
       if (categoryMustMatch && detection.category !== gt.category) continue;
       if (detection.file !== gt.file) continue;
 
-      const iou = computeIoU(
-        detection.startLine,
-        detection.endLine,
-        gt.startLine,
-        gt.endLine,
-      );
+      const iou = computeIoU(detection.startLine, detection.endLine, gt.startLine, gt.endLine);
 
       if (iou > bestIoU && iou >= iouThreshold) {
         bestIoU = iou;
@@ -478,9 +460,7 @@ export function computeCategoryMetrics(
   // Count FN per category
   for (const c of cases) {
     for (const gt of c.groundTruth) {
-      const found = matchedDetections.some(
-        (d) => d.matchedGroundTruthId === gt.id,
-      );
+      const found = matchedDetections.some((d) => d.matchedGroundTruthId === gt.id);
       if (!found) {
         const entry = categories.get(gt.category) ?? { tp: 0, fp: 0, fn: 0 };
         entry.fn++;
@@ -493,7 +473,15 @@ export function computeCategoryMetrics(
     const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
     const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
     const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
-    return { category, truePositives: tp, falsePositives: fp, falseNegatives: fn, precision, recall, f1 };
+    return {
+      category,
+      truePositives: tp,
+      falsePositives: fp,
+      falseNegatives: fn,
+      precision,
+      recall,
+      f1,
+    };
   });
 }
 
@@ -680,15 +668,11 @@ function erfc(x: number): number {
   const sign = x < 0 ? -1 : 1;
   x = Math.abs(x);
   const t = 1.0 / (1.0 + p * x);
-  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
   return sign < 0 ? 2.0 - y : y;
 }
 
-function classifyEffectSize(
-  n10: number,
-  n01: number,
-  totalCases: number,
-): string {
+function classifyEffectSize(n10: number, n01: number, totalCases: number): string {
   const diff = Math.abs(n10 - n01);
   const rate = totalCases > 0 ? diff / totalCases : 0;
 
@@ -725,9 +709,7 @@ function computeSeverityMetrics(
       }
     }
 
-    fp = detections.filter(
-      (d) => !d.isTruePositive && d.severity === severity,
-    ).length;
+    fp = detections.filter((d) => !d.isTruePositive && d.severity === severity).length;
 
     const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
     const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
@@ -736,32 +718,27 @@ function computeSeverityMetrics(
     severities.set(severity, { tp, fp, fn });
   }
 
-  return Array.from(severities.entries()).map(
-    ([severity, { tp, fp, fn }]) => {
-      const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
-      const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
-      const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
-      return {
-        severity,
-        truePositives: tp,
-        falsePositives: fp,
-        falseNegatives: fn,
-        precision,
-        recall,
-        f1,
-      };
-    },
-  );
+  return Array.from(severities.entries()).map(([severity, { tp, fp, fn }]) => {
+    const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
+    const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+    const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+    return {
+      severity,
+      truePositives: tp,
+      falsePositives: fp,
+      falseNegatives: fn,
+      precision,
+      recall,
+      f1,
+    };
+  });
 }
 
 function computeLanguageMetrics(
   cases: BenchmarkCase[],
   caseResults: CaseResult[],
 ): LanguageMetrics[] {
-  const languageData = new Map<
-    string,
-    { cases: number; tp: number; fp: number; fn: number }
-  >();
+  const languageData = new Map<string, { cases: number; tp: number; fp: number; fn: number }>();
 
   for (const c of cases) {
     for (const lang of c.languages) {
@@ -782,12 +759,19 @@ function computeLanguageMetrics(
     }
   }
 
-  return Array.from(languageData.entries()).map(
-    ([language, { cases, tp, fp, fn }]) => {
-      const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
-      const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
-      const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
-      return { language, cases, truePositives: tp, falsePositives: fp, falseNegatives: fn, precision, recall, f1 };
-    },
-  );
+  return Array.from(languageData.entries()).map(([language, { cases, tp, fp, fn }]) => {
+    const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
+    const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+    const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+    return {
+      language,
+      cases,
+      truePositives: tp,
+      falsePositives: fp,
+      falseNegatives: fn,
+      precision,
+      recall,
+      f1,
+    };
+  });
 }

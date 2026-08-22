@@ -58,12 +58,14 @@ export interface RuleTemplate {
 // ---------------------------------------------------------------------------
 
 const VALID_CHECK_TYPES = new Set<StandardRule['checkType']>([
-  'regex', 'metric', 'ast-pattern', 'graph-query', 'llm-check',
+  'regex',
+  'metric',
+  'ast-pattern',
+  'graph-query',
+  'llm-check',
 ]);
 
-const VALID_SEVERITIES = new Set<Severity>([
-  'critical', 'high', 'medium', 'low', 'info',
-]);
+const VALID_SEVERITIES = new Set<Severity>(['critical', 'high', 'medium', 'low', 'info']);
 
 /** Built-in rule templates for quick creation. */
 const RULE_TEMPLATES: RuleTemplate[] = [
@@ -134,7 +136,10 @@ const RULE_TEMPLATES: RuleTemplate[] = [
     category: 'documentation',
     defaultConfig: {
       checkType: 'regex',
-      checkConfig: { pattern: '^export\\s+(?:async\\s+)?(?:function|class|interface|type)\\s+\\w+', flags: 'gm' },
+      checkConfig: {
+        pattern: '^export\\s+(?:async\\s+)?(?:function|class|interface|type)\\s+\\w+',
+        flags: 'gm',
+      },
       severity: 'low',
       autoFixable: false,
     },
@@ -248,11 +253,7 @@ export class CustomRuleEditor {
    * Update an existing custom rule with partial data.
    * Only specified fields are changed; unspecified fields remain unchanged.
    */
-  updateCustomRule(
-    standardId: string,
-    ruleId: string,
-    updates: UpdateRuleInput,
-  ): StandardRule {
+  updateCustomRule(standardId: string, ruleId: string, updates: UpdateRuleInput): StandardRule {
     if (!standardId) throw new Error('standardId is required');
     if (!ruleId) throw new Error('ruleId is required');
 
@@ -286,9 +287,8 @@ export class CustomRuleEditor {
       checkConfig: updates.checkConfig ?? { ...existing.checkConfig },
       severity: updates.severity ?? existing.severity,
       autoFixable: updates.autoFixable ?? existing.autoFixable,
-      fixSuggestion: updates.fixSuggestion !== undefined
-        ? updates.fixSuggestion
-        : existing.fixSuggestion,
+      fixSuggestion:
+        updates.fixSuggestion !== undefined ? updates.fixSuggestion : existing.fixSuggestion,
     };
 
     rules.set(ruleId, updated);
@@ -384,7 +384,10 @@ export class CustomRuleEditor {
 
         let match: RegExpExecArray | null;
         while ((match = regex.exec(sampleCode)) !== null) {
-          if (match[0].length === 0) { regex.lastIndex++; continue; }
+          if (match[0].length === 0) {
+            regex.lastIndex++;
+            continue;
+          }
           const lineNumber = this.getLineNumber(sampleCode, match.index);
           const rangeKey = `${lineNumber}:${match.index}`;
           if (!seenRanges.has(rangeKey)) {
@@ -409,7 +412,9 @@ export class CustomRuleEditor {
         const lines = sampleCode.split('\n');
         if (config.metric === 'function-lines') {
           // Estimate function boundary
-          const funcMatch = sampleCode.match(/(?:function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>|class\s+\w+)/g);
+          const funcMatch = sampleCode.match(
+            /(?:function\s+\w+|const\s+\w+\s*=\s*\([^)]*\)\s*=>|class\s+\w+)/g,
+          );
           if (funcMatch && lines.length > config.threshold) {
             matches.push({
               lineNumber: 1,
@@ -434,9 +439,7 @@ export class CustomRuleEditor {
       }
       // ast-pattern, graph-query, llm-check don't produce sample matches
     } catch (err) {
-      errors.push(
-        `Rule validation error: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      errors.push(`Rule validation error: ${err instanceof Error ? err.message : String(err)}`);
       return { valid: false, matches, errors };
     }
 
@@ -496,9 +499,8 @@ export class CustomRuleEditor {
         checkConfig: (ruleInput['checkConfig'] as Record<string, unknown>) ?? {},
         severity: (ruleInput['severity'] as Severity) ?? 'medium',
         autoFixable: !!ruleInput['autoFixable'],
-        fixSuggestion: typeof ruleInput['fixSuggestion'] === 'string'
-          ? ruleInput['fixSuggestion']
-          : undefined,
+        fixSuggestion:
+          typeof ruleInput['fixSuggestion'] === 'string' ? ruleInput['fixSuggestion'] : undefined,
       });
 
       imported.push(rule);

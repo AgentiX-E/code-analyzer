@@ -26,8 +26,16 @@ import { analyzeStructure, generateStructureReport } from '../review/lenses/stru
 describe('Lens Profiles', () => {
   it('should define all 10 lens profiles', () => {
     const expectedLenses = [
-      'structure', 'security', 'performance', 'testing',
-      'style', 'api', 'deps', 'contract', 'docs', 'synthesis',
+      'structure',
+      'security',
+      'performance',
+      'testing',
+      'style',
+      'api',
+      'deps',
+      'contract',
+      'docs',
+      'synthesis',
     ];
     for (const lensId of expectedLenses) {
       expect(LENS_PROFILES[lensId as keyof typeof LENS_PROFILES]).toBeDefined();
@@ -106,7 +114,9 @@ describe('SECURITY_PATTERNS', () => {
   });
 
   it('should include SQL injection pattern', () => {
-    const sqlPattern = SECURITY_PATTERNS.find(p => p.id.includes('sql') || p.name.toLowerCase().includes('sql'));
+    const sqlPattern = SECURITY_PATTERNS.find(
+      (p) => p.id.includes('sql') || p.name.toLowerCase().includes('sql'),
+    );
     expect(sqlPattern).toBeDefined();
   });
 });
@@ -138,19 +148,23 @@ describe('KNOWN_CVE_ADVISORIES', () => {
 describe('reviewDependencyHealth', () => {
   // --- npm ---
   it('should parse npm dependencies from package.json', () => {
-    const content = JSON.stringify({
-      dependencies: {
-        'left-pad': '1.3.0',
-        'lodash': '4.17.21',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          'left-pad': '1.3.0',
+          lodash: '4.17.21',
+        },
+        devDependencies: {
+          jest: '29.0.0',
+        },
       },
-      devDependencies: {
-        'jest': '29.0.0',
-      },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
     // left-pad is deprecated — should produce a finding
-    const leftPadFinding = findings.find(f => f.title.includes('left-pad'));
+    const leftPadFinding = findings.find((f) => f.title.includes('left-pad'));
     expect(leftPadFinding).toBeDefined();
     expect(leftPadFinding!.category).toBe('maintainability');
     expect(leftPadFinding!.severity).toBe('high');
@@ -158,18 +172,20 @@ describe('reviewDependencyHealth', () => {
   });
 
   it('should detect unpinned npm versions', () => {
-    const content = JSON.stringify({
-      dependencies: {
-        'express': '^4.18.0',
-        'axios': '~1.4.0',
-        'lodash': '>=4.0.0',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          express: '^4.18.0',
+          axios: '~1.4.0',
+          lodash: '>=4.0.0',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const unpinnedFindings = findings.filter(f =>
-      f.title.includes('Unpinned'),
-    );
+    const unpinnedFindings = findings.filter((f) => f.title.includes('Unpinned'));
     // Should detect ^, ~, and >= as unpinned
     expect(unpinnedFindings.length).toBeGreaterThanOrEqual(2);
     for (const f of unpinnedFindings) {
@@ -179,15 +195,19 @@ describe('reviewDependencyHealth', () => {
 
   it('should detect CVE-vulnerable dependencies', () => {
     // Use a known CVE advisory from KNOWN_CVE_ADVISORIES with a vulnerable version
-    const content = JSON.stringify({
-      dependencies: {
-        'lodash': '4.17.15',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          lodash: '4.17.15',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
     // lodash < 4.17.21 is vulnerable
-    const cveFindings = findings.filter(f => f.title.includes('CVE'));
+    const cveFindings = findings.filter((f) => f.title.includes('CVE'));
     // May or may not match depending on advisory data, but structure is correct
     if (cveFindings.length > 0) {
       expect(cveFindings[0]!.evidence.lens).toBe('deps');
@@ -196,27 +216,35 @@ describe('reviewDependencyHealth', () => {
   });
 
   it('should detect deprecated package (request)', () => {
-    const content = JSON.stringify({
-      dependencies: {
-        'request': '2.88.0',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          request: '2.88.0',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const requestFinding = findings.find(f => f.title.includes('request'));
+    const requestFinding = findings.find((f) => f.title.includes('request'));
     expect(requestFinding).toBeDefined();
     expect(requestFinding!.title).toContain('Deprecated');
   });
 
   it('should detect deprecated package with version (core-js@2)', () => {
-    const content = JSON.stringify({
-      dependencies: {
-        'core-js': '2.6.0',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          'core-js': '2.6.0',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const coreJsFinding = findings.find(f => f.title.toLowerCase().includes('core-js'));
+    const coreJsFinding = findings.find((f) => f.title.toLowerCase().includes('core-js'));
     expect(coreJsFinding).toBeDefined();
     expect(coreJsFinding!.title).toContain('Deprecated');
   });
@@ -229,11 +257,7 @@ describe('reviewDependencyHealth', () => {
 
   // --- pip ---
   it('should parse pip requirements.txt dependencies', () => {
-    const content = [
-      'requests==2.25.0',
-      'flask>=2.0.0',
-      'django==3.2.0',
-    ].join('\n');
+    const content = ['requests==2.25.0', 'flask>=2.0.0', 'django==3.2.0'].join('\n');
 
     const findings = reviewDependencyHealth(content, '/requirements.txt', 'pip');
     expect(Array.isArray(findings)).toBe(true);
@@ -297,9 +321,13 @@ describe('reviewDependencyHealth', () => {
 
   // --- Valid filePath ---
   it('should set filePath in all findings', () => {
-    const content = JSON.stringify({
-      dependencies: { 'left-pad': '1.3.0' },
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        dependencies: { 'left-pad': '1.3.0' },
+      },
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/custom/path/package.json', 'npm');
     for (const f of findings) {
@@ -310,33 +338,45 @@ describe('reviewDependencyHealth', () => {
   // --- Unpinned version edge cases ---
   it('should detect wildcard version as unpinned', () => {
     // Use a version range pattern the existing regex handles (requires chars after pin char)
-    const content = JSON.stringify({
-      dependencies: { 'lodash': '>=0.0.0' },
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        dependencies: { lodash: '>=0.0.0' },
+      },
+      null,
+      2,
+    );
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const unpinned = findings.filter(f => f.evidence.ruleId === 'deps-unpinned');
+    const unpinned = findings.filter((f) => f.evidence.ruleId === 'deps-unpinned');
     expect(unpinned.length).toBeGreaterThan(0);
   });
 
   it('should not flag pinned versions', () => {
-    const content = JSON.stringify({
-      dependencies: { 'lodash': '4.17.21' },
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        dependencies: { lodash: '4.17.21' },
+      },
+      null,
+      2,
+    );
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const unpinned = findings.filter(f => f.evidence.ruleId === 'deps-unpinned');
+    const unpinned = findings.filter((f) => f.evidence.ruleId === 'deps-unpinned');
     expect(unpinned.length).toBe(0);
   });
 
   // --- npm: devDependencies parsing ---
   it('should parse npm devDependencies', () => {
-    const content = JSON.stringify({
-      devDependencies: {
-        'request': '2.88.0',
+    const content = JSON.stringify(
+      {
+        devDependencies: {
+          request: '2.88.0',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const requestFinding = findings.find(f => f.title.includes('request'));
+    const requestFinding = findings.find((f) => f.title.includes('request'));
     expect(requestFinding).toBeDefined();
     expect(requestFinding!.title).toContain('Deprecated');
   });
@@ -360,28 +400,36 @@ describe('reviewDependencyHealth', () => {
 
   // --- deprecated package without version prefix ---
   it('should detect deprecated package (hoek)', () => {
-    const content = JSON.stringify({
-      dependencies: {
-        'hoek': '5.0.0',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          hoek: '5.0.0',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const hoekFinding = findings.find(f => f.title.toLowerCase().includes('hoek'));
+    const hoekFinding = findings.find((f) => f.title.toLowerCase().includes('hoek'));
     expect(hoekFinding).toBeDefined();
     expect(hoekFinding!.title).toContain('Deprecated');
   });
 
   // --- CVE matching for a specific advisory ---
   it('should detect CVE for braces < 3.0.3', () => {
-    const content = JSON.stringify({
-      dependencies: {
-        'braces': '2.0.0',
+    const content = JSON.stringify(
+      {
+        dependencies: {
+          braces: '2.0.0',
+        },
       },
-    }, null, 2);
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/package.json', 'npm');
-    const cveFindings = findings.filter(f => f.title.includes('CVE-2024-4068'));
+    const cveFindings = findings.filter((f) => f.title.includes('CVE-2024-4068'));
     expect(cveFindings.length).toBe(1);
     expect(cveFindings[0]!.category).toBe('security');
     expect(cveFindings[0]!.severity).toBe('high');
@@ -412,9 +460,7 @@ describe('reviewApiContract', () => {
     const current = 'export function newFunc() {}\n';
 
     const findings = reviewApiContract(current, '/src/api.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBe(2);
     expect(removedFindings[0]!.severity).toBe('critical');
     expect(removedFindings[0]!.category).toBe('api');
@@ -425,9 +471,7 @@ describe('reviewApiContract', () => {
     const current = 'export function greet(name: string, age: number): string {}';
 
     const findings = reviewApiContract(current, '/src/greet.ts', previous);
-    const sigFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-signature-change',
-    );
+    const sigFindings = findings.filter((f) => f.evidence.ruleId === 'contract-signature-change');
     expect(sigFindings.length).toBeGreaterThan(0);
     expect(sigFindings[0]!.severity).toBe('high');
     expect(sigFindings[0]!.title).toContain('Signature Changed');
@@ -444,18 +488,14 @@ describe('reviewApiContract', () => {
     ].join('\n');
 
     const findings = reviewApiContract(current, '/src/old.ts', previous);
-    const sigFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-signature-change',
-    );
+    const sigFindings = findings.filter((f) => f.evidence.ruleId === 'contract-signature-change');
     expect(sigFindings.length).toBe(0);
   });
 
   it('should not flag when content is identical (contentDiffers guard)', () => {
     const content = 'export function foo(): void {}\n';
     const findings = reviewApiContract(content, '/src/foo.ts', content);
-    const sigFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-signature-change',
-    );
+    const sigFindings = findings.filter((f) => f.evidence.ruleId === 'contract-signature-change');
     expect(sigFindings.length).toBe(0);
   });
 
@@ -475,7 +515,7 @@ describe('reviewApiContract', () => {
     const current = 'export function a() {}\n';
 
     const findings = reviewApiContract(current, '/src/multi.ts', previous);
-    const removed = findings.filter(f => f.evidence.ruleId === 'contract-removed-export');
+    const removed = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removed.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -492,7 +532,7 @@ describe('reviewApiContract', () => {
 
   it('should handle empty content strings', () => {
     const findings = reviewApiContract('', '/src/empty.ts', 'export function x() {}');
-    const removed = findings.filter(f => f.evidence.ruleId === 'contract-removed-export');
+    const removed = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removed.length).toBeGreaterThan(0);
   });
 
@@ -526,9 +566,7 @@ describe('reviewApiContract', () => {
     const findings = reviewApiContract(current, '/src/user.ts', previous);
     // The multiline extraction should detect the signature change
     // (previous has 1 param, current has 2 params)
-    const sigFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-signature-change',
-    );
+    const sigFindings = findings.filter((f) => f.evidence.ruleId === 'contract-signature-change');
     expect(sigFindings.length).toBeGreaterThan(0);
     expect(sigFindings[0]!.title).toContain('createUser');
     expect(sigFindings[0]!.description).toContain('Previous:');
@@ -541,9 +579,7 @@ describe('reviewApiContract', () => {
     const current = 'export function keep() {}\n';
 
     const findings = reviewApiContract(current, '/src/api.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     // NOTE: extractExportedSymbols uses Set<{name,line}> and has() checks
     // with a string against object keys, so all previous exports appear removed
     expect(removedFindings.length).toBeGreaterThanOrEqual(1);
@@ -554,9 +590,7 @@ describe('reviewApiContract', () => {
     const current = 'export const API_URL = "http://api";\n';
 
     const findings = reviewApiContract(current, '/src/api.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -565,9 +599,7 @@ describe('reviewApiContract', () => {
     const current = 'export interface Config {}\n';
 
     const findings = reviewApiContract(current, '/src/types.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -576,9 +608,7 @@ describe('reviewApiContract', () => {
     const current = '\n';
 
     const findings = reviewApiContract(current, '/src/types.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBe(1);
   });
 
@@ -587,9 +617,7 @@ describe('reviewApiContract', () => {
     const current = '\n';
 
     const findings = reviewApiContract(current, '/src/enums.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBe(1);
   });
 
@@ -598,9 +626,7 @@ describe('reviewApiContract', () => {
     const current = '\n';
 
     const findings = reviewApiContract(current, '/src/state.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBe(1);
   });
 
@@ -609,9 +635,7 @@ describe('reviewApiContract', () => {
     const current = '\n';
 
     const findings = reviewApiContract(current, '/src/global.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBe(1);
   });
 
@@ -620,9 +644,7 @@ describe('reviewApiContract', () => {
     const current = 'export function helper() {}\n';
 
     const findings = reviewApiContract(current, '/src/api.ts', previous);
-    const removedFindings = findings.filter(f =>
-      f.evidence.ruleId === 'contract-removed-export',
-    );
+    const removedFindings = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
     expect(removedFindings.length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -642,8 +664,12 @@ describe('createLensFinding', () => {
 
   it('should create a lens finding with valid evidence', () => {
     const finding = createLensFinding(
-      'security', 'security', 'high',
-      'Test Finding', 'This is a test', validEvidence,
+      'security',
+      'security',
+      'high',
+      'Test Finding',
+      'This is a test',
+      validEvidence,
     );
     expect(finding).not.toBeNull();
     expect(finding!.id).toMatch(/^sec-/);
@@ -655,34 +681,34 @@ describe('createLensFinding', () => {
   });
 
   it('should return null when filePath is empty (HARD GATE)', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'Test', 'desc',
-      { ...validEvidence, filePath: '' },
-    );
+    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+      ...validEvidence,
+      filePath: '',
+    });
     expect(finding).toBeNull();
   });
 
   it('should return null when codeSnippet is empty (HARD GATE)', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'Test', 'desc',
-      { ...validEvidence, codeSnippet: '' },
-    );
+    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+      ...validEvidence,
+      codeSnippet: '',
+    });
     expect(finding).toBeNull();
   });
 
   it('should return null when startLine <= 0 (HARD GATE)', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'Test', 'desc',
-      { ...validEvidence, startLine: 0 },
-    );
+    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+      ...validEvidence,
+      startLine: 0,
+    });
     expect(finding).toBeNull();
   });
 
   it('should return null for negative startLine', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'Test', 'desc',
-      { ...validEvidence, startLine: -1 },
-    );
+    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+      ...validEvidence,
+      startLine: -1,
+    });
     expect(finding).toBeNull();
   });
 
@@ -713,7 +739,14 @@ describe('createLensFinding', () => {
   });
 
   it('should assign heuristic confidence for performance lens', () => {
-    const finding = createLensFinding('performance', 'performance', 'medium', 'T', 'D', validEvidence);
+    const finding = createLensFinding(
+      'performance',
+      'performance',
+      'medium',
+      'T',
+      'D',
+      validEvidence,
+    );
     expect(finding!.confidence).toBe('heuristic');
   });
 
@@ -756,15 +789,30 @@ describe('createLensFinding', () => {
   });
 
   it('should set graphRef from options', () => {
-    const finding = createLensFinding('structure', 'architecture', 'high', 'T', 'D', validEvidence, {
-      graphRef: 'node-abc-123',
-    });
+    const finding = createLensFinding(
+      'structure',
+      'architecture',
+      'high',
+      'T',
+      'D',
+      validEvidence,
+      {
+        graphRef: 'node-abc-123',
+      },
+    );
     expect(finding!.evidence.graphRef).toBe('node-abc-123');
   });
 
   it('should use evidence graphRef when options graphRef is not provided', () => {
     const evidenceWithGraphRef = { ...validEvidence, graphRef: 'evidence-graph-ref' };
-    const finding = createLensFinding('structure', 'architecture', 'high', 'T', 'D', evidenceWithGraphRef);
+    const finding = createLensFinding(
+      'structure',
+      'architecture',
+      'high',
+      'T',
+      'D',
+      evidenceWithGraphRef,
+    );
     expect(finding!.evidence.graphRef).toBe('evidence-graph-ref');
   });
 
@@ -786,8 +834,11 @@ describe('createLensFinding', () => {
 describe('lensFindingToReviewComment', () => {
   it('should convert LensFinding to ReviewComment', () => {
     const finding = createLensFinding(
-      'security', 'security', 'high',
-      'Hardcoded Secret', 'Found a hardcoded API key',
+      'security',
+      'security',
+      'high',
+      'Hardcoded Secret',
+      'Found a hardcoded API key',
       {
         filePath: '/src/config.ts',
         startLine: 42,
@@ -814,8 +865,11 @@ describe('lensFindingToReviewComment', () => {
 
   it('should handle finding without suggestion', () => {
     const finding = createLensFinding(
-      'style', 'style', 'low',
-      'Missing Semicolon', 'Line does not end with semicolon',
+      'style',
+      'style',
+      'low',
+      'Missing Semicolon',
+      'Line does not end with semicolon',
       {
         filePath: '/src/app.ts',
         startLine: 10,
@@ -844,7 +898,9 @@ app.post('/users', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     expect(validationFindings.length).toBeGreaterThan(0);
     expect(validationFindings[0]!.severity).toBe('high');
     expect(validationFindings[0]!.title).toContain('POST');
@@ -857,7 +913,9 @@ router.put('/users/:id', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/routes.js');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     expect(validationFindings.length).toBeGreaterThan(0);
   });
 
@@ -868,7 +926,9 @@ this.patch('/items/:id', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/items.js');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     expect(validationFindings.length).toBeGreaterThan(0);
   });
 
@@ -879,7 +939,9 @@ app.get('/health', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const errorFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-error-handling');
+    const errorFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-error-handling',
+    );
     expect(errorFindings.length).toBeGreaterThan(0);
     expect(errorFindings[0]!.severity).toBe('medium');
   });
@@ -891,7 +953,9 @@ app.delete('/users/:id', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.js');
-    const errorFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-error-handling');
+    const errorFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-error-handling',
+    );
     expect(errorFindings.length).toBeGreaterThan(0);
   });
 
@@ -902,7 +966,7 @@ app.delete('/items/:id', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const rateFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-rate-limit');
+    const rateFindings = findings.filter((f) => f.evidence.ruleId === 'api-missing-rate-limit');
     expect(rateFindings.length).toBeGreaterThan(0);
     expect(rateFindings[0]!.severity).toBe('low');
   });
@@ -914,7 +978,7 @@ app.put('/settings', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.js');
-    const rateFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-rate-limit');
+    const rateFindings = findings.filter((f) => f.evidence.ruleId === 'api-missing-rate-limit');
     expect(rateFindings.length).toBeGreaterThan(0);
   });
 
@@ -946,7 +1010,9 @@ app.post('/data', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.mjs');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     expect(validationFindings.length).toBeGreaterThan(0);
   });
 
@@ -971,7 +1037,9 @@ app.post('/users', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     expect(validationFindings.length).toBe(0);
   });
 
@@ -987,7 +1055,9 @@ app.get('/users', async (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const errorFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-error-handling');
+    const errorFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-error-handling',
+    );
     expect(errorFindings.length).toBe(0);
   });
 
@@ -998,7 +1068,7 @@ app.post('/submit', rateLimit({ windowMs: 60000 }), (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const rateFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-rate-limit');
+    const rateFindings = findings.filter((f) => f.evidence.ruleId === 'api-missing-rate-limit');
     expect(rateFindings.length).toBe(0);
   });
 
@@ -1049,9 +1119,13 @@ router.post('/submit', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/routes.ts');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
-    const errorFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-error-handling');
-    const rateFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-rate-limit');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
+    const errorFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-error-handling',
+    );
+    const rateFindings = findings.filter((f) => f.evidence.ruleId === 'api-missing-rate-limit');
     expect(validationFindings.length).toBeGreaterThan(0);
     expect(errorFindings.length).toBeGreaterThan(0);
     expect(rateFindings.length).toBeGreaterThan(0);
@@ -1121,7 +1195,7 @@ app.get('/health', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const rateFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-rate-limit');
+    const rateFindings = findings.filter((f) => f.evidence.ruleId === 'api-missing-rate-limit');
     // GET routes are not checked for rate limiting
     expect(rateFindings.length).toBe(0);
   });
@@ -1133,7 +1207,9 @@ app.get('/data', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     // GET routes are not checked for validation
     expect(validationFindings.length).toBe(0);
   });
@@ -1145,7 +1221,9 @@ app.delete('/items/:id', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const validationFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-validation');
+    const validationFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-validation',
+    );
     // DELETE is not in [POST, PUT, PATCH]
     expect(validationFindings.length).toBe(0);
   });
@@ -1155,7 +1233,9 @@ app.delete('/items/:id', (req, res) => {
 app.use('/api', apiRouter);
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const errorFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-error-handling');
+    const errorFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-error-handling',
+    );
     // USE is not in [GET, POST, PUT, DELETE, PATCH]
     expect(errorFindings.length).toBe(0);
   });
@@ -1167,7 +1247,9 @@ app.put('/data', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const errorFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-error-handling');
+    const errorFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'api-missing-error-handling',
+    );
     expect(errorFindings.length).toBeGreaterThan(0);
   });
 
@@ -1178,7 +1260,7 @@ app.get('/data', (req, res) => {
 });
 `;
     const findings = analyzeApi(content, '/src/server.ts');
-    const rateFindings = findings.filter(f => f.evidence.ruleId === 'api-missing-rate-limit');
+    const rateFindings = findings.filter((f) => f.evidence.ruleId === 'api-missing-rate-limit');
     // GET is not in [POST, PUT, DELETE, PATCH]
     expect(rateFindings.length).toBe(0);
   });
@@ -1226,7 +1308,7 @@ export function processData(data: string): string {
 }
 `;
     const findings = analyzeDocs(content, '/src/utils.ts');
-    const missingJsdoc = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const missingJsdoc = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
     expect(missingJsdoc.length).toBeGreaterThan(0);
     expect(missingJsdoc[0]!.title).toContain('processData');
   });
@@ -1241,7 +1323,7 @@ export function processData(data: string, options: object): string {
 }
 `;
     const findings = analyzeDocs(content, '/src/utils.ts');
-    const missingParams = findings.filter(f => f.evidence.ruleId === 'docs-missing-params');
+    const missingParams = findings.filter((f) => f.evidence.ruleId === 'docs-missing-params');
     expect(missingParams.length).toBeGreaterThan(0);
   });
 
@@ -1256,7 +1338,7 @@ export function processData(data: string, options: object): string {
 }
 `;
     const findings = analyzeDocs(content, '/src/utils.ts');
-    const incompleteParams = findings.filter(f => f.evidence.ruleId === 'docs-incomplete-params');
+    const incompleteParams = findings.filter((f) => f.evidence.ruleId === 'docs-incomplete-params');
     expect(incompleteParams.length).toBeGreaterThan(0);
   });
 
@@ -1271,7 +1353,7 @@ export function compute(x: number): number {
 }
 `;
     const findings = analyzeDocs(content, '/src/math.ts');
-    const missingReturns = findings.filter(f => f.evidence.ruleId === 'docs-missing-returns');
+    const missingReturns = findings.filter((f) => f.evidence.ruleId === 'docs-missing-returns');
     expect(missingReturns.length).toBeGreaterThan(0);
   });
 
@@ -1314,23 +1396,31 @@ function internalHelper(): void {}
   });
 
   it('should detect missing README reference in package.json', () => {
-    const content = JSON.stringify({
-      name: 'my-package',
-      version: '1.0.0',
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        name: 'my-package',
+        version: '1.0.0',
+      },
+      null,
+      2,
+    );
     const findings = analyzeDocs(content, '/project/package.json');
-    const readmeFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-readme');
+    const readmeFindings = findings.filter((f) => f.evidence.ruleId === 'docs-missing-readme');
     expect(readmeFindings.length).toBeGreaterThan(0);
   });
 
   it('should not flag package.json with readme field', () => {
-    const content = JSON.stringify({
-      name: 'my-package',
-      version: '1.0.0',
-      readme: 'README.md',
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        name: 'my-package',
+        version: '1.0.0',
+        readme: 'README.md',
+      },
+      null,
+      2,
+    );
     const findings = analyzeDocs(content, '/project/package.json');
-    const readmeFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-readme');
+    const readmeFindings = findings.filter((f) => f.evidence.ruleId === 'docs-missing-readme');
     expect(readmeFindings.length).toBe(0);
   });
 
@@ -1339,7 +1429,7 @@ function internalHelper(): void {}
 export function foo(): void {}
 `;
     const findings = analyzeDocs(content, '/src/index.ts');
-    const readmeFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-readme');
+    const readmeFindings = findings.filter((f) => f.evidence.ruleId === 'docs-missing-readme');
     expect(readmeFindings.length).toBe(0);
   });
 
@@ -1362,7 +1452,7 @@ export async function fetchData(url: string): Promise<object> {
 }
 `;
     const findings = analyzeDocs(content, '/src/api.ts');
-    const missingJsdoc = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const missingJsdoc = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
     expect(missingJsdoc.length).toBeGreaterThan(0);
   });
 
@@ -1374,8 +1464,8 @@ export function calculate(a: number, b: number, c: number): number {
 `;
     const findings = analyzeDocs(content, '/src/math.ts');
     // Should have both missing-jsdoc AND missing-params
-    const missingJsdoc = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
-    const missingParams = findings.filter(f => f.evidence.ruleId === 'docs-missing-params');
+    const missingJsdoc = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const missingParams = findings.filter((f) => f.evidence.ruleId === 'docs-missing-params');
     expect(missingJsdoc.length).toBeGreaterThan(0);
     expect(missingParams.length).toBeGreaterThan(0);
   });
@@ -1390,7 +1480,7 @@ export function double(x: number): number {
 }
 `;
     const findings = analyzeDocs(content, '/src/math.ts');
-    const missingReturns = findings.filter(f => f.evidence.ruleId === 'docs-missing-returns');
+    const missingReturns = findings.filter((f) => f.evidence.ruleId === 'docs-missing-returns');
     expect(missingReturns.length).toBeGreaterThan(0);
   });
 
@@ -1402,8 +1492,8 @@ export function getVersion(): string {
 `;
     const findings = analyzeDocs(content, '/src/version.ts');
     // Missing JSDoc but no params to document
-    const missingJsdoc = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
-    const missingParams = findings.filter(f => f.evidence.ruleId === 'docs-missing-params');
+    const missingJsdoc = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const missingParams = findings.filter((f) => f.evidence.ruleId === 'docs-missing-params');
     expect(missingJsdoc.length).toBeGreaterThan(0);
     expect(missingParams.length).toBe(0); // No params, so no missing-params
   });
@@ -1415,7 +1505,7 @@ export async function loadConfig(path: string): Promise<Config> {
 }
 `;
     const findings = analyzeDocs(content, '/src/config.ts');
-    const missingJsdoc = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const missingJsdoc = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
     expect(missingJsdoc.length).toBeGreaterThan(0);
   });
 
@@ -1447,7 +1537,7 @@ export function transform(data: string): Promise<Result> => {
 }
 `;
     const findings = analyzeDocs(content, '/src/transform.ts');
-    const missingJsdoc = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const missingJsdoc = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
     expect(missingJsdoc.length).toBeGreaterThan(0);
   });
 
@@ -1496,7 +1586,7 @@ export function transform(input: string): Promise<Result> => {
 }
 `;
     const findings = analyzeDocs(content, '/src/transform.ts');
-    const jsdocFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const jsdocFindings = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
     expect(jsdocFindings.length).toBe(1);
   });
 
@@ -1505,11 +1595,15 @@ export function transform(input: string): Promise<Result> => {
   // ==========================================================================
 
   it('should not flag package.json when readme field exists', () => {
-    const content = JSON.stringify({
-      name: 'test-pkg',
-      version: '1.0.0',
-      readme: 'README.md',
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        name: 'test-pkg',
+        version: '1.0.0',
+        readme: 'README.md',
+      },
+      null,
+      2,
+    );
     const findings = analyzeDocs(content, '/project/package.json');
     expect(findings.length).toBe(0);
   });
@@ -1541,10 +1635,10 @@ export async function fetchResource(id: string, options: RequestInit): Promise<o
 }
 `;
     const findings = analyzeDocs(content, '/src/fetch.ts');
-    const jsdocFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-jsdoc');
+    const jsdocFindings = findings.filter((f) => f.evidence.ruleId === 'docs-missing-jsdoc');
     expect(jsdocFindings.length).toBe(1);
     // Also should have missing params since no @param found
-    const paramFindings = findings.filter(f => f.evidence.ruleId === 'docs-missing-params');
+    const paramFindings = findings.filter((f) => f.evidence.ruleId === 'docs-missing-params');
     expect(paramFindings.length).toBe(1);
   });
 });
@@ -1554,7 +1648,9 @@ export async function fetchResource(id: string, options: RequestInit): Promise<o
 // ---------------------------------------------------------------------------
 
 describe('synthesizeFindings', () => {
-  const makeReport = (overrides: Partial<import('../review/review-lenses.js').LensReport> = {}) => ({
+  const makeReport = (
+    overrides: Partial<import('../review/review-lenses.js').LensReport> = {},
+  ) => ({
     lens: 'security' as const,
     name: 'Test Lens',
     findings: [],
@@ -1572,10 +1668,14 @@ describe('synthesizeFindings', () => {
   });
 
   it('should synthesize single report with findings', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'SQL Injection', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec-sql' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'high', 'SQL Injection', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec-sql',
+    })!;
 
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 100);
@@ -1584,14 +1684,22 @@ describe('synthesizeFindings', () => {
   });
 
   it('should deduplicate overlapping findings', () => {
-    const f1 = createLensFinding(
-      'security', 'security', 'low', 'Issue A', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 5, codeSnippet: 'x', lens: 'security', ruleId: 'sec-a' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'high', 'Issue B', 'desc',
-      { filePath: '/test.ts', startLine: 3, endLine: 7, codeSnippet: 'y', lens: 'style', ruleId: 'sty-b' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'low', 'Issue A', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 5,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec-a',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'high', 'Issue B', 'desc', {
+      filePath: '/test.ts',
+      startLine: 3,
+      endLine: 7,
+      codeSnippet: 'y',
+      lens: 'style',
+      ruleId: 'sty-b',
+    })!;
 
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 100);
@@ -1602,28 +1710,49 @@ describe('synthesizeFindings', () => {
   it('should calibrate severity when same issue appears >3 times', () => {
     const findings = [];
     for (let i = 0; i < 5; i++) {
-      const f = createLensFinding(
-        'style', 'style', 'low', 'Same Issue Title', 'desc',
-        { filePath: `/test${i}.ts`, startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty-x' },
-      )!;
+      const f = createLensFinding('style', 'style', 'low', 'Same Issue Title', 'desc', {
+        filePath: `/test${i}.ts`,
+        startLine: 1,
+        endLine: 1,
+        codeSnippet: 'x',
+        lens: 'style',
+        ruleId: 'sty-x',
+      })!;
       findings.push(f);
     }
     const report = makeReport({ findings });
     const result = synthesizeFindings([report], 500);
     // Low severity with count > 3 should be upgraded to medium
-    const upgraded = result.findings.filter(f => f.title === 'Same Issue Title' && f.severity === 'medium');
+    const upgraded = result.findings.filter(
+      (f) => f.title === 'Same Issue Title' && f.severity === 'medium',
+    );
     expect(upgraded.length).toBeGreaterThan(0);
   });
 
   it('should build action plan with correct priorities', () => {
     const criticalFinding = createLensFinding(
-      'security', 'security', 'critical', 'Critical Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec-c' },
+      'security',
+      'security',
+      'critical',
+      'Critical Issue',
+      'desc',
+      {
+        filePath: '/test.ts',
+        startLine: 1,
+        endLine: 1,
+        codeSnippet: 'x',
+        lens: 'security',
+        ruleId: 'sec-c',
+      },
     )!;
-    const lowFinding = createLensFinding(
-      'style', 'style', 'low', 'Low Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty-l' },
-    )!;
+    const lowFinding = createLensFinding('style', 'style', 'low', 'Low Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty-l',
+    })!;
 
     const report = makeReport({ findings: [criticalFinding, lowFinding] });
     const result = synthesizeFindings([report], 200);
@@ -1633,10 +1762,14 @@ describe('synthesizeFindings', () => {
   });
 
   it('should compute health score lower than 100 for findings', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Critical Bug', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec-c' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'critical', 'Critical Bug', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec-c',
+    })!;
 
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 100);
@@ -1644,10 +1777,14 @@ describe('synthesizeFindings', () => {
   });
 
   it('should track lanes active', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'high', 'Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
 
     const securityReport = makeReport({ lens: 'security', findings: [finding] });
     const styleReport = makeReport({ lens: 'style', findings: [] });
@@ -1657,31 +1794,47 @@ describe('synthesizeFindings', () => {
   });
 
   it('should return top issues sorted by count', () => {
-    const f1 = createLensFinding(
-      'style', 'style', 'low', 'Common Issue', 'desc',
-      { filePath: '/a.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'low', 'Common Issue', 'desc',
-      { filePath: '/b.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
-    const f3 = createLensFinding(
-      'style', 'style', 'low', 'Rare Issue', 'desc',
-      { filePath: '/c.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('style', 'style', 'low', 'Common Issue', 'desc', {
+      filePath: '/a.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'low', 'Common Issue', 'desc', {
+      filePath: '/b.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
+    const f3 = createLensFinding('style', 'style', 'low', 'Rare Issue', 'desc', {
+      filePath: '/c.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
 
     const report = makeReport({ findings: [f1, f2, f3] });
     const result = synthesizeFindings([report], 300);
-    const commonIssue = result.summary.topIssues.find(i => i.title === 'Common Issue');
+    const commonIssue = result.summary.topIssues.find((i) => i.title === 'Common Issue');
     expect(commonIssue).toBeDefined();
     expect(commonIssue!.count).toBe(2);
   });
 
   it('should generate synthesis report', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'high', 'Test', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
 
     const report = makeReport({ findings: [finding] });
     const synthReport = generateSynthesisReport([report], 100);
@@ -1694,31 +1847,50 @@ describe('synthesizeFindings', () => {
     const findings = [];
     for (let i = 0; i < 5; i++) {
       const f = createLensFinding(
-        'structure', 'architecture', 'medium', 'Repeated Medium Issue', 'desc',
-        { filePath: `/test${i}.ts`, startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'structure', ruleId: 'struct' },
+        'structure',
+        'architecture',
+        'medium',
+        'Repeated Medium Issue',
+        'desc',
+        {
+          filePath: `/test${i}.ts`,
+          startLine: 1,
+          endLine: 1,
+          codeSnippet: 'x',
+          lens: 'structure',
+          ruleId: 'struct',
+        },
       )!;
       findings.push(f);
     }
     const report = makeReport({ findings });
     const result = synthesizeFindings([report], 500);
     // Medium severity with count > 3 should be upgraded to high
-    const upgraded = result.findings.filter(f => f.title === 'Repeated Medium Issue' && f.severity === 'high');
+    const upgraded = result.findings.filter(
+      (f) => f.title === 'Repeated Medium Issue' && f.severity === 'high',
+    );
     expect(upgraded.length).toBeGreaterThan(0);
   });
 
   it('should not upgrade severity when count <= 3', () => {
     const findings = [];
     for (let i = 0; i < 3; i++) {
-      const f = createLensFinding(
-        'style', 'style', 'low', 'Rare Issue', 'desc',
-        { filePath: `/test${i}.ts`, startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-      )!;
+      const f = createLensFinding('style', 'style', 'low', 'Rare Issue', 'desc', {
+        filePath: `/test${i}.ts`,
+        startLine: 1,
+        endLine: 1,
+        codeSnippet: 'x',
+        lens: 'style',
+        ruleId: 'sty',
+      })!;
       findings.push(f);
     }
     const report = makeReport({ findings });
     const result = synthesizeFindings([report], 300);
     // Severity should remain low (count <= 3, no upgrade)
-    const stillLow = result.findings.filter(f => f.title === 'Rare Issue' && f.severity === 'low');
+    const stillLow = result.findings.filter(
+      (f) => f.title === 'Rare Issue' && f.severity === 'low',
+    );
     expect(stillLow.length).toBe(3);
   });
 
@@ -1729,10 +1901,14 @@ describe('synthesizeFindings', () => {
   });
 
   it('should compute health score for critical findings', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Critical Vuln', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'critical', 'Critical Vuln', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 1000);
     // Critical weight is 25, scaled penalty = 25 * (1000/1000) = 25, health = 75
@@ -1740,40 +1916,60 @@ describe('synthesizeFindings', () => {
   });
 
   it('should handle totalLines of 0 (health score 100)', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'critical', 'Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 0);
     expect(result.summary.healthScore).toBe(100);
   });
 
   it('should build action plan grouped by file', () => {
-    const f1 = createLensFinding(
-      'security', 'security', 'critical', 'Issue A', 'desc',
-      { filePath: '/file1.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'security', 'security', 'critical', 'Issue B', 'desc',
-      { filePath: '/file1.ts', startLine: 1, endLine: 1, codeSnippet: 'y', lens: 'security', ruleId: 'sec' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'critical', 'Issue A', 'desc', {
+      filePath: '/file1.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('security', 'security', 'critical', 'Issue B', 'desc', {
+      filePath: '/file1.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'y',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Both critical issues in same file should be grouped in one action
-    const criticalActions = result.actionPlan.filter(a => a.priority === 1);
+    const criticalActions = result.actionPlan.filter((a) => a.priority === 1);
     expect(criticalActions.length).toBeGreaterThan(0);
   });
 
   it('should track multiple lanes active', () => {
-    const f1 = createLensFinding(
-      'security', 'security', 'high', 'Sec Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'low', 'Style Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'high', 'Sec Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'low', 'Style Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report1 = makeReport({ lens: 'security', findings: [f1] });
     const report2 = makeReport({ lens: 'style', findings: [f2] });
     const result = synthesizeFindings([report1, report2], 200);
@@ -1782,22 +1978,38 @@ describe('synthesizeFindings', () => {
   });
 
   it('should include all severity counts in summary', () => {
-    const critical = createLensFinding(
-      'security', 'security', 'critical', 'C', 'desc',
-      { filePath: '/a.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 's' },
-    )!;
-    const high = createLensFinding(
-      'api', 'api', 'high', 'H', 'desc',
-      { filePath: '/b.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'api', ruleId: 'a' },
-    )!;
-    const medium = createLensFinding(
-      'structure', 'architecture', 'medium', 'M', 'desc',
-      { filePath: '/c.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'structure', ruleId: 'st' },
-    )!;
-    const low = createLensFinding(
-      'style', 'style', 'low', 'L', 'desc',
-      { filePath: '/d.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
+    const critical = createLensFinding('security', 'security', 'critical', 'C', 'desc', {
+      filePath: '/a.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 's',
+    })!;
+    const high = createLensFinding('api', 'api', 'high', 'H', 'desc', {
+      filePath: '/b.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'api',
+      ruleId: 'a',
+    })!;
+    const medium = createLensFinding('structure', 'architecture', 'medium', 'M', 'desc', {
+      filePath: '/c.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'structure',
+      ruleId: 'st',
+    })!;
+    const low = createLensFinding('style', 'style', 'low', 'L', 'desc', {
+      filePath: '/d.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [critical, high, medium, low] });
     const result = synthesizeFindings([report], 400);
     expect(result.summary.critical).toBe(1);
@@ -1809,10 +2021,14 @@ describe('synthesizeFindings', () => {
   it('should cap health score at 0 minimum', () => {
     const findings = [];
     for (let i = 0; i < 10; i++) {
-      const f = createLensFinding(
-        'security', 'security', 'critical', `Issue ${i}`, 'desc',
-        { filePath: `/test${i}.ts`, startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-      )!;
+      const f = createLensFinding('security', 'security', 'critical', `Issue ${i}`, 'desc', {
+        filePath: `/test${i}.ts`,
+        startLine: 1,
+        endLine: 1,
+        codeSnippet: 'x',
+        lens: 'security',
+        ruleId: 'sec',
+      })!;
       findings.push(f);
     }
     const report = makeReport({ findings });
@@ -1823,14 +2039,22 @@ describe('synthesizeFindings', () => {
 
   it('should handle non-overlapping findings (IoU <= 0.5)', () => {
     // Two findings in different files — no overlap, no dedup
-    const f1 = createLensFinding(
-      'security', 'security', 'low', 'Issue A', 'desc',
-      { filePath: '/file1.ts', startLine: 1, endLine: 5, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'low', 'Issue B', 'desc',
-      { filePath: '/file2.ts', startLine: 1, endLine: 5, codeSnippet: 'y', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'low', 'Issue A', 'desc', {
+      filePath: '/file1.ts',
+      startLine: 1,
+      endLine: 5,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'low', 'Issue B', 'desc', {
+      filePath: '/file2.ts',
+      startLine: 1,
+      endLine: 5,
+      codeSnippet: 'y',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Both should be kept since they're in different files
@@ -1839,14 +2063,22 @@ describe('synthesizeFindings', () => {
 
   it('should handle non-overlapping findings in same file', () => {
     // Two findings in same file but non-overlapping line ranges
-    const f1 = createLensFinding(
-      'security', 'security', 'low', 'Issue A', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 5, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'low', 'Issue B', 'desc',
-      { filePath: '/test.ts', startLine: 10, endLine: 15, codeSnippet: 'y', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'low', 'Issue A', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 5,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'low', 'Issue B', 'desc', {
+      filePath: '/test.ts',
+      startLine: 10,
+      endLine: 15,
+      codeSnippet: 'y',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Non-overlapping — both kept
@@ -1855,14 +2087,22 @@ describe('synthesizeFindings', () => {
 
   it('should handle deduplication with same-line findings', () => {
     // Two findings on the exact same line (union === 0 handled)
-    const f1 = createLensFinding(
-      'security', 'security', 'low', 'Same Line A', 'desc',
-      { filePath: '/test.ts', startLine: 5, endLine: 5, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'high', 'Same Line B', 'desc',
-      { filePath: '/test.ts', startLine: 5, endLine: 5, codeSnippet: 'y', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'low', 'Same Line A', 'desc', {
+      filePath: '/test.ts',
+      startLine: 5,
+      endLine: 5,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'high', 'Same Line B', 'desc', {
+      filePath: '/test.ts',
+      startLine: 5,
+      endLine: 5,
+      codeSnippet: 'y',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 100);
     // Overlapping on same line — higher severity kept
@@ -1870,14 +2110,22 @@ describe('synthesizeFindings', () => {
   });
 
   it('should handle deduplication when lower-severity finding comes first', () => {
-    const f1 = createLensFinding(
-      'style', 'style', 'low', 'Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 10, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
-    const f2 = createLensFinding(
-      'security', 'security', 'critical', 'Issue', 'desc',
-      { filePath: '/test.ts', startLine: 3, endLine: 8, codeSnippet: 'y', lens: 'security', ruleId: 'sec' },
-    )!;
+    const f1 = createLensFinding('style', 'style', 'low', 'Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 10,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
+    const f2 = createLensFinding('security', 'security', 'critical', 'Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 3,
+      endLine: 8,
+      codeSnippet: 'y',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     // Higher severity (critical) should win
@@ -1886,17 +2134,25 @@ describe('synthesizeFindings', () => {
   });
 
   it('should track top issues with severity upgrade when higher-severity variant appears', () => {
-    const lowF = createLensFinding(
-      'style', 'style', 'low', 'MultiSeverity Issue', 'desc',
-      { filePath: '/a.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
-    const highF = createLensFinding(
-      'security', 'security', 'high', 'MultiSeverity Issue', 'desc',
-      { filePath: '/b.ts', startLine: 1, endLine: 1, codeSnippet: 'y', lens: 'security', ruleId: 'sec' },
-    )!;
+    const lowF = createLensFinding('style', 'style', 'low', 'MultiSeverity Issue', 'desc', {
+      filePath: '/a.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
+    const highF = createLensFinding('security', 'security', 'high', 'MultiSeverity Issue', 'desc', {
+      filePath: '/b.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'y',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [lowF, highF] });
     const result = synthesizeFindings([report], 200);
-    const topIssue = result.summary.topIssues.find(i => i.title === 'MultiSeverity Issue');
+    const topIssue = result.summary.topIssues.find((i) => i.title === 'MultiSeverity Issue');
     expect(topIssue).toBeDefined();
     expect(topIssue!.count).toBe(2);
     expect(topIssue!.severity).toBe('high'); // Higher severity should win
@@ -1911,14 +2167,22 @@ describe('synthesizeFindings', () => {
   });
 
   it('should generate synthesis report with multiple severity levels in top issues', () => {
-    const f1 = createLensFinding(
-      'security', 'security', 'critical', 'Unique Critical', 'desc',
-      { filePath: '/a.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'low', 'Unique Low', 'desc',
-      { filePath: '/b.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'critical', 'Unique Critical', 'desc', {
+      filePath: '/a.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'low', 'Unique Low', 'desc', {
+      filePath: '/b.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
     expect(result.summary.topIssues.length).toBe(2);
@@ -1929,10 +2193,14 @@ describe('synthesizeFindings', () => {
   // ==========================================================================
 
   it('should compute health score near 100 for few findings in many lines', () => {
-    const finding = createLensFinding(
-      'style', 'style', 'low', 'Minor Issue', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
+    const finding = createLensFinding('style', 'style', 'low', 'Minor Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 10000);
     // Low severity (weight 1) with many lines → penalty is minimal
@@ -1944,10 +2212,14 @@ describe('synthesizeFindings', () => {
   // ==========================================================================
 
   it('should return health score 100 when totalLines is 0 regardless of findings', () => {
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Critical', 'desc',
-      { filePath: '/test.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
+    const finding = createLensFinding('security', 'security', 'critical', 'Critical', 'desc', {
+      filePath: '/test.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [finding] });
     const result = synthesizeFindings([report], 0);
     expect(result.summary.healthScore).toBe(100);
@@ -1958,14 +2230,22 @@ describe('synthesizeFindings', () => {
   // ==========================================================================
 
   it('should handle deduplication when union is 0 (single-line identical range)', () => {
-    const f1 = createLensFinding(
-      'security', 'security', 'low', 'Line Issue', 'desc',
-      { filePath: '/test.ts', startLine: 3, endLine: 3, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
-    const f2 = createLensFinding(
-      'style', 'style', 'high', 'Same Line Issue', 'desc',
-      { filePath: '/test.ts', startLine: 3, endLine: 3, codeSnippet: 'y', lens: 'style', ruleId: 'sty' },
-    )!;
+    const f1 = createLensFinding('security', 'security', 'low', 'Line Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 3,
+      endLine: 3,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
+    const f2 = createLensFinding('style', 'style', 'high', 'Same Line Issue', 'desc', {
+      filePath: '/test.ts',
+      startLine: 3,
+      endLine: 3,
+      codeSnippet: 'y',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 100);
     // On same line, IoU=1, both overlap → higher severity kept
@@ -1978,17 +2258,25 @@ describe('synthesizeFindings', () => {
   // ==========================================================================
 
   it('should upgrade severity in top issues when higher severity variant exists', () => {
-    const f1 = createLensFinding(
-      'style', 'style', 'low', 'Consistent Issue', 'desc',
-      { filePath: '/a.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'style', ruleId: 'sty' },
-    )!;
-    const f2 = createLensFinding(
-      'security', 'security', 'critical', 'Consistent Issue', 'desc',
-      { filePath: '/b.ts', startLine: 1, endLine: 1, codeSnippet: 'x', lens: 'security', ruleId: 'sec' },
-    )!;
+    const f1 = createLensFinding('style', 'style', 'low', 'Consistent Issue', 'desc', {
+      filePath: '/a.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'style',
+      ruleId: 'sty',
+    })!;
+    const f2 = createLensFinding('security', 'security', 'critical', 'Consistent Issue', 'desc', {
+      filePath: '/b.ts',
+      startLine: 1,
+      endLine: 1,
+      codeSnippet: 'x',
+      lens: 'security',
+      ruleId: 'sec',
+    })!;
     const report = makeReport({ findings: [f1, f2] });
     const result = synthesizeFindings([report], 200);
-    const topIssue = result.summary.topIssues.find(i => i.title === 'Consistent Issue');
+    const topIssue = result.summary.topIssues.find((i) => i.title === 'Consistent Issue');
     expect(topIssue).toBeDefined();
     expect(topIssue!.severity).toBe('critical');
     expect(topIssue!.count).toBe(2);
@@ -2003,7 +2291,7 @@ describe('analyzeStyle', () => {
   it('should flag non-standard naming for variables', () => {
     const content = 'const my_variable_name = 42;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     // snake_case is allowed by the lens, so this may not flag
     expect(Array.isArray(findings)).toBe(true);
   });
@@ -2011,63 +2299,65 @@ describe('analyzeStyle', () => {
   it('should accept camelCase variable names', () => {
     const content = 'const myVariable = 42;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     expect(namingFindings.length).toBe(0);
   });
 
   it('should accept PascalCase class names', () => {
     const content = 'class UserService {}\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     expect(namingFindings.length).toBe(0);
   });
 
   it('should accept UPPER_CASE constants', () => {
     const content = 'const MAX_RETRY_COUNT = 5;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     expect(namingFindings.length).toBe(0);
   });
 
   it('should flag magic numbers above threshold', () => {
     const content = 'const timeout = 5000;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const magicFindings = findings.filter(f => f.evidence.ruleId === 'style-magic-number');
+    const magicFindings = findings.filter((f) => f.evidence.ruleId === 'style-magic-number');
     expect(magicFindings.length).toBeGreaterThan(0);
   });
 
   it('should not flag allowed magic numbers (0, 1, -1, 2, 3)', () => {
     const content = 'const retries = 3;\nconst min = 0;\nconst max = 2;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const magicFindings = findings.filter(f => f.evidence.ruleId === 'style-magic-number');
+    const magicFindings = findings.filter((f) => f.evidence.ruleId === 'style-magic-number');
     expect(magicFindings.length).toBe(0);
   });
 
   it('should flag lines exceeding 120 characters', () => {
-    const content = 'const longVariableName = "this is a very long string that should definitely exceed one hundred twenty characters and trigger the line length check which should produce a finding";\n';
+    const content =
+      'const longVariableName = "this is a very long string that should definitely exceed one hundred twenty characters and trigger the line length check which should produce a finding";\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const lengthFindings = findings.filter(f => f.evidence.ruleId === 'style-line-length');
+    const lengthFindings = findings.filter((f) => f.evidence.ruleId === 'style-line-length');
     expect(lengthFindings.length).toBeGreaterThan(0);
   });
 
   it('should flag trailing whitespace', () => {
     const content = 'const x = 1;   \n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const trailFindings = findings.filter(f => f.evidence.ruleId === 'style-trailing-whitespace');
+    const trailFindings = findings.filter((f) => f.evidence.ruleId === 'style-trailing-whitespace');
     expect(trailFindings.length).toBeGreaterThan(0);
   });
 
   it('should not flag empty lines for trailing whitespace', () => {
     const content = '\n\nconst x = 1;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const trailFindings = findings.filter(f => f.evidence.ruleId === 'style-trailing-whitespace');
+    const trailFindings = findings.filter((f) => f.evidence.ruleId === 'style-trailing-whitespace');
     expect(trailFindings.length).toBe(0);
   });
 
   it('should skip comment lines for style checks', () => {
-    const content = '// this is a very long comment that should be ignored by the style checker and not trigger any findings even though it is long\nconst x = 1;\n';
+    const content =
+      '// this is a very long comment that should be ignored by the style checker and not trigger any findings even though it is long\nconst x = 1;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const lengthFindings = findings.filter(f => f.evidence.ruleId === 'style-line-length');
+    const lengthFindings = findings.filter((f) => f.evidence.ruleId === 'style-line-length');
     expect(lengthFindings.length).toBe(0);
   });
 
@@ -2078,7 +2368,7 @@ describe('analyzeStyle', () => {
     }
     const content = lines.join('');
     const findings = analyzeStyle(content, '/src/test.ts');
-    const ratioFindings = findings.filter(f => f.evidence.ruleId === 'style-comment-ratio');
+    const ratioFindings = findings.filter((f) => f.evidence.ruleId === 'style-comment-ratio');
     expect(ratioFindings.length).toBeGreaterThan(0);
   });
 
@@ -2095,7 +2385,7 @@ describe('analyzeStyle', () => {
     const content = 'function my_function_name() { return 1; }\n';
     const findings = analyzeStyle(content, '/src/test.ts');
     // snake_case is accepted, but if it has unusual characters it flags
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     // my_function_name matches snake_case pattern, should be accepted
     expect(namingFindings.length).toBe(0);
   });
@@ -2103,7 +2393,7 @@ describe('analyzeStyle', () => {
   it('should flag non-standard naming with invalid characters', () => {
     const content = 'const My_variable = 42;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     // My_variable starts with uppercase but has underscore — fails PascalCase and UPPER_CASE
     expect(namingFindings.length).toBeGreaterThan(0);
     expect(namingFindings[0]!.title).toContain('My_variable');
@@ -2112,28 +2402,30 @@ describe('analyzeStyle', () => {
   it('should flag non-standard naming for function with invalid chars', () => {
     const content = 'function 0func() {}\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     expect(namingFindings.length).toBeGreaterThan(0);
   });
 
   it('should accept _private naming convention', () => {
     const content = 'const _privateVar = 42;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter(f => f.evidence.ruleId === 'style-naming');
+    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     expect(namingFindings.length).toBe(0);
   });
 
   it('should skip # comment lines (Python-style)', () => {
-    const content = '# this is a very long comment that should be ignored by the style checker even though it exceeds the line length\nconst x = 1;\n';
+    const content =
+      '# this is a very long comment that should be ignored by the style checker even though it exceeds the line length\nconst x = 1;\n';
     const findings = analyzeStyle(content, '/src/test.py');
-    const lengthFindings = findings.filter(f => f.evidence.ruleId === 'style-line-length');
+    const lengthFindings = findings.filter((f) => f.evidence.ruleId === 'style-line-length');
     expect(lengthFindings.length).toBe(0);
   });
 
   it('should skip /* block comment lines', () => {
-    const content = '/* this is a very long block comment that should be ignored by the style checker and not trigger any findings */\nconst x = 1;\n';
+    const content =
+      '/* this is a very long block comment that should be ignored by the style checker and not trigger any findings */\nconst x = 1;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const lengthFindings = findings.filter(f => f.evidence.ruleId === 'style-line-length');
+    const lengthFindings = findings.filter((f) => f.evidence.ruleId === 'style-line-length');
     expect(lengthFindings.length).toBe(0);
   });
 });
@@ -2150,7 +2442,7 @@ describe('analyzeStructure', () => {
     }
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/complex.ts');
-    const complexityFindings = findings.filter(f => f.evidence.ruleId === 'struct-complexity');
+    const complexityFindings = findings.filter((f) => f.evidence.ruleId === 'struct-complexity');
     expect(complexityFindings.length).toBeGreaterThan(0);
     expect(complexityFindings[0]!.severity).toBe('high');
   });
@@ -2158,7 +2450,7 @@ describe('analyzeStructure', () => {
   it('should not flag low cyclomatic complexity', () => {
     const content = 'const x = 1;\nconst y = 2;\nconst z = x + y;\n';
     const findings = analyzeStructure(content, '/src/simple.ts');
-    const complexityFindings = findings.filter(f => f.evidence.ruleId === 'struct-complexity');
+    const complexityFindings = findings.filter((f) => f.evidence.ruleId === 'struct-complexity');
     expect(complexityFindings.length).toBe(0);
   });
 
@@ -2169,7 +2461,7 @@ describe('analyzeStructure', () => {
     }
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/coupled.ts');
-    const couplingFindings = findings.filter(f => f.evidence.ruleId === 'struct-high-coupling');
+    const couplingFindings = findings.filter((f) => f.evidence.ruleId === 'struct-high-coupling');
     expect(couplingFindings.length).toBeGreaterThan(0);
     expect(couplingFindings[0]!.severity).toBe('medium');
   });
@@ -2182,7 +2474,7 @@ describe('analyzeStructure', () => {
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/big.ts');
-    const godClassFindings = findings.filter(f => f.evidence.ruleId === 'struct-god-class-lines');
+    const godClassFindings = findings.filter((f) => f.evidence.ruleId === 'struct-god-class-lines');
     expect(godClassFindings.length).toBeGreaterThan(0);
   });
 
@@ -2194,7 +2486,7 @@ describe('analyzeStructure', () => {
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/god.ts');
-    const methodFindings = findings.filter(f => f.evidence.ruleId === 'struct-god-class-methods');
+    const methodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-god-class-methods');
     expect(methodFindings.length).toBeGreaterThan(0);
   });
 
@@ -2206,7 +2498,7 @@ describe('analyzeStructure', () => {
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/long.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 
@@ -2227,7 +2519,7 @@ describe('analyzeStructure', () => {
       '}',
     ].join('\n');
     const findings = analyzeStructure(content, '/src/nested.ts');
-    const nestingFindings = findings.filter(f => f.evidence.ruleId === 'struct-deep-nesting');
+    const nestingFindings = findings.filter((f) => f.evidence.ruleId === 'struct-deep-nesting');
     expect(nestingFindings.length).toBeGreaterThan(0);
   });
 
@@ -2240,7 +2532,7 @@ describe('analyzeStructure', () => {
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/scattered.ts');
     // Low cohesion may be detected due to high external refs
-    const cohesionFindings = findings.filter(f => f.evidence.ruleId === 'struct-low-cohesion');
+    const cohesionFindings = findings.filter((f) => f.evidence.ruleId === 'struct-low-cohesion');
     // This may or may not trigger depending on total lines and ref counts
     expect(Array.isArray(findings)).toBe(true);
   });
@@ -2277,7 +2569,7 @@ describe('analyzeStructure', () => {
     lines.push('function helper() { return 1; }\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/scattered.ts');
-    const cohesionFindings = findings.filter(f => f.evidence.ruleId === 'struct-low-cohesion');
+    const cohesionFindings = findings.filter((f) => f.evidence.ruleId === 'struct-low-cohesion');
     // High external refs vs minimal internal refs = low cohesion
     expect(cohesionFindings.length).toBeGreaterThan(0);
   });
@@ -2289,7 +2581,7 @@ import { b } from './b';
 const x = a + b;
 `;
     const findings = analyzeStructure(content, '/src/small.ts');
-    const cohesionFindings = findings.filter(f => f.evidence.ruleId === 'struct-low-cohesion');
+    const cohesionFindings = findings.filter((f) => f.evidence.ruleId === 'struct-low-cohesion');
     expect(cohesionFindings.length).toBe(0);
   });
 
@@ -2301,8 +2593,8 @@ const x = a + b;
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/big.ts');
-    const lineFindings = findings.filter(f => f.evidence.ruleId === 'struct-god-class-lines');
-    const methodFindings = findings.filter(f => f.evidence.ruleId === 'struct-god-class-methods');
+    const lineFindings = findings.filter((f) => f.evidence.ruleId === 'struct-god-class-lines');
+    const methodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-god-class-methods');
     expect(lineFindings.length).toBeGreaterThan(0);
     expect(methodFindings.length).toBeGreaterThan(0);
   });
@@ -2317,7 +2609,7 @@ const x = a + b;
       '}',
     ].join('\n');
     const findings = analyzeStructure(content, '/src/shallow.ts');
-    const nestingFindings = findings.filter(f => f.evidence.ruleId === 'struct-deep-nesting');
+    const nestingFindings = findings.filter((f) => f.evidence.ruleId === 'struct-deep-nesting');
     expect(nestingFindings.length).toBe(0);
   });
 
@@ -2329,18 +2621,14 @@ const x = a + b;
     lines.push('};\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/arrow.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 
   it('should not flag short methods for long method detection', () => {
-    const content = [
-      'function shortMethod() {',
-      '  return 1;',
-      '}',
-    ].join('\n');
+    const content = ['function shortMethod() {', '  return 1;', '}'].join('\n');
     const findings = analyzeStructure(content, '/src/short.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBe(0);
   });
 
@@ -2352,7 +2640,9 @@ const x = a + b;
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/small-class.ts');
-    const godClassLineFindings = findings.filter(f => f.evidence.ruleId === 'struct-god-class-lines');
+    const godClassLineFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'struct-god-class-lines',
+    );
     expect(godClassLineFindings.length).toBe(0);
   });
 
@@ -2364,7 +2654,9 @@ const x = a + b;
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/normal-class.ts');
-    const godClassMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-god-class-methods');
+    const godClassMethodFindings = findings.filter(
+      (f) => f.evidence.ruleId === 'struct-god-class-methods',
+    );
     expect(godClassMethodFindings.length).toBe(0);
   });
 
@@ -2387,7 +2679,7 @@ const x = a + b;
     lines.push('};\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/let-func.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 
@@ -2399,7 +2691,7 @@ const x = a + b;
     lines.push('};\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/var-func.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 
@@ -2411,7 +2703,7 @@ const x = a + b;
     lines.push('};\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/let-func.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 
@@ -2441,7 +2733,7 @@ const x = a + b;
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/async-func.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 
@@ -2453,7 +2745,7 @@ const x = a + b;
     lines.push('}\n');
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/async-func.ts');
-    const longMethodFindings = findings.filter(f => f.evidence.ruleId === 'struct-long-method');
+    const longMethodFindings = findings.filter((f) => f.evidence.ruleId === 'struct-long-method');
     expect(longMethodFindings.length).toBeGreaterThan(0);
   });
 });

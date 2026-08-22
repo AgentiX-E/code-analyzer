@@ -91,12 +91,7 @@ export class ScopeResolver {
     const trees: ScopeTree[] = [];
 
     for (const file of files) {
-      const fileScope = new ScopeTreeNode(
-        file.filePath,
-        'File',
-        1,
-        Number.MAX_SAFE_INTEGER,
-      );
+      const fileScope = new ScopeTreeNode(file.filePath, 'File', 1, Number.MAX_SAFE_INTEGER);
 
       // Build scope hierarchy from symbols
       const symbolMap = new Map<string, SymbolDefinition[]>();
@@ -173,10 +168,7 @@ export class ScopeResolver {
   }
 
   /** Resolve function/method calls */
-  resolveCalls(
-    references: ResolvedReference[],
-    _model: SemanticModel,
-  ): ResolvedCall[] {
+  resolveCalls(references: ResolvedReference[], _model: SemanticModel): ResolvedCall[] {
     const calls: ResolvedCall[] = [];
 
     for (const ref of references) {
@@ -194,17 +186,18 @@ export class ScopeResolver {
   }
 
   /** Resolve imports to target symbols */
-  resolveImports(
-    files: ParsedFile[],
-    _model: SemanticModel,
-  ): ResolvedImport[] {
+  resolveImports(files: ParsedFile[], _model: SemanticModel): ResolvedImport[] {
     const resolvedImports: ResolvedImport[] = [];
 
     // Build file path index
     const fileIndex = new Map<string, string>();
     for (const file of files) {
       /* v8 ignore next -- @preserve .pop() on split always returns an element, ?? '' is unreachable */
-      const fileName = file.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+      const fileName =
+        file.filePath
+          .split('/')
+          .pop()
+          ?.replace(/\.[^.]+$/, '') ?? '';
       fileIndex.set(fileName, file.filePath);
       fileIndex.set(file.filePath, file.filePath);
     }

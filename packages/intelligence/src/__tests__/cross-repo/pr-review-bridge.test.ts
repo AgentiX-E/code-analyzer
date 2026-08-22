@@ -75,8 +75,20 @@ function createSetup() {
   const groupManager = new RepoGroupManager();
 
   groupManager.createGroup('test-group', 'Test Group', 'Test description');
-  groupManager.addRepo('test-group', 'myorg', 'service-a', 'https://github.com/myorg/service-a', '/tmp/a');
-  groupManager.addRepo('test-group', 'myorg', 'service-b', 'https://github.com/myorg/service-b', '/tmp/b');
+  groupManager.addRepo(
+    'test-group',
+    'myorg',
+    'service-a',
+    'https://github.com/myorg/service-a',
+    '/tmp/a',
+  );
+  groupManager.addRepo(
+    'test-group',
+    'myorg',
+    'service-b',
+    'https://github.com/myorg/service-b',
+    '/tmp/b',
+  );
 
   // Add some nodes
   for (let i = 0; i < 5; i++) {
@@ -149,16 +161,16 @@ describe('PRReviewBridge', () => {
 
     it('should throw for missing groupId', async () => {
       const pr = createPR();
-      await expect(
-        bridge.reviewPR(pr, '', 'myorg/service-a', []),
-      ).rejects.toThrow('PR, groupId, and sourceRepoId are required');
+      await expect(bridge.reviewPR(pr, '', 'myorg/service-a', [])).rejects.toThrow(
+        'PR, groupId, and sourceRepoId are required',
+      );
     });
 
     it('should throw for non-existent group', async () => {
       const pr = createPR();
-      await expect(
-        bridge.reviewPR(pr, 'non-existent', 'myorg/service-a', []),
-      ).rejects.toThrow('Group "non-existent" not found');
+      await expect(bridge.reviewPR(pr, 'non-existent', 'myorg/service-a', [])).rejects.toThrow(
+        'Group "non-existent" not found',
+      );
     });
 
     it('should handle empty diffs', async () => {
@@ -204,7 +216,9 @@ describe('PRReviewBridge', () => {
     it('should produce valid merge recommendations', async () => {
       const pr = createPR();
       const report = await bridge.reviewPR(pr, 'test-group', 'myorg/service-a', [createDiff()]);
-      expect(['approve', 'approve-with-caution', 'request-changes', 'block']).toContain(report.mergeRecommendation);
+      expect(['approve', 'approve-with-caution', 'request-changes', 'block']).toContain(
+        report.mergeRecommendation,
+      );
     });
   });
 
@@ -319,13 +333,15 @@ describe('PRReviewBridge', () => {
         contractValidation: {
           sourceRepo: 'myorg/service-a',
           targetRepos: ['myorg/service-b'],
-          changes: [{
-            type: 'removed' as const,
-            symbol: 'oldApi',
-            severity: 'critical' as const,
-            description: 'API was removed',
-            affectedRepos: ['myorg/service-b'],
-          }],
+          changes: [
+            {
+              type: 'removed' as const,
+              symbol: 'oldApi',
+              severity: 'critical' as const,
+              description: 'API was removed',
+              affectedRepos: ['myorg/service-b'],
+            },
+          ],
           breakingCount: 1,
           compatible: false,
           recommendations: ['Update service-b.'],

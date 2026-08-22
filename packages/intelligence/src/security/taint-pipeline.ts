@@ -44,10 +44,7 @@ export class TaintPipeline {
    * @param callGraph - Call graph edges (caller → callee)
    * @returns Combined inter-procedural taint analysis result
    */
-  analyze(
-    cfgs: Map<string, FunctionCfg>,
-    _callGraph: CallGraphEdge[],
-  ): InterprocTaintResult {
+  analyze(cfgs: Map<string, FunctionCfg>, _callGraph: CallGraphEdge[]): InterprocTaintResult {
     const summaries: FunctionSummary[] = [];
     // Step 1: Run intra-procedural analysis on each function
     for (const [fnQn, cfg] of cfgs) {
@@ -88,9 +85,15 @@ export class TaintPipeline {
 
 function emptySummary(fnQn: string, cfg: FunctionCfg): FunctionSummary {
   return {
-    fnQn, fnName: cfg.functionName, paramCount: 0,
-    paramToSinks: [], sourceToCallArgs: [], paramToCallArgs: [],
-    sourceToReturns: [], callResults: [], paramToReturns: [],
+    fnQn,
+    fnName: cfg.functionName,
+    paramCount: 0,
+    paramToSinks: [],
+    sourceToCallArgs: [],
+    paramToCallArgs: [],
+    sourceToReturns: [],
+    callResults: [],
+    paramToReturns: [],
     sourceFile: cfg.filePath,
   };
 }
@@ -110,36 +113,37 @@ function buildFunctionSummary(
   const paramToReturns: FunctionSummary['paramToReturns'] = [];
   const callResults: FunctionSummary['callResults'] = [];
 
-  if (result.findings) for (const finding of result.findings) {
-    const source = finding.source;
-    const sink = finding.sink;
+  if (result.findings)
+    for (const finding of result.findings) {
+      const source = finding.source;
+      const sink = finding.sink;
 
-    // Source → Sink flow
-    if (source.category === 'source') {
-      // Check if this is source→callArg (seed for fixpoint)
-      // or source→sink (intra-proc finding)
-      if (sink.kind !== 'source') {
-        paramToSinks.push({
-          param: 0, // Simplified: map to first param
-          sinkLine: sink.point.line,
-          sink,
-          hops: finding.hops,
+      // Source → Sink flow
+      if (source.category === 'source') {
+        // Check if this is source→callArg (seed for fixpoint)
+        // or source→sink (intra-proc finding)
+        if (sink.kind !== 'source') {
+          paramToSinks.push({
+            param: 0, // Simplified: map to first param
+            sinkLine: sink.point.line,
+            sink,
+            hops: finding.hops,
+          });
+        }
+      }
+
+      // Propagated flows (TITO patterns)
+      for (const block of finding.path) {
+        // Simplified: any block in the path could represent a call site
+        sourceToCallArgs.push({
+          source: finding.source,
+          calleeName: '',
+          callLine: block * 100, // Approximate line from block index
+          argIndex: 0,
+          resolved: false,
         });
       }
     }
-
-    // Propagated flows (TITO patterns)
-    for (const block of finding.path) {
-      // Simplified: any block in the path could represent a call site
-      sourceToCallArgs.push({
-        source: finding.source,
-        calleeName: '',
-        callLine: block * 100, // Approximate line from block index
-        argIndex: 0,
-        resolved: false,
-      });
-    }
-  }
 
   return {
     fnQn,
@@ -164,9 +168,7 @@ function buildFunctionSummary(
  * This is a heuristic: any CFG edge labeled as a call creates a caller→callee
  * relationship.
  */
-export function buildCallGraph(
-  cfgs: Map<string, FunctionCfg>,
-): CallGraphEdge[] {
+export function buildCallGraph(cfgs: Map<string, FunctionCfg>): CallGraphEdge[] {
   const edges: CallGraphEdge[] = [];
   const fnNames = new Set(cfgs.keys());
 

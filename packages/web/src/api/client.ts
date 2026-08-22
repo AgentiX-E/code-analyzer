@@ -41,9 +41,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       },
     });
   } catch (err) {
-    throw new NetworkError(
-      err instanceof Error ? err.message : 'Network request failed',
-    );
+    throw new NetworkError(err instanceof Error ? err.message : 'Network request failed');
   }
 
   if (!res.ok) {
@@ -53,9 +51,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     } catch {
       // Non-JSON error body
     }
-    const msg =
-      (body as { message?: string })?.message ??
-      `HTTP ${res.status}: ${res.statusText}`;
+    const msg = (body as { message?: string })?.message ?? `HTTP ${res.status}: ${res.statusText}`;
     throw new ApiError(res.status, msg, body);
   }
 

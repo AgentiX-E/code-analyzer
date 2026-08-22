@@ -110,7 +110,10 @@ export class TrendAnalyzer {
     return null;
   }
 
-  private computeDirection(values: number[], metricPath: string): { direction: TrendData['direction']; changeRate: number } {
+  private computeDirection(
+    values: number[],
+    metricPath: string,
+  ): { direction: TrendData['direction']; changeRate: number } {
     if (values.length < 2) {
       return { direction: 'stable', changeRate: 0 };
     }
@@ -155,7 +158,10 @@ export class TrendAnalyzer {
     };
   }
 
-  private computeMetricDeltas(baseline: AnalysisReport, current: AnalysisReport): Record<string, number> {
+  private computeMetricDeltas(
+    baseline: AnalysisReport,
+    current: AnalysisReport,
+  ): Record<string, number> {
     const paths = [
       'summary.overallScore',
       'summary.totalFindings',
@@ -212,12 +218,19 @@ export class TrendAnalyzer {
     score -= highAdded * 2;
 
     // Overall score improvement
-    if (metricDeltas['summary.overallScore'] && metricDeltas['summary.overallScore'] > 1) score += 2;
-    else if (metricDeltas['summary.overallScore'] && metricDeltas['summary.overallScore'] < -1) score -= 2;
+    if (metricDeltas['summary.overallScore'] && metricDeltas['summary.overallScore'] > 1)
+      score += 2;
+    else if (metricDeltas['summary.overallScore'] && metricDeltas['summary.overallScore'] < -1)
+      score -= 2;
 
     // Compliance score
-    if (metricDeltas['metrics.complianceScore'] && metricDeltas['metrics.complianceScore'] > 1) score += 2;
-    else if (metricDeltas['metrics.complianceScore'] && metricDeltas['metrics.complianceScore'] < -1) score -= 2;
+    if (metricDeltas['metrics.complianceScore'] && metricDeltas['metrics.complianceScore'] > 1)
+      score += 2;
+    else if (
+      metricDeltas['metrics.complianceScore'] &&
+      metricDeltas['metrics.complianceScore'] < -1
+    )
+      score -= 2;
 
     if (score > 0) return 'improved';
     if (score < 0) return 'degraded';

@@ -99,7 +99,9 @@ describe('BashProvider', () => {
   describe('taint analysis', () => {
     it('should detect read as user_input source', () => {
       const sources = provider.extractTaintSources('read input');
-      expect(sources.some((s) => s.name === 'read_input' && s.sourceType === 'user_input')).toBe(true);
+      expect(sources.some((s) => s.name === 'read_input' && s.sourceType === 'user_input')).toBe(
+        true,
+      );
     });
 
     it('should detect curl as network source', () => {

@@ -22,19 +22,19 @@ code-analyzer agent list
 
 ## Supported Agents
 
-| Agent | Config File | Format | Detection |
-|-------|------------|--------|-----------|
-| Claude Code | `~/.claude/mcp.json` | JSON | `~/.claude/` exists |
-| Cursor | `~/.cursor/mcp.json` | JSON | `~/.cursor/` exists |
-| Windsurf | `~/.windsurf/mcp.json` | JSON | `~/.windsurf/` exists |
-| Continue.dev | `~/.continue/config.json` | JSON | `~/.continue/` exists |
-| Aider | `~/.aider.conf.yml` | YAML | `~/.aider.conf.yml` or `~/.aider/` exists |
-| Cline | `~/.cline/mcp_settings.json` | JSON | `~/.cline/` exists |
-| Codex (OpenAI) | `~/.codex/config.yml` | YAML | `~/.codex/` exists |
-| Gemini CLI | `~/.gemini/mcp.json` | JSON | `~/.gemini/` exists |
-| Cody (Sourcegraph) | `~/.cody/mcp.json` | JSON | `~/.cody/` exists |
-| Amazon Q Developer | `~/.aws/amazonq/mcp.json` | JSON | `~/.aws/` exists |
-| GitHub Copilot Chat | `~/.vscode/settings.json` | JSON | `~/.vscode/` exists |
+| Agent               | Config File                  | Format | Detection                                 |
+| ------------------- | ---------------------------- | ------ | ----------------------------------------- |
+| Claude Code         | `~/.claude/mcp.json`         | JSON   | `~/.claude/` exists                       |
+| Cursor              | `~/.cursor/mcp.json`         | JSON   | `~/.cursor/` exists                       |
+| Windsurf            | `~/.windsurf/mcp.json`       | JSON   | `~/.windsurf/` exists                     |
+| Continue.dev        | `~/.continue/config.json`    | JSON   | `~/.continue/` exists                     |
+| Aider               | `~/.aider.conf.yml`          | YAML   | `~/.aider.conf.yml` or `~/.aider/` exists |
+| Cline               | `~/.cline/mcp_settings.json` | JSON   | `~/.cline/` exists                        |
+| Codex (OpenAI)      | `~/.codex/config.yml`        | YAML   | `~/.codex/` exists                        |
+| Gemini CLI          | `~/.gemini/mcp.json`         | JSON   | `~/.gemini/` exists                       |
+| Cody (Sourcegraph)  | `~/.cody/mcp.json`           | JSON   | `~/.cody/` exists                         |
+| Amazon Q Developer  | `~/.aws/amazonq/mcp.json`    | JSON   | `~/.aws/` exists                          |
+| GitHub Copilot Chat | `~/.vscode/settings.json`    | JSON   | `~/.vscode/` exists                       |
 
 ## MCP Server Configuration Format
 
@@ -107,18 +107,18 @@ mcp_servers:
   - name: code-analyzer
     command: npx
     args:
-      - "@agentix-e/code-analyzer"
+      - '@agentix-e/code-analyzer'
       - mcp
     env:
-      CODE_ANALYZER_ROOT: "${workspaceFolder}"
+      CODE_ANALYZER_ROOT: '${workspaceFolder}'
 ```
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable             | Description               | Default              |
+| -------------------- | ------------------------- | -------------------- |
 | `CODE_ANALYZER_ROOT` | Root directory to analyze | `${workspaceFolder}` |
-| `NODE_ENV` | Environment mode | `production` |
+| `NODE_ENV`           | Environment mode          | `production`         |
 
 ## Per-Agent Setup Instructions
 
@@ -247,6 +247,7 @@ mv ~/.cursor/mcp.json.code-analyzer-backup ~/.cursor/mcp.json
 ### Permission errors
 
 If you see permission errors when writing config files:
+
 - The config files are written to your home directory (`~`)
 - Ensure your user has write permissions to these directories
 - VS Code settings.json may be read-only if synced — disable settings sync

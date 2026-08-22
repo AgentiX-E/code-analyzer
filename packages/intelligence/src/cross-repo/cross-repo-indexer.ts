@@ -6,12 +6,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 
-import type {
-  GraphNode,
-  GraphEdge,
-  NodeLabel,
-  Contract,
-} from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, NodeLabel, Contract } from '@code-analyzer/shared';
 import {
   EDGE_IMPORTS,
   EDGE_CALLS,
@@ -106,19 +101,54 @@ export interface SymbolDependencyTrace {
 // Internal types
 // ---------------------------------------------------------------------------
 
-
 const SKIP_DIRECTORIES = new Set([
-  'node_modules', '.git', 'dist', 'build', '__pycache__', '.next',
-  'target', '.cache', '.idea', '.vscode', 'coverage', '.nyc_output',
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '__pycache__',
+  '.next',
+  'target',
+  '.cache',
+  '.idea',
+  '.vscode',
+  'coverage',
+  '.nyc_output',
 ]);
 
 const SKIP_FILE_PATTERNS = [/^\./, /\.min\.(js|css)$/, /\.d\.ts$/];
 
 const SOURCE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.pyi', '.go', '.java', '.kt', '.kts',
-  '.cs', '.rs', '.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hh',
-  '.php', '.rb', '.swift', '.dart', '.lua', '.scala', '.zig', '.ex', '.exs',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.pyi',
+  '.go',
+  '.java',
+  '.kt',
+  '.kts',
+  '.cs',
+  '.rs',
+  '.c',
+  '.h',
+  '.cpp',
+  '.cc',
+  '.cxx',
+  '.hpp',
+  '.hh',
+  '.php',
+  '.rb',
+  '.swift',
+  '.dart',
+  '.lua',
+  '.scala',
+  '.zig',
+  '.ex',
+  '.exs',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -149,10 +179,7 @@ export class CrossRepoIndexer {
    * Index all repositories in a group.
    * Runs indexing with configurable concurrency.
    */
-  async indexGroup(
-    groupId: string,
-    options: IndexOptions = {},
-  ): Promise<IndexResult> {
+  async indexGroup(groupId: string, options: IndexOptions = {}): Promise<IndexResult> {
     const startTime = Date.now();
     const errors: string[] = [];
 
@@ -262,9 +289,7 @@ export class CrossRepoIndexer {
 
     const files = await this.discoverFiles(localPath, options);
 
-    const langFilter = options.languages
-      ? new Set(options.languages)
-      : null;
+    const langFilter = options.languages ? new Set(options.languages) : null;
 
     for (const file of files) {
       if (langFilter && file.language && !langFilter.has(file.language)) {
@@ -328,9 +353,7 @@ export class CrossRepoIndexer {
         if (SKIP_FILE_PATTERNS.some((p) => p.test(name))) continue;
 
         /* v8 ignore next */
-        const ext = name.lastIndexOf('.') >= 0
-          ? name.slice(name.lastIndexOf('.'))
-          : '';
+        const ext = name.lastIndexOf('.') >= 0 ? name.slice(name.lastIndexOf('.')) : '';
         if (!SOURCE_EXTENSIONS.has(ext)) continue;
 
         const language = getLanguageFromFilename(fullPath);
@@ -403,17 +426,17 @@ export class CrossRepoIndexer {
         seen.add(name);
 
         const lineNum = this.getLineNumber(content, match.index);
-        const isExported = content.slice(
-          Math.max(0, match.index - 50),
-          match.index,
-        ).includes('export');
+        const isExported = content
+          .slice(Math.max(0, match.index - 50), match.index)
+          .includes('export');
 
         let label: NodeLabel = 'Function';
         if (pattern.source.includes('class')) label = 'Class';
         else if (pattern.source.includes('interface')) label = 'Interface';
         else if (pattern.source.includes('type\\s+')) label = 'TypeAlias';
         else if (pattern.source.includes('enum')) label = 'Enum';
-        else if (pattern.source.includes('public') || pattern.source.includes('private')) label = 'Method';
+        else if (pattern.source.includes('public') || pattern.source.includes('private'))
+          label = 'Method';
 
         nodeCounter++;
         const qualifiedName = `project:${projectId}:${relPath}:${name}`;
@@ -465,10 +488,11 @@ export class CrossRepoIndexer {
     let match;
     while ((match = namedImportRe.exec(content)) !== null) {
       /* v8 ignore next */
-      const names = match[1]
-        ?.split(',')
-        .map((s) => s.trim().replace(/^(\w+)\s+as\s+\w+$/, '$1'))
-        .filter(Boolean) ?? [];
+      const names =
+        match[1]
+          ?.split(',')
+          .map((s) => s.trim().replace(/^(\w+)\s+as\s+\w+$/, '$1'))
+          .filter(Boolean) ?? [];
       imports.push({ modulePath: match[2]!, importedNames: names });
     }
 
@@ -491,13 +515,15 @@ export class CrossRepoIndexer {
     }
 
     // Match: require('module')
-    const requireRe = /(?:const|let|var)\s+(?:\{([^}]+)\}\s*=\s*)?require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+    const requireRe =
+      /(?:const|let|var)\s+(?:\{([^}]+)\}\s*=\s*)?require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
     /* v8 ignore start */
     while ((match = requireRe.exec(content)) !== null) {
-      const names = match[1]
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter(Boolean) ?? [];
+      const names =
+        match[1]
+          ?.split(',')
+          .map((s) => s.trim())
+          .filter(Boolean) ?? [];
       imports.push({ modulePath: match[2]!, importedNames: names });
     }
     /* v8 ignore stop */
@@ -508,7 +534,12 @@ export class CrossRepoIndexer {
     while ((match = pyImportRe.exec(content)) !== null) {
       const names = match[2]!
         .split(',')
-        .map((s) => s.trim().replace(/\s+as\s+\w+/, '').trim())
+        .map((s) =>
+          s
+            .trim()
+            .replace(/\s+as\s+\w+/, '')
+            .trim(),
+        )
         .filter(Boolean);
       imports.push({ modulePath: match[1]!, importedNames: names });
     }
@@ -519,7 +550,12 @@ export class CrossRepoIndexer {
     while ((match = pyImportSimpleRe.exec(content)) !== null) {
       const names = match[1]!
         .split(',')
-        .map((s) => s.trim().split(/\s+as\s+/)[0]!.trim())
+        .map((s) =>
+          s
+            .trim()
+            .split(/\s+as\s+/)[0]!
+            .trim(),
+        )
         .filter(Boolean);
       for (const name of names) {
         imports.push({ modulePath: name, importedNames: ['*'] });
@@ -538,9 +574,7 @@ export class CrossRepoIndexer {
    * Compares exported symbols by exact name, similar name (Levenshtein ≤ 2),
    * API patterns (HTTP routes), and import references.
    */
-  async resolveCrossRepoSymbols(
-    groupId: string,
-  ): Promise<CrossRepoSymbolMatch[]> {
+  async resolveCrossRepoSymbols(groupId: string): Promise<CrossRepoSymbolMatch[]> {
     const group = this.groupManager.getGroup(groupId);
     if (!group) {
       throw new Error(`Group "${groupId}" not found`);
@@ -763,11 +797,7 @@ export class CrossRepoIndexer {
           }
 
           // Create cross-repo node if not exists
-          this.ensureCrossRepoNode(
-            repoA,
-            crossRepoType,
-            now,
-          );
+          this.ensureCrossRepoNode(repoA, crossRepoType, now);
 
           // Create cross-repo edge
           const crossRepoEdge: GraphEdge = {
@@ -853,10 +883,7 @@ export class CrossRepoIndexer {
     const repoInterfaces = new Map<string, GraphNode[]>();
     for (const repo of repos) {
       const nodes = this.getRepoNodes(repo);
-      const interfaces = nodes.filter(
-        (n) =>
-          n.label === 'Interface' || n.label === 'TypeAlias',
-      );
+      const interfaces = nodes.filter((n) => n.label === 'Interface' || n.label === 'TypeAlias');
       repoInterfaces.set(repo, interfaces);
     }
 
@@ -935,7 +962,10 @@ export class CrossRepoIndexer {
     const warnings: string[] = [];
 
     // Find the symbols
-    const nodeA = this.findSymbolAcrossRepos(group.repos.map((r) => r.fullName), symbolA);
+    const nodeA = this.findSymbolAcrossRepos(
+      group.repos.map((r) => r.fullName),
+      symbolA,
+    );
     // Find symbolB in a different repo than nodeA
     const nodeB = this.findSymbolAcrossRepos(
       group.repos.map((r) => r.fullName),
@@ -958,9 +988,7 @@ export class CrossRepoIndexer {
 
     // Compare labels
     if (nodeA.node.label !== nodeB.node.label) {
-      breakingChanges.push(
-        `Type mismatch: ${nodeA.node.label} vs ${nodeB.node.label}`,
-      );
+      breakingChanges.push(`Type mismatch: ${nodeA.node.label} vs ${nodeB.node.label}`);
     }
 
     // Compare properties
@@ -993,22 +1021,14 @@ export class CrossRepoIndexer {
     /* v8 ignore start */
     if (nodeA.node.signature !== nodeB.node.signature) {
       if (nodeA.node.signature && nodeB.node.signature) {
-        warnings.push(
-          `Signature changed: "${nodeA.node.signature}" → "${nodeB.node.signature}"`,
-        );
+        warnings.push(`Signature changed: "${nodeA.node.signature}" → "${nodeB.node.signature}"`);
       }
     }
     /* v8 ignore stop */
 
     // Compare return types
-    if (
-      propsA.returnType &&
-      propsB.returnType &&
-      propsA.returnType !== propsB.returnType
-    ) {
-      warnings.push(
-        `Return type changed: ${propsA.returnType} → ${propsB.returnType}`,
-      );
+    if (propsA.returnType && propsB.returnType && propsA.returnType !== propsB.returnType) {
+      warnings.push(`Return type changed: ${propsA.returnType} → ${propsB.returnType}`);
     }
 
     return {
@@ -1041,9 +1061,7 @@ export class CrossRepoIndexer {
 
     const repos = group.repos.map((r) => r.fullName);
     if (!repos.includes(changedRepoId)) {
-      throw new Error(
-        `Changed repo "${changedRepoId}" is not in group "${groupId}"`,
-      );
+      throw new Error(`Changed repo "${changedRepoId}" is not in group "${groupId}"`);
     }
 
     const analysis: CrossRepoImpactResult['analysis'] = [];
@@ -1051,14 +1069,16 @@ export class CrossRepoIndexer {
 
     // Determine which source nodes to start BFS from.
     // When changedSymbols is provided, only start from nodes matching those symbols.
-    const sourceNodes = changedSymbols && changedSymbols.length > 0
-      ? this.getRepoNodes(changedRepoId).filter((n) =>
-          changedSymbols.some((s) =>
-            n.name.toLowerCase() === s.toLowerCase() ||
-            n.qualifiedName.toLowerCase().includes(s.toLowerCase()),
-          ),
-        )
-      : null;
+    const sourceNodes =
+      changedSymbols && changedSymbols.length > 0
+        ? this.getRepoNodes(changedRepoId).filter((n) =>
+            changedSymbols.some(
+              (s) =>
+                n.name.toLowerCase() === s.toLowerCase() ||
+                n.qualifiedName.toLowerCase().includes(s.toLowerCase()),
+            ),
+          )
+        : null;
 
     // BFS from changed repo along cross-repo edges
     const visited = new Set<string>();
@@ -1076,9 +1096,10 @@ export class CrossRepoIndexer {
         const specificSymbols = affectedSymbolMap.get(current.repo);
 
         // If we have specific symbol tracking, use that. Otherwise return all symbols.
-        const affectedSymbols = specificSymbols && specificSymbols.size > 0
-          ? Array.from(specificSymbols)
-          : this.getSymbolsInRepo(current.repo).map((n) => n.name);
+        const affectedSymbols =
+          specificSymbols && specificSymbols.size > 0
+            ? Array.from(specificSymbols)
+            : this.getSymbolsInRepo(current.repo).map((n) => n.name);
 
         let impactLevel: 'critical' | 'high' | 'medium' | 'low' = 'low';
         if (current.depth === 1) impactLevel = 'high';
@@ -1150,9 +1171,7 @@ export class CrossRepoIndexer {
 
     const repos = group.repos.map((r) => r.fullName);
     if (!repos.includes(sourceRepoId)) {
-      throw new Error(
-        `Source repo "${sourceRepoId}" is not in group "${groupId}"`,
-      );
+      throw new Error(`Source repo "${sourceRepoId}" is not in group "${groupId}"`);
     }
 
     const traces: SymbolDependencyTrace[] = [];
@@ -1326,15 +1345,11 @@ export class CrossRepoIndexer {
 
       if (!targetFileNode) continue;
 
-      const sourceFileNode = nodes.find(
-        (n) =>
-          n.label === 'File' &&
-          n.filePath === sourceFile,
-      );
+      const sourceFileNode = nodes.find((n) => n.label === 'File' && n.filePath === sourceFile);
 
       // Fallback: search by name
-      const sourceNode = sourceFileNode ??
-        nodes.find((n) => n.label === 'File' && n.filePath === sourceFile);
+      const sourceNode =
+        sourceFileNode ?? nodes.find((n) => n.label === 'File' && n.filePath === sourceFile);
 
       if (!sourceNode) continue;
 
@@ -1360,18 +1375,11 @@ export class CrossRepoIndexer {
     }
   }
 
-  private ensureCrossRepoNode(
-    repo: string,
-    edgeType: string,
-    now: string,
-  ): number {
+  private ensureCrossRepoNode(repo: string, edgeType: string, now: string): number {
     // Look for existing CrossRepo node for this repo
     const allNodes = this.store.getAllNodes();
     const existing = allNodes.find(
-      (n) =>
-        n.label === 'CrossRepoModule' &&
-        n.projectId === repo &&
-        n.name === edgeType,
+      (n) => n.label === 'CrossRepoModule' && n.projectId === repo && n.name === edgeType,
     );
     if (existing) return existing.id;
 
@@ -1403,9 +1411,7 @@ export class CrossRepoIndexer {
       /* v8 ignore start */
       // Already exists, try to find it
       const nodes = this.getRepoNodes(repo);
-      const found = nodes.find(
-        (n) => n.label === 'CrossRepoModule' && n.name === edgeType,
-      );
+      const found = nodes.find((n) => n.label === 'CrossRepoModule' && n.name === edgeType);
       return found ? found.id : 0;
       /* v8 ignore stop */
     }
@@ -1435,9 +1441,7 @@ export class CrossRepoIndexer {
     for (const repo of repos) {
       if (excludeRepo && repo === excludeRepo) continue;
       const nodes = this.getRepoNodes(repo);
-      const found = nodes.find(
-        (n) => n.name.toLowerCase() === lower,
-      );
+      const found = nodes.find((n) => n.name.toLowerCase() === lower);
       if (found) {
         return { repo, node: found };
       }
@@ -1481,9 +1485,9 @@ export function levenshteinDistance(a: string, b: string): number {
     for (let i = 1; i <= a.length; i++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       currRow[i] = Math.min(
-        prevRow[i]! + 1,          // deletion
-        currRow[i - 1]! + 1,      // insertion
-        prevRow[i - 1]! + cost,   // substitution
+        prevRow[i]! + 1, // deletion
+        currRow[i - 1]! + 1, // insertion
+        prevRow[i - 1]! + cost, // substitution
       );
     }
     [prevRow, currRow] = [currRow, prevRow];

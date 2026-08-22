@@ -2,11 +2,7 @@
 
 import { dirname } from 'node:path';
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  DiscoveredFile,
-} from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -25,8 +21,7 @@ export class StructurePhase implements ExecutablePhase {
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: DiscoveredFile[] }
-        | undefined;
+        { discoveredFiles: DiscoveredFile[] } | undefined;
 
       if (!scanData || !scanData.discoveredFiles) {
         return { phaseId: this.id, status: 'success', output: { directories: 0, modules: 0 } };
@@ -53,7 +48,11 @@ export class StructurePhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }

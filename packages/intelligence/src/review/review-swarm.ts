@@ -3,12 +3,7 @@
 // Each lens runs independently, then findings are merged, deduplicated,
 // and validated through the Synthesis Lens (HARD GATE).
 
-import type {
-  GitDiff,
-  ReviewComment,
-  ReviewCategory,
-  Severity,
-} from '@code-analyzer/shared';
+import type { GitDiff, ReviewComment, ReviewCategory, Severity } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { StandardsEngine } from '../standards/engine.js';
@@ -127,7 +122,11 @@ export class ReviewSwarm {
     this.standardsEngine = new StandardsEngine();
     this.iouDetector = new IoUOverlapDetector();
     this.config = {
-      enabledLenses: config?.enabledLenses ?? getLensProfiles().map(p => p.id).filter(id => id !== 'synthesis'),
+      enabledLenses:
+        config?.enabledLenses ??
+        getLensProfiles()
+          .map((p) => p.id)
+          .filter((id) => id !== 'synthesis'),
       minSeverity: config?.minSeverity ?? 'info',
       iouThreshold: config?.iouThreshold ?? 0.5,
       failFast: config?.failFast ?? false,
@@ -153,11 +152,11 @@ export class ReviewSwarm {
 
     // Get lens profiles sorted by priority
     const profiles = getLensProfiles().filter(
-      p => p.id === 'synthesis' || this.config.enabledLenses.includes(p.id),
+      (p) => p.id === 'synthesis' || this.config.enabledLenses.includes(p.id),
     );
 
     // Run non-synthesis lenses
-    const analysisLenses = profiles.filter(p => p.id !== 'synthesis');
+    const analysisLenses = profiles.filter((p) => p.id !== 'synthesis');
     const lensReports = this.config.parallel
       ? await this.runLensesParallel(analysisLenses, diffs, sourceContents)
       : await this.runLensesSequential(analysisLenses, diffs, sourceContents);
@@ -219,11 +218,11 @@ export class ReviewSwarm {
    * 6. Missing patterns — ask LLM to find issues our rules missed
    */
   generateMCPPrompt(result: SwarmResult, prTitle: string): string {
-    const highConf = result.lensReports.flatMap(r =>
-      r.findings.filter(f => f.confidence === 'rule'),
+    const highConf = result.lensReports.flatMap((r) =>
+      r.findings.filter((f) => f.confidence === 'rule'),
     );
-    const heuristic = result.lensReports.flatMap(r =>
-      r.findings.filter(f => f.confidence === 'heuristic' || f.confidence === 'low'),
+    const heuristic = result.lensReports.flatMap((r) =>
+      r.findings.filter((f) => f.confidence === 'heuristic' || f.confidence === 'low'),
     );
 
     const prompt = `## PR Review: ${prTitle}
@@ -233,27 +232,37 @@ ${result.summary.totalFindings} findings from ${result.lensReports.length} lense
 across ${result.summary.filesScanned} files (${result.summary.linesAnalyzed} lines).
 
 ### High-Confidence Findings (Pattern-Matched — Please Validate)
-${highConf.length > 0
-  ? highConf.map((f, i) =>
-    `${i + 1}. **[${f.lens}] ${f.title}** (${f.severity})
+${
+  highConf.length > 0
+    ? highConf
+        .map(
+          (f, i) =>
+            `${i + 1}. **[${f.lens}] ${f.title}** (${f.severity})
    File: ${f.evidence.filePath}:${f.evidence.startLine}
    Code: \`${f.evidence.codeSnippet.slice(0, 100)}${f.evidence.codeSnippet.length > 100 ? '...' : ''}\`
    ${f.description}
    ${f.graphContext && f.graphContext.callers.length > 0 ? `Callers: ${f.graphContext.callers.join(', ')}` : ''}
    ${f.suggestion ? `Suggested Fix: ${f.suggestion}` : ''}`,
-  ).join('\n\n')
-  : 'No high-confidence findings.'}
+        )
+        .join('\n\n')
+    : 'No high-confidence findings.'
+}
 
 ### Heuristic / Low-Confidence Findings (Please Investigate)
-${heuristic.length > 0
-  ? heuristic.map((f, i) =>
-    `${i + 1}. **[${f.lens}] ${f.title}** (${f.severity}, confidence: ${f.confidence})
+${
+  heuristic.length > 0
+    ? heuristic
+        .map(
+          (f, i) =>
+            `${i + 1}. **[${f.lens}] ${f.title}** (${f.severity}, confidence: ${f.confidence})
    File: ${f.evidence.filePath}:${f.evidence.startLine}
    Code: \`${f.evidence.codeSnippet.slice(0, 100)}${f.evidence.codeSnippet.length > 100 ? '...' : ''}\`
    ${f.graphContext && f.graphContext.relatedTests.length > 0 ? `Related Tests: ${f.graphContext.relatedTests.join(', ')}` : 'No related tests found.'}
    ${f.graphContext && f.graphContext.crossRepoRefs.length > 0 ? `Cross-Repo: ${f.graphContext.crossRepoRefs.join(', ')}` : ''}`,
-  ).join('\n\n')
-  : 'No heuristic findings.'}
+        )
+        .join('\n\n')
+    : 'No heuristic findings.'
+}
 
 ### Your Task as an AI Code Reviewer
 
@@ -331,7 +340,11 @@ Reason: ${result.decision.reason}`;
             }
 
             // Find what this function calls
-            const outEdges = this.store.queryEdges({ projectId, sourceId: func.id, type: EDGE_CALLS });
+            const outEdges = this.store.queryEdges({
+              projectId,
+              sourceId: func.id,
+              type: EDGE_CALLS,
+            });
             for (const edge of outEdges.items) {
               const callee = this.store.getNode(edge.targetId);
               if (callee) {
@@ -342,7 +355,7 @@ Reason: ${result.decision.reason}`;
         }
 
         // Find test files
-        if (funcPath && funcPath.includes('.test.') || funcPath?.includes('.spec.')) {
+        if ((funcPath && funcPath.includes('.test.')) || funcPath?.includes('.spec.')) {
           const testEdges = this.store.queryEdges({ projectId, sourceId: func.id });
           for (const edge of testEdges.items) {
             const target = this.store.getNode(edge.targetId);
@@ -390,7 +403,7 @@ Reason: ${result.decision.reason}`;
     sourceContents?: Map<string, string>,
   ): Promise<LensReport[]> {
     const reports = await Promise.all(
-      profiles.map(p => this.runSingleLens(p, diffs, sourceContents)),
+      profiles.map((p) => this.runSingleLens(p, diffs, sourceContents)),
     );
     return reports;
   }
@@ -417,8 +430,9 @@ Reason: ${result.decision.reason}`;
     let linesAnalyzed = 0;
 
     for (const diff of diffs) {
-      const content = sourceContents?.get(diff.filePath) ??
-        diff.ranges.map(r => `// ${diff.filePath}:${r.newStart}-${r.newEnd}`).join('\n');
+      const content =
+        sourceContents?.get(diff.filePath) ??
+        diff.ranges.map((r) => `// ${diff.filePath}:${r.newStart}-${r.newEnd}`).join('\n');
 
       const lines = content.split('\n');
       linesAnalyzed += lines.length;
@@ -561,7 +575,8 @@ Reason: ${result.decision.reason}`;
     const findings: LensFinding[] = [];
 
     // Check if this is a test file
-    const isTestFile = diff.filePath.includes('.test.') ||
+    const isTestFile =
+      diff.filePath.includes('.test.') ||
       diff.filePath.includes('.spec.') ||
       diff.filePath.includes('/__tests__/');
 
@@ -628,7 +643,11 @@ Reason: ${result.decision.reason}`;
   // API LENS
   // -------------------------------------------------------------------------
 
-  private runApiLens(diff: GitDiff, lines: string[], sourceContents?: Map<string, string>): LensFinding[] {
+  private runApiLens(
+    diff: GitDiff,
+    lines: string[],
+    sourceContents?: Map<string, string>,
+  ): LensFinding[] {
     return analyzeApi(lines.join('\n'), diff.filePath, {
       previousContent: sourceContents?.get(diff.filePath),
     });
@@ -707,24 +726,20 @@ Reason: ${result.decision.reason}`;
     actionPlan: ActionItem[];
   } {
     // Step 1: Collect all findings
-    let allFindings = reports.flatMap(r => r.findings);
+    let allFindings = reports.flatMap((r) => r.findings);
     const totalRaw = allFindings.length;
 
     // Step 2: Evidence validation — reject findings without proper anchors
     let evidenceRejected = 0;
     const validatedFindings: LensFinding[] = [];
     for (const f of allFindings) {
-      if (
-        f.evidence.filePath &&
-        f.evidence.startLine > 0 &&
-        f.evidence.codeSnippet.length > 0
-      ) {
+      if (f.evidence.filePath && f.evidence.startLine > 0 && f.evidence.codeSnippet.length > 0) {
         validatedFindings.push(f);
       } else {
         evidenceRejected++;
       }
     }
-    evidenceRejected += (totalRaw - validatedFindings.length);
+    evidenceRejected += totalRaw - validatedFindings.length;
     allFindings = validatedFindings;
 
     // Step 2.5: Adversarial validation — challenge each finding
@@ -732,14 +747,14 @@ Reason: ${result.decision.reason}`;
     // Low-confidence findings are down-ranked; rule-based findings are checked
     // for obvious false positives (e.g., commented code, test file exceptions).
     let adversarialRejected = 0;
-    allFindings = allFindings.filter(f => {
+    allFindings = allFindings.filter((f) => {
       const keep = this.adversarialValidate(f);
       if (!keep) adversarialRejected++;
       return keep;
     });
 
     // Step 3: IoU-based deduplication
-    const regions: CommentRegion[] = allFindings.map(f => ({
+    const regions: CommentRegion[] = allFindings.map((f) => ({
       filePath: f.evidence.filePath,
       startLine: f.evidence.startLine,
       endLine: f.evidence.endLine,
@@ -758,7 +773,7 @@ Reason: ${result.decision.reason}`;
           endLine: finding.evidence.endLine,
           commentId: finding.id,
         },
-        regions.filter(r => r.commentId !== finding.id),
+        regions.filter((r) => r.commentId !== finding.id),
         this.config.iouThreshold,
       );
 
@@ -796,14 +811,18 @@ Reason: ${result.decision.reason}`;
     }
 
     // Step 5: Filter by minimum severity
-    allFindings = allFindings.filter(f => {
+    allFindings = allFindings.filter((f) => {
       const severityOrder: Severity[] = ['info', 'low', 'medium', 'high', 'critical'];
       return severityOrder.indexOf(f.severity) >= severityOrder.indexOf(this.config.minSeverity);
     });
 
     // Step 6: Build summary
     const bySeverity: Record<Severity, number> = {
-      critical: 0, high: 0, medium: 0, low: 0, info: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
     };
     const byCategory: Record<string, number> = {};
     const byLens: Record<string, number> = {};
@@ -830,36 +849,40 @@ Reason: ${result.decision.reason}`;
       evidenceRejected,
       adversarialRejected,
       iouDeduped,
-      needsLLMValidation: allFindings.filter(f => f.confidence === 'low').length,
+      needsLLMValidation: allFindings.filter((f) => f.confidence === 'low').length,
     };
 
     // Step 7: Generate action plan
     const actionPlan = this.buildActionPlan(allFindings);
 
     // Step 8: Make merge decision
-    const criticalFindings = allFindings.filter(f => f.severity === 'critical');
-    const highFindings = allFindings.filter(f => f.severity === 'high');
+    const criticalFindings = allFindings.filter((f) => f.severity === 'critical');
+    const highFindings = allFindings.filter((f) => f.severity === 'high');
 
     const requiredCorrections = [
-      ...criticalFindings.map(f => `[${f.lens}] ${f.evidence.filePath}:${f.evidence.startLine} — ${f.title}`),
+      ...criticalFindings.map(
+        (f) => `[${f.lens}] ${f.evidence.filePath}:${f.evidence.startLine} — ${f.title}`,
+      ),
     ];
 
     const decision: SwarmDecision = {
       canMerge: criticalFindings.length === 0,
-      recommendation: criticalFindings.length > 0
-        ? 'block'
-        : highFindings.length > 3
-          ? 'request-changes'
-          : allFindings.length > 0
-            ? 'approve-with-comments'
-            : 'approve',
-      reason: criticalFindings.length > 0
-        ? `${criticalFindings.length} critical finding(s) must be resolved before merge.`
-        : highFindings.length > 0
-          ? `${highFindings.length} high-severity finding(s) should be reviewed.`
-          : allFindings.length === 0
-            ? 'No issues found. Safe to merge.'
-            : `${allFindings.length} finding(s) — review recommended.`,
+      recommendation:
+        criticalFindings.length > 0
+          ? 'block'
+          : highFindings.length > 3
+            ? 'request-changes'
+            : allFindings.length > 0
+              ? 'approve-with-comments'
+              : 'approve',
+      reason:
+        criticalFindings.length > 0
+          ? `${criticalFindings.length} critical finding(s) must be resolved before merge.`
+          : highFindings.length > 0
+            ? `${highFindings.length} high-severity finding(s) should be reviewed.`
+            : allFindings.length === 0
+              ? 'No issues found. Safe to merge.'
+              : `${allFindings.length} finding(s) — review recommended.`,
       blockingCount: criticalFindings.length,
       requiredCorrections,
     };
@@ -892,7 +915,11 @@ Reason: ${result.decision.reason}`;
     const filePath = finding.evidence.filePath;
 
     // Check 1: Finding is on a comment-only line
-    if (code.trim().startsWith('//') || code.trim().startsWith('/*') || code.trim().startsWith('*')) {
+    if (
+      code.trim().startsWith('//') ||
+      code.trim().startsWith('/*') ||
+      code.trim().startsWith('*')
+    ) {
       // Security findings on comments are always false positives
       if (finding.lens === 'security' && finding.confidence === 'rule') {
         return false;
@@ -907,33 +934,46 @@ Reason: ${result.decision.reason}`;
     }
 
     // Check 2: eval() in build tool configs — common and intentional
-    if (finding.evidence.ruleId === 'sec-eval' &&
-        (filePath.includes('webpack') || filePath.includes('vite.config') ||
-         filePath.includes('eslint') || filePath.includes('.config.'))) {
+    if (
+      finding.evidence.ruleId === 'sec-eval' &&
+      (filePath.includes('webpack') ||
+        filePath.includes('vite.config') ||
+        filePath.includes('eslint') ||
+        filePath.includes('.config.'))
+    ) {
       finding.confidence = 'low';
       finding.severity = 'low';
       return true; // Keep but heavily down-ranked
     }
 
     // Check 3: Hardcoded keys in test fixtures
-    if (finding.evidence.ruleId === 'sec-hardcoded-key' &&
-        (filePath.includes('.test.') || filePath.includes('.spec.') ||
-         filePath.includes('__fixtures__') || filePath.includes('mock'))) {
+    if (
+      finding.evidence.ruleId === 'sec-hardcoded-key' &&
+      (filePath.includes('.test.') ||
+        filePath.includes('.spec.') ||
+        filePath.includes('__fixtures__') ||
+        filePath.includes('mock'))
+    ) {
       finding.confidence = 'low';
       finding.severity = 'info';
       return true;
     }
 
     // Check 4: console.log in CLI tools is normal
-    if (finding.evidence.ruleId === 'style-console-log' &&
-        (filePath.includes('/cli/') || filePath.includes('/bin/') || filePath.endsWith('.cli.ts'))) {
+    if (
+      finding.evidence.ruleId === 'style-console-log' &&
+      (filePath.includes('/cli/') || filePath.includes('/bin/') || filePath.endsWith('.cli.ts'))
+    ) {
       finding.confidence = 'low';
       return true;
     }
 
     // Check 5: Missing JSDoc on React component props type (often unnecessary)
-    if (finding.evidence.ruleId === 'docs-missing-jsdoc' &&
-        code.includes('interface') && code.includes('Props')) {
+    if (
+      finding.evidence.ruleId === 'docs-missing-jsdoc' &&
+      code.includes('interface') &&
+      code.includes('Props')
+    ) {
       finding.confidence = 'low';
       return true;
     }
@@ -958,9 +998,9 @@ Reason: ${result.decision.reason}`;
     let priority = 1;
 
     for (const [file, fileFindings] of byFile) {
-      const hasCritical = fileFindings.some(f => f.severity === 'critical');
+      const hasCritical = fileFindings.some((f) => f.severity === 'critical');
       const count = fileFindings.length;
-      const lenses = [...new Set(fileFindings.map(f => f.lens))];
+      const lenses = [...new Set(fileFindings.map((f) => f.lens))];
 
       items.push({
         priority,
@@ -968,7 +1008,7 @@ Reason: ${result.decision.reason}`;
         files: [file],
         effort: count > 5 ? 'high' : count > 2 ? 'medium' : 'low',
         lenses,
-        findingIds: fileFindings.map(f => f.id),
+        findingIds: fileFindings.map((f) => f.id),
       });
 
       // Critical files get higher priority
@@ -980,7 +1020,9 @@ Reason: ${result.decision.reason}`;
     items.sort((a, b) => a.priority - b.priority);
 
     // Re-assign sequential priorities
-    items.forEach((item, i) => { item.priority = i + 1; });
+    items.forEach((item, i) => {
+      item.priority = i + 1;
+    });
 
     return items;
   }

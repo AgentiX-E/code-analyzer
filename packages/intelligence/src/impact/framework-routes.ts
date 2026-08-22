@@ -36,7 +36,8 @@ export interface DetectedRoute {
   /** Name of the handler function/class. */
   handlerName: string | null;
   /** Framework that defined this route. */
-  framework: 'express' | 'fastapi' | 'nestjs' | 'django' | 'sveltekit' | 'springboot' | 'springcloud';
+  framework:
+    'express' | 'fastapi' | 'nestjs' | 'django' | 'sveltekit' | 'springboot' | 'springcloud';
   /** Route type: http, websocket, graphql. */
   routeType: 'http' | 'websocket' | 'graphql';
   /** Controller/module name if applicable. */
@@ -51,7 +52,9 @@ export interface RouteDetectionResult {
 
 export interface RouteDetectorOptions {
   /** Frameworks to detect (default: all). */
-  frameworks?: ('express' | 'fastapi' | 'nestjs' | 'django' | 'sveltekit' | 'springboot' | 'springcloud')[];
+  frameworks?: (
+    'express' | 'fastapi' | 'nestjs' | 'django' | 'sveltekit' | 'springboot' | 'springcloud'
+  )[];
   /** Minimum confidence for AST-based detection (default: 0.7). */
   minConfidence?: number;
 }
@@ -127,7 +130,8 @@ const SVELTEKIT_PATTERNS = {
   loadExport: /export\s+(?:const|function|async\s+function)\s+load\b/,
   actionsExport: /export\s+const\s+actions\b/,
   // HTTP method exports in +server.ts/+server.js
-  httpMethodExport: /export\s+(?:const|function|async\s+function)\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/,
+  httpMethodExport:
+    /export\s+(?:const|function|async\s+function)\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/,
   // Error pages
   errorPage: /\+error\.svelte$/,
   // Route parameter: [param] directories (indicated by path structure)
@@ -145,7 +149,8 @@ const SPRING_PATTERNS = {
   // @RequestMapping("/path") — class-level base path mapping
   // Negative lookahead excludes method-level mappings that carry `method = RequestMethod.X`
   // so a method-level @RequestMapping is not misread as a class-level prefix.
-  requestMappingClass: /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"](?!\s*,\s*method\s*=)/g,
+  requestMappingClass:
+    /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"](?!\s*,\s*method\s*=)/g,
 
   // Method-level HTTP mapping annotations
   // @GetMapping("/path"), @PostMapping("/path"), etc.
@@ -155,7 +160,8 @@ const SPRING_PATTERNS = {
   deleteMapping: /@DeleteMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"]/g,
   patchMapping: /@PatchMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"]/g,
   // @RequestMapping(method=GET) / @RequestMapping(method=POST) — method-level generic mapping
-  requestMappingMethod: /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"]\s*,\s*method\s*=\s*RequestMethod\.(\w+)/g,
+  requestMappingMethod:
+    /@RequestMapping\s*\(\s*(?:value\s*=\s*)?['"]([^'"]*)['"]\s*,\s*method\s*=\s*RequestMethod\.(\w+)/g,
   // @RequestMapping with empty path (uses class-level prefix only)
   requestMappingNoPath: /@RequestMapping\s*\(\s*method\s*=\s*RequestMethod\.(\w+)/g,
   // @GetMapping / @PostMapping / etc. without an explicit path (root endpoint "/")
@@ -193,7 +199,8 @@ const SPRING_PATTERNS = {
   repository: /@Repository\b/,
 
   // Java method name extraction
-  javaMethod: /(?:public|private|protected)\s+(?:static\s+)?(?:@\w+\s+)*(?:[\w<>,\[\]]+)\s+(\w+)\s*\(/,
+  javaMethod:
+    /(?:public|private|protected)\s+(?:static\s+)?(?:@\w+\s+)*(?:[\w<>,\[\]]+)\s+(\w+)\s*\(/,
 };
 
 // ---------------------------------------------------------------------------
@@ -205,7 +212,15 @@ export class FrameworkRouteDetector {
   private readonly minConfidence: number;
 
   constructor(options: RouteDetectorOptions = {}) {
-    this.frameworks = options.frameworks ?? ['express', 'fastapi', 'nestjs', 'django', 'sveltekit', 'springboot', 'springcloud'];
+    this.frameworks = options.frameworks ?? [
+      'express',
+      'fastapi',
+      'nestjs',
+      'django',
+      'sveltekit',
+      'springboot',
+      'springcloud',
+    ];
     this.minConfidence = options.minConfidence ?? 0.7;
   }
 
@@ -217,11 +232,7 @@ export class FrameworkRouteDetector {
    * @param language — the language of the file
    * @returns RouteDetectionResult with detected routes
    */
-  detectFile(
-    filePath: string,
-    content: string,
-    language: string,
-  ): RouteDetectionResult {
+  detectFile(filePath: string, content: string, language: string): RouteDetectionResult {
     const routes: DetectedRoute[] = [];
     const detectedFrameworks: string[] = [];
 
@@ -244,7 +255,10 @@ export class FrameworkRouteDetector {
     }
 
     // NestJS detection (TypeScript)
-    if (this.frameworks.includes('nestjs') && (language === 'typescript' || language === 'typescriptreact')) {
+    if (
+      this.frameworks.includes('nestjs') &&
+      (language === 'typescript' || language === 'typescriptreact')
+    ) {
       const nestJSRoutes = this.detectNestJSRoutes(filePath, content);
       if (nestJSRoutes.length > 0) {
         routes.push(...nestJSRoutes);
@@ -262,7 +276,10 @@ export class FrameworkRouteDetector {
     }
 
     // SvelteKit detection (Svelte file-based routing)
-    if (this.frameworks.includes('sveltekit') && (language === 'svelte' || language === 'typescript' || language === 'javascript')) {
+    if (
+      this.frameworks.includes('sveltekit') &&
+      (language === 'svelte' || language === 'typescript' || language === 'javascript')
+    ) {
       const sveltekitRoutes = this.detectSvelteKitRoutes(filePath, content);
       if (sveltekitRoutes.length > 0) {
         routes.push(...sveltekitRoutes);
@@ -271,11 +288,14 @@ export class FrameworkRouteDetector {
     }
 
     // Spring Boot / Spring Cloud detection (Java)
-    if ((this.frameworks.includes('springboot') || this.frameworks.includes('springcloud')) && language === 'java') {
+    if (
+      (this.frameworks.includes('springboot') || this.frameworks.includes('springcloud')) &&
+      language === 'java'
+    ) {
       const springRoutes = this.detectSpringRoutes(filePath, content);
       if (springRoutes.length > 0) {
         routes.push(...springRoutes);
-        const springFrameworks = new Set(springRoutes.map(r => r.framework));
+        const springFrameworks = new Set(springRoutes.map((r) => r.framework));
         for (const fw of springFrameworks) {
           detectedFrameworks.push(fw);
         }
@@ -405,7 +425,9 @@ export class FrameworkRouteDetector {
         // Look for method chaining on subsequent lines
         for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
           const nextLine = lines[j]!.trim();
-          const methodMatch = nextLine.match(/\.(get|post|put|delete|patch)\s*\(\s*['"]([^'"]*)['"]/);
+          const methodMatch = nextLine.match(
+            /\.(get|post|put|delete|patch)\s*\(\s*['"]([^'"]*)['"]/,
+          );
           if (methodMatch) {
             routes.push({
               method: methodMatch[1]!.toUpperCase(),
@@ -1013,7 +1035,13 @@ export class FrameworkRouteDetector {
     let match: RegExpExecArray | null;
     while ((match = regex.exec(line)) !== null) {
       const name = match[1]!;
-      if (name !== 'export' && name !== 'const' && name !== 'actions' && name !== 'function' && name !== 'async') {
+      if (
+        name !== 'export' &&
+        name !== 'const' &&
+        name !== 'actions' &&
+        name !== 'function' &&
+        name !== 'async'
+      ) {
         names.push(name);
       }
     }
@@ -1099,21 +1127,21 @@ export class FrameworkRouteDetector {
         SPRING_PATTERNS.feignClient.lastIndex = 0;
         const feignMatch = SPRING_PATTERNS.feignClient.exec(trimmed);
         if (feignMatch) {
-        isFeignClient = true;
-        const clientParams = feignMatch[1]!;
+          isFeignClient = true;
+          const clientParams = feignMatch[1]!;
 
-        // Extract name
-        const nameMatch = SPRING_PATTERNS.feignClientName.exec(clientParams);
-        if (nameMatch) {
-          feignClientName = nameMatch[1]!;
-        }
+          // Extract name
+          const nameMatch = SPRING_PATTERNS.feignClientName.exec(clientParams);
+          if (nameMatch) {
+            feignClientName = nameMatch[1]!;
+          }
 
-        // Extract url
-        const urlMatch = SPRING_PATTERNS.feignClientUrl.exec(clientParams);
-        if (urlMatch) {
-          feignClientUrl = urlMatch[1]!;
+          // Extract url
+          const urlMatch = SPRING_PATTERNS.feignClientUrl.exec(clientParams);
+          if (urlMatch) {
+            feignClientUrl = urlMatch[1]!;
+          }
         }
-      }
       }
 
       // Detect @RestController or @Controller with optional prefix
@@ -1185,116 +1213,153 @@ export class FrameworkRouteDetector {
       // -------------------------------------------------------
 
       if (enableSpringBoot || isFeignClient) {
+        // Determine which framework to assign
+        const routeFramework = isFeignClient ? 'springcloud' : 'springboot';
 
-      // Determine which framework to assign
-      const routeFramework = isFeignClient ? 'springcloud' : 'springboot';
+        // @GetMapping
+        SPRING_PATTERNS.getMapping.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.getMapping.exec(trimmed)) !== null) {
+          const subPath = rmMatch[1]!;
+          const fullPath = this.joinPaths(controllerPrefix, subPath);
+          const handlerName = this.extractJavaHandler(lines, i);
 
-      // @GetMapping
-      SPRING_PATTERNS.getMapping.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.getMapping.exec(trimmed)) !== null) {
-        const subPath = rmMatch[1]!;
-        const fullPath = this.joinPaths(controllerPrefix, subPath);
-        const handlerName = this.extractJavaHandler(lines, i);
+          routes.push({
+            method: 'GET',
+            path: fullPath,
+            filePath,
+            line: i + 1,
+            handlerName,
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName: feignClientName ?? controllerName,
+          });
+        }
 
-        routes.push({
-          method: 'GET',
-          path: fullPath,
-          filePath,
-          line: i + 1,
-          handlerName,
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName: feignClientName ?? controllerName,
-        });
-      }
+        // @PostMapping
+        SPRING_PATTERNS.postMapping.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.postMapping.exec(trimmed)) !== null) {
+          const subPath = rmMatch[1]!;
+          const fullPath = this.joinPaths(controllerPrefix, subPath);
+          const handlerName = this.extractJavaHandler(lines, i);
 
-      // @PostMapping
-      SPRING_PATTERNS.postMapping.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.postMapping.exec(trimmed)) !== null) {
-        const subPath = rmMatch[1]!;
-        const fullPath = this.joinPaths(controllerPrefix, subPath);
-        const handlerName = this.extractJavaHandler(lines, i);
+          routes.push({
+            method: 'POST',
+            path: fullPath,
+            filePath,
+            line: i + 1,
+            handlerName,
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName: feignClientName ?? controllerName,
+          });
+        }
 
-        routes.push({
-          method: 'POST',
-          path: fullPath,
-          filePath,
-          line: i + 1,
-          handlerName,
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName: feignClientName ?? controllerName,
-        });
-      }
+        // @PutMapping
+        SPRING_PATTERNS.putMapping.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.putMapping.exec(trimmed)) !== null) {
+          const subPath = rmMatch[1]!;
+          const fullPath = this.joinPaths(controllerPrefix, subPath);
+          const handlerName = this.extractJavaHandler(lines, i);
 
-      // @PutMapping
-      SPRING_PATTERNS.putMapping.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.putMapping.exec(trimmed)) !== null) {
-        const subPath = rmMatch[1]!;
-        const fullPath = this.joinPaths(controllerPrefix, subPath);
-        const handlerName = this.extractJavaHandler(lines, i);
+          routes.push({
+            method: 'PUT',
+            path: fullPath,
+            filePath,
+            line: i + 1,
+            handlerName,
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName: feignClientName ?? controllerName,
+          });
+        }
 
-        routes.push({
-          method: 'PUT',
-          path: fullPath,
-          filePath,
-          line: i + 1,
-          handlerName,
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName: feignClientName ?? controllerName,
-        });
-      }
+        // @DeleteMapping
+        SPRING_PATTERNS.deleteMapping.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.deleteMapping.exec(trimmed)) !== null) {
+          const subPath = rmMatch[1]!;
+          const fullPath = this.joinPaths(controllerPrefix, subPath);
+          const handlerName = this.extractJavaHandler(lines, i);
 
-      // @DeleteMapping
-      SPRING_PATTERNS.deleteMapping.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.deleteMapping.exec(trimmed)) !== null) {
-        const subPath = rmMatch[1]!;
-        const fullPath = this.joinPaths(controllerPrefix, subPath);
-        const handlerName = this.extractJavaHandler(lines, i);
+          routes.push({
+            method: 'DELETE',
+            path: fullPath,
+            filePath,
+            line: i + 1,
+            handlerName,
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName: feignClientName ?? controllerName,
+          });
+        }
 
-        routes.push({
-          method: 'DELETE',
-          path: fullPath,
-          filePath,
-          line: i + 1,
-          handlerName,
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName: feignClientName ?? controllerName,
-        });
-      }
+        // @PatchMapping
+        SPRING_PATTERNS.patchMapping.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.patchMapping.exec(trimmed)) !== null) {
+          const subPath = rmMatch[1]!;
+          const fullPath = this.joinPaths(controllerPrefix, subPath);
+          const handlerName = this.extractJavaHandler(lines, i);
 
-      // @PatchMapping
-      SPRING_PATTERNS.patchMapping.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.patchMapping.exec(trimmed)) !== null) {
-        const subPath = rmMatch[1]!;
-        const fullPath = this.joinPaths(controllerPrefix, subPath);
-        const handlerName = this.extractJavaHandler(lines, i);
+          routes.push({
+            method: 'PATCH',
+            path: fullPath,
+            filePath,
+            line: i + 1,
+            handlerName,
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName: feignClientName ?? controllerName,
+          });
+        }
 
-        routes.push({
-          method: 'PATCH',
-          path: fullPath,
-          filePath,
-          line: i + 1,
-          handlerName,
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName: feignClientName ?? controllerName,
-        });
-      }
+        // @XxxMapping with no explicit path — root endpoint (uses class prefix or "/")
+        const noPathMappings: Array<[RegExp, string]> = [
+          [SPRING_PATTERNS.getMappingNoPath, 'GET'],
+          [SPRING_PATTERNS.postMappingNoPath, 'POST'],
+          [SPRING_PATTERNS.putMappingNoPath, 'PUT'],
+          [SPRING_PATTERNS.deleteMappingNoPath, 'DELETE'],
+          [SPRING_PATTERNS.patchMappingNoPath, 'PATCH'],
+        ];
+        for (const [re, method] of noPathMappings) {
+          re.lastIndex = 0;
+          while (re.exec(trimmed) !== null) {
+            routes.push({
+              method,
+              path: controllerPrefix || '/',
+              filePath,
+              line: i + 1,
+              handlerName: this.extractJavaHandler(lines, i),
+              framework: routeFramework,
+              routeType: 'http',
+              controllerName: feignClientName ?? controllerName,
+            });
+          }
+        }
 
-      // @XxxMapping with no explicit path — root endpoint (uses class prefix or "/")
-      const noPathMappings: Array<[RegExp, string]> = [
-        [SPRING_PATTERNS.getMappingNoPath, 'GET'],
-        [SPRING_PATTERNS.postMappingNoPath, 'POST'],
-        [SPRING_PATTERNS.putMappingNoPath, 'PUT'],
-        [SPRING_PATTERNS.deleteMappingNoPath, 'DELETE'],
-        [SPRING_PATTERNS.patchMappingNoPath, 'PATCH'],
-      ];
-      for (const [re, method] of noPathMappings) {
-        re.lastIndex = 0;
-        while (re.exec(trimmed) !== null) {
+        // @RequestMapping(method = RequestMethod.XXX) — generic request mapping
+        SPRING_PATTERNS.requestMappingMethod.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.requestMappingMethod.exec(trimmed)) !== null) {
+          const subPath = rmMatch[1]!;
+          const method = rmMatch[2]!.toUpperCase();
+          const fullPath = this.joinPaths(controllerPrefix, subPath);
+          const handlerName = this.extractJavaHandler(lines, i);
+
+          routes.push({
+            method,
+            path: fullPath,
+            filePath,
+            line: i + 1,
+            handlerName,
+            framework: routeFramework,
+            routeType: 'http',
+            controllerName,
+          });
+        }
+
+        // @RequestMapping(method = RequestMethod.XXX) without explicit path
+        SPRING_PATTERNS.requestMappingNoPath.lastIndex = 0;
+        while ((rmMatch = SPRING_PATTERNS.requestMappingNoPath.exec(trimmed)) !== null) {
+          const method = rmMatch[1]!.toUpperCase();
+
           routes.push({
             method,
             path: controllerPrefix || '/',
@@ -1303,47 +1368,9 @@ export class FrameworkRouteDetector {
             handlerName: this.extractJavaHandler(lines, i),
             framework: routeFramework,
             routeType: 'http',
-            controllerName: feignClientName ?? controllerName,
+            controllerName,
           });
         }
-      }
-
-      // @RequestMapping(method = RequestMethod.XXX) — generic request mapping
-      SPRING_PATTERNS.requestMappingMethod.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.requestMappingMethod.exec(trimmed)) !== null) {
-        const subPath = rmMatch[1]!;
-        const method = rmMatch[2]!.toUpperCase();
-        const fullPath = this.joinPaths(controllerPrefix, subPath);
-        const handlerName = this.extractJavaHandler(lines, i);
-
-        routes.push({
-          method,
-          path: fullPath,
-          filePath,
-          line: i + 1,
-          handlerName,
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName,
-        });
-      }
-
-      // @RequestMapping(method = RequestMethod.XXX) without explicit path
-      SPRING_PATTERNS.requestMappingNoPath.lastIndex = 0;
-      while ((rmMatch = SPRING_PATTERNS.requestMappingNoPath.exec(trimmed)) !== null) {
-        const method = rmMatch[1]!.toUpperCase();
-
-        routes.push({
-          method,
-          path: controllerPrefix || '/',
-          filePath,
-          line: i + 1,
-          handlerName: this.extractJavaHandler(lines, i),
-          framework: routeFramework,
-          routeType: 'http',
-          controllerName,
-        });
-      }
       } // end if (enableSpringBoot || isFeignClient)
     }
 

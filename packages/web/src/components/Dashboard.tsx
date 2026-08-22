@@ -44,8 +44,18 @@ const formatUptime = (ms: number): string => {
 
 const Dashboard: React.FC = () => {
   // Real API data
-  const { data: health, loading: healthLoading, error: healthError, refetch: refetchHealth } = useApiHealth(15_000);
-  const { data: stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useGraphStats();
+  const {
+    data: health,
+    loading: healthLoading,
+    error: healthError,
+    refetch: refetchHealth,
+  } = useApiHealth(15_000);
+  const {
+    data: stats,
+    loading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useGraphStats();
   const { analyze, loading: analyzeLoading, error: analyzeError } = useAnalyze();
 
   const [searchCount, setSearchCount] = useState(0);
@@ -76,10 +86,18 @@ const Dashboard: React.FC = () => {
 
   // Compute trends by comparing current stats with previous
   const nodeTrend: MetricCardData['trend'] = prevStatsRef.current
-    ? (index.nodes > prevStatsRef.current.nodes ? 'up' : index.nodes < prevStatsRef.current.nodes ? 'down' : 'neutral')
+    ? index.nodes > prevStatsRef.current.nodes
+      ? 'up'
+      : index.nodes < prevStatsRef.current.nodes
+        ? 'down'
+        : 'neutral'
     : 'neutral';
   const edgeTrend: MetricCardData['trend'] = prevStatsRef.current
-    ? (index.edges > prevStatsRef.current.edges ? 'up' : index.edges < prevStatsRef.current.edges ? 'down' : 'neutral')
+    ? index.edges > prevStatsRef.current.edges
+      ? 'up'
+      : index.edges < prevStatsRef.current.edges
+        ? 'down'
+        : 'neutral'
     : 'neutral';
 
   // Update previous stats when new data arrives
@@ -121,20 +139,31 @@ const Dashboard: React.FC = () => {
     <div className="dashboard">
       {/* Connection status banner */}
       {displayError && (
-        <div className="connection-banner" style={{
-          background: 'var(--error-muted)',
-          color: 'var(--error)',
-          padding: '8px 16px',
-          borderRadius: 'var(--radius)',
-          marginBottom: 16,
-          fontSize: '0.8125rem',
-        }}>
+        <div
+          className="connection-banner"
+          style={{
+            background: 'var(--error-muted)',
+            color: 'var(--error)',
+            padding: '8px 16px',
+            borderRadius: 'var(--radius)',
+            marginBottom: 16,
+            fontSize: '0.8125rem',
+          }}
+        >
           &#x26A0; Cannot connect to server: {displayError}. Showing offline data.
         </div>
       )}
 
       {/* Header with refresh */}
-      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div
+        className="dashboard-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
+      >
         <h2 style={{ margin: 0 }}>Dashboard</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {lastUpdated && (
@@ -142,7 +171,12 @@ const Dashboard: React.FC = () => {
               Updated {new Date(lastUpdated).toLocaleTimeString()}
             </span>
           )}
-          <button className="btn btn-secondary" onClick={handleRefresh} type="button" style={{ fontSize: '0.8125rem', padding: '4px 12px' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleRefresh}
+            type="button"
+            style={{ fontSize: '0.8125rem', padding: '4px 12px' }}
+          >
             &#x21BB; Refresh
           </button>
         </div>
@@ -151,10 +185,34 @@ const Dashboard: React.FC = () => {
       {/* Metric Cards with trend indicators */}
       <MetricCards
         metrics={[
-          { id: 'nodes', label: 'Nodes', value: index.nodes.toLocaleString(), trend: nodeTrend, icon: '\u25C9' },
-          { id: 'edges', label: 'Edges', value: index.edges.toLocaleString(), trend: edgeTrend, icon: '\u2194' },
-          { id: 'files', label: 'Files', value: index.files.toLocaleString(), trend: 'neutral', icon: '\uD83D\uDCC4' },
-          { id: 'searches', label: 'Total Searches', value: searchCount.toLocaleString(), trend: searchCount > 0 ? 'up' : 'neutral', icon: '\uD83D\uDD0D' },
+          {
+            id: 'nodes',
+            label: 'Nodes',
+            value: index.nodes.toLocaleString(),
+            trend: nodeTrend,
+            icon: '\u25C9',
+          },
+          {
+            id: 'edges',
+            label: 'Edges',
+            value: index.edges.toLocaleString(),
+            trend: edgeTrend,
+            icon: '\u2194',
+          },
+          {
+            id: 'files',
+            label: 'Files',
+            value: index.files.toLocaleString(),
+            trend: 'neutral',
+            icon: '\uD83D\uDCC4',
+          },
+          {
+            id: 'searches',
+            label: 'Total Searches',
+            value: searchCount.toLocaleString(),
+            trend: searchCount > 0 ? 'up' : 'neutral',
+            icon: '\uD83D\uDD0D',
+          },
         ]}
         columns={4}
       />
@@ -168,8 +226,12 @@ const Dashboard: React.FC = () => {
               <span
                 className="badge"
                 style={{
-                  background: health.status === 'ok' ? 'var(--success-muted, #1a3a2a)' : 'var(--warning-muted, #3a2a1a)',
-                  color: health.status === 'ok' ? 'var(--success, #3fb950)' : 'var(--warning, #d29922)',
+                  background:
+                    health.status === 'ok'
+                      ? 'var(--success-muted, #1a3a2a)'
+                      : 'var(--warning-muted, #3a2a1a)',
+                  color:
+                    health.status === 'ok' ? 'var(--success, #3fb950)' : 'var(--warning, #d29922)',
                 }}
               >
                 {health.status}
@@ -218,9 +280,15 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="info-item">
               <span className="info-label">Memory Status</span>
-              <span className="info-value" style={{
-                color: health?.checks.memory.status === 'warn' ? 'var(--warning, #d29922)' : 'var(--success, #3fb950)',
-              }}>
+              <span
+                className="info-value"
+                style={{
+                  color:
+                    health?.checks.memory.status === 'warn'
+                      ? 'var(--warning, #d29922)'
+                      : 'var(--success, #3fb950)',
+                }}
+              >
                 {health?.checks.memory.status ?? 'N/A'}
               </span>
             </div>
@@ -233,7 +301,11 @@ const Dashboard: React.FC = () => {
             <h3>Quick Actions</h3>
           </div>
           <div className="quick-actions">
-            <button className="btn btn-primary" onClick={handleNewAnalysis} disabled={analyzeLoading}>
+            <button
+              className="btn btn-primary"
+              onClick={handleNewAnalysis}
+              disabled={analyzeLoading}
+            >
               {analyzeLoading ? 'Analyzing...' : 'New Analysis'}
             </button>
             <button className="btn" onClick={handleSearch}>

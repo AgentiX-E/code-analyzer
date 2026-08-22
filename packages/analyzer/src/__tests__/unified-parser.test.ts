@@ -85,11 +85,14 @@ describe('UnifiedParser', () => {
     });
 
     it('should handle TypeScript React files (.tsx)', () => {
-      const file = createFile('Component.tsx', `
+      const file = createFile(
+        'Component.tsx',
+        `
         export const Button = () => {
           return <button>Click</button>;
         };
-      `);
+      `,
+      );
       const captures = parser.parseFile(file);
       expect(captures.length).toBeGreaterThan(0);
     });
@@ -156,9 +159,7 @@ describe('UnifiedParser', () => {
       const parser = new UnifiedParser(providers, { cache: false });
       const pool = createWorkerPool(2);
 
-      const files: DiscoveredFile[] = [
-        createFile('nocache.ts', 'function nocache() {}'),
-      ];
+      const files: DiscoveredFile[] = [createFile('nocache.ts', 'function nocache() {}')];
 
       const result = await parser.parseFiles(files, pool);
       expect(result.size).toBe(1);

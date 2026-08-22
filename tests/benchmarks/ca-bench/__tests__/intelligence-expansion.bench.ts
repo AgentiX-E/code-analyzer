@@ -18,12 +18,16 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 describe('Dependency Health Lens', () => {
   it('should detect outdated package via CVE advisory', () => {
-    const content = JSON.stringify({
-      dependencies: { braces: '2.0.0' },
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        dependencies: { braces: '2.0.0' },
+      },
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/test/package.json', 'npm');
-    const cveFindings = findings.filter(f => f.evidence.ruleId?.startsWith('cve-'));
+    const cveFindings = findings.filter((f) => f.evidence.ruleId?.startsWith('cve-'));
 
     expect(cveFindings.length).toBeGreaterThan(0);
     expect(cveFindings[0]!.severity).toBe('high');
@@ -31,24 +35,32 @@ describe('Dependency Health Lens', () => {
   });
 
   it('should flag unpinned version ranges', () => {
-    const content = JSON.stringify({
-      dependencies: { lodash: '^4.17.21', express: '~4.18.0' },
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        dependencies: { lodash: '^4.17.21', express: '~4.18.0' },
+      },
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/test/package.json', 'npm');
-    const unpinned = findings.filter(f => f.evidence.ruleId === 'deps-unpinned');
+    const unpinned = findings.filter((f) => f.evidence.ruleId === 'deps-unpinned');
 
     expect(unpinned.length).toBeGreaterThanOrEqual(1);
     expect(unpinned[0]!.severity).toBe('medium');
   });
 
   it('should detect deprecated packages', () => {
-    const content = JSON.stringify({
-      dependencies: { request: '2.88.2' },
-    }, null, 2);
+    const content = JSON.stringify(
+      {
+        dependencies: { request: '2.88.2' },
+      },
+      null,
+      2,
+    );
 
     const findings = reviewDependencyHealth(content, '/test/package.json', 'npm');
-    const deprecated = findings.filter(f => f.evidence.ruleId === 'deps-deprecated');
+    const deprecated = findings.filter((f) => f.evidence.ruleId === 'deps-deprecated');
 
     expect(deprecated.length).toBeGreaterThan(0);
     expect(deprecated[0]!.title).toContain('request');
@@ -63,14 +75,16 @@ describe('Dependency Health Lens', () => {
   });
 
   it('should handle Cargo.toml dependencies', () => {
-    const content = '[dependencies]\nserde = "1.0"\ntokio = { version = "1.0", features = ["full"] }\n';
+    const content =
+      '[dependencies]\nserde = "1.0"\ntokio = { version = "1.0", features = ["full"] }\n';
 
     const findings = reviewDependencyHealth(content, '/test/Cargo.toml', 'cargo');
     expect(Array.isArray(findings)).toBe(true);
   });
 
   it('should handle go.mod dependencies', () => {
-    const content = 'module example.com/project\n\ngo 1.21\n\nrequire (\n\tgithub.com/gin-gonic/gin v1.9.1\n)\n';
+    const content =
+      'module example.com/project\n\ngo 1.21\n\nrequire (\n\tgithub.com/gin-gonic/gin v1.9.1\n)\n';
 
     const findings = reviewDependencyHealth(content, '/test/go.mod', 'go');
     expect(Array.isArray(findings)).toBe(true);
@@ -93,7 +107,7 @@ export function greet(name: string): string { return "Hello " + name; }
 `;
 
     const findings = reviewApiContract(current, '/src/greetings.ts', previous);
-    const removed = findings.filter(f => f.evidence.ruleId === 'contract-removed-export');
+    const removed = findings.filter((f) => f.evidence.ruleId === 'contract-removed-export');
 
     expect(removed.length).toBeGreaterThan(0);
   });
@@ -108,7 +122,7 @@ export function calculate(x: number, y: number, z: number = 0): number { return 
 `;
 
     const findings = reviewApiContract(current, '/src/math.ts', previous);
-    const sigChanges = findings.filter(f => f.evidence.ruleId === 'contract-signature-change');
+    const sigChanges = findings.filter((f) => f.evidence.ruleId === 'contract-signature-change');
 
     expect(sigChanges.length).toBeGreaterThan(0);
   });
@@ -138,38 +152,86 @@ describe('Dataflow Search Engine', () => {
 
     // Create a simple graph: source → intermediate → sink
     const srcId = store.insertNode({
-      id: 0, projectId: 'test', label: 'Function', name: 'req.body.user',
-      qualifiedName: 'module.req.body.user', filePath: '/src/handler.ts',
-      startLine: 10, endLine: 12, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: false, fingerprint: null, createdAt: '', updatedAt: '',
+      id: 0,
+      projectId: 'test',
+      label: 'Function',
+      name: 'req.body.user',
+      qualifiedName: 'module.req.body.user',
+      filePath: '/src/handler.ts',
+      startLine: 10,
+      endLine: 12,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: '',
+      updatedAt: '',
     });
 
     const midId = store.insertNode({
-      id: 0, projectId: 'test', label: 'Function', name: 'processInput',
-      qualifiedName: 'module.processInput', filePath: '/src/handler.ts',
-      startLine: 15, endLine: 20, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: false, fingerprint: null, createdAt: '', updatedAt: '',
+      id: 0,
+      projectId: 'test',
+      label: 'Function',
+      name: 'processInput',
+      qualifiedName: 'module.processInput',
+      filePath: '/src/handler.ts',
+      startLine: 15,
+      endLine: 20,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: '',
+      updatedAt: '',
     });
 
     const sinkId = store.insertNode({
-      id: 0, projectId: 'test', label: 'Function', name: 'db.query',
-      qualifiedName: 'module.db.query', filePath: '/src/handler.ts',
-      startLine: 22, endLine: 25, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: null,
-      isExported: false, fingerprint: null, createdAt: '', updatedAt: '',
+      id: 0,
+      projectId: 'test',
+      label: 'Function',
+      name: 'db.query',
+      qualifiedName: 'module.db.query',
+      filePath: '/src/handler.ts',
+      startLine: 22,
+      endLine: 25,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: '',
+      updatedAt: '',
     });
 
     // Create edges: source → intermediate → sink
     store.insertEdge({
-      id: 0, projectId: 'test', sourceId: srcId, targetId: midId,
-      type: 'CALLS', properties: {}, weight: 1, createdAt: '',
+      id: 0,
+      projectId: 'test',
+      sourceId: srcId,
+      targetId: midId,
+      type: 'CALLS',
+      properties: {},
+      weight: 1,
+      createdAt: '',
     });
 
     store.insertEdge({
-      id: 0, projectId: 'test', sourceId: midId, targetId: sinkId,
-      type: 'CALLS', properties: {}, weight: 1, createdAt: '',
+      id: 0,
+      projectId: 'test',
+      sourceId: midId,
+      targetId: sinkId,
+      type: 'CALLS',
+      properties: {},
+      weight: 1,
+      createdAt: '',
     });
 
     // Also mark the sink as related to DB queries

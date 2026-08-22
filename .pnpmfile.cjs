@@ -22,7 +22,7 @@ function readPackage(pkg, _context) {
   // brace-expansion: GHSA-mh99-v99m-4gvg — DoS via unbounded expansion
   if (pkg.dependencies && pkg.dependencies['brace-expansion']) {
     const current = pkg.dependencies['brace-expansion'];
-    if (current && current.startsWith('1.') || current?.startsWith('2.')) {
+    if ((current && current.startsWith('1.')) || current?.startsWith('2.')) {
       pkg.dependencies['brace-expansion'] = '^2.0.2';
     }
   }

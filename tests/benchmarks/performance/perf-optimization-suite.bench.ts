@@ -10,10 +10,7 @@ import type { GraphNode, NodeLabel, RelationshipType } from '@code-analyzer/shar
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createNode(
-  id: number,
-  overrides: Partial<GraphNode> = {},
-): GraphNode {
+function createNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
   return {
     id,
     projectId: overrides.projectId ?? 'bench-project',
@@ -21,14 +18,14 @@ function createNode(
     name: overrides.name ?? `node_${id}`,
     qualifiedName: overrides.qualifiedName ?? `pkg:node_${id}`,
     filePath: overrides.filePath ?? `/src/bench/file_${id % 100}.ts`,
-    startLine: overrides.startLine ?? (id * 5),
-    endLine: overrides.endLine ?? (id * 5 + 10),
+    startLine: overrides.startLine ?? id * 5,
+    endLine: overrides.endLine ?? id * 5 + 10,
     language: overrides.language ?? 'typescript',
     properties: overrides.properties ?? {},
     signature: overrides.signature ?? `function node_${id}(a: number): void`,
     docstring: overrides.docstring ?? `Documentation for node_${id}`,
-    complexity: overrides.complexity ?? (id % 42),
-    isExported: overrides.isExported ?? (id % 3 === 0),
+    complexity: overrides.complexity ?? id % 42,
+    isExported: overrides.isExported ?? id % 3 === 0,
     fingerprint: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -60,7 +57,7 @@ describe('Performance: queryNodes with secondary indexes', () => {
         id: i + 1,
         projectId: i < 500 ? 'proj-a' : 'proj-b',
         sourceId: i + 1,
-        targetId: (i + 100) % NODE_COUNT + 1,
+        targetId: ((i + 100) % NODE_COUNT) + 1,
         type: (['CALLS', 'IMPORTS', 'DEFINES', 'INHERITS'] as RelationshipType[])[i % 4]!,
         properties: {},
         weight: 1,
@@ -92,9 +89,11 @@ describe('Performance: queryNodes with secondary indexes', () => {
     });
     const elapsed = performance.now() - start;
 
-    expect(result.items.every((n) =>
-      n.projectId === 'proj-a' && (n.label === 'Function' || n.label === 'Method'),
-    )).toBe(true);
+    expect(
+      result.items.every(
+        (n) => n.projectId === 'proj-a' && (n.label === 'Function' || n.label === 'Method'),
+      ),
+    ).toBe(true);
     expect(elapsed).toBeLessThan(30);
   });
 
@@ -203,11 +202,13 @@ describe('Performance: transaction rollback preserves secondary indexes', () => 
 
     try {
       store.transaction(() => {
-        store.insertNode(createNode(2, {
-          projectId: 'test',
-          label: 'Class',
-          qualifiedName: 'pkg:duplicate',
-        }));
+        store.insertNode(
+          createNode(2, {
+            projectId: 'test',
+            label: 'Class',
+            qualifiedName: 'pkg:duplicate',
+          }),
+        );
         // Force rollback by throwing
         throw new Error('Intentional rollback');
       });

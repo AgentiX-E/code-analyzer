@@ -21,8 +21,8 @@ export class ElixirProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-elixir') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -117,7 +117,13 @@ export class ElixirProvider extends TreeSitterBaseProvider {
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'call') {
       const target = this.findNamedChild(node, 'identifier');
-      if (target && (target.text === 'import' || target.text === 'use' || target.text === 'alias' || target.text === 'require')) {
+      if (
+        target &&
+        (target.text === 'import' ||
+          target.text === 'use' ||
+          target.text === 'alias' ||
+          target.text === 'require')
+      ) {
         const args = this.findNamedChild(node, 'arguments');
         /* v8 ignore next -- @preserve -- tree-sitter-elixir always emits these child nodes */
         if (args) {
@@ -149,7 +155,8 @@ export class ElixirProvider extends TreeSitterBaseProvider {
         for (let i = 0; i < node.namedChildCount; i++) {
           const child = node.namedChild(i);
           /* v8 ignore next -- @preserve -- function name lives in arguments, not a sibling identifier */
-          if (child.type === 'identifier' && child !== target && child.text === symbolName) return true;
+          if (child.type === 'identifier' && child !== target && child.text === symbolName)
+            return true;
           if (child.type === 'arguments') {
             const modName = this.extractModuleName(child);
             if (modName === symbolName) return true;

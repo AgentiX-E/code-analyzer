@@ -171,7 +171,11 @@ describe('CLI E2E — Agent Setup', () => {
   });
 
   afterEach(() => {
-    try { rmSync(tempHome, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(tempHome, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should detect and configure agents', async () => {

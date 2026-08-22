@@ -8,17 +8,56 @@ import hotspotDetectionTool from '../tools/hotspot-detection.js';
 function createStoreWithData(): InMemoryGraphStore {
   const store = new InMemoryGraphStore();
 
-  insertNode(store, { projectId: 'test-project', label: 'Project', name: 'TestProject', qualifiedName: 'TestProject' });
-  const fileId = insertNode(store, { projectId: 'test-project', label: 'File', name: 'index.ts', qualifiedName: 'src/index.ts', filePath: 'src/index.ts' });
-  const funcId = insertNode(store, { projectId: 'test-project', label: 'Function', name: 'processRequest', qualifiedName: 'processRequest', filePath: 'src/index.ts' });
-  const func2Id = insertNode(store, { projectId: 'test-project', label: 'Method', name: 'validate', qualifiedName: 'validate', filePath: 'src/index.ts' });
+  insertNode(store, {
+    projectId: 'test-project',
+    label: 'Project',
+    name: 'TestProject',
+    qualifiedName: 'TestProject',
+  });
+  const fileId = insertNode(store, {
+    projectId: 'test-project',
+    label: 'File',
+    name: 'index.ts',
+    qualifiedName: 'src/index.ts',
+    filePath: 'src/index.ts',
+  });
+  const funcId = insertNode(store, {
+    projectId: 'test-project',
+    label: 'Function',
+    name: 'processRequest',
+    qualifiedName: 'processRequest',
+    filePath: 'src/index.ts',
+  });
+  const func2Id = insertNode(store, {
+    projectId: 'test-project',
+    label: 'Method',
+    name: 'validate',
+    qualifiedName: 'validate',
+    filePath: 'src/index.ts',
+  });
 
   for (let i = 0; i < 20; i++) {
-    const calleeId = insertNode(store, { projectId: 'test-project', label: 'Function', name: `helper${i}`, qualifiedName: `helper${i}`, filePath: 'src/index.ts' });
-    insertEdge(store, { projectId: 'test-project', type: 'CALLS', sourceId: funcId, targetId: calleeId });
+    const calleeId = insertNode(store, {
+      projectId: 'test-project',
+      label: 'Function',
+      name: `helper${i}`,
+      qualifiedName: `helper${i}`,
+      filePath: 'src/index.ts',
+    });
+    insertEdge(store, {
+      projectId: 'test-project',
+      type: 'CALLS',
+      sourceId: funcId,
+      targetId: calleeId,
+    });
   }
 
-  insertEdge(store, { projectId: 'test-project', type: 'CALLS', sourceId: func2Id, targetId: fileId });
+  insertEdge(store, {
+    projectId: 'test-project',
+    type: 'CALLS',
+    sourceId: func2Id,
+    targetId: fileId,
+  });
   return store;
 }
 
@@ -41,7 +80,8 @@ describe('hotspotDetectionTool handler with store', () => {
   it('should return no hotspots for empty store', async () => {
     const emptyStore = new InMemoryGraphStore();
     const result = await hotspotDetectionTool.handler(
-      { projectId: 'test-project', threshold: 10, maxResults: 20 }, emptyStore,
+      { projectId: 'test-project', threshold: 10, maxResults: 20 },
+      emptyStore,
     );
     expect(result.content[0].text).toContain('No hotspots detected');
     expect(result.metadata.hotspotCount).toBe(0);
@@ -50,7 +90,8 @@ describe('hotspotDetectionTool handler with store', () => {
   it('should detect hotspots from graph data', async () => {
     const store = createStoreWithData();
     const result = await hotspotDetectionTool.handler(
-      { projectId: 'test-project', threshold: 5, maxResults: 20 }, store,
+      { projectId: 'test-project', threshold: 5, maxResults: 20 },
+      store,
     );
     expect(result.metadata.hotspotCount).toBeGreaterThan(0);
     expect(result.content[0].text).toContain('processRequest');
@@ -59,7 +100,8 @@ describe('hotspotDetectionTool handler with store', () => {
   it('should filter by threshold', async () => {
     const store = createStoreWithData();
     const result = await hotspotDetectionTool.handler(
-      { projectId: 'test-project', threshold: 100, maxResults: 20 }, store,
+      { projectId: 'test-project', threshold: 100, maxResults: 20 },
+      store,
     );
     expect(result.metadata.hotspotCount).toBe(0);
   });
@@ -67,7 +109,8 @@ describe('hotspotDetectionTool handler with store', () => {
   it('should respect maxResults', async () => {
     const store = createStoreWithData();
     const result = await hotspotDetectionTool.handler(
-      { projectId: 'test-project', threshold: 1, maxResults: 1 }, store,
+      { projectId: 'test-project', threshold: 1, maxResults: 1 },
+      store,
     );
     expect(result.metadata.hotspotCount).toBeLessThanOrEqual(1);
   });
@@ -80,7 +123,8 @@ describe('hotspotDetectionTool handler with store', () => {
   it('should report risk levels in output', async () => {
     const store = createStoreWithData();
     const result = await hotspotDetectionTool.handler(
-      { projectId: 'test-project', threshold: 5, maxResults: 20 }, store,
+      { projectId: 'test-project', threshold: 5, maxResults: 20 },
+      store,
     );
     expect(result.content[0].text).toContain('Hotspot Analysis');
   });
@@ -88,7 +132,8 @@ describe('hotspotDetectionTool handler with store', () => {
   it('should handle null threshold and maxResults', async () => {
     const store = createStoreWithData();
     const result = await hotspotDetectionTool.handler(
-      { projectId: 'test-project', threshold: null, maxResults: null }, store,
+      { projectId: 'test-project', threshold: null, maxResults: null },
+      store,
     );
     expect(result.metadata.threshold).toBe(10);
   });

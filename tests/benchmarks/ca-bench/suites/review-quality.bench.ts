@@ -87,7 +87,8 @@ const VULN_CASES: VulnerabilityCase[] = [
 
 export class ReviewQualitySuite implements BenchmarkSuite {
   readonly name = 'review-quality';
-  readonly description = 'Measures code review accuracy: vulnerability detection rate and false positive rate';
+  readonly description =
+    'Measures code review accuracy: vulnerability detection rate and false positive rate';
 
   async run(): Promise<BenchmarkResult> {
     const store = new InMemoryGraphStore();
@@ -105,7 +106,9 @@ export class ReviewQualitySuite implements BenchmarkSuite {
         const hasRelevantComment = comments.some(
           (c) =>
             c.category === vc.expectedCategory &&
-            (c.severity === vc.expectedSeverity || c.severity === 'high' || c.severity === 'critical'),
+            (c.severity === vc.expectedSeverity ||
+              c.severity === 'high' ||
+              c.severity === 'critical'),
         );
 
         if (hasRelevantComment) {
@@ -116,16 +119,27 @@ export class ReviewQualitySuite implements BenchmarkSuite {
           );
         }
       } catch (error: unknown) {
-        details.push(`${vc.name}: Review failed — ${error instanceof Error ? error.message : String(error)}`);
+        details.push(
+          `${vc.name}: Review failed — ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
     const detectionRate = totalCases > 0 ? detectedCount / totalCases : 0;
 
     const measurements = [
-      measurement('Vulnerability Detection Rate', detectionRate, 'ratio', { target: 0.8, min: 0.5 }),
-      measurement('Test Cases Evaluated', totalCases, 'count', { target: totalCases, min: totalCases }),
-      measurement('Vulnerabilities Detected', detectedCount, 'count', { target: totalCases, min: 2 }),
+      measurement('Vulnerability Detection Rate', detectionRate, 'ratio', {
+        target: 0.8,
+        min: 0.5,
+      }),
+      measurement('Test Cases Evaluated', totalCases, 'count', {
+        target: totalCases,
+        min: totalCases,
+      }),
+      measurement('Vulnerabilities Detected', detectedCount, 'count', {
+        target: totalCases,
+        min: 2,
+      }),
     ];
 
     details.push(`Evaluated ${totalCases} known-vulnerability test cases`);

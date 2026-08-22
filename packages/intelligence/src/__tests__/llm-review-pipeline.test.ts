@@ -8,9 +8,7 @@ import type { ReviewComment } from '@code-analyzer/shared';
 // Test Fixtures
 // ---------------------------------------------------------------------------
 
-function makeLLMFinding(
-  overrides: Partial<LLMFinding> = {},
-): LLMFinding {
+function makeLLMFinding(overrides: Partial<LLMFinding> = {}): LLMFinding {
   return {
     id: `f-${Math.random().toString(36).slice(2, 6)}`,
     lane: 'security',
@@ -26,9 +24,7 @@ function makeLLMFinding(
   };
 }
 
-function makeHeuristicComment(
-  overrides: Partial<ReviewComment> = {},
-): ReviewComment {
+function makeHeuristicComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
   return {
     id: `h-${Math.random().toString(36).slice(2, 6)}`,
     path: 'src/test.ts',
@@ -83,7 +79,8 @@ describe('LLMReviewPipeline — Exact Match Positioning', () => {
   });
 
   it('positions a finding with exact content match', () => {
-    const content = "const x = 1;\nconst query = `SELECT * FROM users WHERE id = USERID`;\nconst y = 2;\n";
+    const content =
+      'const x = 1;\nconst query = `SELECT * FROM users WHERE id = USERID`;\nconst y = 2;\n';
     const finding = makeLLMFinding({
       startLine: 2,
       endLine: 2,
@@ -100,9 +97,10 @@ describe('LLMReviewPipeline — Exact Match Positioning', () => {
   });
 
   it('detects position drift and uses heuristic match', () => {
-    const content = "line1\nline2\nconst query = `SELECT * FROM users WHERE id = USERID`;\nline4\nline5\n";
+    const content =
+      'line1\nline2\nconst query = `SELECT * FROM users WHERE id = USERID`;\nline4\nline5\n';
     const finding = makeLLMFinding({
-      startLine: 1,  // Wrong! Actually at line 3
+      startLine: 1, // Wrong! Actually at line 3
       endLine: 2,
       snippet: 'const query = `SELECT * FROM users WHERE id = USERID`;',
     });
@@ -143,30 +141,30 @@ describe('LLMReviewPipeline — Merge with Heuristic', () => {
   it('merges non-overlapping LLM and heuristic comments', () => {
     const content = 'line1\nline2\nline3\nline4\nline5\n';
     const llmFinding = makeLLMFinding({
-      startLine: 5, endLine: 5, category: 'performance',
+      startLine: 5,
+      endLine: 5,
+      category: 'performance',
       snippet: 'line5',
     });
     const llmResult = pipeline.processFindings([llmFinding], content, 'src/test.ts');
 
-    const heuristic = [
-      makeHeuristicComment({ startLine: 1, endLine: 2, category: 'security' }),
-    ];
+    const heuristic = [makeHeuristicComment({ startLine: 1, endLine: 2, category: 'security' })];
 
     const merged = pipeline.mergeWithHeuristic(llmResult.comments, heuristic);
     expect(merged.length).toBeGreaterThanOrEqual(1);
   });
 
   it('deduplicates overlapping comments in same category', () => {
-    const content = "const q = `SELECT * FROM users WHERE id = ID`;\n";
+    const content = 'const q = `SELECT * FROM users WHERE id = ID`;\n';
     const llmFinding = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'security',
+      startLine: 1,
+      endLine: 1,
+      category: 'security',
       snippet: 'const q = `SELECT * FROM users WHERE id = ID`;',
     });
     const llmResult = pipeline.processFindings([llmFinding], content, 'src/test.ts');
 
-    const heuristic = [
-      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' }),
-    ];
+    const heuristic = [makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' })];
 
     const merged = pipeline.mergeWithHeuristic(llmResult.comments, heuristic);
     // LLM comment should be filtered as duplicate of heuristic
@@ -177,14 +175,14 @@ describe('LLMReviewPipeline — Merge with Heuristic', () => {
   it('keeps LLM comments in different categories', () => {
     const content = 'line a\nline b\nline c\n';
     const llmFinding = makeLLMFinding({
-      startLine: 2, endLine: 2, category: 'performance',
+      startLine: 2,
+      endLine: 2,
+      category: 'performance',
       snippet: 'line b',
     });
     const llmResult = pipeline.processFindings([llmFinding], content, 'src/test.ts');
 
-    const heuristic = [
-      makeHeuristicComment({ startLine: 1, endLine: 2, category: 'security' }),
-    ];
+    const heuristic = [makeHeuristicComment({ startLine: 1, endLine: 2, category: 'security' })];
 
     const merged = pipeline.mergeWithHeuristic(llmResult.comments, heuristic);
     expect(merged.length).toBeGreaterThan(1);
@@ -193,21 +191,19 @@ describe('LLMReviewPipeline — Merge with Heuristic', () => {
   it('filters low-confidence LLM comments', () => {
     const content = 'a\nb\nc\n';
     const llmFinding = makeLLMFinding({
-      startLine: 5, endLine: 5, category: 'style',
+      startLine: 5,
+      endLine: 5,
+      category: 'style',
       snippet: 'not in file',
     });
     const strict = new LLMReviewPipeline({ minConfidence: 0.8 });
     const llmResult = strict.processFindings([llmFinding], content, 'src/test.ts');
 
-    const heuristic = [
-      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' }),
-    ];
+    const heuristic = [makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' })];
 
     const merged = strict.mergeWithHeuristic(llmResult.comments, heuristic);
     // Low confidence comments should be filtered
-    const llmComments = merged.filter(
-      (c) => !heuristic.some((h) => h.id === c.id),
-    );
+    const llmComments = merged.filter((c) => !heuristic.some((h) => h.id === c.id));
     expect(llmComments.length).toBe(0);
   });
 });
@@ -222,7 +218,9 @@ describe('LLMReviewPipeline — Reflection Quality', () => {
   it('produces valid reflection report', () => {
     const content = 'function real(): string { return "real"; }\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'bug' as const,
+      startLine: 1,
+      endLine: 1,
+      category: 'bug' as const,
       snippet: 'function real(): string { return "real"; }',
     });
 
@@ -237,7 +235,12 @@ describe('LLMReviewPipeline — Reflection Quality', () => {
     const pipeline = new LLMReviewPipeline({ filterLowConfidence: true, minConfidence: 0.9 });
     // These findings don't match file content → will have low confidence
     const findings = [
-      makeLLMFinding({ startLine: 1, endLine: 1, snippet: 'nonexistent content', category: 'style' }),
+      makeLLMFinding({
+        startLine: 1,
+        endLine: 1,
+        snippet: 'nonexistent content',
+        category: 'style',
+      }),
       makeLLMFinding({ startLine: 2, endLine: 2, snippet: 'also not here', category: 'style' }),
     ];
     const result = pipeline.processFindings(findings, 'real content', 'src/test.ts');
@@ -268,7 +271,9 @@ describe('LLMReviewPipeline — Edge Cases', () => {
   it('handles very large file content', () => {
     const content = Array.from({ length: 1000 }, (_, i) => `line ${i}`).join('\n');
     const finding = makeLLMFinding({
-      startLine: 500, endLine: 500, category: 'style',
+      startLine: 500,
+      endLine: 500,
+      category: 'style',
       snippet: 'line 499',
     });
     const result = pipeline.processFindings([finding], content, 'file.ts');
@@ -278,7 +283,9 @@ describe('LLMReviewPipeline — Edge Cases', () => {
   it('handles findings with out-of-bounds line numbers', () => {
     const content = 'short file\n';
     const finding = makeLLMFinding({
-      startLine: 999, endLine: 1000, category: 'bug' as const,
+      startLine: 999,
+      endLine: 1000,
+      category: 'bug' as const,
       snippet: 'short file',
     });
     const result = pipeline.processFindings([finding], content, 'file.ts');
@@ -290,8 +297,18 @@ describe('LLMReviewPipeline — Edge Cases', () => {
 
   it('handles duplicate LLM findings for same location', () => {
     const content = 'const x = 1;\nconst y = 2;\n';
-    const finding1 = makeLLMFinding({ startLine: 1, endLine: 1, snippet: 'const x = 1;', category: 'style' });
-    const finding2 = makeLLMFinding({ startLine: 1, endLine: 1, snippet: 'const x = 1;', category: 'style' });
+    const finding1 = makeLLMFinding({
+      startLine: 1,
+      endLine: 1,
+      snippet: 'const x = 1;',
+      category: 'style',
+    });
+    const finding2 = makeLLMFinding({
+      startLine: 1,
+      endLine: 1,
+      snippet: 'const x = 1;',
+      category: 'style',
+    });
     const result = pipeline.processFindings([finding1, finding2], content, 'file.ts');
     // CommentReflection should detect duplicate
     expect(result.reflection).toBeDefined();
@@ -306,7 +323,9 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
   it('AC-1: Exact match produces confidence 1.0', () => {
     const content = 'export const API_KEY = "sk-secret-key-12345";\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'security',
+      startLine: 1,
+      endLine: 1,
+      category: 'security',
       snippet: 'export const API_KEY = "sk-secret-key-12345";',
     });
     const result = new LLMReviewPipeline().processFindings([finding], content, 'src/api.ts');
@@ -317,9 +336,11 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
   });
 
   it('AC-2: Position drift is corrected by heuristic match', () => {
-    const content = "// comment\n// another comment\nconst BAD = `SELECT * FROM users WHERE id = ID`;\n// more\n";
+    const content =
+      '// comment\n// another comment\nconst BAD = `SELECT * FROM users WHERE id = ID`;\n// more\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 2,  // WRONG — actual is line 3
+      startLine: 1,
+      endLine: 2, // WRONG — actual is line 3
       category: 'security',
       snippet: 'const BAD = `SELECT * FROM users WHERE id = ID`;',
     });
@@ -344,10 +365,14 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
   });
 
   it('AC-4: Pipeline produces meaningful reflection report', () => {
-    const content = "function bad(): void {\n  const q = `SELECT * FROM users WHERE id = X`;\n}\n";
+    const content = 'function bad(): void {\n  const q = `SELECT * FROM users WHERE id = X`;\n}\n';
     const findings = [
-      makeLLMFinding({ startLine: 2, endLine: 2, category: 'security',
-        snippet: 'const q = "SELECT * FROM users WHERE id = X";' }),
+      makeLLMFinding({
+        startLine: 2,
+        endLine: 2,
+        category: 'security',
+        snippet: 'const q = "SELECT * FROM users WHERE id = X";',
+      }),
     ];
     const result = new LLMReviewPipeline().processFindings(findings, content, 'src/app.ts');
     expect(result.reflection.totalComments).toBeGreaterThanOrEqual(0);
@@ -356,7 +381,12 @@ describe('LLMReviewPipeline — Acceptance Criteria', () => {
 
   it('AC-5: Merge with heuristic does not lose heuristic comments', () => {
     const content = 'line1\nline2\nline3\n';
-    const llmFinding = makeLLMFinding({ startLine: 1, endLine: 1, category: 'style', snippet: 'line1' });
+    const llmFinding = makeLLMFinding({
+      startLine: 1,
+      endLine: 1,
+      category: 'style',
+      snippet: 'line1',
+    });
     const llmResult = new LLMReviewPipeline().processFindings([llmFinding], content, 'src/test.ts');
 
     const heuristic = [
@@ -378,7 +408,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with missing category by defaulting to style', () => {
     const content = 'const x = 1;\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
+      startLine: 1,
+      endLine: 1,
       snippet: 'const x = 1;',
       category: '' as any,
       lane: '' as any,
@@ -391,7 +422,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with unknown category mapping', () => {
     const content = 'some code here\nmore code\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
+      startLine: 1,
+      endLine: 1,
       snippet: 'some code here',
       category: 'unknown_category' as any,
     });
@@ -406,7 +438,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with lane field instead of category', () => {
     const content = 'code line 1\ncode line 2\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
+      startLine: 1,
+      endLine: 1,
       snippet: 'code line 1',
       lane: 'performance',
       category: undefined as any,
@@ -422,7 +455,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with unknown severity defaulting to medium', () => {
     const content = 'some code\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
+      startLine: 1,
+      endLine: 1,
       snippet: 'some code',
       severity: 'unknown_severity' as any,
     });
@@ -437,7 +471,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with empty title and description', () => {
     const content = 'test line\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
+      startLine: 1,
+      endLine: 1,
       snippet: 'test line',
       title: '',
       description: '',
@@ -450,7 +485,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with null suggestion', () => {
     const content = 'line a\n';
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
+      startLine: 1,
+      endLine: 1,
       snippet: 'line a',
       suggestion: null,
     });
@@ -462,7 +498,8 @@ describe('LLMReviewPipeline — Error Handling', () => {
   it('handles finding with endLine less than startLine', () => {
     const content = 'line1\nline2\nline3\n';
     const finding = makeLLMFinding({
-      startLine: 3, endLine: 1,
+      startLine: 3,
+      endLine: 1,
       snippet: 'line3',
     });
     const pipeline = new LLMReviewPipeline();
@@ -478,9 +515,7 @@ describe('LLMReviewPipeline — Error Handling', () => {
 describe('LLMReviewPipeline — Merge Edge Cases', () => {
   it('handles merge with empty LLM comments', () => {
     const pipeline = new LLMReviewPipeline();
-    const heuristic = [
-      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' }),
-    ];
+    const heuristic = [makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' })];
     const merged = pipeline.mergeWithHeuristic([], heuristic);
     expect(merged.length).toBe(1);
   });
@@ -489,7 +524,9 @@ describe('LLMReviewPipeline — Merge Edge Cases', () => {
     const content = 'test content\n';
     const pipeline = new LLMReviewPipeline();
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'style',
+      startLine: 1,
+      endLine: 1,
+      category: 'style',
       snippet: 'test content',
     });
     const llmResult = pipeline.processFindings([finding], content, 'file.ts');
@@ -500,11 +537,15 @@ describe('LLMReviewPipeline — Merge Edge Cases', () => {
   it('does not deduplicate comments with different categories but overlapping lines', () => {
     const content = 'shared line here\nanother line\n';
     const finding1 = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'security',
+      startLine: 1,
+      endLine: 1,
+      category: 'security',
       snippet: 'shared line here',
     });
     const finding2 = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'performance',
+      startLine: 1,
+      endLine: 1,
+      category: 'performance',
       snippet: 'shared line here',
     });
     const pipeline = new LLMReviewPipeline();
@@ -514,7 +555,10 @@ describe('LLMReviewPipeline — Merge Edge Cases', () => {
       makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security', id: 'h1' }),
     ];
 
-    const merged = pipeline.mergeWithHeuristic([...result1.comments, ...result2.comments], heuristic);
+    const merged = pipeline.mergeWithHeuristic(
+      [...result1.comments, ...result2.comments],
+      heuristic,
+    );
     // Performance comment should NOT be deduplicated with security
     const perfComments = merged.filter(
       (c) => c.category === 'performance' && !c.id.startsWith('h'),
@@ -526,13 +570,13 @@ describe('LLMReviewPipeline — Merge Edge Cases', () => {
     const content = 'content line\n';
     const strictPipeline = new LLMReviewPipeline({ minConfidence: 1.0 });
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1, category: 'style',
+      startLine: 1,
+      endLine: 1,
+      category: 'style',
       snippet: 'almost match',
     });
     const llmResult = strictPipeline.processFindings([finding], content, 'file.ts');
-    const heuristic = [
-      makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' }),
-    ];
+    const heuristic = [makeHeuristicComment({ startLine: 1, endLine: 1, category: 'security' })];
     const merged = strictPipeline.mergeWithHeuristic(llmResult.comments, heuristic);
     expect(merged.length).toBe(1); // only heuristic remains
   });
@@ -548,7 +592,8 @@ describe('LLMReviewPipeline — Pipeline Metrics', () => {
     const pipeline = new LLMReviewPipeline();
     const findings = Array.from({ length: 5 }, (_, i) =>
       makeLLMFinding({
-        startLine: i + 1, endLine: i + 1,
+        startLine: i + 1,
+        endLine: i + 1,
         snippet: String.fromCharCode(97 + i),
         category: 'style',
       }),
@@ -561,8 +606,10 @@ describe('LLMReviewPipeline — Pipeline Metrics', () => {
     const content = 'line1\nline2\n';
     const pipeline = new LLMReviewPipeline();
     const finding = makeLLMFinding({
-      startLine: 1, endLine: 1,
-      snippet: 'line1', category: 'style',
+      startLine: 1,
+      endLine: 1,
+      snippet: 'line1',
+      category: 'style',
     });
     const result = pipeline.processFindings([finding], content, 'file.ts');
     expect(result.finalCount).toBe(result.comments.length);

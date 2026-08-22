@@ -53,7 +53,11 @@ describe('Server E2E — Full Lifecycle', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -99,7 +103,7 @@ describe('Server E2E — Full Lifecycle', () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.status).toMatch(/^(healthy|degraded|unhealthy)$/);
     expect(body.version).toBe('1.0.0');
     expect(Array.isArray(body.checks)).toBe(true);
@@ -128,7 +132,7 @@ describe('Server E2E — Full Lifecycle', () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/health/live`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.status).toBe('alive');
   });
 });
@@ -142,7 +146,11 @@ describe('Server E2E — Rate Limiting', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -170,7 +178,7 @@ describe('Server E2E — Rate Limiting', () => {
     // 6th request should be rate limited
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/tools/list`);
     expect(res.status).toBe(429);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBe('TOO_MANY_REQUESTS');
   });
 
@@ -205,7 +213,11 @@ describe('Server E2E — Concurrency', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -265,7 +277,11 @@ describe('Server E2E — Error Handling', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -324,7 +340,11 @@ describe('Server E2E — Graceful Shutdown', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -424,7 +444,11 @@ describe('Server E2E — Auth Integration', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -475,7 +499,11 @@ describe('Server E2E — Webhook Integration', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -510,7 +538,7 @@ describe('Server E2E — Webhook Integration', () => {
     });
 
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.received).toBe(true);
 
     // Wait for async processing
@@ -607,7 +635,7 @@ describe('Server E2E — Webhook Integration', () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github/status`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.configured).toBe(true);
   });
 });
@@ -621,7 +649,11 @@ describe('Server E2E — Request Features', () => {
 
   afterEach(async () => {
     if (server) {
-      try { await server.stop(); } catch { /* */ }
+      try {
+        await server.stop();
+      } catch {
+        /* */
+      }
       server = null;
     }
   });
@@ -651,7 +683,10 @@ describe('Server E2E — Request Features', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { ...makeSilentConfig(), logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        ...makeSilentConfig(),
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
     await server.start();
 

@@ -101,45 +101,49 @@ export class PerformanceProfiler {
     const results: QueryLatencyResult[] = [];
 
     // Test: node lookup by ID
-    results.push(await this.profileSingleQuery(
-      'getNode', 5,
-      () => store.getNode(0),
-    ));
+    results.push(await this.profileSingleQuery('getNode', 5, () => store.getNode(0)));
 
     // Test: query all nodes
-    results.push(await this.profileSingleQuery(
-      'queryNodes', 20,
-      () => store.queryNodes({ projectId: 'bench', limit: 100, offset: 0 }),
-    ));
+    results.push(
+      await this.profileSingleQuery('queryNodes', 20, () =>
+        store.queryNodes({ projectId: 'bench', limit: 100, offset: 0 }),
+      ),
+    );
 
     // Test: get all nodes
-    results.push(await this.profileSingleQuery(
-      'getAllNodes', 20,
-      () => store.getAllNodes(),
-    ));
+    results.push(await this.profileSingleQuery('getAllNodes', 20, () => store.getAllNodes()));
 
     // Test: insert node
-    results.push(await this.profileSingleQuery(
-      'insertNode', 10,
-      () => store.insertNode({
-        id: Math.floor(Math.random() * 1e9),
-        projectId: 'bench',
-        name: `benchFn_${Math.random().toString(36).slice(2)}`,
-        label: 'Function', filePath: 'bench.ts',
-        qualifiedName: `benchFn_${Math.random().toString(36).slice(2)}_${Date.now()}`,
-        startLine: 1, endLine: 10,
-        language: 'typescript', signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        properties: { name: 'benchFn' }, createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }),
-    ));
+    results.push(
+      await this.profileSingleQuery('insertNode', 10, () =>
+        store.insertNode({
+          id: Math.floor(Math.random() * 1e9),
+          projectId: 'bench',
+          name: `benchFn_${Math.random().toString(36).slice(2)}`,
+          label: 'Function',
+          filePath: 'bench.ts',
+          qualifiedName: `benchFn_${Math.random().toString(36).slice(2)}_${Date.now()}`,
+          startLine: 1,
+          endLine: 10,
+          language: 'typescript',
+          signature: null,
+          docstring: null,
+          complexity: null,
+          isExported: false,
+          fingerprint: null,
+          properties: { name: 'benchFn' },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      ),
+    );
 
     // Test: get edges
-    results.push(await this.profileSingleQuery(
-      'getEdgesForNode', 10,
-      () => store.getEdgesForNode(0, undefined, 'out'),
-    ));
+    results.push(
+      await this.profileSingleQuery('getEdgesForNode', 10, () =>
+        store.getEdgesForNode(0, undefined, 'out'),
+      ),
+    );
 
     return results;
   }
@@ -159,8 +163,8 @@ export class PerformanceProfiler {
       const r = results[i]!;
       lines.push(
         `| op-${i + 1} | ${r.runs} | ${r.avgMs.toFixed(3)} | ${r.p50Ms.toFixed(3)} | ` +
-        `${r.p95Ms.toFixed(3)} | ${r.p99Ms.toFixed(3)} | ${r.minMs.toFixed(3)} | ${r.maxMs.toFixed(3)} | ` +
-        `${r.opsPerSec.toFixed(0)} |`,
+          `${r.p95Ms.toFixed(3)} | ${r.p99Ms.toFixed(3)} | ${r.minMs.toFixed(3)} | ${r.maxMs.toFixed(3)} | ` +
+          `${r.opsPerSec.toFixed(0)} |`,
       );
     }
 
@@ -258,10 +262,9 @@ export class PerformanceProfiler {
     const totalMs = sum;
     const opsPerSec = n > 0 ? (n / totalMs) * 1000 : 0;
 
-    const targetsMet = (
+    const targetsMet =
       (this.config.minOpsPerSec === undefined || opsPerSec >= this.config.minOpsPerSec) &&
-      (this.config.maxP99Ms === undefined || p99 <= this.config.maxP99Ms)
-    );
+      (this.config.maxP99Ms === undefined || p99 <= this.config.maxP99Ms);
 
     return {
       config: { ...this.config },

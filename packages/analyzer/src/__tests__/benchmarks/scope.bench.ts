@@ -26,7 +26,7 @@ function createSyntheticFiles(count: number, symbolsPerFile: number): ParsedFile
     for (let s = 0; s < symbolsPerFile; s++) {
       const symIdx = f * symbolsPerFile + s;
       const isClass = s % 5 === 0;
-      const kind = isClass ? 'Class' as const : 'Function' as const;
+      const kind = isClass ? ('Class' as const) : ('Function' as const);
       const name = isClass ? `Class${symIdx}` : `func${symIdx}`;
 
       symbols.push({
@@ -93,126 +93,112 @@ function createSemanticModel(files: ParsedFile[]): SemanticModel {
 describe('Scope Resolution Benchmarks', () => {
   const resolver = new ScopeResolver();
 
-  it(
-    'should build scope trees for small codebase',
-    { timeout: 30_000 },
-    async () => {
-      const files = createSyntheticFiles(50, 10);
-      const model = createSemanticModel(files);
+  it('should build scope trees for small codebase', { timeout: 30_000 }, async () => {
+    const files = createSyntheticFiles(50, 10);
+    const model = createSemanticModel(files);
 
-      const runner = new BenchmarkRunner({ verbose: false });
-      const benchCase: BenchmarkCase = {
-        name: 'build-trees-50-files',
-        category: 'scope',
-        warmupIterations: 3,
-        iterations: 30,
-        fn: async () => {
-          const trees = resolver.buildScopeTrees(files);
-          expect(trees.length).toBe(50);
-        },
-      };
+    const runner = new BenchmarkRunner({ verbose: false });
+    const benchCase: BenchmarkCase = {
+      name: 'build-trees-50-files',
+      category: 'scope',
+      warmupIterations: 3,
+      iterations: 30,
+      fn: async () => {
+        const trees = resolver.buildScopeTrees(files);
+        expect(trees.length).toBe(50);
+      },
+    };
 
-      const stats = await runner.runCase(benchCase);
-      expect(stats.duration.mean).toBeLessThan(20); // <20ms
-      console.log(`Build scope trees (50 files × 10 symbols): mean=${stats.duration.mean.toFixed(2)}ms`);
-    },
-  );
+    const stats = await runner.runCase(benchCase);
+    expect(stats.duration.mean).toBeLessThan(20); // <20ms
+    console.log(
+      `Build scope trees (50 files × 10 symbols): mean=${stats.duration.mean.toFixed(2)}ms`,
+    );
+  });
 
-  it(
-    'should build scope trees for large codebase',
-    { timeout: 60_000 },
-    async () => {
-      const files = createSyntheticFiles(500, 15);
+  it('should build scope trees for large codebase', { timeout: 60_000 }, async () => {
+    const files = createSyntheticFiles(500, 15);
 
-      const runner = new BenchmarkRunner({ verbose: false });
-      const benchCase: BenchmarkCase = {
-        name: 'build-trees-500-files',
-        category: 'scope',
-        warmupIterations: 2,
-        iterations: 10,
-        fn: async () => {
-          const trees = resolver.buildScopeTrees(files);
-          expect(trees.length).toBe(500);
-        },
-      };
+    const runner = new BenchmarkRunner({ verbose: false });
+    const benchCase: BenchmarkCase = {
+      name: 'build-trees-500-files',
+      category: 'scope',
+      warmupIterations: 2,
+      iterations: 10,
+      fn: async () => {
+        const trees = resolver.buildScopeTrees(files);
+        expect(trees.length).toBe(500);
+      },
+    };
 
-      const stats = await runner.runCase(benchCase);
-      console.log(`Build scope trees (500 files × 15 symbols): mean=${stats.duration.mean.toFixed(2)}ms`);
-    },
-  );
+    const stats = await runner.runCase(benchCase);
+    console.log(
+      `Build scope trees (500 files × 15 symbols): mean=${stats.duration.mean.toFixed(2)}ms`,
+    );
+  });
 
-  it(
-    'should resolve references efficiently',
-    { timeout: 30_000 },
-    async () => {
-      const files = createSyntheticFiles(100, 10);
-      const model = createSemanticModel(files);
-      const trees = resolver.buildScopeTrees(files);
+  it('should resolve references efficiently', { timeout: 30_000 }, async () => {
+    const files = createSyntheticFiles(100, 10);
+    const model = createSemanticModel(files);
+    const trees = resolver.buildScopeTrees(files);
 
-      const runner = new BenchmarkRunner({ verbose: false });
-      const benchCase: BenchmarkCase = {
-        name: 'resolve-references-100-files',
-        category: 'scope',
-        warmupIterations: 3,
-        iterations: 20,
-        fn: async () => {
-          const refs = resolver.resolveReferences(files, trees, model);
-          expect(refs.length).toBeGreaterThan(0);
-        },
-      };
+    const runner = new BenchmarkRunner({ verbose: false });
+    const benchCase: BenchmarkCase = {
+      name: 'resolve-references-100-files',
+      category: 'scope',
+      warmupIterations: 3,
+      iterations: 20,
+      fn: async () => {
+        const refs = resolver.resolveReferences(files, trees, model);
+        expect(refs.length).toBeGreaterThan(0);
+      },
+    };
 
-      const stats = await runner.runCase(benchCase);
-      console.log(`Resolve references (100 files × ~9 refs/file): mean=${stats.duration.mean.toFixed(2)}ms`);
-    },
-  );
+    const stats = await runner.runCase(benchCase);
+    console.log(
+      `Resolve references (100 files × ~9 refs/file): mean=${stats.duration.mean.toFixed(2)}ms`,
+    );
+  });
 
-  it(
-    'should resolve calls efficiently',
-    { timeout: 30_000 },
-    async () => {
-      const files = createSyntheticFiles(200, 10);
-      const model = createSemanticModel(files);
-      const trees = resolver.buildScopeTrees(files);
-      const refs = resolver.resolveReferences(files, trees, model);
+  it('should resolve calls efficiently', { timeout: 30_000 }, async () => {
+    const files = createSyntheticFiles(200, 10);
+    const model = createSemanticModel(files);
+    const trees = resolver.buildScopeTrees(files);
+    const refs = resolver.resolveReferences(files, trees, model);
 
-      const runner = new BenchmarkRunner({ verbose: false });
-      const benchCase: BenchmarkCase = {
-        name: 'resolve-calls-200-files',
-        category: 'scope',
-        warmupIterations: 3,
-        iterations: 20,
-        fn: async () => {
-          const calls = resolver.resolveCalls(refs, model);
-          expect(calls.length).toBe(refs.length);
-        },
-      };
+    const runner = new BenchmarkRunner({ verbose: false });
+    const benchCase: BenchmarkCase = {
+      name: 'resolve-calls-200-files',
+      category: 'scope',
+      warmupIterations: 3,
+      iterations: 20,
+      fn: async () => {
+        const calls = resolver.resolveCalls(refs, model);
+        expect(calls.length).toBe(refs.length);
+      },
+    };
 
-      const stats = await runner.runCase(benchCase);
-      console.log(`Resolve calls (${refs.length} refs): mean=${stats.duration.mean.toFixed(2)}ms`);
-    },
-  );
+    const stats = await runner.runCase(benchCase);
+    console.log(`Resolve calls (${refs.length} refs): mean=${stats.duration.mean.toFixed(2)}ms`);
+  });
 
-  it(
-    'should resolve imports efficiently',
-    { timeout: 30_000 },
-    async () => {
-      const files = createSyntheticFiles(150, 8);
-      const model = createSemanticModel(files);
+  it('should resolve imports efficiently', { timeout: 30_000 }, async () => {
+    const files = createSyntheticFiles(150, 8);
+    const model = createSemanticModel(files);
 
-      const runner = new BenchmarkRunner({ verbose: false });
-      const benchCase: BenchmarkCase = {
-        name: 'resolve-imports-150-files',
-        category: 'scope',
-        warmupIterations: 3,
-        iterations: 20,
-        fn: async () => {
-          const imports = resolver.resolveImports(files, model);
-          expect(Array.isArray(imports)).toBe(true);
-        },
-      };
+    const runner = new BenchmarkRunner({ verbose: false });
+    const benchCase: BenchmarkCase = {
+      name: 'resolve-imports-150-files',
+      category: 'scope',
+      warmupIterations: 3,
+      iterations: 20,
+      fn: async () => {
+        const imports = resolver.resolveImports(files, model);
+        expect(Array.isArray(imports)).toBe(true);
+      },
+    };
 
-      const stats = await runner.runCase(benchCase);
-      console.log(`Resolve imports (150 files): mean=${stats.duration.mean.toFixed(2)}ms`);
-    },
-  );
+    const stats = await runner.runCase(benchCase);
+    console.log(`Resolve imports (150 files): mean=${stats.duration.mean.toFixed(2)}ms`);
+  });
 });

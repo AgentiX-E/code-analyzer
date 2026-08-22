@@ -249,9 +249,7 @@ export class SessionStore {
     }
 
     const content = fs.readFileSync(filePath, 'utf-8');
-    return content
-      .split('\n')
-      .filter((line) => line.trim().length > 0);
+    return content.split('\n').filter((line) => line.trim().length > 0);
   }
 
   /**
@@ -275,12 +273,13 @@ export class SessionStore {
       // Completion is tracked via the session status — the last record timestamp marks it
       this.ensureDirectory();
       const filePath = this.getSessionPath(sessionId);
-      const completionEntry = JSON.stringify({
-        type: 'complete',
-        sessionId,
-        projectId: startRecord.projectId,
-        timestamp: new Date().toISOString(),
-      }) + '\n';
+      const completionEntry =
+        JSON.stringify({
+          type: 'complete',
+          sessionId,
+          projectId: startRecord.projectId,
+          timestamp: new Date().toISOString(),
+        }) + '\n';
       fs.appendFileSync(filePath, completionEntry, 'utf-8');
     }
   }

@@ -3,7 +3,16 @@
 // checksums stored in a local cache directory.
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync, statSync, unlinkSync, rmdirSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  writeFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  rmdirSync,
+} from 'node:fs';
 import { join, basename, relative, dirname } from 'node:path';
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
@@ -53,17 +62,53 @@ interface ChecksumCache {
 const CACHE_DIR = '.code-analyzer-cache';
 
 const SKIP_DIRECTORIES = new Set([
-  'node_modules', '.git', 'dist', 'build', '__pycache__', '.next',
-  'target', '.cache', '.idea', '.vscode', 'coverage', '.nyc_output',
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '__pycache__',
+  '.next',
+  'target',
+  '.cache',
+  '.idea',
+  '.vscode',
+  'coverage',
+  '.nyc_output',
 ]);
 
 const SKIP_FILE_PATTERNS = [/^\./, /\.min\.(js|css)$/, /\.d\.ts$/];
 
 const SOURCE_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
-  '.py', '.pyi', '.go', '.java', '.kt', '.kts',
-  '.cs', '.rs', '.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hh',
-  '.php', '.rb', '.swift', '.dart', '.lua', '.scala', '.zig', '.ex', '.exs',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.pyi',
+  '.go',
+  '.java',
+  '.kt',
+  '.kts',
+  '.cs',
+  '.rs',
+  '.c',
+  '.h',
+  '.cpp',
+  '.cc',
+  '.cxx',
+  '.hpp',
+  '.hh',
+  '.php',
+  '.rb',
+  '.swift',
+  '.dart',
+  '.lua',
+  '.scala',
+  '.zig',
+  '.ex',
+  '.exs',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -204,10 +249,7 @@ export class IncrementalCrossRepoIndexer {
    * removes stale graph data for deleted files, and preserves
    * unchanged data.
    */
-  async incrementalIndex(
-    groupId: string,
-    options?: IndexOptions,
-  ): Promise<IncrementalIndexResult> {
+  async incrementalIndex(groupId: string, options?: IndexOptions): Promise<IncrementalIndexResult> {
     const startTime = Date.now();
     const errors: string[] = [];
 
@@ -251,11 +293,10 @@ export class IncrementalCrossRepoIndexer {
       if (filesToReindex.length > 0) {
         const beforeNodeCount = this.store.getNodeCount();
         try {
-          await this.indexer.indexSingleRepo(
-            repo.fullName,
-            repo.localPath,
-            { ...options, force: true },
-          );
+          await this.indexer.indexSingleRepo(repo.fullName, repo.localPath, {
+            ...options,
+            force: true,
+          });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           errors.push(`Failed to re-index ${repo.fullName}: ${message}`);
@@ -429,9 +470,7 @@ export class IncrementalCrossRepoIndexer {
         const name = basename(fullPath);
         if (SKIP_FILE_PATTERNS.some((p) => p.test(name))) continue;
 
-        const ext = name.lastIndexOf('.') >= 0
-          ? name.slice(name.lastIndexOf('.'))
-          : '';
+        const ext = name.lastIndexOf('.') >= 0 ? name.slice(name.lastIndexOf('.')) : '';
         if (!SOURCE_EXTENSIONS.has(ext)) continue;
 
         let fileStat;

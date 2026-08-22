@@ -3,11 +3,7 @@
 // Uses language-specific advanced resolvers to extract type information
 // from parsed ASTs and build a cross-file type registry.
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  ParsedFile,
-} from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, ParsedFile } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -28,9 +24,15 @@ import { JavaResolver } from '../../resolution/java-resolver.js';
  *   - Go (via GoResolver)
  *   - Java (via JavaResolver)
  */
-const LANGUAGE_RESOLVERS: Record<string, () => {
-  extractTypes: (source: string, filePath: string) => import('../../resolution/type-registry.js').TypeInfo[];
-}> = {
+const LANGUAGE_RESOLVERS: Record<
+  string,
+  () => {
+    extractTypes: (
+      source: string,
+      filePath: string,
+    ) => import('../../resolution/type-registry.js').TypeInfo[];
+  }
+> = {
   typescript: () => new TypeScriptAdvancedResolver(),
   tsx: () => new TypeScriptAdvancedResolver(),
   javascript: () => new TypeScriptAdvancedResolver(),
@@ -50,9 +52,7 @@ export class TypeResolutionPhase implements ExecutablePhase {
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
-      const parseData = ctx.phaseData.get('parse') as
-        | { parsedFiles: ParsedFile[] }
-        | undefined;
+      const parseData = ctx.phaseData.get('parse') as { parsedFiles: ParsedFile[] } | undefined;
 
       if (!parseData || !parseData.parsedFiles || parseData.parsedFiles.length === 0) {
         ctx.phaseData.set('typeResolution', { typesRegistered: 0, typesByLanguage: {} });
@@ -60,7 +60,15 @@ export class TypeResolutionPhase implements ExecutablePhase {
       }
 
       // Resolver instances — created lazily per language
-      const resolverInstances = new Map<string, { extractTypes: (source: string, filePath: string) => import('../../resolution/type-registry.js').TypeInfo[] }>();
+      const resolverInstances = new Map<
+        string,
+        {
+          extractTypes: (
+            source: string,
+            filePath: string,
+          ) => import('../../resolution/type-registry.js').TypeInfo[];
+        }
+      >();
 
       const registry = new TypeRegistry();
       let typesRegistered = 0;
@@ -68,8 +76,7 @@ export class TypeResolutionPhase implements ExecutablePhase {
 
       // Pre-fetch scan data for content lookup
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: Array<{ filePath: string; content: string }> }
-        | undefined;
+        { discoveredFiles: Array<{ filePath: string; content: string }> } | undefined;
 
       for (const file of parseData.parsedFiles) {
         const lang = file.language as string;
@@ -104,7 +111,11 @@ export class TypeResolutionPhase implements ExecutablePhase {
 
         // Register module paths for import resolution
         /* v8 ignore next -- @preserve -- filePath always has a final path segment */
-        const moduleName = file.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+        const moduleName =
+          file.filePath
+            .split('/')
+            .pop()
+            ?.replace(/\.[^.]+$/, '') ?? '';
         registry.registerModule(moduleName, file.filePath);
         registry.registerModule(file.filePath, file.filePath);
       }
@@ -120,7 +131,11 @@ export class TypeResolutionPhase implements ExecutablePhase {
       };
     } catch (err) {
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */

@@ -185,7 +185,7 @@ class InvertedIndex {
       // BM25 TF: ((k1 + 1) * tf) / (k1 * ((1 - b) + b * dl / avgdl) + tf)
       const dl = doc.docLength;
       const avgdl = this.avgDocLength;
-      const denom = BM25_K1 * (1 - BM25_B + BM25_B * dl / avgdl) + tf;
+      const denom = BM25_K1 * (1 - BM25_B + (BM25_B * dl) / avgdl) + tf;
       const tfScore = ((BM25_K1 + 1) * tf) / denom;
 
       score += idf * tfScore;
@@ -335,10 +335,7 @@ export class HybridSearchEngine {
   /**
    * Register embedding functions for vector search support.
    */
-  registerEmbeddings(
-    lookupFn: EmbeddingLookupFn,
-    contentFn?: EmbedContentFn,
-  ): void {
+  registerEmbeddings(lookupFn: EmbeddingLookupFn, contentFn?: EmbedContentFn): void {
     this.getEmbeddingForNode = lookupFn;
     this.embedContent = contentFn ?? null;
   }
@@ -367,9 +364,7 @@ export class HybridSearchEngine {
     let vectorResults: RankedResult[] = [];
     if (canVectorSearch) {
       // Pass BM25 result node IDs as candidates to restrict vector search scope
-      const candidateIds = bm25Results.length > 0
-        ? bm25Results.map((r) => r.node.id)
-        : null;
+      const candidateIds = bm25Results.length > 0 ? bm25Results.map((r) => r.node.id) : null;
       vectorResults = await this.vectorSearch(options.query, topK, candidateIds);
     }
 
@@ -420,9 +415,8 @@ export class HybridSearchEngine {
 
     // Cap at 1000 nodes for performance safety
     const maxCandidates = 1000;
-    const scoredNodes = nodesToScore.length > maxCandidates
-      ? nodesToScore.slice(0, maxCandidates)
-      : nodesToScore;
+    const scoredNodes =
+      nodesToScore.length > maxCandidates ? nodesToScore.slice(0, maxCandidates) : nodesToScore;
 
     // Score candidates with stored embeddings
     for (const node of scoredNodes) {
@@ -493,9 +487,7 @@ export class HybridSearchEngine {
 
     // Sort by combined score descending
     const resultsArray = Array.from(combined.values());
-    resultsArray.sort(
-      (a, b) => b.combinedScore - a.combinedScore,
-    );
+    resultsArray.sort((a, b) => b.combinedScore - a.combinedScore);
 
     if (limit !== undefined && limit > 0) {
       return resultsArray.slice(0, limit);

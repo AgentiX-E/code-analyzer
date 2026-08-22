@@ -121,6 +121,7 @@ The participant classifies the intent and enriches the chat context with symbols
 ### 4. Explore from the Sidebar
 
 Click the **Code Analyzer** icon in the Activity Bar. The sidebar opens with:
+
 - Search input — find symbols by name
 - Review Changes button — get AI review of uncommitted diffs
 - Changed Files button — list modified files
@@ -147,13 +148,13 @@ A webview opens with all extension settings: auto-index, index mode, max file si
 
 ## Commands
 
-| Command ID | Title | Description |
-|---|---|---|
-| `code-analyzer.analyze` | Analyze Codebase | Index the entire workspace |
-| `code-analyzer.review` | Review Changes | Run AI-powered code review on diffs |
-| `code-analyzer.search` | Search Codebase | Search symbols by name |
-| `code-analyzer.showSidebar` | Show Code Analyzer | Open the Code Intelligence sidebar |
-| `code-analyzer.showConfig` | Configure Code Analyzer | Open the settings webview |
+| Command ID                  | Title                   | Description                         |
+| --------------------------- | ----------------------- | ----------------------------------- |
+| `code-analyzer.analyze`     | Analyze Codebase        | Index the entire workspace          |
+| `code-analyzer.review`      | Review Changes          | Run AI-powered code review on diffs |
+| `code-analyzer.search`      | Search Codebase         | Search symbols by name              |
+| `code-analyzer.showSidebar` | Show Code Analyzer      | Open the Code Intelligence sidebar  |
+| `code-analyzer.showConfig`  | Configure Code Analyzer | Open the settings webview           |
 
 ---
 
@@ -248,14 +249,14 @@ const intent3 = participant.classifyIntent('random text');
 
 The 6 supported intent types:
 
-| Intent | Trigger Patterns | Context Gathered |
-|---|---|---|
-| `explore` | "how does X work", "explain X", "what is X" | Search results + related symbols |
-| `search` | "find X", "search for X", "where is X" | Search results |
-| `review` | "review changes", "code review", "audit" | Changed files + review comments |
-| `impact` | "what breaks if X", "impact of X" | Changed symbols + impact tree |
-| `debug` | "why is X failing", "debug X", "fix X" | Call traces + related code |
-| `refactor` | "refactor X", "rename X to", "extract X" | Implementations + callers |
+| Intent     | Trigger Patterns                            | Context Gathered                 |
+| ---------- | ------------------------------------------- | -------------------------------- |
+| `explore`  | "how does X work", "explain X", "what is X" | Search results + related symbols |
+| `search`   | "find X", "search for X", "where is X"      | Search results                   |
+| `review`   | "review changes", "code review", "audit"    | Changed files + review comments  |
+| `impact`   | "what breaks if X", "impact of X"           | Changed symbols + impact tree    |
+| `debug`    | "why is X failing", "debug X", "fix X"      | Call traces + related code       |
+| `refactor` | "refactor X", "rename X to", "extract X"    | Implementations + callers        |
 
 ### SidebarLogic — Webview Message Handler
 
@@ -322,10 +323,10 @@ import { StatusBarManager, createStatusBarManager } from '@code-analyzer/vscode'
 // Factory pattern for VS Code integration
 const manager = createStatusBarManager(statusBarFactory, engine);
 
-manager.setIndexing(45);    // Shows: $(sync~spin) Analyzing... 45%
-manager.setReady();          // Shows: $(check) Code Analyzer
-manager.setError();          // Shows: $(error) Code Analyzer
-manager.setIdle();           // Shows: $(search) Code Analyzer
+manager.setIndexing(45); // Shows: $(sync~spin) Analyzing... 45%
+manager.setReady(); // Shows: $(check) Code Analyzer
+manager.setError(); // Shows: $(error) Code Analyzer
+manager.setIdle(); // Shows: $(search) Code Analyzer
 
 const state: string = manager.getState(); // 'idle' | 'indexing' | 'ready' | 'error'
 const progress: number = manager.getProgress(); // 0-100
@@ -364,15 +365,15 @@ const branches: string[] = await git.listBranches('/project');
 
 These settings are available in VS Code (`File → Preferences → Settings → Extensions → Code Analyzer`) or via the configuration webview.
 
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `codeAnalyzer.autoIndex` | `boolean` | `true` | Auto-index the codebase when opening a project |
-| `codeAnalyzer.indexMode` | `"full"` \| `"moderate"` \| `"fast"` | `"full"` | Depth of symbol analysis: full includes all relationships |
-| `codeAnalyzer.maxFileSize` | `number` | `10485760` (10 MB) | Skip files larger than this value during analysis |
-| `codeAnalyzer.excludePatterns` | `string[]` | `["node_modules/**", "dist/**", ".git/**", "build/**"]` | Glob patterns to exclude from indexing |
-| `codeAnalyzer.reviewOnSave` | `boolean` | `false` | Run code review automatically when saving a file |
-| `codeAnalyzer.showInlineDecorations` | `boolean` | `true` | Display review comments as inline editor annotations |
-| `codeAnalyzer.maxSearchResults` | `number` | `20` | Maximum number of results returned in searches (1-100) |
+| Setting                              | Type                                 | Default                                                 | Description                                               |
+| ------------------------------------ | ------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------- |
+| `codeAnalyzer.autoIndex`             | `boolean`                            | `true`                                                  | Auto-index the codebase when opening a project            |
+| `codeAnalyzer.indexMode`             | `"full"` \| `"moderate"` \| `"fast"` | `"full"`                                                | Depth of symbol analysis: full includes all relationships |
+| `codeAnalyzer.maxFileSize`           | `number`                             | `10485760` (10 MB)                                      | Skip files larger than this value during analysis         |
+| `codeAnalyzer.excludePatterns`       | `string[]`                           | `["node_modules/**", "dist/**", ".git/**", "build/**"]` | Glob patterns to exclude from indexing                    |
+| `codeAnalyzer.reviewOnSave`          | `boolean`                            | `false`                                                 | Run code review automatically when saving a file          |
+| `codeAnalyzer.showInlineDecorations` | `boolean`                            | `true`                                                  | Display review comments as inline editor annotations      |
+| `codeAnalyzer.maxSearchResults`      | `number`                             | `20`                                                    | Maximum number of results returned in searches (1-100)    |
 
 Example `settings.json`:
 
@@ -381,12 +382,7 @@ Example `settings.json`:
   "codeAnalyzer.autoIndex": true,
   "codeAnalyzer.indexMode": "full",
   "codeAnalyzer.maxFileSize": 5242880,
-  "codeAnalyzer.excludePatterns": [
-    "node_modules/**",
-    "dist/**",
-    ".git/**",
-    "*.generated.ts"
-  ],
+  "codeAnalyzer.excludePatterns": ["node_modules/**", "dist/**", ".git/**", "*.generated.ts"],
   "codeAnalyzer.reviewOnSave": true,
   "codeAnalyzer.showInlineDecorations": true,
   "codeAnalyzer.maxSearchResults": 30
@@ -409,11 +405,11 @@ The extension follows a strict separation-of-concerns architecture:
 
 ## Dependencies
 
-| Package | Role |
-|---|---|
-| `@code-analyzer/shared` | Shared types (`GitDiff`, etc.) |
-| `@code-analyzer/infra` | Storage (`InMemoryGraphStore`) and git operations |
-| `@code-analyzer/analyzer` | AST analysis pipeline (via EngineBridge) |
+| Package                       | Role                                                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `@code-analyzer/shared`       | Shared types (`GitDiff`, etc.)                                                                                       |
+| `@code-analyzer/infra`        | Storage (`InMemoryGraphStore`) and git operations                                                                    |
+| `@code-analyzer/analyzer`     | AST analysis pipeline (via EngineBridge)                                                                             |
 | `@code-analyzer/intelligence` | Search (`HybridSearchEngine`), review (`CodeReviewEngine`), standards, change detection, impact analysis, embeddings |
 
 **Dev dependencies**: `@types/vscode` (1.95.0+), TypeScript 5.6, Vitest 2.1.

@@ -601,9 +601,7 @@ describe('ContentCache persistence', () => {
       restored.loadSync();
 
       expect(restored.size).toBe(1000);
-      expect(restored.get('src/file500.ts')!.sha256).toBe(
-        computeSha256('content number 500'),
-      );
+      expect(restored.get('src/file500.ts')!.sha256).toBe(computeSha256('content number 500'));
     });
   });
 

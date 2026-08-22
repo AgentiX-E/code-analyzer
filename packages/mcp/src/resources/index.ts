@@ -26,21 +26,96 @@ export interface ResourceError {
 // ---------------------------------------------------------------------------
 
 const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
-  { uri: 'code-analyzer://resources/projects', name: 'Projects', description: 'List of all indexed projects', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/project-schema', name: 'Project Schema', description: 'Schema definition for project data', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/clusters', name: 'Clusters', description: 'Community clusters detected in the codebase', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/processes', name: 'Processes', description: 'Business processes modeled in the codebase', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/routes', name: 'Routes', description: 'HTTP routes and API endpoints', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/entrypoints', name: 'Entry Points', description: 'Application entry points', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/hotspots', name: 'Hotspots', description: 'Code hotspots with high complexity or churn', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/adrs', name: 'ADRs', description: 'Architecture Decision Records', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/stats', name: 'Stats', description: 'Project statistics and metrics', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/graph', name: 'Graph', description: 'Complete knowledge graph for a project', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/groups', name: 'Groups', description: 'Repository groups', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/contracts', name: 'Contracts', description: 'Cross-repo contracts', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/config', name: 'Config', description: 'Server configuration', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/health', name: 'Health', description: 'Server health and status', mimeType: 'application/json' },
-  { uri: 'code-analyzer://resources/reports', name: 'Reports', description: 'Generated analysis reports', mimeType: 'application/json' },
+  {
+    uri: 'code-analyzer://resources/projects',
+    name: 'Projects',
+    description: 'List of all indexed projects',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/project-schema',
+    name: 'Project Schema',
+    description: 'Schema definition for project data',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/clusters',
+    name: 'Clusters',
+    description: 'Community clusters detected in the codebase',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/processes',
+    name: 'Processes',
+    description: 'Business processes modeled in the codebase',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/routes',
+    name: 'Routes',
+    description: 'HTTP routes and API endpoints',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/entrypoints',
+    name: 'Entry Points',
+    description: 'Application entry points',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/hotspots',
+    name: 'Hotspots',
+    description: 'Code hotspots with high complexity or churn',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/adrs',
+    name: 'ADRs',
+    description: 'Architecture Decision Records',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/stats',
+    name: 'Stats',
+    description: 'Project statistics and metrics',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/graph',
+    name: 'Graph',
+    description: 'Complete knowledge graph for a project',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/groups',
+    name: 'Groups',
+    description: 'Repository groups',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/contracts',
+    name: 'Contracts',
+    description: 'Cross-repo contracts',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/config',
+    name: 'Config',
+    description: 'Server configuration',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/health',
+    name: 'Health',
+    description: 'Server health and status',
+    mimeType: 'application/json',
+  },
+  {
+    uri: 'code-analyzer://resources/reports',
+    name: 'Reports',
+    description: 'Generated analysis reports',
+    mimeType: 'application/json',
+  },
 ];
 
 /** Register all 15 MCP resources (backward compatible static list). */
@@ -134,12 +209,20 @@ export class ResourceProvider {
 
   /** List all indexed projects with their statistics. */
   private async getProjects(): Promise<unknown> {
-    const projectMap = new Map<string, { nodeCount: number; edgeCount: number; firstSeen: string; lastUpdated: string }>();
+    const projectMap = new Map<
+      string,
+      { nodeCount: number; edgeCount: number; firstSeen: string; lastUpdated: string }
+    >();
 
     for (const node of this.store.nodes.values()) {
       const pid = node.projectId;
       if (!projectMap.has(pid)) {
-        projectMap.set(pid, { nodeCount: 0, edgeCount: 0, firstSeen: node.createdAt, lastUpdated: node.updatedAt });
+        projectMap.set(pid, {
+          nodeCount: 0,
+          edgeCount: 0,
+          firstSeen: node.createdAt,
+          lastUpdated: node.updatedAt,
+        });
       }
       const proj = projectMap.get(pid)!;
       proj.nodeCount++;
@@ -190,7 +273,10 @@ export class ResourceProvider {
 
   /** Get community clusters from nodes with cluster metadata. */
   private async getClusters(): Promise<unknown> {
-    const clusterMap = new Map<string, { name: string; memberCount: number; primaryLanguage: string | null }>();
+    const clusterMap = new Map<
+      string,
+      { name: string; memberCount: number; primaryLanguage: string | null }
+    >();
 
     for (const node of this.store.nodes.values()) {
       const clusterId = node.properties['clusterId'] as string | undefined;
@@ -222,7 +308,8 @@ export class ResourceProvider {
       processes.push({
         name: node.name,
         nodeId: node.id,
-        stepCount: typeof node.properties['stepCount'] === 'number' ? node.properties['stepCount'] : 0,
+        stepCount:
+          typeof node.properties['stepCount'] === 'number' ? node.properties['stepCount'] : 0,
       });
     }
 
@@ -234,7 +321,12 @@ export class ResourceProvider {
 
   /** Get HTTP routes from nodes with route metadata. */
   private async getRoutes(): Promise<unknown> {
-    const routes: Array<{ method: string; path: string; handler: string; filePath: string | null }> = [];
+    const routes: Array<{
+      method: string;
+      path: string;
+      handler: string;
+      filePath: string | null;
+    }> = [];
 
     for (const node of this.store.nodes.values()) {
       const routeMethod = node.properties.routeMethod as string | undefined;
@@ -250,14 +342,21 @@ export class ResourceProvider {
     }
 
     return {
-      routes: routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method)),
+      routes: routes.sort(
+        (a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method),
+      ),
       totalRoutes: routes.length,
     };
   }
 
   /** Get application entry points. */
   private async getEntrypoints(): Promise<unknown> {
-    const entrypoints: Array<{ name: string; kind: string; filePath: string | null; line: number | null }> = [];
+    const entrypoints: Array<{
+      name: string;
+      kind: string;
+      filePath: string | null;
+      line: number | null;
+    }> = [];
 
     for (const node of this.store.nodes.values()) {
       const isEntrypoint =
@@ -317,7 +416,8 @@ export class ResourceProvider {
 
   /** Get Architecture Decision Records from nodes with ADR metadata. */
   private async getADRs(): Promise<unknown> {
-    const adrs: Array<{ title: string; nodeId: number; filePath: string | null; status: string }> = [];
+    const adrs: Array<{ title: string; nodeId: number; filePath: string | null; status: string }> =
+      [];
 
     for (const node of this.store.nodes.values()) {
       const isADR = node.label === 'ADR' || node.properties['isADR'] === 'true';
@@ -385,7 +485,10 @@ export class ResourceProvider {
         min: complexities[0] ?? 0,
         max: complexities[complexities.length - 1] ?? 0,
         median: complexities.length > 0 ? complexities[Math.floor(complexities.length / 2)]! : 0,
-        average: complexities.length > 0 ? complexities.reduce((s, v) => s + v, 0) / complexities.length : 0,
+        average:
+          complexities.length > 0
+            ? complexities.reduce((s, v) => s + v, 0) / complexities.length
+            : 0,
       },
     };
   }
@@ -451,10 +554,19 @@ export class ResourceProvider {
 
   /** Get cross-repo contracts from contract-type edges. */
   private async getContracts(): Promise<unknown> {
-    const contracts: Array<{ id: number; sourceId: number; targetId: number; projectId: string; weight: number }> = [];
+    const contracts: Array<{
+      id: number;
+      sourceId: number;
+      targetId: number;
+      projectId: string;
+      weight: number;
+    }> = [];
 
     for (const edge of this.store.edges.values()) {
-      if ((edge.type as string) === 'CONTRACT' || (edge.type as string) === 'DEPENDS_ON_CROSS_REPO') {
+      if (
+        (edge.type as string) === 'CONTRACT' ||
+        (edge.type as string) === 'DEPENDS_ON_CROSS_REPO'
+      ) {
         contracts.push({
           id: edge.id,
           sourceId: edge.sourceId,
@@ -515,7 +627,8 @@ export class ResourceProvider {
     const reports: Array<{ name: string; nodeId: number; createdAt: string; type: string }> = [];
 
     for (const node of this.store.nodes.values()) {
-      const isReport = (node.label as string) === 'Report' || node.properties['isReport'] === 'true';
+      const isReport =
+        (node.label as string) === 'Report' || node.properties['isReport'] === 'true';
       if (!isReport) continue;
 
       reports.push({

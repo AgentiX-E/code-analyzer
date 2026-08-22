@@ -3,10 +3,7 @@
 // RealEmbeddingBackend tests require ONNX runtime and are excluded from CI coverage.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  EmbeddingEngine,
-  MockEmbeddingBackend,
-} from '../embeddings/embedder.js';
+import { EmbeddingEngine, MockEmbeddingBackend } from '../embeddings/embedder.js';
 
 // ---------------------------------------------------------------------------
 // MockEmbeddingBackend — n-gram content-based deterministic backend
@@ -485,9 +482,7 @@ describe('EmbeddingEngine.cosineSimilarity', () => {
   it('is commutative', async () => {
     const v1 = await engine.embedCode('function hello() {}');
     const v2 = await engine.embedCode('function world() {}');
-    expect(engine.cosineSimilarity(v1, v2)).toBe(
-      engine.cosineSimilarity(v2, v1),
-    );
+    expect(engine.cosineSimilarity(v1, v2)).toBe(engine.cosineSimilarity(v2, v1));
   });
 
   it('returns symmetric values for a vs b and b vs a', () => {
@@ -590,10 +585,7 @@ describe('EmbeddingEngine.embedBatch', () => {
   });
 
   it('produces same results as individual embedding', async () => {
-    const codes = [
-      'function foo() { return 1; }',
-      'function bar() { return 2; }',
-    ];
+    const codes = ['function foo() { return 1; }', 'function bar() { return 2; }'];
 
     const batch = await engine.embedBatch(codes);
     const individual = await Promise.all(codes.map((c) => engine.embedCode(c)));

@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 #
 # Code Analyzer — Docker Compose Configuration
@@ -24,7 +24,7 @@ services:
       # Optional: transport mode (stdio, sse)
       MCP_TRANSPORT: ${MCP_TRANSPORT:-sse}
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       # Mount project directory for live code analysis
       - .:/workspace:ro
@@ -33,7 +33,7 @@ services:
     networks:
       - analyzer-net
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -42,10 +42,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2"
+          cpus: '2'
           memory: 2G
         reservations:
-          cpus: "0.5"
+          cpus: '0.5'
           memory: 512M
     security_opt:
       - no-new-privileges:true
@@ -63,21 +63,21 @@ services:
       target: runner
     image: code-analyzer-server:latest
     container_name: code-analyzer-server
-    command: ["node", "packages/server/dist/start.js"]
+    command: ['node', 'packages/server/dist/start.js']
     environment:
       NODE_ENV: production
       SERVER_API_KEY: ${SERVER_API_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      PORT: "3001"
+      PORT: '3001'
     ports:
-      - "3001:3001"
+      - '3001:3001'
     volumes:
       - .:/workspace:ro
       - graph-data:/app/data/graph
     networks:
       - analyzer-net
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3001/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -86,10 +86,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2"
+          cpus: '2'
           memory: 2G
         reservations:
-          cpus: "0.5"
+          cpus: '0.5'
           memory: 512M
     security_opt:
       - no-new-privileges:true

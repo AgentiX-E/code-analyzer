@@ -63,31 +63,31 @@ jobs:
 
 ## Inputs
 
-| Name | Description | Required | Default |
-|------|-------------|----------|---------|
-| `github-token` | GitHub token for API access | Yes | `${{ github.token }}` |
-| `standards` | Path to project standards JSON file | No | `.code-analyzer/standards.json` |
-| `severity` | Minimum severity level to report | No | `warning` |
-| `fail-on` | Severity level that fails the check | No | `error` |
-| `max-files` | Maximum files to analyze per PR | No | `100` |
-| `exclude-patterns` | Glob patterns to exclude (comma-separated) | No | `**/node_modules/**,**/dist/**,**/*.min.*` |
-| `languages` | Languages to analyze (empty = auto-detect) | No | `''` |
+| Name               | Description                                | Required | Default                                    |
+| ------------------ | ------------------------------------------ | -------- | ------------------------------------------ |
+| `github-token`     | GitHub token for API access                | Yes      | `${{ github.token }}`                      |
+| `standards`        | Path to project standards JSON file        | No       | `.code-analyzer/standards.json`            |
+| `severity`         | Minimum severity level to report           | No       | `warning`                                  |
+| `fail-on`          | Severity level that fails the check        | No       | `error`                                    |
+| `max-files`        | Maximum files to analyze per PR            | No       | `100`                                      |
+| `exclude-patterns` | Glob patterns to exclude (comma-separated) | No       | `**/node_modules/**,**/dist/**,**/*.min.*` |
+| `languages`        | Languages to analyze (empty = auto-detect) | No       | `''`                                       |
 
 ### Severity Levels
 
-| Level | Description |
-|-------|-------------|
-| `info` | Informational notes, suggestions |
-| `warning` | Potential issues, best practice violations |
-| `error` | Definite problems that should be fixed |
+| Level      | Description                                   |
+| ---------- | --------------------------------------------- |
+| `info`     | Informational notes, suggestions              |
+| `warning`  | Potential issues, best practice violations    |
+| `error`    | Definite problems that should be fixed        |
 | `critical` | Security vulnerabilities, architectural flaws |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `findings` | JSON string of all review findings |
-| `summary` | Markdown summary suitable for PR comments |
+| Name       | Description                               |
+| ---------- | ----------------------------------------- |
+| `findings` | JSON string of all review findings        |
+| `summary`  | Markdown summary suitable for PR comments |
 
 ## Finding Format
 

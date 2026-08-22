@@ -179,9 +179,7 @@ function hasEnv(name: string): boolean {
  */
 function hasPath(filePath: string): boolean {
   /* v8 ignore next */
-  const resolved = filePath.startsWith('~')
-    ? path.join(homeDir, filePath.slice(1))
-    : filePath;
+  const resolved = filePath.startsWith('~') ? path.join(homeDir, filePath.slice(1)) : filePath;
   try {
     fs.accessSync(resolved, fs.constants.R_OK);
     return true;
@@ -326,8 +324,7 @@ function checkProcess(name: string): boolean {
           if (comm.toLowerCase().includes(name.toLowerCase())) {
             return true;
           }
-        } catch {
-        }
+        } catch {}
       }
     }
     return false;
@@ -363,8 +360,7 @@ function checkVSCodeExtension(extId: string): boolean {
           return true;
         }
       }
-    } catch {
-    }
+    } catch {}
   }
   return false;
 }
@@ -389,8 +385,7 @@ export function detectAllAgents(): AgentDetectionResult {
   });
 
   const detected = agents.filter((a) => a.detected);
-  const primary: AgentId | null =
-    detected[0]?.id ?? null;
+  const primary: AgentId | null = detected[0]?.id ?? null;
 
   return {
     agents,

@@ -38,16 +38,76 @@ function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
 
 function createSampleComments(): ReviewComment[] {
   return [
-    makeComment({ id: 'c1', path: '/src/api.ts', category: 'security', severity: 'critical', content: 'SQL injection risk' }),
-    makeComment({ id: 'c2', path: '/src/api.ts', category: 'bug', severity: 'high', content: 'Null pointer' }),
-    makeComment({ id: 'c3', path: '/src/utils.ts', category: 'performance', severity: 'medium', content: 'Inefficient loop' }),
-    makeComment({ id: 'c4', path: '/src/utils.ts', category: 'style', severity: 'low', content: 'Missing semicolon' }),
-    makeComment({ id: 'c5', path: '/src/auth.ts', category: 'security', severity: 'high', content: 'Hardcoded secret' }),
-    makeComment({ id: 'c6', path: '/src/db.ts', category: 'maintainability', severity: 'medium', content: 'God function' }),
-    makeComment({ id: 'c7', path: '/src/api.ts', category: 'bug', severity: 'low', content: 'Unused variable' }),
-    makeComment({ id: 'c8', path: '/src/db.ts', category: 'performance', severity: 'medium', content: 'N+1 query' }),
-    makeComment({ id: 'c9', path: '/src/auth.ts', category: 'documentation', severity: 'info', content: 'Missing JSDoc' }),
-    makeComment({ id: 'c10', path: '/src/test.ts', category: 'test', severity: 'low', content: 'Missing test case' }),
+    makeComment({
+      id: 'c1',
+      path: '/src/api.ts',
+      category: 'security',
+      severity: 'critical',
+      content: 'SQL injection risk',
+    }),
+    makeComment({
+      id: 'c2',
+      path: '/src/api.ts',
+      category: 'bug',
+      severity: 'high',
+      content: 'Null pointer',
+    }),
+    makeComment({
+      id: 'c3',
+      path: '/src/utils.ts',
+      category: 'performance',
+      severity: 'medium',
+      content: 'Inefficient loop',
+    }),
+    makeComment({
+      id: 'c4',
+      path: '/src/utils.ts',
+      category: 'style',
+      severity: 'low',
+      content: 'Missing semicolon',
+    }),
+    makeComment({
+      id: 'c5',
+      path: '/src/auth.ts',
+      category: 'security',
+      severity: 'high',
+      content: 'Hardcoded secret',
+    }),
+    makeComment({
+      id: 'c6',
+      path: '/src/db.ts',
+      category: 'maintainability',
+      severity: 'medium',
+      content: 'God function',
+    }),
+    makeComment({
+      id: 'c7',
+      path: '/src/api.ts',
+      category: 'bug',
+      severity: 'low',
+      content: 'Unused variable',
+    }),
+    makeComment({
+      id: 'c8',
+      path: '/src/db.ts',
+      category: 'performance',
+      severity: 'medium',
+      content: 'N+1 query',
+    }),
+    makeComment({
+      id: 'c9',
+      path: '/src/auth.ts',
+      category: 'documentation',
+      severity: 'info',
+      content: 'Missing JSDoc',
+    }),
+    makeComment({
+      id: 'c10',
+      path: '/src/test.ts',
+      category: 'test',
+      severity: 'low',
+      content: 'Missing test case',
+    }),
   ];
 }
 
@@ -471,13 +531,17 @@ describe('computeOverallScore', () => {
   });
 
   it('should penalize many issues', () => {
-    const comments = Array.from({ length: 25 }, (_, i) => makeComment({ id: `c${i}`, severity: 'low' }));
+    const comments = Array.from({ length: 25 }, (_, i) =>
+      makeComment({ id: `c${i}`, severity: 'low' }),
+    );
     // 25 low issues = 100 - 25 - 10(penalty) = 65
     expect(computeOverallScore(comments)).toBe(65);
   });
 
   it('should penalize more than 10 issues', () => {
-    const comments = Array.from({ length: 15 }, (_, i) => makeComment({ id: `c${i}`, severity: 'low' }));
+    const comments = Array.from({ length: 15 }, (_, i) =>
+      makeComment({ id: `c${i}`, severity: 'low' }),
+    );
     // 15 low issues = 100 - 15 - 5(penalty) = 80
     expect(computeOverallScore(comments)).toBe(80);
   });
@@ -497,13 +561,17 @@ describe('computeOverallScore', () => {
 
   // --- Additional branch coverage ---
   it('should penalize 15 issues with the >10 penalty', () => {
-    const comments = Array.from({ length: 15 }, (_, i) => makeComment({ id: `c${i}`, severity: 'info' }));
+    const comments = Array.from({ length: 15 }, (_, i) =>
+      makeComment({ id: `c${i}`, severity: 'info' }),
+    );
     // 15 info issues = 100 - 0*15 - 5(penalty for >10) = 95
     expect(computeOverallScore(comments)).toBe(95);
   });
 
   it('should not penalize exactly 10 issues', () => {
-    const comments = Array.from({ length: 10 }, (_, i) => makeComment({ id: `c${i}`, severity: 'info' }));
+    const comments = Array.from({ length: 10 }, (_, i) =>
+      makeComment({ id: `c${i}`, severity: 'info' }),
+    );
     // 10 info issues = 100 - 0*10 - 0(no penalty for <=10) = 100
     expect(computeOverallScore(comments)).toBe(100);
   });
@@ -708,11 +776,15 @@ describe('generateReport', () => {
   });
 
   it('should generate JSON format', () => {
-    const report = generateReport('proj-1', {
-      projectId: 'proj-1',
-      title: 'JSON Report',
-      comments: [],
-    }, 'json');
+    const report = generateReport(
+      'proj-1',
+      {
+        projectId: 'proj-1',
+        title: 'JSON Report',
+        comments: [],
+      },
+      'json',
+    );
     expect(report.format).toBe('json');
     const parsed = JSON.parse(report.fullContent);
     expect(parsed.title).toBe('JSON Report');

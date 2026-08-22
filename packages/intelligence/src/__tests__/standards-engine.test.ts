@@ -134,7 +134,16 @@ describe('StandardsEngine', () => {
         version: '1.0.0',
         category: 'custom',
         description: 'A custom standard',
-        rules: [{ id: 'r1', description: 'Test', checkType: 'regex', checkConfig: { pattern: 'foo' }, severity: 'low', autoFixable: false }],
+        rules: [
+          {
+            id: 'r1',
+            description: 'Test',
+            checkType: 'regex',
+            checkConfig: { pattern: 'foo' },
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
         examples: [],
       };
       engine.registerStandard(custom);
@@ -287,7 +296,16 @@ describe('StandardsEngine — regex checking', () => {
       version: '1.0.0',
       category: 'custom',
       description: 'std with bad regex',
-      rules: [{ id: 'bad', description: '', checkType: 'regex', checkConfig: { pattern: '[' }, severity: 'low', autoFixable: false }],
+      rules: [
+        {
+          id: 'bad',
+          description: '',
+          checkType: 'regex',
+          checkConfig: { pattern: '[' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('test', 'f.ts', standard);
@@ -385,7 +403,10 @@ describe('StandardsEngine.checkFiles', () => {
 
   it('should return 100% compliance for clean code', () => {
     const files = [
-      { path: 'clean.ts', content: 'const x = 1;\nfunction add(a: number, b: number): number { return a + b; }' },
+      {
+        path: 'clean.ts',
+        content: 'const x = 1;\nfunction add(a: number, b: number): number { return a + b; }',
+      },
     ];
     const result = engine.checkFiles(files, 'security-baseline');
     expect(result.complianceScore).toBeGreaterThan(0);
@@ -398,9 +419,7 @@ describe('StandardsEngine.checkFiles', () => {
   });
 
   it('should produce correct summary counts', () => {
-    const files = [
-      { path: 'bad.ts', content: 'eval("x");\nelement.innerHTML = "y";' },
-    ];
+    const files = [{ path: 'bad.ts', content: 'eval("x");\nelement.innerHTML = "y";' }];
     const result = engine.checkFiles(files, 'security-baseline');
     expect(result.summary.critical).toBeGreaterThan(0);
   });
@@ -424,7 +443,16 @@ describe('StandardsEngine.checkFiles', () => {
       version: '1.0.0',
       category: 'custom',
       description: 'Custom',
-      rules: [{ id: 'no-todo', description: 'No TODO in code', checkType: 'regex', checkConfig: { pattern: 'TODO', flags: 'gi' }, severity: 'low', autoFixable: false }],
+      rules: [
+        {
+          id: 'no-todo',
+          description: 'No TODO in code',
+          checkType: 'regex',
+          checkConfig: { pattern: 'TODO', flags: 'gi' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     engine.registerStandard(custom);
@@ -445,15 +473,36 @@ describe('StandardsEngine — compliance scoring', () => {
 
   it('should compute basic compliance score', () => {
     const results: RuleCheckResult[] = [
-      { ruleId: 'r1', ruleDescription: '', passed: true, severity: 'high', violations: [], autoFixable: false },
-      { ruleId: 'r2', ruleDescription: '', passed: false, severity: 'high', violations: [], autoFixable: false },
+      {
+        ruleId: 'r1',
+        ruleDescription: '',
+        passed: true,
+        severity: 'high',
+        violations: [],
+        autoFixable: false,
+      },
+      {
+        ruleId: 'r2',
+        ruleDescription: '',
+        passed: false,
+        severity: 'high',
+        violations: [],
+        autoFixable: false,
+      },
     ];
     expect(engine.computeComplianceScore(results)).toBe(50);
   });
 
   it('should return 100 for all-passed results', () => {
     const results: RuleCheckResult[] = [
-      { ruleId: 'r1', ruleDescription: '', passed: true, severity: 'high', violations: [], autoFixable: false },
+      {
+        ruleId: 'r1',
+        ruleDescription: '',
+        passed: true,
+        severity: 'high',
+        violations: [],
+        autoFixable: false,
+      },
     ];
     expect(engine.computeComplianceScore(results)).toBe(100);
   });
@@ -464,8 +513,22 @@ describe('StandardsEngine — compliance scoring', () => {
 
   it('should compute severity-weighted score', () => {
     const results: RuleCheckResult[] = [
-      { ruleId: 'critical-pass', ruleDescription: '', passed: true, severity: 'critical', violations: [], autoFixable: false },
-      { ruleId: 'low-fail', ruleDescription: '', passed: false, severity: 'low', violations: [], autoFixable: false },
+      {
+        ruleId: 'critical-pass',
+        ruleDescription: '',
+        passed: true,
+        severity: 'critical',
+        violations: [],
+        autoFixable: false,
+      },
+      {
+        ruleId: 'low-fail',
+        ruleDescription: '',
+        passed: false,
+        severity: 'low',
+        violations: [],
+        autoFixable: false,
+      },
     ];
     const score = engine.computeSeverityWeightedScore(results);
     expect(score).toBeGreaterThan(70); // Critical weights more
@@ -473,7 +536,14 @@ describe('StandardsEngine — compliance scoring', () => {
 
   it('should return 100 for all-passed severity-weighted', () => {
     const results: RuleCheckResult[] = [
-      { ruleId: 'r1', ruleDescription: '', passed: true, severity: 'critical', violations: [], autoFixable: false },
+      {
+        ruleId: 'r1',
+        ruleDescription: '',
+        passed: true,
+        severity: 'critical',
+        violations: [],
+        autoFixable: false,
+      },
     ];
     expect(engine.computeSeverityWeightedScore(results)).toBe(100);
   });
@@ -564,7 +634,9 @@ describe('All 31+ built-in templates — validation', () => {
       for (const rule of tmpl.rules) {
         expect(rule.id).toBeTruthy();
         expect(rule.description).toBeTruthy();
-        expect(['ast-pattern', 'regex', 'graph-query', 'llm-check', 'metric']).toContain(rule.checkType);
+        expect(['ast-pattern', 'regex', 'graph-query', 'llm-check', 'metric']).toContain(
+          rule.checkType,
+        );
         expect(['critical', 'high', 'medium', 'low', 'info']).toContain(rule.severity);
         expect(typeof rule.autoFixable).toBe('boolean');
       }
@@ -585,7 +657,16 @@ describe('StandardsEngine — deferred check types', () => {
       version: '1',
       category: 'custom',
       description: 'Test',
-      rules: [{ id: 'g1', description: '', checkType: 'graph-query', checkConfig: { pattern: '' }, severity: 'low', autoFixable: false }],
+      rules: [
+        {
+          id: 'g1',
+          description: '',
+          checkType: 'graph-query',
+          checkConfig: { pattern: '' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('test', 'f.ts', standard);
@@ -600,7 +681,16 @@ describe('StandardsEngine — deferred check types', () => {
       version: '1',
       category: 'custom',
       description: 'Test',
-      rules: [{ id: 'l1', description: '', checkType: 'llm-check', checkConfig: {}, severity: 'low', autoFixable: false }],
+      rules: [
+        {
+          id: 'l1',
+          description: '',
+          checkType: 'llm-check',
+          checkConfig: {},
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('test', 'f.ts', standard);
@@ -647,7 +737,16 @@ describe('StandardsEngine — edge cases', () => {
       version: '1',
       category: 'custom',
       description: 'Test',
-      rules: [{ id: 'empty', description: 'Empty pattern', checkType: 'regex', checkConfig: { pattern: '', flags: 'g' }, severity: 'low', autoFixable: false }],
+      rules: [
+        {
+          id: 'empty',
+          description: 'Empty pattern',
+          checkType: 'regex',
+          checkConfig: { pattern: '', flags: 'g' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     expect(() => engine.checkSource('test', 'f.ts', standard)).not.toThrow();
@@ -672,21 +771,24 @@ describe('StandardsEngine edge cases', () => {
 
   it('throws when loading unknown standard', () => {
     const engine = makeEngine();
-    expect(() => engine.loadStandard('nonexistent-standard'))
-      .toThrow('Standard not found: nonexistent-standard');
+    expect(() => engine.loadStandard('nonexistent-standard')).toThrow(
+      'Standard not found: nonexistent-standard',
+    );
   });
 
   it('rejects custom standard with built-in id conflict', () => {
     const engine = makeEngine();
-    expect(() => engine.registerStandard({
-      id: 'typescript-coding',
-      name: 'conflict',
-      version: '1.0',
-      category: 'code-style',
-      description: '',
-      rules: [],
-      examples: [],
-    })).toThrow('conflicts with a built-in template');
+    expect(() =>
+      engine.registerStandard({
+        id: 'typescript-coding',
+        name: 'conflict',
+        version: '1.0',
+        category: 'code-style',
+        description: '',
+        rules: [],
+        examples: [],
+      }),
+    ).toThrow('conflicts with a built-in template');
   });
 
   it('registers and loads custom standard', () => {
@@ -697,14 +799,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0.0',
       category: 'code-style',
       description: 'Custom rules',
-      rules: [{
-        id: 'no-debugger',
-        description: 'No debugger statements',
-        checkType: 'regex',
-        checkConfig: { pattern: 'debugger', forbidden: true },
-        severity: 'high',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'no-debugger',
+          description: 'No debugger statements',
+          checkType: 'regex',
+          checkConfig: { pattern: 'debugger', forbidden: true },
+          severity: 'high',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     engine.registerStandard(custom);
@@ -720,14 +824,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'gq-1',
-        description: 'Graph query test',
-        checkType: 'graph-query',
-        checkConfig: { query: 'MATCH (n) RETURN n' },
-        severity: 'low',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'gq-1',
+          description: 'Graph query test',
+          checkType: 'graph-query',
+          checkConfig: { query: 'MATCH (n) RETURN n' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('code', 'f.ts', standard);
@@ -743,14 +849,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'llm-1',
-        description: 'LLM check test',
-        checkType: 'llm-check',
-        checkConfig: { prompt: 'Is this code good?' },
-        severity: 'medium',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'llm-1',
+          description: 'LLM check test',
+          checkType: 'llm-check',
+          checkConfig: { prompt: 'Is this code good?' },
+          severity: 'medium',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('code', 'f.ts', standard);
@@ -766,14 +874,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'ep-1',
-        description: 'Empty pattern check',
-        checkType: 'regex',
-        checkConfig: { pattern: '' },
-        severity: 'low',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'ep-1',
+          description: 'Empty pattern check',
+          checkType: 'regex',
+          checkConfig: { pattern: '' },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('some code here', 'f.ts', standard);
@@ -791,14 +901,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'zl-1',
-        description: 'Zero length match',
-        checkType: 'regex',
-        checkConfig: { pattern: '(?=x)', flags: 'g' }, // lookahead, zero-length match
-        severity: 'low',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'zl-1',
+          description: 'Zero length match',
+          checkType: 'regex',
+          checkConfig: { pattern: '(?=x)', flags: 'g' }, // lookahead, zero-length match
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     // Should not hang - zero-length matches are skipped
@@ -814,14 +926,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'dt-1',
-        description: 'Default case test',
-        checkType: 'unknown-type' as any,
-        checkConfig: {},
-        severity: 'low' as any,
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'dt-1',
+          description: 'Default case test',
+          checkType: 'unknown-type' as any,
+          checkConfig: {},
+          severity: 'low' as any,
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('code', 'f.ts', standard);
@@ -837,14 +951,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'nest-1',
-        description: 'Max nesting depth',
-        checkType: 'metric',
-        checkConfig: { metric: 'nesting-depth', threshold: 2 },
-        severity: 'high',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'nest-1',
+          description: 'Max nesting depth',
+          checkType: 'metric',
+          checkConfig: { metric: 'nesting-depth', threshold: 2 },
+          severity: 'high',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const deeplyNested = [
@@ -870,14 +986,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'fl-1',
-        description: 'Max function lines',
-        checkType: 'metric',
-        checkConfig: { metric: 'function-lines', threshold: 3 },
-        severity: 'medium',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'fl-1',
+          description: 'Max function lines',
+          checkType: 'metric',
+          checkConfig: { metric: 'function-lines', threshold: 3 },
+          severity: 'medium',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const longFunc = [
@@ -901,14 +1019,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'um-1',
-        description: 'Unknown metric',
-        checkType: 'metric',
-        checkConfig: { metric: 'unknown-metric', threshold: 10 },
-        severity: 'low',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'um-1',
+          description: 'Unknown metric',
+          checkType: 'metric',
+          checkConfig: { metric: 'unknown-metric', threshold: 10 },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('code', 'f.ts', standard);
@@ -924,14 +1044,16 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      rules: [{
-        id: 'em-1',
-        description: 'Empty metric config',
-        checkType: 'metric',
-        checkConfig: { metric: '', threshold: 10 },
-        severity: 'low',
-        autoFixable: false,
-      }],
+      rules: [
+        {
+          id: 'em-1',
+          description: 'Empty metric config',
+          checkType: 'metric',
+          checkConfig: { metric: '', threshold: 10 },
+          severity: 'low',
+          autoFixable: false,
+        },
+      ],
       examples: [],
     };
     const results = engine.checkSource('code', 'f.ts', standard);
@@ -950,8 +1072,22 @@ describe('StandardsEngine edge cases', () => {
       description: 'test',
       config: { disabledRules: ['rule-a', 'rule-b'] },
       rules: [
-        { id: 'rule-a', description: 'Rule A', checkType: 'regex', checkConfig: { pattern: 'debugger', forbidden: true }, severity: 'high', autoFixable: false },
-        { id: 'rule-b', description: 'Rule B', checkType: 'regex', checkConfig: { pattern: 'eval', forbidden: true }, severity: 'high', autoFixable: false },
+        {
+          id: 'rule-a',
+          description: 'Rule A',
+          checkType: 'regex',
+          checkConfig: { pattern: 'debugger', forbidden: true },
+          severity: 'high',
+          autoFixable: false,
+        },
+        {
+          id: 'rule-b',
+          description: 'Rule B',
+          checkType: 'regex',
+          checkConfig: { pattern: 'eval', forbidden: true },
+          severity: 'high',
+          autoFixable: false,
+        },
       ],
       examples: [],
     };
@@ -984,28 +1120,32 @@ describe('StandardsEngine edge cases', () => {
 
   it('getAutoFixes returns empty for violations without autoFix', () => {
     const engine = makeEngine();
-    const violations: import('@code-analyzer/shared').Violation[] = [{
-      filePath: 'f.ts',
-      lineNumber: 1,
-      message: 'test',
-      codeSnippet: 'code',
-      standardRef: 'rule-1',
-    }];
+    const violations: import('@code-analyzer/shared').Violation[] = [
+      {
+        filePath: 'f.ts',
+        lineNumber: 1,
+        message: 'test',
+        codeSnippet: 'code',
+        standardRef: 'rule-1',
+      },
+    ];
     const fixes = engine.getAutoFixes(violations);
     expect(fixes).toEqual([]);
   });
 
   it('getAutoFixes returns fixes for violations with autoFix', () => {
     const engine = makeEngine();
-    const violations: import('@code-analyzer/shared').Violation[] = [{
-      filePath: 'f.ts',
-      lineNumber: 1,
-      message: 'test',
-      codeSnippet: 'bad',
-      autoFix: 'good',
-      suggestion: 'Use good instead',
-      standardRef: 'rule-1',
-    }];
+    const violations: import('@code-analyzer/shared').Violation[] = [
+      {
+        filePath: 'f.ts',
+        lineNumber: 1,
+        message: 'test',
+        codeSnippet: 'bad',
+        autoFix: 'good',
+        suggestion: 'Use good instead',
+        standardRef: 'rule-1',
+      },
+    ];
     const fixes = engine.getAutoFixes(violations);
     expect(fixes.length).toBe(1);
     expect(fixes[0]!.replacement).toBe('good');
@@ -1014,11 +1154,46 @@ describe('StandardsEngine edge cases', () => {
   it('computeSeverityWeightedScore handles all severity levels', () => {
     const engine = makeEngine();
     const results: import('@code-analyzer/shared').RuleCheckResult[] = [
-      { ruleId: '1', ruleDescription: '', passed: true, severity: 'critical', violations: [], autoFixable: false },
-      { ruleId: '2', ruleDescription: '', passed: false, severity: 'high', violations: [], autoFixable: false },
-      { ruleId: '3', ruleDescription: '', passed: true, severity: 'medium', violations: [], autoFixable: false },
-      { ruleId: '4', ruleDescription: '', passed: false, severity: 'low', violations: [], autoFixable: false },
-      { ruleId: '5', ruleDescription: '', passed: true, severity: 'info', violations: [], autoFixable: false },
+      {
+        ruleId: '1',
+        ruleDescription: '',
+        passed: true,
+        severity: 'critical',
+        violations: [],
+        autoFixable: false,
+      },
+      {
+        ruleId: '2',
+        ruleDescription: '',
+        passed: false,
+        severity: 'high',
+        violations: [],
+        autoFixable: false,
+      },
+      {
+        ruleId: '3',
+        ruleDescription: '',
+        passed: true,
+        severity: 'medium',
+        violations: [],
+        autoFixable: false,
+      },
+      {
+        ruleId: '4',
+        ruleDescription: '',
+        passed: false,
+        severity: 'low',
+        violations: [],
+        autoFixable: false,
+      },
+      {
+        ruleId: '5',
+        ruleDescription: '',
+        passed: true,
+        severity: 'info',
+        violations: [],
+        autoFixable: false,
+      },
     ];
     const score = engine.computeSeverityWeightedScore(results);
     // Weight: critical(5)+high(0)+medium(3)+low(0)+info(1) = 9 / 15 = 60
@@ -1206,7 +1381,11 @@ describe('StandardsEngine — composeStandards', () => {
   });
 
   it('should compose multiple standards with deduplication', () => {
-    const composed = engine.composeStandards(['typescript-coding', 'security-baseline', 'testing-standards']);
+    const composed = engine.composeStandards([
+      'typescript-coding',
+      'security-baseline',
+      'testing-standards',
+    ]);
     const ruleIds = composed.rules.map((r) => r.id);
     const uniqueIds = new Set(ruleIds);
     expect(ruleIds.length).toBe(uniqueIds.size); // No duplicates
@@ -1225,8 +1404,7 @@ describe('StandardsEngine — composeStandards', () => {
   });
 
   it('should throw for unknown standard IDs', () => {
-    expect(() => engine.composeStandards(['nonexistent-standard']))
-      .toThrow('Standard not found');
+    expect(() => engine.composeStandards(['nonexistent-standard'])).toThrow('Standard not found');
   });
 });
 
@@ -1235,7 +1413,11 @@ describe('StandardsEngine — computeDetailedComplianceReport', () => {
 
   it('should return 100% score for clean code', () => {
     const files = [
-      { path: 'clean.ts', content: 'const x: number = 1;\nfunction add(a: number, b: number): number { return a + b; }' },
+      {
+        path: 'clean.ts',
+        content:
+          'const x: number = 1;\nfunction add(a: number, b: number): number { return a + b; }',
+      },
     ];
     const report = engine.computeDetailedComplianceReport(files, 'security-baseline');
     expect(report.standardId).toBe('security-baseline');
@@ -1245,9 +1427,7 @@ describe('StandardsEngine — computeDetailedComplianceReport', () => {
   });
 
   it('should detect violations and compute score', () => {
-    const files = [
-      { path: 'bad.ts', content: 'eval("x");\nelement.innerHTML = "y";' },
-    ];
+    const files = [{ path: 'bad.ts', content: 'eval("x");\nelement.innerHTML = "y";' }];
     const report = engine.computeDetailedComplianceReport(files, 'security-baseline');
     expect(report.standardId).toBe('security-baseline');
     expect(report.score).toBeLessThan(100);
@@ -1275,8 +1455,22 @@ describe('StandardsEngine — computeDetailedComplianceReport', () => {
       description: 'Test',
       config: { disabledRules: ['rule-x', 'rule-y'] },
       rules: [
-        { id: 'rule-x', description: 'X', checkType: 'regex', checkConfig: { pattern: 'TODO' }, severity: 'low', autoFixable: false },
-        { id: 'rule-y', description: 'Y', checkType: 'regex', checkConfig: { pattern: 'FIXME' }, severity: 'low', autoFixable: false },
+        {
+          id: 'rule-x',
+          description: 'X',
+          checkType: 'regex',
+          checkConfig: { pattern: 'TODO' },
+          severity: 'low',
+          autoFixable: false,
+        },
+        {
+          id: 'rule-y',
+          description: 'Y',
+          checkType: 'regex',
+          checkConfig: { pattern: 'FIXME' },
+          severity: 'low',
+          autoFixable: false,
+        },
       ],
       examples: [],
     };
@@ -1291,9 +1485,7 @@ describe('StandardsEngine — computeDetailedComplianceReport', () => {
   });
 
   it('should include violation details in report', () => {
-    const files = [
-      { path: 'test.ts', content: 'eval("dangerous");' },
-    ];
+    const files = [{ path: 'test.ts', content: 'eval("dangerous");' }];
     const report = engine.computeDetailedComplianceReport(files, 'security-baseline');
     const evalViolation = report.violations.find((v) => v.ruleId === 'sec-no-eval');
     expect(evalViolation).toBeDefined();
@@ -1309,7 +1501,9 @@ describe('StandardsEngine — computeDetailedComplianceReport', () => {
     ];
     const report = engine.computeDetailedComplianceReport(files, 'security-baseline');
     expect(report.totalChecks).toBeGreaterThan(0);
-    expect(report.passedChecks + report.failedChecks + report.skippedChecks).toBe(report.totalChecks);
+    expect(report.passedChecks + report.failedChecks + report.skippedChecks).toBe(
+      report.totalChecks,
+    );
     expect(report.score).toBeGreaterThan(0);
     expect(report.score).toBeLessThan(100);
   });
@@ -1598,7 +1792,11 @@ describe('StandardsEngine — checkFiles with disabled rules', () => {
     };
     const files = [{ path: 'test.ts', content: 'console.log("test"); const x: any = 5;' }];
     // Use checkSource to verify disabled rules
-    const results = engine.checkSource('console.log("test"); const x: any = 5;', 'test.ts', modified);
+    const results = engine.checkSource(
+      'console.log("test"); const x: any = 5;',
+      'test.ts',
+      modified,
+    );
     const consoleRule = results.find((r) => r.ruleId === 'ts-no-console-log');
     const anyRule = results.find((r) => r.ruleId === 'ts-no-any');
     expect(consoleRule).toBeUndefined();
@@ -1622,8 +1820,22 @@ describe('StandardsEngine — checkFiles with disabled rules', () => {
         ruleParams: {},
       },
       rules: [
-        { id: 'r1', description: 'Rule 1', checkType: 'regex', checkConfig: { pattern: 'eval' }, severity: 'high', autoFixable: false },
-        { id: 'r2', description: 'Rule 2', checkType: 'regex', checkConfig: { pattern: 'console' }, severity: 'low', autoFixable: false },
+        {
+          id: 'r1',
+          description: 'Rule 1',
+          checkType: 'regex',
+          checkConfig: { pattern: 'eval' },
+          severity: 'high',
+          autoFixable: false,
+        },
+        {
+          id: 'r2',
+          description: 'Rule 2',
+          checkType: 'regex',
+          checkConfig: { pattern: 'console' },
+          severity: 'low',
+          autoFixable: false,
+        },
       ],
       examples: [],
     };

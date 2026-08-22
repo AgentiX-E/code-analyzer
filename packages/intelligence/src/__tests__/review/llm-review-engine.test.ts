@@ -39,9 +39,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     filePath: '/src/test.ts',
     oldHash: 'abc123',
     newHash: 'def456',
-    ranges: [
-      { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 15, changeType: 'modified' },
-    ],
+    ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 15, changeType: 'modified' }],
     changeType: 'modified',
     ...overrides,
   };
@@ -160,9 +158,7 @@ describe('LLMReviewEngine', () => {
     });
 
     it('should handle LLM errors gracefully', async () => {
-      (provider.complete as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('API error'),
-      );
+      (provider.complete as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API error'));
 
       const engine = new LLMReviewEngine(provider, { lanes: ['testing'] });
       const results = await engine.reviewDiff(createDiff());
@@ -356,9 +352,33 @@ describe('LLMReviewEngine', () => {
     it('should filter findings with invalid start line', async () => {
       const invalidFindings = JSON.stringify({
         findings: [
-          { startLine: 0, endLine: 5, severity: 'high', category: 'bug', title: 'Bad', description: 'd', suggestion: null },
-          { startLine: -1, endLine: 1, severity: 'high', category: 'bug', title: 'Bad2', description: 'd', suggestion: null },
-          { startLine: 1, endLine: 2, severity: 'high', category: 'bug', title: 'Good', description: 'd', suggestion: null },
+          {
+            startLine: 0,
+            endLine: 5,
+            severity: 'high',
+            category: 'bug',
+            title: 'Bad',
+            description: 'd',
+            suggestion: null,
+          },
+          {
+            startLine: -1,
+            endLine: 1,
+            severity: 'high',
+            category: 'bug',
+            title: 'Bad2',
+            description: 'd',
+            suggestion: null,
+          },
+          {
+            startLine: 1,
+            endLine: 2,
+            severity: 'high',
+            category: 'bug',
+            title: 'Good',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 
@@ -376,7 +396,15 @@ describe('LLMReviewEngine', () => {
     it('should clamp end line to max diff lines', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 9999, severity: 'high', category: 'bug', title: 'Clamped', description: 'd', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 9999,
+            severity: 'high',
+            category: 'bug',
+            title: 'Clamped',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 
@@ -396,7 +424,15 @@ describe('LLMReviewEngine', () => {
     it('should fix start line when start > end', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 10, endLine: 5, severity: 'high', category: 'bug', title: 'Fixed', description: 'd', suggestion: null },
+          {
+            startLine: 10,
+            endLine: 5,
+            severity: 'high',
+            category: 'bug',
+            title: 'Fixed',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 
@@ -431,7 +467,15 @@ describe('LLMReviewEngine', () => {
     it('should normalize invalid severity to medium', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 1, severity: 'UNKNOWN_LEVEL', category: 'bug', title: 'Test', description: 'd', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 1,
+            severity: 'UNKNOWN_LEVEL',
+            category: 'bug',
+            title: 'Test',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 
@@ -448,7 +492,15 @@ describe('LLMReviewEngine', () => {
     it('should normalize invalid category to other', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 1, severity: 'high', category: 'unknown_cat', title: 'Test', description: 'd', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 1,
+            severity: 'high',
+            category: 'unknown_cat',
+            title: 'Test',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 
@@ -465,8 +517,24 @@ describe('LLMReviewEngine', () => {
     it('should preserve valid severity and category', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 1, severity: 'critical', category: 'security', title: 'T', description: 'd', suggestion: null },
-          { startLine: 2, endLine: 2, severity: 'info', category: 'style', title: 'T2', description: 'd', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 1,
+            severity: 'critical',
+            category: 'security',
+            title: 'T',
+            description: 'd',
+            suggestion: null,
+          },
+          {
+            startLine: 2,
+            endLine: 2,
+            severity: 'info',
+            category: 'style',
+            title: 'T2',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 
@@ -514,9 +582,7 @@ describe('LLMReviewEngine', () => {
     });
 
     it('should skip failed lanes', async () => {
-      (provider.complete as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('API error'),
-      );
+      (provider.complete as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API error'));
 
       const engine = new LLMReviewEngine(provider, { lanes: ['security'] });
       const comments = await engine.reviewDiffAsComments(createDiff());
@@ -527,7 +593,15 @@ describe('LLMReviewEngine', () => {
     it('should handle findings with null suggestion', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 1, severity: 'high', category: 'bug', title: 'Issue', description: 'desc', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 1,
+            severity: 'high',
+            category: 'bug',
+            title: 'Issue',
+            description: 'desc',
+            suggestion: null,
+          },
         ],
       });
 
@@ -672,7 +746,13 @@ describe('LLMReviewEngine', () => {
         createSuccessResult(emptyFindings()),
       );
 
-      const allLanes: ReviewLane[] = ['security', 'performance', 'maintainability', 'testing', 'architecture'];
+      const allLanes: ReviewLane[] = [
+        'security',
+        'performance',
+        'maintainability',
+        'testing',
+        'architecture',
+      ];
       const engine = new LLMReviewEngine(provider, { lanes: allLanes });
 
       const results = await engine.reviewDiff(createDiff());
@@ -686,7 +766,15 @@ describe('LLMReviewEngine', () => {
       // and a finding with endLine that exceeds the content
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 500, severity: 'medium', category: 'maintainability', title: 'Out of bounds', description: 'endLine exceeds diff', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 500,
+            severity: 'medium',
+            category: 'maintainability',
+            title: 'Out of bounds',
+            description: 'endLine exceeds diff',
+            suggestion: null,
+          },
         ],
       });
 
@@ -706,7 +794,15 @@ describe('LLMReviewEngine', () => {
     it('should handle extractRangeText when ranges array is empty (fallback ternary)', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 3, severity: 'medium', category: 'maintainability', title: 'Test', description: 'desc', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 3,
+            severity: 'medium',
+            category: 'maintainability',
+            title: 'Test',
+            description: 'desc',
+            suggestion: null,
+          },
         ],
       });
 
@@ -725,8 +821,24 @@ describe('LLMReviewEngine', () => {
     it('should filter findings where startLine exceeds maxLine of diff content', async () => {
       const findings = JSON.stringify({
         findings: [
-          { startLine: 1, endLine: 2, severity: 'high', category: 'bug', title: 'Valid', description: 'd', suggestion: null },
-          { startLine: 9999, endLine: 9999, severity: 'high', category: 'bug', title: 'OutOfBounds', description: 'd', suggestion: null },
+          {
+            startLine: 1,
+            endLine: 2,
+            severity: 'high',
+            category: 'bug',
+            title: 'Valid',
+            description: 'd',
+            suggestion: null,
+          },
+          {
+            startLine: 9999,
+            endLine: 9999,
+            severity: 'high',
+            category: 'bug',
+            title: 'OutOfBounds',
+            description: 'd',
+            suggestion: null,
+          },
         ],
       });
 

@@ -30,7 +30,9 @@ const rootDir = join(fileURLToPath(import.meta.url), '../..');
 function loadEnv(): void {
   const envPath = join(rootDir, '.env');
   if (!existsSync(envPath)) {
-    console.warn(`Warning: .env file not found at ${envPath}. Ensure DEEPSEEK_API_KEY is set in environment.`);
+    console.warn(
+      `Warning: .env file not found at ${envPath}. Ensure DEEPSEEK_API_KEY is set in environment.`,
+    );
     return;
   }
 
@@ -46,8 +48,10 @@ function loadEnv(): void {
     let value = trimmed.slice(eqIdx + 1).trim();
 
     // Strip surrounding quotes
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
 
@@ -213,7 +217,11 @@ function parseResponse(content: string): { severity: 'high' | 'medium' | 'low'; 
     category = 'performance';
   } else if (lower.includes('correctness') || lower.includes('error') || lower.includes('bug')) {
     category = 'correctness';
-  } else if (lower.includes('maintainability') || lower.includes('magic') || lower.includes('readability')) {
+  } else if (
+    lower.includes('maintainability') ||
+    lower.includes('magic') ||
+    lower.includes('readability')
+  ) {
     category = 'maintainability';
   }
 
@@ -259,7 +267,8 @@ async function runBenchmark(): Promise<BenchmarkSummary> {
           messages: [
             {
               role: 'system',
-              content: 'You are a code review assistant. Analyze the code and respond with severity, category, and a brief explanation. Be concise.',
+              content:
+                'You are a code review assistant. Analyze the code and respond with severity, category, and a brief explanation. Be concise.',
             },
             { role: 'user', content: testCase.prompt },
           ],
@@ -421,9 +430,13 @@ async function main(): Promise<void> {
     for (const tc of summary.testCases) {
       const expected = TEST_CASES.find((t) => t.id === tc.testCaseId);
       const status = tc.success
-        ? (tc.severity === expected?.expectedSeverity && tc.category === expected?.expectedCategory ? 'PASS' : 'PARTIAL')
+        ? tc.severity === expected?.expectedSeverity && tc.category === expected?.expectedCategory
+          ? 'PASS'
+          : 'PARTIAL'
         : 'FAIL';
-      console.log(`  ${tc.testCaseId.padEnd(22)} ${status.padEnd(7)} severity=${tc.severity} category=${tc.category} ${tc.error ? `(${tc.error})` : ''}`);
+      console.log(
+        `  ${tc.testCaseId.padEnd(22)} ${status.padEnd(7)} severity=${tc.severity} category=${tc.category} ${tc.error ? `(${tc.error})` : ''}`,
+      );
     }
 
     // Save to file
@@ -435,15 +448,20 @@ async function main(): Promise<void> {
     mkdirSync(outputDir, { recursive: true });
     writeFileSync(outputPath, JSON.stringify(summary, null, 2), 'utf-8');
     console.log(`\nResults saved to: ${outputPath}`);
-
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Error running benchmark: ${message}`);
 
     // Handle API unreachability gracefully
-    if (message.includes('fetch') || message.includes('ENOTFOUND') || message.includes('ECONNREFUSED')) {
+    if (
+      message.includes('fetch') ||
+      message.includes('ENOTFOUND') ||
+      message.includes('ECONNREFUSED')
+    ) {
       console.error('');
-      console.error('DeepSeek API is unreachable. This is expected in sandbox/offline environments.');
+      console.error(
+        'DeepSeek API is unreachable. This is expected in sandbox/offline environments.',
+      );
       console.error('The script is ready for CI use where network access is available.');
       process.exit(0);
     }

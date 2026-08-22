@@ -97,9 +97,7 @@ export class FederatedSearchEngine {
     }
 
     const maxResults = options.maxResults ?? 50;
-    const repoFilter = options.repoFilter
-      ? new Set(options.repoFilter)
-      : null;
+    const repoFilter = options.repoFilter ? new Set(options.repoFilter) : null;
 
     // Use the store's FTS search
     const ftsResults = this.store.searchFts(query, {
@@ -116,7 +114,8 @@ export class FederatedSearchEngine {
 
       // Apply repo filter
       if (repoFilter && !repoFilter.has(repo)) continue;
-      if (options.groupId && repo !== options.groupId && !repo.startsWith(options.groupId)) continue;
+      if (options.groupId && repo !== options.groupId && !repo.startsWith(options.groupId))
+        continue;
 
       // Apply label filter — prefer code symbols over internal nodes
       const isSymbolLabel =
@@ -159,10 +158,7 @@ export class FederatedSearchEngine {
    * Find a symbol across all indexed repositories.
    * Supports exact and partial name matching.
    */
-  async findSymbol(
-    name: string,
-    groupId?: string,
-  ): Promise<FederatedSymbolResult[]> {
+  async findSymbol(name: string, groupId?: string): Promise<FederatedSymbolResult[]> {
     if (!name) {
       throw new Error('Symbol name is required');
     }
@@ -218,10 +214,7 @@ export class FederatedSearchEngine {
   /**
    * Find duplicate code across repositories using MinHash similarity.
    */
-  async findDuplicates(
-    groupId: string,
-    threshold: number = 0.8,
-  ): Promise<DuplicateReport> {
+  async findDuplicates(groupId: string, threshold: number = 0.8): Promise<DuplicateReport> {
     if (!groupId) {
       throw new Error('Group ID is required');
     }
@@ -229,10 +222,7 @@ export class FederatedSearchEngine {
     // Collect all File nodes from the group's repos
     const allNodes = this.store.getAllNodes();
     const groupFiles = allNodes.filter(
-      (n) =>
-        n.label === 'File' &&
-        n.projectId &&
-        !n.projectId.startsWith('cross-repo:'),
+      (n) => n.label === 'File' && n.projectId && !n.projectId.startsWith('cross-repo:'),
     );
 
     // Group files by repo
@@ -301,8 +291,10 @@ export class FederatedSearchEngine {
               { repo: fileB.projectId, filePath: fileB.filePath ?? '' },
             ],
             lines:
-              ((fileA.endLine ?? 0) - (fileA.startLine ?? 0) +
-                (fileB.endLine ?? 0) - (fileB.startLine ?? 0)) /
+              ((fileA.endLine ?? 0) -
+                (fileA.startLine ?? 0) +
+                (fileB.endLine ?? 0) -
+                (fileB.startLine ?? 0)) /
               2,
           });
         }
@@ -323,10 +315,7 @@ export class FederatedSearchEngine {
   /**
    * Get cross-repo usage — which repos use a given dependency.
    */
-  async getCrossRepoUsage(
-    dependencyName: string,
-    groupId: string,
-  ): Promise<UsageReport> {
+  async getCrossRepoUsage(dependencyName: string, groupId: string): Promise<UsageReport> {
     if (!dependencyName) {
       throw new Error('Dependency name is required');
     }
@@ -382,10 +371,7 @@ export class FederatedSearchEngine {
   // Private Helpers
   // -----------------------------------------------------------------------
 
-  private toSymbolResult(
-    node: GraphNode,
-    matchType: 'exact' | 'partial',
-  ): FederatedSymbolResult {
+  private toSymbolResult(node: GraphNode, matchType: 'exact' | 'partial'): FederatedSymbolResult {
     return {
       repo: node.projectId,
       symbol: node.name,

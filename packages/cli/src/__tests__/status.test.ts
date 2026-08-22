@@ -12,12 +12,19 @@ describe('getStatus', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(tmpdir(), `code-analyzer-status-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = resolve(
+      tmpdir(),
+      `code-analyzer-status-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
   afterEach(() => {
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should report project as not initialized', () => {

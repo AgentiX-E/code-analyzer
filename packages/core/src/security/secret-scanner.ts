@@ -28,31 +28,97 @@ const BUILT_IN_PATTERNS: SecretPattern[] = [
   // GitHub Personal Access Tokens (classic)
   { regex: /\bghp_[0-9a-zA-Z]{36}\b/g, type: 'token', severity: 'critical', multiline: false },
   // GitHub PAT (fine-grained)
-  { regex: /\bgithub_pat_[0-9a-zA-Z_]{40,}\b/g, type: 'token', severity: 'critical', multiline: false },
+  {
+    regex: /\bgithub_pat_[0-9a-zA-Z_]{40,}\b/g,
+    type: 'token',
+    severity: 'critical',
+    multiline: false,
+  },
   // JWT tokens
-  { regex: /\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/g, type: 'token', severity: 'high', multiline: false },
+  {
+    regex: /\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/g,
+    type: 'token',
+    severity: 'high',
+    multiline: false,
+  },
   // Private keys (PEM) — multiline
-  { regex: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----/g, type: 'private_key', severity: 'critical', multiline: true },
+  {
+    regex:
+      /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----/g,
+    type: 'private_key',
+    severity: 'critical',
+    multiline: true,
+  },
   // Certificate (PEM) — multiline
-  { regex: /-----BEGIN\s+CERTIFICATE-----[\s\S]*?-----END\s+CERTIFICATE-----/g, type: 'certificate', severity: 'critical', multiline: true },
+  {
+    regex: /-----BEGIN\s+CERTIFICATE-----[\s\S]*?-----END\s+CERTIFICATE-----/g,
+    type: 'certificate',
+    severity: 'critical',
+    multiline: true,
+  },
   // MongoDB connection strings
-  { regex: /\bmongodb(?:\+srv)?:\/\/[^\s'"]+/gi, type: 'connection_string', severity: 'critical', multiline: false },
+  {
+    regex: /\bmongodb(?:\+srv)?:\/\/[^\s'"]+/gi,
+    type: 'connection_string',
+    severity: 'critical',
+    multiline: false,
+  },
   // PostgreSQL connection strings
-  { regex: /\bpostgres(?:ql)?:\/\/[^\s'"]+/gi, type: 'connection_string', severity: 'critical', multiline: false },
+  {
+    regex: /\bpostgres(?:ql)?:\/\/[^\s'"]+/gi,
+    type: 'connection_string',
+    severity: 'critical',
+    multiline: false,
+  },
   // MySQL connection strings
-  { regex: /\bmysql:\/\/[^\s'"]+/gi, type: 'connection_string', severity: 'critical', multiline: false },
+  {
+    regex: /\bmysql:\/\/[^\s'"]+/gi,
+    type: 'connection_string',
+    severity: 'critical',
+    multiline: false,
+  },
   // Redis connection strings
-  { regex: /\bredis:\/\/[^\s'"]+/gi, type: 'connection_string', severity: 'high', multiline: false },
+  {
+    regex: /\bredis:\/\/[^\s'"]+/gi,
+    type: 'connection_string',
+    severity: 'high',
+    multiline: false,
+  },
   // Generic password assignments
-  { regex: /password\s*[:=]\s*['"]([^'"]+)['"]/gi, type: 'password', severity: 'critical', multiline: false },
+  {
+    regex: /password\s*[:=]\s*['"]([^'"]+)['"]/gi,
+    type: 'password',
+    severity: 'critical',
+    multiline: false,
+  },
   // API key assignments
-  { regex: /api[_-]?key\s*[:=]\s*['"]([A-Za-z0-9]{20,})['"]/gi, type: 'api_key', severity: 'high', multiline: false },
+  {
+    regex: /api[_-]?key\s*[:=]\s*['"]([A-Za-z0-9]{20,})['"]/gi,
+    type: 'api_key',
+    severity: 'high',
+    multiline: false,
+  },
   // Generic token assignments
-  { regex: /token\s*[:=]\s*['"]([A-Za-z0-9_-]{24,})['"]/gi, type: 'token', severity: 'high', multiline: false },
+  {
+    regex: /token\s*[:=]\s*['"]([A-Za-z0-9_-]{24,})['"]/gi,
+    type: 'token',
+    severity: 'high',
+    multiline: false,
+  },
   // Secret key assignments
-  { regex: /secret[_-]?key\s*[:=]\s*['"]([^'"]{8,})['"]/gi, type: 'api_key', severity: 'critical', multiline: false },
+  {
+    regex: /secret[_-]?key\s*[:=]\s*['"]([^'"]{8,})['"]/gi,
+    type: 'api_key',
+    severity: 'critical',
+    multiline: false,
+  },
   // Generic credentials in URLs
-  { regex: /:\/\/[^:@\s]+:[^:@\s]+@[^\s'"]+/g, type: 'connection_string', severity: 'critical', multiline: false },
+  {
+    regex: /:\/\/[^:@\s]+:[^:@\s]+@[^\s'"]+/g,
+    type: 'connection_string',
+    severity: 'critical',
+    multiline: false,
+  },
 ];
 
 export class SecretScanner {

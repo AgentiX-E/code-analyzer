@@ -339,7 +339,8 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 // ---------------------------------------------------------------------------
 
 /** All available review lanes with their associated prompt builders. */
-export type ReviewLane = 'security' | 'performance' | 'maintainability' | 'testing' | 'architecture';
+export type ReviewLane =
+  'security' | 'performance' | 'maintainability' | 'testing' | 'architecture';
 
 export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = {
   security: SECURITY_REVIEW_PROMPT,

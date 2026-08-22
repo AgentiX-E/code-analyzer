@@ -62,14 +62,17 @@ export interface RealWorldBenchmarkResult {
   /** Number of false negatives (ground truth issues not detected) */
   falseNegatives: number;
   /** Per-category breakdown */
-  byCategory: Record<string, {
-    precision: number;
-    recall: number;
-    f1: number;
-    truePositives: number;
-    falsePositives: number;
-    falseNegatives: number;
-  }>;
+  byCategory: Record<
+    string,
+    {
+      precision: number;
+      recall: number;
+      f1: number;
+      truePositives: number;
+      falsePositives: number;
+      falseNegatives: number;
+    }
+  >;
   /** Noise rate = FP / TP (lower is better) */
   noiseRate: number;
   /** Total ground-truth issues */
@@ -119,7 +122,7 @@ function isMatch(detected: DetectedIssue, ground: GroundTruthIssue): boolean {
  */
 export function runBenchmark(
   detectedIssues: DetectedIssue[],
-  groundTruth: GroundTruthIssue[]
+  groundTruth: GroundTruthIssue[],
 ): RealWorldBenchmarkResult {
   const matchedGround = new Set<number>();
   const matchedDetected = new Set<number>();
@@ -142,7 +145,7 @@ export function runBenchmark(
 
   const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
   const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
-  const f1 = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
   const noiseRate = tp > 0 ? fp / tp : Infinity;
 
   // Per-category breakdown
@@ -175,9 +178,10 @@ export function runBenchmark(
     const catFn = catGround.length - catTp;
     const catPrecision = catTp + catFp > 0 ? catTp / (catTp + catFp) : 0;
     const catRecall = catTp + catFn > 0 ? catTp / (catTp + catFn) : 0;
-    const catF1 = catPrecision + catRecall > 0
-      ? 2 * catPrecision * catRecall / (catPrecision + catRecall)
-      : 0;
+    const catF1 =
+      catPrecision + catRecall > 0
+        ? (2 * catPrecision * catRecall) / (catPrecision + catRecall)
+        : 0;
 
     byCategory[category] = {
       precision: catPrecision,
@@ -216,8 +220,7 @@ export function runBenchmark(
  */
 export const realWorldBenchmark: BenchmarkSuite = {
   name: 'real-world-pr-review',
-  description:
-    'Evaluates Code Analyzer review quality against ground-truth datasets from real PRs',
+  description: 'Evaluates Code Analyzer review quality against ground-truth datasets from real PRs',
   async run() {
     // Stub: In production, this would load fixtures and run the full pipeline.
     // For now, it returns a baseline result against internal test fixtures.
@@ -235,7 +238,7 @@ export const realWorldBenchmark: BenchmarkSuite = {
     };
 
     const passed = Object.entries(thresholds).every(
-      ([key, th]) => (metrics[key] ?? 0) >= (th.min ?? th.target)
+      ([key, th]) => (metrics[key] ?? 0) >= (th.min ?? th.target),
     );
 
     return {
@@ -267,7 +270,7 @@ export function convertToDetectedIssues(
     category: string;
     severity: string;
     content: string;
-  }>
+  }>,
 ): DetectedIssue[] {
   return comments.map((c) => ({
     filePath: c.path,

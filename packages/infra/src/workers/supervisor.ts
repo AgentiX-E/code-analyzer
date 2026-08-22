@@ -1,11 +1,7 @@
 // @code-analyzer/infra — Index Supervisor
 // Supervises indexing tasks with timeout, crash recovery, and quarantine.
 
-import type {
-  SupervisorResult,
-  QuarantinedFile,
-  CrashReport,
-} from '../storage/types.js';
+import type { SupervisorResult, QuarantinedFile, CrashReport } from '../storage/types.js';
 
 export interface SupervisorConfig {
   timeout: number;
@@ -140,9 +136,7 @@ export class IndexSupervisor {
   }
 
   clearQuarantine(filePath: string): void {
-    this.quarantinedFiles = this.quarantinedFiles.filter(
-      (f) => f.filePath !== filePath,
-    );
+    this.quarantinedFiles = this.quarantinedFiles.filter((f) => f.filePath !== filePath);
   }
 
   private quarantineFile(filePath: string, error: string): void {

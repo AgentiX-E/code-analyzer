@@ -25,12 +25,23 @@ function makeGraph(): KnowledgeGraph {
 
 function addNode(g: KnowledgeGraph, id: number, label: string, name: string): GraphNode {
   const node: GraphNode = {
-    id, projectId: g.projectId, label: label as any, name,
+    id,
+    projectId: g.projectId,
+    label: label as any,
+    name,
     qualifiedName: `${label}:${name}`,
-    filePath: null, startLine: null, endLine: null, language: null,
-    properties: { name }, signature: null, docstring: null, complexity: null,
-    isExported: false, fingerprint: null,
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    filePath: null,
+    startLine: null,
+    endLine: null,
+    language: null,
+    properties: { name },
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: false,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   g.nodes.set(id, node);
   return node;
@@ -45,8 +56,13 @@ function addEdge(
   weight = 1,
 ): void {
   const edge: GraphEdge = {
-    id, projectId: g.projectId, sourceId, targetId,
-    type: type as any, properties: {}, weight,
+    id,
+    projectId: g.projectId,
+    sourceId,
+    targetId,
+    type: type as any,
+    properties: {},
+    weight,
     createdAt: new Date().toISOString(),
   };
   g.edges.set(id, edge);
@@ -233,7 +249,9 @@ describe('Leiden Algorithm', () => {
     const b = leiden({ nodes: g.nodes.values(), edges: g.edges.values() });
     expect(a.modularity).toBe(b.modularity);
     expect(a.communityCount).toBe(b.communityCount);
-    expect([...a.nodeToCommunity.entries()].sort()).toEqual([...b.nodeToCommunity.entries()].sort());
+    expect([...a.nodeToCommunity.entries()].sort()).toEqual(
+      [...b.nodeToCommunity.entries()].sort(),
+    );
   });
 
   it('should honor an explicit seed', () => {
@@ -241,7 +259,9 @@ describe('Leiden Algorithm', () => {
     const a = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { seed: 7 });
     const b = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { seed: 7 });
     expect(a.modularity).toBe(b.modularity);
-    expect([...a.nodeToCommunity.entries()].sort()).toEqual([...b.nodeToCommunity.entries()].sort());
+    expect([...a.nodeToCommunity.entries()].sort()).toEqual(
+      [...b.nodeToCommunity.entries()].sort(),
+    );
   });
 
   it('should produce a single community for a fully connected graph', () => {
@@ -292,8 +312,14 @@ describe('Leiden Algorithm', () => {
   it('should respect resolution parameter', () => {
     const g = buildTwoCommunityGraph();
 
-    const lowRes = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { resolution: 0.5 });
-    const highRes = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { resolution: 2.0 });
+    const lowRes = leiden(
+      { nodes: g.nodes.values(), edges: g.edges.values() },
+      { resolution: 0.5 },
+    );
+    const highRes = leiden(
+      { nodes: g.nodes.values(), edges: g.edges.values() },
+      { resolution: 2.0 },
+    );
 
     // Higher resolution tends to produce more communities
     expect(lowRes.communityCount).toBeGreaterThanOrEqual(0);
@@ -390,8 +416,12 @@ describe('Community Aggregation', () => {
     }
 
     const n2c = new Map<number, number>();
-    n2c.set(0, 0); n2c.set(1, 0); n2c.set(2, 0);
-    n2c.set(3, 1); n2c.set(4, 1); n2c.set(5, 1);
+    n2c.set(0, 0);
+    n2c.set(1, 0);
+    n2c.set(2, 0);
+    n2c.set(3, 1);
+    n2c.set(4, 1);
+    n2c.set(5, 1);
 
     const reduced = buildReducedGraph(adj, n2c, new Map());
     expect(reduced.nodes.length).toBe(2);
@@ -486,7 +516,10 @@ describe('Community Detection Performance', () => {
     }
 
     const start = Date.now();
-    const result = leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { maxIterations: 10 });
+    const result = leiden(
+      { nodes: g.nodes.values(), edges: g.edges.values() },
+      { maxIterations: 10 },
+    );
     const duration = Date.now() - start;
 
     expect(result.nodeToCommunity.size).toBe(n);

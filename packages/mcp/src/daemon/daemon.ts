@@ -211,7 +211,10 @@ export class CodeAnalyzerDaemon extends EventEmitter {
       }
       fs.writeFileSync(this.pidFile, String(process.pid), { encoding: 'utf-8', mode: 0o644 });
     } catch (err) {
-      this.emit('error', new Error(`Failed to write PID file: ${err instanceof Error ? err.message : String(err)}`));
+      this.emit(
+        'error',
+        new Error(`Failed to write PID file: ${err instanceof Error ? err.message : String(err)}`),
+      );
     }
   }
 

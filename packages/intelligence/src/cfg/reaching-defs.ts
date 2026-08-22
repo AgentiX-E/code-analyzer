@@ -60,7 +60,11 @@ interface Harvest {
 }
 
 /** Numbered program point for internal computation. */
-interface NumPoint { block: number; stmt: number; line: number }
+interface NumPoint {
+  block: number;
+  stmt: number;
+  line: number;
+}
 
 /** A single reaching-def fact with binding name. */
 interface RawFact {
@@ -74,10 +78,7 @@ interface RawFact {
 // Dense Solver — Classical GEN/KILL Worklist
 // ---------------------------------------------------------------------------
 
-function computeReachingDefsDense(
-  cfg: FunctionCfg,
-  h: Harvest,
-): DefUseFact[] {
+function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
   const n = cfg.blocks.length;
   if (n === 0) return [];
 
@@ -198,10 +199,7 @@ function computeReachingDefsDense(
 // (dense for small/loop-free, sparse for large/looped) remains a documented,
 // testable seam even though both now use the same correct algorithm.
 
-function computeReachingDefsSparse(
-  cfg: FunctionCfg,
-  h: Harvest,
-): DefUseFact[] {
+function computeReachingDefsSparse(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
   const n = cfg.blocks.length;
   if (n === 0) return [];
 
@@ -309,9 +307,10 @@ export function computeReachingDefinitions(cfg: FunctionCfg): DefUseFact[] {
   if (h.defCount === 0 || h.useCount === 0) return [];
 
   const n = cfg.blocks.length;
-  const solver = n >= SSA_MIN_BLOCKS && hasReachableLoop(cfg)
-    ? computeReachingDefsSparse
-    : computeReachingDefsDense;
+  const solver =
+    n >= SSA_MIN_BLOCKS && hasReachableLoop(cfg)
+      ? computeReachingDefsSparse
+      : computeReachingDefsDense;
 
   return solver(cfg, h);
 }
@@ -555,7 +554,7 @@ function buildReversePostOrder(cfg: FunctionCfg): number[] {
 
   function dfs(b: number): void {
     visited[b] = 1;
-    for (const s of (succs[b] ?? [])) {
+    for (const s of succs[b] ?? []) {
       if (!visited[s]) dfs(s);
     }
     postOrder.push(b);

@@ -126,11 +126,7 @@ export class ImpactAnalyzer {
     const directNodes = this.findDirectDependents(projectId, symbolIds);
 
     // Indirect dependents (BFS up to maxDepth, excluding depth 1 which is direct)
-    const allIndirect = this.findIndirectDependents(
-      projectId,
-      symbolIds,
-      maxDepth,
-    );
+    const allIndirect = this.findIndirectDependents(projectId, symbolIds, maxDepth);
     const indirectNodes = allIndirect.filter((n) => n.depth > 1);
 
     // Build impact tree
@@ -147,10 +143,7 @@ export class ImpactAnalyzer {
 
     // Find affected routes
     if (includeRoutes) {
-      this.findAffectedRoutes(projectId, [
-        ...symbolIds,
-        ...impactTree.map((n) => n.nodeId),
-      ]);
+      this.findAffectedRoutes(projectId, [...symbolIds, ...impactTree.map((n) => n.nodeId)]);
     }
 
     // Find affected processes
@@ -163,30 +156,24 @@ export class ImpactAnalyzer {
     }
 
     // Build shared-compatible ChangedSymbol array
-    const sharedChangedSymbols = changedSymbols.map(
-      (cs) => ({
-        symbolQname: cs.qualifiedName,
-        filePath: cs.filePath,
-        changeType:
-          cs.changeType === 'removed'
-            ? ('deleted' as const)
-            : cs.changeType === 'added'
-              ? ('added' as const)
-              : ('modified' as const),
-        startLine: cs.lineRange[0],
-        endLine: cs.lineRange[1],
-      }),
-    );
+    const sharedChangedSymbols = changedSymbols.map((cs) => ({
+      symbolQname: cs.qualifiedName,
+      filePath: cs.filePath,
+      changeType:
+        cs.changeType === 'removed'
+          ? ('deleted' as const)
+          : cs.changeType === 'added'
+            ? ('added' as const)
+            : ('modified' as const),
+      startLine: cs.lineRange[0],
+      endLine: cs.lineRange[1],
+    }));
 
     // Build shared-compatible ImpactNode tree
     const sharedImpactTree = this.toSharedImpactNodes(impactTree);
 
     // Determine risk level
-    const riskLevel = this.determineRiskLevel(
-      changedSymbols,
-      impactTree.length,
-      processImpacts,
-    );
+    const riskLevel = this.determineRiskLevel(changedSymbols, impactTree.length, processImpacts);
 
     // Compute risk score
     const riskScore = this.computeRiskScore({
@@ -198,11 +185,7 @@ export class ImpactAnalyzer {
       estimatedEffort: 'low',
     });
 
-    const estimatedEffort = this.estimateEffort(
-      riskScore,
-      impactTree.length,
-      testImpacts.length,
-    );
+    const estimatedEffort = this.estimateEffort(riskScore, impactTree.length, testImpacts.length);
 
     // Build final shared ProcessImpact array
     const sharedProcessImpacts = processImpacts.map((pi) => ({
@@ -227,10 +210,7 @@ export class ImpactAnalyzer {
    * Find direct dependents (1 hop) via CALLS, IMPLEMENTS, EXTENDS, MEMBER_OF.
    * These are nodes that directly depend on any of the changed symbols.
    */
-  findDirectDependents(
-    projectId: string,
-    symbolIds: number[],
-  ): ImpactNode[] {
+  findDirectDependents(projectId: string, symbolIds: number[]): ImpactNode[] {
     return this.findIndirectDependents(projectId, symbolIds, 1);
   }
 
@@ -239,11 +219,7 @@ export class ImpactAnalyzer {
    * Traverses incoming CALLS/IMPLEMENTS/EXTENDS/MEMBER_OF edges
    * to find all transitive dependents.
    */
-  findIndirectDependents(
-    projectId: string,
-    symbolIds: number[],
-    maxDepth: number,
-  ): ImpactNode[] {
+  findIndirectDependents(projectId: string, symbolIds: number[], maxDepth: number): ImpactNode[] {
     const visited = new Set<number>(symbolIds);
     const queue: Array<{
       nodeId: number;
@@ -321,10 +297,7 @@ export class ImpactAnalyzer {
    * Find tests that are affected by the changed symbols.
    * Looks for TESTS edges pointing to any of the given symbol IDs.
    */
-  findAffectedTests(
-    projectId: string,
-    symbolIds: number[],
-  ): TestImpact[] {
+  findAffectedTests(projectId: string, symbolIds: number[]): TestImpact[] {
     const results: TestImpact[] = [];
     const seen = new Set<number>();
 
@@ -351,9 +324,7 @@ export class ImpactAnalyzer {
           testName: testNode.name,
           testFile: testNode.filePath ?? '',
           testedSymbol: targetNode?.qualifiedName ?? `node-${edge.targetId}`,
-          impactType: symbolIds.includes(edge.sourceId)
-            ? 'direct'
-            : 'indirect',
+          impactType: symbolIds.includes(edge.sourceId) ? 'direct' : 'indirect',
         });
       }
     }
@@ -366,10 +337,7 @@ export class ImpactAnalyzer {
    * Looks for Route nodes and HANDLES_ROUTE edges connected to
    * the given symbol IDs.
    */
-  findAffectedRoutes(
-    projectId: string,
-    symbolIds: number[],
-  ): RouteImpact[] {
+  findAffectedRoutes(projectId: string, symbolIds: number[]): RouteImpact[] {
     const results: RouteImpact[] = [];
     const seen = new Set<string>();
 
@@ -378,19 +346,14 @@ export class ImpactAnalyzer {
       const node = this.store.getNode(symId);
       if (!node) continue;
 
-      if (
-        node.label === 'Route' &&
-        node.properties.routePath !== undefined
-      ) {
+      if (node.label === 'Route' && node.properties.routePath !== undefined) {
         const routePath =
           typeof node.properties.routePath === 'string'
             ? node.properties.routePath
             : String(node.properties.routePath);
 
         const routeMethod =
-          typeof node.properties.routeMethod === 'string'
-            ? node.properties.routeMethod
-            : 'GET';
+          typeof node.properties.routeMethod === 'string' ? node.properties.routeMethod : 'GET';
 
         const key = `${routeMethod}:${routePath}`;
         if (!seen.has(key)) {
@@ -440,9 +403,7 @@ export class ImpactAnalyzer {
             limit: 100000,
           });
           const consumers = consumerEdges.items.map(
-            (e: GraphEdge) =>
-              this.store.getNode(e.targetId)?.qualifiedName ??
-              `node-${e.targetId}`,
+            (e: GraphEdge) => this.store.getNode(e.targetId)?.qualifiedName ?? `node-${e.targetId}`,
           );
 
           const handlerNode = this.store.getNode(edge.sourceId);
@@ -450,8 +411,7 @@ export class ImpactAnalyzer {
           results.push({
             routePath,
             routeMethod,
-            handlerFunction:
-              handlerNode?.qualifiedName ?? `node-${edge.sourceId}`,
+            handlerFunction: handlerNode?.qualifiedName ?? `node-${edge.sourceId}`,
             consumers,
           });
         }
@@ -466,10 +426,7 @@ export class ImpactAnalyzer {
    * Looks for Process nodes and STEP_IN_PROCESS edges connected
    * to the given symbol IDs.
    */
-  findAffectedProcesses(
-    projectId: string,
-    symbolIds: number[],
-  ): ProcessImpact[] {
+  findAffectedProcesses(projectId: string, symbolIds: number[]): ProcessImpact[] {
     const results: ProcessImpact[] = [];
     const seen = new Set<number>();
 
@@ -503,9 +460,7 @@ export class ImpactAnalyzer {
         const stepNode = this.store.getNode(edge.targetId);
 
         if (processNode) {
-          const existing = results.find(
-            (r) => r.processName === processNode.name,
-          );
+          const existing = results.find((r) => r.processName === processNode.name);
 
           if (existing) {
             if (stepNode) {
@@ -544,8 +499,8 @@ export class ImpactAnalyzer {
 
     for (const _cs of impactResult.changedSymbols) {
       // Convert changeType to a proxy for risk if no explicit risk
-      score += symbolRiskScores[impactResult.riskLevel] /
-        Math.max(1, impactResult.changedSymbols.length);
+      score +=
+        symbolRiskScores[impactResult.riskLevel] / Math.max(1, impactResult.changedSymbols.length);
     }
 
     // Impact breadth (0-25 points): number of impacted nodes
@@ -593,9 +548,7 @@ export class ImpactAnalyzer {
     return ids;
   }
 
-  private toSharedImpactNodes(
-    nodes: ImpactNode[],
-  ): Array<{
+  private toSharedImpactNodes(nodes: ImpactNode[]): Array<{
     symbolQname: string;
     label: NodeLabel;
     filePath: string;
@@ -625,9 +578,7 @@ export class ImpactAnalyzer {
     }));
   }
 
-  private toSharedProcessImpacts(
-    impacts: ProcessImpact[],
-  ): Array<{
+  private toSharedProcessImpacts(impacts: ProcessImpact[]): Array<{
     processName: string;
     processId: number;
     severity: RiskLevel;
@@ -643,9 +594,7 @@ export class ImpactAnalyzer {
     }));
   }
 
-  private severityToRiskLevel(
-    severity: ProcessImpact['severity'],
-  ): RiskLevel {
+  private severityToRiskLevel(severity: ProcessImpact['severity']): RiskLevel {
     switch (severity) {
       case 'blocked':
         return 'critical';

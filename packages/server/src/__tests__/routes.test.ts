@@ -147,15 +147,33 @@ describe('registerToolRoutes', () => {
 
     // Create a minimal registry with mock tools
     registry = new ToolRegistry();
-    registry.register('hello', 'Say hello', { type: 'object', properties: {}, required: [] }, async (_args) => ({
-      content: [{ type: 'text', text: 'Hello, world!' }],
-    }), 'all');
-    registry.register('echo', 'Echo input', { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] }, async (args) => ({
-      content: [{ type: 'text', text: `Echo: ${args['message']}` }],
-    }), 'analysis');
-    registry.register('error_tool', 'Always errors', { type: 'object', properties: {}, required: [] }, async () => {
-      throw new Error('Simulated failure');
-    }, 'analysis');
+    registry.register(
+      'hello',
+      'Say hello',
+      { type: 'object', properties: {}, required: [] },
+      async (_args) => ({
+        content: [{ type: 'text', text: 'Hello, world!' }],
+      }),
+      'all',
+    );
+    registry.register(
+      'echo',
+      'Echo input',
+      { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] },
+      async (args) => ({
+        content: [{ type: 'text', text: `Echo: ${args['message']}` }],
+      }),
+      'analysis',
+    );
+    registry.register(
+      'error_tool',
+      'Always errors',
+      { type: 'object', properties: {}, required: [] },
+      async () => {
+        throw new Error('Simulated failure');
+      },
+      'analysis',
+    );
 
     registerToolRoutes(app, config, () => registry);
     await app.ready();
@@ -282,9 +300,15 @@ describe('registerSSERoutes', () => {
     registerErrorHandler(app);
 
     registry = new ToolRegistry();
-    registry.register('ping', 'Send ping', { type: 'object', properties: {}, required: [] }, async () => ({
-      content: [{ type: 'text', text: 'pong' }],
-    }), 'all');
+    registry.register(
+      'ping',
+      'Send ping',
+      { type: 'object', properties: {}, required: [] },
+      async () => ({
+        content: [{ type: 'text', text: 'pong' }],
+      }),
+      'all',
+    );
 
     registerSSERoutes(app, config, () => registry);
     await app.ready();
@@ -354,7 +378,12 @@ describe('sendSSEEvent', () => {
 
   it('should handle complex data objects', () => {
     const chunks: string[] = [];
-    const mockRes = { write: (chunk: string) => { chunks.push(chunk); return true; } };
+    const mockRes = {
+      write: (chunk: string) => {
+        chunks.push(chunk);
+        return true;
+      },
+    };
 
     sendSSEEvent(mockRes, 'update', { items: [1, 2, 3], nested: { a: 1 } });
     expect(chunks.join('')).toContain('data: {"items":[1,2,3],"nested":{"a":1}}');

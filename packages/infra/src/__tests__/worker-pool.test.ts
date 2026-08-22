@@ -168,11 +168,9 @@ describe('WorkerPool', () => {
   it('rejects executeAll after shutdown', async () => {
     pool = createWorkerPool(1);
     pool.shutdown();
-    await expect(
-      pool.executeAll([
-        { id: 's1', execute: async () => 'a' },
-      ]),
-    ).rejects.toThrow('shut down');
+    await expect(pool.executeAll([{ id: 's1', execute: async () => 'a' }])).rejects.toThrow(
+      'shut down',
+    );
   });
 
   it('should reject executeAll with multiple tasks after shutdown', async () => {
@@ -274,7 +272,11 @@ describe('WorkerPool', () => {
     // They resolve because they passed the shutdown check before being queued
 
     // Clean up the long task
-    try { await longTask; } catch { /* may be affected */ }
+    try {
+      await longTask;
+    } catch {
+      /* may be affected */
+    }
   });
 
   it('handles retries set to 0 (default path)', async () => {
@@ -544,9 +546,7 @@ describe('CircuitBreaker', () => {
       }
     }
 
-    await expect(breaker.execute(async () => 'nope')).rejects.toThrow(
-      'OPEN',
-    );
+    await expect(breaker.execute(async () => 'nope')).rejects.toThrow('OPEN');
   });
 
   it('transitions to half-open after timeout', async () => {

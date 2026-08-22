@@ -133,10 +133,7 @@ class SlidingWindowStore {
  * Returns 429 Too Many Requests when limit is exceeded, with
  * Retry-After and X-RateLimit-* headers.
  */
-export function registerRateLimit(
-  app: FastifyInstance,
-  config: RateLimitConfig,
-): void {
+export function registerRateLimit(app: FastifyInstance, config: RateLimitConfig): void {
   if (!config.enabled) return;
 
   const store = new SlidingWindowStore();

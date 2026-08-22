@@ -246,9 +246,7 @@ export class LRUCache<K = string, V = unknown> {
       misses: this._misses,
       evictions: this._evictions,
       expirations: this._expirations,
-      hitRate: this._hits + this._misses > 0
-        ? this._hits / (this._hits + this._misses)
-        : 0,
+      hitRate: this._hits + this._misses > 0 ? this._hits / (this._hits + this._misses) : 0,
     };
   }
 

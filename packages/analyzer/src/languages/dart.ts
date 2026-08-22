@@ -75,7 +75,8 @@ export class DartProvider implements LanguageProvider {
     }
 
     // Function definitions (block body): [ReturnType] name(params) [async] {
-    const funcRegex = /(?:(?:void|int|String|bool|double|num|dynamic|Future|Widget|List|Map|Set)\s+)?(\w+)\s*\([^)]*\)\s*(?:async\s*)?\{/g;
+    const funcRegex =
+      /(?:(?:void|int|String|bool|double|num|dynamic|Future|Widget|List|Map|Set)\s+)?(\w+)\s*\([^)]*\)\s*(?:async\s*)?\{/g;
     while ((m = funcRegex.exec(sanitized)) !== null) {
       const name = m[1]!;
       if (DART_KEYWORDS.has(name)) continue;

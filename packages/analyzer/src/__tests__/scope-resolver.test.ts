@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest';
 
 import { ScopeResolver } from '../resolution/scope-resolver.js';
 
-import type { ParsedFile, SymbolDefinition, ReferenceSite, ScopeTree, SemanticModel } from '@code-analyzer/shared';
+import type {
+  ParsedFile,
+  SymbolDefinition,
+  ReferenceSite,
+  ScopeTree,
+  SemanticModel,
+} from '@code-analyzer/shared';
 
 describe('ScopeResolver', () => {
   const resolver = new ScopeResolver();
@@ -120,15 +126,13 @@ describe('ScopeResolver', () => {
       const trees = resolver.buildScopeTrees([file]);
       expect(trees).toHaveLength(1);
       // The file scope should only have 'dup' listed once
-      expect(trees[0]!.symbols.filter(s => s.includes('dup')).length).toBe(1);
+      expect(trees[0]!.symbols.filter((s) => s.includes('dup')).length).toBe(1);
     });
   });
 
   describe('resolveReferences', () => {
     it('should resolve same-file references', () => {
-      const symbols: SymbolDefinition[] = [
-        createSymbol('hello', 'Function', 'test.ts'),
-      ];
+      const symbols: SymbolDefinition[] = [createSymbol('hello', 'Function', 'test.ts')];
 
       const references: ReferenceSite[] = [
         createReference('test.ts', 5, 'hello', { referenceKind: 'call' }),
@@ -154,12 +158,8 @@ describe('ScopeResolver', () => {
     });
 
     it('should resolve cross-file references', () => {
-      const symbolsA: SymbolDefinition[] = [
-        createSymbol('hello', 'Function', 'a.ts'),
-      ];
-      const symbolsB: SymbolDefinition[] = [
-        createSymbol('world', 'Function', 'b.ts'),
-      ];
+      const symbolsA: SymbolDefinition[] = [createSymbol('hello', 'Function', 'a.ts')];
+      const symbolsB: SymbolDefinition[] = [createSymbol('world', 'Function', 'b.ts')];
 
       const fileA: ParsedFile = {
         filePath: 'a.ts',
@@ -212,9 +212,7 @@ describe('ScopeResolver', () => {
     });
 
     it('should resolve by qualified name when available', () => {
-      const symbols: SymbolDefinition[] = [
-        createSymbol('hello', 'Function', 'test.ts'),
-      ];
+      const symbols: SymbolDefinition[] = [createSymbol('hello', 'Function', 'test.ts')];
 
       const references: ReferenceSite[] = [
         createReference('test.ts', 5, 'hello', {
@@ -282,9 +280,7 @@ describe('ScopeResolver', () => {
 
   describe('resolveImports', () => {
     it('should resolve imports by matching import paths to file names', () => {
-      const symbolsA: SymbolDefinition[] = [
-        createSymbol('provider', 'Function', 'src/module.ts'),
-      ];
+      const symbolsA: SymbolDefinition[] = [createSymbol('provider', 'Function', 'src/module.ts')];
 
       const referencesA: ReferenceSite[] = [
         createReference('src/consumer.ts', 1, './module', { referenceKind: 'import' }),
@@ -374,9 +370,7 @@ describe('ScopeResolver', () => {
     });
 
     it('should resolve import when path includes but does not end with file name', () => {
-      const symbolsB: SymbolDefinition[] = [
-        createSymbol('util', 'Function', 'src/util.ts'),
-      ];
+      const symbolsB: SymbolDefinition[] = [createSymbol('util', 'Function', 'src/util.ts')];
 
       // importPath is '@scope/util/sub' — endsWith('util') is false, includes('util') is true
       const referencesA: ReferenceSite[] = [
@@ -481,12 +475,8 @@ describe('ScopeResolver', () => {
     });
 
     it('should mark as unresolved when multiple candidate files exist', () => {
-      const symbolsA: SymbolDefinition[] = [
-        createSymbol('sharedFunc', 'Function', 'a.ts'),
-      ];
-      const symbolsB: SymbolDefinition[] = [
-        createSymbol('sharedFunc', 'Function', 'b.ts'),
-      ];
+      const symbolsA: SymbolDefinition[] = [createSymbol('sharedFunc', 'Function', 'a.ts')];
+      const symbolsB: SymbolDefinition[] = [createSymbol('sharedFunc', 'Function', 'b.ts')];
       const symbolsC: SymbolDefinition[] = [];
 
       const referencesC: ReferenceSite[] = [
@@ -494,16 +484,28 @@ describe('ScopeResolver', () => {
       ];
 
       const fileA: ParsedFile = {
-        filePath: 'a.ts', language: 'typescript', symbols: symbolsA,
-        references: [], scopeTree: {} as ScopeTree, ast: null,
+        filePath: 'a.ts',
+        language: 'typescript',
+        symbols: symbolsA,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
       };
       const fileB: ParsedFile = {
-        filePath: 'b.ts', language: 'typescript', symbols: symbolsB,
-        references: [], scopeTree: {} as ScopeTree, ast: null,
+        filePath: 'b.ts',
+        language: 'typescript',
+        symbols: symbolsB,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
       };
       const fileC: ParsedFile = {
-        filePath: 'c.ts', language: 'typescript', symbols: symbolsC,
-        references: referencesC, scopeTree: {} as ScopeTree, ast: null,
+        filePath: 'c.ts',
+        language: 'typescript',
+        symbols: symbolsC,
+        references: referencesC,
+        scopeTree: {} as ScopeTree,
+        ast: null,
       };
 
       const trees = resolver.buildScopeTrees([fileA, fileB, fileC]);

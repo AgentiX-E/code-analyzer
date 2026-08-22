@@ -46,13 +46,13 @@ Requires Node.js >= 22.
 
 ## Key Exports
 
-| Category | Exports | Description |
-|----------|---------|-------------|
-| **Storage** | `InMemoryGraphStore`, `NodeQuery`, `EdgeQuery`, `FtsSearchResult`, `BfsResult`, `IntegrityReport` | In-memory graph store with full CRUD, FTS, BFS, and integrity checks |
-| **Git** | `createGitOperations`, `GitOperations` | Git diff, changed files, merge-base, staleness, branch listing |
-| **Filesystem** | `createFileDiscoverer`, `FileDiscoverer`, `createFileWatcher`, `FileWatcher` | File discovery with glob matching and debounced watching |
-| **Workers** | `createWorkerPool`, `WorkerPool`, `CircuitBreaker`, `IndexSupervisor` | Concurrent execution, circuit breaking, index supervision |
-| **Cache** | `createParseCache`, `ParseCache`, `computeContentHash` | LRU cache keyed by SHA-256 content hash |
+| Category       | Exports                                                                                           | Description                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Storage**    | `InMemoryGraphStore`, `NodeQuery`, `EdgeQuery`, `FtsSearchResult`, `BfsResult`, `IntegrityReport` | In-memory graph store with full CRUD, FTS, BFS, and integrity checks |
+| **Git**        | `createGitOperations`, `GitOperations`                                                            | Git diff, changed files, merge-base, staleness, branch listing       |
+| **Filesystem** | `createFileDiscoverer`, `FileDiscoverer`, `createFileWatcher`, `FileWatcher`                      | File discovery with glob matching and debounced watching             |
+| **Workers**    | `createWorkerPool`, `WorkerPool`, `CircuitBreaker`, `IndexSupervisor`                             | Concurrent execution, circuit breaking, index supervision            |
+| **Cache**      | `createParseCache`, `ParseCache`, `computeContentHash`                                            | LRU cache keyed by SHA-256 content hash                              |
 
 ## Usage
 
@@ -85,10 +85,7 @@ const nodeId = store.insertNode({
 });
 
 // Batch insert
-const ids = store.insertNodes([
-  { /* node 1 */ } as any,
-  { /* node 2 */ } as any,
-]);
+const ids = store.insertNodes([{/* node 1 */} as any, {/* node 2 */} as any]);
 
 // Query with filters
 const results = store.queryNodes({
@@ -103,9 +100,14 @@ const results = store.queryNodes({
 
 // Insert edges
 const edgeId = store.insertEdge({
-  id: 0, projectId: 'proj-1', sourceId: 1, targetId: 2,
-  type: 'CALLS', properties: { lineNumber: 42 },
-  weight: 1, createdAt: new Date().toISOString(),
+  id: 0,
+  projectId: 'proj-1',
+  sourceId: 1,
+  targetId: 2,
+  type: 'CALLS',
+  properties: { lineNumber: 42 },
+  weight: 1,
+  createdAt: new Date().toISOString(),
 });
 
 // Get edges for a node
@@ -126,9 +128,9 @@ const bfsResults = store.bfs(1 /* source node ID */, 3 /* max depth */, ['CALLS'
 // Transactions (all-or-nothing)
 try {
   store.transaction(() => {
-    store.insertNode({ /* ... */ } as any);
-    store.insertNode({ /* ... */ } as any);
-    store.insertEdge({ /* ... */ } as any);
+    store.insertNode({/* ... */} as any);
+    store.insertNode({/* ... */} as any);
+    store.insertEdge({/* ... */} as any);
     // If any throws, all are rolled back
   });
 } catch (err) {
@@ -229,8 +231,8 @@ const pool = createWorkerPool(4 /* concurrency */);
 const result = await pool.execute({
   id: 'parse-file-1',
   execute: async () => parseFile('src/app.ts'),
-  timeout: 30000,  // 30s timeout
-  retries: 2,      // Retry up to 2 times
+  timeout: 30000, // 30s timeout
+  retries: 2, // Retry up to 2 times
 });
 
 // Batch execution (respects concurrency limit)
@@ -253,9 +255,9 @@ pool.shutdown();
 import { CircuitBreaker } from '@code-analyzer/infra';
 
 const breaker = new CircuitBreaker({
-  failureThreshold: 5,    // Open after 5 failures
-  successThreshold: 3,    // Close after 3 consecutive successes
-  resetTimeout: 30000,    // Wait 30s before trying half-open
+  failureThreshold: 5, // Open after 5 failures
+  successThreshold: 3, // Close after 3 consecutive successes
+  resetTimeout: 30000, // Wait 30s before trying half-open
 });
 
 // Stable operation — circuit stays closed
@@ -275,8 +277,8 @@ breaker.reset(); // Force back to closed
 import { IndexSupervisor } from '@code-analyzer/infra';
 
 const supervisor = new IndexSupervisor({
-  timeout: 60000,       // 60s max per task
-  maxRetries: 3,        // Retry up to 3 times
+  timeout: 60000, // 60s max per task
+  maxRetries: 3, // Retry up to 3 times
   memoryLimit: 512 * 1024 * 1024, // 512MB
 });
 
@@ -329,37 +331,37 @@ cache.clear(); // Empty the cache
 
 ### CircuitBreakerOptions
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `failureThreshold` | `number` | `5` | Consecutive failures before opening |
-| `successThreshold` | `number` | `3` | Consecutive successes to re-close |
-| `resetTimeout` | `number` | `30000` | ms before transitioning to half-open |
+| Field              | Type     | Default | Description                          |
+| ------------------ | -------- | ------- | ------------------------------------ |
+| `failureThreshold` | `number` | `5`     | Consecutive failures before opening  |
+| `successThreshold` | `number` | `3`     | Consecutive successes to re-close    |
+| `resetTimeout`     | `number` | `30000` | ms before transitioning to half-open |
 
 ### SupervisorConfig
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `timeout` | `number` | (required) | Max ms per indexing task |
-| `maxRetries` | `number` | (required) | Max crash retry attempts |
+| Field         | Type     | Default     | Description                   |
+| ------------- | -------- | ----------- | ----------------------------- |
+| `timeout`     | `number` | (required)  | Max ms per indexing task      |
+| `maxRetries`  | `number` | (required)  | Max crash retry attempts      |
 | `memoryLimit` | `number` | `536870912` | Memory limit in bytes (512MB) |
 
 ### DiscoverOptions
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `excludePatterns` | `string[]` | `DEFAULT_EXCLUDE_PATTERNS` | Glob patterns to exclude |
-| `includePatterns` | `string[]` | `[]` | Glob patterns to include (empty = all) |
-| `maxFileSize` | `number` | `10485760` | Max file size in bytes (10MB) |
-| `respectGitignore` | `boolean` | `true` | Whether to apply `.gitignore` rules |
+| Field              | Type       | Default                    | Description                            |
+| ------------------ | ---------- | -------------------------- | -------------------------------------- |
+| `excludePatterns`  | `string[]` | `DEFAULT_EXCLUDE_PATTERNS` | Glob patterns to exclude               |
+| `includePatterns`  | `string[]` | `[]`                       | Glob patterns to include (empty = all) |
+| `maxFileSize`      | `number`   | `10485760`                 | Max file size in bytes (10MB)          |
+| `respectGitignore` | `boolean`  | `true`                     | Whether to apply `.gitignore` rules    |
 
 ### WorkerTask
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `id` | `string` | (required) | Unique task identifier |
-| `execute` | `() => Promise<T>` | (required) | Async task function |
-| `timeout` | `number` | `30000` | Max execution time in ms |
-| `retries` | `number` | `0` | Number of retries on failure |
+| Field     | Type               | Default    | Description                  |
+| --------- | ------------------ | ---------- | ---------------------------- |
+| `id`      | `string`           | (required) | Unique task identifier       |
+| `execute` | `() => Promise<T>` | (required) | Async task function          |
+| `timeout` | `number`           | `30000`    | Max execution time in ms     |
+| `retries` | `number`           | `0`        | Number of retries on failure |
 
 ## Package Dependencies
 

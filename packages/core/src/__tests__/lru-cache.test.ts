@@ -139,12 +139,12 @@ describe('LRUCache', () => {
       const cache = new LRUCache<string, number>({ maxSize: 10, ttl: 10000 });
 
       cache.set('a', 1, 5); // 5ms TTL
-      cache.set('b', 2);    // Default TTL (10s)
+      cache.set('b', 2); // Default TTL (10s)
 
       return new Promise<void>((resolve) => {
         setTimeout(() => {
           expect(cache.get('a')).toBeUndefined(); // expired
-          expect(cache.get('b')).toBe(2);          // still valid
+          expect(cache.get('b')).toBe(2); // still valid
           resolve();
         }, 10);
       });
@@ -172,7 +172,10 @@ describe('LRUCache', () => {
       cache.set('a', 42);
 
       let called = false;
-      const result = cache.getOrSet('a', () => { called = true; return 99; });
+      const result = cache.getOrSet('a', () => {
+        called = true;
+        return 99;
+      });
       expect(result).toBe(42);
       expect(called).toBe(false);
     });
@@ -275,7 +278,11 @@ describe('LRUCache', () => {
       cache.set('c', 3);
 
       const entries = Array.from(cache);
-      expect(entries).toEqual([['c', 3], ['b', 2], ['a', 1]]);
+      expect(entries).toEqual([
+        ['c', 3],
+        ['b', 2],
+        ['a', 1],
+      ]);
     });
 
     it('keys() returns keys in MRU→LRU order', () => {
@@ -314,8 +321,8 @@ describe('LRUCache', () => {
       });
 
       // Each string entry is ~32 + 2*len bytes
-      cache.set('a', 'x'.repeat(100));  // ~232 bytes
-      cache.set('b', 'x'.repeat(100));  // ~232 bytes → should trigger eviction
+      cache.set('a', 'x'.repeat(100)); // ~232 bytes
+      cache.set('b', 'x'.repeat(100)); // ~232 bytes → should trigger eviction
 
       expect(cache.size).toBeLessThanOrEqual(1);
     });

@@ -36,10 +36,7 @@ export function createFileWatcher(): FileWatcher {
     debounceTimer = setTimeout(flushEvents, DEBOUNCE_MS);
   }
 
-  function watchDirectory(
-    dirPath: string,
-    rootPath: string,
-  ): void {
+  function watchDirectory(dirPath: string, rootPath: string): void {
     try {
       const watcher = fs.watch(
         dirPath,

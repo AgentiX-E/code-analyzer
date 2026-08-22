@@ -379,10 +379,45 @@ describe('mcnemarTest', () => {
         f1: 0.842,
         durationMs: 10,
         detections: [
-          { id: 'a1', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g1' },
-          { id: 'a2', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g2' },
-          { id: 'a3', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g3' },
-          { id: 'a4', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: false },
+          {
+            id: 'a1',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g1',
+          },
+          {
+            id: 'a2',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g2',
+          },
+          {
+            id: 'a3',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g3',
+          },
+          {
+            id: 'a4',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: false,
+          },
         ],
       },
     ];
@@ -401,11 +436,56 @@ describe('mcnemarTest', () => {
         f1: 1.0,
         durationMs: 10,
         detections: [
-          { id: 'b1', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g1' },
-          { id: 'b2', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g2' },
-          { id: 'b3', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g3' },
-          { id: 'b4', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g4' },
-          { id: 'b5', file: 'f.ts', startLine: 1, endLine: 3, category: 'sec', severity: 'high', isTruePositive: true, matchedGroundTruthId: 'g5' },
+          {
+            id: 'b1',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g1',
+          },
+          {
+            id: 'b2',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g2',
+          },
+          {
+            id: 'b3',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g3',
+          },
+          {
+            id: 'b4',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g4',
+          },
+          {
+            id: 'b5',
+            file: 'f.ts',
+            startLine: 1,
+            endLine: 3,
+            category: 'sec',
+            severity: 'high',
+            isTruePositive: true,
+            matchedGroundTruthId: 'g5',
+          },
         ],
       },
     ];
@@ -558,12 +638,10 @@ describe('runScientificBenchmark', () => {
   };
 
   it('runs a complete scientific benchmark', async () => {
-    const result = await runScientificBenchmark(
-      sampleCases,
-      perfectDetectFn,
-      fileProvider,
-      { suiteName: 'test-bench', version: '1.0.0' },
-    );
+    const result = await runScientificBenchmark(sampleCases, perfectDetectFn, fileProvider, {
+      suiteName: 'test-bench',
+      version: '1.0.0',
+    });
 
     expect(result.metadata.suiteName).toBe('test-bench');
     expect(result.metadata.totalCases).toBe(2);
@@ -612,11 +690,7 @@ describe('runScientificBenchmark', () => {
       ];
     };
 
-    const result = await runScientificBenchmark(
-      [sampleCases[0]!],
-      imperfectFn,
-      fileProvider,
-    );
+    const result = await runScientificBenchmark([sampleCases[0]!], imperfectFn, fileProvider);
 
     // Only 1 of 2 ground truth issues found (recall = 0.5)
     // 1 TP + 1 FP → precision = 0.5

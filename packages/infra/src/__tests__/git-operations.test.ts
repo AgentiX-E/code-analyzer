@@ -25,7 +25,10 @@ describe('GitOperations', () => {
     execSync('git commit -m "initial commit"', { cwd: repoPath });
 
     // Create second commit with modifications
-    fs.writeFileSync(path.join(repoPath, 'file1.ts'), 'const a = 10;\nconst b = 20;\nconst c = 30;\n');
+    fs.writeFileSync(
+      path.join(repoPath, 'file1.ts'),
+      'const a = 10;\nconst b = 20;\nconst c = 30;\n',
+    );
     fs.writeFileSync(path.join(repoPath, 'file3.ts'), 'export function bar() {}\n');
     execSync('git add -A', { cwd: repoPath });
     execSync('git commit -m "second commit"', { cwd: repoPath });
@@ -119,9 +122,7 @@ describe('GitOperations', () => {
   });
 
   it('throws for non-existent file', async () => {
-    await expect(git.getFileContent('HEAD', 'nonexistent.ts')).rejects.toThrow(
-      'File not found',
-    );
+    await expect(git.getFileContent('HEAD', 'nonexistent.ts')).rejects.toThrow('File not found');
   });
 
   it('gets file hash', async () => {
@@ -261,16 +262,12 @@ describe('GitOperations — Error Handling', () => {
 
   it('throws for getMergeBase on non-existent repo', async () => {
     const gitOps = createGitOperations(invalidPath);
-    await expect(gitOps.getMergeBase('main', 'HEAD')).rejects.toThrow(
-      'Git command failed',
-    );
+    await expect(gitOps.getMergeBase('main', 'HEAD')).rejects.toThrow('Git command failed');
   });
 
   it('throws for getChangedFiles on non-existent repo', async () => {
     const gitOps = createGitOperations(invalidPath);
-    await expect(gitOps.getChangedFiles('main', 'HEAD')).rejects.toThrow(
-      'Git command failed',
-    );
+    await expect(gitOps.getChangedFiles('main', 'HEAD')).rejects.toThrow('Git command failed');
   });
 
   it('throws for isDirty on non-existent repo', async () => {
@@ -287,16 +284,12 @@ describe('GitOperations — Error Handling', () => {
 
   it('throws for getFileContent on non-existent repo', async () => {
     const gitOps = createGitOperations(invalidPath);
-    await expect(gitOps.getFileContent('HEAD', 'file.ts')).rejects.toThrow(
-      'File not found',
-    );
+    await expect(gitOps.getFileContent('HEAD', 'file.ts')).rejects.toThrow('File not found');
   });
 
   it('throws for getFileHash on non-existent repo', async () => {
     const gitOps = createGitOperations(invalidPath);
-    await expect(gitOps.getFileHash('HEAD', 'file.ts')).rejects.toThrow(
-      'Git command failed',
-    );
+    await expect(gitOps.getFileHash('HEAD', 'file.ts')).rejects.toThrow('Git command failed');
   });
 
   it('throws for listBranches on non-existent repo', async () => {
@@ -348,7 +341,11 @@ describe('parseDiffOutput edge cases', () => {
   });
 
   afterEach(() => {
-    try { fs.rmSync(repo, { recursive: true, force: true }); } catch { /* ignore */ }
+    try {
+      fs.rmSync(repo, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
   });
 
   it('handles empty diff output', async () => {
@@ -377,8 +374,7 @@ describe('parseDiffOutput edge cases', () => {
   });
 
   it('handles getFileContent error gracefully', async () => {
-    await expect(gitOps.getFileContent('HEAD', 'nonexistent.ts'))
-      .rejects.toThrow('File not found');
+    await expect(gitOps.getFileContent('HEAD', 'nonexistent.ts')).rejects.toThrow('File not found');
   });
 
   it('handles getFileHash parsing', async () => {
@@ -389,7 +385,10 @@ describe('parseDiffOutput edge cases', () => {
 
   it('parses hunk with implicit line counts (no comma)', async () => {
     // Modify file to create a diff
-    fs.writeFileSync(path.join(repo, 'main.ts'), 'export const version = "2.0.0";\nexport const name = "test";\n');
+    fs.writeFileSync(
+      path.join(repo, 'main.ts'),
+      'export const version = "2.0.0";\nexport const name = "test";\n',
+    );
     execSync('git add . && git commit -m "update"', { cwd: repo });
 
     const diffs = await gitOps.getDiff('HEAD~1', 'HEAD');
@@ -581,7 +580,7 @@ describe('parseDiff hunk parsing edge cases', () => {
       '@@ -1,5 +1,5 @@',
     ].join('\n');
     const diffs = gitOps.parseDiff(output);
-    // Copy detection produces a diff entry; changeType may be 'modified' since 
+    // Copy detection produces a diff entry; changeType may be 'modified' since
     // the parser only looks for 'rename from' to set 'renamed'
     expect(diffs.length).toBeGreaterThanOrEqual(1);
   });

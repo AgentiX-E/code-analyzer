@@ -4,17 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { generateFixture, FixtureConfig } from './fixture-generator.js';
-import {
-  PipelineOrchestrator,
-  createAllPhases,
-} from '../../pipeline/index.js';
+import { PipelineOrchestrator, createAllPhases } from '../../pipeline/index.js';
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type {
-  PipelineContext,
-  CodeAnalyzerConfig,
-  KnowledgeGraph,
-} from '@code-analyzer/shared';
+import type { PipelineContext, CodeAnalyzerConfig, KnowledgeGraph } from '@code-analyzer/shared';
 
 // Performance thresholds
 const SMALL_FIXTURE_FILES = 50;
@@ -107,13 +100,9 @@ describe('Pipeline Performance Benchmarks', () => {
 
     it('should index all files', () => {
       expect(pipelineResult).toBeDefined();
-      const parseData = pipelineResult.phases?.find(
-        (p: any) => p.phaseId === 'parse',
-      );
+      const parseData = pipelineResult.phases?.find((p: any) => p.phaseId === 'parse');
       if (parseData?.output?.filesParsed) {
-        expect(parseData.output.filesParsed).toBeGreaterThanOrEqual(
-          SMALL_FIXTURE_FILES * 0.9,
-        ); // 90% success rate
+        expect(parseData.output.filesParsed).toBeGreaterThanOrEqual(SMALL_FIXTURE_FILES * 0.9); // 90% success rate
       }
     });
 
@@ -131,9 +120,7 @@ describe('Pipeline Performance Benchmarks', () => {
     });
 
     it('should have cross-file imports', () => {
-      const crossFilePhase = pipelineResult.phases?.find(
-        (p: any) => p.phaseId === 'crossFile',
-      );
+      const crossFilePhase = pipelineResult.phases?.find((p: any) => p.phaseId === 'crossFile');
       if (crossFilePhase?.output?.crossFileDeps) {
         expect(crossFilePhase.output.crossFileDeps).toBeGreaterThan(0);
       }
@@ -181,9 +168,7 @@ describe('Pipeline Performance Benchmarks', () => {
         `  Medium fixture: ${totalTimeMs.toFixed(0)}ms total, ${perFileMs.toFixed(1)}ms per file`,
       );
       console.log(`  Nodes: ${nodesCreated}, Edges: ${edgesCreated}`);
-      console.log(
-        `  Total fixture size: ${(result.totalSize / 1024).toFixed(0)} KB`,
-      );
+      console.log(`  Total fixture size: ${(result.totalSize / 1024).toFixed(0)} KB`);
       expect(perFileMs).toBeLessThan(PER_FILE_TARGET_MS);
     });
 
@@ -245,9 +230,7 @@ describe('Pipeline Performance Benchmarks', () => {
     }, SMALL_TIMEOUT_MS);
 
     it('should have IMPORTS edges (cross-file dependency tracking works)', () => {
-      console.log(
-        `  Graph density: ${metrics.nodes} nodes, ${metrics.edges} edges`,
-      );
+      console.log(`  Graph density: ${metrics.nodes} nodes, ${metrics.edges} edges`);
       console.log(
         `  IMPORTS: ${metrics.importsEdges}, CALLS: ${metrics.callsEdges}, EXTENDS: ${metrics.extendsEdges}`,
       );

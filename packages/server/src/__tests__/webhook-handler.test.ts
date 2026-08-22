@@ -2,10 +2,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createHmac } from 'node:crypto';
-import {
-  GitHubWebhookHandler,
-  parseWebhookEvent,
-} from '../webhook/webhook-handler.js';
+import { GitHubWebhookHandler, parseWebhookEvent } from '../webhook/webhook-handler.js';
 import type { EventHandler, WebhookEvent } from '../webhook/webhook-handler.js';
 
 // ---------------------------------------------------------------------------
@@ -133,7 +130,12 @@ describe('GitHubWebhookHandler', () => {
     });
 
     it('should reject events with invalid signature', async () => {
-      const result = await handler.process('pull_request', 'delivery-001', 'bad-sig', VALID_PR_PAYLOAD);
+      const result = await handler.process(
+        'pull_request',
+        'delivery-001',
+        'bad-sig',
+        VALID_PR_PAYLOAD,
+      );
       expect(result.success).toBe(false);
       expect(result.error).toBe('Invalid webhook signature');
     });

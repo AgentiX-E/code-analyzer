@@ -10,7 +10,11 @@ import {
   type EnrichedTraceResult,
   type EnrichedSearchResult,
 } from '../tools/smart-response.js';
-import { computeConfidence, getConfidenceLabel, type ConfidenceScore } from '../tools/confidence.js';
+import {
+  computeConfidence,
+  getConfidenceLabel,
+  type ConfidenceScore,
+} from '../tools/confidence.js';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -79,19 +83,105 @@ function createTestGraph(): { store: InMemoryGraphStore; nodes: TestGraphNodes }
   edgeId = 1;
   const store = new InMemoryGraphStore();
 
-  const target = makeNode({ name: 'targetFunc', qualifiedName: 'pkg.TargetFunc', filePath: '/src/pkg/target.ts', startLine: 20, endLine: 30, signature: 'targetFunc(a: number): string' });
-  const directCaller1 = makeNode({ name: 'callerA', qualifiedName: 'pkg.CallerA', filePath: '/src/pkg/callerA.ts', startLine: 5, endLine: 15 });
-  const directCaller2 = makeNode({ name: 'callerB', qualifiedName: 'pkg.CallerB', filePath: '/src/pkg/callerB.ts', startLine: 8, endLine: 18 });
-  const indirectCaller = makeNode({ name: 'indirectCaller', qualifiedName: 'pkg.IndirectCaller', filePath: '/src/pkg/indirect.ts', startLine: 1, endLine: 10 });
-  const dbFunc = makeNode({ name: 'query', qualifiedName: 'pkg.Query', filePath: '/src/pkg/db.ts', startLine: 15, endLine: 25, signature: 'query(sql: string): Result[]' });
-  const httpFunc = makeNode({ name: 'fetch', qualifiedName: 'pkg.Fetch', filePath: '/src/pkg/api.ts', startLine: 42, endLine: 52, signature: 'fetch(url: string): Response' });
-  const fileIOFunc = makeNode({ name: 'readFile', qualifiedName: 'pkg.ReadFile', filePath: '/src/pkg/config.ts', startLine: 30, endLine: 40, signature: 'readFile(): Config' });
-  const testFile = makeNode({ name: 'testTarget', qualifiedName: 'pkg.__tests__.testTarget', filePath: '/src/pkg/__tests__/target.test.ts', startLine: 5, endLine: 15, label: 'Test' });
-  const cycleNode1 = makeNode({ name: 'cycleA', qualifiedName: 'pkg.CycleA', filePath: '/src/pkg/cycle.ts', startLine: 10, endLine: 20 });
-  const cycleNode2 = makeNode({ name: 'cycleB', qualifiedName: 'pkg.CycleB', filePath: '/src/pkg/cycle.ts', startLine: 25, endLine: 35 });
-  const searchNode1 = makeNode({ name: 'SearchResult', qualifiedName: 'pkg.SearchResult', filePath: '/src/pkg/result.ts', startLine: 5, endLine: 10, label: 'Class' });
-  const searchNode2 = makeNode({ name: 'searchQuery', qualifiedName: 'pkg.SearchQuery', filePath: '/src/pkg/query.ts', startLine: 12, endLine: 18, label: 'Function' });
-  const searchNode3 = makeNode({ name: 'searchIndex', qualifiedName: 'pkg.SearchIndex', filePath: '/src/pkg/index.ts', startLine: 20, endLine: 28, label: 'Class' });
+  const target = makeNode({
+    name: 'targetFunc',
+    qualifiedName: 'pkg.TargetFunc',
+    filePath: '/src/pkg/target.ts',
+    startLine: 20,
+    endLine: 30,
+    signature: 'targetFunc(a: number): string',
+  });
+  const directCaller1 = makeNode({
+    name: 'callerA',
+    qualifiedName: 'pkg.CallerA',
+    filePath: '/src/pkg/callerA.ts',
+    startLine: 5,
+    endLine: 15,
+  });
+  const directCaller2 = makeNode({
+    name: 'callerB',
+    qualifiedName: 'pkg.CallerB',
+    filePath: '/src/pkg/callerB.ts',
+    startLine: 8,
+    endLine: 18,
+  });
+  const indirectCaller = makeNode({
+    name: 'indirectCaller',
+    qualifiedName: 'pkg.IndirectCaller',
+    filePath: '/src/pkg/indirect.ts',
+    startLine: 1,
+    endLine: 10,
+  });
+  const dbFunc = makeNode({
+    name: 'query',
+    qualifiedName: 'pkg.Query',
+    filePath: '/src/pkg/db.ts',
+    startLine: 15,
+    endLine: 25,
+    signature: 'query(sql: string): Result[]',
+  });
+  const httpFunc = makeNode({
+    name: 'fetch',
+    qualifiedName: 'pkg.Fetch',
+    filePath: '/src/pkg/api.ts',
+    startLine: 42,
+    endLine: 52,
+    signature: 'fetch(url: string): Response',
+  });
+  const fileIOFunc = makeNode({
+    name: 'readFile',
+    qualifiedName: 'pkg.ReadFile',
+    filePath: '/src/pkg/config.ts',
+    startLine: 30,
+    endLine: 40,
+    signature: 'readFile(): Config',
+  });
+  const testFile = makeNode({
+    name: 'testTarget',
+    qualifiedName: 'pkg.__tests__.testTarget',
+    filePath: '/src/pkg/__tests__/target.test.ts',
+    startLine: 5,
+    endLine: 15,
+    label: 'Test',
+  });
+  const cycleNode1 = makeNode({
+    name: 'cycleA',
+    qualifiedName: 'pkg.CycleA',
+    filePath: '/src/pkg/cycle.ts',
+    startLine: 10,
+    endLine: 20,
+  });
+  const cycleNode2 = makeNode({
+    name: 'cycleB',
+    qualifiedName: 'pkg.CycleB',
+    filePath: '/src/pkg/cycle.ts',
+    startLine: 25,
+    endLine: 35,
+  });
+  const searchNode1 = makeNode({
+    name: 'SearchResult',
+    qualifiedName: 'pkg.SearchResult',
+    filePath: '/src/pkg/result.ts',
+    startLine: 5,
+    endLine: 10,
+    label: 'Class',
+  });
+  const searchNode2 = makeNode({
+    name: 'searchQuery',
+    qualifiedName: 'pkg.SearchQuery',
+    filePath: '/src/pkg/query.ts',
+    startLine: 12,
+    endLine: 18,
+    label: 'Function',
+  });
+  const searchNode3 = makeNode({
+    name: 'searchIndex',
+    qualifiedName: 'pkg.SearchIndex',
+    filePath: '/src/pkg/index.ts',
+    startLine: 20,
+    endLine: 28,
+    label: 'Class',
+  });
 
   store.insertNode(target);
   store.insertNode(directCaller1);
@@ -155,10 +245,7 @@ function createTestGraph(): { store: InMemoryGraphStore; nodes: TestGraphNodes }
 
 describe('computeConfidence', () => {
   it('should return low confidence when no signals match', () => {
-    const result = computeConfidence(
-      { name: 'unknown' },
-      { targetSymbol: 'something_else' },
-    );
+    const result = computeConfidence({ name: 'unknown' }, { targetSymbol: 'something_else' });
     expect(result.score).toBe(0.0);
     expect(result.label).toBe('low');
     expect(result.factors).toContain('no matching signals found');
@@ -217,18 +304,12 @@ describe('computeConfidence', () => {
   });
 
   it('should return medium confidence when line range contains target', () => {
-    const result = computeConfidence(
-      { startLine: 10, endLine: 30 },
-      { lineNumber: 20 },
-    );
+    const result = computeConfidence({ startLine: 10, endLine: 30 }, { lineNumber: 20 });
     expect(result.label).toBe('high');
   });
 
   it('should return medium confidence for nearby line range', () => {
-    const result = computeConfidence(
-      { startLine: 10, endLine: 12 },
-      { lineNumber: 15 },
-    );
+    const result = computeConfidence({ startLine: 10, endLine: 12 }, { lineNumber: 15 });
     // Proximity match (within 5 lines) is a heuristic match
     expect(result.label).toBe('medium');
   });
@@ -250,19 +331,13 @@ describe('computeConfidence', () => {
   });
 
   it('should handle high FTS rank', () => {
-    const result = computeConfidence(
-      { rank: 9 },
-      {},
-    );
+    const result = computeConfidence({ rank: 9 }, {});
     // Only rank heuristic, no direct matches → medium
     expect(result.label).toBe('medium');
   });
 
   it('should handle name similarity', () => {
-    const result = computeConfidence(
-      { name: 'targetFuncHelper' },
-      { targetSymbol: 'targetFunc' },
-    );
+    const result = computeConfidence({ name: 'targetFuncHelper' }, { targetSymbol: 'targetFunc' });
     expect(result.label).toBe('medium');
   });
 
@@ -283,18 +358,12 @@ describe('computeConfidence', () => {
   });
 
   it('should handle same label type', () => {
-    const result = computeConfidence(
-      { label: 'Function' },
-      { expectedLabel: 'Function' },
-    );
+    const result = computeConfidence({ label: 'Function' }, { expectedLabel: 'Function' });
     expect(result.score).toBeGreaterThan(0);
   });
 
   it('should handle vector similarity', () => {
-    const result = computeConfidence(
-      { vectorScore: 0.85 },
-      {},
-    );
+    const result = computeConfidence({ vectorScore: 0.85 }, {});
     expect(result.score).toBeGreaterThan(0);
   });
 
@@ -309,10 +378,7 @@ describe('computeConfidence', () => {
 
   it('should handle proximity line range match exactly at 5 lines (line 80 branch)', () => {
     // Line 10-12 finding, target at line 15 — exactly 5 lines apart from end
-    const result = computeConfidence(
-      { startLine: 10, endLine: 10 },
-      { lineNumber: 15 },
-    );
+    const result = computeConfidence({ startLine: 10, endLine: 10 }, { lineNumber: 15 });
     // |10 - 15| = 5, which is <= 5, triggers proximity heuristic
     expect(result.label).toBe('medium');
     expect(result.factors).toContain('proximity-based line match');
@@ -333,15 +399,12 @@ describe('computeConfidence', () => {
       { projectId: 'shared-project', hasDirectEdge: true },
     );
     // hasDirectEdge is true, so line 126 branch should NOT trigger
-    const projectFactor = result.factors.find(f => f.includes('same project'));
+    const projectFactor = result.factors.find((f) => f.includes('same project'));
     expect(projectFactor).toBeUndefined();
   });
 
   it('should handle same label type with expectedLabel (line 141 branch)', () => {
-    const result = computeConfidence(
-      { label: 'Class' },
-      { expectedLabel: 'Class' },
-    );
+    const result = computeConfidence({ label: 'Class' }, { expectedLabel: 'Class' });
     expect(result.score).toBeGreaterThan(0);
     expect(result.factors).toContain('same label type');
   });
@@ -397,11 +460,41 @@ describe('buildImpactResponse', () => {
     const result: EnrichedImpactResult = buildImpactResponse(
       {
         changedFiles: ['/src/pkg/target.ts'],
-        changedSymbols: [{ symbolQname: 'pkg.TargetFunc', label: 'Function', filePath: '/src/pkg/target.ts', impactType: 'direct', depth: 0, children: [] }],
+        changedSymbols: [
+          {
+            symbolQname: 'pkg.TargetFunc',
+            label: 'Function',
+            filePath: '/src/pkg/target.ts',
+            impactType: 'direct',
+            depth: 0,
+            children: [],
+          },
+        ],
         impactTree: [
-          { symbolQname: 'pkg.CallerA', label: 'Function', filePath: '/src/pkg/callerA.ts', impactType: 'direct', depth: 1, children: [] },
-          { symbolQname: 'pkg.CallerB', label: 'Function', filePath: '/src/pkg/callerB.ts', impactType: 'direct', depth: 1, children: [] },
-          { symbolQname: 'pkg.IndirectCaller', label: 'Function', filePath: '/src/pkg/indirect.ts', impactType: 'indirect', depth: 2, children: [] },
+          {
+            symbolQname: 'pkg.CallerA',
+            label: 'Function',
+            filePath: '/src/pkg/callerA.ts',
+            impactType: 'direct',
+            depth: 1,
+            children: [],
+          },
+          {
+            symbolQname: 'pkg.CallerB',
+            label: 'Function',
+            filePath: '/src/pkg/callerB.ts',
+            impactType: 'direct',
+            depth: 1,
+            children: [],
+          },
+          {
+            symbolQname: 'pkg.IndirectCaller',
+            label: 'Function',
+            filePath: '/src/pkg/indirect.ts',
+            impactType: 'indirect',
+            depth: 2,
+            children: [],
+          },
         ],
         riskLevel: 'medium',
         processesAffected: [],
@@ -423,13 +516,29 @@ describe('buildImpactResponse', () => {
 
   it('should detect test files affected', () => {
     const impactTree = [
-      { symbolQname: 'pkg.__tests__.testTarget', label: 'Test', filePath: '/src/pkg/__tests__/target.test.ts', impactType: 'direct', depth: 1, children: [] },
+      {
+        symbolQname: 'pkg.__tests__.testTarget',
+        label: 'Test',
+        filePath: '/src/pkg/__tests__/target.test.ts',
+        impactType: 'direct',
+        depth: 1,
+        children: [],
+      },
     ];
 
     const result = buildImpactResponse(
       {
         changedFiles: ['/src/pkg/target.ts'],
-        changedSymbols: [{ symbolQname: 'pkg.TargetFunc', label: 'Function', filePath: '/src/pkg/target.ts', impactType: 'direct', depth: 0, children: [] }],
+        changedSymbols: [
+          {
+            symbolQname: 'pkg.TargetFunc',
+            label: 'Function',
+            filePath: '/src/pkg/target.ts',
+            impactType: 'direct',
+            depth: 0,
+            children: [],
+          },
+        ],
         impactTree,
         riskLevel: 'low',
         processesAffected: [],
@@ -443,7 +552,7 @@ describe('buildImpactResponse', () => {
     );
 
     expect(result.testFilesAffected.length).toBeGreaterThanOrEqual(1);
-    expect(result.testFilesAffected.some(f => f.includes('test'))).toBe(true);
+    expect(result.testFilesAffected.some((f) => f.includes('test'))).toBe(true);
   });
 
   it('should generate risk assessment', () => {
@@ -470,7 +579,12 @@ describe('buildImpactResponse', () => {
   it('should generate change clusters', () => {
     const result = buildImpactResponse(
       {
-        changedFiles: ['/src/pkg/target.ts', '/src/pkg/callerA.ts', '/src/pkg/callerB.ts', '/src/services/auth.ts'],
+        changedFiles: [
+          '/src/pkg/target.ts',
+          '/src/pkg/callerA.ts',
+          '/src/pkg/callerB.ts',
+          '/src/services/auth.ts',
+        ],
         changedSymbols: [],
         impactTree: [],
         riskLevel: 'medium',
@@ -484,7 +598,7 @@ describe('buildImpactResponse', () => {
     );
 
     expect(result.changeClusters.length).toBeGreaterThan(0);
-    result.changeClusters.forEach(cluster => {
+    result.changeClusters.forEach((cluster) => {
       expect(cluster.name).toBeTruthy();
       expect(cluster.affectedFiles.length).toBeGreaterThan(0);
       expect(cluster.estimatedEffort).toBeDefined();
@@ -497,8 +611,22 @@ describe('buildImpactResponse', () => {
         changedFiles: ['/src/pkg/target.ts'],
         changedSymbols: [],
         impactTree: [
-          { symbolQname: 'pkg.CallerA', label: 'Function', filePath: '/src/pkg/callerA.ts', impactType: 'direct', depth: 1, children: [] },
-          { symbolQname: 'pkg.CallerB', label: 'Function', filePath: '/src/pkg/callerB.ts', impactType: 'direct', depth: 1, children: [] },
+          {
+            symbolQname: 'pkg.CallerA',
+            label: 'Function',
+            filePath: '/src/pkg/callerA.ts',
+            impactType: 'direct',
+            depth: 1,
+            children: [],
+          },
+          {
+            symbolQname: 'pkg.CallerB',
+            label: 'Function',
+            filePath: '/src/pkg/callerB.ts',
+            impactType: 'direct',
+            depth: 1,
+            children: [],
+          },
         ],
         riskLevel: 'low',
         processesAffected: [],
@@ -511,7 +639,7 @@ describe('buildImpactResponse', () => {
     );
 
     expect(result.suggestedReviewers.length).toBeGreaterThan(0);
-    result.suggestedReviewers.forEach(reviewer => {
+    result.suggestedReviewers.forEach((reviewer) => {
       expect(reviewer).toContain('team:');
     });
   });
@@ -557,8 +685,18 @@ describe('buildTraceResponse', () => {
   it('should build hop-by-hop detail', () => {
     const path = {
       path: [
-        { symbol: nodes.directCaller1.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.directCaller1.filePath },
-        { symbol: nodes.target.qualifiedName, depth: 1, relationship: 'CALLS', filePath: nodes.target.filePath },
+        {
+          symbol: nodes.directCaller1.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.directCaller1.filePath,
+        },
+        {
+          symbol: nodes.target.qualifiedName,
+          depth: 1,
+          relationship: 'CALLS',
+          filePath: nodes.target.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -577,7 +715,12 @@ describe('buildTraceResponse', () => {
   it('should detect side effects in the path', () => {
     const path = {
       path: [
-        { symbol: nodes.target.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.target.filePath },
+        {
+          symbol: nodes.target.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.target.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -592,9 +735,24 @@ describe('buildTraceResponse', () => {
   it('should detect cycles', () => {
     const path = {
       path: [
-        { symbol: nodes.cycleNode1.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.cycleNode1.filePath },
-        { symbol: nodes.cycleNode2.qualifiedName, depth: 1, relationship: 'CALLS', filePath: nodes.cycleNode2.filePath },
-        { symbol: nodes.cycleNode1.qualifiedName, depth: 2, relationship: 'CALLS', filePath: nodes.cycleNode1.filePath },
+        {
+          symbol: nodes.cycleNode1.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.cycleNode1.filePath,
+        },
+        {
+          symbol: nodes.cycleNode2.qualifiedName,
+          depth: 1,
+          relationship: 'CALLS',
+          filePath: nodes.cycleNode2.filePath,
+        },
+        {
+          symbol: nodes.cycleNode1.qualifiedName,
+          depth: 2,
+          relationship: 'CALLS',
+          filePath: nodes.cycleNode1.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -614,9 +772,24 @@ describe('buildTraceResponse', () => {
   it('should mark hops in cycles', () => {
     const path = {
       path: [
-        { symbol: nodes.cycleNode1.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.cycleNode1.filePath },
-        { symbol: nodes.cycleNode2.qualifiedName, depth: 1, relationship: 'CALLS', filePath: nodes.cycleNode2.filePath },
-        { symbol: nodes.cycleNode1.qualifiedName, depth: 2, relationship: 'CALLS', filePath: nodes.cycleNode1.filePath },
+        {
+          symbol: nodes.cycleNode1.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.cycleNode1.filePath,
+        },
+        {
+          symbol: nodes.cycleNode2.qualifiedName,
+          depth: 1,
+          relationship: 'CALLS',
+          filePath: nodes.cycleNode2.filePath,
+        },
+        {
+          symbol: nodes.cycleNode1.qualifiedName,
+          depth: 2,
+          relationship: 'CALLS',
+          filePath: nodes.cycleNode1.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -624,13 +797,18 @@ describe('buildTraceResponse', () => {
 
     const result = buildTraceResponse(path, store);
 
-    const cycleHops = result.path.filter(h => h.isInCycle);
+    const cycleHops = result.path.filter((h) => h.isInCycle);
     expect(cycleHops.length).toBeGreaterThan(0);
   });
 
   it('should handle empty path gracefully', () => {
     const path = {
-      path: [] as Array<{ symbol: string; depth: number; relationship: string; filePath: string | null }>,
+      path: [] as Array<{
+        symbol: string;
+        depth: number;
+        relationship: string;
+        filePath: string | null;
+      }>,
       found: false,
       maxDepthReached: false,
     };
@@ -656,7 +834,7 @@ describe('buildTraceResponse', () => {
     const result = buildTraceResponse(path, store);
 
     expect(result.totalHops).toBe(2);
-    result.path.forEach(hop => {
+    result.path.forEach((hop) => {
       expect(hop.qualifiedName).toBeDefined();
       expect(hop.callType).toBeDefined();
     });
@@ -665,7 +843,12 @@ describe('buildTraceResponse', () => {
   it('should detect database side effects from function names', () => {
     const path = {
       path: [
-        { symbol: nodes.dbFunc.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.dbFunc.filePath },
+        {
+          symbol: nodes.dbFunc.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.dbFunc.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -673,14 +856,19 @@ describe('buildTraceResponse', () => {
 
     const result = buildTraceResponse(path, store);
 
-    const dbEffects = result.sideEffects.filter(se => se.type === 'database');
+    const dbEffects = result.sideEffects.filter((se) => se.type === 'database');
     expect(dbEffects.length).toBeGreaterThan(0);
   });
 
   it('should detect HTTP side effects from function signatures', () => {
     const path = {
       path: [
-        { symbol: nodes.httpFunc.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.httpFunc.filePath },
+        {
+          symbol: nodes.httpFunc.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.httpFunc.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -688,14 +876,19 @@ describe('buildTraceResponse', () => {
 
     const result = buildTraceResponse(path, store);
 
-    const httpEffects = result.sideEffects.filter(se => se.type === 'http_request');
+    const httpEffects = result.sideEffects.filter((se) => se.type === 'http_request');
     expect(httpEffects.length).toBeGreaterThan(0);
   });
 
   it('should detect file I/O side effects', () => {
     const path = {
       path: [
-        { symbol: nodes.fileIOFunc.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.fileIOFunc.filePath },
+        {
+          symbol: nodes.fileIOFunc.qualifiedName,
+          depth: 0,
+          relationship: 'CALLS',
+          filePath: nodes.fileIOFunc.filePath,
+        },
       ],
       found: true,
       maxDepthReached: false,
@@ -703,7 +896,7 @@ describe('buildTraceResponse', () => {
 
     const result = buildTraceResponse(path, store);
 
-    const fileEffects = result.sideEffects.filter(se => se.type === 'file_io');
+    const fileEffects = result.sideEffects.filter((se) => se.type === 'file_io');
     expect(fileEffects.length).toBeGreaterThan(0);
   });
 });
@@ -724,7 +917,15 @@ describe('buildSearchResponse', () => {
 
   it('should enrich search results with related symbols', () => {
     const rawResults = [
-      { nodeId: nodes.target.id, name: nodes.target.name, qualifiedName: nodes.target.qualifiedName, label: nodes.target.label, filePath: nodes.target.filePath, rank: 10, snippet: nodes.target.signature },
+      {
+        nodeId: nodes.target.id,
+        name: nodes.target.name,
+        qualifiedName: nodes.target.qualifiedName,
+        label: nodes.target.label,
+        filePath: nodes.target.filePath,
+        rank: 10,
+        snippet: nodes.target.signature,
+      },
     ];
 
     const result: EnrichedSearchResult = buildSearchResponse(rawResults, store);
@@ -737,8 +938,24 @@ describe('buildSearchResponse', () => {
 
   it('should compute label distribution', () => {
     const rawResults = [
-      { nodeId: nodes.target.id, name: nodes.target.name, qualifiedName: nodes.target.qualifiedName, label: nodes.target.label, filePath: nodes.target.filePath, rank: 10, snippet: nodes.target.signature },
-      { nodeId: nodes.searchNode1.id, name: nodes.searchNode1.name, qualifiedName: nodes.searchNode1.qualifiedName, label: nodes.searchNode1.label, filePath: nodes.searchNode1.filePath, rank: 8, snippet: nodes.searchNode1.signature },
+      {
+        nodeId: nodes.target.id,
+        name: nodes.target.name,
+        qualifiedName: nodes.target.qualifiedName,
+        label: nodes.target.label,
+        filePath: nodes.target.filePath,
+        rank: 10,
+        snippet: nodes.target.signature,
+      },
+      {
+        nodeId: nodes.searchNode1.id,
+        name: nodes.searchNode1.name,
+        qualifiedName: nodes.searchNode1.qualifiedName,
+        label: nodes.searchNode1.label,
+        filePath: nodes.searchNode1.filePath,
+        rank: 8,
+        snippet: nodes.searchNode1.signature,
+      },
     ];
 
     const result = buildSearchResponse(rawResults, store);
@@ -749,7 +966,15 @@ describe('buildSearchResponse', () => {
 
   it('should compute module context', () => {
     const rawResults = [
-      { nodeId: nodes.target.id, name: nodes.target.name, qualifiedName: nodes.target.qualifiedName, label: nodes.target.label, filePath: nodes.target.filePath, rank: 10, snippet: nodes.target.signature },
+      {
+        nodeId: nodes.target.id,
+        name: nodes.target.name,
+        qualifiedName: nodes.target.qualifiedName,
+        label: nodes.target.label,
+        filePath: nodes.target.filePath,
+        rank: 10,
+        snippet: nodes.target.signature,
+      },
     ];
 
     const result = buildSearchResponse(rawResults, store);
@@ -771,7 +996,15 @@ describe('buildSearchResponse', () => {
 
   it('should handle results with missing nodes gracefully', () => {
     const rawResults = [
-      { nodeId: 99999, name: 'nonexistent', qualifiedName: 'pkg.Nonexistent', label: 'Function', filePath: null, rank: 5, snippet: null },
+      {
+        nodeId: 99999,
+        name: 'nonexistent',
+        qualifiedName: 'pkg.Nonexistent',
+        label: 'Function',
+        filePath: null,
+        rank: 5,
+        snippet: null,
+      },
     ];
 
     const result = buildSearchResponse(rawResults, store);
@@ -785,7 +1018,15 @@ describe('buildSearchResponse', () => {
 
   it('should compute repo distribution', () => {
     const rawResults = [
-      { nodeId: nodes.target.id, name: nodes.target.name, qualifiedName: nodes.target.qualifiedName, label: nodes.target.label, filePath: nodes.target.filePath, rank: 10, snippet: nodes.target.signature },
+      {
+        nodeId: nodes.target.id,
+        name: nodes.target.name,
+        qualifiedName: nodes.target.qualifiedName,
+        label: nodes.target.label,
+        filePath: nodes.target.filePath,
+        rank: 10,
+        snippet: nodes.target.signature,
+      },
     ];
 
     const result = buildSearchResponse(rawResults, store);
@@ -795,8 +1036,24 @@ describe('buildSearchResponse', () => {
 
   it('should populate top modules', () => {
     const rawResults = [
-      { nodeId: nodes.target.id, name: nodes.target.name, qualifiedName: nodes.target.qualifiedName, label: nodes.target.label, filePath: nodes.target.filePath, rank: 10, snippet: nodes.target.signature },
-      { nodeId: nodes.directCaller1.id, name: nodes.directCaller1.name, qualifiedName: nodes.directCaller1.qualifiedName, label: nodes.directCaller1.label, filePath: nodes.directCaller1.filePath, rank: 9, snippet: nodes.directCaller1.signature },
+      {
+        nodeId: nodes.target.id,
+        name: nodes.target.name,
+        qualifiedName: nodes.target.qualifiedName,
+        label: nodes.target.label,
+        filePath: nodes.target.filePath,
+        rank: 10,
+        snippet: nodes.target.signature,
+      },
+      {
+        nodeId: nodes.directCaller1.id,
+        name: nodes.directCaller1.name,
+        qualifiedName: nodes.directCaller1.qualifiedName,
+        label: nodes.directCaller1.label,
+        filePath: nodes.directCaller1.filePath,
+        rank: 9,
+        snippet: nodes.directCaller1.signature,
+      },
     ];
 
     const result = buildSearchResponse(rawResults, store);
@@ -817,10 +1074,33 @@ describe('Smart Response Integration', () => {
     const impact = buildImpactResponse(
       {
         changedFiles: [nodes.target.filePath ?? ''],
-        changedSymbols: [{ symbolQname: nodes.target.qualifiedName, label: nodes.target.label, filePath: nodes.target.filePath, impactType: 'direct', depth: 0, children: [] }],
+        changedSymbols: [
+          {
+            symbolQname: nodes.target.qualifiedName,
+            label: nodes.target.label,
+            filePath: nodes.target.filePath,
+            impactType: 'direct',
+            depth: 0,
+            children: [],
+          },
+        ],
         impactTree: [
-          { symbolQname: nodes.directCaller1.qualifiedName, label: nodes.directCaller1.label, filePath: nodes.directCaller1.filePath, impactType: 'direct', depth: 1, children: [] },
-          { symbolQname: nodes.indirectCaller.qualifiedName, label: nodes.indirectCaller.label, filePath: nodes.indirectCaller.filePath, impactType: 'indirect', depth: 2, children: [] },
+          {
+            symbolQname: nodes.directCaller1.qualifiedName,
+            label: nodes.directCaller1.label,
+            filePath: nodes.directCaller1.filePath,
+            impactType: 'direct',
+            depth: 1,
+            children: [],
+          },
+          {
+            symbolQname: nodes.indirectCaller.qualifiedName,
+            label: nodes.indirectCaller.label,
+            filePath: nodes.indirectCaller.filePath,
+            impactType: 'indirect',
+            depth: 2,
+            children: [],
+          },
         ],
         riskLevel: 'medium',
         processesAffected: [],
@@ -840,9 +1120,24 @@ describe('Smart Response Integration', () => {
     const trace = buildTraceResponse(
       {
         path: [
-          { symbol: nodes.indirectCaller.qualifiedName, depth: 0, relationship: 'CALLS', filePath: nodes.indirectCaller.filePath },
-          { symbol: nodes.directCaller1.qualifiedName, depth: 1, relationship: 'CALLS', filePath: nodes.directCaller1.filePath },
-          { symbol: nodes.target.qualifiedName, depth: 2, relationship: 'CALLS', filePath: nodes.target.filePath },
+          {
+            symbol: nodes.indirectCaller.qualifiedName,
+            depth: 0,
+            relationship: 'CALLS',
+            filePath: nodes.indirectCaller.filePath,
+          },
+          {
+            symbol: nodes.directCaller1.qualifiedName,
+            depth: 1,
+            relationship: 'CALLS',
+            filePath: nodes.directCaller1.filePath,
+          },
+          {
+            symbol: nodes.target.qualifiedName,
+            depth: 2,
+            relationship: 'CALLS',
+            filePath: nodes.target.filePath,
+          },
         ],
         found: true,
         maxDepthReached: false,
@@ -899,14 +1194,16 @@ describe('Smart Response Integration', () => {
           impactType: 'direct',
           depth: 1,
           children: [],
-        })).concat(Array.from({ length: 25 }, (_, i) => ({
-          symbolQname: `pkg.Transitive${i}`,
-          label: 'Function',
-          filePath: `/path/transitive${i}.ts`,
-          impactType: 'transitive',
-          depth: 2,
-          children: [],
-        }))),
+        })).concat(
+          Array.from({ length: 25 }, (_, i) => ({
+            symbolQname: `pkg.Transitive${i}`,
+            label: 'Function',
+            filePath: `/path/transitive${i}.ts`,
+            impactType: 'transitive',
+            depth: 2,
+            children: [],
+          })),
+        ),
         riskLevel: 'high',
         processesAffected: [{ processName: 'Test', severity: 'degraded' }],
         estimatedEffort: 'high',
@@ -933,7 +1230,13 @@ describe('Smart Response Integration', () => {
   it('should hit high score boundary for direct edge with qualified name', () => {
     const result = computeConfidence(
       { qualifiedName: 'target', filePath: '/src/target.ts', startLine: 10, endLine: 20 },
-      { targetSymbol: 'target', targetFile: '/src/target.ts', lineNumber: 15, edgeType: 'CALLS', hasDirectEdge: true },
+      {
+        targetSymbol: 'target',
+        targetFile: '/src/target.ts',
+        lineNumber: 15,
+        edgeType: 'CALLS',
+        hasDirectEdge: true,
+      },
     );
     expect(result.label).toBe('high');
     expect(result.score).toBeGreaterThanOrEqual(0.92);

@@ -3,12 +3,7 @@
 
 import { existsSync, unlinkSync } from 'node:fs';
 import type { Database as DatabaseType, Statement } from 'better-sqlite3';
-import type {
-  GraphNode,
-  GraphEdge,
-  NodeLabel,
-  RelationshipType,
-} from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Lazy import of better-sqlite3 (optional dependency)
@@ -20,7 +15,7 @@ try {
   // Dynamic require for optional better-sqlite3 dependency
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
-/* v8 ignore start */
+  /* v8 ignore start */
 } catch {
   // better-sqlite3 is optional; SqliteGraphStore throws a clear error on use.
 }
@@ -523,7 +518,11 @@ export class SqliteGraphStore {
     const issues: string[] = [];
 
     // Check for orphan edges
-    const orphanRows = this.stmtOrphanEdges.all() as { edge_id: number; missing_side: string; node_id: number }[];
+    const orphanRows = this.stmtOrphanEdges.all() as {
+      edge_id: number;
+      missing_side: string;
+      node_id: number;
+    }[];
     /* v8 ignore start */
     for (const row of orphanRows) {
       issues.push(
@@ -533,7 +532,12 @@ export class SqliteGraphStore {
     /* v8 ignore stop */
 
     // Check for duplicate qualified names (per project)
-    const dupRows = this.stmtDuplicateQnames.all() as { qualified_name: string; project_id: string; cnt: number; ids: string }[];
+    const dupRows = this.stmtDuplicateQnames.all() as {
+      qualified_name: string;
+      project_id: string;
+      cnt: number;
+      ids: string;
+    }[];
     /* v8 ignore start */
     for (const row of dupRows) {
       issues.push(
@@ -545,9 +549,7 @@ export class SqliteGraphStore {
     // Check for missing qualified names
     const missingQnameRows = this.stmtMissingQnames.all() as { id: number; name: string }[];
     for (const row of missingQnameRows) {
-      issues.push(
-        `Node id=${row.id} name="${row.name}" has empty qualifiedName`,
-      );
+      issues.push(`Node id=${row.id} name="${row.name}" has empty qualifiedName`);
     }
 
     return {
@@ -693,7 +695,9 @@ export class SqliteGraphStore {
 
     this.stmtGetNodesByFile = this.db.prepare('SELECT * FROM nodes WHERE file_path = ?');
 
-    this.stmtGetNodeByQName = this.db.prepare('SELECT * FROM nodes WHERE qualified_name = ? LIMIT 1');
+    this.stmtGetNodeByQName = this.db.prepare(
+      'SELECT * FROM nodes WHERE qualified_name = ? LIMIT 1',
+    );
 
     this.stmtUpdateNode = this.db.prepare(`
       UPDATE nodes SET
@@ -764,8 +768,12 @@ export class SqliteGraphStore {
     // Stats statements
     this.stmtNodeCount = this.db.prepare('SELECT COUNT(*) as cnt FROM nodes');
     this.stmtEdgeCount = this.db.prepare('SELECT COUNT(*) as cnt FROM edges');
-    this.stmtLabelCounts = this.db.prepare('SELECT label, COUNT(*) as cnt FROM nodes GROUP BY label');
-    this.stmtEdgeTypeCounts = this.db.prepare('SELECT type, COUNT(*) as cnt FROM edges GROUP BY type');
+    this.stmtLabelCounts = this.db.prepare(
+      'SELECT label, COUNT(*) as cnt FROM nodes GROUP BY label',
+    );
+    this.stmtEdgeTypeCounts = this.db.prepare(
+      'SELECT type, COUNT(*) as cnt FROM edges GROUP BY type',
+    );
 
     // Integrity statements
     this.stmtOrphanEdges = this.db.prepare(`

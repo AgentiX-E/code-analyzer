@@ -56,13 +56,7 @@ export class RepoGroupManager {
    * Add a repository to a group.
    * @throws If the group does not exist or the repo name is already registered.
    */
-  addRepo(
-    groupId: string,
-    owner: string,
-    name: string,
-    _url: string,
-    localPath: string,
-  ): void {
+  addRepo(groupId: string, owner: string, name: string, _url: string, localPath: string): void {
     const group = this.getGroupInternal(groupId);
 
     const fullName = `${owner}/${name}`;
@@ -165,11 +159,8 @@ export class RepoGroupManager {
       const description = typeof g['description'] === 'string' ? g['description'] : '';
       const repos = Array.isArray(g['repos']) ? g['repos'] : [];
       const contracts = Array.isArray(g['contracts']) ? g['contracts'] : [];
-      const indexedAt = typeof g['indexedAt'] === 'string'
-        ? g['indexedAt']
-        : g['indexedAt'] === null
-          ? null
-          : null;
+      const indexedAt =
+        typeof g['indexedAt'] === 'string' ? g['indexedAt'] : g['indexedAt'] === null ? null : null;
 
       const group: RepoGroup = {
         id,
@@ -178,12 +169,21 @@ export class RepoGroupManager {
         repos: repos.map((r: Record<string, unknown>): GroupRepo => ({
           owner: typeof r['owner'] === 'string' ? r['owner'] : '',
           repo: typeof r['repo'] === 'string' ? r['repo'] : '',
-          fullName: typeof r['fullName'] === 'string' ? r['fullName'] : `${r['owner'] || ''}/${r['repo'] || ''}`,
+          fullName:
+            typeof r['fullName'] === 'string'
+              ? r['fullName']
+              : `${r['owner'] || ''}/${r['repo'] || ''}`,
           localPath: typeof r['localPath'] === 'string' ? r['localPath'] : '',
-          projectId: typeof r['projectId'] === 'string' ? r['projectId'] : r['projectId'] === null ? null : null,
-          role: (r['role'] === 'primary' || r['role'] === 'dependency' || r['role'] === 'consumer')
-            ? r['role']
-            : 'dependency',
+          projectId:
+            typeof r['projectId'] === 'string'
+              ? r['projectId']
+              : r['projectId'] === null
+                ? null
+                : null,
+          role:
+            r['role'] === 'primary' || r['role'] === 'dependency' || r['role'] === 'consumer'
+              ? r['role']
+              : 'dependency',
           autoIndex: r['autoIndex'] !== false,
         })),
         contracts: contracts.map((c: Record<string, unknown>) => ({
@@ -194,11 +194,9 @@ export class RepoGroupManager {
           version: typeof c['version'] === 'string' ? c['version'] : '0.0.0',
           definition:
             typeof c['definition'] === 'object' && c['definition'] !== null
-              ? c['definition'] as Record<string, unknown>
+              ? (c['definition'] as Record<string, unknown>)
               : {},
-          dependencies: Array.isArray(c['dependencies'])
-            ? c['dependencies'].map(String)
-            : [],
+          dependencies: Array.isArray(c['dependencies']) ? c['dependencies'].map(String) : [],
         })),
         indexedAt,
       };

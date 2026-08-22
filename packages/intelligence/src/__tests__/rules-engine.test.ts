@@ -15,13 +15,24 @@ import type { RuleContext } from '../rules/rule-runner.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function runRule(ruleId: string, source: string, filePath = 'test.ts', language = 'typescript'): RuleCheckResult[] {
+function runRule(
+  ruleId: string,
+  source: string,
+  filePath = 'test.ts',
+  language = 'typescript',
+): RuleCheckResult[] {
   const checker = CHECKER_MAP[ruleId];
   if (!checker) throw new Error(`No checker for rule: ${ruleId}`);
   return checker(source.split('\n'), filePath, language);
 }
 
-function checkV(sources: string[], ruleId: string, checker: RuleChecker, filePath = 'test.ts', language = 'typescript'): RuleCheckResult[] {
+function checkV(
+  sources: string[],
+  ruleId: string,
+  checker: RuleChecker,
+  filePath = 'test.ts',
+  language = 'typescript',
+): RuleCheckResult[] {
   return checker(sources, filePath, language);
 }
 
@@ -68,7 +79,9 @@ describe('Correctness Rules', () => {
       // a and b are declared as params; handler is declared; compute is undef
       expect(results.length).toBeGreaterThan(0);
       const computeViolations = results.filter((v) => v.message.includes('compute'));
-      const paramViolations = results.filter((v) => v.message.includes('"a"') || v.message.includes('"b"'));
+      const paramViolations = results.filter(
+        (v) => v.message.includes('"a"') || v.message.includes('"b"'),
+      );
       expect(computeViolations.length).toBeGreaterThan(0);
       expect(paramViolations.length).toBe(0);
     });
@@ -223,18 +236,27 @@ describe('Security Rules', () => {
 
   describe('no-sql-injection (CWE-89)', () => {
     it('should detect SQL injection via template literal', () => {
-      const results = runRule('no-sql-injection', 'db.query(`SELECT * FROM users WHERE id = ${userId}`);');
+      const results = runRule(
+        'no-sql-injection',
+        'db.query(`SELECT * FROM users WHERE id = ${userId}`);',
+      );
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].message).toContain('CWE-89');
     });
 
     it('should not flag parameterized queries', () => {
-      const results = runRule('no-sql-injection', 'db.query("SELECT * FROM users WHERE id = ?", [userId]);');
+      const results = runRule(
+        'no-sql-injection',
+        'db.query("SELECT * FROM users WHERE id = ?", [userId]);',
+      );
       expect(results).toHaveLength(0);
     });
 
     it('should detect SQL concatenation with +', () => {
-      const results = runRule('no-sql-injection', 'const q = "SELECT * FROM users" + " WHERE id = " + userId;');
+      const results = runRule(
+        'no-sql-injection',
+        'const q = "SELECT * FROM users" + " WHERE id = " + userId;',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
   });
@@ -307,13 +329,19 @@ describe('Security Rules', () => {
     });
 
     it('should detect path constructed from user input with path.join', () => {
-      const results = runRule('no-path-traversal', 'const file = path.join(baseDir, req.query.file);');
+      const results = runRule(
+        'no-path-traversal',
+        'const file = path.join(baseDir, req.query.file);',
+      );
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].message).toContain('CWE-22');
     });
 
     it('should detect path constructed from user input with path.resolve', () => {
-      const results = runRule('no-path-traversal', 'const file = path.resolve(req.params.dir, fileName);');
+      const results = runRule(
+        'no-path-traversal',
+        'const file = path.resolve(req.params.dir, fileName);',
+      );
       expect(results.length).toBeGreaterThan(0);
       expect(results[0].message).toContain('CWE-22');
     });
@@ -580,13 +608,17 @@ describe('Maintainability Rules', () => {
 
   describe('max-nesting-depth', () => {
     it('should detect deep nesting', () => {
-      const source = 'function a() {\n  if (x) {\n    if (y) {\n      if (z) {\n        if (w) {\n          if (v) {\n            doSomething();\n          }\n        }\n      }\n    }\n  }\n}';
+      const source =
+        'function a() {\n  if (x) {\n    if (y) {\n      if (z) {\n        if (w) {\n          if (v) {\n            doSomething();\n          }\n        }\n      }\n    }\n  }\n}';
       const results = runRule('max-nesting-depth', source);
       expect(results.length).toBeGreaterThan(0);
     });
 
     it('should not flag shallow nesting', () => {
-      const results = runRule('max-nesting-depth', 'function a() {\n  if (x) {\n    doSomething();\n  }\n}');
+      const results = runRule(
+        'max-nesting-depth',
+        'function a() {\n  if (x) {\n    doSomething();\n  }\n}',
+      );
       expect(results).toHaveLength(0);
     });
   });
@@ -666,7 +698,14 @@ describe('Maintainability Rules', () => {
 
   describe('no-dead-code', () => {
     it('should detect large commented-out blocks', () => {
-      const lines = ['// old code', '// more old code', '// still old', '// very old', '// ancient', '// deprecated'];
+      const lines = [
+        '// old code',
+        '// more old code',
+        '// still old',
+        '// very old',
+        '// ancient',
+        '// deprecated',
+      ];
       const results = runRule('no-dead-code', lines.join('\n'));
       expect(results.length).toBeGreaterThan(0);
     });
@@ -743,7 +782,8 @@ describe('Style Rules', () => {
 
   describe('consistent-quotes', () => {
     it('should detect mixed quotes', () => {
-      const source = 'const a = "hello";\nconst b = \'world\';\nconst c = "foo";\nconst d = \'bar\';';
+      const source =
+        'const a = "hello";\nconst b = \'world\';\nconst c = "foo";\nconst d = \'bar\';';
       const results = runRule('consistent-quotes', source);
       expect(results.length).toBeGreaterThan(0);
     });
@@ -830,12 +870,20 @@ describe('Architecture Rules', () => {
 
     it('should not flag imports from non-layered modules', () => {
       // getImportLayer returns null for local paths — no layer info to compare
-      const results = runRule('no-layer-violation', 'import { helper } from "./local-util";', '/src/data/repos/repo.ts');
+      const results = runRule(
+        'no-layer-violation',
+        'import { helper } from "./local-util";',
+        '/src/data/repos/repo.ts',
+      );
       expect(results).toHaveLength(0);
     });
 
     it('should not flag same-layer imports', () => {
-      const results = runRule('no-layer-violation', 'import { helper } from "../data/other";', '/src/data/repos/repo.ts');
+      const results = runRule(
+        'no-layer-violation',
+        'import { helper } from "../data/other";',
+        '/src/data/repos/repo.ts',
+      );
       expect(results.length).toBeGreaterThanOrEqual(0);
     });
   });
@@ -870,7 +918,10 @@ describe('Architecture Rules', () => {
 
   describe('no-cross-boundary-access', () => {
     it('should detect import from internal module', () => {
-      const results = runRule('no-cross-boundary-access', 'import { internal } from "../internal/helper";');
+      const results = runRule(
+        'no-cross-boundary-access',
+        'import { internal } from "../internal/helper";',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
 
@@ -946,16 +997,40 @@ describe('RulesRegistry', () => {
   });
 
   it('should get all registered rules', () => {
-    const def1: RuleDefinition = { id: 'r1', category: 'style', severity: 'low', title: 'R1', description: 'R1' };
-    const def2: RuleDefinition = { id: 'r2', category: 'security', severity: 'critical', title: 'R2', description: 'R2' };
+    const def1: RuleDefinition = {
+      id: 'r1',
+      category: 'style',
+      severity: 'low',
+      title: 'R1',
+      description: 'R1',
+    };
+    const def2: RuleDefinition = {
+      id: 'r2',
+      category: 'security',
+      severity: 'critical',
+      title: 'R2',
+      description: 'R2',
+    };
     registry.register(def1, () => []);
     registry.register(def2, () => []);
     expect(registry.getAll()).toHaveLength(2);
   });
 
   it('should filter by category', () => {
-    const def1: RuleDefinition = { id: 'r1', category: 'style', severity: 'low', title: 'R1', description: 'R1' };
-    const def2: RuleDefinition = { id: 'r2', category: 'security', severity: 'critical', title: 'R2', description: 'R2' };
+    const def1: RuleDefinition = {
+      id: 'r1',
+      category: 'style',
+      severity: 'low',
+      title: 'R1',
+      description: 'R1',
+    };
+    const def2: RuleDefinition = {
+      id: 'r2',
+      category: 'security',
+      severity: 'critical',
+      title: 'R2',
+      description: 'R2',
+    };
     registry.register(def1, () => []);
     registry.register(def2, () => []);
     const securityRules = registry.getByCategory('security');
@@ -964,8 +1039,20 @@ describe('RulesRegistry', () => {
   });
 
   it('should filter by severity', () => {
-    const def1: RuleDefinition = { id: 'r1', category: 'style', severity: 'low', title: 'R1', description: 'R1' };
-    const def2: RuleDefinition = { id: 'r2', category: 'security', severity: 'critical', title: 'R2', description: 'R2' };
+    const def1: RuleDefinition = {
+      id: 'r1',
+      category: 'style',
+      severity: 'low',
+      title: 'R1',
+      description: 'R1',
+    };
+    const def2: RuleDefinition = {
+      id: 'r2',
+      category: 'security',
+      severity: 'critical',
+      title: 'R2',
+      description: 'R2',
+    };
     registry.register(def1, () => []);
     registry.register(def2, () => []);
     const criticalRules = registry.getBySeverity('critical');
@@ -974,9 +1061,29 @@ describe('RulesRegistry', () => {
   });
 
   it('should filter by language', () => {
-    const def1: RuleDefinition = { id: 'r1', category: 'style', severity: 'low', title: 'R1', description: 'R1', languageFilter: ['typescript'] };
-    const def2: RuleDefinition = { id: 'r2', category: 'style', severity: 'low', title: 'R2', description: 'R2', languageFilter: ['python'] };
-    const def3: RuleDefinition = { id: 'r3', category: 'style', severity: 'low', title: 'R3', description: 'R3' };
+    const def1: RuleDefinition = {
+      id: 'r1',
+      category: 'style',
+      severity: 'low',
+      title: 'R1',
+      description: 'R1',
+      languageFilter: ['typescript'],
+    };
+    const def2: RuleDefinition = {
+      id: 'r2',
+      category: 'style',
+      severity: 'low',
+      title: 'R2',
+      description: 'R2',
+      languageFilter: ['python'],
+    };
+    const def3: RuleDefinition = {
+      id: 'r3',
+      category: 'style',
+      severity: 'low',
+      title: 'R3',
+      description: 'R3',
+    };
     registry.register(def1, () => []);
     registry.register(def2, () => []);
     registry.register(def3, () => []);
@@ -989,7 +1096,13 @@ describe('RulesRegistry', () => {
   });
 
   it('should run all rules', () => {
-    const def: RuleDefinition = { id: 'test', category: 'style', severity: 'low', title: 'T', description: 'T' };
+    const def: RuleDefinition = {
+      id: 'test',
+      category: 'style',
+      severity: 'low',
+      title: 'T',
+      description: 'T',
+    };
     let called = false;
     registry.register(def, (lines, fp, lang) => {
       called = true;
@@ -1011,7 +1124,13 @@ describe('RulesRegistry', () => {
   });
 
   it('should handle rules that throw errors gracefully', () => {
-    const def: RuleDefinition = { id: 'thrower', category: 'style', severity: 'low', title: 'Throw', description: 'Throws' };
+    const def: RuleDefinition = {
+      id: 'thrower',
+      category: 'style',
+      severity: 'low',
+      title: 'Throw',
+      description: 'Throws',
+    };
     registry.register(def, () => {
       throw new Error('Simulated error');
     });
@@ -1020,8 +1139,20 @@ describe('RulesRegistry', () => {
   });
 
   it('should run by category', () => {
-    const def1: RuleDefinition = { id: 'r1', category: 'style', severity: 'low', title: 'R1', description: 'R1' };
-    const def2: RuleDefinition = { id: 'r2', category: 'security', severity: 'critical', title: 'R2', description: 'R2' };
+    const def1: RuleDefinition = {
+      id: 'r1',
+      category: 'style',
+      severity: 'low',
+      title: 'R1',
+      description: 'R1',
+    };
+    const def2: RuleDefinition = {
+      id: 'r2',
+      category: 'security',
+      severity: 'critical',
+      title: 'R2',
+      description: 'R2',
+    };
     registry.register(def1, () => [{ ruleId: 'r1', line: 1, message: 'Style issue' }]);
     registry.register(def2, () => [{ ruleId: 'r2', line: 1, message: 'Security issue' }]);
     const styleResults = registry.runByCategory('style', ['test'], 'test.ts', 'typescript');
@@ -1030,13 +1161,32 @@ describe('RulesRegistry', () => {
   });
 
   it('should handle null lines in runByCategory', () => {
-    const results = registry.runByCategory('style', null as unknown as string[], 'test.ts', 'typescript');
+    const results = registry.runByCategory(
+      'style',
+      null as unknown as string[],
+      'test.ts',
+      'typescript',
+    );
     expect(results).toEqual([]);
   });
 
   it('should filter by language in runByCategory', () => {
-    const def1: RuleDefinition = { id: 'r1', category: 'style', severity: 'low', title: 'R1', description: 'R1', languageFilter: ['typescript'] };
-    const def2: RuleDefinition = { id: 'r2', category: 'style', severity: 'low', title: 'R2', description: 'R2', languageFilter: ['python'] };
+    const def1: RuleDefinition = {
+      id: 'r1',
+      category: 'style',
+      severity: 'low',
+      title: 'R1',
+      description: 'R1',
+      languageFilter: ['typescript'],
+    };
+    const def2: RuleDefinition = {
+      id: 'r2',
+      category: 'style',
+      severity: 'low',
+      title: 'R2',
+      description: 'R2',
+      languageFilter: ['python'],
+    };
     registry.register(def1, () => [{ ruleId: 'r1', line: 1, message: 'TS' }]);
     registry.register(def2, () => [{ ruleId: 'r2', line: 1, message: 'PY' }]);
     const results = registry.runByCategory('style', ['code'], 'test.ts', 'typescript');
@@ -1045,7 +1195,13 @@ describe('RulesRegistry', () => {
   });
 
   it('should handle rule that throws in runByCategory', () => {
-    const def: RuleDefinition = { id: 'thrower', category: 'style', severity: 'low', title: 'Throw', description: 'Throws' };
+    const def: RuleDefinition = {
+      id: 'thrower',
+      category: 'style',
+      severity: 'low',
+      title: 'Throw',
+      description: 'Throws',
+    };
     registry.register(def, () => {
       throw new Error('Simulated error');
     });
@@ -1054,8 +1210,20 @@ describe('RulesRegistry', () => {
   });
 
   it('should overwrite existing rule on register', () => {
-    const def1: RuleDefinition = { id: 'same', category: 'style', severity: 'low', title: 'V1', description: 'V1' };
-    const def2: RuleDefinition = { id: 'same', category: 'security', severity: 'critical', title: 'V2', description: 'V2' };
+    const def1: RuleDefinition = {
+      id: 'same',
+      category: 'style',
+      severity: 'low',
+      title: 'V1',
+      description: 'V1',
+    };
+    const def2: RuleDefinition = {
+      id: 'same',
+      category: 'security',
+      severity: 'critical',
+      title: 'V2',
+      description: 'V2',
+    };
     registry.register(def1, () => []);
     registry.register(def2, () => []);
     expect(registry.size).toBe(1);
@@ -1127,14 +1295,18 @@ describe('RulesEngine', () => {
       const source = 'eval("1+1");\nconst x = 1;';
       const result = engine.analyze('src/app.ts', source.split('\n'), { categories: ['security'] });
       for (const v of result.violations) {
-        expect(v.ruleId).toMatch(/^(no-eval|no-sql|no-xss|no-hardcoded|no-command|no-path|no-open|no-unsafe|no-weak|no-insecure|no-http|no-debug)/);
+        expect(v.ruleId).toMatch(
+          /^(no-eval|no-sql|no-xss|no-hardcoded|no-command|no-path|no-open|no-unsafe|no-weak|no-insecure|no-http|no-debug)/,
+        );
       }
     });
 
     it('should support exclude rules', () => {
       const engine = new RulesEngine();
       const source = 'console.log("test");';
-      const result = engine.analyze('src/app.ts', source.split('\n'), { excludeRules: ['no-console', 'no-debug-statement', 'no-undef'] });
+      const result = engine.analyze('src/app.ts', source.split('\n'), {
+        excludeRules: ['no-console', 'no-debug-statement', 'no-undef'],
+      });
       const hasNoConsole = result.violations.some((v) => v.ruleId === 'no-console');
       expect(hasNoConsole).toBe(false);
     });
@@ -1163,7 +1335,13 @@ describe('RulesEngine', () => {
     it('should not include style violations in review mode', () => {
       // Create engine with only a few rules for controlled testing
       const registry = new RulesRegistry();
-      const def: RuleDefinition = { id: 'test-review', category: 'correctness', severity: 'medium', title: 'TR', description: 'Test' };
+      const def: RuleDefinition = {
+        id: 'test-review',
+        category: 'correctness',
+        severity: 'medium',
+        title: 'TR',
+        description: 'Test',
+      };
       registry.register(def, () => [{ ruleId: 'test-review', line: 1, message: 'Found' }]);
       const engine = new RulesEngine(registry);
 
@@ -1193,7 +1371,13 @@ describe('RulesEngine', () => {
 
   it('should accept custom registry', () => {
     const registry = new RulesRegistry();
-    const def: RuleDefinition = { id: 'custom', category: 'style', severity: 'low', title: 'C', description: 'Custom' };
+    const def: RuleDefinition = {
+      id: 'custom',
+      category: 'style',
+      severity: 'low',
+      title: 'C',
+      description: 'Custom',
+    };
     registry.register(def, () => [{ ruleId: 'custom', line: 1, message: 'Custom issue' }]);
     const engine = new RulesEngine(registry);
     const result = engine.analyze('test.ts', ['code']);
@@ -1273,11 +1457,7 @@ describe('Edge Cases', () => {
   });
 
   it('should handle file with only imports', () => {
-    const source = [
-      'import { foo } from "./bar";',
-      'import { baz } from "./qux";',
-      '',
-    ].join('\n');
+    const source = ['import { foo } from "./bar";', 'import { baz } from "./qux";', ''].join('\n');
     const engine = new RulesEngine();
     const result = engine.analyze('deps.ts', source.split('\n'));
     // Should not crash
@@ -1341,14 +1521,23 @@ describe('Backward Compatibility', () => {
   });
 
   it('should runRules with custom rule subset', () => {
-    const customRule: typeof DEFAULT_RULES[0] = {
+    const customRule: (typeof DEFAULT_RULES)[0] = {
       id: 'custom-bc',
       category: 'style',
       severity: 'low',
       title: 'Custom',
       description: 'Custom rule',
       check(ctx: RuleContext) {
-        return [{ ruleId: 'custom-bc', category: 'style', severity: 'low', filePath: ctx.filePath, line: 1, message: 'Custom' }];
+        return [
+          {
+            ruleId: 'custom-bc',
+            category: 'style',
+            severity: 'low',
+            filePath: ctx.filePath,
+            line: 1,
+            message: 'Custom',
+          },
+        ];
       },
     };
     const ctx: RuleContext = {
@@ -1374,13 +1563,15 @@ describe('Backward Compatibility', () => {
   });
 
   it('should handle errors in rule check gracefully', () => {
-    const throwingRule: typeof DEFAULT_RULES[0] = {
+    const throwingRule: (typeof DEFAULT_RULES)[0] = {
       id: 'thrower',
       category: 'style',
       severity: 'low',
       title: 'Thrower',
       description: 'Throws',
-      check() { throw new Error('Broken rule'); },
+      check() {
+        throw new Error('Broken rule');
+      },
     };
     const ctx: RuleContext = {
       filePath: 'test.ts',
@@ -1467,7 +1658,6 @@ describe('Rule Count Verification', () => {
 // ===========================================================================
 
 describe('Rule Executor — Edge Cases', () => {
-
   // ── no-undef edge cases ──
 
   describe('no-undef — additional branches', () => {
@@ -1573,7 +1763,10 @@ describe('Rule Executor — Edge Cases', () => {
 
   describe('no-sql-injection — additional branches', () => {
     it('should detect raw query with template literal', () => {
-      const results = runRule('no-sql-injection', 'db.execute(`DELETE FROM items WHERE id = ${id}`);');
+      const results = runRule(
+        'no-sql-injection',
+        'db.execute(`DELETE FROM items WHERE id = ${id}`);',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
 
@@ -1639,7 +1832,10 @@ describe('Rule Executor — Edge Cases', () => {
     });
 
     it('should detect fs.writeFile with concatenation', () => {
-      const results = runRule('no-path-traversal', 'fs.writeFileSync(base + "/" + req.params.file, data);');
+      const results = runRule(
+        'no-path-traversal',
+        'fs.writeFileSync(base + "/" + req.params.file, data);',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
   });
@@ -1648,12 +1844,18 @@ describe('Rule Executor — Edge Cases', () => {
 
   describe('no-weak-crypto — additional branches', () => {
     it('should detect md5 usage', () => {
-      const results = runRule('no-weak-crypto', 'crypto.createHash("md5").update(data).digest("hex");');
+      const results = runRule(
+        'no-weak-crypto',
+        'crypto.createHash("md5").update(data).digest("hex");',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
 
     it('should detect sha1 usage', () => {
-      const results = runRule('no-weak-crypto', 'crypto.createHash("sha1").update(data).digest("hex");');
+      const results = runRule(
+        'no-weak-crypto',
+        'crypto.createHash("sha1").update(data).digest("hex");',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
 
@@ -1663,7 +1865,10 @@ describe('Rule Executor — Edge Cases', () => {
     });
 
     it('should detect ECB mode', () => {
-      const results = runRule('no-weak-crypto', 'const cipher = crypto.createCipheriv("aes-128-ecb", key, iv);');
+      const results = runRule(
+        'no-weak-crypto',
+        'const cipher = crypto.createCipheriv("aes-128-ecb", key, iv);',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
   });
@@ -1710,7 +1915,11 @@ describe('Rule Executor — Edge Cases', () => {
 
   describe('no-debug-statement — additional branches', () => {
     it('should not flag debug statements in test files', () => {
-      const results = runRule('no-debug-statement', 'console.log("debug");', 'src/__tests__/test.ts');
+      const results = runRule(
+        'no-debug-statement',
+        'console.log("debug");',
+        'src/__tests__/test.ts',
+      );
       expect(results).toHaveLength(0);
     });
 
@@ -1757,7 +1966,8 @@ describe('Rule Executor — Edge Cases', () => {
     });
 
     it('should not flag query outside loop', () => {
-      const source = 'const items = db.find({ status: "active" });\nitems.forEach(item => process(item));';
+      const source =
+        'const items = db.find({ status: "active" });\nitems.forEach(item => process(item));';
       const results = runRule('no-n-plus-one', source);
       expect(results).toHaveLength(0);
     });
@@ -1824,12 +2034,18 @@ describe('Rule Executor — Edge Cases', () => {
     });
 
     it('should not flag header comments (===, ---)', () => {
-      const results = runRule('no-dead-code', '// ==========================================\n// Header\n// ==========================================');
+      const results = runRule(
+        'no-dead-code',
+        '// ==========================================\n// Header\n// ==========================================',
+      );
       expect(results).toHaveLength(0);
     });
 
     it('should not flag @annotated comments', () => {
-      const results = runRule('no-dead-code', '// @param x - the input value\n// @returns the result');
+      const results = runRule(
+        'no-dead-code',
+        '// @param x - the input value\n// @returns the result',
+      );
       expect(results).toHaveLength(0);
     });
   });
@@ -1895,7 +2111,8 @@ describe('Rule Executor — Edge Cases', () => {
 
   describe('no-long-lines — additional branches', () => {
     it('should not flag long import lines', () => {
-      const longImport = 'import { VeryLongNamedImport, AnotherVeryLongNamedImport, ThirdVeryLongNamedImport } from "some-module";';
+      const longImport =
+        'import { VeryLongNamedImport, AnotherVeryLongNamedImport, ThirdVeryLongNamedImport } from "some-module";';
       const results = runRule('no-long-lines', longImport);
       expect(results).toHaveLength(0);
     });
@@ -1906,7 +2123,10 @@ describe('Rule Executor — Edge Cases', () => {
   describe('no-circular-deps — additional branches', () => {
     it('should flag deep relative imports', () => {
       // The checker requires '../' AND '*/' in the line
-      const results = runRule('no-circular-deps', 'import { Foo } from "../../../shared/types"; /**/');
+      const results = runRule(
+        'no-circular-deps',
+        'import { Foo } from "../../../shared/types"; /**/',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
 
@@ -1930,12 +2150,18 @@ describe('Rule Executor — Edge Cases', () => {
 
   describe('no-cross-boundary-access — additional branches', () => {
     it('should flag import from internal module', () => {
-      const results = runRule('no-cross-boundary-access', 'import { Secret } from "../internal/secret";');
+      const results = runRule(
+        'no-cross-boundary-access',
+        'import { Secret } from "../internal/secret";',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
 
     it('should flag import from private module', () => {
-      const results = runRule('no-cross-boundary-access', 'import { Hidden } from "../private/hidden";');
+      const results = runRule(
+        'no-cross-boundary-access',
+        'import { Hidden } from "../private/hidden";',
+      );
       expect(results.length).toBeGreaterThan(0);
     });
   });
@@ -1991,7 +2217,8 @@ describe('Rule Executor — Edge Cases', () => {
     });
 
     it('should not flag JSON.parse with try/catch', () => {
-      const source = 'try {\n  const data = JSON.parse(input);\n} catch(e) {\n  console.error(e);\n}';
+      const source =
+        'try {\n  const data = JSON.parse(input);\n} catch(e) {\n  console.error(e);\n}';
       const results = runRule('no-unsafe-deserialization', source);
       expect(results).toHaveLength(0);
     });
@@ -2119,5 +2346,4 @@ describe('Rule Executor — Edge Cases', () => {
     // All built-in rules should have checkers, so size should be reasonable
     expect(registry.getAll().length).toBe(registry.size);
   });
-
 });

@@ -20,19 +20,13 @@ import type {
 let tmpDirCounter = 0;
 
 function createTempDir(): string {
-  const dir = join(
-    tmpdir(),
-    `code-analyzer-test-${Date.now()}-${tmpDirCounter++}`,
-  );
+  const dir = join(tmpdir(), `code-analyzer-test-${Date.now()}-${tmpDirCounter++}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-function createTestProject(
-  rootPath: string,
-  fileCount: number,
-): string[] {
+function createTestProject(rootPath: string, fileCount: number): string[] {
   const paths: string[] = [];
   for (let i = 0; i < fileCount; i++) {
     const dir = join(rootPath, `src/module_${i % 5}`);
@@ -175,9 +169,7 @@ describe('ParallelIndexer', () => {
       // Immediate re-index: should find few if any changed files
       const secondResult = await indexer.indexDirectory(rootPath);
       // If incremental is working, fewer files should be processed
-      expect(secondResult.filesParsed).toBeLessThanOrEqual(
-        firstResult.filesParsed,
-      );
+      expect(secondResult.filesParsed).toBeLessThanOrEqual(firstResult.filesParsed);
 
       // Change one file
       const changedPath = join(rootPath, 'src', 'module_0', 'file_0.ts');
@@ -238,16 +230,10 @@ describe('ParallelIndexer', () => {
 
       // Change one file
       const changedPath = join(rootPath, 'src', 'module_0', 'file_0.ts');
-      writeFileSync(
-        changedPath,
-        'export function changed_func(): void {}\n',
-        'utf-8',
-      );
+      writeFileSync(changedPath, 'export function changed_func(): void {}\n', 'utf-8');
 
       // Incremental index with changed files
-      const result = await indexer.incrementalIndex(rootPath, [
-        'src/module_0/file_0.ts',
-      ]);
+      const result = await indexer.incrementalIndex(rootPath, ['src/module_0/file_0.ts']);
 
       expect(result.filesParsed).toBeGreaterThan(0);
       expect(result.incremental).toBe(true);
@@ -372,11 +358,7 @@ describe('ParallelIndexer', () => {
       mkdirSync(dir, { recursive: true });
 
       // Create a valid file
-      writeFileSync(
-        join(dir, 'valid.ts'),
-        'export function valid(): void {}\n',
-        'utf-8',
-      );
+      writeFileSync(join(dir, 'valid.ts'), 'export function valid(): void {}\n', 'utf-8');
 
       const indexer = new ParallelIndexer(store, { enableIncremental: false });
 
@@ -395,11 +377,7 @@ describe('ParallelIndexer', () => {
       mkdirSync(dir, { recursive: true });
 
       // Create a file that will parse but have no symbols
-      writeFileSync(
-        join(dir, 'empty.ts'),
-        '// Just a comment\n',
-        'utf-8',
-      );
+      writeFileSync(join(dir, 'empty.ts'), '// Just a comment\n', 'utf-8');
 
       const indexer = new ParallelIndexer(store, { enableIncremental: false });
 

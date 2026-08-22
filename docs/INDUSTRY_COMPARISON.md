@@ -1,6 +1,6 @@
 # Code Analyzer vs Industry — Quantitative Comparison
 
-**Generated**: 2026-08-07T13:29:32.881Z
+**Generated**: 2026-08-22T09:34:23.423Z
 
 ## Executive Summary
 

@@ -84,6 +84,7 @@ When a PR is opened or updated, Code Analyzer:
 ### Expected Output
 
 Each finding includes:
+
 - **Severity:** critical, high, medium, low
 - **Category:** security, performance, maintainability, style, architecture
 - **Location:** exact file path and line number
@@ -177,10 +178,10 @@ See also: [Cross-Repo MCP tools](mcp-tool-reference.md#13-cross-repo-2-tools)
 ```yaml
 security:
   scanners:
-    - secrets       # Hardcoded API keys, tokens, passwords
-    - taint         # Data flow from user input to dangerous sinks
-    - dependencies  # Known vulnerabilities in dependencies
-  severity: medium  # Flag medium and above
+    - secrets # Hardcoded API keys, tokens, passwords
+    - taint # Data flow from user input to dangerous sinks
+    - dependencies # Known vulnerabilities in dependencies
+  severity: medium # Flag medium and above
 ```
 
 ### Step 2: Run the Audit
@@ -199,13 +200,13 @@ code-analyzer audit_security . \
 
 ### Step 3: Interpret CWE Findings
 
-| CWE | Name | Common Location | Remediation |
-|-----|------|----------------|-------------|
-| **CWE-89** | SQL Injection | Database query builders | Use parameterized queries |
-| **CWE-79** | Cross-Site Scripting | HTML rendering | Apply output encoding |
-| **CWE-22** | Path Traversal | File operations | Validate and sanitize paths |
-| **CWE-352** | CSRF | Form handlers | Add CSRF tokens |
-| **CWE-502** | Insecure Deserialization | Data parsing | Validate before deserializing |
+| CWE         | Name                     | Common Location         | Remediation                   |
+| ----------- | ------------------------ | ----------------------- | ----------------------------- |
+| **CWE-89**  | SQL Injection            | Database query builders | Use parameterized queries     |
+| **CWE-79**  | Cross-Site Scripting     | HTML rendering          | Apply output encoding         |
+| **CWE-22**  | Path Traversal           | File operations         | Validate and sanitize paths   |
+| **CWE-352** | CSRF                     | Form handlers           | Add CSRF tokens               |
+| **CWE-502** | Insecure Deserialization | Data parsing            | Validate before deserializing |
 
 ### Step 4: Taint Analysis
 
@@ -410,12 +411,12 @@ code-analysis:
 
 ### Quality Gate Thresholds
 
-| Metric | Warning | Error | Blocks Merge |
-|--------|---------|-------|:------------:|
-| Critical security issues | >= 1 | >= 1 | Yes |
-| High security issues | >= 3 | >= 5 | Yes |
-| File complexity > 20 | >= 5 | >= 10 | No |
-| Test coverage < 40% | Yes | — | No |
+| Metric                   | Warning | Error | Blocks Merge |
+| ------------------------ | ------- | ----- | :----------: |
+| Critical security issues | >= 1    | >= 1  |     Yes      |
+| High security issues     | >= 3    | >= 5  |     Yes      |
+| File complexity > 20     | >= 5    | >= 10 |      No      |
+| Test coverage < 40%      | Yes     | —     |      No      |
 
 ---
 
@@ -470,14 +471,14 @@ Windsurf should call `explore_architecture`.
 
 ### Step 4: Common Agent Workflows
 
-| Task | Agent Command | Tools Called |
-|------|--------------|--------------|
-| Code search | "Find where JWT tokens are generated" | `search_code` |
-| PR review | "Review PR #42 for security issues" | `pr_review` |
-| Impact analysis | "What happens if I rename getUser?" | `analyze_impact`, `find_references` |
-| Security audit | "Scan for hardcoded secrets" | `scan_secrets`, `audit_security` |
-| Architecture | "Show me the dependency graph" | `explore_architecture`, `query_cypher` |
-| Refactoring | "Find code smells in the auth module" | `detect_code_smells`, `suggest_refactor` |
+| Task            | Agent Command                         | Tools Called                             |
+| --------------- | ------------------------------------- | ---------------------------------------- |
+| Code search     | "Find where JWT tokens are generated" | `search_code`                            |
+| PR review       | "Review PR #42 for security issues"   | `pr_review`                              |
+| Impact analysis | "What happens if I rename getUser?"   | `analyze_impact`, `find_references`      |
+| Security audit  | "Scan for hardcoded secrets"          | `scan_secrets`, `audit_security`         |
+| Architecture    | "Show me the dependency graph"        | `explore_architecture`, `query_cypher`   |
+| Refactoring     | "Find code smells in the auth module" | `detect_code_smells`, `suggest_refactor` |
 
 ### Step 5: Manual Configuration (if auto-detect fails)
 

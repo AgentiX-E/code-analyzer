@@ -100,9 +100,7 @@ export class IntegrityVerifier {
   verifyDependency(name: string, version: string, integrity: string): boolean {
     if (!this.manifest) return false;
 
-    const dep = this.manifest.dependencies.find(
-      (d) => d.name === name && d.version === version,
-    );
+    const dep = this.manifest.dependencies.find((d) => d.name === name && d.version === version);
     if (!dep) return false;
 
     return dep.integrity === integrity;
@@ -208,11 +206,7 @@ export class IntegrityVerifier {
  * Verify a digital signature against a public key and payload.
  * Supports RSA-SHA256 signatures.
  */
-export function verifySignature(
-  payload: string,
-  signature: string,
-  publicKeyPem: string,
-): boolean {
+export function verifySignature(payload: string, signature: string, publicKeyPem: string): boolean {
   /* v8 ignore start -- @preserve */
   try {
     const verify = createVerify('RSA-SHA256');
@@ -228,10 +222,7 @@ export function verifySignature(
 /**
  * Sign a payload with a private key.
  */
-export function signPayload(
-  payload: string,
-  privateKeyPem: string,
-): string {
+export function signPayload(payload: string, privateKeyPem: string): string {
   /* v8 ignore start -- @preserve */
   const sign = createSign('RSA-SHA256');
   sign.update(payload);
@@ -267,7 +258,11 @@ export function isRestrictedLicense(license: string): boolean {
 // ---------------------------------------------------------------------------
 
 /** Pre-compiled patterns for common secret types */
-export const SECRET_PATTERNS: Array<{ name: string; pattern: RegExp; severity: SecurityViolation['severity'] }> = [
+export const SECRET_PATTERNS: Array<{
+  name: string;
+  pattern: RegExp;
+  severity: SecurityViolation['severity'];
+}> = [
   {
     name: 'GitHub Token (PAT)',
     pattern: /ghp_[a-zA-Z0-9]{36,}/g,

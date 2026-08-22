@@ -432,9 +432,7 @@ describe('Agent Command — Commander execution', () => {
     expect(() => configCmd!.parse(['node', 'test', 'configure', '--all'])).not.toThrow();
 
     // Should have printed the failure via console.error
-    expect(errorSpy).toHaveBeenCalledWith(
-      '  FAIL Failed to configure Cursor: permission denied',
-    );
+    expect(errorSpy).toHaveBeenCalledWith('  FAIL Failed to configure Cursor: permission denied');
 
     logSpy.mockRestore();
     errorSpy.mockRestore();

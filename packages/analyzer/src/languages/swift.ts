@@ -21,8 +21,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-swift') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -195,7 +195,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       }
     }
 
-
     // Result builder attribute (@resultBuilder)
     else if (nodeType === 'attribute') {
       /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
@@ -206,7 +205,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
         /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (decl && decl.type === 'class_declaration') {
           /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
-          const sibName = this.findNamedChild(decl, 'type_identifier') ??
+          const sibName =
+            this.findNamedChild(decl, 'type_identifier') ??
             this.findNamedChild(decl, 'identifier') ??
             this.findNamedChild(decl, 'simple_identifier');
           /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
@@ -281,7 +281,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     // Import declarations
     else if (nodeType === 'import_declaration') {
       /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
-      const nameNode = this.findNamedChild(node, 'identifier') ?? this.findNamedChild(node, 'type_identifier');
+      const nameNode =
+        this.findNamedChild(node, 'identifier') ?? this.findNamedChild(node, 'type_identifier');
       /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       const importName = nameNode ? nameNode.text : sourceText.replace(/^import\s+/, '');
       captures.push({
@@ -367,50 +368,122 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     // Functions: func name(params) -> ReturnType { }
     const funcRegex = /func\s+(\w+)\s*\(/g;
     while ((m = funcRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Classes: class Name: SuperClass { }
     const clRegex = /class\s+(\w+)\s*(?::\s*(\w+))?/g;
     while ((m = clRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { baseClasses: m[2] ?? '', filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { baseClasses: m[2] ?? '', filePath },
+      });
     }
 
     // Structs: struct Name: Protocol { }
     const stRegex = /struct\s+(\w+)\s*(?::\s*(\w+))?/g;
     while ((m = stRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.STRUCT_DEF, text: `struct ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { baseClasses: m[2] ?? '', filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.STRUCT_DEF,
+        text: `struct ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { baseClasses: m[2] ?? '', filePath },
+      });
     }
 
     // Protocols (interfaces): protocol Name { }
     const protRegex = /protocol\s+(\w+)/g;
     while ((m = protRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.INTERFACE_DEF, text: `protocol ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `protocol ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Enums: enum Name: Type { }
     const enumRegex = /enum\s+(\w+)/g;
     while ((m = enumRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.ENUM_DEF, text: `enum ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Extensions: extension Type: Protocol { }
     const extRegex = /extension\s+(\w+)/g;
     while ((m = extRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `extension ${m[1]!}`, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { isExtension: 'true', filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `extension ${m[1]!}`,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { isExtension: 'true', filePath },
+      });
     }
 
     // Variables: var/let name: Type = value
     const varRegex = /(?:var|let)\s+(\w+)\s*(?::\s*[^\n=]+)?\s*=/g;
     while ((m = varRegex.exec(source)) !== null) {
       const tag = m[0].startsWith('let') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
-      captures.push({ tag, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     // Imports: import Foundation
     const impRegex = /import\s+(\w+)/g;
     while ((m = impRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: m[1]!, startLine: this.ln(source, m.index), endLine: this.ln(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: m[1]!,
+        startLine: this.ln(source, m.index),
+        endLine: this.ln(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
 
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
@@ -423,10 +496,16 @@ export class SwiftProvider extends TreeSitterBaseProvider {
 
     // import ModuleName
     // import class Module.Submodule
-    const impRegex = /import\s+(?:class\s+|func\s+|typealias\s+|struct\s+|enum\s+|protocol\s+|let\s+|var\s+)?(\w+(?:\.\w+)*)/g;
+    const impRegex =
+      /import\s+(?:class\s+|func\s+|typealias\s+|struct\s+|enum\s+|protocol\s+|let\s+|var\s+)?(\w+(?:\.\w+)*)/g;
     while ((m = impRegex.exec(source)) !== null) {
       const parts = m[1]!.split('.');
-      imports.push({ source: m[1]!, names: [parts[parts.length - 1]!], type: 'named', lineNumber: this.ln(source, m.index) });
+      imports.push({
+        source: m[1]!,
+        names: [parts[parts.length - 1]!],
+        type: 'named',
+        lineNumber: this.ln(source, m.index),
+      });
     }
 
     return imports;
@@ -436,7 +515,9 @@ export class SwiftProvider extends TreeSitterBaseProvider {
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // Swift: public/internal modifiers; top-level declarations are internal by default
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`(?:public|open)\\s+func\\s+${s}\\b|(?:public|open)\\s+class\\s+${s}\\b|(?:public|open)\\s+struct\\s+${s}\\b|(?:public|open)\\s+var\\s+${s}\\b|(?:public|open)\\s+let\\s+${s}\\b`).test(source);
+    return new RegExp(
+      `(?:public|open)\\s+func\\s+${s}\\b|(?:public|open)\\s+class\\s+${s}\\b|(?:public|open)\\s+struct\\s+${s}\\b|(?:public|open)\\s+var\\s+${s}\\b|(?:public|open)\\s+let\\s+${s}\\b`,
+    ).test(source);
   }
   /* v8 ignore stop */
 
@@ -451,7 +532,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     }
     return null;
   }
-
 
   /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {

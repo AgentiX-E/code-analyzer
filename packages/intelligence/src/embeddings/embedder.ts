@@ -170,7 +170,7 @@ export class MockEmbeddingBackend implements EmbeddingBackend {
       const ngrams = this.extractNgrams(token);
       for (const ngram of ngrams) {
         const bucket = murmurHash3(ngram) % this.dimensions;
-        const magnitude = (murmurHash3(ngram, 42) % 2000 - 1000) / 1000; // [-1, 1]
+        const magnitude = ((murmurHash3(ngram, 42) % 2000) - 1000) / 1000; // [-1, 1]
         vec[bucket] = (vec[bucket] ?? 0) + magnitude * (1.0 / Math.sqrt(totalWeight));
       }
     }
@@ -188,10 +188,10 @@ export class MockEmbeddingBackend implements EmbeddingBackend {
    */
   private tokenizeContent(content: string): string[] {
     return content
-      .replace(/([a-z])([A-Z])/g, '$1 $2')       // camelCase → separate words
-      .replace(/_/g, ' ')                         // snake_case → spaces
-      .replace(/-/g, ' ')                         // kebab-case → spaces
-      .replace(/[^a-zA-Z0-9\s]/g, ' $& ')         // Symbols → separate tokens
+      .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase → separate words
+      .replace(/_/g, ' ') // snake_case → spaces
+      .replace(/-/g, ' ') // kebab-case → spaces
+      .replace(/[^a-zA-Z0-9\s]/g, ' $& ') // Symbols → separate tokens
       .split(/\s+/)
       .map((t) => t.toLowerCase().trim())
       .filter((t) => t.length > 0);
@@ -321,7 +321,14 @@ async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBack
   } catch (_err) {
     // Package, model, or ONNX runtime not available — caller falls back to mock.
     // This is expected in CI environments and on machines without ONNX runtime.
-    moduleLogger.error('Embedding generation failed', _err instanceof Error ? _err : new Error(String(_err)), { phaseId: 'embedder', extra: { reason: 'Real ONNX backend unavailable, falling back to mock' } });
+    moduleLogger.error(
+      'Embedding generation failed',
+      _err instanceof Error ? _err : new Error(String(_err)),
+      {
+        phaseId: 'embedder',
+        extra: { reason: 'Real ONNX backend unavailable, falling back to mock' },
+      },
+    );
     return null;
   }
 }
@@ -418,9 +425,7 @@ export class EmbeddingEngine {
    */
   cosineSimilarity(a: Float32Array, b: Float32Array): number {
     if (a.length !== b.length) {
-      throw new Error(
-        `Vector dimension mismatch: ${a.length} vs ${b.length}`,
-      );
+      throw new Error(`Vector dimension mismatch: ${a.length} vs ${b.length}`);
     }
 
     let dotProduct = 0;
@@ -452,9 +457,7 @@ export class EmbeddingEngine {
       score: this.cosineSimilarity(queryVector, vec),
     }));
 
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    return results.sort((a, b) => b.score - a.score).slice(0, topK);
   }
 
   /**
@@ -481,9 +484,7 @@ export class EmbeddingEngine {
   /**
    * Import embeddings from an external source (e.g. pipeline output).
    */
-  importEmbeddings(
-    entries: Array<{ nodeId: number; embedding: Float32Array | number[] }>,
-  ): void {
+  importEmbeddings(entries: Array<{ nodeId: number; embedding: Float32Array | number[] }>): void {
     for (const { nodeId, embedding } of entries) {
       const vec =
         embedding instanceof Float32Array

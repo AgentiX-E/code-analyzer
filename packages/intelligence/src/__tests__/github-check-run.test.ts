@@ -15,19 +15,75 @@ function mockResult(overrides: Partial<CrossRepoReviewResult> = {}): CrossRepoRe
   return {
     sourceRepo: 'org/service-a',
     prComments: [
-      { id: '1', path: 'src/user.ts', content: 'User input not sanitized', existingCode: '', startLine: 42, endLine: 42, category: 'security', severity: 'high', filtered: false, createdAt: new Date().toISOString() },
-      { id: '2', path: 'src/repo.ts', content: 'Loop query at line 88', existingCode: '', startLine: 88, endLine: 88, category: 'performance', severity: 'medium', filtered: false, createdAt: new Date().toISOString() },
-      { id: '3', path: 'src/user.ts', content: 'Public method lacks documentation', existingCode: '', startLine: 50, endLine: 50, category: 'style', severity: 'low', filtered: false, createdAt: new Date().toISOString() },
+      {
+        id: '1',
+        path: 'src/user.ts',
+        content: 'User input not sanitized',
+        existingCode: '',
+        startLine: 42,
+        endLine: 42,
+        category: 'security',
+        severity: 'high',
+        filtered: false,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        path: 'src/repo.ts',
+        content: 'Loop query at line 88',
+        existingCode: '',
+        startLine: 88,
+        endLine: 88,
+        category: 'performance',
+        severity: 'medium',
+        filtered: false,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: '3',
+        path: 'src/user.ts',
+        content: 'Public method lacks documentation',
+        existingCode: '',
+        startLine: 50,
+        endLine: 50,
+        category: 'style',
+        severity: 'low',
+        filtered: false,
+        createdAt: new Date().toISOString(),
+      },
     ],
     crossRepoImpacts: [
-      { affectedRepo: 'org/service-b', affectedSymbols: ['UserService'], impactLevel: 'high', description: 'Login signature change', suggestedActions: ['Update callers'] },
+      {
+        affectedRepo: 'org/service-b',
+        affectedSymbols: ['UserService'],
+        impactLevel: 'high',
+        description: 'Login signature change',
+        suggestedActions: ['Update callers'],
+      },
     ],
     apiBreakingChanges: [
-      { symbol: 'UserService.login', changeType: 'signature_changed', description: 'Parameter changed', affectedInRepos: ['org/service-b'], suggestedFix: 'Update signature' },
-      { symbol: 'Config.getSecret', changeType: 'removed', description: 'Method removed', affectedInRepos: ['org/service-b'], suggestedFix: 'Use Config.getSecure instead' },
+      {
+        symbol: 'UserService.login',
+        changeType: 'signature_changed',
+        description: 'Parameter changed',
+        affectedInRepos: ['org/service-b'],
+        suggestedFix: 'Update signature',
+      },
+      {
+        symbol: 'Config.getSecret',
+        changeType: 'removed',
+        description: 'Method removed',
+        affectedInRepos: ['org/service-b'],
+        suggestedFix: 'Use Config.getSecure instead',
+      },
     ],
     testPredictions: [
-      { repo: 'org/service-b', testFiles: ['tests/user.test.ts', 'tests/auth-e2e.test.ts'], reason: 'UserService.login changed', confidence: 'high' },
+      {
+        repo: 'org/service-b',
+        testFiles: ['tests/user.test.ts', 'tests/auth-e2e.test.ts'],
+        reason: 'UserService.login changed',
+        confidence: 'high',
+      },
     ],
     summary: {
       sourceRepo: 'org/service-a',
@@ -58,24 +114,26 @@ describe('GitHubCheckRunManager', () => {
 
   describe('formatAnnotations', () => {
     let manager: GitHubCheckRunManager;
-    beforeEach(() => { manager = createManager(); });
+    beforeEach(() => {
+      manager = createManager();
+    });
 
     it('should return annotations for API breaking changes', () => {
       const annotations = manager.formatAnnotations(mockResult());
-      const breaking = annotations.filter(a => a.annotation_level === 'failure');
+      const breaking = annotations.filter((a) => a.annotation_level === 'failure');
       expect(breaking.length).toBeGreaterThanOrEqual(2);
       expect(breaking[0]!.message).toContain('[BREAKING]');
     });
 
     it('should return annotations for cross-repo impact', () => {
       const annotations = manager.formatAnnotations(mockResult());
-      const impact = annotations.filter(a => a.title?.includes('Cross-Repo Impact'));
+      const impact = annotations.filter((a) => a.title?.includes('Cross-Repo Impact'));
       expect(impact.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should return annotations for review issues by severity mapping', () => {
       const annotations = manager.formatAnnotations(mockResult());
-      const high = annotations.filter(a => a.title?.includes('[high]'));
+      const high = annotations.filter((a) => a.title?.includes('[high]'));
       expect(high.length).toBeGreaterThanOrEqual(1);
       expect(high[0]!.annotation_level).toBe('failure');
     });
@@ -83,42 +141,69 @@ describe('GitHubCheckRunManager', () => {
     it('should map critical cross-repo impact to failure annotation level', () => {
       const result = mockResult({
         crossRepoImpacts: [
-          { affectedRepo: 'org/service-c', affectedSymbols: ['CoreAPI'], impactLevel: 'critical', description: 'Core API removed', suggestedActions: ['Block merge'] },
+          {
+            affectedRepo: 'org/service-c',
+            affectedSymbols: ['CoreAPI'],
+            impactLevel: 'critical',
+            description: 'Core API removed',
+            suggestedActions: ['Block merge'],
+          },
         ],
       });
       const annotations = manager.formatAnnotations(result);
-      const critical = annotations.filter(a => a.annotation_level === 'failure' && a.title?.includes('Cross-Repo Impact'));
+      const critical = annotations.filter(
+        (a) => a.annotation_level === 'failure' && a.title?.includes('Cross-Repo Impact'),
+      );
       expect(critical.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should map medium to warning annotation level', () => {
       const annotations = manager.formatAnnotations(mockResult());
-      const medium = annotations.filter(a => a.title?.includes('[medium]'));
+      const medium = annotations.filter((a) => a.title?.includes('[medium]'));
       expect(medium.length).toBeGreaterThanOrEqual(1);
       expect(medium[0]!.annotation_level).toBe('warning');
     });
 
     it('should return annotations for test impact', () => {
       const annotations = manager.formatAnnotations(mockResult());
-      const test = annotations.filter(a => a.title?.includes('Test Impact'));
+      const test = annotations.filter((a) => a.title?.includes('Test Impact'));
       expect(test.length).toBeGreaterThanOrEqual(1);
       expect(test[0]!.annotation_level).toBe('notice');
     });
 
     it('should handle empty result gracefully', () => {
-      const annotations = manager.formatAnnotations(mockResult({
-        apiBreakingChanges: [], crossRepoImpacts: [], prComments: [], testPredictions: [],
-      }));
+      const annotations = manager.formatAnnotations(
+        mockResult({
+          apiBreakingChanges: [],
+          crossRepoImpacts: [],
+          prComments: [],
+          testPredictions: [],
+        }),
+      );
       expect(annotations).toEqual([]);
     });
 
     it('should generate many annotations for result with many issues', () => {
       const manyComments = Array.from({ length: 60 }, (_, i) => ({
-        id: `${i}`, path: `src/file${i}.ts`, content: `Issue ${i}`, existingCode: '',
-        startLine: i, endLine: i, category: 'style' as const, severity: 'low' as const,
-        filtered: false, createdAt: new Date().toISOString(),
+        id: `${i}`,
+        path: `src/file${i}.ts`,
+        content: `Issue ${i}`,
+        existingCode: '',
+        startLine: i,
+        endLine: i,
+        category: 'style' as const,
+        severity: 'low' as const,
+        filtered: false,
+        createdAt: new Date().toISOString(),
       }));
-      const annotations = manager.formatAnnotations(mockResult({ prComments: manyComments, apiBreakingChanges: [], crossRepoImpacts: [], testPredictions: [] }));
+      const annotations = manager.formatAnnotations(
+        mockResult({
+          prComments: manyComments,
+          apiBreakingChanges: [],
+          crossRepoImpacts: [],
+          testPredictions: [],
+        }),
+      );
       expect(annotations.length).toBeGreaterThan(0);
     });
   });
@@ -129,22 +214,44 @@ describe('GitHubCheckRunManager', () => {
 
   describe('determineConclusion', () => {
     let manager: GitHubCheckRunManager;
-    beforeEach(() => { manager = createManager(); });
+    beforeEach(() => {
+      manager = createManager();
+    });
 
     it('should return success for approve', () => {
-      expect(manager.determineConclusion(mockResult({ summary: { ...mockResult().summary, mergeRecommendation: 'approve' } }))).toBe('success');
+      expect(
+        manager.determineConclusion(
+          mockResult({ summary: { ...mockResult().summary, mergeRecommendation: 'approve' } }),
+        ),
+      ).toBe('success');
     });
 
     it('should return neutral for approve-with-caution', () => {
-      expect(manager.determineConclusion(mockResult({ summary: { ...mockResult().summary, mergeRecommendation: 'approve-with-caution' } }))).toBe('neutral');
+      expect(
+        manager.determineConclusion(
+          mockResult({
+            summary: { ...mockResult().summary, mergeRecommendation: 'approve-with-caution' },
+          }),
+        ),
+      ).toBe('neutral');
     });
 
     it('should return failure for request-changes', () => {
-      expect(manager.determineConclusion(mockResult({ summary: { ...mockResult().summary, mergeRecommendation: 'request-changes' } }))).toBe('failure');
+      expect(
+        manager.determineConclusion(
+          mockResult({
+            summary: { ...mockResult().summary, mergeRecommendation: 'request-changes' },
+          }),
+        ),
+      ).toBe('failure');
     });
 
     it('should return action_required for block', () => {
-      expect(manager.determineConclusion(mockResult({ summary: { ...mockResult().summary, mergeRecommendation: 'block' } }))).toBe('action_required');
+      expect(
+        manager.determineConclusion(
+          mockResult({ summary: { ...mockResult().summary, mergeRecommendation: 'block' } }),
+        ),
+      ).toBe('action_required');
     });
 
     it('should default to neutral for unknown', () => {
@@ -160,7 +267,9 @@ describe('GitHubCheckRunManager', () => {
 
   describe('formatSummary', () => {
     let manager: GitHubCheckRunManager;
-    beforeEach(() => { manager = createManager(); });
+    beforeEach(() => {
+      manager = createManager();
+    });
 
     it('should include risk level', () => {
       const summary = manager.formatSummary(mockResult());
@@ -204,7 +313,9 @@ describe('GitHubCheckRunManager', () => {
 
   describe('formatDetailedText', () => {
     let manager: GitHubCheckRunManager;
-    beforeEach(() => { manager = createManager(); });
+    beforeEach(() => {
+      manager = createManager();
+    });
 
     it('should include recommendations', () => {
       const text = manager.formatDetailedText(mockResult());

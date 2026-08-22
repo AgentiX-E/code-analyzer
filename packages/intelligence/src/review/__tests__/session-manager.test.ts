@@ -13,13 +13,18 @@ describe('ReviewSessionManager', () => {
   let manager: ReviewSessionManager;
 
   beforeEach(() => {
-    testDir = path.join(os.tmpdir(), `ca-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    testDir = path.join(
+      os.tmpdir(),
+      `ca-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     fs.mkdirSync(testDir, { recursive: true });
     manager = new ReviewSessionManager(testDir);
   });
 
   afterEach(() => {
-    try { fs.rmSync(testDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(testDir, { recursive: true, force: true });
+    } catch {}
   });
 
   // ---------------------------------------------------------------------------
@@ -27,11 +32,13 @@ describe('ReviewSessionManager', () => {
   // ---------------------------------------------------------------------------
 
   it('should create a new review session', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/42',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff', fromRef: 'main', toRef: 'feature' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/42', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+      fromRef: 'main',
+      toRef: 'feature',
+    });
 
     expect(session.sessionId).toBeTruthy();
     expect(session.prUrl).toBe('https://github.com/org/repo/pull/42');
@@ -41,8 +48,16 @@ describe('ReviewSessionManager', () => {
   });
 
   it('should generate unique session IDs', () => {
-    const s1 = manager.createSession('https://github.com/a/b/pull/1', testDir, { repository: 'a/b', branch: 'main', mode: 'diff' });
-    const s2 = manager.createSession('https://github.com/a/b/pull/2', testDir, { repository: 'a/b', branch: 'main', mode: 'diff' });
+    const s1 = manager.createSession('https://github.com/a/b/pull/1', testDir, {
+      repository: 'a/b',
+      branch: 'main',
+      mode: 'diff',
+    });
+    const s2 = manager.createSession('https://github.com/a/b/pull/2', testDir, {
+      repository: 'a/b',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     expect(s1.sessionId).not.toBe(s2.sessionId);
   });
@@ -52,11 +67,11 @@ describe('ReviewSessionManager', () => {
   // ---------------------------------------------------------------------------
 
   it('should save a checkpoint with findings and files reviewed', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     const findings: ReviewComment[] = [
       {
@@ -84,17 +99,23 @@ describe('ReviewSessionManager', () => {
   });
 
   it('should not duplicate findings on repeated checkpoints', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     const findings: ReviewComment[] = [
       {
-        id: 'c1', path: 'src/a.ts', content: 'Issue 1',
-        existingCode: 'code', startLine: 1, endLine: 1,
-        category: 'style', severity: 'low', filtered: false,
+        id: 'c1',
+        path: 'src/a.ts',
+        content: 'Issue 1',
+        existingCode: 'code',
+        startLine: 1,
+        endLine: 1,
+        category: 'style',
+        severity: 'low',
+        filtered: false,
         createdAt: new Date().toISOString(),
       },
     ];
@@ -107,11 +128,11 @@ describe('ReviewSessionManager', () => {
   });
 
   it('should accumulate files reviewed across checkpoints', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     manager.checkpoint(session.sessionId, [], ['src/a.ts']);
     manager.checkpoint(session.sessionId, [], ['src/b.ts', 'src/c.ts']);
@@ -124,11 +145,11 @@ describe('ReviewSessionManager', () => {
   });
 
   it('should remove checked off files from remaining', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     manager.setRemainingFiles(session.sessionId, ['f1.ts', 'f2.ts', 'f3.ts']);
     manager.checkpoint(session.sessionId, [], ['f1.ts']);
@@ -149,11 +170,11 @@ describe('ReviewSessionManager', () => {
   });
 
   it('should resume a session with its complete state', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     const resumed = manager.resume(session.sessionId);
     expect(resumed).not.toBeNull();
@@ -165,8 +186,16 @@ describe('ReviewSessionManager', () => {
   // ---------------------------------------------------------------------------
 
   it('should list all sessions for a repo', () => {
-    manager.createSession('https://github.com/org/repo/pull/1', testDir, { repository: 'org/repo', branch: 'main', mode: 'diff' });
-    manager.createSession('https://github.com/org/repo/pull/2', testDir, { repository: 'org/repo', branch: 'main', mode: 'diff' });
+    manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
+    manager.createSession('https://github.com/org/repo/pull/2', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     const sessions = manager.listSessions(testDir);
     expect(sessions).toHaveLength(2);
@@ -182,11 +211,11 @@ describe('ReviewSessionManager', () => {
   // ---------------------------------------------------------------------------
 
   it('should delete a session', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     const deleted = manager.deleteSession(session.sessionId);
     expect(deleted).toBe(true);
@@ -203,11 +232,11 @@ describe('ReviewSessionManager', () => {
   // ---------------------------------------------------------------------------
 
   it('should report progress correctly', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     manager.setRemainingFiles(session.sessionId, ['a.ts', 'b.ts', 'c.ts', 'd.ts']);
     manager.checkpoint(session.sessionId, [], ['a.ts', 'b.ts']);
@@ -220,11 +249,11 @@ describe('ReviewSessionManager', () => {
   });
 
   it('should report 100% when all files reviewed', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
 
     manager.setRemainingFiles(session.sessionId, ['a.ts']);
     manager.checkpoint(session.sessionId, [], ['a.ts']);
@@ -263,11 +292,11 @@ describe('ReviewSessionManager', () => {
 
   it('should skip corrupted JSON files in listSessions', () => {
     // Create a valid session
-    manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
     // Write a corrupted file into the sessions directory
     const sessionsDir = path.join(testDir, '.code-analyzer', 'sessions');
     const corruptedPath = path.join(sessionsDir, 'bad.json');
@@ -277,15 +306,15 @@ describe('ReviewSessionManager', () => {
     const sessions = manager.listSessions(testDir);
     expect(sessions.length).toBeGreaterThanOrEqual(1);
     // No file with corrupted content should be present
-    expect(sessions.some(s => s.sessionId === 'bad')).toBe(false);
+    expect(sessions.some((s) => s.sessionId === 'bad')).toBe(false);
   });
 
   it('should return 100% progress when no files set (total=0 branch)', () => {
-    const session = manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
     // No setRemainingFiles called → filesRemaining=[], filesReviewed=[]
     const progress = manager.getProgress(session.sessionId);
     expect(progress).not.toBeNull();
@@ -303,11 +332,11 @@ describe('ReviewSessionManager', () => {
 
   it('should skip non-JSON files when listing sessions', () => {
     // Create a valid session
-    manager.createSession(
-      'https://github.com/org/repo/pull/1',
-      testDir,
-      { repository: 'org/repo', branch: 'main', mode: 'diff' },
-    );
+    manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
     // Write a non-JSON file (e.g., a lock file or temp file) in the sessions dir
     const sessionsDir = path.join(testDir, '.code-analyzer', 'sessions');
     const nonJsonFile = path.join(sessionsDir, 'lockfile');

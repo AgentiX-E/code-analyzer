@@ -86,7 +86,9 @@ describe('Cypher Parser', () => {
     });
 
     it('should parse WITH clause', () => {
-      const tokens = tokenize('MATCH (n) WITH n.name AS name WHERE name CONTAINS "test" RETURN name');
+      const tokens = tokenize(
+        'MATCH (n) WITH n.name AS name WHERE name CONTAINS "test" RETURN name',
+      );
       const ast = parse(tokens);
       expect(ast.withClause).toBeDefined();
       expect(ast.withClause!.items[0]!.alias).toBe('name');
@@ -215,7 +217,9 @@ describe('Cypher Parser', () => {
       // After parsing MATCH and WITH, isKeyword('WHERE') returns true,
       // but isKeyword('ORDER') returns false (current token is not ORDER),
       // exercising the false branch of the second && in isKeyword.
-      const tokens = tokenize('MATCH (n) WITH n.name AS name WHERE name CONTAINS "test" RETURN name');
+      const tokens = tokenize(
+        'MATCH (n) WITH n.name AS name WHERE name CONTAINS "test" RETURN name',
+      );
       const ast = parse(tokens);
       expect(ast.withClause?.where).toBeDefined();
     });
@@ -324,7 +328,9 @@ describe('Cypher Parser', () => {
     });
 
     it('should parse WITH clause with multiple items', () => {
-      const tokens = tokenize('MATCH (n) WITH n.name AS name, n.complexity AS complexity RETURN name, complexity');
+      const tokens = tokenize(
+        'MATCH (n) WITH n.name AS name, n.complexity AS complexity RETURN name, complexity',
+      );
       const ast = parse(tokens);
       expect(ast.withClause).toBeDefined();
       expect(ast.withClause!.items).toHaveLength(2);
@@ -410,7 +416,7 @@ describe('Cypher Parser', () => {
       // Instead, a simpler case: MATCH requires ( after it, but if we put a keyword...
       // Actually, the simplest way is to test parseMatch directly.
       // MATCH must be followed by (. If we put WHERE instead, it won't reach expect.
-      // Let's use: OPTIONAL MATCH — if we just have OPTIONAL without MATCH, 
+      // Let's use: OPTIONAL MATCH — if we just have OPTIONAL without MATCH,
       // parseMatch consumes OPTIONAL then expects MATCH. But OPTIONAL alone won't parse.
       // The expect with value check is reached when parseMatch sees OPTIONAL, advances,
       // then calls expect('KEYWORD', 'MATCH'). If the token after OPTIONAL is not MATCH...

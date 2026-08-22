@@ -21,13 +21,23 @@ function addNode(
 ): number {
   const now = new Date().toISOString();
   return store.insertNode({
-    id: 0, projectId, label: label as any,
-    name, qualifiedName: `${projectId}.${name}`,
-    filePath: `src/${name}.ts`, startLine: 1, endLine: 10,
-    language: 'typescript', properties: {},
-    signature: null, docstring: null, complexity: null,
-    isExported: true, fingerprint: null,
-    createdAt: now, updatedAt: now,
+    id: 0,
+    projectId,
+    label: label as any,
+    name,
+    qualifiedName: `${projectId}.${name}`,
+    filePath: `src/${name}.ts`,
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
@@ -39,8 +49,13 @@ function addEdge(
   projectId = 'prop-ext',
 ): number {
   return store.insertEdge({
-    id: 0, projectId, sourceId: src, targetId: tgt,
-    type: type as any, properties: {}, weight: 1,
+    id: 0,
+    projectId,
+    sourceId: src,
+    targetId: tgt,
+    type: type as any,
+    properties: {},
+    weight: 1,
     createdAt: new Date().toISOString(),
   });
 }
@@ -114,8 +129,16 @@ describe('Extended Graph Invariants', () => {
       addEdge(store, n2, n3, 'DEPENDS_ON');
 
       // Verify edges exist
-      const edges1 = store.queryEdges({ sourceId: n1, projectId: 'prop-ext', type: 'DEPENDS_ON' }).items;
-      const edges2 = store.queryEdges({ sourceId: n2, projectId: 'prop-ext', type: 'DEPENDS_ON' }).items;
+      const edges1 = store.queryEdges({
+        sourceId: n1,
+        projectId: 'prop-ext',
+        type: 'DEPENDS_ON',
+      }).items;
+      const edges2 = store.queryEdges({
+        sourceId: n2,
+        projectId: 'prop-ext',
+        type: 'DEPENDS_ON',
+      }).items;
       expect(edges1.length).toBeGreaterThan(0);
       expect(edges2.length).toBeGreaterThan(0);
 
@@ -248,18 +271,28 @@ describe('Extended Graph Invariants', () => {
       const store = makeStore();
       const now = new Date().toISOString();
       const nodes = Array.from({ length: 20 }, (_, i) => ({
-        id: 0, projectId: 'prop-ext', label: 'Function' as any,
-        name: `Batch${i}`, qualifiedName: `Batch${i}`,
-        filePath: `src/Batch${i}.ts`, startLine: 1, endLine: 10,
-        language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'prop-ext',
+        label: 'Function' as any,
+        name: `Batch${i}`,
+        qualifiedName: `Batch${i}`,
+        filePath: `src/Batch${i}.ts`,
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       }));
 
       const ids = store.insertNodes(nodes);
       expect(ids.length).toBe(20);
-      expect(ids.every(id => id > 0)).toBe(true);
+      expect(ids.every((id) => id > 0)).toBe(true);
 
       // All inserted nodes should be retrievable
       for (const id of ids) {
@@ -274,12 +307,26 @@ describe('Extended Graph Invariants', () => {
       const c = addNode(store, 'C');
 
       const edges = [
-        { id: 0, projectId: 'prop-ext', sourceId: a, targetId: b,
-          type: 'IMPORTS' as any, properties: {}, weight: 1,
-          createdAt: new Date().toISOString() },
-        { id: 0, projectId: 'prop-ext', sourceId: b, targetId: c,
-          type: 'IMPORTS' as any, properties: {}, weight: 1,
-          createdAt: new Date().toISOString() },
+        {
+          id: 0,
+          projectId: 'prop-ext',
+          sourceId: a,
+          targetId: b,
+          type: 'IMPORTS' as any,
+          properties: {},
+          weight: 1,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 0,
+          projectId: 'prop-ext',
+          sourceId: b,
+          targetId: c,
+          type: 'IMPORTS' as any,
+          properties: {},
+          weight: 1,
+          createdAt: new Date().toISOString(),
+        },
       ];
 
       const edgeIds = store.insertEdges(edges);

@@ -14,7 +14,10 @@ import { memoryUsage } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { JavaScriptProvider } from '../../../../packages/analyzer/src/languages/javascript.js';
 import { TypeScriptProvider } from '../../../../packages/analyzer/src/languages/typescript.js';
-import type { LanguageProvider, ParsedImport } from '../../../../packages/analyzer/src/languages/provider.js';
+import type {
+  LanguageProvider,
+  ParsedImport,
+} from '../../../../packages/analyzer/src/languages/provider.js';
 import type { UnifiedCapture } from '../../../../packages/shared/src/types/capture-tags.js';
 import { CAPTURE_TAGS } from '../../../../packages/shared/src/types/capture-tags.js';
 
@@ -99,7 +102,9 @@ function discoverFiles(root: string): FileInfo[] {
     let entries: ReturnType<typeof readdirSync>;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
-    } catch { return; }
+    } catch {
+      return;
+    }
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
@@ -121,7 +126,9 @@ function discoverFiles(root: string): FileInfo[] {
             size: content.length,
             lines: content.split('\n').length,
           });
-        } catch { /* skip unreadable */ }
+        } catch {
+          /* skip unreadable */
+        }
       }
     }
   }
@@ -153,9 +160,18 @@ function parseFile(file: FileInfo, provider: LanguageProvider): ParseStats {
 
   for (const c of captures) {
     const tag = c.tag;
-    if (tag === CAPTURE_TAGS.IMPORT || tag === CAPTURE_TAGS.IMPORT_NAMED || tag === CAPTURE_TAGS.IMPORT_DEFAULT || tag === CAPTURE_TAGS.IMPORT_WILDCARD) {
+    if (
+      tag === CAPTURE_TAGS.IMPORT ||
+      tag === CAPTURE_TAGS.IMPORT_NAMED ||
+      tag === CAPTURE_TAGS.IMPORT_DEFAULT ||
+      tag === CAPTURE_TAGS.IMPORT_WILDCARD
+    ) {
       imports++;
-    } else if (tag === CAPTURE_TAGS.FUNCTION_DEF || tag === CAPTURE_TAGS.METHOD_DEF || tag === CAPTURE_TAGS.CONSTRUCTOR_DEF) {
+    } else if (
+      tag === CAPTURE_TAGS.FUNCTION_DEF ||
+      tag === CAPTURE_TAGS.METHOD_DEF ||
+      tag === CAPTURE_TAGS.CONSTRUCTOR_DEF
+    ) {
       functions++;
       symbols++;
     } else if (tag === CAPTURE_TAGS.CLASS_DEF) {
@@ -166,19 +182,44 @@ function parseFile(file: FileInfo, provider: LanguageProvider): ParseStats {
       symbols++;
     } else if (tag === CAPTURE_TAGS.VARIABLE_DEF || tag === CAPTURE_TAGS.CONSTANT_DEF) {
       symbols++;
-    } else if (tag === CAPTURE_TAGS.INTERFACE_DEF || tag === CAPTURE_TAGS.ENUM_DEF || tag === CAPTURE_TAGS.TYPE_DEF) {
+    } else if (
+      tag === CAPTURE_TAGS.INTERFACE_DEF ||
+      tag === CAPTURE_TAGS.ENUM_DEF ||
+      tag === CAPTURE_TAGS.TYPE_DEF
+    ) {
       symbols++;
     }
   }
 
-  return { filePath: file.filePath, language: file.language, captures: captures.length, symbols, functions, classes, components, imports, errors };
+  return {
+    filePath: file.filePath,
+    language: file.language,
+    captures: captures.length,
+    symbols,
+    functions,
+    classes,
+    components,
+    imports,
+    errors,
+  };
 }
 
 // Key React exports to check for
 const KEY_REACT_EXPORTS = [
-  'createElement', 'useState', 'useEffect', 'useContext', 'useReducer',
-  'useCallback', 'useMemo', 'useRef', 'Component', 'createContext',
-  'forwardRef', 'memo', 'Fragment', 'cloneElement',
+  'createElement',
+  'useState',
+  'useEffect',
+  'useContext',
+  'useReducer',
+  'useCallback',
+  'useMemo',
+  'useRef',
+  'Component',
+  'createContext',
+  'forwardRef',
+  'memo',
+  'Fragment',
+  'cloneElement',
 ];
 
 // ── Test Suite ──────────────────────────────────────────────────────────────
@@ -227,7 +268,16 @@ describe('React Source Code Analysis (Real-World Benchmark)', () => {
     for (const file of files) {
       const lang = file.language;
       if (!langMap.has(lang)) {
-        langMap.set(lang, { language: lang, fileCount: 0, parseSuccess: 0, parseFailed: 0, symbolCount: 0, avgSymbolsPerFile: 0, parseRate: 0, totalTimeMs: parseTimeMs });
+        langMap.set(lang, {
+          language: lang,
+          fileCount: 0,
+          parseSuccess: 0,
+          parseFailed: 0,
+          symbolCount: 0,
+          avgSymbolsPerFile: 0,
+          parseRate: 0,
+          totalTimeMs: parseTimeMs,
+        });
       }
       langMap.get(lang)!.fileCount++;
     }
@@ -240,8 +290,10 @@ describe('React Source Code Analysis (Real-World Benchmark)', () => {
       }
     }
     for (const [, entry] of langMap) {
-      entry.parseRate = entry.fileCount > 0 ? Math.round((entry.parseSuccess / entry.fileCount) * 1000) / 10 : 0;
-      entry.avgSymbolsPerFile = entry.parseSuccess > 0 ? Math.round(entry.symbolCount / entry.parseSuccess) : 0;
+      entry.parseRate =
+        entry.fileCount > 0 ? Math.round((entry.parseSuccess / entry.fileCount) * 1000) / 10 : 0;
+      entry.avgSymbolsPerFile =
+        entry.parseSuccess > 0 ? Math.round(entry.symbolCount / entry.parseSuccess) : 0;
     }
 
     // Key exports
@@ -254,7 +306,9 @@ describe('React Source Code Analysis (Real-World Benchmark)', () => {
         for (const c of captures) {
           if (c.name) allNames.add(c.name);
         }
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
 
     const found: string[] = [];

@@ -20,7 +20,15 @@ export interface CheckRun {
   name: string;
   headSha: string;
   status: 'queued' | 'in_progress' | 'completed';
-  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null;
+  conclusion:
+    | 'success'
+    | 'failure'
+    | 'neutral'
+    | 'cancelled'
+    | 'skipped'
+    | 'timed_out'
+    | 'action_required'
+    | null;
   output: CheckRunOutput;
   completedAt: string | null;
   detailsUrl: string | null;
@@ -46,7 +54,8 @@ export interface CheckAnnotation {
 export interface CheckRunResult {
   checkRunId: number;
   status: 'queued' | 'in_progress' | 'completed';
-  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required';
+  conclusion:
+    'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required';
   title: string;
   summary: string;
   annotationsCount: number;
@@ -66,11 +75,7 @@ export class StatusCheckManager {
    * Create a new check run for a PR.
    * In production, this calls the GitHub API.
    */
-  async createCheckRun(
-    headSha: string,
-    name: string,
-    title: string,
-  ): Promise<CheckRun> {
+  async createCheckRun(headSha: string, name: string, title: string): Promise<CheckRun> {
     const checkRun: CheckRun = {
       id: Date.now(), // Simulated ID
       name,
@@ -99,7 +104,14 @@ export class StatusCheckManager {
     name: string,
     update: {
       status?: 'queued' | 'in_progress' | 'completed';
-      conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required';
+      conclusion?:
+        | 'success'
+        | 'failure'
+        | 'neutral'
+        | 'cancelled'
+        | 'skipped'
+        | 'timed_out'
+        | 'action_required';
       output?: Partial<CheckRunOutput>;
       detailsUrl?: string;
     },
@@ -225,9 +237,7 @@ export class StatusCheckManager {
   // Private
   // -----------------------------------------------------------------------
 
-  private severityToAnnotationLevel(
-    severity: string,
-  ): 'notice' | 'warning' | 'failure' {
+  private severityToAnnotationLevel(severity: string): 'notice' | 'warning' | 'failure' {
     switch (severity.toLowerCase()) {
       case 'critical':
       case 'error':

@@ -7,8 +7,12 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
-  NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode,
-  TaintSource, TaintSink, TaintSanitizer,
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+  TaintSource,
+  TaintSink,
+  TaintSanitizer,
 } from './tree-sitter-base.js';
 
 export class RProvider extends TreeSitterBaseProvider {
@@ -23,17 +27,31 @@ export class RProvider extends TreeSitterBaseProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const m = require('@eagleoutice/tree-sitter-r') as TreeSitterLanguage;
       return m;
-    } /* v8 ignore next -- @preserve */
-    catch { return null; }
+    } catch {
+      /* v8 ignore next -- @preserve */
+      return null;
+    }
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {
     return [
-      { nodeType: 'function_definition', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
+      {
+        nodeType: 'function_definition',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'identifier',
+      },
       { nodeType: 'call', captureTag: CAPTURE_TAGS.FUNCTION_CALL, useFirstNamedChild: true },
-      { nodeType: 'binary_operator', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
+      {
+        nodeType: 'binary_operator',
+        captureTag: CAPTURE_TAGS.VARIABLE_DEF,
+        useFirstNamedChild: true,
+      },
       { nodeType: 'assignment', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'identifier', captureTag: CAPTURE_TAGS.VARIABLE_ACCESS, useFirstNamedChild: true },
+      {
+        nodeType: 'identifier',
+        captureTag: CAPTURE_TAGS.VARIABLE_ACCESS,
+        useFirstNamedChild: true,
+      },
       { nodeType: 'special', captureTag: CAPTURE_TAGS.FUNCTION_CALL, useFirstNamedChild: true },
       { nodeType: 'string', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
       { nodeType: 'integer', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
@@ -43,7 +61,11 @@ export class RProvider extends TreeSitterBaseProvider {
       { nodeType: 'null', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
       { nodeType: 'arguments', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
       { nodeType: 'argument', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'namespace_get', captureTag: CAPTURE_TAGS.FUNCTION_CALL, useFirstNamedChild: true },
+      {
+        nodeType: 'namespace_get',
+        captureTag: CAPTURE_TAGS.FUNCTION_CALL,
+        useFirstNamedChild: true,
+      },
       { nodeType: 'comment', captureTag: CAPTURE_TAGS.COMMENT, useFirstNamedChild: true },
     ];
   }
@@ -60,7 +82,8 @@ export class RProvider extends TreeSitterBaseProvider {
         for (let i = 0; i < parent.namedChildCount; i++) {
           const child = parent.namedChild(i);
           if (child.type === 'identifier') {
-            funcName = child.text; break;
+            funcName = child.text;
+            break;
           }
         }
       }
@@ -73,7 +96,10 @@ export class RProvider extends TreeSitterBaseProvider {
     } else if (nt === 'binary_operator' || nt === 'assignment') {
       let isAssignment = false;
       for (let i = 0; i < node.childCount; i++) {
-        if (node.child(i).type === '<-' || node.child(i).type === '=') { isAssignment = true; break; }
+        if (node.child(i).type === '<-' || node.child(i).type === '=') {
+          isAssignment = true;
+          break;
+        }
       }
       if (isAssignment) {
         for (let i = 0; i < node.namedChildCount; i++) {
@@ -81,7 +107,9 @@ export class RProvider extends TreeSitterBaseProvider {
           if (child.type === 'identifier') {
             const rightSide = node.namedChild(node.namedChildCount - 1);
             if (rightSide?.type === 'function_definition') break;
-            captures.push(this.makeCapture(child, CAPTURE_TAGS.VARIABLE_DEF, child.text, child.text));
+            captures.push(
+              this.makeCapture(child, CAPTURE_TAGS.VARIABLE_DEF, child.text, child.text),
+            );
             break;
           }
         }
@@ -90,19 +118,30 @@ export class RProvider extends TreeSitterBaseProvider {
       this.captureCall(node, captures);
     } else if (nt === 'special') {
       if (node.text === '%>%' || node.text === '|>') {
-        captures.push(this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, 'pipe', 'pipe',
-          { pipeOperator: node.text }));
+        captures.push(
+          this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, 'pipe', 'pipe', {
+            pipeOperator: node.text,
+          }),
+        );
       } else if (node.text === '%in%') {
-        captures.push(this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, '%in%', node.text,
-          { operator: 'in' }));
-      /* special nodes always contain '%' (or are '%>%'/'|>') */
-      /* v8 ignore next -- @preserve */
+        captures.push(
+          this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, '%in%', node.text, { operator: 'in' }),
+        );
+        /* special nodes always contain '%' (or are '%>%'/'|>') */
+        /* v8 ignore next -- @preserve */
       } else if (node.text.includes('%')) {
-        captures.push(this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, node.text, node.text,
-          { customOperator: 'true' }));
+        captures.push(
+          this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, node.text, node.text, {
+            customOperator: 'true',
+          }),
+        );
       }
     } else if (nt === 'comment') {
-      captures.push(this.makeCapture(node, CAPTURE_TAGS.COMMENT, '[comment]', node.text.trim(), { isComment: 'true' }));
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.COMMENT, '[comment]', node.text.trim(), {
+          isComment: 'true',
+        }),
+      );
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -118,19 +157,28 @@ export class RProvider extends TreeSitterBaseProvider {
     if (funcName === 'library' || funcName === 'require') {
       const args = this.getCallArgs(node);
       const pkgName = args[0]?.replace(/['"]/g, '') ?? funcName;
-      captures.push(this.makeCapture(node, CAPTURE_TAGS.IMPORT, pkgName, `library(${pkgName})`,
-        { importType: 'library' }));
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.IMPORT, pkgName, `library(${pkgName})`, {
+          importType: 'library',
+        }),
+      );
     } else if (funcName === 'setClass' || funcName === 'setRefClass') {
       const args = this.getCallArgs(node);
       const className = args[0]?.replace(/['"]/g, '') ?? funcName;
-      captures.push(this.makeCapture(node, CAPTURE_TAGS.CLASS_DEF, className,
-        `setClass("${className}")`, { s4class: 'true' }));
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.CLASS_DEF, className, `setClass("${className}")`, {
+          s4class: 'true',
+        }),
+      );
     } else if (funcName === 'source') {
       const args = this.getCallArgs(node);
       const file = args[0]?.replace(/['"]/g, '') ?? '';
       if (file) {
-        captures.push(this.makeCapture(node, CAPTURE_TAGS.IMPORT, file, `source("${file}")`,
-          { importType: 'source' }));
+        captures.push(
+          this.makeCapture(node, CAPTURE_TAGS.IMPORT, file, `source("${file}")`, {
+            importType: 'source',
+          }),
+        );
       }
     } else {
       captures.push(this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, funcName, funcName));
@@ -147,14 +195,26 @@ export class RProvider extends TreeSitterBaseProvider {
       if (!fn) return;
       const line = node.startPosition.row + 1;
       // read.csv, read.table, readRDS are taint sources
-      if (fn.startsWith('read.') || fn === 'readRDS' || fn === 'readLines' ||
-          fn === 'scan' || fn === 'url' || fn === 'file') {
+      if (
+        fn.startsWith('read.') ||
+        fn === 'readRDS' ||
+        fn === 'readLines' ||
+        fn === 'scan' ||
+        fn === 'url' ||
+        fn === 'file'
+      ) {
         sources.push({ name: fn, sourceType: 'file_read', line, text: node.text, properties: {} });
         return;
       }
       // Sys.getenv, getOption are taint sources
       if (fn === 'Sys.getenv' || fn === 'getOption' || fn === 'commandArgs') {
-        sources.push({ name: fn, sourceType: 'environment', line, text: node.text, properties: {} });
+        sources.push({
+          name: fn,
+          sourceType: 'environment',
+          line,
+          text: node.text,
+          properties: {},
+        });
         return;
       }
       // httr::GET, curl, download.file are network sources
@@ -198,18 +258,32 @@ export class RProvider extends TreeSitterBaseProvider {
     }
   }
 
-  protected override walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
+  protected override walkForSanitizers(
+    node: TreeSitterSyntaxNode,
+    sanitizers: TaintSanitizer[],
+  ): void {
     if (node.type === 'call') {
       const fn = this.getCallName(node);
       /* tree-sitter-r call nodes always carry an identifier */
       /* v8 ignore next -- @preserve */
       if (!fn) return;
       // Validation/sanitization functions
-      if (fn === 'is.numeric' || fn === 'is.character' || fn === 'is.logical' ||
-          fn === 'type.convert' || fn === 'as.numeric' || fn === 'as.character' ||
-          fn === 'sanitize') {
-        sanitizers.push({ name: fn, sanitizerType: 'type_enforcement',
-          line: node.startPosition.row + 1, text: node.text, properties: {} });
+      if (
+        fn === 'is.numeric' ||
+        fn === 'is.character' ||
+        fn === 'is.logical' ||
+        fn === 'type.convert' ||
+        fn === 'as.numeric' ||
+        fn === 'as.character' ||
+        fn === 'sanitize'
+      ) {
+        sanitizers.push({
+          name: fn,
+          sanitizerType: 'type_enforcement',
+          line: node.startPosition.row + 1,
+          text: node.text,
+          properties: {},
+        });
         return;
       }
       return;
@@ -250,12 +324,16 @@ export class RProvider extends TreeSitterBaseProvider {
           if (types.includes(arg.type)) {
             for (let k = 0; k < arg.childCount; k++) {
               const sub = arg.child(k);
-              if (sub.type === 'identifier') { args.push(sub.text); }
-              else if (sub.type === 'string') {
+              if (sub.type === 'identifier') {
+                args.push(sub.text);
+              } else if (sub.type === 'string') {
                 let t = sub.text;
                 /* tree-sitter string nodes are always quoted */
                 /* v8 ignore next -- @preserve */
-                if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+                if (
+                  (t.startsWith('"') && t.endsWith('"')) ||
+                  (t.startsWith("'") && t.endsWith("'"))
+                ) {
                   t = t.slice(1, -1);
                 }
                 args.push(t);
@@ -272,13 +350,22 @@ export class RProvider extends TreeSitterBaseProvider {
   }
 
   private makeCapture(
-    node: TreeSitterSyntaxNode, tag: typeof CAPTURE_TAGS[keyof typeof CAPTURE_TAGS],
-    name: string, text: string, extra: Record<string, string> = {},
+    node: TreeSitterSyntaxNode,
+    tag: (typeof CAPTURE_TAGS)[keyof typeof CAPTURE_TAGS],
+    name: string,
+    text: string,
+    extra: Record<string, string> = {},
   ): UnifiedCapture {
-    return { tag, text,
-      startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1,
-      startByte: node.startIndex, endByte: node.endIndex,
-      name, properties: { filePath: this.filePath, ...extra } };
+    return {
+      tag,
+      text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: node.startIndex,
+      endByte: node.endIndex,
+      name,
+      properties: { filePath: this.filePath, ...extra },
+    };
   }
 
   // ---- Import Extraction ----
@@ -289,11 +376,22 @@ export class RProvider extends TreeSitterBaseProvider {
       if (fn === 'library' || fn === 'require') {
         const args = this.getCallArgs(node);
         const pkg = args[0]?.replace(/['"]/g, '') ?? fn;
-        imports.push({ source: pkg, names: [pkg], type: 'named', lineNumber: node.startPosition.row + 1 });
+        imports.push({
+          source: pkg,
+          names: [pkg],
+          type: 'named',
+          lineNumber: node.startPosition.row + 1,
+        });
       } else if (fn === 'source') {
         const args = this.getCallArgs(node);
         const file = args[0]?.replace(/['"]/g, '') ?? '';
-        if (file) imports.push({ source: file, names: [file], type: 'named', lineNumber: node.startPosition.row + 1 });
+        if (file)
+          imports.push({
+            source: file,
+            names: [file],
+            type: 'named',
+            lineNumber: node.startPosition.row + 1,
+          });
       }
       return;
     }
@@ -314,20 +412,59 @@ export class RProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
     const funcRx = /(\w+)\s*<-\s*function\s*\(/g;
     while ((m = funcRx.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: ln(m.index),
+        endLine: ln(m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const varRx = /(\w+)\s*<-\s*[^(]/g;
     while ((m = varRx.exec(source)) !== null) {
-      if (['if', 'else', 'for', 'while', 'function', 'return', 'library', 'require'].includes(m[1]!)) continue;
-      captures.push({ tag: CAPTURE_TAGS.VARIABLE_DEF, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      if (
+        ['if', 'else', 'for', 'while', 'function', 'return', 'library', 'require'].includes(m[1]!)
+      )
+        continue;
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: m[1]!,
+        startLine: ln(m.index),
+        endLine: ln(m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const classRx = /setClass\s*\(\s*["'](\w+)["']/g;
     while ((m = classRx.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: m[1]!,
+        startLine: ln(m.index),
+        endLine: ln(m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const libRx = /(?:library|require)\s*\(\s*["']?(\w+)["']?\s*\)/g;
     while ((m = libRx.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: m[1]!, startLine: ln(m.index), endLine: ln(m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { importType: 'library', filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: m[1]!,
+        startLine: ln(m.index),
+        endLine: ln(m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { importType: 'library', filePath },
+      });
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
@@ -343,7 +480,9 @@ export class RProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(_source: string, _symbolName: string): boolean { return true; }
+  protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
+    return true;
+  }
 
   protected override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
@@ -351,7 +490,13 @@ export class RProvider extends TreeSitterBaseProvider {
     let m: RegExpExecArray | null;
     const rx = /(read\.\w+|Sys\.getenv|commandArgs)\s*\(/g;
     while ((m = rx.exec(source)) !== null) {
-      sources.push({ name: m[1]!, sourceType: 'file_read', line: ln(m.index), text: m[0], properties: {} });
+      sources.push({
+        name: m[1]!,
+        sourceType: 'file_read',
+        line: ln(m.index),
+        text: m[0],
+        properties: {},
+      });
     }
     return sources;
   }
@@ -368,5 +513,7 @@ export class RProvider extends TreeSitterBaseProvider {
     return sinks;
   }
 
-  protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] { return []; }
+  protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
+    return [];
+  }
 }

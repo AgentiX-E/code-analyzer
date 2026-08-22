@@ -143,10 +143,42 @@ function addNodes(store: InMemoryGraphStore): void {
 
 function addEdges(store: InMemoryGraphStore): void {
   const edges: GraphEdge[] = [
-    { projectId: 'test-project', sourceId: 1, targetId: 2, type: 'CALLS', properties: {}, weight: 1, createdAt: '2026-01-01T00:00:00Z' },
-    { projectId: 'test-project', sourceId: 2, targetId: 1, type: 'CALLS', properties: {}, weight: 1, createdAt: '2026-01-01T00:00:00Z' },
-    { projectId: 'test-project', sourceId: 1, targetId: 3, type: 'DEPENDS_ON', properties: {}, weight: 1, createdAt: '2026-01-01T00:00:00Z' },
-    { projectId: 'test-project', sourceId: 1, targetId: 4, type: 'CONTRACT', properties: { repoGroup: 'main-services' }, weight: 2, createdAt: '2026-01-01T00:00:00Z' },
+    {
+      projectId: 'test-project',
+      sourceId: 1,
+      targetId: 2,
+      type: 'CALLS',
+      properties: {},
+      weight: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      projectId: 'test-project',
+      sourceId: 2,
+      targetId: 1,
+      type: 'CALLS',
+      properties: {},
+      weight: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      projectId: 'test-project',
+      sourceId: 1,
+      targetId: 3,
+      type: 'DEPENDS_ON',
+      properties: {},
+      weight: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      projectId: 'test-project',
+      sourceId: 1,
+      targetId: 4,
+      type: 'CONTRACT',
+      properties: { repoGroup: 'main-services' },
+      weight: 2,
+      createdAt: '2026-01-01T00:00:00Z',
+    },
   ];
   store.insertEdges(edges);
 }

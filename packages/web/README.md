@@ -135,14 +135,14 @@ export {};
 
 The dashboard will organize around these feature areas:
 
-| Component | Description |
-|---|---|
-| `App` | Root component with routing and layout |
-| `DashboardView` | Overview page with key metrics and recent activity |
-| `GraphView` | Interactive knowledge graph visualization using a force-directed or hierarchical layout |
-| `SearchView` | Full-text and semantic search across symbols, files, and types |
-| `ReportsView` | Analysis reports with charts, metrics, and export options |
-| `SettingsView` | Dashboard configuration (theme, refresh interval, connected projects) |
+| Component       | Description                                                                             |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `App`           | Root component with routing and layout                                                  |
+| `DashboardView` | Overview page with key metrics and recent activity                                      |
+| `GraphView`     | Interactive knowledge graph visualization using a force-directed or hierarchical layout |
+| `SearchView`    | Full-text and semantic search across symbols, files, and types                          |
+| `ReportsView`   | Analysis reports with charts, metrics, and export options                               |
+| `SettingsView`  | Dashboard configuration (theme, refresh interval, connected projects)                   |
 
 ### Planned Hooks
 
@@ -294,11 +294,11 @@ npm run clean
 The dashboard targets modern evergreen browsers:
 
 | Browser | Minimum Version |
-|---|---|
-| Chrome | 90+ |
-| Firefox | 90+ |
-| Safari | 15+ |
-| Edge | 90+ |
+| ------- | --------------- |
+| Chrome  | 90+             |
+| Firefox | 90+             |
+| Safari  | 15+             |
+| Edge    | 90+             |
 
 ---
 
@@ -319,21 +319,21 @@ npm run build
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `VITE_API_BASE_URL` | `/api` | Base URL for the intelligence API |
-| `VITE_WS_URL` | `ws://localhost:8080` | WebSocket endpoint for live updates |
-| `VITE_APP_TITLE` | `Code Analyzer` | Browser tab title |
+| Variable            | Default               | Description                         |
+| ------------------- | --------------------- | ----------------------------------- |
+| `VITE_API_BASE_URL` | `/api`                | Base URL for the intelligence API   |
+| `VITE_WS_URL`       | `ws://localhost:8080` | WebSocket endpoint for live updates |
+| `VITE_APP_TITLE`    | `Code Analyzer`       | Browser tab title                   |
 
 ---
 
 ## Dependencies
 
-| Package | Version | Role |
-|---|---|---|
-| `react` | ^19.0.0 | UI component library |
-| `react-dom` | ^19.0.0 | DOM renderer for React |
-| `@code-analyzer/shared` | workspace:* | Shared type definitions (planned) |
+| Package                       | Version     | Role                                                    |
+| ----------------------------- | ----------- | ------------------------------------------------------- |
+| `react`                       | ^19.0.0     | UI component library                                    |
+| `react-dom`                   | ^19.0.0     | DOM renderer for React                                  |
+| `@code-analyzer/shared`       | workspace:* | Shared type definitions (planned)                       |
 | `@code-analyzer/intelligence` | workspace:* | Intelligence engine: search, review, analysis (planned) |
 
 **Dev dependencies**: `@types/react` & `@types/react-dom` (19.x), `@vitejs/plugin-react` (4.3), TypeScript 5.6, Vite 6, Vitest 2.1.
@@ -342,13 +342,13 @@ npm run build
 
 ## Roadmap
 
-| Iteration | Feature | Status |
-|---|---|---|
-| 4 | Full web dashboard with GraphView, SearchView, ReportsView | Not started |
-| 4 | `useCodeIntelligence` hook with API client | Not started |
-| 4 | WebSocket support for live graph updates | Not started |
-| 5 | Multi-project dashboard | Not started |
-| 5 | Team collaboration features (shared views, annotations) | Not started |
+| Iteration | Feature                                                    | Status      |
+| --------- | ---------------------------------------------------------- | ----------- |
+| 4         | Full web dashboard with GraphView, SearchView, ReportsView | Not started |
+| 4         | `useCodeIntelligence` hook with API client                 | Not started |
+| 4         | WebSocket support for live graph updates                   | Not started |
+| 5         | Multi-project dashboard                                    | Not started |
+| 5         | Team collaboration features (shared views, annotations)    | Not started |
 
 ---
 

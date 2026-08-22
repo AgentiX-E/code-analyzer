@@ -2,10 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { GracefulShutdown } from '../operations/graceful-shutdown.js';
 
-import type {
-  ShutdownHandler,
-  ShutdownSignal,
-} from '../operations/graceful-shutdown.js';
+import type { ShutdownHandler, ShutdownSignal } from '../operations/graceful-shutdown.js';
 
 describe('GracefulShutdown', () => {
   let gs: GracefulShutdown;
@@ -244,8 +241,12 @@ describe('GracefulShutdown', () => {
 
     it('should call multiple before hooks', async () => {
       let count = 0;
-      gs.onBeforeShutdown(async () => { count++; });
-      gs.onBeforeShutdown(async () => { count++; });
+      gs.onBeforeShutdown(async () => {
+        count++;
+      });
+      gs.onBeforeShutdown(async () => {
+        count++;
+      });
 
       await gs.shutdown('SIGTERM', true);
       expect(count).toBe(2);
@@ -253,8 +254,12 @@ describe('GracefulShutdown', () => {
 
     it('should call multiple after hooks', async () => {
       let count = 0;
-      gs.onAfterShutdown(() => { count++; });
-      gs.onAfterShutdown(() => { count++; });
+      gs.onAfterShutdown(() => {
+        count++;
+      });
+      gs.onAfterShutdown(() => {
+        count++;
+      });
 
       await gs.shutdown('SIGTERM', true);
       expect(count).toBe(2);
@@ -305,7 +310,7 @@ describe('GracefulShutdown', () => {
 
     it('should handle manual shutdown with all signal types', async () => {
       const signals: ShutdownSignal[] = ['SIGTERM', 'SIGINT', 'SIGQUIT', 'SIGHUP'];
-      
+
       for (const sig of signals) {
         const instance = new GracefulShutdown();
         instance.register({
@@ -323,7 +328,7 @@ describe('GracefulShutdown', () => {
   describe('non-manual shutdown (process.exit mocking)', () => {
     it('should call process.exit(0) when all handlers succeed (non-manual)', async () => {
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
-      
+
       const g = new GracefulShutdown({ shutdownTimeout: 100, forceExitTimeout: 50 });
       g.register({
         name: 'ok-handler',
@@ -340,7 +345,7 @@ describe('GracefulShutdown', () => {
 
     it('should call process.exit(1) when a handler fails (non-manual)', async () => {
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
-      
+
       const g = new GracefulShutdown({ shutdownTimeout: 100, forceExitTimeout: 50 });
       g.register({
         name: 'failing',
@@ -359,7 +364,7 @@ describe('GracefulShutdown', () => {
 
     it('should set up force exit timer in non-manual mode', async () => {
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
-      
+
       const g = new GracefulShutdown({ shutdownTimeout: 100, forceExitTimeout: 50 });
       g.register({
         name: 'handler',

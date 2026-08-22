@@ -88,10 +88,7 @@ export function registerGraphRoutes(
     const query = request.query as GraphDataQuery;
     const store = getStore();
 
-    const limit = Math.min(
-      Math.max(1, parseInt(String(query.limit ?? '500'), 10) || 500),
-      5000,
-    );
+    const limit = Math.min(Math.max(1, parseInt(String(query.limit ?? '500'), 10) || 500), 5000);
 
     const totalNodes = store.getNodeCount();
     const totalEdges = store.getEdgeCount();
@@ -117,7 +114,10 @@ export function registerGraphRoutes(
     // Apply label filter
     let filteredNodes = allNodesForProject;
     if (query.label) {
-      const labels = query.label.split(',').map((l) => l.trim()).filter(Boolean);
+      const labels = query.label
+        .split(',')
+        .map((l) => l.trim())
+        .filter(Boolean);
       if (labels.length > 0) {
         filteredNodes = filteredNodes.filter((n) => labels.includes(n.label));
       }
@@ -127,9 +127,7 @@ export function registerGraphRoutes(
     if (query.search) {
       const term = query.search.toLowerCase();
       filteredNodes = filteredNodes.filter(
-        (n) =>
-          n.name.toLowerCase().includes(term) ||
-          n.qualifiedName.toLowerCase().includes(term),
+        (n) => n.name.toLowerCase().includes(term) || n.qualifiedName.toLowerCase().includes(term),
       );
     }
 

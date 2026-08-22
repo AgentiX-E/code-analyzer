@@ -57,19 +57,23 @@ describe('Synthesis Lens', () => {
     const f2 = makeFinding('b', 'security', 'critical', 'Hardcoded Key', '/src/file.ts', 5, 5);
     const report = makeReport('security', 'Security', [f1, f2]);
     const result = synthesizeFindings([report], 100);
-    const kept = result.findings.find(f => f.severity === 'critical');
+    const kept = result.findings.find((f) => f.severity === 'critical');
     expect(kept).toBeDefined();
   });
 
   it('should calibrate severity when same issue appears >3 times', () => {
     const findings: LensFinding[] = [];
     for (let i = 0; i < 4; i++) {
-      findings.push(makeFinding(`f${i}`, 'style', 'low', 'Magic Numbers', `/src/file${i}.ts`, 5, 5));
+      findings.push(
+        makeFinding(`f${i}`, 'style', 'low', 'Magic Numbers', `/src/file${i}.ts`, 5, 5),
+      );
     }
     const report = makeReport('style', 'Style', findings);
     const result = synthesizeFindings([report], 400);
     // All 4 should be upgraded to medium
-    const calibrated = result.findings.filter(f => f.severity === 'medium' && f.title === 'Magic Numbers');
+    const calibrated = result.findings.filter(
+      (f) => f.severity === 'medium' && f.title === 'Magic Numbers',
+    );
     expect(calibrated.length).toBe(4);
   });
 
@@ -111,7 +115,9 @@ describe('Synthesis Lens', () => {
     const findings: LensFinding[] = [];
     // 3 "Missing JSDoc" findings
     for (let i = 0; i < 3; i++) {
-      findings.push(makeFinding(`js${i}`, 'docs', 'low', 'Missing JSDoc', `/src/file${i}.ts`, i + 1, i + 1));
+      findings.push(
+        makeFinding(`js${i}`, 'docs', 'low', 'Missing JSDoc', `/src/file${i}.ts`, i + 1, i + 1),
+      );
     }
     // 1 "Magic Numbers" finding
     findings.push(makeFinding('m1', 'style', 'low', 'Magic Numbers', '/src/magic.ts', 5, 5));

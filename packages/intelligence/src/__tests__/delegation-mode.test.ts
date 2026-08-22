@@ -2,10 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { DelegationManager } from '../review/delegation-mode.js';
-import type {
-  DelegatePreview,
-  ResolvedRule,
-} from '../review/delegation-mode.js';
+import type { DelegatePreview, ResolvedRule } from '../review/delegation-mode.js';
 import type { ProjectStandard } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -80,11 +77,7 @@ function makeSecurityStandard(): ProjectStandard {
 
 describe('preview', () => {
   it('creates a scan mode preview with file bundles', () => {
-    const files = [
-      '/project/src/a.ts',
-      '/project/src/b.ts',
-      '/project/src/c.ts',
-    ];
+    const files = ['/project/src/a.ts', '/project/src/b.ts', '/project/src/c.ts'];
 
     const result = manager().preview(files, '/project');
 
@@ -107,10 +100,7 @@ describe('preview', () => {
   });
 
   it('splits files into multiple bundles based on bundleSize', () => {
-    const files = Array.from(
-      { length: 25 },
-      (_, i) => `/project/src/file${i}.ts`,
-    );
+    const files = Array.from({ length: 25 }, (_, i) => `/project/src/file${i}.ts`);
 
     const result = manager().preview(files, '/project', 'scan', undefined, 10);
 
@@ -122,19 +112,12 @@ describe('preview', () => {
   });
 
   it('filters files outside the project root', () => {
-    const files = [
-      '/project/src/a.ts',
-      '/other/b.ts',
-      '/project/src/c.ts',
-    ];
+    const files = ['/project/src/a.ts', '/other/b.ts', '/project/src/c.ts'];
 
     const result = manager().preview(files, '/project');
 
     expect(result.totalFiles).toBe(2);
-    expect(result.bundles[0]!.files).toEqual([
-      '/project/src/a.ts',
-      '/project/src/c.ts',
-    ]);
+    expect(result.bundles[0]!.files).toEqual(['/project/src/a.ts', '/project/src/c.ts']);
   });
 
   it('handles empty file list', () => {
@@ -154,10 +137,7 @@ describe('preview', () => {
   });
 
   it('uses default bundleSize of 10 when not specified', () => {
-    const files = Array.from(
-      { length: 15 },
-      (_, i) => `/project/src/file${i}.ts`,
-    );
+    const files = Array.from({ length: 15 }, (_, i) => `/project/src/file${i}.ts`);
 
     const result = manager().preview(files, '/project');
 
@@ -234,17 +214,10 @@ describe('resolveRules', () => {
     const codeStyle = makeStandard();
     const security = makeSecurityStandard();
 
-    const rules = manager().resolveRules('/project/src/app.ts', [
-      codeStyle,
-      security,
-    ]);
+    const rules = manager().resolveRules('/project/src/app.ts', [codeStyle, security]);
 
     expect(rules).toHaveLength(3);
-    expect(rules.map((r) => r.ruleId)).toEqual([
-      'no-var',
-      'no-console',
-      'no-eval',
-    ]);
+    expect(rules.map((r) => r.ruleId)).toEqual(['no-var', 'no-console', 'no-eval']);
   });
 
   it('includes security rules for ts files', () => {

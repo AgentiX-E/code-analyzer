@@ -22,14 +22,27 @@ export const generateReportSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
-    type: { type: 'string', description: 'Report type', enum: ['pr-review', 'codebase-audit', 'impact-analysis', 'architecture-review', 'standards-compliance'] },
+    type: {
+      type: 'string',
+      description: 'Report type',
+      enum: [
+        'pr-review',
+        'codebase-audit',
+        'impact-analysis',
+        'architecture-review',
+        'standards-compliance',
+      ],
+    },
     format: { type: 'string', description: 'Output format', enum: ['markdown', 'json', 'html'] },
     scope: { type: 'string', description: 'Report scope (branch, tag, etc.)' },
   },
   required: ['projectId', 'type'],
 };
 
-export async function generateReport(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function generateReport(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as GenerateReportParams;
   const projectId = params.projectId;
   const type = params.type;
@@ -96,9 +109,27 @@ export async function generateReport(args: Record<string, unknown>, store?: unkn
     },
     findings: [] as unknown[],
     recommendations: [
-      functionCount > 100 ? { priority: 'medium', category: 'maintainability', message: 'Consider splitting large modules' } : null,
-      routeCount === 0 ? { priority: 'low', category: 'documentation', message: 'No routes detected — consider adding API documentation' } : null,
-      testCount === 0 ? { priority: 'high', category: 'testing', message: 'No test files detected — add tests for critical paths' } : null,
+      functionCount > 100
+        ? {
+            priority: 'medium',
+            category: 'maintainability',
+            message: 'Consider splitting large modules',
+          }
+        : null,
+      routeCount === 0
+        ? {
+            priority: 'low',
+            category: 'documentation',
+            message: 'No routes detected — consider adding API documentation',
+          }
+        : null,
+      testCount === 0
+        ? {
+            priority: 'high',
+            category: 'testing',
+            message: 'No test files detected — add tests for critical paths',
+          }
+        : null,
     ].filter(Boolean),
     metrics: {
       nodeCount,
@@ -141,13 +172,20 @@ export const exportReportSchema = {
   type: 'object',
   properties: {
     reportId: { type: 'string', description: 'Report ID to export' },
-    format: { type: 'string', description: 'Export format', enum: ['markdown', 'json', 'html', 'pdf'] },
+    format: {
+      type: 'string',
+      description: 'Export format',
+      enum: ['markdown', 'json', 'html', 'pdf'],
+    },
     outputPath: { type: 'string', description: 'Output file path' },
   },
   required: ['reportId', 'format'],
 };
 
-export async function exportReport(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function exportReport(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as ExportReportParams;
   const reportId = params.reportId;
   const format = params.format;
@@ -168,12 +206,17 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
 
       exportMeta.nodeCount = typeof stats.nodeCount === 'number' ? stats.nodeCount : 0;
       exportMeta.edgeCount = typeof stats.edgeCount === 'number' ? stats.edgeCount : 0;
-      exportMeta.type = (stats.labelDistribution && stats.labelDistribution.length > 0)
-        ? 'codebase-audit' : 'architecture-review';
+      exportMeta.type =
+        stats.labelDistribution && stats.labelDistribution.length > 0
+          ? 'codebase-audit'
+          : 'architecture-review';
 
       if (gstore) {
         const allNodes = gstore.getAllNodes();
-        const nodesByLabel: Record<string, Array<{ name: string; filePath: string | null; complexity: number | null }>> = {};
+        const nodesByLabel: Record<
+          string,
+          Array<{ name: string; filePath: string | null; complexity: number | null }>
+        > = {};
         for (const node of allNodes) {
           const label = node.label;
           if (!nodesByLabel[label]) nodesByLabel[label] = [];
@@ -185,7 +228,7 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
         }
 
         const topComplexity = allNodes
-          .filter(n => n.complexity !== null)
+          .filter((n) => n.complexity !== null)
           .sort((a, b) => (b.complexity ?? 0) - (a.complexity ?? 0))
           .slice(0, 10);
 
@@ -216,7 +259,9 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
           if (topComplexity.length > 0) {
             lines.push(``, `## Top Complexity Symbols`, ``);
             for (const sym of topComplexity) {
-              lines.push(`- \`${sym.name}\` (complexity: ${sym.complexity}) — ${sym.filePath ?? 'unknown file'}`);
+              lines.push(
+                `- \`${sym.name}\` (complexity: ${sym.complexity}) — ${sym.filePath ?? 'unknown file'}`,
+              );
             }
           }
 
@@ -229,7 +274,10 @@ export async function exportReport(args: Record<string, unknown>, store?: unknow
             .map(({ label, count }) => `<tr><td>${label}</td><td>${count}</td></tr>`)
             .join('');
           const complexityRows = topComplexity
-            .map(sym => `<tr><td><code>${sym.name}</code></td><td>${sym.complexity}</td><td>${sym.filePath ?? 'unknown'}</td></tr>`)
+            .map(
+              (sym) =>
+                `<tr><td><code>${sym.name}</code></td><td>${sym.complexity}</td><td>${sym.filePath ?? 'unknown'}</td></tr>`,
+            )
             .join('');
 
           return `<!DOCTYPE html>
@@ -257,16 +305,29 @@ th{background:#f5f5f5}h1,h2{color:#333}</style></head>
         };
 
         switch (format) {
-          case 'markdown': reportContent = generateMarkdown(); break;
-          case 'html': reportContent = generateHtml(); break;
-          case 'json': reportContent = JSON.stringify({
-            reportId, type: exportMeta.type, generatedAt: new Date().toISOString(),
-            projectId: exportMeta.projectId,
-            summary: { nodeCount: exportMeta.nodeCount, edgeCount: exportMeta.edgeCount },
-            labelDistribution: stats.labelDistribution,
-            topComplexity,
-          }, null, 2); break;
-          default: reportContent = generateMarkdown();
+          case 'markdown':
+            reportContent = generateMarkdown();
+            break;
+          case 'html':
+            reportContent = generateHtml();
+            break;
+          case 'json':
+            reportContent = JSON.stringify(
+              {
+                reportId,
+                type: exportMeta.type,
+                generatedAt: new Date().toISOString(),
+                projectId: exportMeta.projectId,
+                summary: { nodeCount: exportMeta.nodeCount, edgeCount: exportMeta.edgeCount },
+                labelDistribution: stats.labelDistribution,
+                topComplexity,
+              },
+              null,
+              2,
+            );
+            break;
+          default:
+            reportContent = generateMarkdown();
         }
       }
     } catch {
@@ -276,11 +337,16 @@ th{background:#f5f5f5}h1,h2{color:#333}</style></head>
 
   // If no real content was generated, produce a minimal valid export
   if (!reportContent) {
-    reportContent = format === 'html'
-      ? `<!DOCTYPE html><html><body><h1>Report ${reportId}</h1><p>Generated ${new Date().toISOString()}</p></body></html>`
-      : format === 'json'
-        ? JSON.stringify({ reportId, generatedAt: new Date().toISOString(), summary: { nodeCount: 0 } }, null, 2)
-        : `# Report ${reportId}\n\nGenerated: ${new Date().toISOString()}\n\n*No graph data available — index a project first with analyze_repository.*\n`;
+    reportContent =
+      format === 'html'
+        ? `<!DOCTYPE html><html><body><h1>Report ${reportId}</h1><p>Generated ${new Date().toISOString()}</p></body></html>`
+        : format === 'json'
+          ? JSON.stringify(
+              { reportId, generatedAt: new Date().toISOString(), summary: { nodeCount: 0 } },
+              null,
+              2,
+            )
+          : `# Report ${reportId}\n\nGenerated: ${new Date().toISOString()}\n\n*No graph data available — index a project first with analyze_repository.*\n`;
   }
 
   try {
@@ -293,18 +359,24 @@ th{background:#f5f5f5}h1,h2{color:#333}</style></head>
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        reportId,
-        format,
-        outputPath,
-        exported,
-        message,
-        contentLength: reportContent.length,
-        preview: reportContent.slice(0, 200),
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            reportId,
+            format,
+            outputPath,
+            exported,
+            message,
+            contentLength: reportContent.length,
+            preview: reportContent.slice(0, 200),
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -322,34 +394,45 @@ export const getRecommendationsSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
-    category: { type: 'string', description: 'Recommendation category', enum: ['bug', 'security', 'performance', 'maintainability', 'architecture'] },
+    category: {
+      type: 'string',
+      description: 'Recommendation category',
+      enum: ['bug', 'security', 'performance', 'maintainability', 'architecture'],
+    },
     limit: { type: 'number', description: 'Maximum recommendations (default: 10)' },
   },
   required: ['projectId'],
 };
 
-export async function getRecommendations(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function getRecommendations(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as GetRecommendationsParams;
   const projectId = params.projectId;
   const category = params.category;
   const limit = params.limit ?? 10;
 
-  const recommendations: Array<{ category: string; severity: string; message: string; evidence: string }> = [];
+  const recommendations: Array<{
+    category: string;
+    severity: string;
+    message: string;
+    evidence: string;
+  }> = [];
 
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     try {
       const gstore = ctx.store;
 
-      const filterCategory = (rec: { category: string }) =>
-        !category || rec.category === category;
+      const filterCategory = (rec: { category: string }) => !category || rec.category === category;
 
       // Maintainability: large files
       if (gstore) {
         const allNodes = gstore.getAllNodes();
         const fileNodeCounts = new Map<string, number>();
         for (const node of allNodes) {
-          const fp = node.filePath ?? node.properties?.filePath as string | undefined;
+          const fp = node.filePath ?? (node.properties?.filePath as string | undefined);
           if (fp && node.label === 'Function') {
             fileNodeCounts.set(fp, (fileNodeCounts.get(fp) ?? 0) + 1);
           }
@@ -383,7 +466,8 @@ export async function getRecommendations(args: Record<string, unknown>, store?: 
           recommendations.push({
             category: 'security',
             severity: 'low',
-            message: 'Run a full security scan with review_pr or check_standards for comprehensive security analysis',
+            message:
+              'Run a full security scan with review_pr or check_standards for comprehensive security analysis',
             evidence: 'No security rules have been manually applied to this project',
           });
         }
@@ -406,9 +490,24 @@ export async function getRecommendations(args: Record<string, unknown>, store?: 
   // Add generic recommendations if graph data is unavailable
   if (recommendations.length === 0) {
     recommendations.push(
-      { category: 'maintainability', severity: 'low', message: 'Index the project with analyze_repository for detailed recommendations', evidence: 'Project not indexed' },
-      { category: 'architecture', severity: 'low', message: 'Use get_architecture for architecture insights', evidence: 'Architecture analysis not yet run' },
-      { category: 'security', severity: 'low', message: 'Run review_pr with a diff for security-focused review', evidence: 'No security review performed' },
+      {
+        category: 'maintainability',
+        severity: 'low',
+        message: 'Index the project with analyze_repository for detailed recommendations',
+        evidence: 'Project not indexed',
+      },
+      {
+        category: 'architecture',
+        severity: 'low',
+        message: 'Use get_architecture for architecture insights',
+        evidence: 'Architecture analysis not yet run',
+      },
+      {
+        category: 'security',
+        severity: 'low',
+        message: 'Run review_pr with a diff for security-focused review',
+        evidence: 'No security review performed',
+      },
     );
   }
 
@@ -417,16 +516,22 @@ export async function getRecommendations(args: Record<string, unknown>, store?: 
     .slice(0, limit);
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        projectId,
-        category: category ?? 'all',
-        recommendations: filtered,
-        total: filtered.length,
-        generated: true,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            projectId,
+            category: category ?? 'all',
+            recommendations: filtered,
+            total: filtered.length,
+            generated: true,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 

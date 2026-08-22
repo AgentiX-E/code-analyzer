@@ -22,13 +22,16 @@ export function matchCrossProjectRoutes(
     if (!targetByPath.has(tr.urlPath)) targetByPath.set(tr.urlPath, tr.qn);
   }
   for (const sr of sourceRoutes) {
-    const pathOnly = sr.urlPath.replace(/^https?:\/\/[^/]+/, "");
+    const pathOnly = sr.urlPath.replace(/^https?:\/\/[^/]+/, '');
     const targetQn = targetByPath.get(pathOnly) ?? targetByPath.get(sr.urlPath);
     if (targetQn) {
       matches.push({
-        sourceProject, targetProject,
-        edgeType: "CROSS_HTTP_CALLS",
-        sourceQn: sr.sourceQn, targetQn, routePath: pathOnly,
+        sourceProject,
+        targetProject,
+        edgeType: 'CROSS_HTTP_CALLS',
+        sourceQn: sr.sourceQn,
+        targetQn,
+        routePath: pathOnly,
       });
     }
   }
@@ -36,8 +39,8 @@ export function matchCrossProjectRoutes(
 }
 
 export function matchCrossProjectChannels(
-  sourceChannels: Array<{ channelName: string; funcQn: string; direction: "emit" | "listen" }>,
-  targetChannels: Array<{ channelName: string; direction: "emit" | "listen" }>,
+  sourceChannels: Array<{ channelName: string; funcQn: string; direction: 'emit' | 'listen' }>,
+  targetChannels: Array<{ channelName: string; direction: 'emit' | 'listen' }>,
   sourceProject: string,
   targetProject: string,
 ): CrossProjectMatch[] {
@@ -45,17 +48,18 @@ export function matchCrossProjectChannels(
   const targetListen = new Set<string>();
   const targetEmit = new Set<string>();
   for (const tc of targetChannels) {
-    if (tc.direction === "listen") targetListen.add(tc.channelName);
+    if (tc.direction === 'listen') targetListen.add(tc.channelName);
     else targetEmit.add(tc.channelName);
   }
   for (const sc of sourceChannels) {
     const matchesTarget =
-      (sc.direction === "emit" && targetListen.has(sc.channelName)) ||
-      (sc.direction === "listen" && targetEmit.has(sc.channelName));
+      (sc.direction === 'emit' && targetListen.has(sc.channelName)) ||
+      (sc.direction === 'listen' && targetEmit.has(sc.channelName));
     if (matchesTarget) {
       matches.push({
-        sourceProject, targetProject,
-        edgeType: "CROSS_CHANNEL",
+        sourceProject,
+        targetProject,
+        edgeType: 'CROSS_CHANNEL',
         sourceQn: sc.funcQn,
         targetQn: `__channel__${sc.channelName}`,
         routePath: sc.channelName,
@@ -80,8 +84,9 @@ export function matchCrossProjectGrpc(
     const key = `${sg.service}/${sg.method}`;
     if (targetSet.has(key)) {
       matches.push({
-        sourceProject, targetProject,
-        edgeType: "CROSS_GRPC_CALLS",
+        sourceProject,
+        targetProject,
+        edgeType: 'CROSS_GRPC_CALLS',
         sourceQn: sg.sourceQn,
         targetQn: `${GRPC_PREFIX}${key}`,
         routePath: key,
@@ -90,4 +95,3 @@ export function matchCrossProjectGrpc(
   }
   return matches;
 }
-

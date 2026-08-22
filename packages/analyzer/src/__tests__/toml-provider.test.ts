@@ -52,7 +52,9 @@ describe('TomlProvider', () => {
     it('should parse table sections', () => {
       const code = '[server]\nhost = "localhost"\nport = 8080';
       const captures = provider.parse(code, 'test.toml');
-      const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true');
+      const tables = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true',
+      );
       expect(tables.some((c) => c.name === 'server')).toBe(true);
     });
 
@@ -60,9 +62,7 @@ describe('TomlProvider', () => {
       const code = '[[products]]\nname = "Hammer"\n[[products]]\nname = "Nail"';
       const captures = provider.parse(code, 'test.toml');
       // Array tables are emitted as CLASS_DEF with isArrayTable='true'.
-      const arrTables = captures.filter((c) =>
-        c.properties?.isArrayTable === 'true'
-      );
+      const arrTables = captures.filter((c) => c.properties?.isArrayTable === 'true');
       expect(arrTables.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -108,7 +108,9 @@ describe('TomlProvider', () => {
     it('should handle nested tables', () => {
       const code = '[server]\nhost = "localhost"\n[server.database]\nname = "mydb"';
       const captures = provider.parse(code, 'test.toml');
-      const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true');
+      const tables = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true',
+      );
       expect(tables.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -158,7 +160,9 @@ describe('TomlProvider', () => {
     it('parse should parse table sections', () => {
       const code = '[server]\nhost = "localhost"';
       const captures = provider.parse(code, 'test.toml');
-      const tables = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true');
+      const tables = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isTable === 'true',
+      );
       expect(tables.some((c) => c.name === 'server')).toBe(true);
     });
 

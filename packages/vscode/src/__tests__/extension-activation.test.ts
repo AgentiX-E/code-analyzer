@@ -10,10 +10,7 @@ import {
   SLASH_COMMANDS,
 } from '../participant/code-analyzer-participant.js';
 import type { SlashCommand } from '../participant/code-analyzer-participant.js';
-import {
-  StatusBarManager,
-  createStatusBarManager,
-} from '../views/status-bar.js';
+import { StatusBarManager, createStatusBarManager } from '../views/status-bar.js';
 import { FileWatcherService } from '../services/file-watcher.js';
 import type { WorkspaceConfiguration } from '../services/vscode-api.js';
 
@@ -21,9 +18,7 @@ import type { WorkspaceConfiguration } from '../services/vscode-api.js';
 // Mock Configuration
 // ---------------------------------------------------------------------------
 
-function mockWorkspaceConfig(
-  overrides: Record<string, unknown> = {},
-): WorkspaceConfiguration {
+function mockWorkspaceConfig(overrides: Record<string, unknown> = {}): WorkspaceConfiguration {
   const defaults: Record<string, unknown> = {
     autoIndex: true,
     indexMode: 'full',
@@ -236,7 +231,7 @@ describe('Chat Participant — All 10 Slash Commands', () => {
     engine.dispose();
   });
 
-    it('has exactly 10 slash commands registered', () => {
+  it('has exactly 10 slash commands registered', () => {
     expect(SLASH_COMMANDS).toHaveLength(10);
   });
 
@@ -274,16 +269,66 @@ describe('Chat Participant — All 10 Slash Commands', () => {
       expectedMetaKey: string;
       description: string;
     }> = [
-      { command: 'review', param: '', expectedMetaKey: 'command', description: '/review returns command metadata' },
-      { command: 'explain', param: 'UserService', expectedMetaKey: 'command', description: '/explain returns command metadata' },
-      { command: 'impact', param: 'Database', expectedMetaKey: 'command', description: '/impact returns command metadata' },
-      { command: 'find', param: 'login', expectedMetaKey: 'command', description: '/find returns command metadata' },
-      { command: 'deps', param: 'UserService', expectedMetaKey: 'command', description: '/deps returns command metadata' },
-      { command: 'refactor', param: 'UserService', expectedMetaKey: 'command', description: '/refactor returns command metadata' },
-      { command: 'test', param: 'UserService', expectedMetaKey: 'command', description: '/test returns command metadata' },
-      { command: 'analyze', param: 'UserService', expectedMetaKey: 'command', description: '/analyze returns command metadata' },
-      { command: 'coverage', param: 'src/', expectedMetaKey: 'command', description: '/coverage returns command metadata' },
-      { command: 'standards', param: 'react', expectedMetaKey: 'command', description: '/standards returns command metadata' },
+      {
+        command: 'review',
+        param: '',
+        expectedMetaKey: 'command',
+        description: '/review returns command metadata',
+      },
+      {
+        command: 'explain',
+        param: 'UserService',
+        expectedMetaKey: 'command',
+        description: '/explain returns command metadata',
+      },
+      {
+        command: 'impact',
+        param: 'Database',
+        expectedMetaKey: 'command',
+        description: '/impact returns command metadata',
+      },
+      {
+        command: 'find',
+        param: 'login',
+        expectedMetaKey: 'command',
+        description: '/find returns command metadata',
+      },
+      {
+        command: 'deps',
+        param: 'UserService',
+        expectedMetaKey: 'command',
+        description: '/deps returns command metadata',
+      },
+      {
+        command: 'refactor',
+        param: 'UserService',
+        expectedMetaKey: 'command',
+        description: '/refactor returns command metadata',
+      },
+      {
+        command: 'test',
+        param: 'UserService',
+        expectedMetaKey: 'command',
+        description: '/test returns command metadata',
+      },
+      {
+        command: 'analyze',
+        param: 'UserService',
+        expectedMetaKey: 'command',
+        description: '/analyze returns command metadata',
+      },
+      {
+        command: 'coverage',
+        param: 'src/',
+        expectedMetaKey: 'command',
+        description: '/coverage returns command metadata',
+      },
+      {
+        command: 'standards',
+        param: 'react',
+        expectedMetaKey: 'command',
+        description: '/standards returns command metadata',
+      },
     ];
 
     for (const tc of testCases) {
@@ -303,7 +348,10 @@ describe('Chat Participant — All 10 Slash Commands', () => {
     const paramRequired = ['explain', 'impact', 'find', 'deps', 'refactor', 'test'] as const;
     for (const cmd of paramRequired) {
       const result = await participant.handleSlashCommand(
-        cmd, '', mockStream() as any, mockToken(false),
+        cmd,
+        '',
+        mockStream() as any,
+        mockToken(false),
       );
       expect(result.metadata?.error).toBe('missing_params');
     }
@@ -312,7 +360,10 @@ describe('Chat Participant — All 10 Slash Commands', () => {
   it('respects cancellation tokens for slash commands', async () => {
     for (const cmd of SLASH_COMMANDS) {
       const result = await participant.handleSlashCommand(
-        cmd as SlashCommand, 'test', mockStream() as any, mockToken(true),
+        cmd as SlashCommand,
+        'test',
+        mockStream() as any,
+        mockToken(true),
       );
       expect(result.metadata).toEqual({ cancelled: true });
     }
@@ -376,7 +427,10 @@ describe('Chat Participant — Registration & Cleanup', () => {
   it('handles unknown slash command gracefully', async () => {
     const p = new CodeAnalyzerChatParticipant(engine);
     const result = await p.handleSlashCommand(
-      'nonexistent' as SlashCommand, 'test', mockStreamFn() as any, mockTokenFn(false),
+      'nonexistent' as SlashCommand,
+      'test',
+      mockStreamFn() as any,
+      mockTokenFn(false),
     );
     expect(result.metadata).toBeDefined();
   });

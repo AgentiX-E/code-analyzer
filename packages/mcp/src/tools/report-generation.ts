@@ -94,9 +94,10 @@ export const reportGenerationTool: McpToolDefinition = {
 
     let parsedResults: ReviewResult;
     try {
-      parsedResults = typeof reviewResults === 'string'
-        ? JSON.parse(reviewResults)
-        : (reviewResults as ReviewResult);
+      parsedResults =
+        typeof reviewResults === 'string'
+          ? JSON.parse(reviewResults)
+          : (reviewResults as ReviewResult);
     } catch {
       return {
         content: [{ type: 'text', text: 'Error: Invalid review results JSON.' }],
@@ -175,9 +176,7 @@ export function generateReport(
     recommendations,
   };
 
-  const fullContent = format === 'json'
-    ? formatAsJSON(report)
-    : formatAsMarkdown(report);
+  const fullContent = format === 'json' ? formatAsJSON(report) : formatAsMarkdown(report);
 
   return { ...report, fullContent };
 }
@@ -233,11 +232,13 @@ export function computeSeverityBreakdown(comments: ReviewComment[]): SeverityBre
 
   // Sort by severity priority: critical > high > medium > low > info
   const severityOrder: Record<string, number> = {
-    critical: 0, high: 1, medium: 2, low: 3, info: 4,
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+    info: 4,
   };
-  result.sort((a, b) =>
-    (severityOrder[a.severity] ?? 5) - (severityOrder[b.severity] ?? 5),
-  );
+  result.sort((a, b) => (severityOrder[a.severity] ?? 5) - (severityOrder[b.severity] ?? 5));
   return result;
 }
 
@@ -254,7 +255,11 @@ export function extractTopIssues(
   limit: number = 10,
 ): GeneratedReport['topIssues'] {
   const severityOrder: Record<string, number> = {
-    critical: 0, high: 1, medium: 2, low: 3, info: 4,
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+    info: 4,
   };
 
   const sorted = [...comments]
@@ -347,7 +352,9 @@ export function generateRecommendations(
     if (comments.length > 0) {
       recommendations.push('Review all findings and address them based on priority.');
     } else {
-      recommendations.push('No issues found. Consider running additional review types for comprehensive coverage.');
+      recommendations.push(
+        'No issues found. Consider running additional review types for comprehensive coverage.',
+      );
     }
   }
 
@@ -378,18 +385,19 @@ export function generateKeyFindings(
   // Top categories
   const topCategories = categoryBreakdown.slice(0, 3);
   if (topCategories.length > 0) {
-    const catSummary = topCategories
-      .map((c) => `${c.category} (${c.count})`)
-      .join(', ');
+    const catSummary = topCategories.map((c) => `${c.category} (${c.count})`).join(', ');
     findings.push(`Most common categories: ${catSummary}.`);
   }
 
   // Severity summary
-  const critOrHigh = severityBreakdown
-    .filter((s) => s.severity === 'critical' || s.severity === 'high');
+  const critOrHigh = severityBreakdown.filter(
+    (s) => s.severity === 'critical' || s.severity === 'high',
+  );
   const critHighCount = critOrHigh.reduce((sum, s) => sum + s.count, 0);
   if (critHighCount > 0) {
-    findings.push(`${critHighCount} critical or high severity issue(s) require immediate attention.`);
+    findings.push(
+      `${critHighCount} critical or high severity issue(s) require immediate attention.`,
+    );
   } else {
     findings.push('No critical or high severity issues detected.');
   }
@@ -399,13 +407,9 @@ export function generateKeyFindings(
   for (const c of comments) {
     fileCounts.set(c.path, (fileCounts.get(c.path) ?? 0) + 1);
   }
-  const topFiles = [...fileCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
+  const topFiles = [...fileCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
   if (topFiles.length > 0) {
-    const fileSummary = topFiles
-      .map(([path, count]) => `\`${path}\` (${count})`)
-      .join(', ');
+    const fileSummary = topFiles.map(([path, count]) => `\`${path}\` (${count})`).join(', ');
     findings.push(`Most affected files: ${fileSummary}.`);
   }
 
@@ -487,10 +491,16 @@ export function formatAsMarkdown(report: Omit<GeneratedReport, 'fullContent'>): 
   lines.push('| Severity | Count | Percentage |');
   lines.push('|----------|-------|------------|');
   for (const sb of report.severityBreakdown) {
-    const icon = sb.severity === 'critical' ? '🔴' :
-      sb.severity === 'high' ? '🟠' :
-      sb.severity === 'medium' ? '🟡' :
-      sb.severity === 'low' ? '🟢' : '⚪';
+    const icon =
+      sb.severity === 'critical'
+        ? '🔴'
+        : sb.severity === 'high'
+          ? '🟠'
+          : sb.severity === 'medium'
+            ? '🟡'
+            : sb.severity === 'low'
+              ? '🟢'
+              : '⚪';
     lines.push(`| ${icon} ${sb.severity} | ${sb.count} | ${sb.percentage}% |`);
   }
   lines.push('');

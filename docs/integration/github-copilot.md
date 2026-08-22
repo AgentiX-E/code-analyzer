@@ -33,15 +33,15 @@ Commit this file to your repository so all contributors get the integration auto
 
 The `@code-analyzer` VS Code extension adds Copilot Chat integration with these slash commands:
 
-| Command | Description |
-|---|---|
-| `@code-analyzer /review` | Review the current file or changes |
-| `@code-analyzer /explain` | Explain code structure or behavior |
-| `@code-analyzer /impact` | Analyze change impact |
-| `@code-analyzer /find <query>` | Search for symbols or patterns |
-| `@code-analyzer /deps` | Show dependency relationships |
-| `@code-analyzer /refactor <target>` | Suggest refactoring opportunities |
-| `@code-analyzer /test` | Generate test suggestions |
+| Command                             | Description                        |
+| ----------------------------------- | ---------------------------------- |
+| `@code-analyzer /review`            | Review the current file or changes |
+| `@code-analyzer /explain`           | Explain code structure or behavior |
+| `@code-analyzer /impact`            | Analyze change impact              |
+| `@code-analyzer /find <query>`      | Search for symbols or patterns     |
+| `@code-analyzer /deps`              | Show dependency relationships      |
+| `@code-analyzer /refactor <target>` | Suggest refactoring opportunities  |
+| `@code-analyzer /test`              | Generate test suggestions          |
 
 ## Copilot Workspace Integration
 
@@ -53,11 +53,7 @@ For GitHub Copilot Workspace (browser-based), add to your repository's `.github/
     "code-analyzer": {
       "type": "stdio",
       "command": "npx",
-      "args": [
-        "@code-analyzer/mcp",
-        "--format", "markdown",
-        "--severity", "warning"
-      ]
+      "args": ["@code-analyzer/mcp", "--format", "markdown", "--severity", "warning"]
     }
   }
 }
@@ -73,12 +69,13 @@ Copilot reads this file for project-specific instructions. Add:
 ## Code Analyzer
 
 When reviewing code, use the code-analyzer MCP tools to:
+
 1. Check for security vulnerabilities (CWE coverage)
 2. Verify code follows project standards
 3. Analyze the impact of changes on dependent modules
 4. Search for existing patterns and conventions before suggesting new code
 
-Always use `search_codebase` before creating new utility functions — 
+Always use `search_codebase` before creating new utility functions —
 they might already exist in the codebase.
 ```
 

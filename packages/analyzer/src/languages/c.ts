@@ -21,8 +21,8 @@ export class CProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-c') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -52,7 +52,8 @@ export class CProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'struct_specifier') {
       /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-      const nameNode = this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+      const nameNode =
+        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
       /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
       if (nameNode) {
         captures.push({
@@ -68,7 +69,8 @@ export class CProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'enum_specifier') {
       /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-      const nameNode = this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+      const nameNode =
+        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
       /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
       if (nameNode) {
         captures.push({
@@ -138,15 +140,20 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (node.type === 'function_definition' || node.type === 'declaration' ||
-        node.type === 'struct_specifier' || node.type === 'enum_specifier') {
-      const declarator = (node.type === 'function_definition' || node.type === 'declaration')
-        ? this.findNamedChild(node, 'function_declarator')
-        : node;
+    if (
+      node.type === 'function_definition' ||
+      node.type === 'declaration' ||
+      node.type === 'struct_specifier' ||
+      node.type === 'enum_specifier'
+    ) {
+      const declarator =
+        node.type === 'function_definition' || node.type === 'declaration'
+          ? this.findNamedChild(node, 'function_declarator')
+          : node;
       /* v8 ignore next -- @preserve -- declarator is always node or function_declarator */
       const nameNode = declarator
-        ? (this.findNamedChild(declarator, 'identifier') ||
-           this.findNamedChild(declarator, 'type_identifier'))
+        ? this.findNamedChild(declarator, 'identifier') ||
+          this.findNamedChild(declarator, 'type_identifier')
         : null;
       /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
       if (nameNode && nameNode.text === symbolName) {
@@ -205,7 +212,8 @@ export class CProvider extends TreeSitterBaseProvider {
     }
 
     // Function definitions: return_type name(params) { or return_type name(params);
-    const funcRegex = /(?:(?:static|inline|extern)\s+)*(?:\w+\s*[\*]*\s+)+(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
+    const funcRegex =
+      /(?:(?:static|inline|extern)\s+)*(?:\w+\s*[\*]*\s+)+(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[1]!;
       if (!this.isValidFnName(name)) continue;
@@ -225,7 +233,11 @@ export class CProvider extends TreeSitterBaseProvider {
     const simpleFuncRegex = /(?:(?:static|inline|extern)\s+)*void\s+(\w+)\s*\([^)]*\)\s*;/g;
     while ((m = simpleFuncRegex.exec(source)) !== null) {
       const name = m[1]!;
-      if (!this.isValidFnName(name) || captures.some(c => c.name === name && c.tag === CAPTURE_TAGS.FUNCTION_DEF)) continue;
+      if (
+        !this.isValidFnName(name) ||
+        captures.some((c) => c.name === name && c.tag === CAPTURE_TAGS.FUNCTION_DEF)
+      )
+        continue;
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: name,
@@ -278,7 +290,9 @@ export class CProvider extends TreeSitterBaseProvider {
     // Static functions are not exported
     const staticRegex = new RegExp(`static\\s+\\w+\\s+${s}\\s*\\(`);
     if (staticRegex.test(source)) return false;
-    return new RegExp(`\\b(?:struct|enum|void|int|char|float|double|long|short)\\s+${s}\\b`).test(source);
+    return new RegExp(`\\b(?:struct|enum|void|int|char|float|double|long|short)\\s+${s}\\b`).test(
+      source,
+    );
   }
 
   // Helpers
@@ -291,11 +305,37 @@ export class CProvider extends TreeSitterBaseProvider {
 
   private isValidFnName(name: string): boolean {
     return ![
-      'if', 'else', 'while', 'for', 'switch', 'case', 'default',
-      'return', 'break', 'continue', 'goto', 'sizeof', 'typedef',
-      'struct', 'enum', 'union', 'static', 'extern', 'const',
-      'void', 'int', 'char', 'float', 'double', 'long', 'short',
-      'unsigned', 'signed', 'auto', 'register', 'volatile',
+      'if',
+      'else',
+      'while',
+      'for',
+      'switch',
+      'case',
+      'default',
+      'return',
+      'break',
+      'continue',
+      'goto',
+      'sizeof',
+      'typedef',
+      'struct',
+      'enum',
+      'union',
+      'static',
+      'extern',
+      'const',
+      'void',
+      'int',
+      'char',
+      'float',
+      'double',
+      'long',
+      'short',
+      'unsigned',
+      'signed',
+      'auto',
+      'register',
+      'volatile',
     ].includes(name);
   }
 

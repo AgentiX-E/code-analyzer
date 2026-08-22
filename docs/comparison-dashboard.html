@@ -1,313 +1,499 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Code Analyzer — Industry Comparison Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      line-height: 1.6;
-    }
-    .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
-    h1 { font-size: 2rem; color: #818cf8; margin-bottom: 4px; }
-    h2 { font-size: 1.4rem; color: #a5b4fc; margin: 32px 0 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
-    .subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .card {
-      background: #1e293b;
-      border-radius: 12px;
-      padding: 20px;
-      border: 1px solid #334155;
-    }
-    .card h3 { font-size: 1.1rem; color: #cbd5e1; margin-bottom: 12px; }
-    .metric-value { font-size: 2.5rem; font-weight: 700; color: #818cf8; }
-    .metric-label { font-size: 0.85rem; color: #94a3b8; }
-    .chart-container { position: relative; height: 400px; width: 100%; }
-    .chart-container-sm { position: relative; height: 300px; width: 100%; }
-    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; }
-    th { color: #94a3b8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; }
-    tr.highlight { background: rgba(99, 102, 241, 0.1); }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-    .badge-lead { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-    .badge-trail { background: rgba(249, 115, 22, 0.2); color: #fb923c; }
-    .advantage-list { list-style: none; }
-    .advantage-list li { padding: 8px 0; border-bottom: 1px solid #334155; }
-    .advantage-list li:last-child { border-bottom: none; }
-    .advantage-list .check { color: #4ade80; margin-right: 8px; }
-    .footer { text-align: center; color: #475569; font-size: 0.8rem; margin-top: 48px; padding: 16px; }
-    canvas { max-height: 400px; }
-    @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>📊 Code Analyzer — Industry Comparison</h1>
-    <p class="subtitle">Generated: 2026-07-30T23:50:53.229Z | Schema: industry-comparison-v1</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Code Analyzer — Industry Comparison Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 {
+        font-size: 2rem;
+        color: #818cf8;
+        margin-bottom: 4px;
+      }
+      h2 {
+        font-size: 1.4rem;
+        color: #a5b4fc;
+        margin: 32px 0 16px;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 8px;
+      }
+      .subtitle {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        margin-bottom: 24px;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .card {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #334155;
+      }
+      .card h3 {
+        font-size: 1.1rem;
+        color: #cbd5e1;
+        margin-bottom: 12px;
+      }
+      .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #818cf8;
+      }
+      .metric-label {
+        font-size: 0.85rem;
+        color: #94a3b8;
+      }
+      .chart-container {
+        position: relative;
+        height: 400px;
+        width: 100%;
+      }
+      .chart-container-sm {
+        position: relative;
+        height: 300px;
+        width: 100%;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #334155;
+      }
+      th {
+        color: #94a3b8;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      tr.highlight {
+        background: rgba(99, 102, 241, 0.1);
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .badge-lead {
+        background: rgba(34, 197, 94, 0.2);
+        color: #4ade80;
+      }
+      .badge-trail {
+        background: rgba(249, 115, 22, 0.2);
+        color: #fb923c;
+      }
+      .advantage-list {
+        list-style: none;
+      }
+      .advantage-list li {
+        padding: 8px 0;
+        border-bottom: 1px solid #334155;
+      }
+      .advantage-list li:last-child {
+        border-bottom: none;
+      }
+      .advantage-list .check {
+        color: #4ade80;
+        margin-right: 8px;
+      }
+      .footer {
+        text-align: center;
+        color: #475569;
+        font-size: 0.8rem;
+        margin-top: 48px;
+        padding: 16px;
+      }
+      canvas {
+        max-height: 400px;
+      }
+      @media (max-width: 768px) {
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📊 Code Analyzer — Industry Comparison</h1>
+      <p class="subtitle">Generated: 2026-07-30T23:50:53.229Z | Schema: industry-comparison-v1</p>
 
-    <!-- Summary Metrics -->
-    <div class="grid-3" style="margin-bottom: 24px;">
-      <div class="card">
-        <div class="metric-label">Code Analyzer Rank</div>
-        <div class="metric-value">#1</div>
-        <div class="metric-label">of 5 tools</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Composite Score</div>
-        <div class="metric-value">84.4%</div>
-        <div class="metric-label">weighted across 10 dimensions</div>
-      </div>
-      <div class="card">
-        <div class="metric-label">Competitive Advantages</div>
-        <div class="metric-value">7</div>
-        <div class="metric-label">dimensions where we lead</div>
-      </div>
-    </div>
-
-    <!-- Radar Chart -->
-    <div class="card" style="margin-bottom: 24px;">
-      <h3>Multi-Dimensional Comparison (Radar)</h3>
-      <div class="chart-container">
-        <canvas id="radarChart"></canvas>
-      </div>
-    </div>
-
-    <div class="grid-2">
-      <!-- Bar Chart -->
-      <div class="card">
-        <h3>Composite Scores</h3>
-        <div class="chart-container-sm">
-          <canvas id="barChart"></canvas>
+      <!-- Summary Metrics -->
+      <div class="grid-3" style="margin-bottom: 24px">
+        <div class="card">
+          <div class="metric-label">Code Analyzer Rank</div>
+          <div class="metric-value">#1</div>
+          <div class="metric-label">of 5 tools</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Composite Score</div>
+          <div class="metric-value">84.4%</div>
+          <div class="metric-label">weighted across 10 dimensions</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Competitive Advantages</div>
+          <div class="metric-value">7</div>
+          <div class="metric-label">dimensions where we lead</div>
         </div>
       </div>
 
-      <!-- Competitive Advantages -->
-      <div class="card">
-        <h3>Competitive Advantages</h3>
-        <ul class="advantage-list">
-          <li><span class="check">✅</span> Review Signal Categories</li>
-<li><span class="check">✅</span> Search Dimensions</li>
-<li><span class="check">✅</span> Cross-Repository Capabilities</li>
-<li><span class="check">✅</span> MCP Integration</li>
-<li><span class="check">✅</span> GraphQL API Maturity</li>
-<li><span class="check">✅</span> Throughput (files/sec)</li>
-<li><span class="check">✅</span> Test Coverage</li>
-        </ul>
-        
-        <h3 style="margin-top: 16px;">Areas for Improvement</h3>
-        <ul class="advantage-list">
-          <li><span style="color:#fb923c;margin-right:8px;">📈</span> Language Coverage (leader: SonarQube)</li>
-<li><span style="color:#fb923c;margin-right:8px;">📈</span> Parse Success Rate (leader: CodeQL)</li>
-<li><span style="color:#fb923c;margin-right:8px;">📈</span> IDE Integration Depth (leader: Sourcegraph)</li>
-        </ul>
+      <!-- Radar Chart -->
+      <div class="card" style="margin-bottom: 24px">
+        <h3>Multi-Dimensional Comparison (Radar)</h3>
+        <div class="chart-container">
+          <canvas id="radarChart"></canvas>
+        </div>
       </div>
-    </div>
 
-    <!-- Dimension Detail Table -->
-    <div class="card" style="margin-top: 24px;">
-      <h3>Dimension-by-Dimension Analysis</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Dimension</th>
-            <th>Code Analyzer</th>
-            <th>Leader</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="">
-      <td>Language Coverage</td>
-      <td><strong>66.7%</strong></td>
-      <td>SonarQube (96.7%)</td>
-      <td>📈 Trailing</td>
-    </tr>
-<tr class="">
-      <td>Parse Success Rate</td>
-      <td><strong>97.5%</strong></td>
-      <td>CodeQL (98%)</td>
-      <td>📈 Trailing</td>
-    </tr>
-<tr class="highlight">
-      <td>Review Signal Categories</td>
-      <td><strong>80%</strong></td>
-      <td>code-analyzer (80%)</td>
-      <td>✅ Leading</td>
-    </tr>
-<tr class="highlight">
-      <td>Search Dimensions</td>
-      <td><strong>80%</strong></td>
-      <td>code-analyzer (80%)</td>
-      <td>✅ Leading</td>
-    </tr>
-<tr class="highlight">
-      <td>Cross-Repository Capabilities</td>
-      <td><strong>100%</strong></td>
-      <td>code-analyzer (100%)</td>
-      <td>✅ Leading</td>
-    </tr>
-<tr class="highlight">
-      <td>MCP Integration</td>
-      <td><strong>91.7%</strong></td>
-      <td>code-analyzer (91.7%)</td>
-      <td>✅ Leading</td>
-    </tr>
-<tr class="highlight">
-      <td>GraphQL API Maturity</td>
-      <td><strong>93.3%</strong></td>
-      <td>code-analyzer (93.3%)</td>
-      <td>✅ Leading</td>
-    </tr>
-<tr class="">
-      <td>IDE Integration Depth</td>
-      <td><strong>80%</strong></td>
-      <td>Sourcegraph (90%)</td>
-      <td>📈 Trailing</td>
-    </tr>
-<tr class="highlight">
-      <td>Throughput (files/sec)</td>
-      <td><strong>68.9%</strong></td>
-      <td>code-analyzer (68.9%)</td>
-      <td>✅ Leading</td>
-    </tr>
-<tr class="highlight">
-      <td>Test Coverage</td>
-      <td><strong>96%</strong></td>
-      <td>code-analyzer (96%)</td>
-      <td>✅ Leading</td>
-    </tr>
-        </tbody>
-      </table>
-    </div>
+      <div class="grid-2">
+        <!-- Bar Chart -->
+        <div class="card">
+          <h3>Composite Scores</h3>
+          <div class="chart-container-sm">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
 
-    <!-- Ranking Table -->
-    <div class="card" style="margin-top: 24px;">
-      <h3>Overall Ranking</h3>
-      <table>
-        <thead>
-          <tr><th>Rank</th><th>Tool</th><th>Composite Score</th><th>Confidence</th></tr>
-        </thead>
-        <tbody>
-          <tr class="highlight">
+        <!-- Competitive Advantages -->
+        <div class="card">
+          <h3>Competitive Advantages</h3>
+          <ul class="advantage-list">
+            <li><span class="check">✅</span> Review Signal Categories</li>
+            <li><span class="check">✅</span> Search Dimensions</li>
+            <li><span class="check">✅</span> Cross-Repository Capabilities</li>
+            <li><span class="check">✅</span> MCP Integration</li>
+            <li><span class="check">✅</span> GraphQL API Maturity</li>
+            <li><span class="check">✅</span> Throughput (files/sec)</li>
+            <li><span class="check">✅</span> Test Coverage</li>
+          </ul>
+
+          <h3 style="margin-top: 16px">Areas for Improvement</h3>
+          <ul class="advantage-list">
+            <li>
+              <span style="color: #fb923c; margin-right: 8px">📈</span> Language Coverage (leader:
+              SonarQube)
+            </li>
+            <li>
+              <span style="color: #fb923c; margin-right: 8px">📈</span> Parse Success Rate (leader:
+              CodeQL)
+            </li>
+            <li>
+              <span style="color: #fb923c; margin-right: 8px">📈</span> IDE Integration Depth
+              (leader: Sourcegraph)
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Dimension Detail Table -->
+      <div class="card" style="margin-top: 24px">
+        <h3>Dimension-by-Dimension Analysis</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Code Analyzer</th>
+              <th>Leader</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="">
+              <td>Language Coverage</td>
+              <td><strong>66.7%</strong></td>
+              <td>SonarQube (96.7%)</td>
+              <td>📈 Trailing</td>
+            </tr>
+            <tr class="">
+              <td>Parse Success Rate</td>
+              <td><strong>97.5%</strong></td>
+              <td>CodeQL (98%)</td>
+              <td>📈 Trailing</td>
+            </tr>
+            <tr class="highlight">
+              <td>Review Signal Categories</td>
+              <td><strong>80%</strong></td>
+              <td>code-analyzer (80%)</td>
+              <td>✅ Leading</td>
+            </tr>
+            <tr class="highlight">
+              <td>Search Dimensions</td>
+              <td><strong>80%</strong></td>
+              <td>code-analyzer (80%)</td>
+              <td>✅ Leading</td>
+            </tr>
+            <tr class="highlight">
+              <td>Cross-Repository Capabilities</td>
+              <td><strong>100%</strong></td>
+              <td>code-analyzer (100%)</td>
+              <td>✅ Leading</td>
+            </tr>
+            <tr class="highlight">
+              <td>MCP Integration</td>
+              <td><strong>91.7%</strong></td>
+              <td>code-analyzer (91.7%)</td>
+              <td>✅ Leading</td>
+            </tr>
+            <tr class="highlight">
+              <td>GraphQL API Maturity</td>
+              <td><strong>93.3%</strong></td>
+              <td>code-analyzer (93.3%)</td>
+              <td>✅ Leading</td>
+            </tr>
+            <tr class="">
+              <td>IDE Integration Depth</td>
+              <td><strong>80%</strong></td>
+              <td>Sourcegraph (90%)</td>
+              <td>📈 Trailing</td>
+            </tr>
+            <tr class="highlight">
+              <td>Throughput (files/sec)</td>
+              <td><strong>68.9%</strong></td>
+              <td>code-analyzer (68.9%)</td>
+              <td>✅ Leading</td>
+            </tr>
+            <tr class="highlight">
+              <td>Test Coverage</td>
+              <td><strong>96%</strong></td>
+              <td>code-analyzer (96%)</td>
+              <td>✅ Leading</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Ranking Table -->
+      <div class="card" style="margin-top: 24px">
+        <h3>Overall Ranking</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Tool</th>
+              <th>Composite Score</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight">
               <td>🏆 1</td>
               <td><strong>code-analyzer</strong></td>
               <td>84.4%</td>
               <td>measured</td>
             </tr>
-<tr class="">
+            <tr class="">
               <td>🥈 2</td>
               <td><strong>Sourcegraph</strong></td>
               <td>60.8%</td>
               <td>high-estimate</td>
             </tr>
-<tr class="">
+            <tr class="">
               <td>🥉 3</td>
               <td><strong>SonarQube</strong></td>
               <td>53.2%</td>
               <td>high-estimate</td>
             </tr>
-<tr class="">
+            <tr class="">
               <td>4</td>
               <td><strong>Semgrep</strong></td>
               <td>43%</td>
               <td>medium-estimate</td>
             </tr>
-<tr class="">
+            <tr class="">
               <td>5</td>
               <td><strong>CodeQL</strong></td>
               <td>41.7%</td>
               <td>medium-estimate</td>
             </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        Generated by code-analyzer CA-Bench v1.0 — Industry Comparison Dashboard
+      </div>
     </div>
 
-    <div class="footer">
-      Generated by code-analyzer CA-Bench v1.0 — Industry Comparison Dashboard
-    </div>
-  </div>
-
-  <script>
-    // Radar Chart
-    const radarCtx = document.getElementById('radarChart').getContext('2d');
-    new Chart(radarCtx, {
-      type: 'radar',
-      data: {
-        labels: ["Language Coverage","Parse Success Rate","Review Signal Categories","Search Dimensions","Cross-Repository Capabilities","MCP Integration","GraphQL API Maturity","IDE Integration Depth","Throughput (files/sec)","Test Coverage"],
-        datasets: [{"label":"code-analyzer","data":[66.7,97.5,80,80,100,91.7,93.3,80,68.9,96],"backgroundColor":"rgba(99, 102, 241, 0.2)","borderColor":"rgb(99, 102, 241)","borderWidth":3,"pointBackgroundColor":"rgb(99, 102, 241)","pointRadius":5},{"label":"SonarQube","data":[96.7,95,50,40,20,0,0,85,40,80],"backgroundColor":"rgba(34, 197, 94, 0.2)","borderColor":"rgb(34, 197, 94)","borderWidth":1.5,"pointBackgroundColor":"rgb(34, 197, 94)","pointRadius":3},{"label":"CodeQL","data":[30,98,40,40,40,0,0,70,15,85],"backgroundColor":"rgba(249, 115, 22, 0.2)","borderColor":"rgb(249, 115, 22)","borderWidth":1.5,"pointBackgroundColor":"rgb(249, 115, 22)","pointRadius":3},{"label":"Semgrep","data":[56.7,92,30,40,20,0,0,60,50,75],"backgroundColor":"rgba(236, 72, 153, 0.2)","borderColor":"rgb(236, 72, 153)","borderWidth":1.5,"pointBackgroundColor":"rgb(236, 72, 153)","pointRadius":3},{"label":"Sourcegraph","data":[66.7,90,20,60,80,33.3,83.3,90,30,70],"backgroundColor":"rgba(14, 165, 233, 0.2)","borderColor":"rgb(14, 165, 233)","borderWidth":1.5,"pointBackgroundColor":"rgb(14, 165, 233)","pointRadius":3}]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          r: {
-            beginAtZero: true,
-            max: 100,
-            ticks: {
-              stepSize: 20,
-              color: '#94a3b8',
-              backdropColor: 'transparent',
-              font: { size: 10 }
+    <script>
+      // Radar Chart
+      const radarCtx = document.getElementById('radarChart').getContext('2d');
+      new Chart(radarCtx, {
+        type: 'radar',
+        data: {
+          labels: [
+            'Language Coverage',
+            'Parse Success Rate',
+            'Review Signal Categories',
+            'Search Dimensions',
+            'Cross-Repository Capabilities',
+            'MCP Integration',
+            'GraphQL API Maturity',
+            'IDE Integration Depth',
+            'Throughput (files/sec)',
+            'Test Coverage',
+          ],
+          datasets: [
+            {
+              label: 'code-analyzer',
+              data: [66.7, 97.5, 80, 80, 100, 91.7, 93.3, 80, 68.9, 96],
+              backgroundColor: 'rgba(99, 102, 241, 0.2)',
+              borderColor: 'rgb(99, 102, 241)',
+              borderWidth: 3,
+              pointBackgroundColor: 'rgb(99, 102, 241)',
+              pointRadius: 5,
             },
-            pointLabels: {
-              color: '#cbd5e1',
-              font: { size: 11 }
+            {
+              label: 'SonarQube',
+              data: [96.7, 95, 50, 40, 20, 0, 0, 85, 40, 80],
+              backgroundColor: 'rgba(34, 197, 94, 0.2)',
+              borderColor: 'rgb(34, 197, 94)',
+              borderWidth: 1.5,
+              pointBackgroundColor: 'rgb(34, 197, 94)',
+              pointRadius: 3,
             },
-            grid: { color: '#334155' },
-            angleLines: { color: '#334155' }
-          }
+            {
+              label: 'CodeQL',
+              data: [30, 98, 40, 40, 40, 0, 0, 70, 15, 85],
+              backgroundColor: 'rgba(249, 115, 22, 0.2)',
+              borderColor: 'rgb(249, 115, 22)',
+              borderWidth: 1.5,
+              pointBackgroundColor: 'rgb(249, 115, 22)',
+              pointRadius: 3,
+            },
+            {
+              label: 'Semgrep',
+              data: [56.7, 92, 30, 40, 20, 0, 0, 60, 50, 75],
+              backgroundColor: 'rgba(236, 72, 153, 0.2)',
+              borderColor: 'rgb(236, 72, 153)',
+              borderWidth: 1.5,
+              pointBackgroundColor: 'rgb(236, 72, 153)',
+              pointRadius: 3,
+            },
+            {
+              label: 'Sourcegraph',
+              data: [66.7, 90, 20, 60, 80, 33.3, 83.3, 90, 30, 70],
+              backgroundColor: 'rgba(14, 165, 233, 0.2)',
+              borderColor: 'rgb(14, 165, 233)',
+              borderWidth: 1.5,
+              pointBackgroundColor: 'rgb(14, 165, 233)',
+              pointRadius: 3,
+            },
+          ],
         },
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { color: '#cbd5e1', padding: 16, font: { size: 12 } }
-          }
-        }
-      }
-    });
-
-    // Bar Chart
-    const barCtx = document.getElementById('barChart').getContext('2d');
-    new Chart(barCtx, {
-      type: 'bar',
-      data: {
-        labels: ["code-analyzer","Sourcegraph","SonarQube","Semgrep","CodeQL"],
-        datasets: [{
-          label: 'Composite Score',
-          data: [84.4,60.8,53.2,43,41.7],
-          backgroundColor: ["rgba(99, 102, 241, 0.9)","rgba(14, 165, 233, 0.8)","rgba(34, 197, 94, 0.8)","rgba(236, 72, 153, 0.8)","rgba(249, 115, 22, 0.8)"],
-          borderColor: ["rgb(99, 102, 241)","rgb(14, 165, 233)","rgb(34, 197, 94)","rgb(236, 72, 153)","rgb(249, 115, 22)"],
-          borderWidth: 2,
-          borderRadius: 8,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        indexAxis: 'y',
-        scales: {
-          x: {
-            beginAtZero: true,
-            max: 100,
-            ticks: { color: '#94a3b8' },
-            grid: { color: '#334155' }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                stepSize: 20,
+                color: '#94a3b8',
+                backdropColor: 'transparent',
+                font: { size: 10 },
+              },
+              pointLabels: {
+                color: '#cbd5e1',
+                font: { size: 11 },
+              },
+              grid: { color: '#334155' },
+              angleLines: { color: '#334155' },
+            },
           },
-          y: {
-            ticks: { color: '#cbd5e1', font: { size: 12 } },
-            grid: { display: false }
-          }
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#cbd5e1', padding: 16, font: { size: 12 } },
+            },
+          },
         },
-        plugins: {
-          legend: { display: false }
-        }
-      }
-    });
-  </script>
-</body>
+      });
+
+      // Bar Chart
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: ['code-analyzer', 'Sourcegraph', 'SonarQube', 'Semgrep', 'CodeQL'],
+          datasets: [
+            {
+              label: 'Composite Score',
+              data: [84.4, 60.8, 53.2, 43, 41.7],
+              backgroundColor: [
+                'rgba(99, 102, 241, 0.9)',
+                'rgba(14, 165, 233, 0.8)',
+                'rgba(34, 197, 94, 0.8)',
+                'rgba(236, 72, 153, 0.8)',
+                'rgba(249, 115, 22, 0.8)',
+              ],
+              borderColor: [
+                'rgb(99, 102, 241)',
+                'rgb(14, 165, 233)',
+                'rgb(34, 197, 94)',
+                'rgb(236, 72, 153)',
+                'rgb(249, 115, 22)',
+              ],
+              borderWidth: 2,
+              borderRadius: 8,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { color: '#94a3b8' },
+              grid: { color: '#334155' },
+            },
+            y: {
+              ticks: { color: '#cbd5e1', font: { size: 12 } },
+              grid: { display: false },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+          },
+        },
+      });
+    </script>
+  </body>
 </html>

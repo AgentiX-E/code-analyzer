@@ -8,7 +8,10 @@ import * as path from 'node:path';
 
 // Use a temp PID file to avoid conflicts
 function tempPidFile(): string {
-  return path.join(os.tmpdir(), `code-analyzer-test-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`);
+  return path.join(
+    os.tmpdir(),
+    `code-analyzer-test-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`,
+  );
 }
 
 // Helper to fetch health check
@@ -39,7 +42,9 @@ describe('CodeAnalyzerDaemon', () => {
     // Clean up PID file
     try {
       if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   });
 
   describe('construction', () => {
@@ -265,17 +270,28 @@ describe('CodeAnalyzerDaemon', () => {
 
         testDaemon.on('config-reload', async () => {
           await testDaemon.stop();
-          try { fs.unlinkSync(testPidFile); } catch { /* */ }
+          try {
+            fs.unlinkSync(testPidFile);
+          } catch {
+            /* */
+          }
           resolve();
         });
 
-        testDaemon.start().then(() => {
-          process.kill(process.pid, 'SIGHUP');
-        }).catch(async () => {
-          await testDaemon.stop();
-          try { fs.unlinkSync(testPidFile); } catch { /* */ }
-          resolve();
-        });
+        testDaemon
+          .start()
+          .then(() => {
+            process.kill(process.pid, 'SIGHUP');
+          })
+          .catch(async () => {
+            await testDaemon.stop();
+            try {
+              fs.unlinkSync(testPidFile);
+            } catch {
+              /* */
+            }
+            resolve();
+          });
       });
     });
   });
@@ -283,8 +299,16 @@ describe('CodeAnalyzerDaemon', () => {
   describe('stale PID handling', () => {
     it('should not throw if PID file exists but process is dead', async () => {
       // Ensure clean state — stop any existing daemon and remove stale PID file
-      try { await daemon.stop(); } catch { /* already stopped */ }
-      try { fs.unlinkSync(pidFile); } catch { /* no file */ }
+      try {
+        await daemon.stop();
+      } catch {
+        /* already stopped */
+      }
+      try {
+        fs.unlinkSync(pidFile);
+      } catch {
+        /* no file */
+      }
 
       // Write a fake PID file with a likely non-existent PID
       fs.writeFileSync(pidFile, '99999', 'utf-8');

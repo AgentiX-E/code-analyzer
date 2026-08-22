@@ -55,9 +55,9 @@ export const docGenerationTool: McpToolDefinition = {
     }
 
     const projectIdStr = projectId as string;
-    let nodes = store.getAllNodes().filter(
-      (n) => n.projectId === projectIdStr && isDocumentableNode(n.label),
-    );
+    let nodes = store
+      .getAllNodes()
+      .filter((n) => n.projectId === projectIdStr && isDocumentableNode(n.label));
 
     if (symbolName) {
       nodes = nodes.filter((n) => n.name === (symbolName as string));
@@ -68,7 +68,12 @@ export const docGenerationTool: McpToolDefinition = {
 
     if (nodes.length === 0) {
       return {
-        content: [{ type: 'text', text: `No documentable symbols found for project "${projectIdStr}". Index the project first.` }],
+        content: [
+          {
+            type: 'text',
+            text: `No documentable symbols found for project "${projectIdStr}". Index the project first.`,
+          },
+        ],
         metadata: { projectId: projectIdStr },
       };
     }
@@ -103,8 +108,15 @@ interface DocSkeleton {
 
 function isDocumentableNode(label: string): boolean {
   const docLabels = new Set([
-    'Function', 'Method', 'Class', 'Interface', 'Component',
-    'Service', 'Module', 'Type', 'Enum',
+    'Function',
+    'Method',
+    'Class',
+    'Interface',
+    'Component',
+    'Service',
+    'Module',
+    'Type',
+    'Enum',
   ]);
   return docLabels.has(label);
 }
@@ -122,12 +134,18 @@ function generateDocSkeletons(
 
   for (const node of nodes) {
     const ext = node.filePath ? node.filePath.split('.').pop()?.toLowerCase() : '';
-    const language = ext === 'ts' || ext === 'tsx' ? 'typescript'
-      : ext === 'js' || ext === 'jsx' ? 'javascript'
-      : ext === 'py' ? 'python'
-      : ext === 'go' ? 'go'
-      : ext === 'java' || ext === 'kt' ? 'java'
-      : 'typescript';
+    const language =
+      ext === 'ts' || ext === 'tsx'
+        ? 'typescript'
+        : ext === 'js' || ext === 'jsx'
+          ? 'javascript'
+          : ext === 'py'
+            ? 'python'
+            : ext === 'go'
+              ? 'go'
+              : ext === 'java' || ext === 'kt'
+                ? 'java'
+                : 'typescript';
 
     const outgoingCalls = store.getEdgesForNode(node.id, EDGE_CALLS, 'out').length;
     const incomingCalls = store.getEdgesForNode(node.id, EDGE_CALLS, 'in').length;
@@ -314,9 +332,8 @@ function formatDocs(docs: DocSkeleton[], projectId: string, style: string): stri
     report += `### \`${doc.symbolName}\` — ${doc.label} (${doc.language}, ${callInfo})\n\n`;
     report += `**File**: \`${doc.filePath}\`\n\n`;
 
-    const lang = doc.language === 'typescript' ? 'typescript'
-      : doc.language === 'python' ? 'python'
-      : 'go';
+    const lang =
+      doc.language === 'typescript' ? 'typescript' : doc.language === 'python' ? 'python' : 'go';
 
     report += '```' + lang + '\n';
     report += doc.docBlock;

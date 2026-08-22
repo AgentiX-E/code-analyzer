@@ -169,9 +169,7 @@ describe('CommentReflectionModule', () => {
       };
       const comments = [makeComment(base), makeComment(base)];
       const report = reflector.reflect(comments, content, 'src/test.ts');
-      const hasDuplicate = report.results.some((r) =>
-        r.issues.some((i) => i.type === 'duplicate'),
-      );
+      const hasDuplicate = report.results.some((r) => r.issues.some((i) => i.type === 'duplicate'));
       expect(hasDuplicate).toBe(true);
     });
   });
@@ -314,12 +312,16 @@ describe('CommentReflectionModule', () => {
     it('should not flag duplicate for different categories', () => {
       const content = 'const x = 1;\nconst y = 2;\n';
       const comment1 = makeComment({
-        startLine: 1, endLine: 1, category: 'security',
+        startLine: 1,
+        endLine: 1,
+        category: 'security',
         content: 'Different message here',
         existingCode: 'const x = 1;',
       });
       const comment2 = makeComment({
-        startLine: 1, endLine: 1, category: 'performance',
+        startLine: 1,
+        endLine: 1,
+        category: 'performance',
         content: 'Another completely different message',
         existingCode: 'const x = 1;',
       });
@@ -334,12 +336,14 @@ describe('CommentReflectionModule', () => {
     it('should not flag duplicates for non-overlapping line ranges', () => {
       const content = 'const a = 1;\nconst b = 2;\nconst c = 3;\nconst d = 4;\n';
       const comment1 = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         content: 'same message text',
         existingCode: 'const a = 1;',
       });
       const comment2 = makeComment({
-        startLine: 3, endLine: 3,
+        startLine: 3,
+        endLine: 3,
         content: 'same message text',
         existingCode: 'const c = 3;',
       });
@@ -352,12 +356,15 @@ describe('CommentReflectionModule', () => {
 
     it('should flag duplicates with same content and overlapping ranges', () => {
       const content = 'const x = 1;\nconst y = 2;\n';
-      const base = { startLine: 1, endLine: 2, existingCode: 'const x = 1;', content: 'exact same text here' };
+      const base = {
+        startLine: 1,
+        endLine: 2,
+        existingCode: 'const x = 1;',
+        content: 'exact same text here',
+      };
       const comments = [makeComment(base), makeComment(base)];
       const report = reflector.reflect(comments, content, 'src/test.ts');
-      const hasDuplicate = report.results.some((r) =>
-        r.issues.some((i) => i.type === 'duplicate'),
-      );
+      const hasDuplicate = report.results.some((r) => r.issues.some((i) => i.type === 'duplicate'));
       expect(hasDuplicate).toBe(true);
     });
   });
@@ -370,7 +377,8 @@ describe('CommentReflectionModule', () => {
     it('should not flag relevant content that partially matches', () => {
       const content = 'function process(data: Input): Output {\n  return transform(data);\n}\n';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: 'function process(data',
       });
       const report = reflector.reflect([comment], content, 'src/test.ts');
@@ -381,7 +389,8 @@ describe('CommentReflectionModule', () => {
     it('should skip relevance check when existingCode is empty', () => {
       const content = 'line1\nline2\n';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: '',
       });
       const report = reflector.reflect([comment], content, 'src/test.ts');
@@ -392,7 +401,8 @@ describe('CommentReflectionModule', () => {
     it('should skip relevance check when existingCode is whitespace only', () => {
       const content = 'line1\nline2\n';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: '   ',
       });
       const report = reflector.reflect([comment], content, 'src/test.ts');
@@ -403,8 +413,10 @@ describe('CommentReflectionModule', () => {
     it('should flag irrelevant context when only 10% matches', () => {
       const content = 'function doSomething(): string {\n  return "hello";\n}\n';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
-        existingCode: 'completely\nunrelated\ncode\nhere_maybe_return_matches_but thats all and not enough',
+        startLine: 1,
+        endLine: 1,
+        existingCode:
+          'completely\nunrelated\ncode\nhere_maybe_return_matches_but thats all and not enough',
       });
       const report = reflector.reflect([comment], content, 'src/test.ts');
       const r = report.results[0]!;
@@ -420,10 +432,14 @@ describe('CommentReflectionModule', () => {
     it('should keep high-confidence and filter low-confidence comments', () => {
       const content = 'exact match line\nanother exact line\n';
       const good = makeComment({
-        startLine: 1, endLine: 1, existingCode: 'exact match line',
+        startLine: 1,
+        endLine: 1,
+        existingCode: 'exact match line',
       });
       const bad = makeComment({
-        startLine: 1, endLine: 1, existingCode: 'no match at all',
+        startLine: 1,
+        endLine: 1,
+        existingCode: 'no match at all',
       });
       const r = new CommentReflectionModule({ filterLowConfidence: true, minConfidence: 0.5 });
       const report = r.reflect([good, bad], content, 'src/test.ts');
@@ -435,7 +451,9 @@ describe('CommentReflectionModule', () => {
     it('should track filtered_low_confidence in issue breakdown', () => {
       const content = 'real line\n';
       const bad = makeComment({
-        startLine: 1, endLine: 1, existingCode: 'missing content',
+        startLine: 1,
+        endLine: 1,
+        existingCode: 'missing content',
       });
       const r = new CommentReflectionModule({ filterLowConfidence: true, minConfidence: 0.99 });
       const report = r.reflect([bad], content, 'src/test.ts');
@@ -452,7 +470,8 @@ describe('CommentReflectionModule', () => {
     it('should skip relevance check when existingCode has only whitespace chars', () => {
       const content = 'function test(): void {\n  return;\n}\n';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: '\n\n\n',
       });
       const report = reflector.reflect([comment], content, 'src/test.ts');
@@ -464,7 +483,8 @@ describe('CommentReflectionModule', () => {
     it('should flag irrelevant context when file snippet has zero relevant lines', () => {
       const content = '';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: 'some meaningful code here',
       });
       const report = reflector.reflect([comment], content, 'src/test.ts');
@@ -482,20 +502,21 @@ describe('CommentReflectionModule', () => {
       const content = 'const x = 1;\nconst y = 2;\nconst z = 3;\n';
       // Three identical comments — first one gets flagged, but shouldn't add duplicate issue twice
       const base = {
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: 'const x = 1;',
         content: 'identical content message here',
       };
       const comments = [makeComment(base), makeComment(base), makeComment(base)];
       const report = reflector.reflect(comments, content, 'src/test.ts');
       // At least some duplicates detected
-      const dupCount = report.results.filter(r =>
-        r.issues.some(i => i.type === 'duplicate')
+      const dupCount = report.results.filter((r) =>
+        r.issues.some((i) => i.type === 'duplicate'),
       ).length;
       expect(dupCount).toBeGreaterThanOrEqual(1);
       // Each flagged comment should only have one duplicate issue
       for (const r of report.results) {
-        const dupIssues = r.issues.filter(i => i.type === 'duplicate');
+        const dupIssues = r.issues.filter((i) => i.type === 'duplicate');
         expect(dupIssues.length).toBeLessThanOrEqual(1);
       }
     });
@@ -509,7 +530,8 @@ describe('CommentReflectionModule', () => {
     it('should not relocate when positioner does not provide adjustedStartLine', () => {
       const content = 'line1\nline2\nline3\n';
       const comment = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: 'line1',
       });
       const r = new CommentReflectionModule({ autoAdjustPositions: true });
@@ -528,7 +550,7 @@ describe('CommentReflectionModule', () => {
       const content = 'line1\nline2\n';
       const comment = makeComment({ startLine: 0, endLine: 0 });
       const report = reflector.reflect([comment], content, 'src/test.ts');
-      expect(report.results[0]!.issues.some(i => i.type === 'position_out_of_bounds')).toBe(true);
+      expect(report.results[0]!.issues.some((i) => i.type === 'position_out_of_bounds')).toBe(true);
     });
   });
 
@@ -540,14 +562,15 @@ describe('CommentReflectionModule', () => {
     it('should not filter low confidence when filterLowConfidence is false', () => {
       const content = 'real content here\n';
       const bad = makeComment({
-        startLine: 1, endLine: 1,
+        startLine: 1,
+        endLine: 1,
         existingCode: 'completely different text',
       });
       // Default has filterLowConfidence=false
       const report = reflector.reflect([bad], content, 'src/test.ts');
       // Low confidence comment is flagged but not removed from results
       expect(report.results.length).toBe(1);
-      expect(report.results[0]!.issues.some(i => i.type === 'low_confidence')).toBe(true);
+      expect(report.results[0]!.issues.some((i) => i.type === 'low_confidence')).toBe(true);
     });
 
     it('should handle zero total comments correctly', () => {

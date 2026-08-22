@@ -197,14 +197,12 @@ export class DeepSeekProvider implements LLMProvider {
   private readonly maxRetries: number;
   private logger: PhaseLogger = createNoopPhaseLogger();
 
-  constructor(
-    options?: {
-      model?: string;
-      baseUrl?: string;
-      timeout?: number;
-      maxRetries?: number;
-    },
-  ) {
+  constructor(options?: {
+    model?: string;
+    baseUrl?: string;
+    timeout?: number;
+    maxRetries?: number;
+  }) {
     this.baseUrl = options?.baseUrl ?? DEFAULT_BASE_URL;
     this.model = options?.model ?? DEFAULT_MODEL;
     this.defaultTimeout = options?.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -221,13 +219,8 @@ export class DeepSeekProvider implements LLMProvider {
   // Public API
   // -------------------------------------------------------------------------
 
-  async complete(
-    prompt: string,
-    options?: CompletionOptions,
-  ): Promise<CompletionResult> {
-    const messages: DeepSeekChatMessage[] = [
-      { role: 'user', content: prompt },
-    ];
+  async complete(prompt: string, options?: CompletionOptions): Promise<CompletionResult> {
+    const messages: DeepSeekChatMessage[] = [{ role: 'user', content: prompt }];
     return this.sendRequest(messages, undefined, options);
   }
 
@@ -236,9 +229,7 @@ export class DeepSeekProvider implements LLMProvider {
     tools: ToolDefinition[],
     options?: CompletionOptions,
   ): Promise<CompletionResult> {
-    const messages: DeepSeekChatMessage[] = [
-      { role: 'user', content: prompt },
-    ];
+    const messages: DeepSeekChatMessage[] = [{ role: 'user', content: prompt }];
 
     const deepseekTools: DeepSeekTool[] = tools.map((t) => ({
       type: 'function',
@@ -254,11 +245,10 @@ export class DeepSeekProvider implements LLMProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const result = await this.sendRequest(
-        [{ role: 'user', content: 'ping' }],
-        undefined,
-        { maxTokens: 1, timeout: 10_000 },
-      );
+      const result = await this.sendRequest([{ role: 'user', content: 'ping' }], undefined, {
+        maxTokens: 1,
+        timeout: 10_000,
+      });
       return result.content.length > 0;
     } catch {
       return false;
@@ -323,7 +313,14 @@ export class DeepSeekProvider implements LLMProvider {
             throw new LLMRateLimitError(this.name, retryAfter);
           }
 
-          const errorText = await response.text().catch(err => { this.logger.error('Failed to read LLM API error response body', err instanceof Error ? err : new Error(String(err)), { phaseId: 'llm.provider' }); return 'Unknown error'; });
+          const errorText = await response.text().catch((err) => {
+            this.logger.error(
+              'Failed to read LLM API error response body',
+              err instanceof Error ? err : new Error(String(err)),
+              { phaseId: 'llm.provider' },
+            );
+            return 'Unknown error';
+          });
           throw new LLMError(
             `DeepSeek API returned status ${status}: ${errorText.slice(0, 200)}`,
             status,
@@ -335,11 +332,7 @@ export class DeepSeekProvider implements LLMProvider {
 
         const choice = data.choices[0];
         if (!choice) {
-          throw new LLMError(
-            'DeepSeek API returned empty choices array',
-            undefined,
-            this.name,
-          );
+          throw new LLMError('DeepSeek API returned empty choices array', undefined, this.name);
         }
 
         const content =

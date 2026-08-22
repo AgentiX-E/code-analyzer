@@ -142,12 +142,7 @@ const DEFAULT_SOURCES: TaintSource[] = [
   {
     id: 'database-input',
     category: 'sql_injection',
-    patterns: [
-      /\bdatabase\.query\b/,
-      /\bdb\.execute\b/,
-      /\bcursor\.fetch/,
-      /\bquery\s*\(/,
-    ],
+    patterns: [/\bdatabase\.query\b/, /\bdb\.execute\b/, /\bcursor\.fetch/, /\bquery\s*\(/],
     description: 'Data from database queries',
     severity: 'medium',
     languages: ['typescript', 'javascript', 'python', 'go', 'java', 'php', 'ruby'],
@@ -352,13 +347,7 @@ export class TaintAnalysisEngine {
 
     // For each source, find paths to sinks
     for (const sourceMatch of sourceNodes) {
-      const paths = this.findPathsToSinks(
-        sourceMatch,
-        sinkNodes,
-        sanitizerNodes,
-        adjacency,
-        graph,
-      );
+      const paths = this.findPathsToSinks(sourceMatch, sinkNodes, sanitizerNodes, adjacency, graph);
 
       for (const path of paths) {
         findings.push(path);
@@ -431,9 +420,7 @@ export class TaintAnalysisEngine {
     return matches;
   }
 
-  private identifySinkNodes(
-    graph: KnowledgeGraph,
-  ): Array<{ node: GraphNode; sink: TaintSink }> {
+  private identifySinkNodes(graph: KnowledgeGraph): Array<{ node: GraphNode; sink: TaintSink }> {
     const matches: Array<{ node: GraphNode; sink: TaintSink }> = [];
 
     for (const [, node] of graph.nodes) {
@@ -513,9 +500,12 @@ export class TaintAnalysisEngine {
     // NOT be used here, because it would block valid alternative paths to the
     // same sink (e.g. a diamond-shaped graph) after the first path visits an
     // intermediate node.
-    const queue: Array<{ nodeId: number; path: number[]; sanitized: boolean; sanitizerPath: number[] }> = [
-      { nodeId: source.node.id, path: [source.node.id], sanitized: false, sanitizerPath: [] },
-    ];
+    const queue: Array<{
+      nodeId: number;
+      path: number[];
+      sanitized: boolean;
+      sanitizerPath: number[];
+    }> = [{ nodeId: source.node.id, path: [source.node.id], sanitized: false, sanitizerPath: [] }];
 
     while (queue.length > 0 && findings.length < this.maxPathsPerSource) {
       const current = queue.shift()!;

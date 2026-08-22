@@ -27,9 +27,9 @@ describe('HealthCheckRegistry', () => {
 
   it('should throw when registering duplicate check', () => {
     registry.register('db', async () => ({ status: 'healthy' }));
-    expect(() =>
-      registry.register('db', async () => ({ status: 'healthy' })),
-    ).toThrow(/already registered/);
+    expect(() => registry.register('db', async () => ({ status: 'healthy' }))).toThrow(
+      /already registered/,
+    );
   });
 
   it('should unregister a health check', () => {
@@ -211,9 +211,15 @@ describe('createThresholdCheck', () => {
   });
 
   it('should handle getter throwing', async () => {
-    const check = createThresholdCheck('heap', () => {
-      throw new Error('Cannot read memory');
-    }, 400, 500, 'MB');
+    const check = createThresholdCheck(
+      'heap',
+      () => {
+        throw new Error('Cannot read memory');
+      },
+      400,
+      500,
+      'MB',
+    );
     const result = await check();
     expect(result.status).toBe('unhealthy');
     expect(result.message).toContain('Cannot read memory');

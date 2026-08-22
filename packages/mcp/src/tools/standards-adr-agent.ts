@@ -41,12 +41,29 @@ const BUILT_IN_STANDARDS: Omit<StandardDefinition, 'projectId' | 'standardId' | 
   {
     name: 'Security Baseline',
     category: 'security',
-    description: 'Essential security standards: no hardcoded secrets, input validation, auth checks',
+    description:
+      'Essential security standards: no hardcoded secrets, input validation, auth checks',
     rules: [
-      { id: 'no-hardcoded-secrets', severity: 'critical', description: 'No API keys, tokens, or passwords in source code' },
-      { id: 'input-validation', severity: 'high', description: 'All user input must be validated and sanitized' },
-      { id: 'auth-required', severity: 'high', description: 'All API endpoints must require authentication' },
-      { id: 'https-only', severity: 'high', description: 'All external communications must use HTTPS' },
+      {
+        id: 'no-hardcoded-secrets',
+        severity: 'critical',
+        description: 'No API keys, tokens, or passwords in source code',
+      },
+      {
+        id: 'input-validation',
+        severity: 'high',
+        description: 'All user input must be validated and sanitized',
+      },
+      {
+        id: 'auth-required',
+        severity: 'high',
+        description: 'All API endpoints must require authentication',
+      },
+      {
+        id: 'https-only',
+        severity: 'high',
+        description: 'All external communications must use HTTPS',
+      },
     ],
     version: '1.0.0',
   },
@@ -55,10 +72,22 @@ const BUILT_IN_STANDARDS: Omit<StandardDefinition, 'projectId' | 'standardId' | 
     category: 'code-style',
     description: 'Consistent code style and formatting conventions',
     rules: [
-      { id: 'max-line-length', severity: 'low', description: 'Lines should not exceed 120 characters' },
+      {
+        id: 'max-line-length',
+        severity: 'low',
+        description: 'Lines should not exceed 120 characters',
+      },
       { id: 'no-console', severity: 'medium', description: 'No console.log in production code' },
-      { id: 'consistent-naming', severity: 'medium', description: 'PascalCase for classes, camelCase for functions' },
-      { id: 'file-header', severity: 'low', description: 'Each file must have a module-level comment' },
+      {
+        id: 'consistent-naming',
+        severity: 'medium',
+        description: 'PascalCase for classes, camelCase for functions',
+      },
+      {
+        id: 'file-header',
+        severity: 'low',
+        description: 'Each file must have a module-level comment',
+      },
     ],
     version: '1.0.0',
   },
@@ -67,10 +96,26 @@ const BUILT_IN_STANDARDS: Omit<StandardDefinition, 'projectId' | 'standardId' | 
     category: 'architecture',
     description: 'Architecture patterns and dependencies',
     rules: [
-      { id: 'no-circular-deps', severity: 'high', description: 'No circular dependencies between modules' },
-      { id: 'layer-isolation', severity: 'medium', description: 'Domain layer must not depend on infrastructure' },
-      { id: 'single-responsibility', severity: 'medium', description: 'Classes and modules should have a single responsibility' },
-      { id: 'dependency-inversion', severity: 'medium', description: 'Depend on abstractions, not concrete implementations' },
+      {
+        id: 'no-circular-deps',
+        severity: 'high',
+        description: 'No circular dependencies between modules',
+      },
+      {
+        id: 'layer-isolation',
+        severity: 'medium',
+        description: 'Domain layer must not depend on infrastructure',
+      },
+      {
+        id: 'single-responsibility',
+        severity: 'medium',
+        description: 'Classes and modules should have a single responsibility',
+      },
+      {
+        id: 'dependency-inversion',
+        severity: 'medium',
+        description: 'Depend on abstractions, not concrete implementations',
+      },
     ],
     version: '1.0.0',
   },
@@ -79,10 +124,18 @@ const BUILT_IN_STANDARDS: Omit<StandardDefinition, 'projectId' | 'standardId' | 
     category: 'performance',
     description: 'Performance and optimization guidelines',
     rules: [
-      { id: 'no-sync-fs', severity: 'high', description: 'Avoid synchronous file system operations in server code' },
+      {
+        id: 'no-sync-fs',
+        severity: 'high',
+        description: 'Avoid synchronous file system operations in server code',
+      },
       { id: 'lazy-loading', severity: 'medium', description: 'Use lazy loading for heavy modules' },
       { id: 'no-n-plus-one', severity: 'high', description: 'Avoid N+1 query patterns' },
-      { id: 'no-blocking-ops', severity: 'medium', description: 'No blocking operations on the event loop' },
+      {
+        id: 'no-blocking-ops',
+        severity: 'medium',
+        description: 'No blocking operations on the event loop',
+      },
     ],
     version: '1.0.0',
   },
@@ -92,9 +145,21 @@ const BUILT_IN_STANDARDS: Omit<StandardDefinition, 'projectId' | 'standardId' | 
     description: 'Testing and quality assurance requirements',
     rules: [
       { id: 'test-coverage', severity: 'medium', description: 'Minimum 80% test coverage' },
-      { id: 'test-isolation', severity: 'medium', description: 'Tests must not depend on execution order' },
-      { id: 'no-skip-tests', severity: 'low', description: 'No skipped tests without explicit reason documented' },
-      { id: 'critical-path-tests', severity: 'high', description: 'All critical paths must have integration tests' },
+      {
+        id: 'test-isolation',
+        severity: 'medium',
+        description: 'Tests must not depend on execution order',
+      },
+      {
+        id: 'no-skip-tests',
+        severity: 'low',
+        description: 'No skipped tests without explicit reason documented',
+      },
+      {
+        id: 'critical-path-tests',
+        severity: 'high',
+        description: 'All critical paths must have integration tests',
+      },
     ],
     version: '1.0.0',
   },
@@ -113,7 +178,22 @@ export const listStandardsSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
-    category: { type: 'string', description: 'Filter by category', enum: ['code-style', 'architecture', 'security', 'performance', 'testing', 'api-design', 'error-handling', 'documentation', 'dependency', 'custom'] },
+    category: {
+      type: 'string',
+      description: 'Filter by category',
+      enum: [
+        'code-style',
+        'architecture',
+        'security',
+        'performance',
+        'testing',
+        'api-design',
+        'error-handling',
+        'documentation',
+        'dependency',
+        'custom',
+      ],
+    },
   },
   required: ['projectId'],
 };
@@ -124,14 +204,14 @@ export async function listStandards(args: Record<string, unknown>): Promise<Tool
   const category = params.category;
 
   // Collect built-in templates + project-specific standards
-  const builtIn = BUILT_IN_STANDARDS
-    .filter((s) => !category || s.category === category)
-    .map((s) => ({
+  const builtIn = BUILT_IN_STANDARDS.filter((s) => !category || s.category === category).map(
+    (s) => ({
       standardId: `builtin_${s.name.toLowerCase().replace(/\s+/g, '_')}`,
       projectId: 'builtin',
       ...s,
       createdAt: '2026-01-01T00:00:00Z',
-    }));
+    }),
+  );
 
   const projectStandards: StandardDefinition[] = [];
   for (const [, std] of standardsStore) {
@@ -143,17 +223,23 @@ export async function listStandards(args: Record<string, unknown>): Promise<Tool
   const all = [...builtIn, ...projectStandards];
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        projectId,
-        category: category ?? 'all',
-        standards: all,
-        total: all.length,
-        builtInCount: builtIn.length,
-        customCount: projectStandards.length,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            projectId,
+            category: category ?? 'all',
+            standards: all,
+            total: all.length,
+            builtInCount: builtIn.length,
+            customCount: projectStandards.length,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -174,7 +260,22 @@ export const createStandardSchema = {
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
     name: { type: 'string', description: 'Standard name' },
-    category: { type: 'string', description: 'Standard category', enum: ['code-style', 'architecture', 'security', 'performance', 'testing', 'api-design', 'error-handling', 'documentation', 'dependency', 'custom'] },
+    category: {
+      type: 'string',
+      description: 'Standard category',
+      enum: [
+        'code-style',
+        'architecture',
+        'security',
+        'performance',
+        'testing',
+        'api-design',
+        'error-handling',
+        'documentation',
+        'dependency',
+        'custom',
+      ],
+    },
     rules: { type: 'array', items: { type: 'object' }, description: 'Array of rule definitions' },
     description: { type: 'string', description: 'Standard description' },
   },
@@ -204,20 +305,26 @@ export async function createStandard(args: Record<string, unknown>): Promise<Too
   standardsStore.set(standardId, standard);
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        standardId,
-        projectId,
-        name,
-        category,
-        description,
-        ruleCount: rules.length,
-        version: '1.0.0',
-        created: true,
-        message: `Standard '${name}' created successfully`,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            standardId,
+            projectId,
+            name,
+            category,
+            description,
+            ruleCount: rules.length,
+            version: '1.0.0',
+            created: true,
+            message: `Standard '${name}' created successfully`,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -238,7 +345,11 @@ export const manageADRSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
-    action: { type: 'string', description: 'ADR action', enum: ['create', 'list', 'get', 'update', 'search'] },
+    action: {
+      type: 'string',
+      description: 'ADR action',
+      enum: ['create', 'list', 'get', 'update', 'search'],
+    },
     title: { type: 'string', description: 'ADR title (for create/update)' },
     content: { type: 'string', description: 'ADR content in markdown (for create/update)' },
     adrId: { type: 'string', description: 'ADR identifier (for get/update)' },
@@ -347,7 +458,8 @@ export async function manageADR(args: Record<string, unknown>): Promise<ToolResu
       for (const [, adr] of adrStore) {
         if (
           adr.projectId === projectId &&
-          (adr.title.toLowerCase().includes(searchTerm) || adr.content.toLowerCase().includes(searchTerm))
+          (adr.title.toLowerCase().includes(searchTerm) ||
+            adr.content.toLowerCase().includes(searchTerm))
         ) {
           searchResults.push(adr);
         }
@@ -384,7 +496,21 @@ interface InstallSkillsParams {
 export const installSkillsSchema = {
   type: 'object',
   properties: {
-    agents: { type: 'array', items: { type: 'string' }, description: 'Agent names to install skills for', enum: ['claude-code', 'cursor', 'codex', 'windsurf', 'codebuddy', 'aider', 'continue', 'custom'] },
+    agents: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Agent names to install skills for',
+      enum: [
+        'claude-code',
+        'cursor',
+        'codex',
+        'windsurf',
+        'codebuddy',
+        'aider',
+        'continue',
+        'custom',
+      ],
+    },
     projectId: { type: 'string', description: 'Project ID (for generating repo-specific skills)' },
     skills: { type: 'array', items: { type: 'string' }, description: 'Specific skills to install' },
     dryRun: { type: 'boolean', description: 'Preview installation without writing files' },
@@ -414,7 +540,12 @@ export async function installSkills(args: Record<string, unknown>): Promise<Tool
   const failed: string[] = [];
 
   for (const agent of agents) {
-    const detectedAgent = { name: agent, type: agent as DetectedAgent['type'], installPath: '', skillFormat: 'markdown' as const };
+    const detectedAgent = {
+      name: agent,
+      type: agent as DetectedAgent['type'],
+      installPath: '',
+      skillFormat: 'markdown' as const,
+    };
     const result = installer.installSkills([detectedAgent], skillsToInstall);
     if (result && result.length > 0) {
       for (const r of result) {
@@ -430,20 +561,26 @@ export async function installSkills(args: Record<string, unknown>): Promise<Tool
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        agents,
-        projectId,
-        skills: skillsToInstall,
-        dryRun,
-        installed,
-        failed,
-        message: dryRun
-          ? `Dry run — ${installed.length} skills would be installed for ${agents.length} agents`
-          : `Skills installation completed: ${installed.length} installed, ${failed.length} failed`,
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            agents,
+            projectId,
+            skills: skillsToInstall,
+            dryRun,
+            installed,
+            failed,
+            message: dryRun
+              ? `Dry run — ${installed.length} skills would be installed for ${agents.length} agents`
+              : `Skills installation completed: ${installed.length} installed, ${failed.length} failed`,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 

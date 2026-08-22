@@ -25,14 +25,49 @@ export class SearchQualitySuite implements BenchmarkSuite {
 
     // Seed with test nodes
     const nodes: GraphNode[] = [
-      this.makeNode(1, 'UserAuthentication', CAPTURE_TAGS.CLASS_DEF, 'Handles user login and session management'),
-      this.makeNode(2, 'authenticateUser', CAPTURE_TAGS.FUNCTION_DEF, 'Authenticate a user with username and password'),
-      this.makeNode(3, 'PaymentProcessor', CAPTURE_TAGS.CLASS_DEF, 'Processes credit card payments'),
-      this.makeNode(4, 'processPayment', CAPTURE_TAGS.FUNCTION_DEF, 'Process a payment transaction'),
-      this.makeNode(5, 'SessionManager', CAPTURE_TAGS.CLASS_DEF, 'Manages user sessions and tokens'),
+      this.makeNode(
+        1,
+        'UserAuthentication',
+        CAPTURE_TAGS.CLASS_DEF,
+        'Handles user login and session management',
+      ),
+      this.makeNode(
+        2,
+        'authenticateUser',
+        CAPTURE_TAGS.FUNCTION_DEF,
+        'Authenticate a user with username and password',
+      ),
+      this.makeNode(
+        3,
+        'PaymentProcessor',
+        CAPTURE_TAGS.CLASS_DEF,
+        'Processes credit card payments',
+      ),
+      this.makeNode(
+        4,
+        'processPayment',
+        CAPTURE_TAGS.FUNCTION_DEF,
+        'Process a payment transaction',
+      ),
+      this.makeNode(
+        5,
+        'SessionManager',
+        CAPTURE_TAGS.CLASS_DEF,
+        'Manages user sessions and tokens',
+      ),
       this.makeNode(6, 'createSession', CAPTURE_TAGS.FUNCTION_DEF, 'Create a new user session'),
-      this.makeNode(7, 'DatabaseConnection', CAPTURE_TAGS.CLASS_DEF, 'Manages database connection pool'),
-      this.makeNode(8, 'executeQuery', CAPTURE_TAGS.FUNCTION_DEF, 'Execute a SQL query against the database'),
+      this.makeNode(
+        7,
+        'DatabaseConnection',
+        CAPTURE_TAGS.CLASS_DEF,
+        'Manages database connection pool',
+      ),
+      this.makeNode(
+        8,
+        'executeQuery',
+        CAPTURE_TAGS.FUNCTION_DEF,
+        'Execute a SQL query against the database',
+      ),
       this.makeNode(9, 'FileUploader', CAPTURE_TAGS.CLASS_DEF, 'Handles file upload to S3'),
       this.makeNode(10, 'uploadFile', CAPTURE_TAGS.FUNCTION_DEF, 'Upload a file to cloud storage'),
     ];
@@ -48,7 +83,8 @@ export class SearchQualitySuite implements BenchmarkSuite {
 
     // Test 1: Exact name search
     const exactResults = await engine.search({ query: 'authenticateUser', limit: 5 });
-    const exactPrecisionAt1 = exactResults.length > 0 && exactResults[0]!.node.name === 'authenticateUser' ? 1.0 : 0.0;
+    const exactPrecisionAt1 =
+      exactResults.length > 0 && exactResults[0]!.node.name === 'authenticateUser' ? 1.0 : 0.0;
     measurements.push(
       measurement('Exact Name Match (P@1)', exactPrecisionAt1, 'ratio', { target: 1.0, min: 1.0 }),
     );
@@ -56,9 +92,12 @@ export class SearchQualitySuite implements BenchmarkSuite {
     // Test 2: Semantic search (description-based)
     const authResults = await engine.search({ query: 'user login authentication', limit: 5 });
     const authRelevant = authResults.filter((r) =>
-      ['UserAuthentication', 'authenticateUser', 'SessionManager', 'createSession'].includes(r.node.name),
+      ['UserAuthentication', 'authenticateUser', 'SessionManager', 'createSession'].includes(
+        r.node.name,
+      ),
     ).length;
-    const authPrecisionAt5 = authResults.length > 0 ? authRelevant / Math.min(5, authResults.length) : 0;
+    const authPrecisionAt5 =
+      authResults.length > 0 ? authRelevant / Math.min(5, authResults.length) : 0;
     measurements.push(
       measurement('Auth Query P@5', authPrecisionAt5, 'ratio', { target: 0.6, min: 0.3 }),
     );
@@ -68,7 +107,8 @@ export class SearchQualitySuite implements BenchmarkSuite {
     const payRelevant = payResults.filter((r) =>
       ['PaymentProcessor', 'processPayment'].includes(r.node.name),
     ).length;
-    const payPrecisionAt3 = payResults.length > 0 ? payRelevant / Math.min(3, payResults.length) : 0;
+    const payPrecisionAt3 =
+      payResults.length > 0 ? payRelevant / Math.min(3, payResults.length) : 0;
     measurements.push(
       measurement('Payment Query P@3', payPrecisionAt3, 'ratio', { target: 0.5, min: 0.3 }),
     );
@@ -93,9 +133,7 @@ export class SearchQualitySuite implements BenchmarkSuite {
     const start = Date.now();
     await engine.search({ query: 'database connection pool', limit: 10 });
     const latencyMs = Date.now() - start;
-    measurements.push(
-      measurement('Search Latency', latencyMs, 'ms', { target: 50, max: 200 }),
-    );
+    measurements.push(measurement('Search Latency', latencyMs, 'ms', { target: 50, max: 200 }));
 
     details.push(
       `Indexed ${nodes.length} nodes across 10 symbols`,

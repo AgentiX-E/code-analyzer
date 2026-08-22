@@ -110,28 +110,40 @@ describe('Search Performance', () => {
   }, INDEX_TIMEOUT_MS);
 
   afterAll(() => {
-    try { rmSync(benchDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(benchDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
-  it('should search by exact name within latency target', async () => {
-    const start = Date.now();
-    const result = await engine.search({ query: 'Service25', limit: 10 });
-    const elapsed = Date.now() - start;
-    timings.push(elapsed);
+  it(
+    'should search by exact name within latency target',
+    async () => {
+      const start = Date.now();
+      const result = await engine.search({ query: 'Service25', limit: 10 });
+      const elapsed = Date.now() - start;
+      timings.push(elapsed);
 
-    expect(elapsed).toBeLessThan(SEARCH_TIMEOUT_MS);
-    expect(result.results.length).toBeGreaterThan(0);
-  }, SEARCH_TIMEOUT_MS);
+      expect(elapsed).toBeLessThan(SEARCH_TIMEOUT_MS);
+      expect(result.results.length).toBeGreaterThan(0);
+    },
+    SEARCH_TIMEOUT_MS,
+  );
 
-  it('should search by partial name', async () => {
-    const start = Date.now();
-    const result = await engine.search({ query: 'Process', limit: 10 });
-    const elapsed = Date.now() - start;
-    timings.push(elapsed);
+  it(
+    'should search by partial name',
+    async () => {
+      const start = Date.now();
+      const result = await engine.search({ query: 'Process', limit: 10 });
+      const elapsed = Date.now() - start;
+      timings.push(elapsed);
 
-    expect(elapsed).toBeLessThan(SEARCH_TIMEOUT_MS);
-    expect(result.results.length).toBeGreaterThan(0);
-  }, SEARCH_TIMEOUT_MS);
+      expect(elapsed).toBeLessThan(SEARCH_TIMEOUT_MS);
+      expect(result.results.length).toBeGreaterThan(0);
+    },
+    SEARCH_TIMEOUT_MS,
+  );
 
   it('should handle empty results quickly', async () => {
     const start = Date.now();
@@ -179,87 +191,123 @@ describe('Cross-Repo Indexing Performance', () => {
 
     groupManager = new RepoGroupManager();
     groupManager.createGroup('bench-group', 'Benchmark Group', 'Performance test group');
-    groupManager.addRepo('bench-group', 'test', 'repo-a', 'https://github.com/test/repo-a', repoADir);
-    groupManager.addRepo('bench-group', 'test', 'repo-b', 'https://github.com/test/repo-b', repoBDir);
+    groupManager.addRepo(
+      'bench-group',
+      'test',
+      'repo-a',
+      'https://github.com/test/repo-a',
+      repoADir,
+    );
+    groupManager.addRepo(
+      'bench-group',
+      'test',
+      'repo-b',
+      'https://github.com/test/repo-b',
+      repoBDir,
+    );
   }, INDEX_TIMEOUT_MS);
 
   afterAll(() => {
-    try { rmSync(benchDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(benchDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
-  it('should index group within performance target', async () => {
-    const store = new InMemoryGraphStore();
-    const indexer = new CrossRepoIndexer(groupManager, store);
+  it(
+    'should index group within performance target',
+    async () => {
+      const store = new InMemoryGraphStore();
+      const indexer = new CrossRepoIndexer(groupManager, store);
 
-    const start = Date.now();
-    const result = await indexer.indexGroup('bench-group');
-    const elapsed = Date.now() - start;
+      const start = Date.now();
+      const result = await indexer.indexGroup('bench-group');
+      const elapsed = Date.now() - start;
 
-    expect(elapsed).toBeLessThan(INDEX_TIMEOUT_MS);
-    expect(result).toBeDefined();
-  }, INDEX_TIMEOUT_MS);
+      expect(elapsed).toBeLessThan(INDEX_TIMEOUT_MS);
+      expect(result).toBeDefined();
+    },
+    INDEX_TIMEOUT_MS,
+  );
 
-  it('should index single repo under per-file target', async () => {
-    const store = new InMemoryGraphStore();
-    const indexer = new CrossRepoIndexer(groupManager, store);
+  it(
+    'should index single repo under per-file target',
+    async () => {
+      const store = new InMemoryGraphStore();
+      const indexer = new CrossRepoIndexer(groupManager, store);
 
-    const start = Date.now();
-    const result = await indexer.indexGroup('bench-group');
-    const elapsed = Date.now() - start;
+      const start = Date.now();
+      const result = await indexer.indexGroup('bench-group');
+      const elapsed = Date.now() - start;
 
-    // With INDEX_FILES files, per-file time should be under target
-    const totalFiles = INDEX_FILES + Math.floor(INDEX_FILES / 2);
-    const perFileMs = elapsed / totalFiles;
-    expect(perFileMs).toBeLessThan(INDEX_PER_FILE_TARGET_MS);
+      // With INDEX_FILES files, per-file time should be under target
+      const totalFiles = INDEX_FILES + Math.floor(INDEX_FILES / 2);
+      const perFileMs = elapsed / totalFiles;
+      expect(perFileMs).toBeLessThan(INDEX_PER_FILE_TARGET_MS);
 
-    expect(result).toBeDefined();
-  }, INDEX_TIMEOUT_MS);
+      expect(result).toBeDefined();
+    },
+    INDEX_TIMEOUT_MS,
+  );
 
-  it('should build cross-repo graph', async () => {
-    const store = new InMemoryGraphStore();
-    const indexer = new CrossRepoIndexer(groupManager, store);
+  it(
+    'should build cross-repo graph',
+    async () => {
+      const store = new InMemoryGraphStore();
+      const indexer = new CrossRepoIndexer(groupManager, store);
 
-    await indexer.indexGroup('bench-group');
-    const graphReport = await indexer.buildCrossRepoGraph('bench-group');
+      await indexer.indexGroup('bench-group');
+      const graphReport = await indexer.buildCrossRepoGraph('bench-group');
 
-    expect(graphReport).toBeDefined();
-    expect(graphReport.crossRepoEdges).toBeDefined();
-    expect(graphReport.repos).toBeDefined();
-    expect(graphReport.repos.length).toBeGreaterThanOrEqual(1);
-  }, INDEX_TIMEOUT_MS);
+      expect(graphReport).toBeDefined();
+      expect(graphReport.crossRepoEdges).toBeDefined();
+      expect(graphReport.repos).toBeDefined();
+      expect(graphReport.repos.length).toBeGreaterThanOrEqual(1);
+    },
+    INDEX_TIMEOUT_MS,
+  );
 
-  it('should detect cross-repo contracts', async () => {
-    const store = new InMemoryGraphStore();
-    const indexer = new CrossRepoIndexer(groupManager, store);
+  it(
+    'should detect cross-repo contracts',
+    async () => {
+      const store = new InMemoryGraphStore();
+      const indexer = new CrossRepoIndexer(groupManager, store);
 
-    await indexer.indexGroup('bench-group');
-    const contracts = await indexer.detectContracts('bench-group');
+      await indexer.indexGroup('bench-group');
+      const contracts = await indexer.detectContracts('bench-group');
 
-    expect(contracts).toBeDefined();
-    expect(Array.isArray(contracts)).toBe(true);
-  }, INDEX_TIMEOUT_MS);
+      expect(contracts).toBeDefined();
+      expect(Array.isArray(contracts)).toBe(true);
+    },
+    INDEX_TIMEOUT_MS,
+  );
 
-  it('should analyze cross-repo impact', async () => {
-    const store = new InMemoryGraphStore();
-    const indexer = new CrossRepoIndexer(groupManager, store);
+  it(
+    'should analyze cross-repo impact',
+    async () => {
+      const store = new InMemoryGraphStore();
+      const indexer = new CrossRepoIndexer(groupManager, store);
 
-    await indexer.indexGroup('bench-group');
+      await indexer.indexGroup('bench-group');
 
-    // Set project IDs for cross-repo impact analysis
-    groupManager.setRepoProjectId('bench-group', 'test/repo-a', 'project-a');
-    groupManager.setRepoProjectId('bench-group', 'test/repo-b', 'project-b');
+      // Set project IDs for cross-repo impact analysis
+      groupManager.setRepoProjectId('bench-group', 'test/repo-a', 'project-a');
+      groupManager.setRepoProjectId('bench-group', 'test/repo-b', 'project-b');
 
-    // Mark indexed
-    groupManager.markIndexed('bench-group');
+      // Mark indexed
+      groupManager.markIndexed('bench-group');
 
-    try {
-      const impact = await indexer.analyzeCrossRepoImpact('bench-group', 'test/repo-a');
-      expect(impact).toBeDefined();
-      expect(impact.changedFiles).toBeDefined();
-    } catch {
-      // Impact analysis may fail if symbols not found — acceptable for benchmark
-    }
-  }, INDEX_TIMEOUT_MS);
+      try {
+        const impact = await indexer.analyzeCrossRepoImpact('bench-group', 'test/repo-a');
+        expect(impact).toBeDefined();
+        expect(impact.changedFiles).toBeDefined();
+      } catch {
+        // Impact analysis may fail if symbols not found — acceptable for benchmark
+      }
+    },
+    INDEX_TIMEOUT_MS,
+  );
 });
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,13 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { CaBenchRunner, type BenchmarkSuite, type BenchmarkResult } from '../runner.js';
-import { generateJsonReport, generateMarkdownReport, generateHtmlReport, measurement, makeResult } from '../reporter.js';
+import {
+  generateJsonReport,
+  generateMarkdownReport,
+  generateHtmlReport,
+  measurement,
+  makeResult,
+} from '../reporter.js';
 import { ParseAccuracySuite } from '../suites/parse-accuracy.bench.js';
 import { SearchQualitySuite } from '../suites/search-quality.bench.js';
 import { ReviewQualitySuite } from '../suites/review-quality.bench.js';
@@ -69,9 +75,7 @@ describe('CaBenchRunner', () => {
   });
 
   it('should throw when registering a duplicate suite', () => {
-    expect(() => runner.register(new MockPassingSuite())).toThrow(
-      /already registered/,
-    );
+    expect(() => runner.register(new MockPassingSuite())).toThrow(/already registered/);
   });
 
   it('should run a single passing suite', async () => {
@@ -526,17 +530,23 @@ describe('LLM Review Quality Benchmark', () => {
   });
 
   it('heuristic should detect SQL injection patterns', () => {
-    const findings = heuristicAnalyze(TEST_CASES.filter((c: LLMReviewCase) => c.id === 'sqli-001')[0]!.source);
+    const findings = heuristicAnalyze(
+      TEST_CASES.filter((c: LLMReviewCase) => c.id === 'sqli-001')[0]!.source,
+    );
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
   it('heuristic should detect hardcoded secrets', () => {
-    const findings = heuristicAnalyze(TEST_CASES.filter((c: LLMReviewCase) => c.id === 'secret-001')[0]!.source);
+    const findings = heuristicAnalyze(
+      TEST_CASES.filter((c: LLMReviewCase) => c.id === 'secret-001')[0]!.source,
+    );
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
   it('heuristic should NOT flag safe code', () => {
-    const findings = heuristicAnalyze(TEST_CASES.filter((c: LLMReviewCase) => c.id === 'safe-001')[0]!.source);
+    const findings = heuristicAnalyze(
+      TEST_CASES.filter((c: LLMReviewCase) => c.id === 'safe-001')[0]!.source,
+    );
     expect(findings.length).toBe(0);
   });
 
@@ -573,4 +583,3 @@ describe('LLM Review Quality Benchmark', () => {
     expect(result.passed).toBeDefined();
   }, 30000);
 });
-

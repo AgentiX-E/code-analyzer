@@ -179,9 +179,9 @@ describe('registerGraphRoutes', () => {
     it('GET /graph HTML should be self-contained (no external CSS/JS files)', async () => {
       const res = await app.inject({ method: 'GET', url: '/graph' });
       // Only D3 from CDN should be present
-      const externalScripts = (res.body.match(/src="(?!https:\/\/d3js\.org)[^"]+"/g) ?? []);
+      const externalScripts = res.body.match(/src="(?!https:\/\/d3js\.org)[^"]+"/g) ?? [];
       expect(externalScripts.length).toBe(0);
-      const externalStyles = (res.body.match(/href="[^"]+\.css"/g) ?? []);
+      const externalStyles = res.body.match(/href="[^"]+\.css"/g) ?? [];
       expect(externalStyles.length).toBe(0);
     });
 
@@ -259,8 +259,12 @@ describe('registerGraphRoutes', () => {
       // repo-a should have more nodes than repo-b
       expect(bodyA.nodes.length).toBeGreaterThan(bodyB.nodes.length);
       // All nodes should belong to the correct project
-      expect(bodyA.nodes.every((n: { projectId: string }) => n.projectId === 'org/repo-a')).toBe(true);
-      expect(bodyB.nodes.every((n: { projectId: string }) => n.projectId === 'org/repo-b')).toBe(true);
+      expect(bodyA.nodes.every((n: { projectId: string }) => n.projectId === 'org/repo-a')).toBe(
+        true,
+      );
+      expect(bodyB.nodes.every((n: { projectId: string }) => n.projectId === 'org/repo-b')).toBe(
+        true,
+      );
     });
 
     it('GET /graph/data should return empty nodes for non-existent project', async () => {
@@ -292,9 +296,9 @@ describe('registerGraphRoutes', () => {
       });
       const body = JSON.parse(res.body);
       expect(body.nodes.length).toBeGreaterThan(0);
-      expect(body.nodes.every((n: { label: string }) =>
-        n.label === 'Class' || n.label === 'Function',
-      )).toBe(true);
+      expect(
+        body.nodes.every((n: { label: string }) => n.label === 'Class' || n.label === 'Function'),
+      ).toBe(true);
     });
 
     it('GET /graph/data should handle empty label parameter gracefully', async () => {
@@ -317,9 +321,9 @@ describe('registerGraphRoutes', () => {
       });
       const body = JSON.parse(res.body);
       expect(body.nodes.length).toBeGreaterThan(0);
-      expect(body.nodes.every(
-        (n: { name: string }) => n.name.toLowerCase().includes('user'),
-      )).toBe(true);
+      expect(body.nodes.every((n: { name: string }) => n.name.toLowerCase().includes('user'))).toBe(
+        true,
+      );
     });
 
     it('GET /graph/data should return empty when search has no match', async () => {
@@ -396,9 +400,7 @@ describe('registerGraphRoutes', () => {
         url: '/graph/data?projectId=org/repo-a',
       });
       const body = JSON.parse(res.body);
-      const crossRepoEdges = body.edges.filter(
-        (e: { type: string }) => e.type === 'CROSS_REPO',
-      );
+      const crossRepoEdges = body.edges.filter((e: { type: string }) => e.type === 'CROSS_REPO');
       expect(crossRepoEdges.length).toBeGreaterThan(0);
     });
 

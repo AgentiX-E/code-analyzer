@@ -258,8 +258,19 @@ describe('Tree View + Engine Integration', () => {
   });
 
   it('icon mapping covers all standard labels', () => {
-    const labels = ['Function', 'Class', 'Interface', 'Method', 'Module',
-      'Variable', 'Enum', 'Property', 'Route', 'Test', 'Config'];
+    const labels = [
+      'Function',
+      'Class',
+      'Interface',
+      'Method',
+      'Module',
+      'Variable',
+      'Enum',
+      'Property',
+      'Route',
+      'Test',
+      'Config',
+    ];
     for (const label of labels) {
       const icon = treeLogic.getIconForLabel(label);
       expect(icon.length).toBeGreaterThan(0);
@@ -274,10 +285,12 @@ describe('Tree View + Engine Integration', () => {
 
 describe('Config + Service Integration', () => {
   it('ConfigLogic wraps ConfigService correctly', () => {
-    const config = new ConfigService(mockWorkspaceConfig({
-      autoIndex: false,
-      indexMode: 'fast',
-    }));
+    const config = new ConfigService(
+      mockWorkspaceConfig({
+        autoIndex: false,
+        indexMode: 'fast',
+      }),
+    );
     const logic = new ConfigLogic(config);
 
     const all = logic.getConfig();
@@ -392,8 +405,16 @@ describe('Full Component Wiring', () => {
     engine.setProjectId('test');
     const sidebar = new SidebarLogic(engine);
 
-    const commands = ['search', 'review', 'checkStandards', 'getChangedFiles',
-      'getProjectInfo', 'getGraphData', 'navigate', 'unknown'];
+    const commands = [
+      'search',
+      'review',
+      'checkStandards',
+      'getChangedFiles',
+      'getProjectInfo',
+      'getGraphData',
+      'navigate',
+      'unknown',
+    ];
 
     for (const cmd of commands) {
       const response = await sidebar.handleMessage({ command: cmd, query: 'test' });

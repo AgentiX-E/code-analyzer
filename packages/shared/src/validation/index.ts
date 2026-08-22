@@ -75,10 +75,7 @@ const REQUIRED_PROPS_BY_LABEL: Partial<Record<NodeLabel, string[]>> = {
  * Validates that node properties contain the required fields for a given label.
  * Returns a list of human-readable error messages. An empty array means success.
  */
-export function validateNodeProperties(
-  label: NodeLabel,
-  props: Record<string, unknown>
-): string[] {
+export function validateNodeProperties(label: NodeLabel, props: Record<string, unknown>): string[] {
   const errors: string[] = [];
 
   // Validate that label is recognized
@@ -108,7 +105,7 @@ export function validateNodeProperties(
     const allowed = new Set(['public', 'private', 'protected']);
     if (!allowed.has(props['visibility'] as string)) {
       errors.push(
-        `Invalid visibility "${String(props['visibility'])}" — expected "public", "private", or "protected"`
+        `Invalid visibility "${String(props['visibility'])}" — expected "public", "private", or "protected"`,
       );
     }
   }
@@ -127,7 +124,7 @@ export function validateNodeProperties(
 export function validateEdgeCompatibility(
   sourceLabel: NodeLabel,
   targetLabel: NodeLabel,
-  type: RelationshipType
+  type: RelationshipType,
 ): boolean {
   // Validate inputs are real
   if (
@@ -253,7 +250,7 @@ export function validateConfig(config: CodeAnalyzerConfig): string[] {
       const validProfiles = new Set(['all', 'analysis', 'scout']);
       if (!validProfiles.has(config.mcp.toolProfile)) {
         errors.push(
-          `config.mcp.toolProfile must be one of "all", "analysis", "scout" (got "${config.mcp.toolProfile}")`
+          `config.mcp.toolProfile must be one of "all", "analysis", "scout" (got "${config.mcp.toolProfile}")`,
         );
       }
       if (!isPositiveInteger(config.mcp.maxResults)) {
@@ -347,13 +344,7 @@ const VALID_CATEGORIES: readonly ReviewCategory[] = [
   'other',
 ];
 
-const VALID_SEVERITIES: readonly Severity[] = [
-  'critical',
-  'high',
-  'medium',
-  'low',
-  'info',
-];
+const VALID_SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
 /**
  * Validates a ReviewComment object. Returns an array of error messages.
@@ -392,21 +383,21 @@ export function validateReviewComment(comment: ReviewComment): string[] {
     errors.push('reviewComment.endLine must be a positive integer');
   } else if (comment.endLine < comment.startLine) {
     errors.push(
-      `reviewComment.endLine (${comment.endLine}) must be >= startLine (${comment.startLine})`
+      `reviewComment.endLine (${comment.endLine}) must be >= startLine (${comment.startLine})`,
     );
   }
 
   // category
   if (!(VALID_CATEGORIES as readonly string[]).includes(comment.category)) {
     errors.push(
-      `Invalid reviewComment.category "${comment.category}" — must be one of: ${VALID_CATEGORIES.join(', ')}`
+      `Invalid reviewComment.category "${comment.category}" — must be one of: ${VALID_CATEGORIES.join(', ')}`,
     );
   }
 
   // severity
   if (!(VALID_SEVERITIES as readonly string[]).includes(comment.severity)) {
     errors.push(
-      `Invalid reviewComment.severity "${comment.severity}" — must be one of: ${VALID_SEVERITIES.join(', ')}`
+      `Invalid reviewComment.severity "${comment.severity}" — must be one of: ${VALID_SEVERITIES.join(', ')}`,
     );
   }
 
@@ -458,21 +449,9 @@ const VALID_STANDARD_CATEGORIES = new Set([
   'custom',
 ]);
 
-const VALID_CHECK_TYPES = new Set([
-  'ast-pattern',
-  'regex',
-  'graph-query',
-  'llm-check',
-  'metric',
-]);
+const VALID_CHECK_TYPES = new Set(['ast-pattern', 'regex', 'graph-query', 'llm-check', 'metric']);
 
-const VALID_SEVERITIES_SET = new Set([
-  'critical',
-  'high',
-  'medium',
-  'low',
-  'info',
-]);
+const VALID_SEVERITIES_SET = new Set(['critical', 'high', 'medium', 'low', 'info']);
 
 /**
  * Validates a ProjectStandard object. Returns an array of error messages.
@@ -500,7 +479,7 @@ export function validateStandard(standard: ProjectStandard): string[] {
 
   if (!VALID_STANDARD_CATEGORIES.has(standard.category)) {
     errors.push(
-      `Invalid standard.category "${standard.category}" — must be one of: ${[...VALID_STANDARD_CATEGORIES].join(', ')}`
+      `Invalid standard.category "${standard.category}" — must be one of: ${[...VALID_STANDARD_CATEGORIES].join(', ')}`,
     );
   }
 
@@ -573,12 +552,7 @@ const VALID_REPORT_TYPES = new Set([
 
 const VALID_SCOPE_TYPES = new Set(['project', 'repo-group', 'pr']);
 
-const VALID_MERGE_RECS = new Set([
-  'approve',
-  'approve-with-comments',
-  'request-changes',
-  'block',
-]);
+const VALID_MERGE_RECS = new Set(['approve', 'approve-with-comments', 'request-changes', 'block']);
 
 /**
  * Validates an AnalysisReport object. Returns an array of error messages.
@@ -631,7 +605,9 @@ export function validateReport(report: AnalysisReport): string[] {
       errors.push('report.summary.keyTakeaways must be an array');
     }
     if (!VALID_MERGE_RECS.has(report.summary.mergeRecommendation)) {
-      errors.push(`Invalid report.summary.mergeRecommendation "${report.summary.mergeRecommendation}"`);
+      errors.push(
+        `Invalid report.summary.mergeRecommendation "${report.summary.mergeRecommendation}"`,
+      );
     }
     if (!isNonEmptyString(report.summary.mergeRationale)) {
       errors.push('report.summary.mergeRationale must be a non-empty string');

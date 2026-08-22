@@ -61,7 +61,10 @@ export function computeCertFingerprint(pem: string): string {
  * Fastify provides req.socket.getPeerCertificate() when TLS is enabled.
  * For reverse proxy setups, checks the configured header.
  */
-function getClientCert(request: FastifyRequest, config: MtlsConfig): { fingerprint: string; raw: Buffer } | null {
+function getClientCert(
+  request: FastifyRequest,
+  config: MtlsConfig,
+): { fingerprint: string; raw: Buffer } | null {
   // Check custom header for reverse proxy setups
   if (config.clientCertHeader) {
     const headerVal = request.headers[config.clientCertHeader] as string | undefined;
@@ -72,7 +75,7 @@ function getClientCert(request: FastifyRequest, config: MtlsConfig): { fingerpri
           fingerprint: createHash('sha256').update(decoded).digest('hex'),
           raw: decoded,
         };
-      /* v8 ignore start -- @preserve Buffer.from with invalid base64 does not throw in Node.js */
+        /* v8 ignore start -- @preserve Buffer.from with invalid base64 does not throw in Node.js */
       } catch {
         return null;
       }
@@ -123,7 +126,9 @@ export function registerMtls(app: FastifyInstance, config: MtlsConfig): void {
   if (!config.enabled) return;
 
   const bypassSet = new Set([
-    ...(config.skipHealthEndpoints ? ['/health', '/api/v1/health', '/api/v1/health/live', '/api/v1/health/ready'] : []),
+    ...(config.skipHealthEndpoints
+      ? ['/health', '/api/v1/health', '/api/v1/health/live', '/api/v1/health/ready']
+      : []),
     ...(config.bypassPaths ?? []),
   ]);
 

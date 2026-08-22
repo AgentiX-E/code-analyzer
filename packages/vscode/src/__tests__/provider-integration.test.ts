@@ -29,7 +29,12 @@ function createMockEngine(overrides?: Partial<EngineBridge>): EngineBridge {
     getChangedFiles: vi.fn().mockResolvedValue([]),
     checkStandards: vi.fn().mockResolvedValue({ passed: true, message: '' }),
     findRelatedTests: vi.fn().mockResolvedValue([]),
-    getComplexityMetrics: vi.fn().mockResolvedValue({ cyclomaticComplexity: 1, linesOfCode: 10, parameterCount: 0, nestingDepth: 1 }),
+    getComplexityMetrics: vi.fn().mockResolvedValue({
+      cyclomaticComplexity: 1,
+      linesOfCode: 10,
+      parameterCount: 0,
+      nestingDepth: 1,
+    }),
     searchWithScores: vi.fn().mockResolvedValue([]),
     setProjectId: vi.fn(),
     getProjectId: vi.fn().mockReturnValue('test-proj'),
@@ -220,8 +225,22 @@ describe('CommentLogic', () => {
 
   it('maps comments to diagnostics', () => {
     const comments: ReviewCommentItem[] = [
-      { severity: 'critical', title: 'E', message: 'Error', path: '/f.ts', startLine: 0, endLine: 5 },
-      { severity: 'high', title: 'W', message: 'Warning', path: '/f.ts', startLine: 10, endLine: 15 },
+      {
+        severity: 'critical',
+        title: 'E',
+        message: 'Error',
+        path: '/f.ts',
+        startLine: 0,
+        endLine: 5,
+      },
+      {
+        severity: 'high',
+        title: 'W',
+        message: 'Warning',
+        path: '/f.ts',
+        startLine: 10,
+        endLine: 15,
+      },
     ];
 
     const diagnostics = logic.mapCommentsToDiagnostics(comments);
@@ -241,8 +260,20 @@ describe('CommentLogic', () => {
 
   it('groups diagnostics by file', () => {
     const decs = [
-      { range: { startLine: 0, startCharacter: 0, endLine: 5, endCharacter: 0 }, message: 'A', severity: 'info', source: 'test', filePath: '/a.ts' },
-      { range: { startLine: 10, startCharacter: 0, endLine: 15, endCharacter: 0 }, message: 'B', severity: 'warning', source: 'test', filePath: '/b.ts' },
+      {
+        range: { startLine: 0, startCharacter: 0, endLine: 5, endCharacter: 0 },
+        message: 'A',
+        severity: 'info',
+        source: 'test',
+        filePath: '/a.ts',
+      },
+      {
+        range: { startLine: 10, startCharacter: 0, endLine: 15, endCharacter: 0 },
+        message: 'B',
+        severity: 'warning',
+        source: 'test',
+        filePath: '/b.ts',
+      },
     ];
 
     const grouped = logic.groupByFile(decs as any);
@@ -261,9 +292,9 @@ describe('GraphTreeDataProviderLogic', () => {
   beforeEach(() => {
     engine = createMockEngine({
       getProjectId: vi.fn().mockReturnValue('project:test'),
-      search: vi.fn().mockResolvedValue([
-        { name: 'MyClass', filePath: 'src/MyClass.ts', label: 'class' },
-      ]),
+      search: vi
+        .fn()
+        .mockResolvedValue([{ name: 'MyClass', filePath: 'src/MyClass.ts', label: 'class' }]),
     });
     logic = new GraphTreeDataProviderLogic(engine);
   });

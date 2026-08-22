@@ -44,10 +44,14 @@ export function checkXxeAst(ctx: AstRuleContext): RuleCheckResult[] {
     if (isComment(line)) continue;
     for (const pat of xxePatterns) {
       if (pat.test(line) && !/noent|resolve_entities|DTD_LOAD/i.test(line)) {
-        r.push(mk('no-xxe', i + 1,
-          'CWE-611: XML parser used without disabling external entity resolution — potential XXE.',
-          'Disable external entity loading: DOMParser({ noent: false }) or set resolve_entities=False.',
-        ));
+        r.push(
+          mk(
+            'no-xxe',
+            i + 1,
+            'CWE-611: XML parser used without disabling external entity resolution — potential XXE.',
+            'Disable external entity loading: DOMParser({ noent: false }) or set resolve_entities=False.',
+          ),
+        );
       }
     }
   }
@@ -72,10 +76,14 @@ export function checkSstiAst(ctx: AstRuleContext): RuleCheckResult[] {
           /req\.|request\.|params\.|query\.|body\.|user/.test(a),
         );
         if (hasUserInput) {
-          r.push(mk('no-ssti', call.line,
-            'CWE-94: Template rendered with user-controlled input — potential SSTI.',
-            'Sanitize user input before template rendering, or use sandboxed template engines.',
-          ));
+          r.push(
+            mk(
+              'no-ssti',
+              call.line,
+              'CWE-94: Template rendered with user-controlled input — potential SSTI.',
+              'Sanitize user input before template rendering, or use sandboxed template engines.',
+            ),
+          );
         }
       }
     }
@@ -90,12 +98,15 @@ export function checkLdapInjectionAst(ctx: AstRuleContext): RuleCheckResult[] {
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i]!;
     if (isComment(line)) continue;
-    if (/(?:ldap|LDAP)\.(?:search|modify|add|delete|bind)\s*\(/.test(line) &&
-        /\$\{/.test(line)) {
-      r.push(mk('no-ldap-injection', i + 1,
-        'CWE-90: LDAP query built with string interpolation — potential LDAP injection.',
-        'Escape special LDAP characters: * ( ) \\ \\0 and use parameterized LDAP queries.',
-      ));
+    if (/(?:ldap|LDAP)\.(?:search|modify|add|delete|bind)\s*\(/.test(line) && /\$\{/.test(line)) {
+      r.push(
+        mk(
+          'no-ldap-injection',
+          i + 1,
+          'CWE-90: LDAP query built with string interpolation — potential LDAP injection.',
+          'Escape special LDAP characters: * ( ) \\ \\0 and use parameterized LDAP queries.',
+        ),
+      );
     }
   }
   return r;
@@ -108,12 +119,20 @@ export function checkNosqlInjectionAst(ctx: AstRuleContext): RuleCheckResult[] {
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i]!;
     if (isComment(line)) continue;
-    if (/(?:find|findOne|findById|aggregate|updateOne|updateMany|deleteOne|deleteMany)\s*\(\s*\{/.test(line) &&
-        /\$\{/.test(line)) {
-      r.push(mk('no-nosql-injection', i + 1,
-        'CWE-943: MongoDB query built with user-controlled object — potential NoSQL injection.',
-        'Use mongo-sanitize or validate query objects against whitelisted operators.',
-      ));
+    if (
+      /(?:find|findOne|findById|aggregate|updateOne|updateMany|deleteOne|deleteMany)\s*\(\s*\{/.test(
+        line,
+      ) &&
+      /\$\{/.test(line)
+    ) {
+      r.push(
+        mk(
+          'no-nosql-injection',
+          i + 1,
+          'CWE-943: MongoDB query built with user-controlled object — potential NoSQL injection.',
+          'Use mongo-sanitize or validate query objects against whitelisted operators.',
+        ),
+      );
     }
   }
   return r;
@@ -128,10 +147,14 @@ export function checkLogInjectionAst(ctx: AstRuleContext): RuleCheckResult[] {
       /req\.|request\.|params\.|query\.|body\.|user|\$\{/.test(a),
     );
     if (hasUserInput && call.object !== 'console') {
-      r.push(mk('no-log-injection', call.line,
-        'CWE-117: Log message includes user-controlled input — potential log injection.',
-        'Sanitize user input before logging. Strip newlines and control characters.',
-      ));
+      r.push(
+        mk(
+          'no-log-injection',
+          call.line,
+          'CWE-117: Log message includes user-controlled input — potential log injection.',
+          'Sanitize user input before logging. Strip newlines and control characters.',
+        ),
+      );
     }
   }
   return r;
@@ -148,12 +171,20 @@ export function checkInefficientRegexAst(ctx: AstRuleContext): RuleCheckResult[]
     const regexMatch = line.match(/\/(.+?)\/[gimsuy]*/);
     if (regexMatch) {
       const pattern = regexMatch[1]!;
-      if (/\(\w\+\)\*/.test(pattern) || /\(\w\+\)\+/.test(pattern) ||
-          /\(\w\*\)\*/.test(pattern) || /\(\w\*\)\+/.test(pattern)) {
-        r.push(mk('no-inefficient-regex', i + 1,
-          'CWE-1333: Regular expression has nested quantifiers — potential ReDoS vulnerability.',
-          'Rewrite the regex to avoid backtracking. Use possessive quantifiers or atomic groups.',
-        ));
+      if (
+        /\(\w\+\)\*/.test(pattern) ||
+        /\(\w\+\)\+/.test(pattern) ||
+        /\(\w\*\)\*/.test(pattern) ||
+        /\(\w\*\)\+/.test(pattern)
+      ) {
+        r.push(
+          mk(
+            'no-inefficient-regex',
+            i + 1,
+            'CWE-1333: Regular expression has nested quantifiers — potential ReDoS vulnerability.',
+            'Rewrite the regex to avoid backtracking. Use possessive quantifiers or atomic groups.',
+          ),
+        );
       }
     }
   }
@@ -171,14 +202,23 @@ export function checkHardcodedKeyIvAst(ctx: AstRuleContext): RuleCheckResult[] {
   for (const a of ctx.assignments) {
     if (/(?:key|iv|nonce|salt)\b/i.test(a.name)) {
       const val = a.value.trim();
-      const isEnvRef = val.includes('process.env') || val.includes('import.meta.env') ||
-                       val.includes('Deno.env');
-      if (!isEnvRef && (val.startsWith("'") || val.startsWith('"') || val.startsWith('`') ||
-          /^[A-Fa-f0-9]{16,}$/.test(val))) {
-        r.push(mk('no-hardcoded-key-iv', a.line,
-          'CWE-321: Hardcoded cryptographic key or IV detected.',
-          'Generate keys at runtime or load from a secure key management service.',
-        ));
+      const isEnvRef =
+        val.includes('process.env') || val.includes('import.meta.env') || val.includes('Deno.env');
+      if (
+        !isEnvRef &&
+        (val.startsWith("'") ||
+          val.startsWith('"') ||
+          val.startsWith('`') ||
+          /^[A-Fa-f0-9]{16,}$/.test(val))
+      ) {
+        r.push(
+          mk(
+            'no-hardcoded-key-iv',
+            a.line,
+            'CWE-321: Hardcoded cryptographic key or IV detected.',
+            'Generate keys at runtime or load from a secure key management service.',
+          ),
+        );
       }
     }
   }
@@ -192,14 +232,20 @@ export function checkMissingCertValidationAst(ctx: AstRuleContext): RuleCheckRes
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i]!;
     if (isComment(line)) continue;
-    if (/rejectUnauthorized\s*:\s*false/.test(line) ||
-        /NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*(?:'0'|"0"|0)/.test(line) ||
-        /verify_ssl\s*:\s*false/i.test(line) ||
-        /verify\s*:\s*false\s*[,;}]/.test(line)) {
-      r.push(mk('no-missing-cert-validation', i + 1,
-        'CWE-295: TLS certificate validation disabled — vulnerable to MITM attacks.',
-        'Remove rejectUnauthorized: false. Fix certificate issues instead of disabling validation.',
-      ));
+    if (
+      /rejectUnauthorized\s*:\s*false/.test(line) ||
+      /NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*(?:'0'|"0"|0)/.test(line) ||
+      /verify_ssl\s*:\s*false/i.test(line) ||
+      /verify\s*:\s*false\s*[,;}]/.test(line)
+    ) {
+      r.push(
+        mk(
+          'no-missing-cert-validation',
+          i + 1,
+          'CWE-295: TLS certificate validation disabled — vulnerable to MITM attacks.',
+          'Remove rejectUnauthorized: false. Fix certificate issues instead of disabling validation.',
+        ),
+      );
     }
   }
   return r;
@@ -212,10 +258,14 @@ export function checkPredictableSeedAst(ctx: AstRuleContext): RuleCheckResult[] 
   for (const call of findCalls(ctx, /(?:seed|srand|random\.seed|Random)\b/)) {
     for (const arg of call.arguments) {
       if (/^\d+$/.test(arg.trim()) || /Date\.now/.test(arg) || /new Date/.test(arg)) {
-        r.push(mk('no-predictable-seed', call.line,
-          'CWE-335: PRNG seeded with predictable value — sequence is deterministic.',
-          'Use crypto.randomBytes() or crypto.getRandomValues() for cryptographic randomness.',
-        ));
+        r.push(
+          mk(
+            'no-predictable-seed',
+            call.line,
+            'CWE-335: PRNG seeded with predictable value — sequence is deterministic.',
+            'Use crypto.randomBytes() or crypto.getRandomValues() for cryptographic randomness.',
+          ),
+        );
       }
     }
   }
@@ -234,10 +284,14 @@ export function checkInsecurePasswordHashAst(ctx: AstRuleContext): RuleCheckResu
     const context = ctx.lines.slice(nearbyStart, nearbyEnd).join('\n');
 
     if (/(?:password|passwd|pwd|credential|secret)/i.test(context)) {
-      r.push(mk('no-insecure-password-hash', call.line,
-        'CWE-256: Fast hash function used for password storage — use bcrypt/argon2 instead.',
-        'Use bcrypt, argon2, or scrypt for password hashing with appropriate work factor.',
-      ));
+      r.push(
+        mk(
+          'no-insecure-password-hash',
+          call.line,
+          'CWE-256: Fast hash function used for password storage — use bcrypt/argon2 instead.',
+          'Use bcrypt, argon2, or scrypt for password hashing with appropriate work factor.',
+        ),
+      );
     }
   }
   return r;
@@ -262,10 +316,14 @@ export function checkMissingAuthCheckAst(ctx: AstRuleContext): RuleCheckResult[]
         /auth|authenticate|authorize|middleware|guard|protect/i.test(l),
       );
       if (!hasAuth) {
-        r.push(mk('no-missing-auth', i + 1,
-          'CWE-306: Sensitive route defined without visible authentication middleware.',
-          'Add authentication middleware to protect admin/management endpoints.',
-        ));
+        r.push(
+          mk(
+            'no-missing-auth',
+            i + 1,
+            'CWE-306: Sensitive route defined without visible authentication middleware.',
+            'Add authentication middleware to protect admin/management endpoints.',
+          ),
+        );
       }
     }
   }
@@ -279,12 +337,18 @@ export function checkPermissiveCorsAst(ctx: AstRuleContext): RuleCheckResult[] {
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i]!;
     if (isComment(line)) continue;
-    if (/(?:origin|Origin)\s*:\s*['"]\*['"]/.test(line) ||
-        /Access-Control-Allow-Origin\s*:\s*['"]\*['"]/.test(line)) {
-      r.push(mk('no-permissive-cors', i + 1,
-        'CWE-942: CORS configured with wildcard origin — allows any website to access resources.',
-        'Restrict CORS to specific allowed origins instead of using * wildcard.',
-      ));
+    if (
+      /(?:origin|Origin)\s*:\s*['"]\*['"]/.test(line) ||
+      /Access-Control-Allow-Origin\s*:\s*['"]\*['"]/.test(line)
+    ) {
+      r.push(
+        mk(
+          'no-permissive-cors',
+          i + 1,
+          'CWE-942: CORS configured with wildcard origin — allows any website to access resources.',
+          'Restrict CORS to specific allowed origins instead of using * wildcard.',
+        ),
+      );
     }
   }
   return r;
@@ -300,12 +364,18 @@ export function checkMissingRateLimitAst(ctx: AstRuleContext): RuleCheckResult[]
   const hasAppInit = /const\s+app\s*=\s*(?:express|fastify|koa)\s*\(\)/.test(ctx.lines.join('\n'));
 
   if (hasAppInit) {
-    const hasRateLimit = /rateLimit|rate-limit|rate_limit|RateLimiter|express-rate-limit/.test(ctx.lines.join('\n'));
+    const hasRateLimit = /rateLimit|rate-limit|rate_limit|RateLimiter|express-rate-limit/.test(
+      ctx.lines.join('\n'),
+    );
     if (!hasRateLimit) {
-      r.push(mk('no-missing-rate-limit', 1,
-        'CWE-770: No rate limiting detected — API is vulnerable to DoS.',
-        'Add express-rate-limit or a similar middleware to protect against brute-force and DoS attacks.',
-      ));
+      r.push(
+        mk(
+          'no-missing-rate-limit',
+          1,
+          'CWE-770: No rate limiting detected — API is vulnerable to DoS.',
+          'Add express-rate-limit or a similar middleware to protect against brute-force and DoS attacks.',
+        ),
+      );
     }
   }
   return r;
@@ -320,10 +390,14 @@ export function checkErrorDataExposureAst(ctx: AstRuleContext): RuleCheckResult[
     if (isComment(line)) continue;
     // Detect sending raw error objects in responses
     if (/(?:res|response|reply)\s*\.\s*(?:json|send|end)\s*\(\s*(?:err|error|e)\b/.test(line)) {
-      r.push(mk('no-error-exposure', i + 1,
-        'CWE-209: Raw error object sent in response — may leak stack traces and internals.',
-        'Sanitize error responses: send only user-friendly messages, log the full error server-side.',
-      ));
+      r.push(
+        mk(
+          'no-error-exposure',
+          i + 1,
+          'CWE-209: Raw error object sent in response — may leak stack traces and internals.',
+          'Sanitize error responses: send only user-friendly messages, log the full error server-side.',
+        ),
+      );
     }
   }
   return r;
@@ -340,12 +414,19 @@ export function checkPrototypePollutionAst(ctx: AstRuleContext): RuleCheckResult
   for (const call of findCalls(ctx, /(?:merge|extend|assign)\b/)) {
     const args = call.arguments;
     // Check if first arg is {} (creating a new object from user input)
-    if (args.length >= 2 && /^\{\s*\}$/.test(args[0]! ?? '') &&
-        args.slice(1).some((a) => /req\.|request\.|params\.|query\.|body\./.test(a))) {
-      r.push(mk('no-prototype-pollution', call.line,
-        'CWE-1321: Object merge with user-controlled input — potential prototype pollution.',
-        'Use Object.create(null) or check for __proto__/constructor/prototype keys before merging.',
-      ));
+    if (
+      args.length >= 2 &&
+      /^\{\s*\}$/.test(args[0]! ?? '') &&
+      args.slice(1).some((a) => /req\.|request\.|params\.|query\.|body\./.test(a))
+    ) {
+      r.push(
+        mk(
+          'no-prototype-pollution',
+          call.line,
+          'CWE-1321: Object merge with user-controlled input — potential prototype pollution.',
+          'Use Object.create(null) or check for __proto__/constructor/prototype keys before merging.',
+        ),
+      );
     }
   }
   return r;
@@ -358,11 +439,19 @@ export function checkIntegerOverflowAst(ctx: AstRuleContext): RuleCheckResult[] 
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i]!;
     if (isComment(line)) continue;
-    if (/(?:BigInt|Number\s*\(\s*[^(]+request|parseInt\s*\(\s*(?:req|request|body|query|params))/.test(line)) {
-      r.push(mk('no-integer-overflow', i + 1,
-        'CWE-190: User input parsed as integer without bounds checking — potential overflow.',
-        'Validate numeric input bounds: check min/max before casting, use BigInt for large values.',
-      ));
+    if (
+      /(?:BigInt|Number\s*\(\s*[^(]+request|parseInt\s*\(\s*(?:req|request|body|query|params))/.test(
+        line,
+      )
+    ) {
+      r.push(
+        mk(
+          'no-integer-overflow',
+          i + 1,
+          'CWE-190: User input parsed as integer without bounds checking — potential overflow.',
+          'Validate numeric input bounds: check min/max before casting, use BigInt for large values.',
+        ),
+      );
     }
   }
   return r;
@@ -376,10 +465,14 @@ export function checkUnsafeDynamicImportAst(ctx: AstRuleContext): RuleCheckResul
     if (call.name === 'import' && call.object === null) {
       const arg = call.arguments[0] ?? '';
       if (/req\.|request\.|params\.|query\.|body\.|\$\{/.test(arg)) {
-        r.push(mk('no-unsafe-dynamic-import', call.line,
-          'CWE-914: Dynamic import path derived from user input — may load arbitrary modules.',
-          'Whitelist allowed module paths or validate against a known set of modules.',
-        ));
+        r.push(
+          mk(
+            'no-unsafe-dynamic-import',
+            call.line,
+            'CWE-914: Dynamic import path derived from user input — may load arbitrary modules.',
+            'Whitelist allowed module paths or validate against a known set of modules.',
+          ),
+        );
       }
     }
   }
@@ -393,14 +486,22 @@ export function checkMissingInputSizeLimitAst(ctx: AstRuleContext): RuleCheckRes
   if (isTestFile(ctx.filePath)) return r;
 
   // Check for common server setups without body size limits
-  const hasServerInit = /(?:express|fastify|koa|hapi|body-parser|bodyParser)/i.test(ctx.lines.join('\n'));
-  const hasSizeLimit = /(?:limit\s*:|bodyLimit|maxBodySize|maxRequestSize)/i.test(ctx.lines.join('\n'));
+  const hasServerInit = /(?:express|fastify|koa|hapi|body-parser|bodyParser)/i.test(
+    ctx.lines.join('\n'),
+  );
+  const hasSizeLimit = /(?:limit\s*:|bodyLimit|maxBodySize|maxRequestSize)/i.test(
+    ctx.lines.join('\n'),
+  );
 
   if (hasServerInit && !hasSizeLimit) {
-    r.push(mk('no-missing-input-size-limit', 1,
-      'CWE-400: No request body size limit configured — vulnerable to resource exhaustion.',
-      'Configure body-parser with a reasonable limit: bodyParser.json({ limit: "1mb" }).',
-    ));
+    r.push(
+      mk(
+        'no-missing-input-size-limit',
+        1,
+        'CWE-400: No request body size limit configured — vulnerable to resource exhaustion.',
+        'Configure body-parser with a reasonable limit: bodyParser.json({ limit: "1mb" }).',
+      ),
+    );
   }
   return r;
 }
@@ -428,13 +529,18 @@ export function checkUnrestrictedFileUploadAst(ctx: AstRuleContext): RuleCheckRe
         const nearbyStart = Math.max(0, i);
         const nearbyEnd = Math.min(ctx.lines.length, i + 10);
         const nearbyLines = ctx.lines.slice(nearbyStart, nearbyEnd).join('\n');
-        const hasTypeCheck = /(?:fileFilter|allowedTypes|mime|extension|extname|mimetype|magic)/i.test(nearbyLines);
+        const hasTypeCheck =
+          /(?:fileFilter|allowedTypes|mime|extension|extname|mimetype|magic)/i.test(nearbyLines);
 
         if (!hasTypeCheck) {
-          r.push(mk('no-unrestricted-upload', i + 1,
-            'CWE-434: File upload handler without type validation — allows arbitrary file uploads.',
-            'Validate file types by MIME type and magic bytes. Restrict to whitelisted extensions.',
-          ));
+          r.push(
+            mk(
+              'no-unrestricted-upload',
+              i + 1,
+              'CWE-434: File upload handler without type validation — allows arbitrary file uploads.',
+              'Validate file types by MIME type and magic bytes. Restrict to whitelisted extensions.',
+            ),
+          );
           break;
         }
       }
@@ -456,10 +562,14 @@ export function checkToctouAst(ctx: AstRuleContext): RuleCheckResult[] {
       const next = ctx.lines[i + 1] ?? '';
       const nextNext = ctx.lines[i + 2] ?? '';
       if (/(?:writeFile|unlink|rmdir|mkdir|chmod|chown)\s*\(/.test(next + nextNext)) {
-        r.push(mk('no-toctou', i + 1,
-          'CWE-367: TOCTOU race condition — file checked then operated on without atomicity.',
-          'Use atomic operations: open file descriptors, then check and operate, or use advisory locks.',
-        ));
+        r.push(
+          mk(
+            'no-toctou',
+            i + 1,
+            'CWE-367: TOCTOU race condition — file checked then operated on without atomicity.',
+            'Use atomic operations: open file descriptors, then check and operate, or use advisory locks.',
+          ),
+        );
       }
     }
   }

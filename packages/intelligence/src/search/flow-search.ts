@@ -6,7 +6,17 @@
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
-import { EDGE_ACCESSES, EDGE_CALLS, EDGE_DATA_FLOWS, EDGE_DEFINES, EDGE_EXTENDS, EDGE_HANDLES, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_INSTANTIATES } from '@code-analyzer/shared';
+import {
+  EDGE_ACCESSES,
+  EDGE_CALLS,
+  EDGE_DATA_FLOWS,
+  EDGE_DEFINES,
+  EDGE_EXTENDS,
+  EDGE_HANDLES,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
+  EDGE_INSTANTIATES,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -97,10 +107,7 @@ export class FlowSearchEngine {
    * Search from a starting node, following flow edges to discover
    * connected entities. Returns ranked results based on relevance.
    */
-  search(
-    startNodeIds: number[],
-    options?: FlowSearchOptions,
-  ): FlowSearchResult[] {
+  search(startNodeIds: number[], options?: FlowSearchOptions): FlowSearchResult[] {
     const maxDepth = options?.maxDepth ?? 5;
     const maxResults = options?.maxResults ?? 50;
     const edgeTypes = options?.edgeTypes ?? DEFAULT_FLOW_EDGES;
@@ -258,14 +265,16 @@ export class FlowSearchEngine {
 
     if (sourceNodeId === targetNodeId) {
       return {
-        nodes: [{
-          nodeId: sourceNode.id,
-          name: sourceNode.name,
-          label: sourceNode.label,
-          filePath: sourceNode.filePath ?? '',
-          line: sourceNode.startLine ?? 0,
-          depth: 0,
-        }],
+        nodes: [
+          {
+            nodeId: sourceNode.id,
+            name: sourceNode.name,
+            label: sourceNode.label,
+            filePath: sourceNode.filePath ?? '',
+            line: sourceNode.startLine ?? 0,
+            depth: 0,
+          },
+        ],
         score: 100,
         edgeTypes: [],
         description: 'Source and target are the same node',
@@ -290,23 +299,20 @@ export class FlowSearchEngine {
       path: FlowNode[];
       depth: number;
       edgeTypes: RelationshipType[];
-    }> = [{
-      nodeId: sourceNodeId,
-      path: [startFlowNode],
-      depth: 0,
-      edgeTypes: [],
-    }];
+    }> = [
+      {
+        nodeId: sourceNodeId,
+        path: [startFlowNode],
+        depth: 0,
+        edgeTypes: [],
+      },
+    ];
 
     while (queue.length > 0) {
       const current = queue.shift()!;
       if (current.depth >= maxDepth) continue;
 
-      const edges = this.getEdges(
-        current.nodeId,
-        'both',
-        new Set(DEFAULT_FLOW_EDGES),
-        projectId,
-      );
+      const edges = this.getEdges(current.nodeId, 'both', new Set(DEFAULT_FLOW_EDGES), projectId);
 
       for (const edge of edges) {
         const nextId = edge.sourceId === current.nodeId ? edge.targetId : edge.sourceId;
@@ -333,7 +339,7 @@ export class FlowSearchEngine {
             nodes: newPath,
             score: Math.max(0, 100 - current.depth * 10),
             edgeTypes: newEdgeTypes,
-            description: `Path found with ${current.depth + 1} hops: ${newPath.map(n => n.name).join(' → ')}`,
+            description: `Path found with ${current.depth + 1} hops: ${newPath.map((n) => n.name).join(' → ')}`,
           };
         }
 
@@ -355,10 +361,7 @@ export class FlowSearchEngine {
    * Find all flow paths starting from a set of nodes.
    * Returns full paths rather than individual results.
    */
-  findFlowPaths(
-    startNodeIds: number[],
-    maxDepth: number = 5,
-  ): FlowPath[] {
+  findFlowPaths(startNodeIds: number[], maxDepth: number = 5): FlowPath[] {
     const results = this.search(startNodeIds, {
       maxDepth,
       maxResults: 200,
@@ -368,7 +371,7 @@ export class FlowSearchEngine {
     // Group by path
     const pathMap = new Map<string, FlowPath>();
     for (const result of results) {
-      const key = result.path.map(n => n.nodeId).join(':');
+      const key = result.path.map((n) => n.nodeId).join(':');
       if (!pathMap.has(key)) {
         pathMap.set(key, {
           nodes: result.path,
@@ -418,7 +421,7 @@ export class FlowSearchEngine {
       for (const edge of incoming.items) {
         if (edgeTypeSet.has(edge.type)) {
           // Avoid duplicates for 'both' direction
-          if (!edges.some(e => e.id === edge.id)) {
+          if (!edges.some((e) => e.id === edge.id)) {
             edges.push(edge);
           }
         }
@@ -442,11 +445,7 @@ export class FlowSearchEngine {
     return edge.targetId;
   }
 
-  private computeScore(
-    _node: FlowNode,
-    depth: number,
-    edgeTypes: RelationshipType[],
-  ): number {
+  private computeScore(_node: FlowNode, depth: number, edgeTypes: RelationshipType[]): number {
     // Base score decreases with depth
     let score = Math.max(10, 100 - depth * 15);
 
@@ -462,11 +461,7 @@ export class FlowSearchEngine {
     return Math.max(0, Math.min(100, score));
   }
 
-  private describeMatch(
-    node: FlowNode,
-    edgeType: RelationshipType,
-    depth: number,
-  ): string {
+  private describeMatch(node: FlowNode, edgeType: RelationshipType, depth: number): string {
     const edgeDesc: Record<string, string> = {
       CALLS: 'calls',
       IMPORTS: 'imports',
@@ -483,10 +478,7 @@ export class FlowSearchEngine {
     return `${verb} ${node.name} (${node.label}) at depth ${depth}`;
   }
 
-  private rankResults(
-    results: FlowSearchResult[],
-    maxResults: number,
-  ): FlowSearchResult[] {
+  private rankResults(results: FlowSearchResult[], maxResults: number): FlowSearchResult[] {
     return results
       .sort((a, b) => {
         // Sort by score descending, then by depth ascending
@@ -505,10 +497,7 @@ function matchesSimplePattern(filePath: string, pattern: string): boolean {
     return filePath.includes(pattern);
   }
 
-  const regexStr = pattern
-    .replace(/\./g, '\\.')
-    .replace(/\*\*/g, '.*')
-    .replace(/\*/g, '[^/]*');
+  const regexStr = pattern.replace(/\./g, '\\.').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*');
 
   try {
     return new RegExp(regexStr).test(filePath);

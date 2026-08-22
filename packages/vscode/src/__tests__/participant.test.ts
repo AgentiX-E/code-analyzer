@@ -1,9 +1,7 @@
 // @code-analyzer/vscode — Chat Participant Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  CodeAnalyzerChatParticipant,
-} from '../participant/code-analyzer-participant.js';
+import { CodeAnalyzerChatParticipant } from '../participant/code-analyzer-participant.js';
 import type {
   ChatRequest,
   ChatContext,
@@ -81,9 +79,7 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
     });
 
     it('classifies "tell me about X" as explore', () => {
-      const intent = participant.classifyIntent(
-        'tell me about the database module',
-      );
+      const intent = participant.classifyIntent('tell me about the database module');
       expect(intent.type).toBe('explore');
       expect(intent.entity).toBe('the database module');
     });
@@ -188,46 +184,34 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
 
   describe('impact', () => {
     it('classifies "what breaks if X" as impact', () => {
-      const intent = participant.classifyIntent(
-        'what breaks if I change User.getId',
-      );
+      const intent = participant.classifyIntent('what breaks if I change User.getId');
       expect(intent.type).toBe('impact');
       expect(intent.entity).toContain('change');
     });
 
     it('classifies "impact of changing X" as impact', () => {
-      const intent = participant.classifyIntent(
-        'impact of changing the database schema',
-      );
+      const intent = participant.classifyIntent('impact of changing the database schema');
       expect(intent.type).toBe('impact');
     });
 
     it('classifies "what depends on X" as impact', () => {
-      const intent = participant.classifyIntent(
-        'what depends on AuthService',
-      );
+      const intent = participant.classifyIntent('what depends on AuthService');
       expect(intent.type).toBe('impact');
       expect(intent.entity).toBe('AuthService');
     });
 
     it('classifies "affected by X" as impact', () => {
-      const intent = participant.classifyIntent(
-        'affected by the config change',
-      );
+      const intent = participant.classifyIntent('affected by the config change');
       expect(intent.type).toBe('impact');
     });
 
     it('classifies "consequences of X" as impact', () => {
-      const intent = participant.classifyIntent(
-        'consequences of removing the cache',
-      );
+      const intent = participant.classifyIntent('consequences of removing the cache');
       expect(intent.type).toBe('impact');
     });
 
     it('classifies "risk of changing X" as impact', () => {
-      const intent = participant.classifyIntent(
-        'risk of changing the payment module',
-      );
+      const intent = participant.classifyIntent('risk of changing the payment module');
       expect(intent.type).toBe('impact');
     });
   });
@@ -238,9 +222,7 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
 
   describe('debug', () => {
     it('classifies "why is X failing" as debug', () => {
-      const intent = participant.classifyIntent(
-        'why is the auth service failing',
-      );
+      const intent = participant.classifyIntent('why is the auth service failing');
       expect(intent.type).toBe('debug');
       expect(intent.entity).toBe('the auth service');
     });
@@ -257,16 +239,12 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
     });
 
     it('classifies "what\'s wrong with X" as debug', () => {
-      const intent = participant.classifyIntent(
-        "what's wrong with this endpoint",
-      );
+      const intent = participant.classifyIntent("what's wrong with this endpoint");
       expect(intent.type).toBe('debug');
     });
 
     it('classifies "error in X" as debug', () => {
-      const intent = participant.classifyIntent(
-        'error in the build pipeline',
-      );
+      const intent = participant.classifyIntent('error in the build pipeline');
       expect(intent.type).toBe('debug');
     });
 
@@ -288,16 +266,12 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
     });
 
     it('classifies "rename X to Y" as refactor', () => {
-      const intent = participant.classifyIntent(
-        'rename getCwd to getCurrentWorkingDirectory',
-      );
+      const intent = participant.classifyIntent('rename getCwd to getCurrentWorkingDirectory');
       expect(intent.type).toBe('refactor');
     });
 
     it('classifies "extract X" as refactor', () => {
-      const intent = participant.classifyIntent(
-        'extract the validation logic',
-      );
+      const intent = participant.classifyIntent('extract the validation logic');
       expect(intent.type).toBe('refactor');
     });
 
@@ -307,16 +281,12 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
     });
 
     it('classifies "improve X" as refactor', () => {
-      const intent = participant.classifyIntent(
-        'improve error handling',
-      );
+      const intent = participant.classifyIntent('improve error handling');
       expect(intent.type).toBe('refactor');
     });
 
     it('classifies "clean up X" as refactor', () => {
-      const intent = participant.classifyIntent(
-        'clean up the old API layer',
-      );
+      const intent = participant.classifyIntent('clean up the old API layer');
       expect(intent.type).toBe('refactor');
     });
   });
@@ -361,9 +331,7 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
     });
 
     it('handles prompt with special characters', () => {
-      const intent = participant.classifyIntent(
-        'how does $specialVar work?',
-      );
+      const intent = participant.classifyIntent('how does $specialVar work?');
       expect(intent.type).toBe('explore');
     });
 
@@ -374,9 +342,7 @@ describe('CodeAnalyzerChatParticipant — Intent Classification', () => {
 
     it('matches first applicable pattern', () => {
       // "review" comes before "find" in the pattern list
-      const intent = participant.classifyIntent(
-        'review my changes and find bugs',
-      );
+      const intent = participant.classifyIntent('review my changes and find bugs');
       expect(intent.type).toBe('review');
     });
   });
@@ -478,9 +444,7 @@ describe('CodeAnalyzerChatParticipant — Context Building', () => {
   it('includes implementations section', () => {
     const intent: ClassifiedIntent = { type: 'refactor', confidence: 0.9 };
     const ctx = {
-      implementations: [
-        { name: 'UserRepoImpl', filePath: 'src/db/user-repo.ts' },
-      ],
+      implementations: [{ name: 'UserRepoImpl', filePath: 'src/db/user-repo.ts' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Implementations');
@@ -490,9 +454,7 @@ describe('CodeAnalyzerChatParticipant — Context Building', () => {
   it('includes callers section', () => {
     const intent: ClassifiedIntent = { type: 'refactor', confidence: 0.9 };
     const ctx = {
-      callers: [
-        { name: 'UserController', filePath: 'src/api/user.ts' },
-      ],
+      callers: [{ name: 'UserController', filePath: 'src/api/user.ts' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Callers');
@@ -502,9 +464,7 @@ describe('CodeAnalyzerChatParticipant — Context Building', () => {
   it('includes symbols section', () => {
     const intent: ClassifiedIntent = { type: 'explore', confidence: 0.9 };
     const ctx = {
-      symbols: [
-        { name: 'handleLogin', filePath: 'src/auth.ts' },
-      ],
+      symbols: [{ name: 'handleLogin', filePath: 'src/auth.ts' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Found Symbols');
@@ -514,9 +474,7 @@ describe('CodeAnalyzerChatParticipant — Context Building', () => {
   it('includes changed symbols section', () => {
     const intent: ClassifiedIntent = { type: 'impact', confidence: 0.9 };
     const ctx = {
-      changedSymbols: [
-        { name: 'Config', riskLevel: 'high' },
-      ],
+      changedSymbols: [{ name: 'Config', riskLevel: 'high' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Changed Symbols');
@@ -527,9 +485,7 @@ describe('CodeAnalyzerChatParticipant — Context Building', () => {
   it('includes changed files section', () => {
     const intent: ClassifiedIntent = { type: 'review', confidence: 0.9 };
     const ctx = {
-      changedFiles: [
-        { path: 'src/auth.ts', status: 'modified' },
-      ],
+      changedFiles: [{ path: 'src/auth.ts', status: 'modified' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Changed Files');
@@ -638,9 +594,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
   describe('/review', () => {
     it('returns metadata for review command', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'review', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('review', '', stream, makeToken(false));
       expect(result.metadata?.command).toBe('review');
       expect(result.metadata).toHaveProperty('issuesFound');
       expect(result.metadata).toHaveProperty('filesChanged');
@@ -648,9 +602,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams markdown content for review', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'review', '', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('review', '', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Code Review');
     });
@@ -686,7 +638,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for explain command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'explain', 'UserService', stream, makeToken(false),
+        'explain',
+        'UserService',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.command).toBe('explain');
       expect(result.metadata?.symbol).toBe('UserService');
@@ -694,18 +649,14 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams explanation content', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'explain', 'UserService', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('explain', 'UserService', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Symbol Explanation');
     });
 
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'explain', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('explain', '', stream, makeToken(false));
       expect(result.metadata?.error).toBe('missing_params');
       expect(stream.content).toContain('Usage');
     });
@@ -730,7 +681,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for impact command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'impact', 'Database', stream, makeToken(false),
+        'impact',
+        'Database',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.command).toBe('impact');
       expect(result.metadata?.symbol).toBe('Database');
@@ -738,18 +692,14 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams impact analysis content', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'impact', 'Database', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('impact', 'Database', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Impact Analysis');
     });
 
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'impact', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('impact', '', stream, makeToken(false));
       expect(result.metadata?.error).toBe('missing_params');
       expect(stream.content).toContain('Usage');
     });
@@ -774,7 +724,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for find command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'find', 'login', stream, makeToken(false),
+        'find',
+        'login',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.command).toBe('find');
       expect(result.metadata?.query).toBe('login');
@@ -782,18 +735,14 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams search results content', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'find', 'login', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('find', 'login', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Search Results');
     });
 
     it('handles empty query gracefully', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'find', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('find', '', stream, makeToken(false));
       expect(result.metadata?.error).toBe('missing_params');
     });
 
@@ -817,7 +766,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for deps command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'deps', 'UserService', stream, makeToken(false),
+        'deps',
+        'UserService',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.command).toBe('deps');
       expect(result.metadata?.symbol).toBe('UserService');
@@ -825,27 +777,21 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams dependency graph content', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'deps', 'UserService', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('deps', 'UserService', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Dependency Graph');
     });
 
     it('shows upstream and downstream sections', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'deps', 'UserService', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('deps', 'UserService', stream, makeToken(false));
       expect(stream.content).toContain('Upstream');
       expect(stream.content).toContain('Downstream');
     });
 
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'deps', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('deps', '', stream, makeToken(false));
       expect(result.metadata?.error).toBe('missing_params');
     });
 
@@ -869,7 +815,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for refactor command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'refactor', 'UserService', stream, makeToken(false),
+        'refactor',
+        'UserService',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.command).toBe('refactor');
       expect(result.metadata).toHaveProperty('opportunitiesCount');
@@ -877,18 +826,14 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams refactoring content', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'refactor', 'UserService', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('refactor', 'UserService', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Refactoring');
     });
 
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'refactor', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('refactor', '', stream, makeToken(false));
       expect(result.metadata?.error).toBe('missing_params');
     });
 
@@ -912,7 +857,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for test command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'test', 'UserService', stream, makeToken(false),
+        'test',
+        'UserService',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.command).toBe('test');
       expect(result.metadata).toHaveProperty('testCount');
@@ -921,26 +869,20 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
 
     it('streams test coverage content', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'test', 'UserService', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('test', 'UserService', stream, makeToken(false));
       expect(stream.length).toBeGreaterThan(0);
       expect(stream.content).toContain('Test Coverage');
     });
 
     it('shows existing tests and coverage gaps sections', async () => {
       const stream = makeStream();
-      await participant.handleSlashCommand(
-        'test', 'UserService', stream, makeToken(false),
-      );
+      await participant.handleSlashCommand('test', 'UserService', stream, makeToken(false));
       expect(stream.content).toContain('Existing Tests');
     });
 
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'test', '', stream, makeToken(false),
-      );
+      const result = await participant.handleSlashCommand('test', '', stream, makeToken(false));
       expect(result.metadata?.error).toBe('missing_params');
     });
 
@@ -963,9 +905,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
   describe('edge cases', () => {
     it('handles cancelled token for slash command', async () => {
       const stream = makeStream();
-      const result = await participant.handleSlashCommand(
-        'review', '', stream, makeToken(true),
-      );
+      const result = await participant.handleSlashCommand('review', '', stream, makeToken(true));
       expect(result.metadata).toEqual({ cancelled: true });
       expect(stream.content).toBe('');
     });
@@ -973,7 +913,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles unknown slash command as error', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'unknown' as SlashCommand, '', stream, makeToken(false),
+        'unknown' as SlashCommand,
+        '',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.error).toBe('unknown_command');
       expect(stream.content).toContain('Unknown Command');
@@ -982,7 +925,10 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles slash command with extra whitespace in params', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand(
-        'explain', '  MySymbol  ', stream, makeToken(false),
+        'explain',
+        '  MySymbol  ',
+        stream,
+        makeToken(false),
       );
       expect(result.metadata?.symbol).toBe('MySymbol');
     });
@@ -1080,9 +1026,7 @@ describe('CodeAnalyzerChatParticipant — Deep Context Validation', () => {
     // Test via buildContextMessage
     const intent: ClassifiedIntent = { type: 'explore', confidence: 0.9 };
     const ctx = {
-      searchResults: [
-        { name: 'UserService', filePath: 'src/user.ts', label: 'Class' },
-      ],
+      searchResults: [{ name: 'UserService', filePath: 'src/user.ts', label: 'Class' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('Relevant Symbols');
@@ -1097,12 +1041,8 @@ describe('CodeAnalyzerChatParticipant — Deep Context Validation', () => {
         { name: 'Config', riskLevel: 'high' },
         { name: 'Logger', riskLevel: 'medium' },
       ],
-      changedFiles: [
-        { path: 'src/config.ts', status: 'modified' },
-      ],
-      callers: [
-        { name: 'App', filePath: 'src/app.ts' },
-      ],
+      changedFiles: [{ path: 'src/config.ts', status: 'modified' }],
+      callers: [{ name: 'App', filePath: 'src/app.ts' }],
     };
     const msg = participant.buildContextMessage(intent, ctx);
     expect(msg).toContain('### Impact Analysis');
@@ -1329,4 +1269,3 @@ describe('CodeAnalyzerChatParticipant — Extended handleRequest', () => {
     expect(stream.content).toContain('Code Analyzer Context');
   });
 });
-

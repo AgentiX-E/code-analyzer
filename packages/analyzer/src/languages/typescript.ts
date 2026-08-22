@@ -6,7 +6,11 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
-import type { NodeTypeMapping, TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
+import type {
+  NodeTypeMapping,
+  TreeSitterLanguage,
+  TreeSitterSyntaxNode,
+} from './tree-sitter-base.js';
 
 const tsExtensions = ['.ts', '.tsx', '.mts', '.cts'];
 const tsGlobs = ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts', '**/*.d.ts'];
@@ -21,10 +25,13 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   protected override loadGrammar(): TreeSitterLanguage | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const tsGrammar = require('tree-sitter-typescript') as { typescript: TreeSitterLanguage; tsx: TreeSitterLanguage };
+      const tsGrammar = require('tree-sitter-typescript') as {
+        typescript: TreeSitterLanguage;
+        tsx: TreeSitterLanguage;
+      };
       return tsGrammar.typescript;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -32,14 +39,46 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   protected override getNodeMappings(): NodeTypeMapping[] {
     return [
-      { nodeType: 'function_declaration', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-      { nodeType: 'arrow_function', captureTag: CAPTURE_TAGS.FUNCTION_DEF, nameChildType: 'identifier' },
-      { nodeType: 'class_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF, nameChildType: 'type_identifier' },
-      { nodeType: 'method_definition', captureTag: CAPTURE_TAGS.METHOD_DEF, nameChildType: 'property_identifier' },
-      { nodeType: 'interface_declaration', captureTag: CAPTURE_TAGS.INTERFACE_DEF, nameChildType: 'type_identifier' },
-      { nodeType: 'type_alias_declaration', captureTag: CAPTURE_TAGS.TYPE_DEF, nameChildType: 'type_identifier' },
-      { nodeType: 'enum_declaration', captureTag: CAPTURE_TAGS.ENUM_DEF, nameChildType: 'identifier' },
-      { nodeType: 'variable_declaration', captureTag: CAPTURE_TAGS.VARIABLE_DEF, nameChildType: 'identifier' },
+      {
+        nodeType: 'function_declaration',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'arrow_function',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'class_declaration',
+        captureTag: CAPTURE_TAGS.CLASS_DEF,
+        nameChildType: 'type_identifier',
+      },
+      {
+        nodeType: 'method_definition',
+        captureTag: CAPTURE_TAGS.METHOD_DEF,
+        nameChildType: 'property_identifier',
+      },
+      {
+        nodeType: 'interface_declaration',
+        captureTag: CAPTURE_TAGS.INTERFACE_DEF,
+        nameChildType: 'type_identifier',
+      },
+      {
+        nodeType: 'type_alias_declaration',
+        captureTag: CAPTURE_TAGS.TYPE_DEF,
+        nameChildType: 'type_identifier',
+      },
+      {
+        nodeType: 'enum_declaration',
+        captureTag: CAPTURE_TAGS.ENUM_DEF,
+        nameChildType: 'identifier',
+      },
+      {
+        nodeType: 'variable_declaration',
+        captureTag: CAPTURE_TAGS.VARIABLE_DEF,
+        nameChildType: 'identifier',
+      },
       { nodeType: 'decorator', captureTag: CAPTURE_TAGS.DECORATOR, useFirstNamedChild: true },
       { nodeType: 'comment', captureTag: CAPTURE_TAGS.DOCSTRING, useFirstNamedChild: true },
     ];
@@ -93,7 +132,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
             /* v8 ignore next -- @preserve -- defensive null / boundary branch */
             if (nameChild) {
               const cap = this.buildCapture(node, CAPTURE_TAGS.FUNCTION_DEF, nameChild);
-              cap.properties = { ...cap.properties, arrow: 'true', async: String(node.text.includes('async')) };
+              cap.properties = {
+                ...cap.properties,
+                arrow: 'true',
+                async: String(node.text.includes('async')),
+              };
               captures.push(cap);
             }
           }
@@ -206,7 +249,9 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
               const spec = sub.child(k);
               if (spec.type === 'import_specifier') {
                 /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                const nameNode = this.findDeepChild(spec, 'identifier') || this.findDeepChild(spec, 'property_identifier');
+                const nameNode =
+                  this.findDeepChild(spec, 'identifier') ||
+                  this.findDeepChild(spec, 'property_identifier');
                 /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                 if (nameNode) names.push(nameNode.text);
               }
@@ -270,8 +315,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         // export default / export const / export interface / ... — the exported
         // declaration is a direct child of the export_statement.
         const declTypes = [
-          'function_declaration', 'class_declaration', 'interface_declaration',
-          'type_alias_declaration', 'enum_declaration', 'lexical_declaration',
+          'function_declaration',
+          'class_declaration',
+          'interface_declaration',
+          'type_alias_declaration',
+          'enum_declaration',
+          'lexical_declaration',
           'variable_declaration',
         ];
         if (declTypes.includes(child.type)) {
@@ -306,8 +355,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       const prefix = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex);
       if (prefix.includes('export')) {
         const nameNode =
-          this.findNamedChild(node, 'identifier') ||
-          this.findNamedChild(node, 'type_identifier');
+          this.findNamedChild(node, 'identifier') || this.findNamedChild(node, 'type_identifier');
         if (nameNode && nameNode.text === symbolName) return true;
       }
     }
@@ -321,11 +369,17 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   // ---- Helpers ----
 
-  private buildCapture(node: TreeSitterSyntaxNode, tag: CaptureTag, nameNode: TreeSitterSyntaxNode): UnifiedCapture {
+  private buildCapture(
+    node: TreeSitterSyntaxNode,
+    tag: CaptureTag,
+    nameNode: TreeSitterSyntaxNode,
+  ): UnifiedCapture {
     let containerName: string | undefined;
     const container = this.findContainerNode(node);
     if (container) {
-      const cn = this.findNamedChild(container, 'type_identifier') || this.findNamedChild(container, 'identifier');
+      const cn =
+        this.findNamedChild(container, 'type_identifier') ||
+        this.findNamedChild(container, 'identifier');
       if (cn) containerName = cn.text;
     }
 
@@ -544,7 +598,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
-    const regex = /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
+    const regex =
+      /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
     let match: RegExpExecArray | null;
     while ((match = regex.exec(source)) !== null) {
       const path = match[5]!;
@@ -562,7 +617,12 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // Dynamic imports
     const dynRegex = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
     while ((match = dynRegex.exec(source)) !== null) {
-      imports.push({ source: match[1]!, names: [], type: 'default', lineNumber: this.lineFromOffset(source, match.index) });
+      imports.push({
+        source: match[1]!,
+        names: [],
+        type: 'default',
+        lineNumber: this.lineFromOffset(source, match.index),
+      });
     }
     return imports;
   }
@@ -570,7 +630,9 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const patterns = [
-      new RegExp(`export\\s+(?:default\\s+)?(?:function|class|const|let|var|interface|type|enum|abstract\\s+class)\\s+${escapeRegex(symbolName)}\\b`),
+      new RegExp(
+        `export\\s+(?:default\\s+)?(?:function|class|const|let|var|interface|type|enum|abstract\\s+class)\\s+${escapeRegex(symbolName)}\\b`,
+      ),
       new RegExp(`export\\s*\\{[^}]*\\b${escapeRegex(symbolName)}\\b[^}]*\\}`),
     ];
     return patterns.some((p) => p.test(source));

@@ -30,16 +30,35 @@ interface ParserEntry {
 function makeParser(code: string, lang: string, hasSymbols = true): ParserEntry {
   let provider: { parse: (src: string, fp: string) => UnifiedCapture[] };
   switch (lang) {
-    case 'cpp': provider = new CppProvider(); break;
-    case 'c': provider = new CProvider(); break;
-    case 'dart': provider = new DartProvider(); break;
-    case 'lua': provider = new LuaProvider(); break;
-    case 'scala': provider = new ScalaProvider(); break;
-    case 'zig': provider = new ZigProvider(); break;
-    case 'elixir': provider = new ElixirProvider(); break;
-    case 'hcl': provider = new HclProvider(); break;
-    case 'dockerfile': provider = new DockerfileProvider(); break;
-    default: throw new Error(`Unknown language: ${lang}`);
+    case 'cpp':
+      provider = new CppProvider();
+      break;
+    case 'c':
+      provider = new CProvider();
+      break;
+    case 'dart':
+      provider = new DartProvider();
+      break;
+    case 'lua':
+      provider = new LuaProvider();
+      break;
+    case 'scala':
+      provider = new ScalaProvider();
+      break;
+    case 'zig':
+      provider = new ZigProvider();
+      break;
+    case 'elixir':
+      provider = new ElixirProvider();
+      break;
+    case 'hcl':
+      provider = new HclProvider();
+      break;
+    case 'dockerfile':
+      provider = new DockerfileProvider();
+      break;
+    default:
+      throw new Error(`Unknown language: ${lang}`);
   }
   return { provider, language: lang, validCode: code, hasSymbols };
 }
@@ -141,7 +160,7 @@ describe('Parser Roundtrip Invariants', () => {
   // -----------------------------------------------------------------------
 
   describe('Line Number Consistency', () => {
-    for (const { provider, language, validCode } of PARSERS.filter(p => p.hasSymbols)) {
+    for (const { provider, language, validCode } of PARSERS.filter((p) => p.hasSymbols)) {
       it(`${language}: line numbers are within source bounds`, () => {
         const result = provider.parse(validCode, `test.${language}`);
         const lineCount = validCode.split('\n').length;
@@ -272,7 +291,9 @@ describe('Parser Roundtrip Invariants', () => {
   describe('Capture Tag Consistency', () => {
     it('all capture tags are valid enum values', () => {
       const validTags = Object.values(CAPTURE_TAGS);
-      for (const { provider, language, validCode, hasSymbols } of PARSERS.filter(p => p.hasSymbols)) {
+      for (const { provider, language, validCode, hasSymbols } of PARSERS.filter(
+        (p) => p.hasSymbols,
+      )) {
         const result = provider.parse(validCode, `test.${language}`);
         for (const capture of result) {
           expect(validTags).toContain(capture.tag);

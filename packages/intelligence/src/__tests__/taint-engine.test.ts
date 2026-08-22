@@ -29,7 +29,9 @@ function makeNode(partial: Partial<GraphNode> & { id: number; name: string }): G
   };
 }
 
-function makeEdge(partial: Partial<GraphEdge> & { id: number; sourceId: number; targetId: number }): GraphEdge {
+function makeEdge(
+  partial: Partial<GraphEdge> & { id: number; sourceId: number; targetId: number },
+): GraphEdge {
   return {
     projectId: 'proj',
     type: EDGE_CALLS,
@@ -56,8 +58,18 @@ function makeGraph(nodes: GraphNode[], edges: GraphEdge[] = []): KnowledgeGraph 
 
 // A source node (user input) that flows into a sink node (SQL query)
 function sqlInjectionGraph(): KnowledgeGraph {
-  const source = makeNode({ id: 1, name: 'handler', signature: 'req.query.id', language: 'typescript' });
-  const sink = makeNode({ id: 2, name: 'query', signature: 'db.query("SELECT ...")', language: 'typescript' });
+  const source = makeNode({
+    id: 1,
+    name: 'handler',
+    signature: 'req.query.id',
+    language: 'typescript',
+  });
+  const sink = makeNode({
+    id: 2,
+    name: 'query',
+    signature: 'db.query("SELECT ...")',
+    language: 'typescript',
+  });
   const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS });
   return makeGraph([source, sink], [edge]);
 }
@@ -93,14 +105,24 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('returns empty result when no source nodes', () => {
-      const sink = makeNode({ id: 1, name: 'query', signature: 'db.query("x")', language: 'typescript' });
+      const sink = makeNode({
+        id: 1,
+        name: 'query',
+        signature: 'db.query("x")',
+        language: 'typescript',
+      });
       const engine = new TaintAnalysisEngine();
       const result = engine.analyze(makeGraph([sink]), 'proj');
       expect(result.findings).toEqual([]);
     });
 
     it('returns empty result when no sink nodes', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
       const engine = new TaintAnalysisEngine();
       const result = engine.analyze(makeGraph([source]), 'proj');
       expect(result.findings).toEqual([]);
@@ -121,7 +143,12 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('detects command injection via network input', () => {
-      const source = makeNode({ id: 1, name: 'fetchData', signature: 'fetch(url)', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'fetchData',
+        signature: 'fetch(url)',
+        language: 'typescript',
+      });
       const sink = makeNode({ id: 2, name: 'run', signature: 'exec(cmd)', language: 'typescript' });
       const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS });
       const engine = new TaintAnalysisEngine();
@@ -133,8 +160,18 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('detects XSS via html output', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.body.input', language: 'typescript' });
-      const sink = makeNode({ id: 2, name: 'render', signature: 'innerHTML = x', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.body.input',
+        language: 'typescript',
+      });
+      const sink = makeNode({
+        id: 2,
+        name: 'render',
+        signature: 'innerHTML = x',
+        language: 'typescript',
+      });
       const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS });
       const engine = new TaintAnalysisEngine();
       const result = engine.analyze(makeGraph([source, sink], [edge]), 'proj');
@@ -143,8 +180,18 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('detects path traversal via file write', () => {
-      const source = makeNode({ id: 1, name: 'read', signature: 'fs.readFile(p)', language: 'typescript' });
-      const sink = makeNode({ id: 2, name: 'write', signature: 'fs.writeFile(p)', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'read',
+        signature: 'fs.readFile(p)',
+        language: 'typescript',
+      });
+      const sink = makeNode({
+        id: 2,
+        name: 'write',
+        signature: 'fs.writeFile(p)',
+        language: 'typescript',
+      });
       const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_DATA_FLOWS });
       const engine = new TaintAnalysisEngine();
       const result = engine.analyze(makeGraph([source, sink], [edge]), 'proj');
@@ -153,8 +200,18 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('detects deserialization sink', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.body.data', language: 'typescript' });
-      const sink = makeNode({ id: 2, name: 'parse', signature: 'JSON.parse(x)', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.body.data',
+        language: 'typescript',
+      });
+      const sink = makeNode({
+        id: 2,
+        name: 'parse',
+        signature: 'JSON.parse(x)',
+        language: 'typescript',
+      });
       const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS });
       const engine = new TaintAnalysisEngine();
       const result = engine.analyze(makeGraph([source, sink], [edge]), 'proj');
@@ -163,8 +220,18 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('detects open redirect', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.url', language: 'typescript' });
-      const sink = makeNode({ id: 2, name: 'r', signature: 'redirect(target)', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.url',
+        language: 'typescript',
+      });
+      const sink = makeNode({
+        id: 2,
+        name: 'r',
+        signature: 'redirect(target)',
+        language: 'typescript',
+      });
       const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS });
       const engine = new TaintAnalysisEngine();
       const result = engine.analyze(makeGraph([source, sink], [edge]), 'proj');
@@ -173,9 +240,24 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('marks sanitized path with reduced confidence and sanitizerPath', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
-      const sanitizer = makeNode({ id: 2, name: 'esc', signature: 'escapeHtml(x)', language: 'typescript' });
-      const sink = makeNode({ id: 3, name: 'render', signature: 'innerHTML = x', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
+      const sanitizer = makeNode({
+        id: 2,
+        name: 'esc',
+        signature: 'escapeHtml(x)',
+        language: 'typescript',
+      });
+      const sink = makeNode({
+        id: 3,
+        name: 'render',
+        signature: 'innerHTML = x',
+        language: 'typescript',
+      });
       const edges = [
         makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS }),
         makeEdge({ id: 2, sourceId: 2, targetId: 3, type: EDGE_CALLS }),
@@ -190,10 +272,20 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('follows multi-hop paths through the graph', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
       const mid1 = makeNode({ id: 2, name: 'a', signature: 'a()', language: 'typescript' });
       const mid2 = makeNode({ id: 3, name: 'b', signature: 'b()', language: 'typescript' });
-      const sink = makeNode({ id: 4, name: 'q', signature: 'db.query("SELECT * FROM users")', language: 'typescript' });
+      const sink = makeNode({
+        id: 4,
+        name: 'q',
+        signature: 'db.query("SELECT * FROM users")',
+        language: 'typescript',
+      });
       const edges = [
         makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS }),
         makeEdge({ id: 2, sourceId: 2, targetId: 3, type: EDGE_CALLS }),
@@ -207,10 +299,20 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('does not traverse cycles (avoids infinite loops)', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
       const a = makeNode({ id: 2, name: 'a', signature: 'a()', language: 'typescript' });
       const b = makeNode({ id: 3, name: 'b', signature: 'b()', language: 'typescript' });
-      const sink = makeNode({ id: 4, name: 'q', signature: 'db.query("SELECT * FROM users")', language: 'typescript' });
+      const sink = makeNode({
+        id: 4,
+        name: 'q',
+        signature: 'db.query("SELECT * FROM users")',
+        language: 'typescript',
+      });
       const edges = [
         makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS }),
         makeEdge({ id: 2, sourceId: 2, targetId: 3, type: EDGE_CALLS }),
@@ -223,12 +325,22 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('respects maxPathDepth', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
       const nodes = [source];
       const edges: GraphEdge[] = [];
       // Build a chain of 20 nodes; sink at the very end
       for (let i = 2; i <= 20; i++) {
-        const n = makeNode({ id: i, name: `n${i}`, signature: i === 20 ? 'db.query("SELECT * FROM users")' : `n${i}()`, language: 'typescript' });
+        const n = makeNode({
+          id: i,
+          name: `n${i}`,
+          signature: i === 20 ? 'db.query("SELECT * FROM users")' : `n${i}()`,
+          language: 'typescript',
+        });
         nodes.push(n);
         edges.push(makeEdge({ id: i, sourceId: i - 1, targetId: i, type: EDGE_CALLS }));
       }
@@ -239,11 +351,21 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('respects maxPathsPerSource', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
       const nodes = [source];
       const edges: GraphEdge[] = [];
       for (let i = 2; i <= 10; i++) {
-        const sink = makeNode({ id: i, name: `sink${i}`, signature: 'db.query("SELECT * FROM users")', language: 'typescript' });
+        const sink = makeNode({
+          id: i,
+          name: `sink${i}`,
+          signature: 'db.query("SELECT * FROM users")',
+          language: 'typescript',
+        });
         nodes.push(sink);
         edges.push(makeEdge({ id: i, sourceId: 1, targetId: i, type: EDGE_CALLS }));
       }
@@ -253,8 +375,18 @@ describe('TaintAnalysisEngine', () => {
     });
 
     it('deduplicates identical source→sink pairs', () => {
-      const source = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'typescript' });
-      const sink = makeNode({ id: 2, name: 'q', signature: 'db.query("SELECT * FROM users")', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'typescript',
+      });
+      const sink = makeNode({
+        id: 2,
+        name: 'q',
+        signature: 'db.query("SELECT * FROM users")',
+        language: 'typescript',
+      });
       // Two edges to the same sink
       const edges = [
         makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS }),
@@ -311,8 +443,18 @@ describe('TaintAnalysisEngine', () => {
       };
       engine.addSink(sink);
 
-      const source = makeNode({ id: 1, name: 'h', signature: 'customInput()', language: 'typescript' });
-      const sinkNode = makeNode({ id: 2, name: 'r', signature: 'innerHTML = x', language: 'typescript' });
+      const source = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'customInput()',
+        language: 'typescript',
+      });
+      const sinkNode = makeNode({
+        id: 2,
+        name: 'r',
+        signature: 'innerHTML = x',
+        language: 'typescript',
+      });
       const edge = makeEdge({ id: 1, sourceId: 1, targetId: 2, type: EDGE_CALLS });
       const result = engine.analyze(makeGraph([source, sinkNode], [edge]), 'proj');
       expect(result.findings.length).toBeGreaterThanOrEqual(1);
@@ -334,7 +476,12 @@ describe('TaintAnalysisEngine', () => {
   describe('language filtering', () => {
     it('only matches sources/sinks for the node language', () => {
       // A python node should not match a typescript-only source pattern
-      const pythonNode = makeNode({ id: 1, name: 'h', signature: 'req.query.id', language: 'python' });
+      const pythonNode = makeNode({
+        id: 1,
+        name: 'h',
+        signature: 'req.query.id',
+        language: 'python',
+      });
       const engine = new TaintAnalysisEngine();
       // 'req.query' is not in the python patterns list? Actually it is (request.args etc.)
       // Use a language that is NOT in the source's language list.
@@ -346,7 +493,11 @@ describe('TaintAnalysisEngine', () => {
         severity: 'high',
         languages: ['typescript'],
       };
-      const engine2 = new TaintAnalysisEngine({ sources: [customSource], sinks: [], sanitizers: [] });
+      const engine2 = new TaintAnalysisEngine({
+        sources: [customSource],
+        sinks: [],
+        sanitizers: [],
+      });
       const result = engine2.analyze(makeGraph([pythonNode]), 'proj');
       expect(result.findings).toEqual([]);
     });
@@ -355,9 +506,28 @@ describe('TaintAnalysisEngine', () => {
   describe('addSource/addSink/addSanitizer', () => {
     it('all three add methods mutate the engine', () => {
       const engine = new TaintAnalysisEngine({ sources: [], sinks: [], sanitizers: [] });
-      const src: TaintSource = { id: 's', category: 'xss', patterns: [/x/], description: 'd', severity: 'low', languages: ['typescript'] };
-      const snk: TaintSink = { id: 'k', category: 'xss', patterns: [/y/], description: 'd', severity: 'low', languages: ['typescript'] };
-      const san: Sanitizer = { id: 'n', patterns: [/z/], description: 'd', languages: ['typescript'] };
+      const src: TaintSource = {
+        id: 's',
+        category: 'xss',
+        patterns: [/x/],
+        description: 'd',
+        severity: 'low',
+        languages: ['typescript'],
+      };
+      const snk: TaintSink = {
+        id: 'k',
+        category: 'xss',
+        patterns: [/y/],
+        description: 'd',
+        severity: 'low',
+        languages: ['typescript'],
+      };
+      const san: Sanitizer = {
+        id: 'n',
+        patterns: [/z/],
+        description: 'd',
+        languages: ['typescript'],
+      };
       engine.addSource(src);
       engine.addSink(snk);
       engine.addSanitizer(san);

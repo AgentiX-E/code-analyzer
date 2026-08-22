@@ -79,7 +79,8 @@ export class CssProvider implements LanguageProvider {
     }
 
     // At-rules: @keyframes name { ... }, @media query { ... }, etc.
-    const atRuleRx = /@(keyframes|media|font-face|supports|container|page|charset|namespace)\s+(.+?)\s*\{/g;
+    const atRuleRx =
+      /@(keyframes|media|font-face|supports|container|page|charset|namespace)\s+(.+?)\s*\{/g;
     while ((m = atRuleRx.exec(sanitized)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.CLASS_DEF,

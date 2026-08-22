@@ -473,7 +473,8 @@ describe('BatchProcessor', () => {
     const processor = new BatchProcessor<number>({
       batchSize: 3,
       concurrency: 1,
-      onProgress: (p) => progressData.push({ completedBatches: p.completedBatches, totalBatches: p.totalBatches }),
+      onProgress: (p) =>
+        progressData.push({ completedBatches: p.completedBatches, totalBatches: p.totalBatches }),
     });
     const items = makeItems(9);
     const handler = vi.fn(async (item: number): Promise<number> => item);

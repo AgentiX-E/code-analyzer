@@ -15,13 +15,18 @@ function makeTemplate(overrides: Partial<RegistryTemplate> = {}): RegistryTempla
     description: 'Standard security rules',
     version: '1.0.0',
     tags: ['security', 'baseline'],
-    rules: [{
-      id: 'rule-001', name: 'No Hardcoded Secrets', description: 'Detect hardcoded credentials',
-      category: 'security', severity: 'critical',
-      pattern: '(password|secret|api[_-]?key)\\s*=\\s*[\'"][^\'"]+[\'"]',
-      suggestion: 'Use environment variables or a secret manager',
-      appliesTo: ['**/*.ts', '**/*.js', '**/*.py'],
-    }],
+    rules: [
+      {
+        id: 'rule-001',
+        name: 'No Hardcoded Secrets',
+        description: 'Detect hardcoded credentials',
+        category: 'security',
+        severity: 'critical',
+        pattern: '(password|secret|api[_-]?key)\\s*=\\s*[\'"][^\'"]+[\'"]',
+        suggestion: 'Use environment variables or a secret manager',
+        appliesTo: ['**/*.ts', '**/*.js', '**/*.py'],
+      },
+    ],
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     checksum: '',
@@ -164,10 +169,7 @@ describe('RuleRegistry', () => {
     });
 
     it('should import an array of templates', () => {
-      const json = JSON.stringify([
-        makeTemplate({ id: 'a' }),
-        makeTemplate({ id: 'b' }),
-      ]);
+      const json = JSON.stringify([makeTemplate({ id: 'a' }), makeTemplate({ id: 'b' })]);
       const result = registry.importTemplates(json);
       expect(result.imported).toBe(2);
     });
@@ -332,8 +334,26 @@ describe('RuleRegistry', () => {
       const tpl = makeTemplate({
         id: 'multi-rule',
         rules: [
-          { id: 'r1', name: 'Rule 1', description: 'D1', category: 'sec', severity: 'high', pattern: 'p1', suggestion: 's1', appliesTo: ['*.ts'] },
-          { id: 'r2', name: 'Rule 2', description: 'D2', category: 'style', severity: 'low', pattern: 'p2', suggestion: 's2', appliesTo: ['*.js'] },
+          {
+            id: 'r1',
+            name: 'Rule 1',
+            description: 'D1',
+            category: 'sec',
+            severity: 'high',
+            pattern: 'p1',
+            suggestion: 's1',
+            appliesTo: ['*.ts'],
+          },
+          {
+            id: 'r2',
+            name: 'Rule 2',
+            description: 'D2',
+            category: 'style',
+            severity: 'low',
+            pattern: 'p2',
+            suggestion: 's2',
+            appliesTo: ['*.js'],
+          },
         ],
       });
       const std = registry.toProjectStandard(tpl);
@@ -363,7 +383,11 @@ describe('RuleRegistry', () => {
   describe('importTemplates — existing template with different checksum', () => {
     it('should re-import when existing template has different checksum', () => {
       // Register a template with a known checksum
-      const tpl1 = makeTemplate({ id: 'reimport', name: 'Original', checksum: 'old-checksum-here' });
+      const tpl1 = makeTemplate({
+        id: 'reimport',
+        name: 'Original',
+        checksum: 'old-checksum-here',
+      });
       registry.register(tpl1);
 
       // Import a modified version (auto-computed checksum will differ)
@@ -380,39 +404,47 @@ describe('RuleRegistry', () => {
       registry.register(tpl);
       const stored = registry.get('match')!;
       // Re-import with same checksum
-      const result = registry.importTemplates(JSON.stringify({ ...tpl, checksum: stored.checksum }));
+      const result = registry.importTemplates(
+        JSON.stringify({ ...tpl, checksum: stored.checksum }),
+      );
       expect(result.skipped).toBe(1);
     });
   });
 
   describe('search — comprehensive matching', () => {
     it('should match when query appears in description but not name or tags', () => {
-      registry.register(makeTemplate({
-        id: 'desc-only',
-        name: 'Helper',
-        description: 'Contains specificKeyword for testing purposes',
-        tags: ['misc'],
-      }));
+      registry.register(
+        makeTemplate({
+          id: 'desc-only',
+          name: 'Helper',
+          description: 'Contains specificKeyword for testing purposes',
+          tags: ['misc'],
+        }),
+      );
       expect(registry.search('specificKeyword')).toHaveLength(1);
     });
 
     it('should match when query appears in tags but not name or description', () => {
-      registry.register(makeTemplate({
-        id: 'tag-only',
-        name: 'Helper',
-        description: 'Some description here',
-        tags: ['uniqueTag123'],
-      }));
+      registry.register(
+        makeTemplate({
+          id: 'tag-only',
+          name: 'Helper',
+          description: 'Some description here',
+          tags: ['uniqueTag123'],
+        }),
+      );
       expect(registry.search('uniqueTag123')).toHaveLength(1);
     });
 
     it('should match when query appears only in name', () => {
-      registry.register(makeTemplate({
-        id: 'name-only',
-        name: 'MyUniqueFunction',
-        description: 'Some description',
-        tags: ['misc'],
-      }));
+      registry.register(
+        makeTemplate({
+          id: 'name-only',
+          name: 'MyUniqueFunction',
+          description: 'Some description',
+          tags: ['misc'],
+        }),
+      );
       expect(registry.search('MyUniqueFunction')).toHaveLength(1);
     });
   });

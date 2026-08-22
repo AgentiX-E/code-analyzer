@@ -48,21 +48,42 @@ const MIRROR_STEM_PATTERNS = [
  * Mirror suffix patterns for full filename matching (used for category detection).
  */
 const MIRROR_FULL_PATTERNS = [
-  /[._]en[._]/i, /[._]zh[._]/i, /[._]ja[._]/i, /[._]ko[._]/i,
-  /[._]fr[._]/i, /[._]de[._]/i, /[._]es[._]/i,
-  /[._]dev[._]/i, /[._]prod[._]/i, /[._]staging[._]/i,
-  /[._]development[._]/i, /[._]production[._]/i,
+  /[._]en[._]/i,
+  /[._]zh[._]/i,
+  /[._]ja[._]/i,
+  /[._]ko[._]/i,
+  /[._]fr[._]/i,
+  /[._]de[._]/i,
+  /[._]es[._]/i,
+  /[._]dev[._]/i,
+  /[._]prod[._]/i,
+  /[._]staging[._]/i,
+  /[._]development[._]/i,
+  /[._]production[._]/i,
   // Also match at end (before extension)
-  /[._]en\./i, /[._]zh\./i, /[._]ja\./i, /[._]ko\./i,
-  /[._]fr\./i, /[._]de\./i, /[._]es\./i,
-  /[._]dev\./i, /[._]prod\./i, /[._]staging\./i,
-  /[._]development\./i, /[._]production\./i,
+  /[._]en\./i,
+  /[._]zh\./i,
+  /[._]ja\./i,
+  /[._]ko\./i,
+  /[._]fr\./i,
+  /[._]de\./i,
+  /[._]es\./i,
+  /[._]dev\./i,
+  /[._]prod\./i,
+  /[._]staging\./i,
+  /[._]development\./i,
+  /[._]production\./i,
 ];
 
 /** Sibling suffixes: styles, modules, stories, types */
 const SIBLING_SUFFIXES = [
-  /\.styles\./i, /\.module\.css$/i, /\.module\.scss$/i, /\.module\.less$/i,
-  /\.types\./i, /\.stories\./i, /\.story\./i,
+  /\.styles\./i,
+  /\.module\.css$/i,
+  /\.module\.scss$/i,
+  /\.module\.less$/i,
+  /\.types\./i,
+  /\.stories\./i,
+  /\.story\./i,
   /\.d\.ts$/i,
 ];
 
@@ -271,7 +292,8 @@ function detectCategory(files: string[]): BundleCategory {
   if (names.some((n) => isInterfaceFile(n) || isAbstractFile(n))) return 'impl';
 
   // Config: dev/prod/staging patterns
-  if (names.some((n) => /[._](dev|prod|staging|development|production)[._]/i.test(n))) return 'config';
+  if (names.some((n) => /[._](dev|prod|staging|development|production)[._]/i.test(n)))
+    return 'config';
 
   // Sibling: styles, modules, stories, types suffixes
   if (names.some((n) => hasSiblingSuffix(n))) return 'sibling';

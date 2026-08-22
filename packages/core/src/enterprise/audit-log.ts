@@ -195,16 +195,15 @@ export class AuditLogger {
    * Export audit log to JSON Lines format (SIEM compatible).
    */
   exportJsonLines(): string {
-    return this.entries
-      .map((e) => JSON.stringify(e))
-      .join('\n');
+    return this.entries.map((e) => JSON.stringify(e)).join('\n');
   }
 
   /**
    * Export audit log to CSV format.
    */
   exportCsv(): string {
-    const header = 'id,timestamp,userId,action,resource,description,result,hash,previousHash,durationMs';
+    const header =
+      'id,timestamp,userId,action,resource,description,result,hash,previousHash,durationMs';
     const rows = this.entries.map((e) =>
       [
         e.id,
@@ -243,10 +242,14 @@ export class AuditLogger {
   }
 
   /** Number of entries in the log. */
-  get count(): number { return this.entries.length; }
+  get count(): number {
+    return this.entries.length;
+  }
 
   /** Get all entries (read-only). */
-  get all(): readonly AuditEntry[] { return this.entries; }
+  get all(): readonly AuditEntry[] {
+    return this.entries;
+  }
 
   /** Clear all entries. Resets hash chain. */
   clear(): void {

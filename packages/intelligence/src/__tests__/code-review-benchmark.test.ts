@@ -40,9 +40,7 @@ describe('Benchmark Fixtures', () => {
   });
 
   it('should have the correct number of ground truth issues', () => {
-    const totalGT = ALL_BENCHMARK_FIXTURES.reduce(
-      (sum, f) => sum + f.groundTruth.length, 0,
-    );
+    const totalGT = ALL_BENCHMARK_FIXTURES.reduce((sum, f) => sum + f.groundTruth.length, 0);
     expect(totalGT).toBe(FIXTURE_STATS.totalGroundTruthIssues);
   });
 
@@ -110,13 +108,7 @@ describe('BenchmarkRunner — Perfect Detection', () => {
     detections.set(
       fixture.filePath,
       fixture.groundTruth.map((gt) =>
-        makeMockComment(
-          `det-${gt.id}`,
-          fixture.filePath,
-          gt.startLine,
-          gt.endLine,
-          gt.category,
-        ),
+        makeMockComment(`det-${gt.id}`, fixture.filePath, gt.startLine, gt.endLine, gt.category),
       ),
     );
 
@@ -223,10 +215,46 @@ describe('BenchmarkRunner — Metrics Calculation', () => {
       language: 'typescript',
       content: 'code',
       groundTruth: [
-        { id: 'gt1', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 1, endLine: 1, description: '', language: 'typescript' },
-        { id: 'gt2', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 2, endLine: 2, description: '', language: 'typescript' },
-        { id: 'gt3', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 3, endLine: 3, description: '', language: 'typescript' },
-        { id: 'gt4', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 4, endLine: 4, description: '', language: 'typescript' },
+        {
+          id: 'gt1',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: '',
+          language: 'typescript',
+        },
+        {
+          id: 'gt2',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 2,
+          endLine: 2,
+          description: '',
+          language: 'typescript',
+        },
+        {
+          id: 'gt3',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 3,
+          endLine: 3,
+          description: '',
+          language: 'typescript',
+        },
+        {
+          id: 'gt4',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 4,
+          endLine: 4,
+          description: '',
+          language: 'typescript',
+        },
       ],
     };
 
@@ -259,9 +287,7 @@ describe('BenchmarkRunner — Metrics Calculation', () => {
     };
 
     const detections = new Map<string, ReviewComment[]>();
-    detections.set('empty.ts', [
-      makeMockComment('fp', 'empty.ts', 1, 1, 'style'),
-    ]);
+    detections.set('empty.ts', [makeMockComment('fp', 'empty.ts', 1, 1, 'style')]);
 
     const result = runner.runBenchmark([fixture], detections, 1000);
     expect(result.recall).toBe(0);
@@ -275,7 +301,16 @@ describe('BenchmarkRunner — Metrics Calculation', () => {
       language: 'typescript',
       content: 'code',
       groundTruth: [
-        { id: 'gt1', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 1, endLine: 1, description: '', language: 'typescript' },
+        {
+          id: 'gt1',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: '',
+          language: 'typescript',
+        },
       ],
     };
 
@@ -291,15 +326,31 @@ describe('BenchmarkRunner — Metrics Calculation', () => {
       language: 'typescript',
       content: 'code',
       groundTruth: [
-        { id: 'gt-sec', filePath: 'multi.ts', category: 'security', severity: 'high', startLine: 1, endLine: 1, description: '', language: 'typescript' },
-        { id: 'gt-perf', filePath: 'multi.ts', category: 'performance', severity: 'medium', startLine: 2, endLine: 2, description: '', language: 'typescript' },
+        {
+          id: 'gt-sec',
+          filePath: 'multi.ts',
+          category: 'security',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: '',
+          language: 'typescript',
+        },
+        {
+          id: 'gt-perf',
+          filePath: 'multi.ts',
+          category: 'performance',
+          severity: 'medium',
+          startLine: 2,
+          endLine: 2,
+          description: '',
+          language: 'typescript',
+        },
       ],
     };
 
     const detections = new Map<string, ReviewComment[]>();
-    detections.set('multi.ts', [
-      makeMockComment('tp-sec', 'multi.ts', 1, 1, 'security'),
-    ]);
+    detections.set('multi.ts', [makeMockComment('tp-sec', 'multi.ts', 1, 1, 'security')]);
 
     const result = runner.runBenchmark([fixture], detections, 1000);
     expect(result.categoryBreakdown.length).toBeGreaterThanOrEqual(2);
@@ -395,7 +446,7 @@ describe('BenchmarkRunner — Full Integration', () => {
     for (const fixture of ALL_BENCHMARK_FIXTURES) {
       // Detect ~55% of issues (matching Augment's recall)
       const fixtureDets = fixture.groundTruth
-        .filter((_, i) => i % 4 < 2 || (i % 7 === 0)) // ~55% recall
+        .filter((_, i) => i % 4 < 2 || i % 7 === 0) // ~55% recall
         .map((gt) =>
           makeMockComment(`det-${gt.id}`, fixture.filePath, gt.startLine, gt.endLine, gt.category),
         );
@@ -430,13 +481,20 @@ describe('BenchmarkRunner — Acceptance Criteria', () => {
       language: 'typescript',
       content: 'a\nb\nc',
       groundTruth: [
-        { id: 'gt1', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 1, endLine: 3, description: '', language: 'typescript' },
+        {
+          id: 'gt1',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 3,
+          description: '',
+          language: 'typescript',
+        },
       ],
     };
     const detections = new Map<string, ReviewComment[]>();
-    detections.set('test.ts', [
-      makeMockComment('exact', 'test.ts', 1, 3, 'bug'),
-    ]);
+    detections.set('test.ts', [makeMockComment('exact', 'test.ts', 1, 3, 'bug')]);
     const result = runner.runBenchmark([fixture], detections, 100);
     expect(result.precision).toBe(1);
     expect(result.recall).toBe(1);
@@ -449,13 +507,20 @@ describe('BenchmarkRunner — Acceptance Criteria', () => {
       language: 'typescript',
       content: 'a\nb\nc\nd\ne',
       groundTruth: [
-        { id: 'gt1', filePath: 'test.ts', category: 'bug', severity: 'high', startLine: 1, endLine: 5, description: '', language: 'typescript' },
+        {
+          id: 'gt1',
+          filePath: 'test.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 5,
+          description: '',
+          language: 'typescript',
+        },
       ],
     };
     const detections = new Map<string, ReviewComment[]>();
-    detections.set('test.ts', [
-      makeMockComment('partial', 'test.ts', 3, 7, 'bug'),
-    ]);
+    detections.set('test.ts', [makeMockComment('partial', 'test.ts', 3, 7, 'bug')]);
     const result = runner.runBenchmark([fixture], detections, 100);
     // Overlap: gt[1-5] ∩ det[3-7] = [3-5], overlap=3, union=5+5-3=7, score=3/7=0.43
     // threshold is 0.3, so this should match
@@ -469,7 +534,16 @@ describe('BenchmarkRunner — Acceptance Criteria', () => {
       language: 'typescript',
       content: 'code',
       groundTruth: [
-        { id: 'gt1', filePath: 'noisy.ts', category: 'bug', severity: 'high', startLine: 1, endLine: 1, description: '', language: 'typescript' },
+        {
+          id: 'gt1',
+          filePath: 'noisy.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: '',
+          language: 'typescript',
+        },
       ],
     };
     const detections = new Map<string, ReviewComment[]>();

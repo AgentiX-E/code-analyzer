@@ -44,11 +44,7 @@ export interface ReferenceResult {
 // Supported Languages
 // ---------------------------------------------------------------------------
 
-const SUPPORTED_LSP_LANGUAGES: LSPLanguage[] = [
-  'typescript',
-  'javascript',
-  'python',
-];
+const SUPPORTED_LSP_LANGUAGES: LSPLanguage[] = ['typescript', 'javascript', 'python'];
 
 // ---------------------------------------------------------------------------
 // LSPManager
@@ -63,9 +59,9 @@ export class LSPManager {
   private readonly cache: Map<string, TypeInfoResult>;
 
   constructor(options: LSPManagerOptions = {}) {
-    void (options.projectRoot);
+    void options.projectRoot;
     this.enabled = options.enabled ?? true;
-    void (options.maxServers);
+    void options.maxServers;
     this.cacheSize = options.cacheSize ?? 1000;
     this.cache = new Map();
     this.running = false;
@@ -166,21 +162,14 @@ export class LSPManager {
   // File Notifications
   // -------------------------------------------------------------------------
 
-  async notifyFileOpen(
-    _filePath: string,
-    _content: string,
-    language: LSPLanguage,
-  ): Promise<void> {
+  async notifyFileOpen(_filePath: string, _content: string, language: LSPLanguage): Promise<void> {
     if (!this.enabled || !this.isAvailable(language)) {
       return;
     }
     // No-op: no real server running
   }
 
-  async notifyFileClose(
-    _filePath: string,
-    language: LSPLanguage,
-  ): Promise<void> {
+  async notifyFileClose(_filePath: string, language: LSPLanguage): Promise<void> {
     if (!this.enabled || !this.isAvailable(language)) {
       return;
     }
@@ -229,10 +218,7 @@ export class LSPManager {
 // Factory Function
 // ---------------------------------------------------------------------------
 
-export function createLSPManager(
-  projectRoot: string,
-  enabled?: boolean,
-): LSPManager {
+export function createLSPManager(projectRoot: string, enabled?: boolean): LSPManager {
   return new LSPManager({
     projectRoot,
     enabled: enabled ?? true,
@@ -243,9 +229,7 @@ export function createLSPManager(
 // Server Availability Check
 // ---------------------------------------------------------------------------
 
-export async function isLSPServerAvailable(
-  language: LSPLanguage,
-): Promise<boolean> {
+export async function isLSPServerAvailable(language: LSPLanguage): Promise<boolean> {
   // Check if the language is supported
   if (!SUPPORTED_LSP_LANGUAGES.includes(language)) {
     return false;

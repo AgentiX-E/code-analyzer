@@ -183,7 +183,7 @@ export class LifecycleManager {
         await withTimeout(
           descriptor.component.shutdown(),
           this.shutdownTimeout,
-          `Shutdown timed out for component "${name}" after ${this.shutdownTimeout}ms`
+          `Shutdown timed out for component "${name}" after ${this.shutdownTimeout}ms`,
         );
         this.initialized.delete(name);
         successCount++;
@@ -245,11 +245,7 @@ export class LifecycleManager {
 /**
  * Execute a promise with a timeout. Rejects if the promise doesn't settle in time.
  */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  timeoutMessage: string
-): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_resolve, reject) => {

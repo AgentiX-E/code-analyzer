@@ -127,15 +127,15 @@ Index a repository into the knowledge graph.
 code-analyzer analyze [options] <path>
 ```
 
-| Argument | Type | Description |
-|----------|------|-------------|
+| Argument | Type     | Description                                  |
+| -------- | -------- | -------------------------------------------- |
 | `<path>` | `string` | Path to the repository to analyze (required) |
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--language <lang>` | `string` | auto | Programming language (auto-detected if omitted) |
-| `--project-id <id>` | `string` | auto | Project identifier (auto-generated if omitted) |
-| `--force` | `boolean` | `false` | Force re-index even if already indexed |
+| Option              | Type      | Default | Description                                     |
+| ------------------- | --------- | ------- | ----------------------------------------------- |
+| `--language <lang>` | `string`  | auto    | Programming language (auto-detected if omitted) |
+| `--project-id <id>` | `string`  | auto    | Project identifier (auto-generated if omitted)  |
+| `--force`           | `boolean` | `false` | Force re-index even if already indexed          |
 
 **Examples:**
 
@@ -170,17 +170,17 @@ Search the knowledge graph using full-text search.
 code-analyzer search [options] <query>
 ```
 
-| Argument | Type | Description |
-|----------|------|-------------|
+| Argument  | Type     | Description                    |
+| --------- | -------- | ------------------------------ |
 | `<query>` | `string` | Search query string (required) |
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--project <id>` | `string` | all | Project ID to search within |
-| `--limit <n>` | `number` | `20` | Maximum results to return |
-| `--offset <n>` | `number` | `0` | Pagination offset |
-| `--label <label>` | `string` | all | Filter by node label (Function, Class, Module, etc.) |
-| `--format <fmt>` | `string` | `text` | Output format (text, json, csv) |
+| Option            | Type     | Default | Description                                          |
+| ----------------- | -------- | ------- | ---------------------------------------------------- |
+| `--project <id>`  | `string` | all     | Project ID to search within                          |
+| `--limit <n>`     | `number` | `20`    | Maximum results to return                            |
+| `--offset <n>`    | `number` | `0`     | Pagination offset                                    |
+| `--label <label>` | `string` | all     | Filter by node label (Function, Class, Module, etc.) |
+| `--format <fmt>`  | `string` | `text`  | Output format (text, json, csv)                      |
 
 **Examples:**
 
@@ -207,6 +207,7 @@ code-analyzer search --format csv --label Class "Controller" > controllers.csv
 **Output formats:**
 
 `text` (default):
+
 ```
 Search results for "authentication":
   1. auth.authenticate (Function) — src/auth/index.ts:42
@@ -216,6 +217,7 @@ Search results for "authentication":
 ```
 
 `json`:
+
 ```json
 {
   "items": [
@@ -238,6 +240,7 @@ Search results for "authentication":
 ```
 
 `csv`:
+
 ```csv
 nodeId,name,qualifiedName,label,filePath,startLine,rank
 42,authenticate,auth.authenticate,Function,src/auth/index.ts,42,0.95
@@ -249,13 +252,13 @@ nodeId,name,qualifiedName,label,filePath,startLine,rank
 
 ### Environment Variables
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `CODE_ANALYZER_DATA_DIR` | `string` | `~/.code-analyzer/data` | Data directory for graph data |
-| `CODE_ANALYZER_LOG_LEVEL` | `string` | `info` | Log level (debug, info, warn, error, silent) |
-| `CODE_ANALYZER_DEFAULT_LANGUAGE` | `string` | auto | Default programming language for analysis |
-| `CODE_ANALYZER_MAX_FILE_SIZE` | `string` | `1mb` | Maximum file size to analyze |
-| `CODE_ANALYZER_IGNORE_PATTERNS` | `string` | — | Comma-separated glob patterns to ignore |
+| Variable                         | Type     | Default                 | Description                                  |
+| -------------------------------- | -------- | ----------------------- | -------------------------------------------- |
+| `CODE_ANALYZER_DATA_DIR`         | `string` | `~/.code-analyzer/data` | Data directory for graph data                |
+| `CODE_ANALYZER_LOG_LEVEL`        | `string` | `info`                  | Log level (debug, info, warn, error, silent) |
+| `CODE_ANALYZER_DEFAULT_LANGUAGE` | `string` | auto                    | Default programming language for analysis    |
+| `CODE_ANALYZER_MAX_FILE_SIZE`    | `string` | `1mb`                   | Maximum file size to analyze                 |
+| `CODE_ANALYZER_IGNORE_PATTERNS`  | `string` | —                       | Comma-separated glob patterns to ignore      |
 
 ### Configuration File
 
@@ -482,8 +485,8 @@ jobs:
 name: Weekly Code Health Report
 on:
   schedule:
-    - cron: '0 8 * * 1'  # Every Monday at 8 AM
-  workflow_dispatch:      # Manual trigger
+    - cron: '0 8 * * 1' # Every Monday at 8 AM
+  workflow_dispatch: # Manual trigger
 
 jobs:
   health:
@@ -1061,53 +1064,53 @@ Code Analyzer — Codebase Health Report
 
 The knowledge graph supports the following node labels (38 total). Use the `--label` flag to filter searches:
 
-| Category | Labels |
-|----------|--------|
-| **Structure** | `Project`, `Package`, `Folder`, `File`, `Module` |
-| **OOP** | `Class`, `Interface`, `Enum`, `TypeAlias`, `Struct`, `Trait` |
-| **Functions** | `Function`, `Method`, `Constructor`, `Property` |
-| **Variables** | `Variable` |
-| **Web** | `Route`, `Component` |
-| **Tooling** | `Tool`, `Test`, `Config` |
-| **Process** | `Process`, `Community`, `Event` |
-| **Security** | `BasicBlock`, `DataSource`, `Sink` |
-| **Cross-Repo** | `CrossRepoFunction`, `CrossRepoInterface`, `CrossRepoModule`, `Contract` |
-| **Documentation** | `ADR` |
-| **Infrastructure** | `InfraResource` |
+| Category           | Labels                                                                   |
+| ------------------ | ------------------------------------------------------------------------ |
+| **Structure**      | `Project`, `Package`, `Folder`, `File`, `Module`                         |
+| **OOP**            | `Class`, `Interface`, `Enum`, `TypeAlias`, `Struct`, `Trait`             |
+| **Functions**      | `Function`, `Method`, `Constructor`, `Property`                          |
+| **Variables**      | `Variable`                                                               |
+| **Web**            | `Route`, `Component`                                                     |
+| **Tooling**        | `Tool`, `Test`, `Config`                                                 |
+| **Process**        | `Process`, `Community`, `Event`                                          |
+| **Security**       | `BasicBlock`, `DataSource`, `Sink`                                       |
+| **Cross-Repo**     | `CrossRepoFunction`, `CrossRepoInterface`, `CrossRepoModule`, `Contract` |
+| **Documentation**  | `ADR`                                                                    |
+| **Infrastructure** | `InfraResource`                                                          |
 
 ## Supported Languages
 
 The analyzer supports auto-detection for the following languages:
 
-| Language | Flag |
-|----------|------|
+| Language   | Flag                    |
+| ---------- | ----------------------- |
 | TypeScript | `--language typescript` |
 | JavaScript | `--language javascript` |
-| Python | `--language python` |
-| Go | `--language go` |
-| Rust | `--language rust` |
-| Java | `--language java` |
-| C# | `--language csharp` |
-| C++ | `--language cpp` |
+| Python     | `--language python`     |
+| Go         | `--language go`         |
+| Rust       | `--language rust`       |
+| Java       | `--language java`       |
+| C#         | `--language csharp`     |
+| C++        | `--language cpp`        |
 
 ## Package Dependencies
 
-| Dependency | Description |
-|------------|-------------|
-| `@code-analyzer/shared` | Shared types and schemas |
-| `@code-analyzer/core` | Core analysis engine interfaces |
-| `@code-analyzer/infra` | Infrastructure layer (graph store, logging) |
-| `@code-analyzer/analyzer` | Static code analysis (tree-sitter parsing) |
-| `@code-analyzer/intelligence` | AI-powered code intelligence |
-| `@code-analyzer/mcp` | MCP server (for agent integration) |
-| `commander` | CLI framework for argument parsing (^12.0.0) |
+| Dependency                    | Description                                  |
+| ----------------------------- | -------------------------------------------- |
+| `@code-analyzer/shared`       | Shared types and schemas                     |
+| `@code-analyzer/core`         | Core analysis engine interfaces              |
+| `@code-analyzer/infra`        | Infrastructure layer (graph store, logging)  |
+| `@code-analyzer/analyzer`     | Static code analysis (tree-sitter parsing)   |
+| `@code-analyzer/intelligence` | AI-powered code intelligence                 |
+| `@code-analyzer/mcp`          | MCP server (for agent integration)           |
+| `commander`                   | CLI framework for argument parsing (^12.0.0) |
 
 ### Dev Dependencies
 
-| Dependency | Description |
-|------------|-------------|
+| Dependency   | Description                  |
+| ------------ | ---------------------------- |
 | `typescript` | TypeScript compiler (^5.6.0) |
-| `vitest` | Unit test runner (^2.1.0) |
+| `vitest`     | Unit test runner (^2.1.0)    |
 
 ## Architecture
 
@@ -1156,14 +1159,14 @@ Formatted output to stdout
 
 ## Comparison with @code-analyzer/mcp and @code-analyzer/server
 
-| Feature | `@code-analyzer/cli` | `@code-analyzer/mcp` | `@code-analyzer/server` |
-|---------|---------------------|---------------------|------------------------|
-| **Interface** | Terminal commands | MCP protocol | HTTP REST API |
-| **Target User** | Developers, CI/CD | AI coding agents | Web apps, SDKs |
-| **Transport** | stdin/stdout | stdio / HTTP+SSE | HTTP |
-| **Use Case** | Scripting, automation | Agent-assisted coding | Programmatic integration |
-| **State** | Stateless commands | Stateful server | Stateful server |
-| **Concurrency** | Single invocation | Multi-agent | Multi-client |
+| Feature         | `@code-analyzer/cli`  | `@code-analyzer/mcp`  | `@code-analyzer/server`  |
+| --------------- | --------------------- | --------------------- | ------------------------ |
+| **Interface**   | Terminal commands     | MCP protocol          | HTTP REST API            |
+| **Target User** | Developers, CI/CD     | AI coding agents      | Web apps, SDKs           |
+| **Transport**   | stdin/stdout          | stdio / HTTP+SSE      | HTTP                     |
+| **Use Case**    | Scripting, automation | Agent-assisted coding | Programmatic integration |
+| **State**       | Stateless commands    | Stateful server       | Stateful server          |
+| **Concurrency** | Single invocation     | Multi-agent           | Multi-client             |
 
 ## License
 

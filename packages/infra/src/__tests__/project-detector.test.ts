@@ -103,7 +103,7 @@ describe('ProjectDetector', () => {
 
   it('detects a Python project by Pipfile', () => {
     rootPath = setup([], {
-      'Pipfile': '',
+      Pipfile: '',
       'app.py': '',
     });
 
@@ -259,7 +259,7 @@ describe('ProjectDetector', () => {
 
   it('detects Docker support', () => {
     rootPath = setup([], {
-      'Dockerfile': 'FROM node:20',
+      Dockerfile: 'FROM node:20',
       'package.json': JSON.stringify({ name: 'app' }),
       'src/index.ts': '',
     });

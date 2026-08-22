@@ -65,8 +65,7 @@ export class PRReviewEventHandler implements EventHandler {
   constructor(
     private reviewEngine: CodeReviewEngine,
     _config: Partial<PRReviewConfig> = {},
-  ) {
-  }
+  ) {}
 
   /**
    * Handle a pull_request webhook event.
@@ -76,10 +75,7 @@ export class PRReviewEventHandler implements EventHandler {
     const action = payload['action'] as string | undefined;
 
     // Only process supported PR actions
-    if (
-      !action ||
-      !['opened', 'synchronize', 'reopened'].includes(action)
-    ) {
+    if (!action || !['opened', 'synchronize', 'reopened'].includes(action)) {
       return;
     }
 
@@ -139,7 +135,7 @@ export class PRReviewEventHandler implements EventHandler {
     const repo = payload['repository'] as Record<string, unknown> | undefined;
     if (!repo) return null;
 
-    const owner = (repo['owner'] as Record<string, unknown> | undefined);
+    const owner = repo['owner'] as Record<string, unknown> | undefined;
     const base = pr['base'] as Record<string, unknown> | undefined;
     const head = pr['head'] as Record<string, unknown> | undefined;
     const sender = payload['sender'] as Record<string, unknown> | undefined;
@@ -200,10 +196,7 @@ export class PRReviewEventHandler implements EventHandler {
     // 4. Post comments back to PR
 
     // Run the review engine (allows error injection for testing)
-    await this.reviewEngine.reviewDiff(
-      prDetails.repository.fullName,
-      [],
-    );
+    await this.reviewEngine.reviewDiff(prDetails.repository.fullName, []);
 
     // For now, generate a simulated review result
     const comments = 0; // Would be actual review comments count

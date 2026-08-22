@@ -76,8 +76,8 @@ describe('TypeScriptProvider', () => {
     it('should detect variable declarations', () => {
       const source = `const x: number = 42;\nlet y = "hello";`;
       const captures = provider.parse(source, 'test.ts');
-      const vars = captures.filter((c) =>
-        c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF,
+      const vars = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF,
       );
       expect(vars.length).toBeGreaterThanOrEqual(1);
     });
@@ -107,7 +107,8 @@ describe('TypeScriptProvider', () => {
     });
 
     it('should detect class methods and constructors', () => {
-      const source = 'class User {\n  constructor(public name: string) {}\n  getInfo(): string { return this.name; }\n}';
+      const source =
+        'class User {\n  constructor(public name: string) {}\n  getInfo(): string { return this.name; }\n}';
       const captures = provider.parse(source, 'test.ts');
       const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
@@ -118,7 +119,8 @@ describe('TypeScriptProvider', () => {
     });
 
     it('should handle multiple class methods', () => {
-      const source = 'class Service {\n  private doInternal(): void {}\n  protected getData(): string { return ""; }\n  public handle(): void {}\n}';
+      const source =
+        'class Service {\n  private doInternal(): void {}\n  protected getData(): string { return ""; }\n  public handle(): void {}\n}';
       const captures = provider.parse(source, 'test.ts');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods.length).toBeGreaterThanOrEqual(3);
@@ -171,21 +173,28 @@ describe('TypeScriptProvider', () => {
     it('should handle block comments in source', () => {
       const source = 'function parse(): void {\n  /* multi-line\n     comment */\n  return;\n}';
       const captures = provider.parse(source, 'test.ts');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'parse');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'parse',
+      );
       expect(funcs).toHaveLength(1);
     });
 
     it('should handle strings with special characters', () => {
       const source = 'function getTemplate(): string {\n  return "{ code } block";\n}';
       const captures = provider.parse(source, 'test.ts');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'getTemplate');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'getTemplate',
+      );
       expect(funcs).toHaveLength(1);
     });
 
     it('should handle nested block structures', () => {
-      const source = 'function outer(): void {\n  if (true) {\n    while (false) {\n      break;\n    }\n  }\n}';
+      const source =
+        'function outer(): void {\n  if (true) {\n    while (false) {\n      break;\n    }\n  }\n}';
       const captures = provider.parse(source, 'test.ts');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'outer');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'outer',
+      );
       expect(funcs).toHaveLength(1);
     });
 
@@ -346,21 +355,29 @@ describe('TypeScriptProvider', () => {
     it('should handle function with commented braces', () => {
       const source = 'function test(): void {\n  // line comment\n  const x = 1;\n  return;\n}';
       const captures = provider.parse(source, 'test.ts');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'test');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'test',
+      );
       expect(funcs).toHaveLength(1);
     });
 
     it('should handle template literals', () => {
-      const source = 'function template(): string {\n  const s = `nested { block } here`;\n  return s;\n}';
+      const source =
+        'function template(): string {\n  const s = `nested { block } here`;\n  return s;\n}';
       const captures = provider.parse(source, 'test.ts');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'template');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'template',
+      );
       expect(funcs).toHaveLength(1);
     });
 
     it('should handle deeply nested structures', () => {
-      const source = 'function compute() {\n  for (let i = 0; i < 10; i++) {\n    if (i > 5) {\n      return i;\n    }\n  }\n  return 0;\n}';
+      const source =
+        'function compute() {\n  for (let i = 0; i < 10; i++) {\n    if (i > 5) {\n      return i;\n    }\n  }\n  return 0;\n}';
       const captures = provider.parse(source, 'test.ts');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'compute');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'compute',
+      );
       expect(funcs).toHaveLength(1);
     });
   });

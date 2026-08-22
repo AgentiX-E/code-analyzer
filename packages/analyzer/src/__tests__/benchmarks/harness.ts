@@ -29,15 +29,7 @@ export interface BenchmarkCase {
 
 /** Supported benchmark categories */
 export type BenchmarkCategory =
-  | 'parse'
-  | 'graph'
-  | 'scope'
-  | 'embed'
-  | 'search'
-  | 'heuristic'
-  | 'review'
-  | 'pipeline'
-  | 'io';
+  'parse' | 'graph' | 'scope' | 'embed' | 'search' | 'heuristic' | 'review' | 'pipeline' | 'io';
 
 /** Result of a single benchmark iteration */
 export interface IterationResult {
@@ -168,7 +160,9 @@ export class BenchmarkRunner {
     const { name, category, warmupIterations = 3, iterations, fn, setup, teardown } = benchCase;
 
     if (this.config.verbose) {
-      console.log(`\n[bench] ${category}/${name} — ${iterations} iterations (${warmupIterations} warmup)...`);
+      console.log(
+        `\n[bench] ${category}/${name} — ${iterations} iterations (${warmupIterations} warmup)...`,
+      );
     }
 
     // Run setup
@@ -213,7 +207,11 @@ export class BenchmarkRunner {
       durations.push(durationMs);
       iterationResults.push({ iteration: i, durationMs, memoryDeltaMB });
 
-      if (this.config.verbose && iterations > 10 && i % Math.max(1, Math.floor(iterations / 10)) === 0) {
+      if (
+        this.config.verbose &&
+        iterations > 10 &&
+        i % Math.max(1, Math.floor(iterations / 10)) === 0
+      ) {
         console.log(`  iter ${i}/${iterations}: ${formatMs(durationMs)}`);
       }
     }
@@ -262,7 +260,7 @@ export class BenchmarkRunner {
     // Print immediate result
     console.log(
       `  ${name}: mean=${formatMs(meanDur)}, p50=${formatMs(stats.duration.p50)}, ` +
-      `p95=${formatMs(stats.duration.p95)}, peakRSS+${peakMemoryMB.toFixed(1)}MB`,
+        `p95=${formatMs(stats.duration.p95)}, peakRSS+${peakMemoryMB.toFixed(1)}MB`,
     );
 
     return stats;
@@ -330,26 +328,26 @@ export class BenchmarkRunner {
     console.log('='.repeat(100));
     console.log(
       'Category'.padEnd(14) +
-      'Name'.padEnd(30) +
-      'Mean'.padEnd(12) +
-      'P50'.padEnd(12) +
-      'P95'.padEnd(12) +
-      'P99'.padEnd(12) +
-      'StdDev'.padEnd(12) +
-      'RSS+'.padEnd(10),
+        'Name'.padEnd(30) +
+        'Mean'.padEnd(12) +
+        'P50'.padEnd(12) +
+        'P95'.padEnd(12) +
+        'P99'.padEnd(12) +
+        'StdDev'.padEnd(12) +
+        'RSS+'.padEnd(10),
     );
     console.log('-'.repeat(100));
 
     for (const row of rows) {
       console.log(
         row.category.padEnd(14) +
-        row.name.padEnd(30) +
-        formatMs(row.duration.mean).padEnd(12) +
-        formatMs(row.duration.p50).padEnd(12) +
-        formatMs(row.duration.p95).padEnd(12) +
-        formatMs(row.duration.p99).padEnd(12) +
-        `${(row.duration.stddev / (row.duration.mean || 1) * 100).toFixed(1)}%`.padEnd(12) +
-        `${row.memory.peakDeltaMB.toFixed(1)}MB`.padEnd(10),
+          row.name.padEnd(30) +
+          formatMs(row.duration.mean).padEnd(12) +
+          formatMs(row.duration.p50).padEnd(12) +
+          formatMs(row.duration.p95).padEnd(12) +
+          formatMs(row.duration.p99).padEnd(12) +
+          `${((row.duration.stddev / (row.duration.mean || 1)) * 100).toFixed(1)}%`.padEnd(12) +
+          `${row.memory.peakDeltaMB.toFixed(1)}MB`.padEnd(10),
       );
     }
 

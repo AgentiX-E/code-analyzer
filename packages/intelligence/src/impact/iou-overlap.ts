@@ -65,8 +65,7 @@ export class IoUOverlapDetector {
     existingComments: CommentRegion[],
   ): CommentRegion[] {
     return newComments.filter(
-      (newComment) =>
-        this.detectOverlap(newComment, existingComments) === null,
+      (newComment) => this.detectOverlap(newComment, existingComments) === null,
     );
   }
 

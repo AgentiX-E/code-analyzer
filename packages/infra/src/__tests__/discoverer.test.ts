@@ -239,7 +239,9 @@ describe('FileDiscoverer', () => {
 
     // Our simple glob engine may not support negation,
     // but we test that basic matching works
-    expect(() => discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts'))).not.toThrow();
+    expect(() =>
+      discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts')),
+    ).not.toThrow();
   });
 
   it('handles non-existent .gitignore gracefully', () => {
@@ -382,7 +384,9 @@ describe('FileDiscoverer', () => {
       'src/other.gen.ts': 'generated',
     });
     expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/other.gen.ts'))).toBe(true);
-    expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'deep/nested/auto.gen.ts'))).toBe(true);
+    expect(
+      discoverer.matchGitignore(rootPath, path.join(rootPath, 'deep/nested/auto.gen.ts')),
+    ).toBe(true);
     expect(discoverer.matchGitignore(rootPath, path.join(rootPath, 'src/app.ts'))).toBe(false);
   });
 
@@ -604,7 +608,7 @@ describe('FileDiscoverer', () => {
       'lib.rs': 'fn main() {}',
       'App.java': 'class App {}',
       'README.md': '# Project',
-      'Dockerfile': 'FROM node:20',
+      Dockerfile: 'FROM node:20',
     });
 
     const files = await discoverer.discover(rootPath);

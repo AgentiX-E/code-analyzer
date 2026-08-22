@@ -6,21 +6,21 @@
 
 ## Category Overview
 
-| Category | Tools | Description |
-|----------|:-----:|-------------|
-| [Querying & Exploration](#1-querying--exploration-10-tools) | 10 | Search, explore, and query the knowledge graph |
-| [Code Review](#2-code-review-5-tools) | 5 | Automated code review with standards enforcement |
-| [PR Review](#3-pr-review-4-tools) | 4 | Pull request review and CI check management |
-| [Change Impact](#4-change-impact-3-tools) | 3 | Analyze the impact of proposed changes |
-| [Refactoring](#5-refactoring-3-tools) | 3 | Detect code smells and suggest refactorings |
-| [Test Generation](#6-test-generation-2-tools) | 2 | Generate tests and analyze coverage |
-| [Code Suggestion](#7-code-suggestion-2-tools) | 2 | Suggest fixes and improvements |
-| [Documentation](#8-documentation-2-tools) | 2 | Generate docs and check coverage |
-| [Reports](#9-reports-3-tools) | 3 | Generate analysis and trend reports |
-| [Standards & ADR](#10-standards--adr-4-tools) | 4 | Manage standards and architecture decisions |
-| [Indexing & Lifecycle](#11-indexing--lifecycle-3-tools) | 3 | Index projects and manage lifecycle |
-| [Security](#12-security-2-tools) | 2 | Security audit and secret scanning |
-| [Cross-Repo](#13-cross-repo-2-tools) | 2 | Cross-repository analysis |
+| Category                                                    | Tools | Description                                      |
+| ----------------------------------------------------------- | :---: | ------------------------------------------------ |
+| [Querying & Exploration](#1-querying--exploration-10-tools) |  10   | Search, explore, and query the knowledge graph   |
+| [Code Review](#2-code-review-5-tools)                       |   5   | Automated code review with standards enforcement |
+| [PR Review](#3-pr-review-4-tools)                           |   4   | Pull request review and CI check management      |
+| [Change Impact](#4-change-impact-3-tools)                   |   3   | Analyze the impact of proposed changes           |
+| [Refactoring](#5-refactoring-3-tools)                       |   3   | Detect code smells and suggest refactorings      |
+| [Test Generation](#6-test-generation-2-tools)               |   2   | Generate tests and analyze coverage              |
+| [Code Suggestion](#7-code-suggestion-2-tools)               |   2   | Suggest fixes and improvements                   |
+| [Documentation](#8-documentation-2-tools)                   |   2   | Generate docs and check coverage                 |
+| [Reports](#9-reports-3-tools)                               |   3   | Generate analysis and trend reports              |
+| [Standards & ADR](#10-standards--adr-4-tools)               |   4   | Manage standards and architecture decisions      |
+| [Indexing & Lifecycle](#11-indexing--lifecycle-3-tools)     |   3   | Index projects and manage lifecycle              |
+| [Security](#12-security-2-tools)                            |   2   | Security audit and secret scanning               |
+| [Cross-Repo](#13-cross-repo-2-tools)                        |   2   | Cross-repository analysis                        |
 
 ---
 
@@ -30,11 +30,11 @@
 
 Execute a Cypher query against the knowledge graph.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `query` | `string` | Yes | Cypher query string |
-| `limit` | `number` | No | Maximum results (default: 100) |
-| `projectId` | `string` | No | Project to query (default: current) |
+| Parameter   | Type     | Required | Description                         |
+| ----------- | -------- | :------: | ----------------------------------- |
+| `query`     | `string` |   Yes    | Cypher query string                 |
+| `limit`     | `number` |    No    | Maximum results (default: 100)      |
+| `projectId` | `string` |    No    | Project to query (default: current) |
 
 **Example:**
 
@@ -52,9 +52,9 @@ Execute a Cypher query against the knowledge graph.
 
 Get statistics about the current knowledge graph.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `projectId` | `string` | No | Project to query |
+| Parameter   | Type     | Required | Description      |
+| ----------- | -------- | :------: | ---------------- |
+| `projectId` | `string` |    No    | Project to query |
 
 **Example:**
 
@@ -80,10 +80,10 @@ Get statistics about the current knowledge graph.
 
 Get detailed information about a specific graph node.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `nodeId` | `string` | Yes | Node identifier |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description     |
+| ----------- | -------- | :------: | --------------- |
+| `nodeId`    | `string` |   Yes    | Node identifier |
+| `projectId` | `string` |    No    | Project scope   |
 
 **Example:**
 
@@ -99,14 +99,14 @@ Get detailed information about a specific graph node.
 
 Full-text search across source code using BM25 ranking.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `query` | `string` | Yes | Search query |
-| `language` | `string` | No | Filter by language (e.g., `typescript`) |
-| `type` | `string` | No | Filter by node type (e.g., `Function`) |
-| `filePath` | `string` | No | Restrict to specific file pattern |
-| `limit` | `number` | No | Maximum results (default: 20) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                             |
+| ----------- | -------- | :------: | --------------------------------------- |
+| `query`     | `string` |   Yes    | Search query                            |
+| `language`  | `string` |    No    | Filter by language (e.g., `typescript`) |
+| `type`      | `string` |    No    | Filter by node type (e.g., `Function`)  |
+| `filePath`  | `string` |    No    | Restrict to specific file pattern       |
+| `limit`     | `number` |    No    | Maximum results (default: 20)           |
+| `projectId` | `string` |    No    | Project scope                           |
 
 **Example:**
 
@@ -122,12 +122,12 @@ Full-text search across source code using BM25 ranking.
 
 Trace call paths between two symbols.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `source` | `string` | Yes | Starting symbol name |
-| `target` | `string` | Yes | Target symbol name |
-| `maxDepth` | `number` | No | Maximum path depth (default: 10) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                      |
+| ----------- | -------- | :------: | -------------------------------- |
+| `source`    | `string` |   Yes    | Starting symbol name             |
+| `target`    | `string` |   Yes    | Target symbol name               |
+| `maxDepth`  | `number` |    No    | Maximum path depth (default: 10) |
+| `projectId` | `string` |    No    | Project scope                    |
 
 **Example:**
 
@@ -143,12 +143,12 @@ Trace call paths between two symbols.
 
 Find all dependencies of a symbol (what it uses).
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `symbol` | `string` | Yes | Symbol to find dependencies for |
-| `direction` | `string` | No | `outgoing` (default) or `incoming` |
-| `maxDepth` | `number` | No | Traversal depth (default: 3) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                        |
+| ----------- | -------- | :------: | ---------------------------------- |
+| `symbol`    | `string` |   Yes    | Symbol to find dependencies for    |
+| `direction` | `string` |    No    | `outgoing` (default) or `incoming` |
+| `maxDepth`  | `number` |    No    | Traversal depth (default: 3)       |
+| `projectId` | `string` |    No    | Project scope                      |
 
 **Example:**
 
@@ -164,14 +164,14 @@ Find all dependencies of a symbol (what it uses).
 
 List symbols filtered by type, language, or pattern.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `type` | `string` | No | Symbol type: `Function`, `Class`, `Interface`, `Module`, `Route` |
-| `language` | `string` | No | Programming language filter |
-| `pattern` | `string` | No | Name pattern (glob) |
-| `exportedOnly` | `boolean` | No | Only exported symbols (default: false) |
-| `limit` | `number` | No | Maximum results |
-| `projectId` | `string` | No | Project scope |
+| Parameter      | Type      | Required | Description                                                      |
+| -------------- | --------- | :------: | ---------------------------------------------------------------- |
+| `type`         | `string`  |    No    | Symbol type: `Function`, `Class`, `Interface`, `Module`, `Route` |
+| `language`     | `string`  |    No    | Programming language filter                                      |
+| `pattern`      | `string`  |    No    | Name pattern (glob)                                              |
+| `exportedOnly` | `boolean` |    No    | Only exported symbols (default: false)                           |
+| `limit`        | `number`  |    No    | Maximum results                                                  |
+| `projectId`    | `string`  |    No    | Project scope                                                    |
 
 **Example:**
 
@@ -187,10 +187,10 @@ List symbols filtered by type, language, or pattern.
 
 Get structural information about a file, including its symbols and imports.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | Yes | Path to source file |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description         |
+| ----------- | -------- | :------: | ------------------- |
+| `filePath`  | `string` |   Yes    | Path to source file |
+| `projectId` | `string` |    No    | Project scope       |
 
 **Example:**
 
@@ -206,10 +206,10 @@ Get structural information about a file, including its symbols and imports.
 
 Find all references to a symbol across the codebase.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `symbol` | `string` | Yes | Symbol to find references for |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                   |
+| ----------- | -------- | :------: | ----------------------------- |
+| `symbol`    | `string` |   Yes    | Symbol to find references for |
+| `projectId` | `string` |    No    | Project scope                 |
 
 **Example:**
 
@@ -225,10 +225,10 @@ Find all references to a symbol across the codebase.
 
 Get a high-level architectural overview of the project.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `projectId` | `string` | No | Project scope |
-| `level` | `string` | No | Detail level: `overview`, `modules`, `layers` (default: `overview`) |
+| Parameter   | Type     | Required | Description                                                         |
+| ----------- | -------- | :------: | ------------------------------------------------------------------- |
+| `projectId` | `string` |    No    | Project scope                                                       |
+| `level`     | `string` |    No    | Detail level: `overview`, `modules`, `layers` (default: `overview`) |
 
 **Example:**
 
@@ -246,12 +246,12 @@ Get a high-level architectural overview of the project.
 
 Review a single file for issues including security, performance, and maintainability.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | Yes | Path to file to review |
-| `severity` | `string` | No | Minimum severity: `low`, `medium`, `high`, `critical` |
-| `categories` | `string[]` | No | Categories to check: `security`, `performance`, `maintainability`, `style`, `architecture` |
-| `projectId` | `string` | No | Project scope |
+| Parameter    | Type       | Required | Description                                                                                |
+| ------------ | ---------- | :------: | ------------------------------------------------------------------------------------------ |
+| `filePath`   | `string`   |   Yes    | Path to file to review                                                                     |
+| `severity`   | `string`   |    No    | Minimum severity: `low`, `medium`, `high`, `critical`                                      |
+| `categories` | `string[]` |    No    | Categories to check: `security`, `performance`, `maintainability`, `style`, `architecture` |
+| `projectId`  | `string`   |    No    | Project scope                                                                              |
 
 **Example:**
 
@@ -267,13 +267,13 @@ Review a single file for issues including security, performance, and maintainabi
 
 Review uncommitted changes (git diff) for issues.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `fromRef` | `string` | No | Base ref (default: `HEAD`) |
-| `toRef` | `string` | No | Target ref (default: working tree) |
-| `severity` | `string` | No | Minimum severity |
-| `categories` | `string[]` | No | Categories to check |
-| `projectId` | `string` | No | Project scope |
+| Parameter    | Type       | Required | Description                        |
+| ------------ | ---------- | :------: | ---------------------------------- |
+| `fromRef`    | `string`   |    No    | Base ref (default: `HEAD`)         |
+| `toRef`      | `string`   |    No    | Target ref (default: working tree) |
+| `severity`   | `string`   |    No    | Minimum severity                   |
+| `categories` | `string[]` |    No    | Categories to check                |
+| `projectId`  | `string`   |    No    | Project scope                      |
 
 **Example:**
 
@@ -287,14 +287,14 @@ Review uncommitted changes (git diff) for issues.
 
 ### `review_pr`
 
-Review a pull request with automated analysis. *(Alias of [`pr_review`](#pr_review))*
+Review a pull request with automated analysis. _(Alias of [`pr_review`](#pr_review))_
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `prNumber` | `number` | Yes | Pull request number |
-| `severity` | `string` | No | Minimum severity |
-| `categories` | `string[]` | No | Categories to check |
-| `projectId` | `string` | No | Project scope |
+| Parameter    | Type       | Required | Description         |
+| ------------ | ---------- | :------: | ------------------- |
+| `prNumber`   | `number`   |   Yes    | Pull request number |
+| `severity`   | `string`   |    No    | Minimum severity    |
+| `categories` | `string[]` |    No    | Categories to check |
+| `projectId`  | `string`   |    No    | Project scope       |
 
 ---
 
@@ -302,12 +302,12 @@ Review a pull request with automated analysis. *(Alias of [`pr_review`](#pr_revi
 
 Review multiple files in a single call. Currently a wrapper that calls `review_file` for each file sequentially.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePaths` | `string[]` | Yes | Array of file paths to review |
-| `severity` | `string` | No | Minimum severity |
-| `categories` | `string[]` | No | Categories to check |
-| `projectId` | `string` | No | Project scope |
+| Parameter    | Type       | Required | Description                   |
+| ------------ | ---------- | :------: | ----------------------------- |
+| `filePaths`  | `string[]` |   Yes    | Array of file paths to review |
+| `severity`   | `string`   |    No    | Minimum severity              |
+| `categories` | `string[]` |    No    | Categories to check           |
+| `projectId`  | `string`   |    No    | Project scope                 |
 
 **Example:**
 
@@ -323,10 +323,10 @@ Review multiple files in a single call. Currently a wrapper that calls `review_f
 
 Get a summary of recent review activity for a project.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `projectId` | `string` | No | Project scope |
-| `since` | `string` | No | Time range: `day`, `week`, `month` (default: `week`) |
+| Parameter   | Type     | Required | Description                                          |
+| ----------- | -------- | :------: | ---------------------------------------------------- |
+| `projectId` | `string` |    No    | Project scope                                        |
+| `since`     | `string` |    No    | Time range: `day`, `week`, `month` (default: `week`) |
 
 **Example:**
 
@@ -354,14 +354,14 @@ Get a summary of recent review activity for a project.
 
 Review a pull request with automated analysis and post comments.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `prNumber` | `number` | Yes | Pull request number |
-| `platform` | `string` | No | Platform: `github`, `gitlab`, `gitea` (default: auto-detect) |
-| `token` | `string` | No | API token for posting comments |
-| `standards` | `string[]` | No | Standards to check against |
-| `severity` | `string` | No | Minimum severity |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type       | Required | Description                                                  |
+| ----------- | ---------- | :------: | ------------------------------------------------------------ |
+| `prNumber`  | `number`   |   Yes    | Pull request number                                          |
+| `platform`  | `string`   |    No    | Platform: `github`, `gitlab`, `gitea` (default: auto-detect) |
+| `token`     | `string`   |    No    | API token for posting comments                               |
+| `standards` | `string[]` |    No    | Standards to check against                                   |
+| `severity`  | `string`   |    No    | Minimum severity                                             |
+| `projectId` | `string`   |    No    | Project scope                                                |
 
 **Example:**
 
@@ -377,13 +377,13 @@ Review a pull request with automated analysis and post comments.
 
 Review a PR with awareness of cross-repository dependencies.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `prNumber` | `number` | Yes | Pull request number |
-| `repoGroup` | `string` | Yes | Repository group name |
-| `platform` | `string` | No | Platform |
-| `severity` | `string` | No | Minimum severity |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description           |
+| ----------- | -------- | :------: | --------------------- |
+| `prNumber`  | `number` |   Yes    | Pull request number   |
+| `repoGroup` | `string` |   Yes    | Repository group name |
+| `platform`  | `string` |    No    | Platform              |
+| `severity`  | `string` |    No    | Minimum severity      |
+| `projectId` | `string` |    No    | Project scope         |
 
 **Example:**
 
@@ -399,10 +399,10 @@ Review a PR with awareness of cross-repository dependencies.
 
 Get the current status of a PR analysis.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `prNumber` | `number` | Yes | Pull request number |
-| `platform` | `string` | No | Platform |
+| Parameter  | Type     | Required | Description         |
+| ---------- | -------- | :------: | ------------------- |
+| `prNumber` | `number` |   Yes    | Pull request number |
+| `platform` | `string` |    No    | Platform            |
 
 **Example:**
 
@@ -418,12 +418,12 @@ Get the current status of a PR analysis.
 
 Update a PR check run with analysis results.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `prNumber` | `number` | Yes | Pull request number |
-| `conclusion` | `string` | Yes | Check conclusion: `success`, `failure`, `neutral` |
-| `summary` | `string` | Yes | Markdown summary text |
-| `annotations` | `object[]` | No | Array of file-level annotations |
+| Parameter     | Type       | Required | Description                                       |
+| ------------- | ---------- | :------: | ------------------------------------------------- |
+| `prNumber`    | `number`   |   Yes    | Pull request number                               |
+| `conclusion`  | `string`   |   Yes    | Check conclusion: `success`, `failure`, `neutral` |
+| `summary`     | `string`   |   Yes    | Markdown summary text                             |
+| `annotations` | `object[]` |    No    | Array of file-level annotations                   |
 
 **Example:**
 
@@ -433,7 +433,12 @@ Update a PR check run with analysis results.
   "conclusion": "failure",
   "summary": "Found 3 critical security issues that must be resolved.",
   "annotations": [
-    { "path": "src/auth/login.ts", "line": 42, "level": "failure", "message": "Hardcoded secret detected" }
+    {
+      "path": "src/auth/login.ts",
+      "line": 42,
+      "level": "failure",
+      "message": "Hardcoded secret detected"
+    }
   ]
 }
 ```
@@ -448,11 +453,11 @@ Update a PR check run with analysis results.
 
 Analyze the impact of modifying a specific symbol.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `symbol` | `string` | Yes | Symbol to analyze impact for |
-| `maxDepth` | `number` | No | Traversal depth (default: 5) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                  |
+| ----------- | -------- | :------: | ---------------------------- |
+| `symbol`    | `string` |   Yes    | Symbol to analyze impact for |
+| `maxDepth`  | `number` |    No    | Traversal depth (default: 5) |
+| `projectId` | `string` |    No    | Project scope                |
 
 **Example:**
 
@@ -479,11 +484,11 @@ Analyze the impact of modifying a specific symbol.
 
 Detect breaking changes by comparing two versions of the codebase.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `fromRef` | `string` | Yes | Base git ref |
-| `toRef` | `string` | No | Target git ref (default: `HEAD`) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                      |
+| ----------- | -------- | :------: | -------------------------------- |
+| `fromRef`   | `string` |   Yes    | Base git ref                     |
+| `toRef`     | `string` |    No    | Target git ref (default: `HEAD`) |
+| `projectId` | `string` |    No    | Project scope                    |
 
 **Example:**
 
@@ -499,12 +504,12 @@ Detect breaking changes by comparing two versions of the codebase.
 
 Check API contract compatibility between two versions or across repos.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `contractPath` | `string` | Yes | Path to contract file (OpenAPI, GraphQL, proto) |
-| `fromRef` | `string` | No | Base ref for comparison |
-| `toRef` | `string` | No | Target ref for comparison |
-| `projectId` | `string` | No | Project scope |
+| Parameter      | Type     | Required | Description                                     |
+| -------------- | -------- | :------: | ----------------------------------------------- |
+| `contractPath` | `string` |   Yes    | Path to contract file (OpenAPI, GraphQL, proto) |
+| `fromRef`      | `string` |    No    | Base ref for comparison                         |
+| `toRef`        | `string` |    No    | Target ref for comparison                       |
+| `projectId`    | `string` |    No    | Project scope                                   |
 
 **Example:**
 
@@ -522,10 +527,10 @@ Check API contract compatibility between two versions or across repos.
 
 Suggest refactoring opportunities for a symbol or file.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `target` | `string` | Yes | Symbol name or file path |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description              |
+| ----------- | -------- | :------: | ------------------------ |
+| `target`    | `string` |   Yes    | Symbol name or file path |
+| `projectId` | `string` |    No    | Project scope            |
 
 **Example:**
 
@@ -541,11 +546,11 @@ Suggest refactoring opportunities for a symbol or file.
 
 Detect common code smells in the codebase.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | No | Focus on specific file |
-| `types` | `string[]` | No | Smell types: `long_function`, `god_class`, `feature_envy`, `duplicated_code`, `dead_code` |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type       | Required | Description                                                                               |
+| ----------- | ---------- | :------: | ----------------------------------------------------------------------------------------- |
+| `filePath`  | `string`   |    No    | Focus on specific file                                                                    |
+| `types`     | `string[]` |    No    | Smell types: `long_function`, `god_class`, `feature_envy`, `duplicated_code`, `dead_code` |
+| `projectId` | `string`   |    No    | Project scope                                                                             |
 
 **Example:**
 
@@ -561,10 +566,10 @@ Detect common code smells in the codebase.
 
 Suggest performance optimizations for a symbol or file.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `target` | `string` | Yes | Symbol name or file path |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description              |
+| ----------- | -------- | :------: | ------------------------ |
+| `target`    | `string` |   Yes    | Symbol name or file path |
+| `projectId` | `string` |    No    | Project scope            |
 
 **Example:**
 
@@ -582,12 +587,12 @@ Suggest performance optimizations for a symbol or file.
 
 Generate unit tests for a given symbol or file.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `target` | `string` | Yes | Symbol name or file path |
-| `framework` | `string` | No | Test framework: `jest`, `vitest`, `pytest`, `go test` (auto-detected if not set) |
-| `style` | `string` | No | Test style: `unit`, `integration`, `edge-cases` (default: `unit`) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                                                                      |
+| ----------- | -------- | :------: | -------------------------------------------------------------------------------- |
+| `target`    | `string` |   Yes    | Symbol name or file path                                                         |
+| `framework` | `string` |    No    | Test framework: `jest`, `vitest`, `pytest`, `go test` (auto-detected if not set) |
+| `style`     | `string` |    No    | Test style: `unit`, `integration`, `edge-cases` (default: `unit`)                |
+| `projectId` | `string` |    No    | Project scope                                                                    |
 
 **Example:**
 
@@ -603,10 +608,10 @@ Generate unit tests for a given symbol or file.
 
 Analyze test coverage and identify untested code paths.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | No | Focus on specific file |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description            |
+| ----------- | -------- | :------: | ---------------------- |
+| `filePath`  | `string` |    No    | Focus on specific file |
+| `projectId` | `string` |    No    | Project scope          |
 
 **Example:**
 
@@ -623,9 +628,7 @@ Analyze test coverage and identify untested code paths.
   "uncoveredFunctions": [
     { "name": "refreshToken", "line": 89, "complexity": "medium", "testPriority": "high" }
   ],
-  "uncoveredBranches": [
-    { "function": "authenticate", "line": 45, "condition": "user == null" }
-  ]
+  "uncoveredBranches": [{ "function": "authenticate", "line": 45, "condition": "user == null" }]
 }
 ```
 
@@ -637,12 +640,12 @@ Analyze test coverage and identify untested code paths.
 
 Suggest a fix for a specific issue or error.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | Yes | File containing the issue |
-| `line` | `number` | Yes | Line number of the issue |
-| `description` | `string` | Yes | Description of the problem |
-| `projectId` | `string` | No | Project scope |
+| Parameter     | Type     | Required | Description                |
+| ------------- | -------- | :------: | -------------------------- |
+| `filePath`    | `string` |   Yes    | File containing the issue  |
+| `line`        | `number` |   Yes    | Line number of the issue   |
+| `description` | `string` |   Yes    | Description of the problem |
+| `projectId`   | `string` |    No    | Project scope              |
 
 **Example:**
 
@@ -658,11 +661,11 @@ Suggest a fix for a specific issue or error.
 
 Suggest general code improvements for a symbol or file.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `target` | `string` | Yes | Symbol name or file path |
-| `aspect` | `string` | No | `readability`, `performance`, `safety`, `idiomatic` (default: all) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                                                        |
+| ----------- | -------- | :------: | ------------------------------------------------------------------ |
+| `target`    | `string` |   Yes    | Symbol name or file path                                           |
+| `aspect`    | `string` |    No    | `readability`, `performance`, `safety`, `idiomatic` (default: all) |
+| `projectId` | `string` |    No    | Project scope                                                      |
 
 **Example:**
 
@@ -680,11 +683,11 @@ Suggest general code improvements for a symbol or file.
 
 Generate documentation for a symbol, file, or module.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `target` | `string` | Yes | Symbol name or file path |
-| `format` | `string` | No | Output format: `markdown`, `jsdoc`, `openapi` (default: `markdown`) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                                                         |
+| ----------- | -------- | :------: | ------------------------------------------------------------------- |
+| `target`    | `string` |   Yes    | Symbol name or file path                                            |
+| `format`    | `string` |    No    | Output format: `markdown`, `jsdoc`, `openapi` (default: `markdown`) |
+| `projectId` | `string` |    No    | Project scope                                                       |
 
 **Example:**
 
@@ -700,11 +703,11 @@ Generate documentation for a symbol, file, or module.
 
 Check which symbols have documentation and identify undocumented APIs.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | No | Focus on specific file |
-| `exportedOnly` | `boolean` | No | Only check exported symbols (default: true) |
-| `projectId` | `string` | No | Project scope |
+| Parameter      | Type      | Required | Description                                 |
+| -------------- | --------- | :------: | ------------------------------------------- |
+| `filePath`     | `string`  |    No    | Focus on specific file                      |
+| `exportedOnly` | `boolean` |    No    | Only check exported symbols (default: true) |
+| `projectId`    | `string`  |    No    | Project scope                               |
 
 **Example:**
 
@@ -733,11 +736,11 @@ Check which symbols have documentation and identify undocumented APIs.
 
 Generate a comprehensive analysis report.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `type` | `string` | No | Report type: `full`, `summary`, `security`, `quality` (default: `full`) |
-| `format` | `string` | No | Output format: `json`, `markdown`, `html` (default: `json`) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                                                             |
+| ----------- | -------- | :------: | ----------------------------------------------------------------------- |
+| `type`      | `string` |    No    | Report type: `full`, `summary`, `security`, `quality` (default: `full`) |
+| `format`    | `string` |    No    | Output format: `json`, `markdown`, `html` (default: `json`)             |
+| `projectId` | `string` |    No    | Project scope                                                           |
 
 **Example:**
 
@@ -753,12 +756,12 @@ Generate a comprehensive analysis report.
 
 Generate a trend report showing how metrics have changed over time.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `period` | `string` | No | Time period: `week`, `month`, `quarter`, `year` (default: `month`) |
-| `metrics` | `string[]` | No | Metrics: `complexity`, `coverage`, `issues`, `churn` (default: all) |
-| `format` | `string` | No | Output format (default: `json`) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type       | Required | Description                                                         |
+| ----------- | ---------- | :------: | ------------------------------------------------------------------- |
+| `period`    | `string`   |    No    | Time period: `week`, `month`, `quarter`, `year` (default: `month`)  |
+| `metrics`   | `string[]` |    No    | Metrics: `complexity`, `coverage`, `issues`, `churn` (default: all) |
+| `format`    | `string`   |    No    | Output format (default: `json`)                                     |
+| `projectId` | `string`   |    No    | Project scope                                                       |
 
 **Example:**
 
@@ -774,11 +777,11 @@ Generate a trend report showing how metrics have changed over time.
 
 Identify code hotspots — files with high complexity combined with high change frequency.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `topN` | `number` | No | Number of hotspots to return (default: 10) |
-| `format` | `string` | No | Output format (default: `json`) |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                                |
+| ----------- | -------- | :------: | ------------------------------------------ |
+| `topN`      | `number` |    No    | Number of hotspots to return (default: 10) |
+| `format`    | `string` |    No    | Output format (default: `json`)            |
+| `projectId` | `string` |    No    | Project scope                              |
 
 **Example:**
 
@@ -796,11 +799,11 @@ Identify code hotspots — files with high complexity combined with high change 
 
 Check code against specified project standards.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `standards` | `string[]` | Yes | Standard names to check against |
-| `filePath` | `string` | No | Focus on specific file |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type       | Required | Description                     |
+| ----------- | ---------- | :------: | ------------------------------- |
+| `standards` | `string[]` |   Yes    | Standard names to check against |
+| `filePath`  | `string`   |    No    | Focus on specific file          |
+| `projectId` | `string`   |    No    | Project scope                   |
 
 **Example:**
 
@@ -816,10 +819,10 @@ Check code against specified project standards.
 
 List available standards (built-in and custom).
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `category` | `string` | No | Filter by category: `security`, `style`, `architecture`, `language` |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                                                         |
+| ----------- | -------- | :------: | ------------------------------------------------------------------- |
+| `category`  | `string` |    No    | Filter by category: `security`, `style`, `architecture`, `language` |
+| `projectId` | `string` |    No    | Project scope                                                       |
 
 **Example:**
 
@@ -835,14 +838,14 @@ List available standards (built-in and custom).
 
 Create an Architecture Decision Record.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `title` | `string` | Yes | ADR title |
-| `status` | `string` | Yes | Status: `proposed`, `accepted`, `deprecated`, `superseded` |
-| `context` | `string` | Yes | Decision context and problem statement |
-| `decision` | `string` | Yes | The decision made |
-| `consequences` | `string` | Yes | Positive and negative consequences |
-| `projectId` | `string` | No | Project scope |
+| Parameter      | Type     | Required | Description                                                |
+| -------------- | -------- | :------: | ---------------------------------------------------------- |
+| `title`        | `string` |   Yes    | ADR title                                                  |
+| `status`       | `string` |   Yes    | Status: `proposed`, `accepted`, `deprecated`, `superseded` |
+| `context`      | `string` |   Yes    | Decision context and problem statement                     |
+| `decision`     | `string` |   Yes    | The decision made                                          |
+| `consequences` | `string` |   Yes    | Positive and negative consequences                         |
+| `projectId`    | `string` |    No    | Project scope                                              |
 
 **Example:**
 
@@ -864,11 +867,11 @@ Create an Architecture Decision Record.
 
 Search existing Architecture Decision Records.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `query` | `string` | Yes | Search query |
-| `status` | `string` | No | Filter by status |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description      |
+| ----------- | -------- | :------: | ---------------- |
+| `query`     | `string` |   Yes    | Search query     |
+| `status`    | `string` |    No    | Filter by status |
+| `projectId` | `string` |    No    | Project scope    |
 
 **Example:**
 
@@ -886,12 +889,12 @@ Search existing Architecture Decision Records.
 
 Index a code repository to build the knowledge graph.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `path` | `string` | Yes | Path to project directory |
-| `languages` | `string[]` | No | Languages to analyze (auto-detected if not set) |
-| `incremental` | `boolean` | No | Incremental indexing (default: false) |
-| `projectId` | `string` | No | Project identifier |
+| Parameter     | Type       | Required | Description                                     |
+| ------------- | ---------- | :------: | ----------------------------------------------- |
+| `path`        | `string`   |   Yes    | Path to project directory                       |
+| `languages`   | `string[]` |    No    | Languages to analyze (auto-detected if not set) |
+| `incremental` | `boolean`  |    No    | Incremental indexing (default: false)           |
+| `projectId`   | `string`   |    No    | Project identifier                              |
 
 **Example:**
 
@@ -918,10 +921,10 @@ Index a code repository to build the knowledge graph.
 
 Re-index an already-indexed project, rebuilding the knowledge graph from scratch.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `projectId` | `string` | Yes | Project to re-index |
-| `languages` | `string[]` | No | Languages to re-analyze |
+| Parameter   | Type       | Required | Description             |
+| ----------- | ---------- | :------: | ----------------------- |
+| `projectId` | `string`   |   Yes    | Project to re-index     |
+| `languages` | `string[]` |    No    | Languages to re-analyze |
 
 **Example:**
 
@@ -937,9 +940,9 @@ Re-index an already-indexed project, rebuilding the knowledge graph from scratch
 
 Get the current indexing status for a project.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `projectId` | `string` | Yes | Project identifier |
+| Parameter   | Type     | Required | Description        |
+| ----------- | -------- | :------: | ------------------ |
+| `projectId` | `string` |   Yes    | Project identifier |
 
 **Example:**
 
@@ -968,12 +971,12 @@ Get the current indexing status for a project.
 
 Run a comprehensive security audit on the codebase.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | No | Focus on specific file or directory |
-| `severity` | `string` | No | Minimum severity (default: `medium`) |
-| `cweFilter` | `string[]` | No | Filter by CWE IDs |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type       | Required | Description                          |
+| ----------- | ---------- | :------: | ------------------------------------ |
+| `filePath`  | `string`   |    No    | Focus on specific file or directory  |
+| `severity`  | `string`   |    No    | Minimum severity (default: `medium`) |
+| `cweFilter` | `string[]` |    No    | Filter by CWE IDs                    |
+| `projectId` | `string`   |    No    | Project scope                        |
 
 **Example:**
 
@@ -986,8 +989,18 @@ Run a comprehensive security audit on the codebase.
 ```json
 {
   "findings": [
-    { "cwe": "CWE-89", "severity": "critical", "location": "src/db/query-builder.ts:45", "description": "Potential SQL injection via string concatenation" },
-    { "cwe": "CWE-79", "severity": "high", "location": "src/api/render.ts:89", "description": "Unescaped user input in HTML output" }
+    {
+      "cwe": "CWE-89",
+      "severity": "critical",
+      "location": "src/db/query-builder.ts:45",
+      "description": "Potential SQL injection via string concatenation"
+    },
+    {
+      "cwe": "CWE-79",
+      "severity": "high",
+      "location": "src/api/render.ts:89",
+      "description": "Unescaped user input in HTML output"
+    }
   ],
   "summary": { "critical": 1, "high": 1, "medium": 3, "low": 7 },
   "remediations": [
@@ -1003,10 +1016,10 @@ Run a comprehensive security audit on the codebase.
 
 Scan the codebase for hardcoded secrets, API keys, and credentials.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `filePath` | `string` | No | Focus on specific file or directory |
-| `projectId` | `string` | No | Project scope |
+| Parameter   | Type     | Required | Description                         |
+| ----------- | -------- | :------: | ----------------------------------- |
+| `filePath`  | `string` |    No    | Focus on specific file or directory |
+| `projectId` | `string` |    No    | Project scope                       |
 
 **Example:**
 
@@ -1024,11 +1037,11 @@ Scan the codebase for hardcoded secrets, API keys, and credentials.
 
 Search across multiple repositories in a repo group.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `query` | `string` | Yes | Search query |
-| `repoGroup` | `string` | Yes | Repository group name |
-| `limit` | `number` | No | Maximum results per repo (default: 20) |
+| Parameter   | Type     | Required | Description                            |
+| ----------- | -------- | :------: | -------------------------------------- |
+| `query`     | `string` |   Yes    | Search query                           |
+| `repoGroup` | `string` |   Yes    | Repository group name                  |
+| `limit`     | `number` |    No    | Maximum results per repo (default: 20) |
 
 **Example:**
 
@@ -1044,10 +1057,10 @@ Search across multiple repositories in a repo group.
 
 Analyze the cross-repository impact of modifying a symbol.
 
-| Parameter | Type | Required | Description |
-|-----------|------|:--------:|-------------|
-| `symbol` | `string` | Yes | Symbol to analyze |
-| `repoGroup` | `string` | Yes | Repository group name |
+| Parameter   | Type     | Required | Description           |
+| ----------- | -------- | :------: | --------------------- |
+| `symbol`    | `string` |   Yes    | Symbol to analyze     |
+| `repoGroup` | `string` |   Yes    | Repository group name |
 
 **Example:**
 
@@ -1077,11 +1090,11 @@ Analyze the cross-repository impact of modifying a symbol.
 
 By default, all 45 tools are available. Set `mcp.toolProfile` to limit exposure:
 
-| Profile | Tools | Best For |
-|---------|:-----:|----------|
-| `all` | 45 | Maximum capability |
-| `analysis` | 28 | Standard development workflows |
-| `scout` | 1 | Minimal surface area |
+| Profile    | Tools | Best For                       |
+| ---------- | :---: | ------------------------------ |
+| `all`      |  45   | Maximum capability             |
+| `analysis` |  28   | Standard development workflows |
+| `scout`    |   1   | Minimal surface area           |
 
 ### Common Patterns
 

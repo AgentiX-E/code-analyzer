@@ -89,7 +89,10 @@ describe('CodeAnalyzerMCPServer', () => {
 
     it('should have expected tool names', () => {
       server = new CodeAnalyzerMCPServer();
-      const toolNames = server.getRegistry().list().map((t) => t.name);
+      const toolNames = server
+        .getRegistry()
+        .list()
+        .map((t) => t.name);
 
       // Indexing & Lifecycle
       expect(toolNames).toContain('analyze_repository');
@@ -130,7 +133,9 @@ describe('CodeAnalyzerMCPServer', () => {
 
     it('should execute search_graph tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('search_graph', { query: 'test' }, server.getStore());
+      const result = await server
+        .getRegistry()
+        .execute('search_graph', { query: 'test' }, server.getStore());
       expect(result).toBeDefined();
       expect(result.content).toBeDefined();
       expect(result.content.length).toBeGreaterThan(0);
@@ -138,7 +143,9 @@ describe('CodeAnalyzerMCPServer', () => {
 
     it('should execute get_architecture tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('get_architecture', { projectId: 'test-project' }, server.getStore());
+      const result = await server
+        .getRegistry()
+        .execute('get_architecture', { projectId: 'test-project' }, server.getStore());
       expect(result).toBeDefined();
       expect(result.content[0].text).toContain('test-project');
     });
@@ -161,9 +168,13 @@ describe('CodeAnalyzerMCPServer', () => {
     it('should handle tool execution errors gracefully', async () => {
       server = new CodeAnalyzerMCPServer();
       // query_graph with invalid Cypher should return error
-      const result = await server.getRegistry().execute('query_graph', {
-        cypher: 'INVALID QUERY !!!',
-      }, server.getStore());
+      const result = await server.getRegistry().execute(
+        'query_graph',
+        {
+          cypher: 'INVALID QUERY !!!',
+        },
+        server.getStore(),
+      );
       expect(result).toBeDefined();
     });
   });
@@ -183,36 +194,28 @@ describe('Middleware', () => {
 
     it('should allow requests with valid API key', () => {
       const auth = new AuthMiddleware(['secret-key']);
-      expect(
-        auth.validate({ headers: { 'x-api-key': 'secret-key' } }).allowed,
-      ).toBe(true);
+      expect(auth.validate({ headers: { 'x-api-key': 'secret-key' } }).allowed).toBe(true);
     });
 
     it('should deny requests with invalid API key', () => {
       const auth = new AuthMiddleware(['secret-key']);
-      expect(
-        auth.validate({ headers: { 'x-api-key': 'wrong-key' } }).allowed,
-      ).toBe(false);
+      expect(auth.validate({ headers: { 'x-api-key': 'wrong-key' } }).allowed).toBe(false);
     });
 
     it('should support Bearer token in authorization header', () => {
       const auth = new AuthMiddleware(['bearer-token']);
-      expect(
-        auth.validate({ headers: { authorization: 'Bearer bearer-token' } }).allowed,
-      ).toBe(true);
+      expect(auth.validate({ headers: { authorization: 'Bearer bearer-token' } }).allowed).toBe(
+        true,
+      );
     });
 
     it('should add and remove keys', () => {
       const auth = new AuthMiddleware();
       auth.addKey('new-key');
-      expect(
-        auth.validate({ headers: { 'x-api-key': 'new-key' } }).allowed,
-      ).toBe(true);
+      expect(auth.validate({ headers: { 'x-api-key': 'new-key' } }).allowed).toBe(true);
 
       auth.removeKey('new-key');
-      expect(
-        auth.validate({ headers: { 'x-api-key': 'new-key' } }).allowed,
-      ).toBe(true); // no keys configured
+      expect(auth.validate({ headers: { 'x-api-key': 'new-key' } }).allowed).toBe(true); // no keys configured
     });
   });
 
@@ -346,11 +349,9 @@ describe('MCP Server Integration Tests', () => {
 
     it('should execute search_graph with valid arguments', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'search_graph',
-        { query: 'getUser' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute('search_graph', { query: 'getUser' }, server.getToolContext());
       expect(result).toBeDefined();
       expect(result.content).toBeDefined();
       expect(result.content.length).toBeGreaterThan(0);
@@ -358,127 +359,145 @@ describe('MCP Server Integration Tests', () => {
 
     it('should execute list_projects tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('list_projects', {}, server.getToolContext());
+      const result = await server
+        .getRegistry()
+        .execute('list_projects', {}, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should execute index_status tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('index_status', {}, server.getToolContext());
+      const result = await server
+        .getRegistry()
+        .execute('index_status', {}, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should execute search_code tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('search_code', { query: 'test' }, server.getToolContext());
+      const result = await server
+        .getRegistry()
+        .execute('search_code', { query: 'test' }, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should execute trace_call_path tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'trace_call_path',
-        { symbol: 'test', projectId: 'test-project' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute(
+          'trace_call_path',
+          { symbol: 'test', projectId: 'test-project' },
+          server.getToolContext(),
+        );
       expect(result).toBeDefined();
     });
 
     it('should execute find_implementations tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'find_implementations',
-        { symbol: 'test', projectId: 'test-project' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute(
+          'find_implementations',
+          { symbol: 'test', projectId: 'test-project' },
+          server.getToolContext(),
+        );
       expect(result).toBeDefined();
     });
 
     it('should execute explore_symbol tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'explore_symbol',
-        { symbol: 'test', projectId: 'test-project' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute(
+          'explore_symbol',
+          { symbol: 'test', projectId: 'test-project' },
+          server.getToolContext(),
+        );
       expect(result).toBeDefined();
     });
 
     it('should execute check_cycles tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'check_cycles',
-        { projectId: 'test-project' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute('check_cycles', { projectId: 'test-project' }, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should execute route_map tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'route_map',
-        { projectId: 'test-project' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute('route_map', { projectId: 'test-project' }, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should execute list_standards tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('list_standards', {}, server.getToolContext());
+      const result = await server
+        .getRegistry()
+        .execute('list_standards', {}, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should execute cross_repo_search tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'cross_repo_search',
-        { query: 'test', groupId: 'test-group' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute(
+          'cross_repo_search',
+          { query: 'test', groupId: 'test-group' },
+          server.getToolContext(),
+        );
       expect(result).toBeDefined();
     });
 
     it('should execute cross_repo_trace tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'cross_repo_trace',
-        { symbol: 'test', groupId: 'test-group', sourceRepo: 'org/repo-a' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute(
+          'cross_repo_trace',
+          { symbol: 'test', groupId: 'test-group', sourceRepo: 'org/repo-a' },
+          server.getToolContext(),
+        );
       expect(result).toBeDefined();
     });
 
     it('should execute manage_adr tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'manage_adr',
-        { action: 'list', projectId: 'test-project' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute(
+          'manage_adr',
+          { action: 'list', projectId: 'test-project' },
+          server.getToolContext(),
+        );
       expect(result).toBeDefined();
     });
 
     it('should execute install_skills tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute(
-        'install_skills',
-        { action: 'list' },
-        server.getToolContext(),
-      );
+      const result = await server
+        .getRegistry()
+        .execute('install_skills', { action: 'list' }, server.getToolContext());
       expect(result).toBeDefined();
     });
 
     it('should handle tool execution with empty args', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('search_graph', {}, server.getToolContext());
+      const result = await server
+        .getRegistry()
+        .execute('search_graph', {}, server.getToolContext());
       expect(result.isError).toBe(true);
     });
 
     it('should return error for nonexistent tool', async () => {
       server = new CodeAnalyzerMCPServer();
-      const result = await server.getRegistry().execute('made_up_tool_xyz', {}, server.getToolContext());
+      const result = await server
+        .getRegistry()
+        .execute('made_up_tool_xyz', {}, server.getToolContext());
       expect(result.isError).toBe(true);
     });
   });
@@ -495,12 +514,12 @@ describe('MCP Server Integration Tests', () => {
       server = new CodeAnalyzerMCPServer();
       const rp = server.getResourceProvider();
       const resources = rp.listResources();
-      const uris = resources.map(r => r.uri);
+      const uris = resources.map((r) => r.uri);
 
       // Verify at least the expected resource URI patterns exist
-      expect(uris.some(uri => uri.includes('graph'))).toBe(true);
-      expect(uris.some(uri => uri.includes('project'))).toBe(true);
-      expect(uris.some(uri => uri.includes('stat'))).toBe(true);
+      expect(uris.some((uri) => uri.includes('graph'))).toBe(true);
+      expect(uris.some((uri) => uri.includes('project'))).toBe(true);
+      expect(uris.some((uri) => uri.includes('stat'))).toBe(true);
     });
 
     it('should list all 5 prompts', () => {
@@ -560,19 +579,39 @@ describe('MCP Server Integration Tests', () => {
       const store = server.getStore();
 
       const id1 = store.insertNode({
-        projectId: 'test-edges', name: 'ClassA', qualifiedName: 'ClassA',
-        label: 'Class', filePath: 'src/a.ts', startLine: 1, endLine: 10,
-        language: 'typescript', isExported: true, complexity: 3, properties: {},
+        projectId: 'test-edges',
+        name: 'ClassA',
+        qualifiedName: 'ClassA',
+        label: 'Class',
+        filePath: 'src/a.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        isExported: true,
+        complexity: 3,
+        properties: {},
       });
       const id2 = store.insertNode({
-        projectId: 'test-edges', name: 'methodB', qualifiedName: 'ClassA.methodB',
-        label: 'Method', filePath: 'src/a.ts', startLine: 3, endLine: 7,
-        language: 'typescript', isExported: false, complexity: 2, properties: {},
+        projectId: 'test-edges',
+        name: 'methodB',
+        qualifiedName: 'ClassA.methodB',
+        label: 'Method',
+        filePath: 'src/a.ts',
+        startLine: 3,
+        endLine: 7,
+        language: 'typescript',
+        isExported: false,
+        complexity: 2,
+        properties: {},
       });
 
       store.insertEdge({
-        sourceId: id1, targetId: id2, type: 'HAS_METHOD',
-        projectId: 'test-edges', properties: {}, weight: 1,
+        sourceId: id1,
+        targetId: id2,
+        type: 'HAS_METHOD',
+        projectId: 'test-edges',
+        properties: {},
+        weight: 1,
       });
 
       const edges = store.getEdgesForNode(id1);
@@ -585,9 +624,17 @@ describe('MCP Server Integration Tests', () => {
       const store = server.getStore();
 
       store.insertNode({
-        projectId: 'lifecycle-test', name: 'fn', qualifiedName: 'fn',
-        label: 'Function', filePath: 'src/fn.ts', startLine: 1, endLine: 5,
-        language: 'typescript', isExported: false, complexity: 1, properties: {},
+        projectId: 'lifecycle-test',
+        name: 'fn',
+        qualifiedName: 'fn',
+        label: 'Function',
+        filePath: 'src/fn.ts',
+        startLine: 1,
+        endLine: 5,
+        language: 'typescript',
+        isExported: false,
+        complexity: 1,
+        properties: {},
       });
 
       const nodes = store.queryNodes({ projectId: 'lifecycle-test', limit: 100, offset: 0 });

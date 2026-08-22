@@ -8,14 +8,7 @@ import * as path from 'node:path';
 // Public Types
 // ---------------------------------------------------------------------------
 
-export type ProjectType =
-  | 'node'
-  | 'python'
-  | 'rust'
-  | 'go'
-  | 'java'
-  | 'monorepo'
-  | 'unknown';
+export type ProjectType = 'node' | 'python' | 'rust' | 'go' | 'java' | 'monorepo' | 'unknown';
 
 export interface ProjectInfo {
   type: ProjectType;
@@ -35,7 +28,10 @@ const MARKERS: Array<{
   language: string;
   packageManagerFn?: (content: string, fullPath: string) => string | undefined;
 }> = [
-  { file: 'package.json', type: 'node', language: 'typescript',
+  {
+    file: 'package.json',
+    type: 'node',
+    language: 'typescript',
     packageManagerFn: (content: string, fullPath: string): string | undefined => {
       try {
         const pkg = JSON.parse(content);
@@ -56,21 +52,28 @@ const MARKERS: Array<{
   { file: 'Cargo.toml', type: 'rust', language: 'rust' },
   { file: 'go.mod', type: 'go', language: 'go' },
   {
-    file: 'pom.xml', type: 'java', language: 'java',
+    file: 'pom.xml',
+    type: 'java',
+    language: 'java',
     packageManagerFn: () => 'maven',
   },
   {
-    file: 'build.gradle', type: 'java', language: 'java',
+    file: 'build.gradle',
+    type: 'java',
+    language: 'java',
     packageManagerFn: () => 'gradle',
   },
   {
-    file: 'build.gradle.kts', type: 'java', language: 'kotlin',
+    file: 'build.gradle.kts',
+    type: 'java',
+    language: 'kotlin',
     packageManagerFn: () => 'gradle',
   },
-  { file: 'requirements.txt', type: 'python', language: 'python',
-    packageManagerFn: () => 'pip',
-  },
-  { file: 'pyproject.toml', type: 'python', language: 'python',
+  { file: 'requirements.txt', type: 'python', language: 'python', packageManagerFn: () => 'pip' },
+  {
+    file: 'pyproject.toml',
+    type: 'python',
+    language: 'python',
     packageManagerFn: (content: string): string | undefined => {
       if (content.includes('[build-system]')) return 'poetry/pip';
       return 'pip';
@@ -122,7 +125,7 @@ export function detectProject(rootPath: string): ProjectInfo {
         const stat = fs.statSync(fullPath);
         /* v8 ignore next -- @preserve */
         if (!stat.isFile()) continue;
-      /* v8 ignore start */
+        /* v8 ignore start */
       } catch {
         continue;
       }
@@ -192,16 +195,27 @@ export function detectProject(rootPath: string): ProjectInfo {
         }
       }
     }
-
   } catch {
     // Directory doesn't exist or can't be read
   }
 
   // Check for Docker
-  const hasDocker = hasMarker(resolved, ['Dockerfile', 'docker-compose.yml', 'docker-compose.yaml', '.dockerignore']);
+  const hasDocker = hasMarker(resolved, [
+    'Dockerfile',
+    'docker-compose.yml',
+    'docker-compose.yaml',
+    '.dockerignore',
+  ]);
 
   // Check for Kubernetes
-  const hasK8s = hasMarker(resolved, ['k8s', 'kubernetes', 'deployment.yaml', 'deployment.yml', 'service.yaml', 'service.yml']);
+  const hasK8s = hasMarker(resolved, [
+    'k8s',
+    'kubernetes',
+    'deployment.yaml',
+    'deployment.yml',
+    'service.yaml',
+    'service.yml',
+  ]);
   // Also check for k8s directory
   const k8sDir = path.join(resolved, 'k8s');
   const hasK8sDir = (() => {
@@ -267,7 +281,7 @@ function hasMarker(rootPath: string, names: string[]): boolean {
       }
     }
     return false;
-  /* v8 ignore start */
+    /* v8 ignore start */
   } catch {
     return false;
   }

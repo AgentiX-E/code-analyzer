@@ -39,10 +39,10 @@ export interface ToastContextValue {
 /* ------------------------------------------------------------------ */
 
 const VARIANT_ICONS: Record<ToastVariant, string> = {
-  success: '\u2714',  // ✔
-  error: '\u2718',    // ✘
-  warning: '\u26A0',  // ⚠
-  info: '\u2139',     // ℹ
+  success: '\u2714', // ✔
+  error: '\u2718', // ✘
+  warning: '\u26A0', // ⚠
+  info: '\u2139', // ℹ
 };
 
 const VARIANT_COLORS: Record<ToastVariant, string> = {
@@ -195,11 +195,9 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
       </span>
       <div className="toast__content">
         <span className="toast__message">{toast.message}</span>
-        {toast.detail && (
-          <span className="toast__detail">{toast.detail}</span>
-        )}
+        {toast.detail && <span className="toast__detail">{toast.detail}</span>}
       </div>
-      {(toast.dismissible !== false) && (
+      {toast.dismissible !== false && (
         <button
           className="toast__dismiss"
           onClick={handleDismiss}

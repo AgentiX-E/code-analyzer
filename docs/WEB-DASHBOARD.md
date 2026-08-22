@@ -22,6 +22,7 @@ The dashboard opens at `http://localhost:5173` with the dev server proxying API 
 Interactive force-directed visualization of the knowledge graph.
 
 **Features:**
+
 - **Pan & Zoom**: Drag to pan, scroll to zoom
 - **Node Collapse**: Click nodes to collapse/expand their connections
 - **Hover Tooltips**: Hover over nodes to see symbol details (name, file, type)
@@ -35,6 +36,7 @@ Interactive force-directed visualization of the knowledge graph.
 Full-text and semantic search across the indexed codebase.
 
 **Features:**
+
 - **Real-time Search**: 300ms debounced input with request cancellation
 - **Type Filtering**: Client-side filtering by symbol type (Function, Class, Interface, etc.)
 - **Relevance Scores**: Visual score bars for search results
@@ -48,6 +50,7 @@ Full-text and semantic search across the indexed codebase.
 System overview with health monitoring and statistics.
 
 **Features:**
+
 - **Connection Status**: Real-time health check with configurable polling (default: 30s)
 - **Stats Grid**: Nodes, edges, files, and search counts
 - **Server Status**: Memory usage, uptime, version information
@@ -60,6 +63,7 @@ System overview with health monitoring and statistics.
 Multi-repository analysis and management.
 
 **Features:**
+
 - **Stats Grid**: Monitored repos count, total symbols, cross-repo edges, API contracts
 - **Repository Groups**: Create and manage groups of related repositories
 - **Dependency Graph**: Visualize cross-repo dependencies
@@ -71,6 +75,7 @@ Multi-repository analysis and management.
 Comprehensive pull request review interface.
 
 **Features:**
+
 - **PR Header**: PR number, title, repository, merge recommendation badge
 - **Summary Stats**: Issue counts by severity (Critical/High/Medium/Low)
 - **Cross-Repo Impact**: Dependencies and breaking changes across repositories
@@ -84,6 +89,7 @@ Comprehensive pull request review interface.
 Manage groups of related repositories for cross-repo analysis.
 
 **Features:**
+
 - **Sidebar**: List of all repo groups with create/delete actions
 - **Create Form**: Inline form for creating new groups
 - **Repo Management**: Add repos via GitHub URL or `owner/repo` format
@@ -111,13 +117,13 @@ The client handles `NetworkError` and `ApiError` with typed error classes and pr
 
 ## Hooks
 
-| Hook | Purpose | Type |
-|------|---------|------|
-| `useApiHealth` | Monitor server health | Polling (30s interval) |
-| `useToolList` | List available MCP tools | Fetch-on-mount |
-| `useGraphStats` | Get graph index statistics | Fetch-on-mount |
-| `useSearch` | Debounced code search | Debounced (300ms) |
-| `useAnalyze` | Trigger repository analysis | On-demand action |
+| Hook            | Purpose                     | Type                   |
+| --------------- | --------------------------- | ---------------------- |
+| `useApiHealth`  | Monitor server health       | Polling (30s interval) |
+| `useToolList`   | List available MCP tools    | Fetch-on-mount         |
+| `useGraphStats` | Get graph index statistics  | Fetch-on-mount         |
+| `useSearch`     | Debounced code search       | Debounced (300ms)      |
+| `useAnalyze`    | Trigger repository analysis | On-demand action       |
 
 ## Styling
 

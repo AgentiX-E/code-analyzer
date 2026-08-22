@@ -21,7 +21,11 @@ describe('SqliteGraphStore', () => {
 
   afterEach(() => {
     if (store) {
-      try { store.close(); } catch { /* ignore close errors */ }
+      try {
+        store.close();
+      } catch {
+        /* ignore close errors */
+      }
     }
   });
 
@@ -45,7 +49,11 @@ describe('SqliteGraphStore', () => {
       fs.close();
       expect(existsSync(filePath)).toBe(true);
       deleteDatabase(filePath);
-      try { unlinkSync(join(testDir)); } catch { /* ignore */ }
+      try {
+        unlinkSync(join(testDir));
+      } catch {
+        /* ignore */
+      }
     });
 
     it('throws when operating on a closed store', () => {
@@ -74,11 +82,15 @@ describe('SqliteGraphStore', () => {
     it('all operations throw after close', () => {
       store.close();
       expect(() => store.getNode(1)).toThrow('SqliteGraphStore is closed');
-      expect(() => store.getNodesByLabel('Function' as NodeLabel)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.getNodesByLabel('Function' as NodeLabel)).toThrow(
+        'SqliteGraphStore is closed',
+      );
       expect(() => store.getNodesByFile('some.ts')).toThrow('SqliteGraphStore is closed');
       expect(() => store.getNodeByQName('foo.bar')).toThrow('SqliteGraphStore is closed');
       expect(() => store.deleteNode(1)).toThrow('SqliteGraphStore is closed');
-      expect(() => store.insertEdge(createTestEdge({ sourceId: 1, targetId: 2 }))).toThrow('SqliteGraphStore is closed');
+      expect(() => store.insertEdge(createTestEdge({ sourceId: 1, targetId: 2 }))).toThrow(
+        'SqliteGraphStore is closed',
+      );
       expect(() => store.getEdge(1)).toThrow('SqliteGraphStore is closed');
       expect(() => store.getEdgesBySource(1)).toThrow('SqliteGraphStore is closed');
       expect(() => store.getEdgesByTarget(1)).toThrow('SqliteGraphStore is closed');
@@ -88,7 +100,9 @@ describe('SqliteGraphStore', () => {
       expect(() => store.insertNodes([])).toThrow('SqliteGraphStore is closed');
       expect(() => store.insertEdges([])).toThrow('SqliteGraphStore is closed');
       expect(() => store.searchNodes('test')).toThrow('SqliteGraphStore is closed');
-      expect(() => store.searchNodesByLabel('test', 'Function' as NodeLabel)).toThrow('SqliteGraphStore is closed');
+      expect(() => store.searchNodesByLabel('test', 'Function' as NodeLabel)).toThrow(
+        'SqliteGraphStore is closed',
+      );
       expect(() => store.bfs(1)).toThrow('SqliteGraphStore is closed');
       expect(() => store.getNeighbors(1)).toThrow('SqliteGraphStore is closed');
       expect(() => store.validate()).toThrow('SqliteGraphStore is closed');
@@ -569,7 +583,9 @@ describe('SqliteGraphStore', () => {
     it('updates edge type', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.n1' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.n2' }));
-      const edgeId = store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }));
+      const edgeId = store.insertEdge(
+        createTestEdge({ sourceId: n1, targetId: n2, type: 'CALLS' }),
+      );
       store.updateEdge(edgeId, { type: 'IMPLEMENTS' });
       expect(store.getEdge(edgeId)!.type).toBe('IMPLEMENTS');
     });
@@ -645,11 +661,13 @@ describe('SqliteGraphStore', () => {
     it('merges edge properties when updating', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'ue.prop1' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'ue.prop2' }));
-      const edgeId = store.insertEdge(createTestEdge({
-        sourceId: n1,
-        targetId: n2,
-        properties: { originalProp: 'value1' },
-      }));
+      const edgeId = store.insertEdge(
+        createTestEdge({
+          sourceId: n1,
+          targetId: n2,
+          properties: { originalProp: 'value1' },
+        }),
+      );
       store.updateEdge(edgeId, { properties: { newProp: 'value2' } });
       const edge = store.getEdge(edgeId)!;
       expect(edge.properties.originalProp).toBe('value1');
@@ -1031,8 +1049,12 @@ describe('SqliteGraphStore', () => {
     });
 
     it('returns correct counts after inserts', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'stats.a', label: 'Function' as NodeLabel }));
-      store.insertNode(createTestNode({ qualifiedName: 'stats.b', label: 'Function' as NodeLabel }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'stats.a', label: 'Function' as NodeLabel }),
+      );
+      store.insertNode(
+        createTestNode({ qualifiedName: 'stats.b', label: 'Function' as NodeLabel }),
+      );
       store.insertNode(createTestNode({ qualifiedName: 'stats.c', label: 'Class' as NodeLabel }));
 
       const n1 = store.getNodeByQName('stats.a')!.id;
@@ -1099,7 +1121,11 @@ describe('SqliteGraphStore', () => {
 
       // Cleanup
       deleteDatabase(filePath);
-      try { unlinkSync(testDir); } catch { /* ignore */ }
+      try {
+        unlinkSync(testDir);
+      } catch {
+        /* ignore */
+      }
     });
 
     it('persists FTS index data', () => {
@@ -1122,7 +1148,11 @@ describe('SqliteGraphStore', () => {
       store2.close();
 
       deleteDatabase(filePath);
-      try { unlinkSync(testDir); } catch { /* ignore */ }
+      try {
+        unlinkSync(testDir);
+      } catch {
+        /* ignore */
+      }
     });
   });
 
@@ -1331,7 +1361,7 @@ describe('SqliteGraphStore', () => {
     });
 
     it('validate detects duplicate qualified names from raw SQL bypass', () => {
-      // The unique constraint prevents normal duplicate insertion, 
+      // The unique constraint prevents normal duplicate insertion,
       // but validate should still detect if corruption occurs
       store.insertNode(createTestNode({ qualifiedName: 'validate.dup', projectId: 'vproj' }));
       // Try to insert duplicate — should throw due to unique constraint
@@ -1368,9 +1398,21 @@ describe('SqliteGraphStore', () => {
 
       deleteDatabase(filePath);
       // Clean up WAL/SHM files if they exist
-      try { unlinkSync(filePath + '-wal'); } catch { /* ignore */ }
-      try { unlinkSync(filePath + '-shm'); } catch { /* ignore */ }
-      try { unlinkSync(testDir); } catch { /* ignore */ }
+      try {
+        unlinkSync(filePath + '-wal');
+      } catch {
+        /* ignore */
+      }
+      try {
+        unlinkSync(filePath + '-shm');
+      } catch {
+        /* ignore */
+      }
+      try {
+        unlinkSync(testDir);
+      } catch {
+        /* ignore */
+      }
     });
   });
 });

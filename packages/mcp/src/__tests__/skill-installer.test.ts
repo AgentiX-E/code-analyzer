@@ -83,8 +83,18 @@ describe('SkillInstaller', () => {
     });
 
     it('should generate correct paths for different agents', () => {
-      const claudeAgent = { name: 'claude-code', type: 'claude-code' as const, installPath: '.claude/skills/', skillFormat: 'markdown' as const };
-      const cursorAgent = { name: 'cursor', type: 'cursor' as const, installPath: '.cursor/skills/', skillFormat: 'markdown' as const };
+      const claudeAgent = {
+        name: 'claude-code',
+        type: 'claude-code' as const,
+        installPath: '.claude/skills/',
+        skillFormat: 'markdown' as const,
+      };
+      const cursorAgent = {
+        name: 'cursor',
+        type: 'cursor' as const,
+        installPath: '.cursor/skills/',
+        skillFormat: 'markdown' as const,
+      };
 
       const claudeResults = installer.installSkills([claudeAgent], ['exploration']);
       const cursorResults = installer.installSkills([cursorAgent], ['exploration']);

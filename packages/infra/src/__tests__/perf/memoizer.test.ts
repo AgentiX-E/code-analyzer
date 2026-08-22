@@ -58,7 +58,9 @@ describe('AsyncMemoizer', () => {
   });
 
   it('should handle multiple arguments', async () => {
-    const memoMulti = new AsyncMemoizer<(...args: [number, string]) => Promise<string>>({ ttlMs: 60000 });
+    const memoMulti = new AsyncMemoizer<(...args: [number, string]) => Promise<string>>({
+      ttlMs: 60000,
+    });
     const fn = vi.fn(async (n: number, s: string): Promise<string> => `${s}:${n}`);
     const r1 = await memoMulti.call(fn, 1, 'a');
     const r2 = await memoMulti.call(fn, 1, 'a');
@@ -347,7 +349,9 @@ describe('AsyncMemoizer', () => {
         return `complex:${o.tag}:${o.value}`;
       },
     });
-    const fn = vi.fn(async (x: { tag: string; value: number }): Promise<string> => `${x.tag}-${x.value}`);
+    const fn = vi.fn(
+      async (x: { tag: string; value: number }): Promise<string> => `${x.tag}-${x.value}`,
+    );
     const r1 = await memo.call(fn, { tag: 'test', value: 42 });
     const r2 = await memo.call(fn, { tag: 'test', value: 42 });
     expect(r1).toBe('test-42');

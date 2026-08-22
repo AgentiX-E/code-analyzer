@@ -54,7 +54,11 @@ const PROMPT_DEFINITIONS: PromptDefinition[] = [
     arguments: [
       { name: 'projectId', description: 'Project ID', required: true },
       { name: 'entryPoint', description: 'Entry point function/method', required: true },
-      { name: 'symptom', description: 'Description of the bug or unexpected behavior', required: true },
+      {
+        name: 'symptom',
+        description: 'Description of the bug or unexpected behavior',
+        required: true,
+      },
     ],
   },
   {
@@ -62,16 +66,28 @@ const PROMPT_DEFINITIONS: PromptDefinition[] = [
     description: 'Plan a code refactoring with impact analysis and migration steps',
     arguments: [
       { name: 'projectId', description: 'Project ID', required: true },
-      { name: 'target', description: 'Code element to refactor (class, module, function)', required: true },
-      { name: 'goal', description: 'Refactoring goal (extract, simplify, decouple, etc.)', required: true },
+      {
+        name: 'target',
+        description: 'Code element to refactor (class, module, function)',
+        required: true,
+      },
+      {
+        name: 'goal',
+        description: 'Refactoring goal (extract, simplify, decouple, etc.)',
+        required: true,
+      },
     ],
   },
   {
     name: 'architecture-review',
-    description: 'Review the architecture of a project for patterns, anti-patterns, and improvements',
+    description:
+      'Review the architecture of a project for patterns, anti-patterns, and improvements',
     arguments: [
       { name: 'projectId', description: 'Project ID', required: true },
-      { name: 'aspect', description: 'Architectural aspect to focus on (layers, dependencies, patterns)' },
+      {
+        name: 'aspect',
+        description: 'Architectural aspect to focus on (layers, dependencies, patterns)',
+      },
       { name: 'generateADR', description: 'Generate an ADR for proposed changes (true/false)' },
     ],
   },
@@ -149,9 +165,10 @@ export class PromptProvider {
       ? `Focus specifically on the ${focus} area of the codebase.`
       : 'Provide a broad overview of the entire codebase.';
 
-    const depthInstruction = depth === 'deep'
-      ? 'Perform a deep analysis — trace dependencies, identify patterns, and understand the architecture in detail.'
-      : 'Provide a high-level overview — identify the main components and their relationships.';
+    const depthInstruction =
+      depth === 'deep'
+        ? 'Perform a deep analysis — trace dependencies, identify patterns, and understand the architecture in detail.'
+        : 'Provide a high-level overview — identify the main components and their relationships.';
 
     const systemPrompt = `You are an expert software engineer analyzing an unfamiliar codebase.
 Your task is to help a developer understand the codebase structure, patterns, and key components.
@@ -200,9 +217,12 @@ Please provide:
     const graphSummary = this.buildGraphSummary(projectId);
 
     const focusAreas: Record<string, string> = {
-      security: 'Focus on security vulnerabilities: injection risks, authentication bypass, sensitive data exposure, insecure dependencies.',
-      performance: 'Focus on performance: algorithmic complexity, memory leaks, unnecessary allocations, blocking operations.',
-      style: 'Focus on code style and maintainability: naming conventions, code organization, DRY violations, readability.',
+      security:
+        'Focus on security vulnerabilities: injection risks, authentication bypass, sensitive data exposure, insecure dependencies.',
+      performance:
+        'Focus on performance: algorithmic complexity, memory leaks, unnecessary allocations, blocking operations.',
+      style:
+        'Focus on code style and maintainability: naming conventions, code organization, DRY violations, readability.',
       all: 'Conduct a comprehensive review covering security, performance, style, and correctness.',
     };
 
@@ -413,7 +433,13 @@ ${adrInstruction}`;
     lines.push(`- Total Nodes: ${nodeCount}`);
     lines.push(`- Total Edges: ${edgeCount}`);
     lines.push(`- Languages: ${Array.from(languageSet).join(', ') || 'none'}`);
-    lines.push(`- Node Types: ${Object.entries(labelCounts).map(([k, v]) => `${k}(${v})`).join(', ') || 'none'}`);
+    lines.push(
+      `- Node Types: ${
+        Object.entries(labelCounts)
+          .map(([k, v]) => `${k}(${v})`)
+          .join(', ') || 'none'
+      }`,
+    );
     return lines.join('\n');
   }
 
@@ -441,7 +467,8 @@ ${adrInstruction}`;
     const lines: string[] = [];
     for (const node of this.store.nodes.values()) {
       if (node.projectId !== projectId && projectId !== '*') continue;
-      const isEntry = (node.label as string) === 'EntryPoint' || node.properties['isEntrypoint'] === 'true';
+      const isEntry =
+        (node.label as string) === 'EntryPoint' || node.properties['isEntrypoint'] === 'true';
       if (!isEntry) continue;
       const fileInfo = node.filePath ?? 'unknown file';
       const lineInfo = node.startLine ? `:${node.startLine}` : '';
@@ -453,7 +480,8 @@ ${adrInstruction}`;
 
   private traceCallChain(entryPoint: string): string {
     const lines: string[] = [];
-    const node = this.store.getNodeByQualifiedName(entryPoint) ??
+    const node =
+      this.store.getNodeByQualifiedName(entryPoint) ??
       (() => {
         for (const n of this.store.nodes.values()) {
           if (n.name === entryPoint && n.isExported) return n;
@@ -464,7 +492,9 @@ ${adrInstruction}`;
     if (node) {
       lines.push(`- Found: \`${node.qualifiedName || node.name}\` (${node.label})`);
       const edges = this.store.getEdgesForNode(node.id, undefined, 'out');
-      const calls = edges.filter((e) => e.type === EDGE_CALLS || (e.type as string) === 'DEPENDS_ON');
+      const calls = edges.filter(
+        (e) => e.type === EDGE_CALLS || (e.type as string) === 'DEPENDS_ON',
+      );
       if (calls.length > 0) {
         lines.push(`- Direct calls/dependencies: ${calls.length}`);
         for (const edge of calls.slice(0, 5)) {
@@ -489,8 +519,10 @@ ${adrInstruction}`;
 
     const searchLower = symbolName.toLowerCase();
     for (const node of this.store.nodes.values()) {
-      if (node.name.toLowerCase().includes(searchLower) ||
-          node.qualifiedName.toLowerCase().includes(searchLower)) {
+      if (
+        node.name.toLowerCase().includes(searchLower) ||
+        node.qualifiedName.toLowerCase().includes(searchLower)
+      ) {
         if (count >= limit) break;
         const fileInfo = node.filePath ? ` (${node.filePath})` : '';
         lines.push(`- **${node.label}**: \`${node.qualifiedName || node.name}\`${fileInfo}`);
@@ -507,21 +539,30 @@ ${adrInstruction}`;
     const searchLower = symbolName.toLowerCase();
 
     for (const node of this.store.nodes.values()) {
-      if (node.name.toLowerCase().includes(searchLower) ||
-          node.qualifiedName.toLowerCase().includes(searchLower)) {
+      if (
+        node.name.toLowerCase().includes(searchLower) ||
+        node.qualifiedName.toLowerCase().includes(searchLower)
+      ) {
         const degree = this.store.getDegree(node.id);
         const fileInfo = node.filePath ? ` (${node.filePath})` : '';
-        lines.push(`- \`${node.qualifiedName || node.name}\` — degree=${degree}, complexity=${node.complexity ?? 'N/A'}${fileInfo}`);
+        lines.push(
+          `- \`${node.qualifiedName || node.name}\` — degree=${degree}, complexity=${node.complexity ?? 'N/A'}${fileInfo}`,
+        );
 
         // Show direct dependents
         const inEdges = this.store.getEdgesForNode(node.id, undefined, 'in');
         if (inEdges.length > 0 && lines.length < 20) {
           const depCount = inEdges.length;
-          const depNames = inEdges.slice(0, 3).map((e) => {
-            const src = this.store.getNode(e.sourceId);
-            return src ? `\`${src.qualifiedName || src.name}\`` : 'unknown';
-          }).join(', ');
-          lines.push(`  ← depended on by ${depCount} symbols: ${depNames}${depCount > 3 ? ` ... +${depCount - 3} more` : ''}`);
+          const depNames = inEdges
+            .slice(0, 3)
+            .map((e) => {
+              const src = this.store.getNode(e.sourceId);
+              return src ? `\`${src.qualifiedName || src.name}\`` : 'unknown';
+            })
+            .join(', ');
+          lines.push(
+            `  ← depended on by ${depCount} symbols: ${depNames}${depCount > 3 ? ` ... +${depCount - 3} more` : ''}`,
+          );
         }
       }
     }

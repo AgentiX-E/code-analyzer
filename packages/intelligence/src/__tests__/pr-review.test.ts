@@ -24,9 +24,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     filePath: '/src/test.ts',
     oldHash: 'abc123',
     newHash: 'def456',
-    ranges: [
-      { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' },
-    ],
+    ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 12, changeType: 'modified' }],
     changeType: 'modified',
     ...overrides,
   };
@@ -101,7 +99,12 @@ function createNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {
   });
 }
 
-function createEdge(store: InMemoryGraphStore, sourceId: number, targetId: number, overrides: Partial<GraphEdge> = {}): void {
+function createEdge(
+  store: InMemoryGraphStore,
+  sourceId: number,
+  targetId: number,
+  overrides: Partial<GraphEdge> = {},
+): void {
   store.insertEdge({
     id: 0,
     projectId: 'test-project',
@@ -116,7 +119,10 @@ function createEdge(store: InMemoryGraphStore, sourceId: number, targetId: numbe
 }
 
 function getTempDir(): string {
-  const dir = path.join(os.tmpdir(), `pr-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `pr-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -151,9 +157,7 @@ describe('PR Review Engine', () => {
   describe('reviewPR()', () => {
     it('should return a complete PRReviewResult', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -166,9 +170,7 @@ describe('PR Review Engine', () => {
 
     it('should produce standards results', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -183,9 +185,7 @@ describe('PR Review Engine', () => {
 
     it('should produce an impact result', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -195,9 +195,7 @@ describe('PR Review Engine', () => {
 
     it('should produce a summary with categories and severities', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -252,9 +250,7 @@ describe('PR Review Engine', () => {
       createEdge(store, sourceId, targetId);
 
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -272,9 +268,7 @@ describe('PR Review Engine', () => {
       createEdge(store, sourceId, testId, { type: 'TESTS' });
 
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -285,26 +279,19 @@ describe('PR Review Engine', () => {
   describe('Summary', () => {
     it('should return approve for clean code', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/simple.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/simple.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
       expect(result.summary.mergeRecommendation).toBeTruthy();
-      expect([
-        'approve',
-        'approve-with-comments',
-        'request-changes',
-        'block',
-      ]).toContain(result.summary.mergeRecommendation);
+      expect(['approve', 'approve-with-comments', 'request-changes', 'block']).toContain(
+        result.summary.mergeRecommendation,
+      );
     });
 
     it('should compute category counts correctly', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -317,9 +304,7 @@ describe('PR Review Engine', () => {
 
     it('should compute severity counts correctly', async () => {
       const pr = createPR();
-      const diffs = [
-        createDiff({ filePath: '/src/test.ts' }),
-      ];
+      const diffs = [createDiff({ filePath: '/src/test.ts' })];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -347,9 +332,7 @@ describe('PR Review Engine', () => {
         createDiff({
           filePath: '/src/new.ts',
           changeType: 'added',
-          ranges: [
-            { oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 50, changeType: 'added' },
-          ],
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 50, changeType: 'added' }],
         }),
       ];
 
@@ -487,11 +470,13 @@ describe('PR Review Engine', () => {
       createNode(store, { filePath: '/src/renamed-module.ts', qualifiedName: 'pkg.newName' });
 
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/renamed-module.ts',
-        changeType: 'renamed',
-        oldPath: '/src/old-module.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/renamed-module.ts',
+          changeType: 'renamed',
+          oldPath: '/src/old-module.ts',
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -558,12 +543,12 @@ describe('PR Review Engine', () => {
   describe('checkStandards — all 5 standard templates', () => {
     it('should produce results for all 7 built-in standards', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/verify.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/verify.ts',
+          ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -580,10 +565,12 @@ describe('PR Review Engine', () => {
   describe('standardsResults summary — severity counting', () => {
     it('should report passed counts in standards results', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/clean.ts',
-        ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/clean.ts',
+          ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -602,19 +589,17 @@ describe('PR Review Engine', () => {
   describe('evaluateStandardRules — regex and metric paths', () => {
     it('should evaluate forbidden regex patterns', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/with-eval.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/with-eval.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
       // The security standard includes forbidden regex patterns
-      const securityStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-security',
-      );
+      const securityStd = result.standardsResults.find((s) => s.standardId === 'std-security');
       expect(securityStd).toBeDefined();
       expect(securityStd!.ruleResults.length).toBeGreaterThan(0);
 
@@ -626,20 +611,20 @@ describe('PR Review Engine', () => {
 
     it('should evaluate metric rules for maxLines', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/large.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 100, newStart: 1, newEnd: 100, changeType: 'modified' },
-          { oldStart: 101, oldEnd: 200, newStart: 101, newEnd: 200, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/large.ts',
+          ranges: [
+            { oldStart: 1, oldEnd: 100, newStart: 1, newEnd: 100, changeType: 'modified' },
+            { oldStart: 101, oldEnd: 200, newStart: 101, newEnd: 200, changeType: 'added' },
+          ],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
       // The function-length standard includes metric rules
-      const funcStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-func-length',
-      );
+      const funcStd = result.standardsResults.find((s) => s.standardId === 'std-func-length');
       expect(funcStd).toBeDefined();
       expect(funcStd!.ruleResults.length).toBeGreaterThan(0);
     });
@@ -742,14 +727,16 @@ describe('PR Review Engine', () => {
   describe('getDiffContentForCheck — multiple ranges', () => {
     it('should handle multiple diff ranges in content extraction', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/multi.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' },
-          { oldStart: 10, oldEnd: 15, newStart: 10, newEnd: 15, changeType: 'modified' },
-          { oldStart: 20, oldEnd: 25, newStart: 20, newEnd: 25, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/multi.ts',
+          ranges: [
+            { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'modified' },
+            { oldStart: 10, oldEnd: 15, newStart: 10, newEnd: 15, changeType: 'modified' },
+            { oldStart: 20, oldEnd: 25, newStart: 20, newEnd: 25, changeType: 'added' },
+          ],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       expect(result.standardsResults.length).toBe(7);
@@ -759,18 +746,22 @@ describe('PR Review Engine', () => {
   describe('checkStandards — summary severity counting', () => {
     it('should correctly count severity levels in standards summary', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/all-severities.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/all-severities.ts',
+          ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
       for (const std of result.standardsResults) {
-        const totalCounted = std.summary.critical + std.summary.high +
-          std.summary.medium + std.summary.low + std.summary.info +
+        const totalCounted =
+          std.summary.critical +
+          std.summary.high +
+          std.summary.medium +
+          std.summary.low +
+          std.summary.info +
           std.summary.passed;
         expect(totalCounted).toBe(std.ruleResults.length);
       }
@@ -780,11 +771,13 @@ describe('PR Review Engine', () => {
   describe('summary branches — merge recommendation paths', () => {
     it('should return approve for simple diffs with no issues', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/simple.ts',
-        changeType: 'modified',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/simple.ts',
+          changeType: 'modified',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -793,11 +786,13 @@ describe('PR Review Engine', () => {
 
     it('should handle diffs with renamed files for summary', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/renamedTo.ts', // PascalCase basename passes naming checks
-        changeType: 'renamed',
-        oldPath: '/src/renamedFrom.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/renamedTo.ts', // PascalCase basename passes naming checks
+          changeType: 'renamed',
+          oldPath: '/src/renamedFrom.ts',
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       // Standards may produce violations; totalComments accounts for both
@@ -823,11 +818,13 @@ describe('PR Review Engine', () => {
         newEnd: i * 2 + 1,
         changeType: 'modified' as const,
       }));
-      const diffs = [createDiff({
-        filePath: '/src/bigfile.ts',
-        changeType: 'modified',
-        ranges,
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/bigfile.ts',
+          changeType: 'modified',
+          ranges,
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       // The function-length standard has maxLines: 50
@@ -841,17 +838,15 @@ describe('PR Review Engine', () => {
       // The naming standard uses required regex patterns (not forbidden=true)
       // Pattern ^[A-Z][a-zA-Z0-9]*$ for PascalCase class names
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/ClassNames.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/ClassNames.ts',
+          ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const namingStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-naming',
-      );
+      const namingStd = result.standardsResults.find((s) => s.standardId === 'std-naming');
       expect(namingStd).toBeDefined();
       expect(namingStd!.ruleResults.length).toBe(2);
       // Both rules have violations since diff content doesn't contain class/function names
@@ -864,17 +859,15 @@ describe('PR Review Engine', () => {
       // diff content from getDiffContentForCheck produces "// File: ..." lines
       // which are comments and should be skipped by the required pattern check
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/ClassPattern.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/ClassPattern.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const namingStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-naming',
-      );
+      const namingStd = result.standardsResults.find((s) => s.standardId === 'std-naming');
       expect(namingStd).toBeDefined();
       // The diff content only has comment lines (// File, // Range)
       // so the required pattern check should skip those and all rules should pass
@@ -889,10 +882,12 @@ describe('PR Review Engine', () => {
       const pr = createPR();
       // No diffs at all - standards still get evaluated but there's no diff content
       // Actually we can test this by causing the rules not to match anything
-      const diffs = [createDiff({
-        filePath: '/src/empty.ts',
-        ranges: [{ oldStart: 0, oldEnd: 0, newStart: 0, newEnd: 0, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/empty.ts',
+          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 0, newEnd: 0, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       // All standards should have compliance scores
@@ -949,10 +944,12 @@ describe('PR Review Engine', () => {
 
     it('should handle diffs with API handler path', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/api/endpoints.ts',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/api/endpoints.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       expect(result.standardsResults.length).toBe(7);
     });
@@ -966,11 +963,13 @@ describe('PR Review Engine', () => {
       createNode(store);
 
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/old-module.ts',
-        changeType: 'deleted',
-        ranges: [],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/old-module.ts',
+          changeType: 'deleted',
+          ranges: [],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
 
@@ -986,36 +985,34 @@ describe('PR Review Engine', () => {
     it('should trigger maxLines violation with large file content', async () => {
       const pr = createPR();
       // Create a diff with many lines to trigger the maxLines check
-      const diffs = [createDiff({
-        filePath: '/src/very-large.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 100, newStart: 1, newEnd: 100, changeType: 'modified' },
-          { oldStart: 101, oldEnd: 200, newStart: 101, newEnd: 200, changeType: 'added' },
-          { oldStart: 201, oldEnd: 300, newStart: 201, newEnd: 300, changeType: 'added' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/very-large.ts',
+          ranges: [
+            { oldStart: 1, oldEnd: 100, newStart: 1, newEnd: 100, changeType: 'modified' },
+            { oldStart: 101, oldEnd: 200, newStart: 101, newEnd: 200, changeType: 'added' },
+            { oldStart: 201, oldEnd: 300, newStart: 201, newEnd: 300, changeType: 'added' },
+          ],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const funcStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-func-length',
-      );
+      const funcStd = result.standardsResults.find((s) => s.standardId === 'std-func-length');
       expect(funcStd).toBeDefined();
       // The maxLines=50 check should trigger on the content lines
     });
 
     it('should handle metric check with maxDepth config', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/nested.ts',
-        ranges: [
-          { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' },
-        ],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/nested.ts',
+          ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const nestingStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-nesting-depth',
-      );
+      const nestingStd = result.standardsResults.find((s) => s.standardId === 'std-nesting-depth');
       expect(nestingStd).toBeDefined();
       expect(nestingStd!.ruleResults.length).toBe(1);
       // maxDepth=4 is set but not checked in evaluateStandardRules (only maxLines is checked)
@@ -1027,10 +1024,12 @@ describe('PR Review Engine', () => {
   describe('reviewPRSwarm — 8-lens swarm integration', () => {
     it('should return swarm result with mcpPrompt', async () => {
       const pr = createPR({ title: 'Add login endpoint' });
-      const diffs = [createDiff({
-        filePath: '/src/api/auth.ts',
-        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/api/auth.ts',
+          ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 5, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
 
@@ -1044,10 +1043,12 @@ describe('PR Review Engine', () => {
 
     it('should assign correct risk level based on swarm severity counts', async () => {
       const pr = createPR({ title: 'Security fix' });
-      const diffs = [createDiff({
-        filePath: '/src/eval-check.ts',
-        ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/eval-check.ts',
+          ranges: [{ oldStart: 1, oldEnd: 3, newStart: 1, newEnd: 3, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
 
@@ -1075,10 +1076,12 @@ describe('PR Review Engine', () => {
       // and checks for 'eval\\s*\\(' pattern in diff content.
       // The diff content includes the filePath, so we include 'eval(' in the path
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/eval(injection).ts',
-        changeType: 'modified',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/eval(injection).ts',
+          changeType: 'modified',
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       // With 'eval(' in the file path appearing in diff content,
@@ -1093,10 +1096,12 @@ describe('PR Review Engine', () => {
       // standards violations now flow into comments (fixed in this iteration).
       // The no-eval rule finds 'eval(' in the diff content comment lines
       // and produces a critical violation → block recommendation.
-      const diffs = [createDiff({
-        filePath: '/src/eval(code).ts',
-        changeType: 'modified',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/eval(code).ts',
+          changeType: 'modified',
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       expect(result.summary.bySeverity.critical).toBeGreaterThan(0);
@@ -1113,9 +1118,11 @@ describe('PR Review Engine', () => {
       // The risk-level ternary branches (L147, L149, L151) are tested via
       // direct ReviewSwarm tests in review-swarm.test.ts.
       const pr = createPR({ title: 'Bad code' });
-      const diffs = [createDiff({
-        filePath: '/src/danger.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/danger.ts',
+        }),
+      ];
       const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
       expect(result.summary.riskLevel).toBeDefined();
       expect(['critical', 'high', 'medium', 'low']).toContain(result.summary.riskLevel);
@@ -1123,10 +1130,14 @@ describe('PR Review Engine', () => {
 
     it('should assign risk level appropriately for clean code (L152)', async () => {
       const pr = createPR({ title: 'Clean refactor' });
-      const diffs = [createDiff({
-        filePath: '/src/clean.ts',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' as const }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/clean.ts',
+          ranges: [
+            { oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' as const },
+          ],
+        }),
+      ];
 
       const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
       expect(result.summary.riskLevel).toBe('low');
@@ -1141,21 +1152,19 @@ describe('PR Review Engine', () => {
     it('should map std-general to "other" category (L408)', async () => {
       const pr = createPR();
       // Use a file path containing the std-general forbidden marker
-      const diffs = [createDiff({
-        filePath: '/src/STDGENERAL_MARKER_7F3A.ts',
-        changeType: 'modified',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/STDGENERAL_MARKER_7F3A.ts',
+          changeType: 'modified',
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       // std-general standard should be present and produce a violation
-      const generalStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-general',
-      );
+      const generalStd = result.standardsResults.find((s) => s.standardId === 'std-general');
       expect(generalStd).toBeDefined();
       // The forbidden marker in the file path triggers a violation
-      const ruleResult = generalStd!.ruleResults.find(
-        (r) => r.ruleId === 'general-check',
-      );
+      const ruleResult = generalStd!.ruleResults.find((r) => r.ruleId === 'general-check');
       expect(ruleResult).toBeDefined();
       expect(ruleResult!.passed).toBe(false);
       // The violation flows through standardsToComments → mapStandardCategory
@@ -1174,41 +1183,49 @@ describe('PR Review Engine', () => {
       // Each unprotected route handler produces 2 high findings (no validation + no auth)
       // at the same location, IoU-deduplicated to 1. Need 4 handlers for > 3 high.
       const store2 = new InMemoryGraphStore();
-      const swarm = new ReviewSwarm(store2, { parallel: false, enabledLenses: ['api'], minSeverity: 'info' });
+      const swarm = new ReviewSwarm(store2, {
+        parallel: false,
+        enabledLenses: ['api'],
+        minSeverity: 'info',
+      });
       const diff = createDiff({ filePath: '/src/api/routes.ts' });
       const sources = new Map([
-        ['/src/api/routes.ts', [
-          'router.post("/users", async (req, res) => {',
-          '  const data = req.body;',
-          '  await db.save(data);',
-          '  res.json({ ok: true });',
-          '});',
-          'router.get("/users/:id", async (req, res) => {',
-          '  const user = await db.findById(req.params.id);',
-          '  res.json({ user });',
-          '});',
-          'router.delete("/users/:id", async (req, res) => {',
-          '  await db.remove(req.params.id);',
-          '  res.json({ ok: true });',
-          '});',
-          'router.patch("/users/:id", async (req, res) => {',
-          '  const data = req.body;',
-          '  await db.update(req.params.id, data);',
-          '  res.json({ ok: true });',
-          '});',
-        ].join('\n')],
+        [
+          '/src/api/routes.ts',
+          [
+            'router.post("/users", async (req, res) => {',
+            '  const data = req.body;',
+            '  await db.save(data);',
+            '  res.json({ ok: true });',
+            '});',
+            'router.get("/users/:id", async (req, res) => {',
+            '  const user = await db.findById(req.params.id);',
+            '  res.json({ user });',
+            '});',
+            'router.delete("/users/:id", async (req, res) => {',
+            '  await db.remove(req.params.id);',
+            '  res.json({ ok: true });',
+            '});',
+            'router.patch("/users/:id", async (req, res) => {',
+            '  const data = req.body;',
+            '  await db.update(req.params.id, data);',
+            '  res.json({ ok: true });',
+            '});',
+          ].join('\n'),
+        ],
       ]);
 
       const swarmResult = await swarm.review('test-project', [diff], sources);
       // 4 handlers → at least 3 high findings after dedup
       expect(swarmResult.summary.bySeverity.high).toBeGreaterThanOrEqual(3);
-      const riskLevel = swarmResult.summary.bySeverity.critical > 0
-        ? 'critical'
-        : swarmResult.summary.bySeverity.high >= 3
-          ? 'high'
-          : swarmResult.summary.bySeverity.medium > 5
-            ? 'medium'
-            : 'low';
+      const riskLevel =
+        swarmResult.summary.bySeverity.critical > 0
+          ? 'critical'
+          : swarmResult.summary.bySeverity.high >= 3
+            ? 'high'
+            : swarmResult.summary.bySeverity.medium > 5
+              ? 'medium'
+              : 'low';
       expect(riskLevel).toBe('high');
     });
 
@@ -1217,7 +1234,11 @@ describe('PR Review Engine', () => {
       // (Long Function + Deep Nesting at same location → deduped to 1).
       // Need 6+ long functions at different line ranges for medium > 5.
       const store2 = new InMemoryGraphStore();
-      const swarm = new ReviewSwarm(store2, { parallel: false, enabledLenses: ['style'], minSeverity: 'info' });
+      const swarm = new ReviewSwarm(store2, {
+        parallel: false,
+        enabledLenses: ['style'],
+        minSeverity: 'info',
+      });
 
       function buildLongFunc(name: string): string[] {
         const lines: string[] = [];
@@ -1244,13 +1265,14 @@ describe('PR Review Engine', () => {
       // 6 long functions → 6 medium findings after dedup → medium > 5
       expect(swarmResult.summary.bySeverity.medium).toBeGreaterThan(5);
 
-      const riskLevel = swarmResult.summary.bySeverity.critical > 0
-        ? 'critical'
-        : swarmResult.summary.bySeverity.high > 3
-          ? 'high'
-          : swarmResult.summary.bySeverity.medium > 5
-            ? 'medium'
-            : 'low';
+      const riskLevel =
+        swarmResult.summary.bySeverity.critical > 0
+          ? 'critical'
+          : swarmResult.summary.bySeverity.high > 3
+            ? 'high'
+            : swarmResult.summary.bySeverity.medium > 5
+              ? 'medium'
+              : 'low';
       expect(riskLevel).toBe('medium');
     });
 
@@ -1258,26 +1280,36 @@ describe('PR Review Engine', () => {
       const testDir = path.join(os.tmpdir(), 'swarm-risk-test-' + Date.now());
       fs.mkdirSync(testDir, { recursive: true });
       const filePath = path.join(testDir, 'risky.ts');
-      fs.writeFileSync(filePath, [
-        'function risky() {',
-        '  eval("bad code");',
-        '  innerHTML = "unsafe";',
-        '  return "done";',
-        '}',
-      ].join('\n'), 'utf-8');
+      fs.writeFileSync(
+        filePath,
+        [
+          'function risky() {',
+          '  eval("bad code");',
+          '  innerHTML = "unsafe";',
+          '  return "done";',
+          '}',
+        ].join('\n'),
+        'utf-8',
+      );
 
       try {
         const pr = createPR({ title: 'Risky change' });
-        const diffs = [createDiff({
-          filePath,
-          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 5, changeType: 'added' }],
-        })];
+        const diffs = [
+          createDiff({
+            filePath,
+            ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 5, changeType: 'added' }],
+          }),
+        ];
 
         const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
         expect(result.summary.riskLevel).toBeDefined();
         expect(result.summary.totalComments).toBeGreaterThanOrEqual(0);
       } finally {
-        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+        try {
+          fs.rmSync(testDir, { recursive: true, force: true });
+        } catch {
+          /* cleanup */
+        }
       }
     });
 
@@ -1289,15 +1321,21 @@ describe('PR Review Engine', () => {
 
       try {
         const pr = createPR({ title: 'Nested loops' });
-        const diffs = [createDiff({
-          filePath,
-          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-        })];
+        const diffs = [
+          createDiff({
+            filePath,
+            ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+          }),
+        ];
 
         const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
         expect(result.summary.riskLevel).toBeDefined();
       } finally {
-        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+        try {
+          fs.rmSync(testDir, { recursive: true, force: true });
+        } catch {
+          /* cleanup */
+        }
       }
     });
 
@@ -1316,45 +1354,45 @@ describe('PR Review Engine', () => {
   describe('mapStandardCategory — additional branches', () => {
     it('should map error-related standard to bug category', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/error_check.ts',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/error_check.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const errorStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-error-handling',
-      );
+      const errorStd = result.standardsResults.find((s) => s.standardId === 'std-error-handling');
       expect(errorStd).toBeDefined();
       // error-handling maps to 'bug' category via mapStandardCategory
     });
 
     it('should map func-length standard to maintainability category', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/func_check.ts',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/func_check.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const funcStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-func-length',
-      );
+      const funcStd = result.standardsResults.find((s) => s.standardId === 'std-func-length');
       expect(funcStd).toBeDefined();
       // func-length maps to 'maintainability'
     });
 
     it('should map security standard to security category', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/security_check.ts',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/security_check.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const secStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-security',
-      );
+      const secStd = result.standardsResults.find((s) => s.standardId === 'std-security');
       expect(secStd).toBeDefined();
     });
   });
@@ -1370,10 +1408,12 @@ describe('PR Review Engine', () => {
         newEnd: i + 1,
         changeType: 'modified' as const,
       }));
-      const diffs = [createDiff({
-        filePath: '/src/many_ranges.ts',
-        ranges,
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/many_ranges.ts',
+          ranges,
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       expect(result.standardsResults.length).toBe(7);
@@ -1381,10 +1421,12 @@ describe('PR Review Engine', () => {
 
     it('should handle file path with directory components in diff content', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/components/Button/Button.tsx',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/components/Button/Button.tsx',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'modified' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
       expect(result.standardsResults.length).toBe(7);
@@ -1414,15 +1456,15 @@ describe('PR Review Engine', () => {
   describe('standards — naming standard coverage', () => {
     it('should handle naming standard with regex required patterns', async () => {
       const pr = createPR();
-      const diffs = [createDiff({
-        filePath: '/src/MyComponent.ts',
-        ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/MyComponent.ts',
+          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
+        }),
+      ];
 
       const result = await prEngine.reviewPR('test-project', pr, diffs);
-      const namingStd = result.standardsResults.find(
-        (s) => s.standardId === 'std-naming',
-      );
+      const namingStd = result.standardsResults.find((s) => s.standardId === 'std-naming');
       expect(namingStd).toBeDefined();
       expect(namingStd!.ruleResults.length).toBe(2);
     });
@@ -1448,37 +1490,47 @@ describe('PR Review Engine', () => {
       fs.mkdirSync(testDir, { recursive: true });
       const filePath = path.join(testDir, 'api.ts');
       // Multiple API handlers without validation — each generates high findings
-      fs.writeFileSync(filePath, [
-        'router.post("/api/v1/data", async (req, res) => {',
-        '  await db.save(req.body);',
-        '  res.json({ ok: true });',
-        '});',
-        'router.get("/api/v1/users", async (req, res) => {',
-        '  const users = await db.findAll();',
-        '  res.json(users);',
-        '});',
-        'router.delete("/api/v1/users/:id", async (req, res) => {',
-        '  await db.remove(req.params.id);',
-        '  res.json({ ok: true });',
-        '});',
-        'router.patch("/api/v1/users/:id", async (req, res) => {',
-        '  await db.update(req.params.id, req.body);',
-        '  res.json({ ok: true });',
-        '});',
-      ].join('\n'), 'utf-8');
+      fs.writeFileSync(
+        filePath,
+        [
+          'router.post("/api/v1/data", async (req, res) => {',
+          '  await db.save(req.body);',
+          '  res.json({ ok: true });',
+          '});',
+          'router.get("/api/v1/users", async (req, res) => {',
+          '  const users = await db.findAll();',
+          '  res.json(users);',
+          '});',
+          'router.delete("/api/v1/users/:id", async (req, res) => {',
+          '  await db.remove(req.params.id);',
+          '  res.json({ ok: true });',
+          '});',
+          'router.patch("/api/v1/users/:id", async (req, res) => {',
+          '  await db.update(req.params.id, req.body);',
+          '  res.json({ ok: true });',
+          '});',
+        ].join('\n'),
+        'utf-8',
+      );
 
       try {
         const pr = createPR({ title: 'Add API endpoints' });
-        const diffs = [createDiff({
-          filePath,
-          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 16, changeType: 'added' }],
-        })];
+        const diffs = [
+          createDiff({
+            filePath,
+            ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 16, changeType: 'added' }],
+          }),
+        ];
 
         const result = await prEngine.reviewPRSwarm('test-project', pr, diffs);
         expect(result.summary.riskLevel).toBeDefined();
         expect(['critical', 'high', 'medium', 'low']).toContain(result.summary.riskLevel);
       } finally {
-        try { fs.rmSync(testDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+        try {
+          fs.rmSync(testDir, { recursive: true, force: true });
+        } catch {
+          /* cleanup */
+        }
       }
     });
   });

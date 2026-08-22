@@ -6,7 +6,11 @@ import {
   computeFileFingerprint,
   generateSessionId,
 } from '../review/session-store.js';
-import type { SessionMetadata, ReviewItemResult, ReviewItemError } from '../review/session-store.js';
+import type {
+  SessionMetadata,
+  ReviewItemResult,
+  ReviewItemError,
+} from '../review/session-store.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,7 +21,10 @@ import * as os from 'os';
 // ---------------------------------------------------------------------------
 
 function getTempDir(): string {
-  const dir = path.join(os.tmpdir(), `session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `session-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

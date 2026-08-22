@@ -69,11 +69,7 @@ export class PRReviewEngine {
    * Review a GitHub pull request.
    * Combines diff review, standards checking, and impact analysis.
    */
-  async reviewPR(
-    projectId: string,
-    _pr: PullRequest,
-    diffs: GitDiff[],
-  ): Promise<PRReviewResult> {
+  async reviewPR(projectId: string, _pr: PullRequest, diffs: GitDiff[]): Promise<PRReviewResult> {
     // Build enriched context from knowledge graph
     const enrichedDiffs = await this.buildEnrichedContext(projectId, diffs);
 
@@ -147,13 +143,14 @@ export class PRReviewEngine {
       byCategory,
       bySeverity,
       /* v8 ignore start -- @preserve */
-      riskLevel: swarmResult.summary.bySeverity.critical > 0
-        ? 'critical'
-        : swarmResult.summary.bySeverity.high > 3
-          ? 'high'
-          : swarmResult.summary.bySeverity.medium > 5
-            ? 'medium'
-            : 'low',
+      riskLevel:
+        swarmResult.summary.bySeverity.critical > 0
+          ? 'critical'
+          : swarmResult.summary.bySeverity.high > 3
+            ? 'high'
+            : swarmResult.summary.bySeverity.medium > 5
+              ? 'medium'
+              : 'low',
       /* v8 ignore stop -- @preserve */
       mergeRecommendation: swarmResult.decision.recommendation,
     };
@@ -165,7 +162,7 @@ export class PRReviewEngine {
       impactResult: {
         riskLevel: summary.riskLevel,
         /* v8 ignore next -- @preserve */
-        affectedFiles: swarmResult.actionPlan.map(a => a.files).flat(),
+        affectedFiles: swarmResult.actionPlan.map((a) => a.files).flat(),
         affectedSymbols: [],
         estimatedImpact: swarmResult.summary.totalFindings,
       } as unknown as ImpactResult,
@@ -457,10 +454,7 @@ export class PRReviewEngine {
       let impactScore = 0;
 
       for (const edge of allEdges) {
-        if (
-          fileNodeIds.has(edge.sourceId) &&
-          testNodeIds.has(edge.targetId)
-        ) {
+        if (fileNodeIds.has(edge.sourceId) && testNodeIds.has(edge.targetId)) {
           const testNode = allNodes.find((n) => n.id === edge.targetId);
           /* v8 ignore next -- @preserve */
           if (testNode?.filePath && !relatedTests.includes(testNode.filePath)) {
@@ -485,10 +479,7 @@ export class PRReviewEngine {
   // Impact Analysis
   // -------------------------------------------------------------------------
 
-  private computeImpact(
-    _projectId: string,
-    enrichedDiffs: EnrichedDiff[],
-  ): ImpactResult {
+  private computeImpact(_projectId: string, enrichedDiffs: EnrichedDiff[]): ImpactResult {
     const changedFiles: string[] = [];
     const changedSymbols: ImpactResult['changedSymbols'] = [];
     const allAffectedSymbols = new Set<string>();
@@ -503,9 +494,14 @@ export class PRReviewEngine {
         changedSymbols.push({
           symbolQname: sym,
           filePath: entry.diff.filePath,
-          changeType: entry.diff.changeType === 'deleted' ? 'deleted' :
-            entry.diff.changeType === 'added' ? 'added' :
-            entry.diff.changeType === 'renamed' ? 'renamed' : 'modified',
+          changeType:
+            entry.diff.changeType === 'deleted'
+              ? 'deleted'
+              : entry.diff.changeType === 'added'
+                ? 'added'
+                : entry.diff.changeType === 'renamed'
+                  ? 'renamed'
+                  : 'modified',
           startLine: entry.diff.ranges[0]?.newStart ?? 1,
           endLine: entry.diff.ranges[0]?.newEnd ?? 1,
         });
@@ -515,9 +511,13 @@ export class PRReviewEngine {
     }
 
     const riskLevel: RiskLevel =
-      maxImpactScore >= 75 ? 'critical' :
-      maxImpactScore >= 50 ? 'high' :
-      maxImpactScore >= 25 ? 'medium' : 'low';
+      maxImpactScore >= 75
+        ? 'critical'
+        : maxImpactScore >= 50
+          ? 'high'
+          : maxImpactScore >= 25
+            ? 'medium'
+            : 'low';
 
     return {
       changedFiles,
@@ -525,8 +525,7 @@ export class PRReviewEngine {
       impactTree: [],
       riskLevel,
       processesAffected: [],
-      estimatedEffort: maxImpactScore >= 50 ? 'high' :
-        maxImpactScore >= 25 ? 'medium' : 'low',
+      estimatedEffort: maxImpactScore >= 50 ? 'high' : maxImpactScore >= 25 ? 'medium' : 'low',
     };
   }
 
@@ -534,10 +533,7 @@ export class PRReviewEngine {
   // Summary Building
   // -------------------------------------------------------------------------
 
-  private buildSummary(
-    comments: ReviewComment[],
-    impactResult: ImpactResult,
-  ): PRReviewSummary {
+  private buildSummary(comments: ReviewComment[], impactResult: ImpactResult): PRReviewSummary {
     const totalComments = comments.length;
 
     const byCategory: Record<ReviewCategory, number> = {
@@ -571,11 +567,17 @@ export class PRReviewEngine {
     // Determine merge recommendation
     /* v8 ignore start -- @preserve */
     const riskLevel: 'critical' | 'high' | 'medium' | 'low' =
-      impactResult.riskLevel === 'critical' ? 'critical' :
-      bySeverity.critical > 0 ? 'critical' :
-      bySeverity.high > 2 ? 'high' :
-      impactResult.riskLevel === 'high' ? 'high' :
-      bySeverity.high > 0 ? 'medium' : 'low';
+      impactResult.riskLevel === 'critical'
+        ? 'critical'
+        : bySeverity.critical > 0
+          ? 'critical'
+          : bySeverity.high > 2
+            ? 'high'
+            : impactResult.riskLevel === 'high'
+              ? 'high'
+              : bySeverity.high > 0
+                ? 'medium'
+                : 'low';
     /* v8 ignore stop -- @preserve */
 
     let mergeRecommendation: 'approve' | 'approve-with-comments' | 'request-changes' | 'block';
@@ -648,7 +650,10 @@ export class PRReviewEngine {
     // real content to match against.
     /* v8 ignore start -- @preserve */
     const basename =
-      diff.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? 'unknown';
+      diff.filePath
+        .split('/')
+        .pop()
+        ?.replace(/\.[^.]+$/, '') ?? 'unknown';
     /* v8 ignore stop -- @preserve */
     parts.push(basename);
 

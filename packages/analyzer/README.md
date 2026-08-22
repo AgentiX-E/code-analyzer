@@ -138,13 +138,13 @@ const validation: ValidationResult = orchestor.validatePipeline();
 
 **PipelineResult fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `status` | `'complete' \| 'partial' \| 'failed'` | Overall pipeline status |
-| `phases` | `PhaseResult[]` | Per-phase results with timing |
-| `graph` | `KnowledgeGraph` | The constructed knowledge graph |
-| `duration` | `number` | Total execution time in ms |
-| `errors` | `PhaseError[]` | Errors encountered during execution |
+| Field      | Type                                  | Description                         |
+| ---------- | ------------------------------------- | ----------------------------------- |
+| `status`   | `'complete' \| 'partial' \| 'failed'` | Overall pipeline status             |
+| `phases`   | `PhaseResult[]`                       | Per-phase results with timing       |
+| `graph`    | `KnowledgeGraph`                      | The constructed knowledge graph     |
+| `duration` | `number`                              | Total execution time in ms          |
+| `errors`   | `PhaseError[]`                        | Errors encountered during execution |
 
 ### 18-Phase Pipeline
 
@@ -173,7 +173,11 @@ embed          — Generate vector embeddings for all nodes
 
 ```typescript
 import {
-  ScanPhase, ParsePhase, ScopeResolutionPhase, EmbedPhase, createAllPhases,
+  ScanPhase,
+  ParsePhase,
+  ScopeResolutionPhase,
+  EmbedPhase,
+  createAllPhases,
 } from '@code-analyzer/analyzer';
 
 // Individual phase access
@@ -192,12 +196,17 @@ Each language implements a standard interface for extraction.
 
 ```typescript
 import type { LanguageProvider, ParsedImport } from '@code-analyzer/analyzer';
-import { TypeScriptProvider, PythonProvider, GoProvider, JavaScriptProvider } from '@code-analyzer/analyzer';
+import {
+  TypeScriptProvider,
+  PythonProvider,
+  GoProvider,
+  JavaScriptProvider,
+} from '@code-analyzer/analyzer';
 
 const ts = new TypeScriptProvider();
-console.log(ts.language);       // 'typescript'
-console.log(ts.extensions);     // ['.ts', '.tsx']
-console.log(ts.globs);          // ['**/*.ts', '**/*.tsx']
+console.log(ts.language); // 'typescript'
+console.log(ts.extensions); // ['.ts', '.tsx']
+console.log(ts.globs); // ['**/*.ts', '**/*.tsx']
 
 // Parse a file
 const captures = ts.parse(sourceCode, '/path/to/file.ts');
@@ -214,16 +223,16 @@ console.log(ts.importSemantics); // { named: true, default: true, namespace: tru
 
 **Supported Languages (8):**
 
-| Provider | Language | File Extensions |
-|----------|----------|-----------------|
-| `TypeScriptProvider` | TypeScript | `.ts`, `.tsx` |
+| Provider             | Language   | File Extensions               |
+| -------------------- | ---------- | ----------------------------- |
+| `TypeScriptProvider` | TypeScript | `.ts`, `.tsx`                 |
 | `JavaScriptProvider` | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` |
-| `PythonProvider` | Python | `.py`, `.pyw`, `.pyi` |
-| `GoProvider` | Go | `.go` |
-| `JavaProvider` | Java | `.java` |
-| `KotlinProvider` | Kotlin | `.kt`, `.kts` |
-| `CSharpProvider` | C# | `.cs` |
-| `RustProvider` | Rust | `.rs` |
+| `PythonProvider`     | Python     | `.py`, `.pyw`, `.pyi`         |
+| `GoProvider`         | Go         | `.go`                         |
+| `JavaProvider`       | Java       | `.java`                       |
+| `KotlinProvider`     | Kotlin     | `.kt`, `.kts`                 |
+| `CSharpProvider`     | C#         | `.cs`                         |
+| `RustProvider`       | Rust       | `.rs`                         |
 
 ### UnifiedParser
 
@@ -299,9 +308,9 @@ No configuration constructor — phase construction is handled by `createAllPhas
 
 ### UnifiedParser
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `providers` | `LanguageProvider[]` | Yes | Language providers to register |
+| Parameter   | Type                 | Required | Description                    |
+| ----------- | -------------------- | -------- | ------------------------------ |
+| `providers` | `LanguageProvider[]` | Yes      | Language providers to register |
 
 ### ScopeResolver
 
@@ -309,9 +318,9 @@ No configuration needed — constructor takes no arguments.
 
 ### GraphBuilder
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `store` | `InMemoryGraphStore` | Yes | in-memory graph store for persistence |
+| Parameter | Type                 | Required | Description                           |
+| --------- | -------------------- | -------- | ------------------------------------- |
+| `store`   | `InMemoryGraphStore` | Yes      | in-memory graph store for persistence |
 
 ## Package Dependency Tree
 

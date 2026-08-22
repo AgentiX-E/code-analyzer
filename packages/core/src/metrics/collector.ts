@@ -65,7 +65,10 @@ export interface MetricsCollector {
   /**
    * Get histogram data for a named histogram.
    */
-  getHistogram(name: string, tags?: Record<string, string>): { values: number[]; count: number; sum: number } | undefined;
+  getHistogram(
+    name: string,
+    tags?: Record<string, string>,
+  ): { values: number[]; count: number; sum: number } | undefined;
 
   /**
    * Reset all metrics.
@@ -157,7 +160,10 @@ export class DefaultMetricsCollector implements MetricsCollector {
     return this.gauges.get(key)?.value ?? 0;
   }
 
-  getHistogram(name: string, tags?: Record<string, string>): { values: number[]; count: number; sum: number } | undefined {
+  getHistogram(
+    name: string,
+    tags?: Record<string, string>,
+  ): { values: number[]; count: number; sum: number } | undefined {
     const key = tagsKey(name, tags);
     const hist = this.histograms.get(key);
     if (!hist) return undefined;

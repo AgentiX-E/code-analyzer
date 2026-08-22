@@ -92,10 +92,13 @@ describe('createCustomRule', () => {
   });
 
   it('should create a valid regex rule with flags', () => {
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'regex-with-flags',
-      checkConfig: { pattern: 'TODO', flags: 'gi' },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'regex-with-flags',
+        checkConfig: { pattern: 'TODO', flags: 'gi' },
+      }),
+    );
     expect(rule.checkConfig).toEqual({ pattern: 'TODO', flags: 'gi' });
   });
 
@@ -137,16 +140,23 @@ describe('createCustomRule', () => {
   });
 
   it('should store and persist fixSuggestion', () => {
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'with-fix',
-      fixSuggestion: 'Remove console.log calls',
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'with-fix',
+        fixSuggestion: 'Remove console.log calls',
+      }),
+    );
     expect(rule.fixSuggestion).toBe('Remove console.log calls');
   });
 
   it('should accept all valid severities', () => {
     const severities: Array<'critical' | 'high' | 'medium' | 'low' | 'info'> = [
-      'critical', 'high', 'medium', 'low', 'info',
+      'critical',
+      'high',
+      'medium',
+      'low',
+      'info',
     ];
     for (const sev of severities) {
       const rule = editor.createCustomRule('std-1', makeValidRegexInput({ severity: sev }));
@@ -156,14 +166,19 @@ describe('createCustomRule', () => {
 
   it('should accept all valid checkTypes', () => {
     const types: Array<StandardRule['checkType']> = [
-      'regex', 'metric', 'ast-pattern', 'graph-query', 'llm-check',
+      'regex',
+      'metric',
+      'ast-pattern',
+      'graph-query',
+      'llm-check',
     ];
     for (const ct of types) {
-      const config = ct === 'metric'
-        ? { metric: 'function-lines', threshold: 10 }
-        : ct === 'regex'
-          ? { pattern: 'test' }
-          : {};
+      const config =
+        ct === 'metric'
+          ? { metric: 'function-lines', threshold: 10 }
+          : ct === 'regex'
+            ? { pattern: 'test' }
+            : {};
       const rule = editor.createCustomRule('std-1', {
         description: `Test ${ct}`,
         checkType: ct,
@@ -177,102 +192,112 @@ describe('createCustomRule', () => {
   // --- error cases ---
 
   it('should throw for empty standardId', () => {
-    expect(() => editor.createCustomRule('', makeValidRegexInput()))
-      .toThrow('standardId is required');
+    expect(() => editor.createCustomRule('', makeValidRegexInput())).toThrow(
+      'standardId is required',
+    );
   });
 
   it('should throw for missing description', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-      severity: 'medium',
-    } as CreateRuleInput))
-      .toThrow('Rule description is required');
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'medium',
+      } as CreateRuleInput),
+    ).toThrow('Rule description is required');
   });
 
   it('should throw for missing checkType', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkConfig: { pattern: 'test' },
-      severity: 'medium',
-    } as CreateRuleInput))
-      .toThrow('Rule checkType is required');
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkConfig: { pattern: 'test' },
+        severity: 'medium',
+      } as CreateRuleInput),
+    ).toThrow('Rule checkType is required');
   });
 
   it('should throw for invalid checkType', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'invalid-type' as any,
-      checkConfig: {},
-      severity: 'medium',
-    }))
-      .toThrow(/Invalid checkType/);
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'invalid-type' as any,
+        checkConfig: {},
+        severity: 'medium',
+      }),
+    ).toThrow(/Invalid checkType/);
   });
 
   it('should throw for missing severity', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-    } as CreateRuleInput))
-      .toThrow('Rule severity is required');
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+      } as CreateRuleInput),
+    ).toThrow('Rule severity is required');
   });
 
   it('should throw for invalid severity', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-      severity: 'extreme' as any,
-    }))
-      .toThrow(/Invalid severity/);
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'extreme' as any,
+      }),
+    ).toThrow(/Invalid severity/);
   });
 
   it('should throw for regex rule without pattern', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'regex',
-      checkConfig: {},
-      severity: 'medium',
-    }))
-      .toThrow('Regex rules require a "pattern" field in checkConfig');
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'regex',
+        checkConfig: {},
+        severity: 'medium',
+      }),
+    ).toThrow('Regex rules require a "pattern" field in checkConfig');
   });
 
   it('should throw for invalid regex pattern', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'regex',
-      checkConfig: { pattern: '[' },
-      severity: 'medium',
-    }))
-      .toThrow(/Invalid regex pattern/);
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'regex',
+        checkConfig: { pattern: '[' },
+        severity: 'medium',
+      }),
+    ).toThrow(/Invalid regex pattern/);
   });
 
   it('should throw for metric rule without metric field', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'metric',
-      checkConfig: { threshold: 10 },
-      severity: 'medium',
-    }))
-      .toThrow('Metric rules require a "metric" field in checkConfig');
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'metric',
+        checkConfig: { threshold: 10 },
+        severity: 'medium',
+      }),
+    ).toThrow('Metric rules require a "metric" field in checkConfig');
   });
 
   it('should throw for metric rule without threshold', () => {
-    expect(() => editor.createCustomRule('std-1', {
-      description: 'Test',
-      checkType: 'metric',
-      checkConfig: { metric: 'function-lines' },
-      severity: 'medium',
-    }))
-      .toThrow('Metric rules require a "threshold" field in checkConfig');
+    expect(() =>
+      editor.createCustomRule('std-1', {
+        description: 'Test',
+        checkType: 'metric',
+        checkConfig: { metric: 'function-lines' },
+        severity: 'medium',
+      }),
+    ).toThrow('Metric rules require a "threshold" field in checkConfig');
   });
 
   it('should throw for duplicate rule ID', () => {
     editor.createCustomRule('std-1', makeValidRegexInput({ id: 'dup' }));
-    expect(() =>
-      editor.createCustomRule('std-1', makeValidRegexInput({ id: 'dup' })),
-    ).toThrow(/already exists/);
+    expect(() => editor.createCustomRule('std-1', makeValidRegexInput({ id: 'dup' }))).toThrow(
+      /already exists/,
+    );
   });
 
   // --- isolation ---
@@ -365,31 +390,33 @@ describe('updateCustomRule', () => {
   });
 
   it('should throw for non-existent rule', () => {
-    expect(() =>
-      editor.updateCustomRule('std-1', 'nonexistent', { description: 'X' }),
-    ).toThrow(/not found/);
+    expect(() => editor.updateCustomRule('std-1', 'nonexistent', { description: 'X' })).toThrow(
+      /not found/,
+    );
   });
 
   it('should throw for non-existent standard', () => {
-    expect(() =>
-      editor.updateCustomRule('no-std', 'rule-1', { description: 'X' }),
-    ).toThrow(/not found/);
+    expect(() => editor.updateCustomRule('no-std', 'rule-1', { description: 'X' })).toThrow(
+      /not found/,
+    );
   });
 
   it('should throw for empty standardId', () => {
-    expect(() => editor.updateCustomRule('', 'rule-1', { description: 'X' }))
-      .toThrow('standardId is required');
+    expect(() => editor.updateCustomRule('', 'rule-1', { description: 'X' })).toThrow(
+      'standardId is required',
+    );
   });
 
   it('should throw for empty ruleId', () => {
-    expect(() => editor.updateCustomRule('std-1', '', { description: 'X' }))
-      .toThrow('ruleId is required');
+    expect(() => editor.updateCustomRule('std-1', '', { description: 'X' })).toThrow(
+      'ruleId is required',
+    );
   });
 
   it('should throw for invalid checkType in updates', () => {
-    expect(() =>
-      editor.updateCustomRule('std-1', 'rule-1', { checkType: 'bogus' as any }),
-    ).toThrow(/Invalid checkType/);
+    expect(() => editor.updateCustomRule('std-1', 'rule-1', { checkType: 'bogus' as any })).toThrow(
+      /Invalid checkType/,
+    );
   });
 
   it('should throw for invalid severity in updates', () => {
@@ -607,29 +634,38 @@ describe('validateRule', () => {
   });
 
   it('should return no matches when regex does not match sample', () => {
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'no-match',
-      checkConfig: { pattern: 'nonexistent_pattern_xyz' },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'no-match',
+        checkConfig: { pattern: 'nonexistent_pattern_xyz' },
+      }),
+    );
     const result = editor.validateRule(rule, SAMPLE_CODE);
     expect(result.valid).toBe(true);
     expect(result.matches).toEqual([]);
   });
 
   it('should respect regex flags', () => {
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'case-sensitive',
-      checkConfig: { pattern: 'DO_STUFF', flags: '' }, // no flags = case-sensitive
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'case-sensitive',
+        checkConfig: { pattern: 'DO_STUFF', flags: '' }, // no flags = case-sensitive
+      }),
+    );
     const result = editor.validateRule(rule, SAMPLE_CODE);
     expect(result.matches).toEqual([]);
   });
 
   it('should report line numbers', () => {
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'console',
-      checkConfig: { pattern: 'console\\.log' },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'console',
+        checkConfig: { pattern: 'console\\.log' },
+      }),
+    );
     const result = editor.validateRule(rule, SAMPLE_CODE);
     expect(result.matches.length).toBeGreaterThanOrEqual(1);
     for (const m of result.matches) {
@@ -642,10 +678,13 @@ describe('validateRule', () => {
   it('should match metric:function-lines when lines exceed threshold', () => {
     // The metric:function-lines check requires a function-like signature in the code
     const longCode = 'function test() {\n' + '  line;\n'.repeat(58) + '}\n';
-    const rule = editor.createCustomRule('std-1', makeValidMetricInput({
-      id: 'max-lines',
-      checkConfig: { metric: 'function-lines', threshold: 50 },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidMetricInput({
+        id: 'max-lines',
+        checkConfig: { metric: 'function-lines', threshold: 50 },
+      }),
+    );
     const result = editor.validateRule(rule, longCode);
     expect(result.valid).toBe(true);
     expect(result.matches.length).toBe(1);
@@ -654,10 +693,13 @@ describe('validateRule', () => {
 
   it('should not match metric:function-lines when under threshold', () => {
     const shortCode = 'function test() {\n  line;\n}\n';
-    const rule = editor.createCustomRule('std-1', makeValidMetricInput({
-      id: 'max-lines',
-      checkConfig: { metric: 'function-lines', threshold: 50 },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidMetricInput({
+        id: 'max-lines',
+        checkConfig: { metric: 'function-lines', threshold: 50 },
+      }),
+    );
     const result = editor.validateRule(rule, shortCode);
     expect(result.valid).toBe(true);
     expect(result.matches).toEqual([]);
@@ -679,10 +721,13 @@ describe('validateRule', () => {
     }
   }
 }`;
-    const rule = editor.createCustomRule('std-1', makeValidMetricInput({
-      id: 'max-nesting',
-      checkConfig: { metric: 'nesting-depth', threshold: 3 },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidMetricInput({
+        id: 'max-nesting',
+        checkConfig: { metric: 'nesting-depth', threshold: 3 },
+      }),
+    );
     const result = editor.validateRule(rule, nestedCode);
     expect(result.valid).toBe(true);
     expect(result.matches.length).toBe(1);
@@ -693,10 +738,13 @@ describe('validateRule', () => {
     const shallowCode = `function test() {
   doWork();
 }`;
-    const rule = editor.createCustomRule('std-1', makeValidMetricInput({
-      id: 'max-nesting',
-      checkConfig: { metric: 'nesting-depth', threshold: 10 },
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidMetricInput({
+        id: 'max-nesting',
+        checkConfig: { metric: 'nesting-depth', threshold: 10 },
+      }),
+    );
     const result = editor.validateRule(rule, shallowCode);
     expect(result.valid).toBe(true);
     expect(result.matches).toEqual([]);
@@ -705,70 +753,140 @@ describe('validateRule', () => {
   // --- structural validation errors ---
 
   it('should report missing rule ID', () => {
-    const rule = { description: 'Test', checkType: 'regex' as const, checkConfig: { pattern: 'test' }, severity: 'medium' as const, autoFixable: false, id: '' };
+    const rule = {
+      description: 'Test',
+      checkType: 'regex' as const,
+      checkConfig: { pattern: 'test' },
+      severity: 'medium' as const,
+      autoFixable: false,
+      id: '',
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Rule ID is required');
   });
 
   it('should report missing description', () => {
-    const rule = { id: 'r1', description: '', checkType: 'regex' as const, checkConfig: { pattern: 'test' }, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: '',
+      checkType: 'regex' as const,
+      checkConfig: { pattern: 'test' },
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Rule description is required');
   });
 
   it('should report missing checkType', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: '' as any, checkConfig: { pattern: 'test' }, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: '' as any,
+      checkConfig: { pattern: 'test' },
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Rule checkType is required');
   });
 
   it('should report invalid checkType', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'bogus' as any, checkConfig: {}, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'bogus' as any,
+      checkConfig: {},
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('Invalid checkType'))).toBe(true);
   });
 
   it('should report missing severity', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'regex' as const, checkConfig: { pattern: 'test' }, severity: '' as any, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'regex' as const,
+      checkConfig: { pattern: 'test' },
+      severity: '' as any,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Rule severity is required');
   });
 
   it('should report invalid severity', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'regex' as const, checkConfig: { pattern: 'test' }, severity: 'extreme' as any, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'regex' as const,
+      checkConfig: { pattern: 'test' },
+      severity: 'extreme' as any,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('Invalid severity'))).toBe(true);
   });
 
   it('should report missing regex pattern', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'regex' as const, checkConfig: {} as any, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'regex' as const,
+      checkConfig: {} as any,
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Regex rule requires a "pattern" in checkConfig');
   });
 
   it('should catch invalid regex pattern at validation time', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'regex' as const, checkConfig: { pattern: '[', flags: 'g' }, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'regex' as const,
+      checkConfig: { pattern: '[', flags: 'g' },
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('Invalid regular expression'))).toBe(true);
   });
 
   it('should validate metric rule missing metric field', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'metric' as const, checkConfig: { threshold: 10 }, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'metric' as const,
+      checkConfig: { threshold: 10 },
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Metric rule requires a "metric" in checkConfig');
   });
 
   it('should validate metric rule missing threshold', () => {
-    const rule = { id: 'r1', description: 'Test', checkType: 'metric' as const, checkConfig: { metric: 'function-lines' }, severity: 'medium' as const, autoFixable: false };
+    const rule = {
+      id: 'r1',
+      description: 'Test',
+      checkType: 'metric' as const,
+      checkConfig: { metric: 'function-lines' },
+      severity: 'medium' as const,
+      autoFixable: false,
+    };
     const result = editor.validateRule(rule, 'code');
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('Metric rule requires a "threshold" in checkConfig');
@@ -901,18 +1019,17 @@ describe('exportCustomRules and importCustomRules', () => {
   });
 
   it('should throw for invalid JSON', () => {
-    expect(() => editor.importCustomRules('std-1', 'not json {{{'))
-      .toThrow('Invalid JSON');
+    expect(() => editor.importCustomRules('std-1', 'not json {{{')).toThrow('Invalid JSON');
   });
 
   it('should throw for non-array JSON', () => {
-    expect(() => editor.importCustomRules('std-1', '{"key":"value"}'))
-      .toThrow('Custom rules JSON must be an array');
+    expect(() => editor.importCustomRules('std-1', '{"key":"value"}')).toThrow(
+      'Custom rules JSON must be an array',
+    );
   });
 
   it('should throw for empty standardId', () => {
-    expect(() => editor.importCustomRules('', '[]'))
-      .toThrow('standardId is required');
+    expect(() => editor.importCustomRules('', '[]')).toThrow('standardId is required');
   });
 
   it('should handle an empty array import', () => {
@@ -926,7 +1043,13 @@ describe('exportCustomRules and importCustomRules', () => {
       null,
       'string',
       42,
-      { id: 'valid-rule', description: 'OK', checkType: 'regex', checkConfig: { pattern: 'test' }, severity: 'low' },
+      {
+        id: 'valid-rule',
+        description: 'OK',
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'low',
+      },
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
@@ -934,87 +1057,100 @@ describe('exportCustomRules and importCustomRules', () => {
   });
 
   it('should handle items with non-string id (use undefined)', () => {
-    const json = JSON.stringify([{
-      id: 123,
-      description: 'test',
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-      severity: 'medium',
-    }]);
+    const json = JSON.stringify([
+      {
+        id: 123,
+        description: 'test',
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'medium',
+      },
+    ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
     expect(imported[0].id).toMatch(/^custom-std-1-/);
   });
 
   it('should handle items with non-string description (use empty)', () => {
-    const json = JSON.stringify([{
-      id: 'r1',
-      description: null,
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-      severity: 'low',
-    }]);
-    expect(() => editor.importCustomRules('std-1', json))
-      .toThrow('Rule description is required');
+    const json = JSON.stringify([
+      {
+        id: 'r1',
+        description: null,
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'low',
+      },
+    ]);
+    expect(() => editor.importCustomRules('std-1', json)).toThrow('Rule description is required');
   });
 
   it('should handle items with null checkType (use default regex)', () => {
-    const json = JSON.stringify([{
-      id: 'r1',
-      description: 'test',
-      checkConfig: { pattern: 'test' },
-      severity: 'low',
-    }]);
+    const json = JSON.stringify([
+      {
+        id: 'r1',
+        description: 'test',
+        checkConfig: { pattern: 'test' },
+        severity: 'low',
+      },
+    ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
     expect(imported[0].checkType).toBe('regex');
   });
 
   it('should handle items with null checkConfig (use empty)', () => {
-    const json = JSON.stringify([{
-      id: 'r1',
-      description: 'test',
-      checkType: 'ast-pattern',
-      severity: 'low',
-    }]);
+    const json = JSON.stringify([
+      {
+        id: 'r1',
+        description: 'test',
+        checkType: 'ast-pattern',
+        severity: 'low',
+      },
+    ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
     expect(imported[0].checkConfig).toEqual({});
   });
 
   it('should handle items with null severity (use default medium)', () => {
-    const json = JSON.stringify([{
-      id: 'r1',
-      description: 'test',
-      checkType: 'metric',
-      checkConfig: { metric: 'nesting-depth', threshold: 4 },
-    }]);
+    const json = JSON.stringify([
+      {
+        id: 'r1',
+        description: 'test',
+        checkType: 'metric',
+        checkConfig: { metric: 'nesting-depth', threshold: 4 },
+      },
+    ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
     expect(imported[0].severity).toBe('medium');
   });
 
   it('should handle non-string fixSuggestion', () => {
-    const json = JSON.stringify([{
-      id: 'r1',
-      description: 'test',
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-      severity: 'low',
-      fixSuggestion: 42,
-    }]);
+    const json = JSON.stringify([
+      {
+        id: 'r1',
+        description: 'test',
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'low',
+        fixSuggestion: 42,
+      },
+    ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
     expect(imported[0].fixSuggestion).toBeUndefined();
   });
 
   it('should handle missing id field by auto-generating', () => {
-    const json = JSON.stringify([{
-      description: 'auto-id test',
-      checkType: 'regex',
-      checkConfig: { pattern: 'test' },
-      severity: 'low',
-    }]);
+    const json = JSON.stringify([
+      {
+        description: 'auto-id test',
+        checkType: 'regex',
+        checkConfig: { pattern: 'test' },
+        severity: 'low',
+      },
+    ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
     expect(imported[0].id).toMatch(/^custom-std-1-/);
@@ -1063,7 +1199,10 @@ describe('getRuleTemplates', () => {
 
   it('should include expected template IDs', () => {
     const editor = makeEditor();
-    const ids = editor.getRuleTemplates().map((t) => t.id).sort();
+    const ids = editor
+      .getRuleTemplates()
+      .map((t) => t.id)
+      .sort();
     expect(ids).toEqual([
       'template-max-file-lines',
       'template-max-function-size',
@@ -1148,15 +1287,11 @@ describe('createRuleFromTemplate', () => {
   });
 
   it('should apply overrides to a template-based rule', () => {
-    const rule = editor.createRuleFromTemplate(
-      'std-1',
-      'template-max-function-size',
-      {
-        severity: 'critical',
-        description: 'Custom max function size',
-        checkConfig: { metric: 'function-lines', threshold: 100 },
-      },
-    );
+    const rule = editor.createRuleFromTemplate('std-1', 'template-max-function-size', {
+      severity: 'critical',
+      description: 'Custom max function size',
+      checkConfig: { metric: 'function-lines', threshold: 100 },
+    });
     expect(rule.severity).toBe('critical');
     expect(rule.description).toBe('Custom max function size');
     expect(rule.checkConfig.threshold).toBe(100);
@@ -1177,9 +1312,9 @@ describe('createRuleFromTemplate', () => {
   });
 
   it('should throw for a non-existent template', () => {
-    expect(() =>
-      editor.createRuleFromTemplate('std-1', 'nonexistent-template'),
-    ).toThrow(/not found/);
+    expect(() => editor.createRuleFromTemplate('std-1', 'nonexistent-template')).toThrow(
+      /not found/,
+    );
   });
 
   it('should generate unique IDs for template-based rules', () => {
@@ -1225,11 +1360,14 @@ describe('mergeWithStandard', () => {
   });
 
   it('should replace existing rules with matching IDs', () => {
-    editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'existing-rule',
-      description: 'Replaced',
-      severity: 'critical',
-    }));
+    editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'existing-rule',
+        description: 'Replaced',
+        severity: 'critical',
+      }),
+    );
     const merged = editor.mergeWithStandard('std-1', baseStandard);
     expect(merged.rules).toHaveLength(1);
     expect(merged.rules[0].id).toBe('existing-rule');
@@ -1239,11 +1377,14 @@ describe('mergeWithStandard', () => {
 
   it('should handle a mix of new and replacement rules', () => {
     // Replace existing-rule
-    editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'existing-rule',
-      description: 'Updated existing',
-      severity: 'high',
-    }));
+    editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'existing-rule',
+        description: 'Updated existing',
+        severity: 'high',
+      }),
+    );
     // Add new
     editor.createCustomRule('std-1', makeValidMetricInput({ id: 'new-metric' }));
 
@@ -1290,10 +1431,13 @@ describe('edge cases', () => {
 
   it('should handle rules with empty string fixSuggestion', () => {
     const editor = makeEditor();
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({
-      id: 'empty-fix',
-      fixSuggestion: '',
-    }));
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'empty-fix',
+        fixSuggestion: '',
+      }),
+    );
     expect(rule.fixSuggestion).toBe('');
   });
 
@@ -1346,8 +1490,9 @@ describe('edge cases', () => {
 
   it('should allow creating rules for an empty string standardId (rejected)', () => {
     const editor = makeEditor();
-    expect(() => editor.createCustomRule('', makeValidRegexInput()))
-      .toThrow('standardId is required');
+    expect(() => editor.createCustomRule('', makeValidRegexInput())).toThrow(
+      'standardId is required',
+    );
   });
 
   it('should handle exporting and importing deeply nested checkConfig', () => {

@@ -26,14 +26,17 @@ function detectExpressRoutes(lines: string[], filePath: string): DetectedRoute[]
   const routes: DetectedRoute[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    const m = line.match(/(?:app|router|this)\.(get|post|put|delete|patch|all|use)\s*\(\s*['"]([^'"]+)['"]/);
+    const m = line.match(
+      /(?:app|router|this)\.(get|post|put|delete|patch|all|use)\s*\(\s*['"]([^'"]+)['"]/,
+    );
     if (m) {
       // Extract response shape from nearby lines
       const surrounding = lines.slice(i, Math.min(i + 20, lines.length)).join('\n');
       const shape = extractResponseShape(surrounding);
 
       routes.push({
-        filePath, line: i + 1,
+        filePath,
+        line: i + 1,
         method: m[1]!.toUpperCase(),
         path: m[2]!,
         handler: `line ${i + 1}`,
@@ -50,7 +53,9 @@ function detectPythonRoutes(lines: string[], filePath: string): DetectedRoute[] 
   const routes: DetectedRoute[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    const m = line.match(/@(?:app|router|bp)\.(get|post|put|delete|patch|route)\s*\(\s*['"]([^'"]+)['"]/);
+    const m = line.match(
+      /@(?:app|router|bp)\.(get|post|put|delete|patch|route)\s*\(\s*['"]([^'"]+)['"]/,
+    );
     if (m) {
       const nextLine = i + 1 < lines.length ? lines[i + 1]! : '';
       const funcMatch = nextLine.match(/(?:async\s+)?def\s+(\w+)/);
@@ -58,11 +63,15 @@ function detectPythonRoutes(lines: string[], filePath: string): DetectedRoute[] 
       const shape = extractResponseShape(surrounding);
 
       routes.push({
-        filePath, line: i + 1,
+        filePath,
+        line: i + 1,
         method: m[1]!.toUpperCase(),
         path: m[2]!,
         handler: funcMatch ? funcMatch[1]! : `line ${i + 2}`,
-        code: lines.slice(i, i + 2).join('\n').trim(),
+        code: lines
+          .slice(i, i + 2)
+          .join('\n')
+          .trim(),
         responseShape: shape ?? undefined,
       });
     }
@@ -81,7 +90,8 @@ function detectGraphQLResolvers(lines: string[], filePath: string): DetectedRout
       const m = lines[i]!.match(/(\w+)\s*:\s*(?:async\s*)?\(/);
       if (m && !['Query', 'Mutation', 'Subscription'].includes(m[1]!)) {
         routes.push({
-          filePath, line: i + 1,
+          filePath,
+          line: i + 1,
           method: 'GRAPHQL',
           path: m[1]!,
           handler: m[1]!,
@@ -98,10 +108,7 @@ function detectGraphQLResolvers(lines: string[], filePath: string): DetectedRout
 // Route analysis
 // ---------------------------------------------------------------------------
 
-function analyzeRoute(
-  route: DetectedRoute,
-  lines: string[],
-): LensFinding[] {
+function analyzeRoute(route: DetectedRoute, lines: string[]): LensFinding[] {
   const findings: LensFinding[] = [];
   const handlerLines = lines.slice(
     Math.max(0, route.line - 1),
@@ -112,54 +119,89 @@ function analyzeRoute(
   // 1. Missing HTTP method validation
   if (['POST', 'PUT', 'PATCH'].includes(route.method)) {
     const hasValidation =
-      /\bvalidate\b|\bschema\b|\bsanitize\b|\bcheck\b|\btypeof\b|\binstanceof\b|\bJoi\b|\bzod\b|\byup\b|\bclass-validator\b/i.test(handlerText);
+      /\bvalidate\b|\bschema\b|\bsanitize\b|\bcheck\b|\btypeof\b|\binstanceof\b|\bJoi\b|\bzod\b|\byup\b|\bclass-validator\b/i.test(
+        handlerText,
+      );
     if (!hasValidation) {
       const evidence: EvidenceAnchor = {
-        filePath: route.filePath, startLine: route.line, endLine: route.line,
+        filePath: route.filePath,
+        startLine: route.line,
+        endLine: route.line,
         codeSnippet: route.code,
-        lens: 'api', ruleId: 'api-missing-validation',
+        lens: 'api',
+        ruleId: 'api-missing-validation',
       };
-      const f = createLensFinding('api', 'api', 'high',
+      const f = createLensFinding(
+        'api',
+        'api',
+        'high',
         `Missing Input Validation: ${route.method} ${route.path}`,
         `${route.method} route "${route.path}" has no input validation. Validate all user inputs to prevent injection and data corruption.`,
         evidence,
-        { suggestion: 'Add schema validation (e.g., Joi, Zod, Yup) for request body/params/query.', ruleId: 'api-missing-validation' });
+        {
+          suggestion: 'Add schema validation (e.g., Joi, Zod, Yup) for request body/params/query.',
+          ruleId: 'api-missing-validation',
+        },
+      );
       if (f) findings.push(f);
     }
   }
 
   // 2. Missing error handling
   if (['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(route.method)) {
-    const hasErrorHandling =
-      /\btry\b|\bcatch\b|\b\.catch\b|\bthrow\b|\bnext\s*\(/.test(handlerText);
+    const hasErrorHandling = /\btry\b|\bcatch\b|\b\.catch\b|\bthrow\b|\bnext\s*\(/.test(
+      handlerText,
+    );
     if (!hasErrorHandling) {
       const evidence: EvidenceAnchor = {
-        filePath: route.filePath, startLine: route.line, endLine: route.line,
+        filePath: route.filePath,
+        startLine: route.line,
+        endLine: route.line,
         codeSnippet: route.code,
-        lens: 'api', ruleId: 'api-missing-error-handling',
+        lens: 'api',
+        ruleId: 'api-missing-error-handling',
       };
-      const f = createLensFinding('api', 'api', 'medium',
+      const f = createLensFinding(
+        'api',
+        'api',
+        'medium',
         `Missing Error Handling: ${route.method} ${route.path}`,
         `${route.method} route "${route.path}" has no visible try/catch error handling. Unhandled errors will crash the server.`,
         evidence,
-        { suggestion: 'Wrap handler logic in try/catch and return proper error responses.', ruleId: 'api-missing-error-handling' });
+        {
+          suggestion: 'Wrap handler logic in try/catch and return proper error responses.',
+          ruleId: 'api-missing-error-handling',
+        },
+      );
       if (f) findings.push(f);
     }
   }
 
   // 3. Missing rate limiting
-  const hasRateLimit = /\brate\s*limit\b|\bthrottle\b|\bexpress-rate-limit\b|\bratelimit\b/i.test(handlerText);
+  const hasRateLimit = /\brate\s*limit\b|\bthrottle\b|\bexpress-rate-limit\b|\bratelimit\b/i.test(
+    handlerText,
+  );
   if (!hasRateLimit && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(route.method)) {
     const evidence: EvidenceAnchor = {
-      filePath: route.filePath, startLine: route.line, endLine: route.line,
+      filePath: route.filePath,
+      startLine: route.line,
+      endLine: route.line,
       codeSnippet: route.code,
-      lens: 'api', ruleId: 'api-missing-rate-limit',
+      lens: 'api',
+      ruleId: 'api-missing-rate-limit',
     };
-    const f = createLensFinding('api', 'api', 'low',
+    const f = createLensFinding(
+      'api',
+      'api',
+      'low',
       `Consider Rate Limiting: ${route.method} ${route.path}`,
       `${route.method} route "${route.path}" has no rate limiting. Consider adding rate limiting to prevent abuse.`,
       evidence,
-      { suggestion: 'Use express-rate-limit or a middleware to protect this endpoint.', ruleId: 'api-missing-rate-limit' });
+      {
+        suggestion: 'Use express-rate-limit or a middleware to protect this endpoint.',
+        ruleId: 'api-missing-rate-limit',
+      },
+    );
     if (f) findings.push(f);
   }
 
@@ -229,23 +271,31 @@ function detectResponseFormatInconsistencies(
 
   // Compare shapes within the same group for inconsistency
   if (routeShapes.length >= 2) {
-    const shapes = new Set(routeShapes.map(r => r.shape));
+    const shapes = new Set(routeShapes.map((r) => r.shape));
     if (shapes.size >= 2) {
       const sample1 = routeShapes[0]!;
-      const sample2 = routeShapes.find(r => r.shape !== sample1.shape) ?? routeShapes[1]!;
+      const sample2 = routeShapes.find((r) => r.shape !== sample1.shape) ?? routeShapes[1]!;
 
       const evidence: EvidenceAnchor = {
         filePath: routes[0]!.filePath,
         startLine: Math.min(sample1.line, sample2.line),
         endLine: Math.max(sample1.line, sample2.line),
         codeSnippet: `Inconsistent: ${sample1.path} returns [${sample1.shape}] but ${sample2.path} returns [${sample2.shape}]`,
-        lens: 'api', ruleId: 'api-inconsistent-response',
+        lens: 'api',
+        ruleId: 'api-inconsistent-response',
       };
-      const f = createLensFinding('api', 'api', 'high',
+      const f = createLensFinding(
+        'api',
+        'api',
+        'high',
         `Inconsistent Response Format`,
         `Route "${sample1.path}" returns response with fields [${sample1.shape}] while "${sample2.path}" returns [${sample2.shape}]. Consistent response shapes improve API usability.`,
         evidence,
-        { suggestion: 'Standardize response format: { data, error, meta } for all endpoints.', ruleId: 'api-inconsistent-response' });
+        {
+          suggestion: 'Standardize response format: { data, error, meta } for all endpoints.',
+          ruleId: 'api-inconsistent-response',
+        },
+      );
       if (f) findings.push(f);
     }
   }
@@ -261,10 +311,7 @@ function detectResponseFormatInconsistencies(
  * Detect routes without rate limiting middleware applied at the router level.
  * Checks the full file content for rate limiting middleware usage.
  */
-function detectGlobalRateLimit(
-  lines: string[],
-  filePath: string,
-): LensFinding[] {
+function detectGlobalRateLimit(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
   const content = lines.join('\n');
 
@@ -274,27 +321,40 @@ function detectGlobalRateLimit(
     /\bexpress-rate-limit\b|\bratelimit\b|\bthrottle\b/i.test(content);
 
   // Check for rate-limit middleware usage
-  const hasRateLimitUsage =
-    /\brateLimit\(|\.rateLimit\(|rate_limiter\b|RateLimiter\b/.test(content);
+  const hasRateLimitUsage = /\brateLimit\(|\.rateLimit\(|rate_limiter\b|RateLimiter\b/.test(
+    content,
+  );
 
   // Only flag if no rate limiting at all in route files
   const isRouteFile =
-    /\/api\/|\/routes\/|\/controllers\/|\/handlers\/|router\.|app\.(?:get|post|put|delete)/i.test(content);
+    /\/api\/|\/routes\/|\/controllers\/|\/handlers\/|router\.|app\.(?:get|post|put|delete)/i.test(
+      content,
+    );
 
   if (isRouteFile && !hasRateLimitImport && !hasRateLimitUsage) {
     // Count handlers as evidence
     const handlerCount = (content.match(/\.(?:get|post|put|delete|patch)\s*\(/g) || []).length;
     if (handlerCount >= 3) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: 1, endLine: lines.length,
+        filePath,
+        startLine: 1,
+        endLine: lines.length,
         codeSnippet: `${handlerCount} route handlers without rate limiting middleware`,
-        lens: 'api', ruleId: 'api-no-global-rate-limit',
+        lens: 'api',
+        ruleId: 'api-no-global-rate-limit',
       };
-      const f = createLensFinding('api', 'security', 'high',
+      const f = createLensFinding(
+        'api',
+        'security',
+        'high',
         `Missing Global Rate Limiting: ${handlerCount} routes unprotected`,
         `This file defines ${handlerCount} route handlers with no rate limiting middleware. Without rate limiting, endpoints are vulnerable to brute force, DDoS, and abuse.`,
         evidence,
-        { suggestion: 'Add express-rate-limit or equivalent middleware at the router level.', ruleId: 'api-no-global-rate-limit' });
+        {
+          suggestion: 'Add express-rate-limit or equivalent middleware at the router level.',
+          ruleId: 'api-no-global-rate-limit',
+        },
+      );
       if (f) findings.push(f);
     }
   }
@@ -311,10 +371,7 @@ function detectGlobalRateLimit(
  * Flags: Access-Control-Allow-Origin: *, credentials with wildcard origin,
  * overly broad allowed methods/headers.
  */
-function detectCORSConfiguration(
-  lines: string[],
-  filePath: string,
-): LensFinding[] {
+function detectCORSConfiguration(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
   const content = lines.join('\n');
 
@@ -329,30 +386,51 @@ function detectCORSConfiguration(
     // Check for Access-Control-Allow-Origin: * (wildcard)
     if (/\bAccess-Control-Allow-Origin\s*:\s*\*/.test(line)) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: i + 1, endLine: i + 1,
+        filePath,
+        startLine: i + 1,
+        endLine: i + 1,
         codeSnippet: line.trim().slice(0, 200),
-        lens: 'api', ruleId: 'api-cors-wildcard',
+        lens: 'api',
+        ruleId: 'api-cors-wildcard',
       };
-      const f = createLensFinding('api', 'security', 'high',
+      const f = createLensFinding(
+        'api',
+        'security',
+        'high',
         'Overly Permissive CORS: Wildcard Origin',
         `CORS configured with Access-Control-Allow-Origin: * allows any domain to access the API. This may expose sensitive data to malicious sites.`,
         evidence,
-        { suggestion: 'Restrict CORS origins to trusted domains: cors({ origin: ["https://app.example.com"] })', ruleId: 'api-cors-wildcard' });
+        {
+          suggestion:
+            'Restrict CORS origins to trusted domains: cors({ origin: ["https://app.example.com"] })',
+          ruleId: 'api-cors-wildcard',
+        },
+      );
       if (f) findings.push(f);
     }
 
     // Check for cors() with wildcard (e.g., cors({ origin: '*' }))
     if (/\bcors\s*\(\s*\{\s*origin\s*:\s*['"]\*['"]\s*/.test(line)) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: i + 1, endLine: i + 1,
+        filePath,
+        startLine: i + 1,
+        endLine: i + 1,
         codeSnippet: line.trim().slice(0, 200),
-        lens: 'api', ruleId: 'api-cors-wildcard-js',
+        lens: 'api',
+        ruleId: 'api-cors-wildcard-js',
       };
-      const f = createLensFinding('api', 'security', 'high',
+      const f = createLensFinding(
+        'api',
+        'security',
+        'high',
         'CORS Wildcard Origin in Config',
         `CORS configured with origin: "*" allows any origin. Restrict to specific domains.`,
         evidence,
-        { suggestion: 'Replace "*" with your application\'s allowed domains.', ruleId: 'api-cors-wildcard-js' });
+        {
+          suggestion: 'Replace "*" with your application\'s allowed domains.',
+          ruleId: 'api-cors-wildcard-js',
+        },
+      );
       if (f) findings.push(f);
     }
 
@@ -361,15 +439,25 @@ function detectCORSConfiguration(
       const nearby = lines.slice(Math.max(0, i - 5), Math.min(lines.length, i + 5)).join('\n');
       if (/['"]\*['"]/.test(nearby) || /\borigin\s*:\s*\*/.test(nearby)) {
         const evidence: EvidenceAnchor = {
-          filePath, startLine: i + 1, endLine: i + 1,
+          filePath,
+          startLine: i + 1,
+          endLine: i + 1,
           codeSnippet: line.trim().slice(0, 200),
-          lens: 'api', ruleId: 'api-cors-credentials',
+          lens: 'api',
+          ruleId: 'api-cors-credentials',
         };
-        const f = createLensFinding('api', 'security', 'critical',
+        const f = createLensFinding(
+          'api',
+          'security',
+          'critical',
           'Dangerous CORS: Credentials with Wildcard',
           `CORS configured with credentials: true and wildcard origin. This is a security vulnerability — browsers block this combination, but bypasses may exist. Never use credentials with wildcard origin.`,
           evidence,
-          { suggestion: 'Use specific origins with credentials, never "*".', ruleId: 'api-cors-credentials' });
+          {
+            suggestion: 'Use specific origins with credentials, never "*".',
+            ruleId: 'api-cors-credentials',
+          },
+        );
         if (f) findings.push(f);
       }
     }
@@ -395,8 +483,12 @@ function detectGraphQLSchemaBreakingChanges(
   if (!previousContent) return findings;
 
   // Only check .graphql or .gql files
-  if (!filePath.endsWith('.graphql') && !filePath.endsWith('.gql') &&
-      !filePath.includes('schema') && !filePath.includes('typeDefs')) {
+  if (
+    !filePath.endsWith('.graphql') &&
+    !filePath.endsWith('.gql') &&
+    !filePath.includes('schema') &&
+    !filePath.includes('typeDefs')
+  ) {
     return findings;
   }
 
@@ -406,38 +498,58 @@ function detectGraphQLSchemaBreakingChanges(
 
   // Check for removed types
   for (const prevType of previousTypes) {
-    if (!currentTypes.some(t => t.name === prevType.name)) {
+    if (!currentTypes.some((t) => t.name === prevType.name)) {
       const evidence: EvidenceAnchor = {
-        filePath, startLine: 1, endLine: 1,
+        filePath,
+        startLine: 1,
+        endLine: 1,
         codeSnippet: `Type "${prevType.name}" was removed`,
-        lens: 'api', ruleId: 'api-gql-removed-type',
+        lens: 'api',
+        ruleId: 'api-gql-removed-type',
       };
-      const f = createLensFinding('api', 'api', 'critical',
+      const f = createLensFinding(
+        'api',
+        'api',
+        'critical',
         `GraphQL Breaking Change: Removed Type "${prevType.name}"`,
         `Type "${prevType.name}" was removed from the GraphQL schema. This is a BREAKING CHANGE — clients querying this type will receive errors. Use @deprecated before removal.`,
         evidence,
-        { suggestion: `Restore type "${prevType.name}" or add @deprecated with a migration path.`, ruleId: 'api-gql-removed-type' });
+        {
+          suggestion: `Restore type "${prevType.name}" or add @deprecated with a migration path.`,
+          ruleId: 'api-gql-removed-type',
+        },
+      );
       if (f) findings.push(f);
     }
   }
 
   // Check for removed fields within types
   for (const prevType of previousTypes) {
-    const curType = currentTypes.find(t => t.name === prevType.name);
+    const curType = currentTypes.find((t) => t.name === prevType.name);
     if (!curType) continue;
 
     for (const prevField of prevType.fields) {
       if (!curType.fields.includes(prevField)) {
         const evidence: EvidenceAnchor = {
-          filePath, startLine: 1, endLine: 1,
+          filePath,
+          startLine: 1,
+          endLine: 1,
           codeSnippet: `Field "${prevType.name}.${prevField}" was removed`,
-          lens: 'api', ruleId: 'api-gql-removed-field',
+          lens: 'api',
+          ruleId: 'api-gql-removed-field',
         };
-        const f = createLensFinding('api', 'api', 'critical',
+        const f = createLensFinding(
+          'api',
+          'api',
+          'critical',
           `GraphQL Breaking Change: Removed Field "${prevType.name}.${prevField}"`,
           `Field "${prevField}" was removed from type "${prevType.name}". This is a BREAKING CHANGE. Add @deprecated to the field first and communicate migration timeline to API consumers.`,
           evidence,
-          { suggestion: `Restore field "${prevField}" in ${prevType.name} with @deprecated annotation.`, ruleId: 'api-gql-removed-field' });
+          {
+            suggestion: `Restore field "${prevField}" in ${prevType.name} with @deprecated annotation.`,
+            ruleId: 'api-gql-removed-field',
+          },
+        );
         if (f) findings.push(f);
       }
     }

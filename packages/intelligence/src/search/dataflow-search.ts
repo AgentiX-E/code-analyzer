@@ -83,26 +83,75 @@ interface Sanitizer {
 }
 
 const DEFAULT_SOURCES: TaintSource[] = [
-  { namePattern: /\b(?:req\.(?:body|query|params|headers)|request\.(?:body|query|params)|ctx\.request\.(?:body|query))/, category: 'user_input', riskWeight: 8 },
-  { namePattern: /\b(?:process\.argv|process\.env|Deno\.args|sys\.argv)/, category: 'environment', riskWeight: 4 },
+  {
+    namePattern:
+      /\b(?:req\.(?:body|query|params|headers)|request\.(?:body|query|params)|ctx\.request\.(?:body|query))/,
+    category: 'user_input',
+    riskWeight: 8,
+  },
+  {
+    namePattern: /\b(?:process\.argv|process\.env|Deno\.args|sys\.argv)/,
+    category: 'environment',
+    riskWeight: 4,
+  },
   { namePattern: /\b(?:readFile|fs\.readFile|open\s*\()/, category: 'filesystem', riskWeight: 6 },
-  { namePattern: /\b(?:fetch|axios|http\.get|urllib\.request|reqwest|HttpClient)/, category: 'network', riskWeight: 7 },
+  {
+    namePattern: /\b(?:fetch|axios|http\.get|urllib\.request|reqwest|HttpClient)/,
+    category: 'network',
+    riskWeight: 7,
+  },
 ];
 
 const DEFAULT_SINKS: TaintSink[] = [
-  { namePattern: /\b(?:db\.query|db\.execute|sequelize\.query|mongoose\.exec|sql|query\(|connection\.query)/, category: 'db_query', riskWeight: 10 },
-  { namePattern: /\b(?:writeFile|writeFileSync|fs\.write|fs\.appendFile|open\s*\(\s*['\"]w)/, category: 'file_write', riskWeight: 7 },
-  { namePattern: /\b(?:eval|exec|execSync|spawn|subprocess|child_process|os\.exec)\s*\(/, category: 'code_exec', riskWeight: 10 },
-  { namePattern: /\b(?:res\.send|res\.write|res\.json|res\.end|sendResponse|http\.response)/, category: 'network_send', riskWeight: 6 },
-  { namePattern: /\b(?:child_process\.exec|shelljs\.exec|\.run\s*\(|sh\s+-c)/, category: 'command_exec', riskWeight: 9 },
+  {
+    namePattern:
+      /\b(?:db\.query|db\.execute|sequelize\.query|mongoose\.exec|sql|query\(|connection\.query)/,
+    category: 'db_query',
+    riskWeight: 10,
+  },
+  {
+    namePattern: /\b(?:writeFile|writeFileSync|fs\.write|fs\.appendFile|open\s*\(\s*['\"]w)/,
+    category: 'file_write',
+    riskWeight: 7,
+  },
+  {
+    namePattern: /\b(?:eval|exec|execSync|spawn|subprocess|child_process|os\.exec)\s*\(/,
+    category: 'code_exec',
+    riskWeight: 10,
+  },
+  {
+    namePattern: /\b(?:res\.send|res\.write|res\.json|res\.end|sendResponse|http\.response)/,
+    category: 'network_send',
+    riskWeight: 6,
+  },
+  {
+    namePattern: /\b(?:child_process\.exec|shelljs\.exec|\.run\s*\(|sh\s+-c)/,
+    category: 'command_exec',
+    riskWeight: 9,
+  },
 ];
 
 const DEFAULT_SANITIZERS: Sanitizer[] = [
-  { namePattern: /\b(?:DOMPurify\.sanitize|sanitizeHtml|escapeHtml|encodeURI|htmlspecialchars)/, protects: 'xss' },
-  { namePattern: /\b(?:mysql\.escape|pg\.escape|parameterize|escapeSQL|escape_query)/, protects: 'sql_injection' },
-  { namePattern: /\b(?:path\.basename|path\.normalize|sanitizePath|escapePath|path\.resolve)/, protects: 'path_traversal' },
-  { namePattern: /\b(?:escapeShellArg|shellQuote|escapeShell|sanitizeCommand)/, protects: 'command_injection' },
-  { namePattern: /\b(?:zod\.parse|yup\.validate|joi\.validate|class-validator|validate\s*\()/, protects: 'general' },
+  {
+    namePattern: /\b(?:DOMPurify\.sanitize|sanitizeHtml|escapeHtml|encodeURI|htmlspecialchars)/,
+    protects: 'xss',
+  },
+  {
+    namePattern: /\b(?:mysql\.escape|pg\.escape|parameterize|escapeSQL|escape_query)/,
+    protects: 'sql_injection',
+  },
+  {
+    namePattern: /\b(?:path\.basename|path\.normalize|sanitizePath|escapePath|path\.resolve)/,
+    protects: 'path_traversal',
+  },
+  {
+    namePattern: /\b(?:escapeShellArg|shellQuote|escapeShell|sanitizeCommand)/,
+    protects: 'command_injection',
+  },
+  {
+    namePattern: /\b(?:zod\.parse|yup\.validate|joi\.validate|class-validator|validate\s*\()/,
+    protects: 'general',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -131,10 +180,7 @@ export class DataflowSearchEngine {
    * Find all dataflow paths from any source to any sink.
    * Uses BFS from each identified source node with adjacency traversal.
    */
-  findPaths(options?: {
-    maxDepth?: number;
-    maxPaths?: number;
-  }): DataflowPath[] {
+  findPaths(options?: { maxDepth?: number; maxPaths?: number }): DataflowPath[] {
     const maxDepth = options?.maxDepth ?? 10;
     const maxPaths = options?.maxPaths ?? 100;
     const allPaths: DataflowPath[] = [];
@@ -146,21 +192,14 @@ export class DataflowSearchEngine {
 
     for (const sourceNode of identifiedSources) {
       // BFS from each source
-      const paths = this.bfsFromSource(
-        sourceNode,
-        identifiedSinks,
-        identifiedSanitizers,
-        maxDepth,
-      );
+      const paths = this.bfsFromSource(sourceNode, identifiedSinks, identifiedSanitizers, maxDepth);
       allPaths.push(...paths);
 
       if (allPaths.length >= maxPaths) break;
     }
 
     // Sort by risk score descending
-    return allPaths
-      .sort((a, b) => b.riskScore - a.riskScore)
-      .slice(0, maxPaths);
+    return allPaths.sort((a, b) => b.riskScore - a.riskScore).slice(0, maxPaths);
   }
 
   /**
@@ -172,7 +211,7 @@ export class DataflowSearchEngine {
 
     const identifiedSinks = this.identifyNodes(this.sinks);
     const identifiedSanitizers = this.identifySanitizerNodes();
-    const sinkSet = new Set(identifiedSinks.map(n => n.nodeId));
+    const sinkSet = new Set(identifiedSinks.map((n) => n.nodeId));
 
     const sourceDataflowNode: DataflowNode = {
       nodeId: sourceNode.id,
@@ -203,7 +242,7 @@ export class DataflowSearchEngine {
       results.push({
         sink: sinkPaths[0]!.nodes[sinkPaths[0]!.nodes.length - 1]!,
         paths: sinkPaths,
-        shortestPathLength: Math.min(...sinkPaths.map(p => p.nodes.length)),
+        shortestPathLength: Math.min(...sinkPaths.map((p) => p.nodes.length)),
       });
     }
 
@@ -215,7 +254,7 @@ export class DataflowSearchEngine {
    */
   taintAnalysis(entryPoints: string[], maxDepth: number = 10): TaintReport {
     // Build custom source patterns from entry points
-    const customSources: TaintSource[] = entryPoints.map(name => ({
+    const customSources: TaintSource[] = entryPoints.map((name) => ({
       namePattern: new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
       category: 'user_input' as const,
       riskWeight: 8,
@@ -228,12 +267,14 @@ export class DataflowSearchEngine {
     const paths = this.findPaths({ maxDepth, maxPaths: 200 });
     this.sources = originalSources;
 
-    const reachableCount = new Set(paths.map(p => p.nodes[p.nodes.length - 1]?.nodeId).filter(Boolean)).size;
-    const sanitizerPaths = paths.filter(p => p.hasSanitizer);
+    const reachableCount = new Set(
+      paths.map((p) => p.nodes[p.nodes.length - 1]?.nodeId).filter(Boolean),
+    ).size;
+    const sanitizerPaths = paths.filter((p) => p.hasSanitizer);
 
     let overallRisk: TaintReport['overallRisk'] = 'low';
-    const maxRisk = paths.length > 0 ? Math.max(...paths.map(p => p.riskScore)) : 0;
-    if (paths.some(p => p.riskScore >= 90)) overallRisk = 'critical';
+    const maxRisk = paths.length > 0 ? Math.max(...paths.map((p) => p.riskScore)) : 0;
+    if (paths.some((p) => p.riskScore >= 90)) overallRisk = 'critical';
     else if (maxRisk >= 70) overallRisk = 'high';
     else if (maxRisk >= 40) overallRisk = 'medium';
 
@@ -257,13 +298,14 @@ export class DataflowSearchEngine {
     // Check each line for source + sink coexistence
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      const hasSource = this.sources.some(s => s.namePattern.test(line));
-      const hasSink = this.sinks.some(s => s.namePattern.test(line));
-      const hasSanitizer = this.sanitizers.some(s => s.namePattern.test(line));
+      const hasSource = this.sources.some((s) => s.namePattern.test(line));
+      const hasSink = this.sinks.some((s) => s.namePattern.test(line));
+      const hasSanitizer = this.sanitizers.some((s) => s.namePattern.test(line));
 
       if (hasSource) {
-        const sourceKind = this.sources.find(s => s.namePattern.test(line))?.category ?? 'user_input';
-        const sinkFound = this.sinks.find(s => s.namePattern.test(line));
+        const sourceKind =
+          this.sources.find((s) => s.namePattern.test(line))?.category ?? 'user_input';
+        const sinkFound = this.sinks.find((s) => s.namePattern.test(line));
         const node: DataflowNode = {
           nodeId: 0,
           name: line.trim().slice(0, 60),
@@ -305,7 +347,7 @@ export class DataflowSearchEngine {
     const allNodes = this.store.getAllNodes();
 
     // Determine whether these are sources or sinks based on the category value
-    const sinkCategories = new Set(this.sinks.map(s => s.category));
+    const sinkCategories = new Set(this.sinks.map((s) => s.category));
 
     for (const node of allNodes) {
       const searchText = `${node.name} ${node.qualifiedName} ${node.signature ?? ''}`;
@@ -317,8 +359,13 @@ export class DataflowSearchEngine {
             name: node.name,
             filePath: node.filePath ?? '',
             line: node.startLine ?? 0,
-            kind: isSink ? (this.mapSinkCategory as (c: TaintSink['category']) => DataflowNode['kind'])((pattern as TaintSink).category)
-                         : (this.mapSourceCategory as (c: TaintSource['category']) => DataflowNode['kind'])((pattern as TaintSource).category),
+            kind: isSink
+              ? (this.mapSinkCategory as (c: TaintSink['category']) => DataflowNode['kind'])(
+                  (pattern as TaintSink).category,
+                )
+              : (this.mapSourceCategory as (c: TaintSource['category']) => DataflowNode['kind'])(
+                  (pattern as TaintSource).category,
+                ),
           });
           break;
         }
@@ -351,12 +398,17 @@ export class DataflowSearchEngine {
     sanitizerIds: Set<number>,
     maxDepth: number,
   ): DataflowPath[] {
-    const sinkSet = new Set(allSinks.map(s => s.nodeId));
+    const sinkSet = new Set(allSinks.map((s) => s.nodeId));
     const paths: DataflowPath[] = [];
 
     // BFS using adjacency from the graph store
     const visited = new Set<number>();
-    const queue: Array<{ nodeId: number; path: DataflowNode[]; depth: number; metSanitizer: boolean }> = [];
+    const queue: Array<{
+      nodeId: number;
+      path: DataflowNode[];
+      depth: number;
+      metSanitizer: boolean;
+    }> = [];
 
     queue.push({
       nodeId: source.nodeId,
@@ -404,7 +456,7 @@ export class DataflowSearchEngine {
             nodes: newPath,
             riskScore,
             hasSanitizer,
-            description: `Dataflow path: ${newPath.map(n => n.name).join(' → ')}`,
+            description: `Dataflow path: ${newPath.map((n) => n.name).join(' → ')}`,
           });
         } else if (current.depth + 1 < maxDepth) {
           queue.push({

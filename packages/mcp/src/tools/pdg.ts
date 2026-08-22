@@ -3,7 +3,16 @@
 
 import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
-import { EDGE_CALLS, EDGE_CFG, EDGE_DATA_FLOWS, EDGE_IMPORTS, EDGE_REACHING_DEF, EDGE_SANITIZES, EDGE_TAINTED, EDGE_TAINT_PATH } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_CFG,
+  EDGE_DATA_FLOWS,
+  EDGE_IMPORTS,
+  EDGE_REACHING_DEF,
+  EDGE_SANITIZES,
+  EDGE_TAINTED,
+  EDGE_TAINT_PATH,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // pdg_query — Analyze program dependence graph (CFG-based)
@@ -22,12 +31,26 @@ export const pdgQuerySchema = {
   properties: {
     functionId: { type: 'string', description: 'Function identifier (qualified name)' },
     projectId: { type: 'string', description: 'Project ID' },
-    edgeType: { type: 'string', description: 'Edge type filter', enum: [EDGE_CFG, EDGE_DATA_FLOWS, EDGE_REACHING_DEF, EDGE_TAINTED, EDGE_SANITIZES, EDGE_TAINT_PATH] },
+    edgeType: {
+      type: 'string',
+      description: 'Edge type filter',
+      enum: [
+        EDGE_CFG,
+        EDGE_DATA_FLOWS,
+        EDGE_REACHING_DEF,
+        EDGE_TAINTED,
+        EDGE_SANITIZES,
+        EDGE_TAINT_PATH,
+      ],
+    },
   },
   required: ['functionId', 'projectId'],
 };
 
-export async function pdgQuery(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function pdgQuery(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as PDGQueryParams;
   const functionId = params.functionId;
   const projectId = params.projectId;
@@ -71,19 +94,25 @@ export async function pdgQuery(args: Record<string, unknown>, store?: unknown): 
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        functionId,
-        projectId,
-        nodes,
-        edges,
-        totalNodes: nodes.length,
-        totalEdges: edges.length,
-        analysisType: 'basic-call-graph',
-        note: 'Full PDG analysis with CFG/data-flow requires deeper AST analysis. Use trace_call_path or explore_symbol for graph-based call tracing.',
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            functionId,
+            projectId,
+            nodes,
+            edges,
+            totalNodes: nodes.length,
+            totalEdges: edges.length,
+            analysisType: 'basic-call-graph',
+            note: 'Full PDG analysis with CFG/data-flow requires deeper AST analysis. Use trace_call_path or explore_symbol for graph-based call tracing.',
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -102,14 +131,25 @@ export const taintAnalysisSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
-    sourceKind: { type: 'string', description: 'Taint source kind', enum: ['user-input', 'file-read', 'network', 'environment', 'database'] },
-    sinkKind: { type: 'string', description: 'Taint sink kind', enum: ['file-write', 'sql-query', 'command-exec', 'html-render', 'network-send', 'eval'] },
+    sourceKind: {
+      type: 'string',
+      description: 'Taint source kind',
+      enum: ['user-input', 'file-read', 'network', 'environment', 'database'],
+    },
+    sinkKind: {
+      type: 'string',
+      description: 'Taint sink kind',
+      enum: ['file-write', 'sql-query', 'command-exec', 'html-render', 'network-send', 'eval'],
+    },
     filePath: { type: 'string', description: 'Specific file to analyze' },
   },
   required: ['projectId'],
 };
 
-export async function taintAnalysis(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function taintAnalysis(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as TaintAnalysisParams;
   const projectId = params.projectId;
   const sourceKind = params.sourceKind;
@@ -142,9 +182,7 @@ export async function taintAnalysis(args: Record<string, unknown>, store?: unkno
         const fp = (node.filePath ?? '').toLowerCase();
 
         // Check for source-like patterns
-        const isSource = sourcePatterns.some((p) =>
-          name.includes(p) || fp.includes(p)
-        );
+        const isSource = sourcePatterns.some((p) => name.includes(p) || fp.includes(p));
         if (!isSource) continue;
 
         // Check if it calls anything that looks like a sink
@@ -155,14 +193,20 @@ export async function taintAnalysis(args: Record<string, unknown>, store?: unkno
           const tName = target.name.toLowerCase();
           const tFp = (target.filePath ?? '').toLowerCase();
 
-          const isSink = sinkPatterns.some((p) =>
-            tName.includes(p) || tFp.includes(p)
-          );
+          const isSink = sinkPatterns.some((p) => tName.includes(p) || tFp.includes(p));
 
           if (isSink) {
             taintPaths.push({
-              source: { kind: sourceKind ?? 'detected', node: node.name, filePath: node.filePath ?? '' },
-              sink: { kind: sinkKind ?? 'detected', node: target.name, filePath: target.filePath ?? '' },
+              source: {
+                kind: sourceKind ?? 'detected',
+                node: node.name,
+                filePath: node.filePath ?? '',
+              },
+              sink: {
+                kind: sinkKind ?? 'detected',
+                node: target.name,
+                filePath: target.filePath ?? '',
+              },
               confidence: 'medium',
             });
             vulnerablePaths++;
@@ -177,20 +221,26 @@ export async function taintAnalysis(args: Record<string, unknown>, store?: unkno
   const severity = vulnerablePaths > 5 ? 'high' : vulnerablePaths > 0 ? 'medium' : 'low';
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        projectId,
-        sourceKind,
-        sinkKind,
-        filePath,
-        taintPaths,
-        vulnerablePaths,
-        severity,
-        analysisMethod: 'pattern-based-heuristic',
-        note: 'Full taint analysis requires data-flow graph construction. Use security-focused review for comprehensive analysis.',
-      }, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          {
+            projectId,
+            sourceKind,
+            sinkKind,
+            filePath,
+            taintPaths,
+            vulnerablePaths,
+            severity,
+            analysisMethod: 'pattern-based-heuristic',
+            note: 'Full taint analysis requires data-flow graph construction. Use security-focused review for comprehensive analysis.',
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
@@ -212,7 +262,10 @@ export const explainTaintSchema = {
   required: ['taintPathId', 'projectId'],
 };
 
-export async function explainTaint(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function explainTaint(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as ExplainTaintParams;
   const taintPathId = params.taintPathId;
   const projectId = params.projectId;
@@ -259,10 +312,12 @@ export async function explainTaint(args: Record<string, unknown>, store?: unknow
   }
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify(explanation, null, 2),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(explanation, null, 2),
+      },
+    ],
   };
 }
 

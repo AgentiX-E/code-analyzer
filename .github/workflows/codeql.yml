@@ -1,7 +1,7 @@
 # CodeQL Analysis Configuration
 # Scans for security vulnerabilities in TypeScript/JavaScript code.
 
-name: "CodeQL"
+name: 'CodeQL'
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   pull_request:
     branches: [master]
   schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
 
 permissions:
   security-events: write
@@ -40,4 +40,4 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{matrix.language}}"
+          category: '/language:${{matrix.language}}'

@@ -93,7 +93,14 @@ export function createParseCache(maxSize: number = 1000): ParseCache {
             language: '' as never,
             symbols: [],
             references: [],
-            scopeTree: { name: entry.filePath, kind: 'File', startLine: 1, endLine: 1, children: [], symbols: [] },
+            scopeTree: {
+              name: entry.filePath,
+              kind: 'File',
+              startLine: 1,
+              endLine: 1,
+              children: [],
+              symbols: [],
+            },
             ast: [],
           };
           this.set(hash, placeholder);

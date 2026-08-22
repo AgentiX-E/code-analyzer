@@ -8,18 +8,14 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 // Helper to create test data in a store
 // ---------------------------------------------------------------------------
 
-function makeNode(
-  name: string,
-  qualifiedName: string,
-  overrides?: Record<string, unknown>,
-) {
+function makeNode(name: string, qualifiedName: string, overrides?: Record<string, unknown>) {
   return {
     id: 0,
     projectId: 'test-project',
     label: 'Class' as const,
     name,
     qualifiedName,
-    filePath: overrides?.filePath as string ?? 'src/test.ts',
+    filePath: (overrides?.filePath as string) ?? 'src/test.ts',
     startLine: (overrides?.startLine as number) ?? 1,
     endLine: (overrides?.endLine as number) ?? 10,
     language: 'typescript',
@@ -281,8 +277,12 @@ describe('EngineBridge', () => {
 
     it('calls multiple listeners', async () => {
       let count = 0;
-      bridge.onIndexingComplete(() => { count++; });
-      bridge.onIndexingComplete(() => { count++; });
+      bridge.onIndexingComplete(() => {
+        count++;
+      });
+      bridge.onIndexingComplete(() => {
+        count++;
+      });
       await bridge.indexWorkspace('/tmp/test');
       expect(count).toBe(2);
     });

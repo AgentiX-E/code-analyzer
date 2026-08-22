@@ -55,22 +55,22 @@ Health endpoints (`/health`, `/api/v1/health`, `/api/v1/health/live`, `/api/v1/h
 
 Rate limiting is enabled by default with the following configuration:
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `windowMs` | `60_000` | Time window in milliseconds |
-| `max` | `100` | Maximum requests per window per IP |
-| `skipHealthEndpoints` | `true` | Exclude health endpoints from rate limits |
-| `keyGenerator` | IP-based | Custom function to derive rate limit key |
+| Parameter             | Default  | Description                               |
+| --------------------- | -------- | ----------------------------------------- |
+| `windowMs`            | `60_000` | Time window in milliseconds               |
+| `max`                 | `100`    | Maximum requests per window per IP        |
+| `skipHealthEndpoints` | `true`   | Exclude health endpoints from rate limits |
+| `keyGenerator`        | IP-based | Custom function to derive rate limit key  |
 
 When the rate limit is exceeded, the server returns `429 Too Many Requests` with a `Retry-After` header.
 
 Rate limit status headers are included in every response:
 
-| Header | Description |
-|--------|-------------|
-| `X-RateLimit-Limit` | Maximum requests per window |
-| `X-RateLimit-Remaining` | Requests remaining in current window |
-| `X-RateLimit-Reset` | Unix timestamp when the window resets |
+| Header                  | Description                           |
+| ----------------------- | ------------------------------------- |
+| `X-RateLimit-Limit`     | Maximum requests per window           |
+| `X-RateLimit-Remaining` | Requests remaining in current window  |
+| `X-RateLimit-Reset`     | Unix timestamp when the window resets |
 
 ---
 
@@ -203,11 +203,11 @@ Invoke a specific tool with arguments.
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `tool` | `string` | **Yes** | Name of the tool to invoke |
-| `args` | `object` | No | Tool-specific arguments |
-| `store` | `any` | No | Optional store context for stateful tools |
+| Field   | Type     | Required | Description                               |
+| ------- | -------- | -------- | ----------------------------------------- |
+| `tool`  | `string` | **Yes**  | Name of the tool to invoke                |
+| `args`  | `object` | No       | Tool-specific arguments                   |
+| `store` | `any`    | No       | Optional store context for stateful tools |
 
 **Response** `200 OK` (success):
 
@@ -216,9 +216,7 @@ Invoke a specific tool with arguments.
   "tool": "analyze_repository",
   "success": true,
   "isError": false,
-  "content": [
-    { "type": "text", "text": "Repository analyzed: 1523 nodes, 4012 edges" }
-  ]
+  "content": [{ "type": "text", "text": "Repository analyzed: 1523 nodes, 4012 edges" }]
 }
 ```
 
@@ -229,19 +227,17 @@ Invoke a specific tool with arguments.
   "tool": "analyze_repository",
   "success": false,
   "isError": true,
-  "content": [
-    { "type": "text", "text": "Error: Path does not exist" }
-  ]
+  "content": [{ "type": "text", "text": "Error: Path does not exist" }]
 }
 ```
 
 **Error Responses**:
 
-| Status | Error Code | Description |
-|--------|------------|-------------|
-| `400` | `INVALID_REQUEST` | Missing or invalid `tool` field in request body |
-| `404` | `TOOL_NOT_FOUND` | Tool name not found in registry |
-| `500` | `TOOL_EXECUTION_FAILED` | Tool execution threw an unhandled exception |
+| Status | Error Code              | Description                                     |
+| ------ | ----------------------- | ----------------------------------------------- |
+| `400`  | `INVALID_REQUEST`       | Missing or invalid `tool` field in request body |
+| `404`  | `TOOL_NOT_FOUND`        | Tool name not found in registry                 |
+| `500`  | `TOOL_EXECUTION_FAILED` | Tool execution threw an unhandled exception     |
 
 ---
 
@@ -257,11 +253,11 @@ None. The connection is managed via the SSE protocol.
 
 **Events**:
 
-| Event | Description |
-|-------|-------------|
-| `ping` | Heartbeat sent at `sseHeartbeatMs` interval (default: 30s) |
-| `tool_call` | Request to execute a tool on the client side |
-| `connected` | Sent on initial connection with a `connectionId` |
+| Event       | Description                                                |
+| ----------- | ---------------------------------------------------------- |
+| `ping`      | Heartbeat sent at `sseHeartbeatMs` interval (default: 30s) |
+| `tool_call` | Request to execute a tool on the client side               |
+| `connected` | Sent on initial connection with a `connectionId`           |
 
 #### `POST /api/v1/sse/event`
 
@@ -288,11 +284,11 @@ Receive webhook events from external services (e.g., GitHub). Supports signature
 
 **Headers**:
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| `X-GitHub-Event` | **Yes** | Event type (e.g., `pull_request`, `push`) |
+| Header                | Required    | Description                                       |
+| --------------------- | ----------- | ------------------------------------------------- |
+| `X-GitHub-Event`      | **Yes**     | Event type (e.g., `pull_request`, `push`)         |
 | `X-Hub-Signature-256` | Conditional | HMAC-SHA256 signature when `secret` is configured |
-| `X-GitHub-Delivery` | No | Unique delivery ID (defaults to `unknown`) |
+| `X-GitHub-Delivery`   | No          | Unique delivery ID (defaults to `unknown`)        |
 
 **Request Body**: Raw JSON payload from the webhook source.
 
@@ -307,10 +303,10 @@ Receive webhook events from external services (e.g., GitHub). Supports signature
 
 **Error Responses**:
 
-| Status | Error Code | Description |
-|--------|------------|-------------|
-| `400` | `MISSING_EVENT_TYPE` | `X-GitHub-Event` header missing |
-| `401` | `INVALID_SIGNATURE` | Signature verification failed |
+| Status | Error Code           | Description                     |
+| ------ | -------------------- | ------------------------------- |
+| `400`  | `MISSING_EVENT_TYPE` | `X-GitHub-Event` header missing |
+| `401`  | `INVALID_SIGNATURE`  | Signature verification failed   |
 
 #### `GET /api/v1/webhook/status`
 
@@ -326,18 +322,18 @@ Check webhook configuration status (whether a secret is configured).
 
 ## Error Codes
 
-| HTTP Status | Error Code | Description |
-|-------------|------------|-------------|
-| `400` | `INVALID_REQUEST` | Missing required fields in request body |
-| `400` | `MISSING_EVENT_TYPE` | Webhook event type header missing |
-| `401` | `UNAUTHORIZED` | Missing or invalid API key |
-| `401` | `INVALID_SIGNATURE` | Webhook signature verification failed |
-| `403` | `FORBIDDEN` | Valid API key but insufficient permissions |
-| `403` | `MTLS_REQUIRED` | mTLS client certificate required |
-| `403` | `MTLS_PINNED_CERT_MISMATCH` | Certificate fingerprint not in pinned list |
-| `404` | `TOOL_NOT_FOUND` | Requested tool does not exist |
-| `429` | `RATE_LIMITED` | Rate limit exceeded |
-| `500` | `TOOL_EXECUTION_FAILED` | Unhandled exception during tool execution |
+| HTTP Status | Error Code                  | Description                                |
+| ----------- | --------------------------- | ------------------------------------------ |
+| `400`       | `INVALID_REQUEST`           | Missing required fields in request body    |
+| `400`       | `MISSING_EVENT_TYPE`        | Webhook event type header missing          |
+| `401`       | `UNAUTHORIZED`              | Missing or invalid API key                 |
+| `401`       | `INVALID_SIGNATURE`         | Webhook signature verification failed      |
+| `403`       | `FORBIDDEN`                 | Valid API key but insufficient permissions |
+| `403`       | `MTLS_REQUIRED`             | mTLS client certificate required           |
+| `403`       | `MTLS_PINNED_CERT_MISMATCH` | Certificate fingerprint not in pinned list |
+| `404`       | `TOOL_NOT_FOUND`            | Requested tool does not exist              |
+| `429`       | `RATE_LIMITED`              | Rate limit exceeded                        |
+| `500`       | `TOOL_EXECUTION_FAILED`     | Unhandled exception during tool execution  |
 
 All error responses follow this schema:
 

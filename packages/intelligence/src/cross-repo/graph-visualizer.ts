@@ -3,7 +3,12 @@
 // visualization, plus repo-level metrics computation.
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
-import { EDGE_CROSS_REPO_CALLS, EDGE_CROSS_REPO_DEPENDS, EDGE_CROSS_REPO_IMPLEMENTS, EDGE_CROSS_REPO_IMPORTS } from '@code-analyzer/shared';
+import {
+  EDGE_CROSS_REPO_CALLS,
+  EDGE_CROSS_REPO_DEPENDS,
+  EDGE_CROSS_REPO_IMPLEMENTS,
+  EDGE_CROSS_REPO_IMPORTS,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -110,8 +115,16 @@ export class CrossRepoGraphVisualizer {
 
     // Define repo nodes with colour
     const colorPalette = [
-      '#4A90D9', '#50B86C', '#E8A838', '#D94A4A', '#8B5CF6',
-      '#06B6D4', '#F59E0B', '#EC4899', '#14B8A6', '#6366F1',
+      '#4A90D9',
+      '#50B86C',
+      '#E8A838',
+      '#D94A4A',
+      '#8B5CF6',
+      '#06B6D4',
+      '#F59E0B',
+      '#EC4899',
+      '#14B8A6',
+      '#6366F1',
     ];
 
     const repoColors = new Map<string, string>();
@@ -162,9 +175,15 @@ export class CrossRepoGraphVisualizer {
     lines.push('    color = "#888888";');
     lines.push('    bgcolor = "#F8F8F8";');
     lines.push('');
-    lines.push('    legend_imports [label = EDGE_CROSS_REPO_IMPORTS, shape = "plaintext", fontsize = 10];');
-    lines.push('    legend_calls   [label = EDGE_CROSS_REPO_CALLS,   shape = "plaintext", fontsize = 10];');
-    lines.push('    legend_depends [label = EDGE_CROSS_REPO_DEPENDS, shape = "plaintext", fontsize = 10];');
+    lines.push(
+      '    legend_imports [label = EDGE_CROSS_REPO_IMPORTS, shape = "plaintext", fontsize = 10];',
+    );
+    lines.push(
+      '    legend_calls   [label = EDGE_CROSS_REPO_CALLS,   shape = "plaintext", fontsize = 10];',
+    );
+    lines.push(
+      '    legend_depends [label = EDGE_CROSS_REPO_DEPENDS, shape = "plaintext", fontsize = 10];',
+    );
     lines.push('');
     lines.push('    legend_imports -> legend_calls -> legend_depends [style = "invis"];');
     lines.push('  }');
@@ -205,7 +224,7 @@ export class CrossRepoGraphVisualizer {
           totalNodes: repoNodes.length,
           exportedSymbols: exported.length,
           crossRepoEdgesOut: 0, // Filled below
-          crossRepoEdgesIn: 0,  // Filled below
+          crossRepoEdgesIn: 0, // Filled below
         },
       });
     }
@@ -318,15 +337,10 @@ export class CrossRepoGraphVisualizer {
 
     const fanOut = fanOutSet.size;
     const fanIn = fanInSet.size;
-    const totalRepos = new Set([
-      ...fanOutSet,
-      ...fanInSet,
-      repoId,
-    ]).size;
+    const totalRepos = new Set([...fanOutSet, ...fanInSet, repoId]).size;
     const couplingScore = totalRepos > 1 ? (fanOut + fanIn) / (totalRepos * 2 - 2) : 0;
-    const externalDependencyRatio = repoEdges.length > 0
-      ? externalEdges.length / repoEdges.length
-      : 0;
+    const externalDependencyRatio =
+      repoEdges.length > 0 ? externalEdges.length / repoEdges.length : 0;
     const cohesionScore = 1 / (1 + externalDependencyRatio * 10);
 
     // Sort dependencies by edge count
@@ -359,9 +373,7 @@ export class CrossRepoGraphVisualizer {
     const internalSymbols = nodes.filter(
       (n) => n.isExported && !n.label.startsWith('CrossRepo'),
     ).length;
-    const crossRepoSymbols = nodes.filter(
-      (n) => n.label.startsWith('CrossRepo'),
-    ).length;
+    const crossRepoSymbols = nodes.filter((n) => n.label.startsWith('CrossRepo')).length;
 
     return {
       repoId,

@@ -66,9 +66,9 @@ const DEFAULT_CONFIG: PipelineReviewConfig = {
   severityDistribution: {
     critical: 0.05,
     high: 0.15,
-    medium: 0.30,
-    low: 0.30,
-    info: 0.20,
+    medium: 0.3,
+    low: 0.3,
+    info: 0.2,
   },
 };
 
@@ -77,13 +77,40 @@ const DEFAULT_CONFIG: PipelineReviewConfig = {
 // ---------------------------------------------------------------------------
 
 const BINARY_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg',
-  '.pdf', '.zip', '.tar', '.gz', '.bz2', '.7z',
-  '.exe', '.dll', '.so', '.dylib', '.wasm',
-  '.mp3', '.mp4', '.avi', '.mov', '.wav',
-  '.woff', '.woff2', '.eot', '.ttf', '.otf',
-  '.db', '.sqlite', '.sqlite3',
-  '.bin', '.dat', '.class',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.ico',
+  '.svg',
+  '.pdf',
+  '.zip',
+  '.tar',
+  '.gz',
+  '.bz2',
+  '.7z',
+  '.exe',
+  '.dll',
+  '.so',
+  '.dylib',
+  '.wasm',
+  '.mp3',
+  '.mp4',
+  '.avi',
+  '.mov',
+  '.wav',
+  '.woff',
+  '.woff2',
+  '.eot',
+  '.ttf',
+  '.otf',
+  '.db',
+  '.sqlite',
+  '.sqlite3',
+  '.bin',
+  '.dat',
+  '.class',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -105,9 +132,7 @@ export class ReviewPipeline {
    * Pre-filter diffs to skip generated files, binary files, and config files.
    * Returns included and excluded diffs for logging/debugging.
    */
-  preFilter(
-    diffs: GitDiff[],
-  ): { included: GitDiff[]; excluded: GitDiff[] } {
+  preFilter(diffs: GitDiff[]): { included: GitDiff[]; excluded: GitDiff[] } {
     const included: GitDiff[] = [];
     const excluded: GitDiff[] = [];
 
@@ -158,10 +183,7 @@ export class ReviewPipeline {
    * Enrich diffs with knowledge graph context.
    * Attaches affected symbols, related tests, and impact scores.
    */
-  async enrichContext(
-    diffs: GitDiff[],
-    store: InMemoryGraphStore,
-  ): Promise<EnrichedDiff[]> {
+  async enrichContext(diffs: GitDiff[], store: InMemoryGraphStore): Promise<EnrichedDiff[]> {
     const allNodes = store.getAllNodes();
     const allEdges = store.getAllEdges();
 
@@ -184,10 +206,7 @@ export class ReviewPipeline {
       const relatedTests: string[] = [];
 
       for (const edge of allEdges) {
-        if (
-          fileNodeIds.has(edge.sourceId) &&
-          testNodeIds.has(edge.targetId)
-        ) {
+        if (fileNodeIds.has(edge.sourceId) && testNodeIds.has(edge.targetId)) {
           const testNode = allNodes.find((n) => n.id === edge.targetId);
           if (testNode?.filePath && !relatedTests.includes(testNode.filePath)) {
             relatedTests.push(testNode.filePath);
@@ -195,10 +214,7 @@ export class ReviewPipeline {
         }
       }
 
-      const impactScore = Math.min(
-        100,
-        affectedSymbols.length * 10 + relatedTests.length * 5,
-      );
+      const impactScore = Math.min(100, affectedSymbols.length * 10 + relatedTests.length * 5);
 
       return {
         diff,
@@ -337,7 +353,8 @@ export class ReviewPipeline {
           let promotedCount = 0;
           for (const comment of comments) {
             if (comment.severity === sev && promotedCount < overflow) {
-              comment.severity = promoted[Math.min(promotedCount % promoted.length, promoted.length - 1)]!;
+              comment.severity =
+                promoted[Math.min(promotedCount % promoted.length, promoted.length - 1)]!;
               promotedCount++;
             }
           }
@@ -470,8 +487,7 @@ export class ReviewPipeline {
     if (a.path !== b.path) return false;
 
     // Overlapping line ranges
-    const overlap =
-      a.startLine <= b.endLine && b.startLine <= a.endLine;
+    const overlap = a.startLine <= b.endLine && b.startLine <= a.endLine;
     if (!overlap) return false;
 
     // Similar content (fuzzy match threshold: 70%)
@@ -511,9 +527,7 @@ export class ReviewPipeline {
     }
 
     // Build merged content
-    const allContents = merged.map(
-      (c) => `[${c.category}/${c.severity}] ${c.content}`,
-    );
+    const allContents = merged.map((c) => `[${c.category}/${c.severity}] ${c.content}`);
 
     return {
       ...mostSevere,
@@ -523,19 +537,14 @@ export class ReviewPipeline {
     };
   }
 
-  private gatherBatchComments(
-    diffs: GitDiff[],
-    _config: ReviewConfig,
-  ): ReviewComment[] {
+  private gatherBatchComments(diffs: GitDiff[], _config: ReviewConfig): ReviewComment[] {
     // The review engine processes diffs through the session store.
     // Comments are generated per-file during analyzePhase.
     // We simulate gathering by applying basic heuristics to each diff.
     const comments: ReviewComment[] = [];
 
     for (const diff of diffs) {
-      const lines = diff.ranges.map(
-        (r) => `// ${diff.filePath}:${r.newStart}-${r.newEnd}`,
-      );
+      const lines = diff.ranges.map((r) => `// ${diff.filePath}:${r.newStart}-${r.newEnd}`);
       // Each diff produces at least one comment if it has changes
       if (lines.length > 0) {
         comments.push({

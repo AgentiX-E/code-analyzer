@@ -2,10 +2,7 @@
 // Registers all 14 VS Code commands.
 
 import type { EngineBridge } from '../services/engine-bridge.js';
-import type {
-  IVSCodeAPI,
-  DiagnosticCollection,
-} from '../services/vscode-api.js';
+import type { IVSCodeAPI, DiagnosticCollection } from '../services/vscode-api.js';
 import { DiagnosticSeverity } from '../services/vscode-api.js';
 import { CommentLogic } from '../providers/comment-provider.js';
 
@@ -80,19 +77,18 @@ export function registerCommands(
             endCharacter: d.range.endCharacter,
           },
           message: d.message,
-          severity: d.severity === 'error'
-            ? DiagnosticSeverity.Error
-            : d.severity === 'warning'
-              ? DiagnosticSeverity.Warning
-              : DiagnosticSeverity.Information,
+          severity:
+            d.severity === 'error'
+              ? DiagnosticSeverity.Error
+              : d.severity === 'warning'
+                ? DiagnosticSeverity.Warning
+                : DiagnosticSeverity.Information,
           source: d.source,
         }));
         commentCollection.set({ toString: () => filePath }, vsDiags);
       }
 
-      await api.showInformationMessage(
-        `Found ${comments.length} issue(s)`,
-      );
+      await api.showInformationMessage(`Found ${comments.length} issue(s)`);
     }),
   );
 
@@ -106,9 +102,7 @@ export function registerCommands(
 
       const results = await engine.search(query);
       if (results.length === 0) {
-        await api.showInformationMessage(
-          `No results found for "${query}"`,
-        );
+        await api.showInformationMessage(`No results found for "${query}"`);
         return;
       }
 
@@ -122,9 +116,7 @@ export function registerCommands(
       });
 
       if (selected?.description) {
-        await api.showInformationMessage(
-          `Selected: ${selected.label} in ${selected.description}`,
-        );
+        await api.showInformationMessage(`Selected: ${selected.label} in ${selected.description}`);
       }
     }),
   );
@@ -178,9 +170,7 @@ export function registerCommands(
         placeHolder: `Callers of "${symbolName}"`,
       });
       if (selected?.description) {
-        await api.showInformationMessage(
-          `${selected.label} in ${selected.description}`,
-        );
+        await api.showInformationMessage(`${selected.label} in ${selected.description}`);
       }
     }),
   );
@@ -205,9 +195,7 @@ export function registerCommands(
         placeHolder: `Callees of "${symbolName}"`,
       });
       if (selected?.description) {
-        await api.showInformationMessage(
-          `${selected.label} in ${selected.description}`,
-        );
+        await api.showInformationMessage(`${selected.label} in ${selected.description}`);
       }
     }),
   );
@@ -266,9 +254,15 @@ export function registerCommands(
       try {
         const uri = api.Uri.file(issue.filePath);
         await api.executeCommand('vscode.open', uri, {
-          selection: issue.startLine != null
-            ? { startLine: issue.startLine, startCharacter: 0, endLine: issue.startLine, endCharacter: 0 }
-            : undefined,
+          selection:
+            issue.startLine != null
+              ? {
+                  startLine: issue.startLine,
+                  startCharacter: 0,
+                  endLine: issue.startLine,
+                  endCharacter: 0,
+                }
+              : undefined,
         });
       } catch {
         await api.showErrorMessage(`Could not open file: ${issue.filePath}`);
@@ -291,7 +285,9 @@ export function registerCommands(
   // 14. Explain issue — send to Copilot Chat via /explain
   disposables.push(
     api.registerCommand('code-analyzer.explainIssue', async (...args: unknown[]) => {
-      const issue = extractFirstArg<{ message?: string; filePath?: string; startLine?: number }>(args);
+      const issue = extractFirstArg<{ message?: string; filePath?: string; startLine?: number }>(
+        args,
+      );
       if (!issue) return;
 
       const detailParts = [issue.message ?? 'Issue'];
@@ -299,9 +295,7 @@ export function registerCommands(
       if (issue.startLine != null) detailParts.push(`at line ${issue.startLine + 1}`);
 
       const context = detailParts.join(' ');
-      await api.showInformationMessage(
-        `Use Copilot Chat: /explain ${context}`,
-      );
+      await api.showInformationMessage(`Use Copilot Chat: /explain ${context}`);
     }),
   );
 
@@ -348,7 +342,12 @@ function extractSymbolName(args: unknown[]): string | undefined {
   if (typeof arg === 'string') return arg;
   if (arg && typeof arg === 'object') {
     const obj = arg as Record<string, unknown>;
-    return (obj['name'] as string) ?? (obj['label'] as string) ?? (obj['symbolName'] as string) ?? (obj['symbolId'] as string);
+    return (
+      (obj['name'] as string) ??
+      (obj['label'] as string) ??
+      (obj['symbolName'] as string) ??
+      (obj['symbolId'] as string)
+    );
   }
   return undefined;
 }

@@ -4,9 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { ConfigService } from '../services/config-service.js';
 import type { WorkspaceConfiguration } from '../services/vscode-api.js';
 
-function createMockConfig(
-  overrides?: Record<string, unknown>,
-): WorkspaceConfiguration {
+function createMockConfig(overrides?: Record<string, unknown>): WorkspaceConfiguration {
   return {
     get<T>(section: string): T | undefined {
       return overrides?.[section] as T | undefined;
@@ -61,9 +59,7 @@ describe('ConfigService', () => {
     });
 
     it('returns configured excludePatterns', () => {
-      const svc = new ConfigService(
-        createMockConfig({ excludePatterns: ['src/**'] }),
-      );
+      const svc = new ConfigService(createMockConfig({ excludePatterns: ['src/**'] }));
       expect(svc.get('excludePatterns')).toEqual(['src/**']);
     });
 
@@ -83,9 +79,7 @@ describe('ConfigService', () => {
     });
 
     it('returns configured showInlineDecorations', () => {
-      const svc = new ConfigService(
-        createMockConfig({ showInlineDecorations: false }),
-      );
+      const svc = new ConfigService(createMockConfig({ showInlineDecorations: false }));
       expect(svc.get('showInlineDecorations')).toBe(false);
     });
 
@@ -95,9 +89,7 @@ describe('ConfigService', () => {
     });
 
     it('returns configured maxSearchResults', () => {
-      const svc = new ConfigService(
-        createMockConfig({ maxSearchResults: 50 }),
-      );
+      const svc = new ConfigService(createMockConfig({ maxSearchResults: 50 }));
       expect(svc.get('maxSearchResults')).toBe(50);
     });
   });
@@ -119,9 +111,7 @@ describe('ConfigService', () => {
     });
 
     it('merges configured values with defaults', () => {
-      const svc = new ConfigService(
-        createMockConfig({ indexMode: 'fast', maxSearchResults: 10 }),
-      );
+      const svc = new ConfigService(createMockConfig({ indexMode: 'fast', maxSearchResults: 10 }));
       const all = svc.getAll();
       expect(all.indexMode).toBe('fast');
       expect(all.maxSearchResults).toBe(10);

@@ -14,7 +14,10 @@ import { GitHubApiClient } from '../github/client.js';
 // ---------------------------------------------------------------------------
 
 function createTempDir(): string {
-  const dir = join(tmpdir(), `code-analyzer-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const dir = join(
+    tmpdir(),
+    `code-analyzer-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -38,10 +41,13 @@ function createMockGitRepo(dir: string): void {
 function createRealGitRepo(dir: string): string {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'README.md'), '# Real Test Repo\n');
-  execSync(`cd "${dir}" && git init && git config user.email "test@test.com" && git config user.name "Test" && git add . && git commit -m "init"`, {
-    stdio: 'pipe',
-    timeout: 10_000,
-  });
+  execSync(
+    `cd "${dir}" && git init && git config user.email "test@test.com" && git config user.name "Test" && git add . && git commit -m "init"`,
+    {
+      stdio: 'pipe',
+      timeout: 10_000,
+    },
+  );
   return execSync(`cd "${dir}" && git rev-parse HEAD`, {
     stdio: 'pipe',
     encoding: 'utf-8',
@@ -52,7 +58,12 @@ function createRealGitRepo(dir: string): string {
  * Create a cached repo structure (directory with .git subdir and some files)
  * that will be recognized by listCachedRepos.
  */
-function createCachedRepoStructure(baseDir: string, owner: string, repo: string, fileSize: number = 100): void {
+function createCachedRepoStructure(
+  baseDir: string,
+  owner: string,
+  repo: string,
+  fileSize: number = 100,
+): void {
   const repoDir = join(baseDir, owner, repo);
   mkdirSync(repoDir, { recursive: true });
   mkdirSync(join(repoDir, '.git'), { recursive: true });
@@ -72,7 +83,11 @@ describe('GitHubRepoSync', () => {
   });
 
   afterEach(() => {
-    try { rmSync(cacheDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(cacheDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   // -----------------------------------------------------------------------
@@ -330,9 +345,9 @@ describe('GitHubRepoSync', () => {
       // Now try to clone a new repo — it will go to fresh clone path,
       // call ensureCacheSpace (which sees cache > maxCacheSize),
       // listCachedRepos, LRU evict, then fail on git clone from GitHub
-      await expect(
-        sync.clone('newowner', 'newrepo'),
-      ).rejects.toThrow(/Failed to clone newowner\/newrepo/);
+      await expect(sync.clone('newowner', 'newrepo')).rejects.toThrow(
+        /Failed to clone newowner\/newrepo/,
+      );
     });
 
     it('should skip cache eviction when cache size is below limit', async () => {
@@ -347,9 +362,9 @@ describe('GitHubRepoSync', () => {
       // Try to clone a repo that doesn't exist — goes to fresh clone,
       // ensureCacheSpace sees size < maxCacheSize and returns early,
       // then git clone from GitHub fails
-      await expect(
-        sync.clone('newowner', 'newrepo'),
-      ).rejects.toThrow(/Failed to clone newowner\/newrepo/);
+      await expect(sync.clone('newowner', 'newrepo')).rejects.toThrow(
+        /Failed to clone newowner\/newrepo/,
+      );
     });
   });
 
@@ -369,9 +384,7 @@ describe('GitHubRepoSync', () => {
 
       // This will fail at git clone, but tests the shallow=false branch
       // in the args construction
-      await expect(
-        sync.clone('owner', 'repo'),
-      ).rejects.toThrow(/Failed to clone/);
+      await expect(sync.clone('owner', 'repo')).rejects.toThrow(/Failed to clone/);
     });
   });
 
@@ -380,19 +393,21 @@ describe('GitHubRepoSync', () => {
   // -----------------------------------------------------------------------
 
   describe('pull', () => {
-    it('should delegate to clone when repo is not cached', { retry: 2, timeout: 60_000 }, async () => {
-      const client = createMockClient();
-      const sync = new GitHubRepoSync({
-        client,
-        cacheDir,
-        branch: 'main',
-      });
+    it(
+      'should delegate to clone when repo is not cached',
+      { retry: 2, timeout: 60_000 },
+      async () => {
+        const client = createMockClient();
+        const sync = new GitHubRepoSync({
+          client,
+          cacheDir,
+          branch: 'main',
+        });
 
-      // pull on non-existent repo delegates to clone, which fails with git clone error
-      await expect(
-        sync.pull('newowner', 'newrepo'),
-      ).rejects.toThrow(/Failed to clone/);
-    });
+        // pull on non-existent repo delegates to clone, which fails with git clone error
+        await expect(sync.pull('newowner', 'newrepo')).rejects.toThrow(/Failed to clone/);
+      },
+    );
 
     it('should attempt git fetch when repo exists in cache', async () => {
       const client = createMockClient();
@@ -408,9 +423,7 @@ describe('GitHubRepoSync', () => {
 
       // pull will attempt git fetch from origin, which fails because
       // there's no remote configured
-      await expect(
-        sync.pull('testowner', 'testrepo'),
-      ).rejects.toThrow(/Failed to pull/);
+      await expect(sync.pull('testowner', 'testrepo')).rejects.toThrow(/Failed to pull/);
     });
 
     it('should use default branch "main" when branch option is not set', async () => {
@@ -426,9 +439,7 @@ describe('GitHubRepoSync', () => {
       createMockGitRepo(repoDir);
 
       // pull will attempt git fetch, fails because no remote
-      await expect(
-        sync.pull('testowner', 'testrepo'),
-      ).rejects.toThrow(/Failed to pull/);
+      await expect(sync.pull('testowner', 'testrepo')).rejects.toThrow(/Failed to pull/);
     });
   });
 
@@ -451,9 +462,7 @@ describe('GitHubRepoSync', () => {
 
       // clone will call ensureCacheSpace → listCachedRepos, which
       // returns empty array when cacheDir doesn't exist
-      await expect(
-        sync.clone('newowner', 'newrepo'),
-      ).rejects.toThrow(/Failed to clone/);
+      await expect(sync.clone('newowner', 'newrepo')).rejects.toThrow(/Failed to clone/);
     });
   });
 
@@ -479,9 +488,7 @@ describe('GitHubRepoSync', () => {
       createCachedRepoStructure(cacheDir, 'ownerC', 'repoC', 300);
 
       // Clone attempt triggers cache eviction with multiple repos
-      await expect(
-        sync.clone('new', 'repo'),
-      ).rejects.toThrow(/Failed to clone/);
+      await expect(sync.clone('new', 'repo')).rejects.toThrow(/Failed to clone/);
     });
   });
 
@@ -510,27 +517,31 @@ describe('GitHubRepoSync', () => {
       expect(result.results.length).toBe(0);
     });
 
-    it('should handle multi-batch processing (5+ repos triggers two batches)', { timeout: 120_000 }, async () => {
-      const client = createMockClient();
-      const sync = new GitHubRepoSync({
-        client,
-        cacheDir,
-        shallow: false,
-        branch: 'main',
-      });
+    it(
+      'should handle multi-batch processing (5+ repos triggers two batches)',
+      { timeout: 120_000 },
+      async () => {
+        const client = createMockClient();
+        const sync = new GitHubRepoSync({
+          client,
+          cacheDir,
+          shallow: false,
+          branch: 'main',
+        });
 
-      // 5 repos will be split into batch of 4 + batch of 1
-      const repos = Array.from({ length: 5 }, (_, i) => ({
-        owner: `owner${i}`,
-        repo: `repo${i}`,
-      }));
+        // 5 repos will be split into batch of 4 + batch of 1
+        const repos = Array.from({ length: 5 }, (_, i) => ({
+          owner: `owner${i}`,
+          repo: `repo${i}`,
+        }));
 
-      const result = await sync.ensureSynced(repos);
+        const result = await sync.ensureSynced(repos);
 
-      // All 5 should fail since we can't clone from GitHub
-      expect(result.errors.length).toBe(5);
-      expect(result.results.length).toBe(0);
-    });
+        // All 5 should fail since we can't clone from GitHub
+        expect(result.errors.length).toBe(5);
+        expect(result.results.length).toBe(0);
+      },
+    );
 
     it('should collect error messages from rejected promises', async () => {
       const client = createMockClient();
@@ -541,9 +552,7 @@ describe('GitHubRepoSync', () => {
         branch: 'main',
       });
 
-      const result = await sync.ensureSynced([
-        { owner: 'err-owner', repo: 'err-repo' },
-      ]);
+      const result = await sync.ensureSynced([{ owner: 'err-owner', repo: 'err-repo' }]);
 
       expect(result.errors.length).toBe(1);
       expect(result.errors[0]!.error).toContain('Failed to clone');
@@ -572,9 +581,7 @@ describe('GitHubRepoSync', () => {
       mkdirSync(noGitRepoDir, { recursive: true });
 
       // Clone attempt triggers ensureCacheSpace → listCachedRepos
-      await expect(
-        sync.clone('new', 'repo'),
-      ).rejects.toThrow(/Failed to clone/);
+      await expect(sync.clone('new', 'repo')).rejects.toThrow(/Failed to clone/);
     });
   });
 });

@@ -9,11 +9,14 @@ import { ConfigService } from '../services/config-service.js';
 import { FileWatcherService } from '../services/file-watcher.js';
 import { createStatusBarManager } from '../views/status-bar.js';
 import { registerCommands } from './commands.js';
-import { CodeAnalyzerChatParticipant, type ChatRequest, type ChatContext, type ChatResponseStream, type CancellationToken } from '../participant/code-analyzer-participant.js';
 import {
-  SidebarLogic,
-  generateSidebarHtml,
-} from '../providers/sidebar-provider.js';
+  CodeAnalyzerChatParticipant,
+  type ChatRequest,
+  type ChatContext,
+  type ChatResponseStream,
+  type CancellationToken,
+} from '../participant/code-analyzer-participant.js';
+import { SidebarLogic, generateSidebarHtml } from '../providers/sidebar-provider.js';
 import { ConfigLogic, generateConfigHtml } from '../providers/config-provider.js';
 import { GraphExplorerLogic } from '../providers/graph-explorer.js';
 import { ReviewDecorationLogic } from '../providers/review-decoration-provider.js';
@@ -54,9 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   // 2. Initialize services with real VS Code configuration
-  const configService = new ConfigService(
-    vscode.workspace.getConfiguration('codeAnalyzer'),
-  );
+  const configService = new ConfigService(vscode.workspace.getConfiguration('codeAnalyzer'));
 
   // 3. Create VS Code API adapter wrapping real vscode module
   const api = createVSCodeAPIAdapter();
@@ -77,12 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerStatusBar(context, engine);
 
   // 8. Register commands (all 14)
-  const { disposables } = registerCommands(
-    api,
-    engine,
-    configService,
-    commentCollection,
-  );
+  const { disposables } = registerCommands(api, engine, configService, commentCollection);
   for (const d of disposables) {
     context.subscriptions.push(d);
   }
@@ -107,8 +103,7 @@ export function activate(context: vscode.ExtensionContext): void {
     .initialize()
     .then(() => {
       // After initialization, trigger initial indexing
-      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath
-        ?? process.cwd();
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath ?? process.cwd();
       return engine!.indexWorkspace(workspaceRoot);
     })
     .catch(() => {
@@ -153,39 +148,30 @@ export function deactivate(): void {
 function createVSCodeAPIAdapter(): IVSCodeAPI {
   return {
     // Window
-    showInformationMessage: (msg) =>
-      Promise.resolve(vscode.window.showInformationMessage(msg)),
-    showErrorMessage: (msg) =>
-      Promise.resolve(vscode.window.showErrorMessage(msg)),
-    showWarningMessage: (msg) =>
-      Promise.resolve(vscode.window.showWarningMessage(msg)),
-    showInputBox: (options) =>
-      Promise.resolve(vscode.window.showInputBox(options)),
+    showInformationMessage: (msg) => Promise.resolve(vscode.window.showInformationMessage(msg)),
+    showErrorMessage: (msg) => Promise.resolve(vscode.window.showErrorMessage(msg)),
+    showWarningMessage: (msg) => Promise.resolve(vscode.window.showWarningMessage(msg)),
+    showInputBox: (options) => Promise.resolve(vscode.window.showInputBox(options)),
     showQuickPick: (items, options) =>
       Promise.resolve(
         vscode.window.showQuickPick(items as readonly vscode.QuickPickItem[], options),
       ),
     createOutputChannel: (name) => vscode.window.createOutputChannel(name),
     withProgress: async (options, task) => {
-      await vscode.window.withProgress(
-        options,
-        (progress) => task({ report: (value) => progress.report(value) }),
+      await vscode.window.withProgress(options, (progress) =>
+        task({ report: (value) => progress.report(value) }),
       );
     },
 
     // Workspace
     getWorkspaceFolders: () =>
-      vscode.workspace.workspaceFolders as
-        | VSCodeWorkspaceFolder[]
-        | undefined,
-    getConfiguration: (section) =>
-      vscode.workspace.getConfiguration(section),
+      vscode.workspace.workspaceFolders as VSCodeWorkspaceFolder[] | undefined,
+    getConfiguration: (section) => vscode.workspace.getConfiguration(section),
 
     // Commands
     registerCommand: (command, callback) =>
       vscode.commands.registerCommand(command, callback as (...args: unknown[]) => unknown),
-    executeCommand: async (command, ...args) =>
-      vscode.commands.executeCommand(command, ...args),
+    executeCommand: async (command, ...args) => vscode.commands.executeCommand(command, ...args),
 
     // Diagnostics
     createDiagnosticCollection: (name) =>
@@ -214,13 +200,14 @@ function createVSCodeAPIAdapter(): IVSCodeAPI {
 // File Watcher Initialization
 // ---------------------------------------------------------------------------
 
-function startFileWatcher(
-  context: vscode.ExtensionContext,
-  eng: EngineBridge,
-): FileWatcherService {
+function startFileWatcher(context: vscode.ExtensionContext, eng: EngineBridge): FileWatcherService {
   const watcher = new FileWatcherService(eng);
   watcher.start();
-  context.subscriptions.push({ dispose() { watcher.dispose(); } });
+  context.subscriptions.push({
+    dispose() {
+      watcher.dispose();
+    },
+  });
   return watcher;
 }
 
@@ -305,10 +292,7 @@ function registerChatParticipantWithCommands(
 // Sidebar Registration
 // ---------------------------------------------------------------------------
 
-function registerSidebar(
-  context: vscode.ExtensionContext,
-  engine: EngineBridge,
-): void {
+function registerSidebar(context: vscode.ExtensionContext, engine: EngineBridge): void {
   const sidebarLogic = new SidebarLogic(engine);
   const graphLogic = new GraphExplorerLogic(engine);
 
@@ -373,9 +357,7 @@ function registerSidebar(
 // Diagnostic Collection Registration
 // ---------------------------------------------------------------------------
 
-function createDiagnosticCollection(
-  context: vscode.ExtensionContext,
-): DiagnosticCollection {
+function createDiagnosticCollection(context: vscode.ExtensionContext): DiagnosticCollection {
   const collection = vscode.languages.createDiagnosticCollection(
     'code-analyzer',
   ) as unknown as DiagnosticCollection;
@@ -387,10 +369,7 @@ function createDiagnosticCollection(
 // Status Bar Registration
 // ---------------------------------------------------------------------------
 
-function registerStatusBar(
-  context: vscode.ExtensionContext,
-  eng: EngineBridge,
-): void {
+function registerStatusBar(context: vscode.ExtensionContext, eng: EngineBridge): void {
   const manager = createStatusBarManager(
     {
       createStatusBarItem: (alignment, priority) =>
@@ -482,10 +461,7 @@ function registerConfigWebview(
 // CodeLens Provider Registration
 // ---------------------------------------------------------------------------
 
-function registerCodeLensProvider(
-  context: vscode.ExtensionContext,
-  _eng: EngineBridge,
-): void {
+function registerCodeLensProvider(context: vscode.ExtensionContext, _eng: EngineBridge): void {
   const reviewLogic = new ReviewDecorationLogic();
 
   const codeLensProvider = vscode.languages.registerCodeLensProvider(
@@ -493,19 +469,18 @@ function registerCodeLensProvider(
     {
       async provideCodeLenses(document) {
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
-        const codeAnalyzerDiagnostics = diagnostics.filter(
-          (d) => d.source === 'code-analyzer',
-        );
+        const codeAnalyzerDiagnostics = diagnostics.filter((d) => d.source === 'code-analyzer');
         if (codeAnalyzerDiagnostics.length === 0) return [];
 
         const lenses: vscode.CodeLens[] = [];
         for (const diagnostic of codeAnalyzerDiagnostics) {
           const actions = reviewLogic.getCodeLensActions({
-            severity: diagnostic.severity === vscode.DiagnosticSeverity.Error
-              ? 'error'
-              : diagnostic.severity === vscode.DiagnosticSeverity.Warning
-                ? 'warning'
-                : 'info',
+            severity:
+              diagnostic.severity === vscode.DiagnosticSeverity.Error
+                ? 'error'
+                : diagnostic.severity === vscode.DiagnosticSeverity.Warning
+                  ? 'warning'
+                  : 'info',
             message: diagnostic.message,
             filePath: document.uri.fsPath,
             startLine: diagnostic.range.start.line,
@@ -517,12 +492,14 @@ function registerCodeLensProvider(
               title: action.title,
               command: action.command,
               tooltip: action.tooltip,
-              arguments: [{
-                filePath: document.uri.fsPath,
-                startLine: diagnostic.range.start.line,
-                endLine: diagnostic.range.end.line,
-                message: diagnostic.message,
-              }],
+              arguments: [
+                {
+                  filePath: document.uri.fsPath,
+                  startLine: diagnostic.range.start.line,
+                  endLine: diagnostic.range.end.line,
+                  message: diagnostic.message,
+                },
+              ],
             });
             lenses.push(lens);
           }
@@ -539,10 +516,7 @@ function registerCodeLensProvider(
 // Hover Provider Registration
 // ---------------------------------------------------------------------------
 
-function registerHoverProvider(
-  context: vscode.ExtensionContext,
-  _eng: EngineBridge,
-): void {
+function registerHoverProvider(context: vscode.ExtensionContext, _eng: EngineBridge): void {
   const reviewLogic = new ReviewDecorationLogic();
 
   const hoverProvider = vscode.languages.registerHoverProvider(
@@ -550,28 +524,24 @@ function registerHoverProvider(
     {
       async provideHover(document, position) {
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
-        const codeAnalyzerDiagnostics = diagnostics.filter(
-          (d) => d.source === 'code-analyzer',
-        );
+        const codeAnalyzerDiagnostics = diagnostics.filter((d) => d.source === 'code-analyzer');
 
         for (const diagnostic of codeAnalyzerDiagnostics) {
           if (diagnostic.range.contains(position)) {
             const hoverContent = reviewLogic.buildHoverContent({
-              severity: diagnostic.severity === vscode.DiagnosticSeverity.Error
-                ? 'error'
-                : diagnostic.severity === vscode.DiagnosticSeverity.Warning
-                  ? 'warning'
-                  : 'info',
+              severity:
+                diagnostic.severity === vscode.DiagnosticSeverity.Error
+                  ? 'error'
+                  : diagnostic.severity === vscode.DiagnosticSeverity.Warning
+                    ? 'warning'
+                    : 'info',
               message: diagnostic.message,
               title: diagnostic.message.split('\n')[0] ?? 'Issue',
               suggestions: [],
             } as unknown as ReviewCommentItem);
 
             const markdown = reviewLogic.buildHoverMarkdown(hoverContent);
-            return new vscode.Hover(
-              new vscode.MarkdownString(markdown),
-              diagnostic.range,
-            );
+            return new vscode.Hover(new vscode.MarkdownString(markdown), diagnostic.range);
           }
         }
         return null;
@@ -617,14 +587,15 @@ function registerReviewOnSave(
             endCharacter: d.range.endCharacter,
           },
           message: d.message,
-          severity: d.severity === 'error'
-            ? DiagnosticSeverity.Error : d.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
+          severity:
+            d.severity === 'error'
+              ? DiagnosticSeverity.Error
+              : d.severity === 'warning'
+                ? DiagnosticSeverity.Warning
+                : DiagnosticSeverity.Information,
           source: d.source,
         }));
-        commentCollection.set(
-          { toString: () => document.uri.fsPath },
-          vsDiags,
-        );
+        commentCollection.set({ toString: () => document.uri.fsPath }, vsDiags);
       } catch {
         // Silently handle review errors on save
       }
@@ -636,45 +607,39 @@ function registerReviewOnSave(
 // Graph Explorer Tree View Registration
 // ---------------------------------------------------------------------------
 
-function registerGraphTreeView(
-  context: vscode.ExtensionContext,
-  eng: EngineBridge,
-): void {
+function registerGraphTreeView(context: vscode.ExtensionContext, eng: EngineBridge): void {
   const treeLogic = new GraphTreeDataProviderLogic(eng);
 
-  const treeDataProvider = vscode.window.registerTreeDataProvider(
-    'code-analyzer.graphExplorer',
-    {
-      getTreeItem(element: TreeItemData): vscode.TreeItem {
-        const iconPath = treeLogic.getIconForLabel(element.label);
-        const treeItem = new vscode.TreeItem(
-          element.label,
-          element.children && element.children.length > 0
-            ? vscode.TreeItemCollapsibleState.Collapsed
-            : vscode.TreeItemCollapsibleState.None,
-        );
-        treeItem.id = element.id;
-        treeItem.description = element.description;
-        treeItem.tooltip = element.tooltip ?? element.label;
-        treeItem.contextValue = element.contextValue ?? 'symbol';
-        if (iconPath) {
-          treeItem.iconPath = new vscode.ThemeIcon(iconPath);
-        }
-        if (element.command) {
-          treeItem.command = element.command as vscode.Command;
-        }
-        return treeItem;
-      },
-
-      async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
-        return treeLogic.getChildren(element?.id ?? 'root');
-      },
-
-      getParent(element: TreeItemData): vscode.ProviderResult<TreeItemData> {
-        return treeLogic.getParent(element.id);
-      },
+  const treeDataProvider = vscode.window.registerTreeDataProvider('code-analyzer.graphExplorer', {
+    getTreeItem(element: TreeItemData): vscode.TreeItem {
+      const iconPath = treeLogic.getIconForLabel(element.label);
+      const treeItem = new vscode.TreeItem(
+        element.label,
+        element.children && element.children.length > 0
+          ? vscode.TreeItemCollapsibleState.Collapsed
+          : vscode.TreeItemCollapsibleState.None,
+      );
+      treeItem.id = element.id;
+      treeItem.description = element.description;
+      treeItem.tooltip = element.tooltip ?? element.label;
+      treeItem.contextValue = element.contextValue ?? 'symbol';
+      if (iconPath) {
+        treeItem.iconPath = new vscode.ThemeIcon(iconPath);
+      }
+      if (element.command) {
+        treeItem.command = element.command as vscode.Command;
+      }
+      return treeItem;
     },
-  );
+
+    async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
+      return treeLogic.getChildren(element?.id ?? 'root');
+    },
+
+    getParent(element: TreeItemData): vscode.ProviderResult<TreeItemData> {
+      return treeLogic.getParent(element.id);
+    },
+  });
 
   context.subscriptions.push(treeDataProvider);
 }

@@ -26,7 +26,10 @@ export class NoopMetricsCollector implements MetricsCollector {
     return 0;
   }
 
-  getHistogram(_name: string, _tags?: Record<string, string>): { values: number[]; count: number; sum: number } | undefined {
+  getHistogram(
+    _name: string,
+    _tags?: Record<string, string>,
+  ): { values: number[]; count: number; sum: number } | undefined {
     return undefined;
   }
 

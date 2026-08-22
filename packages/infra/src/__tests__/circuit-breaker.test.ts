@@ -132,9 +132,7 @@ describe('CircuitBreaker', () => {
       expect(breaker.state).toBe('open');
 
       // Should reject immediately
-      await expect(breaker.execute(async () => 'nope')).rejects.toThrow(
-        'Circuit breaker is OPEN',
-      );
+      await expect(breaker.execute(async () => 'nope')).rejects.toThrow('Circuit breaker is OPEN');
     });
 
     it('opens on first failure in half-open state', async () => {
@@ -477,9 +475,7 @@ describe('CircuitBreaker', () => {
     it('handles multiple concurrent operations in closed state', async () => {
       breaker = new CircuitBreaker({ failureThreshold: 100 });
 
-      const ops = Array.from({ length: 10 }, (_, i) =>
-        breaker.execute(async () => i),
-      );
+      const ops = Array.from({ length: 10 }, (_, i) => breaker.execute(async () => i));
       const results = await Promise.all(ops);
       expect(results).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
       expect(breaker.state).toBe('closed');

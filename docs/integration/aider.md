@@ -19,7 +19,7 @@ Add to `.aider.conf.yml` in your project root:
 mcp_servers:
   - name: code-analyzer
     command: npx
-    args: ["@code-analyzer/mcp"]
+    args: ['@code-analyzer/mcp']
 ```
 
 Or use environment variables:
@@ -31,12 +31,12 @@ aider
 
 ## Available Tools
 
-| Tool | Description |
-|---|---|
-| `search_codebase` | Search across the entire codebase |
-| `review_changes` | Review staged/diff changes |
-| `get_dependencies` | Get file or module dependencies |
-| `find_symbol` | Find symbol definitions and references |
+| Tool                   | Description                             |
+| ---------------------- | --------------------------------------- |
+| `search_codebase`      | Search across the entire codebase       |
+| `review_changes`       | Review staged/diff changes              |
+| `get_dependencies`     | Get file or module dependencies         |
+| `find_symbol`          | Find symbol definitions and references  |
 | `analyze_architecture` | Architecture analysis and visualization |
 
 ## Aider-Specific Features
@@ -50,10 +50,10 @@ mcp_servers:
   - name: code-analyzer
     command: npx
     args:
-      - "@code-analyzer/mcp"
-      - "--auto-review"
-      - "--severity"
-      - "warning"
+      - '@code-analyzer/mcp'
+      - '--auto-review'
+      - '--severity'
+      - 'warning'
 ```
 
 When enabled, every change Aider makes is automatically reviewed.

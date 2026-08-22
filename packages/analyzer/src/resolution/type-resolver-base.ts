@@ -206,7 +206,10 @@ export abstract class TypeResolverBase {
    * Normalize a type name by stripping whitespace and standardizing separators.
    */
   protected normalizeTypeName(typeName: string): string {
-    return typeName.trim().replace(/\s+/g, ' ').replace(/\s*([&|<>])\s*/g, '$1');
+    return typeName
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([&|<>])\s*/g, '$1');
   }
 
   /**
@@ -214,12 +217,39 @@ export abstract class TypeResolverBase {
    */
   protected isPrimitive(typeName: string): boolean {
     const primitives = new Set([
-      'string', 'number', 'boolean', 'void', 'undefined', 'null',
-      'int', 'float', 'double', 'char', 'byte', 'short', 'long',
-      'bool', 'str', 'int8', 'int16', 'int32', 'int64',
-      'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64',
-      'rune', 'complex64', 'complex128', 'any', 'never', 'unknown',
-      'bigint', 'symbol',
+      'string',
+      'number',
+      'boolean',
+      'void',
+      'undefined',
+      'null',
+      'int',
+      'float',
+      'double',
+      'char',
+      'byte',
+      'short',
+      'long',
+      'bool',
+      'str',
+      'int8',
+      'int16',
+      'int32',
+      'int64',
+      'uint8',
+      'uint16',
+      'uint32',
+      'uint64',
+      'float32',
+      'float64',
+      'rune',
+      'complex64',
+      'complex128',
+      'any',
+      'never',
+      'unknown',
+      'bigint',
+      'symbol',
     ]);
     return primitives.has(typeName.toLowerCase());
   }

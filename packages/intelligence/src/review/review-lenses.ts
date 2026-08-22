@@ -2,12 +2,7 @@
 // Eight specialized review lenses for the PR Review Swarm.
 // Each lens defines WHAT to check, with deterministic analysis rules.
 
-import type {
-  ReviewComment,
-  ReviewCategory,
-  Severity,
-  GitDiff,
-} from '@code-analyzer/shared';
+import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Lens Types
@@ -128,7 +123,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   structure: {
     id: 'structure',
     name: 'Structure Lens',
-    description: 'Architectural integrity — layer violations, circular dependencies, module boundaries, orphan code',
+    description:
+      'Architectural integrity — layer violations, circular dependencies, module boundaries, orphan code',
     mcpTools: ['query_cypher', 'get_architecture', 'trace_path'],
     standards: ['architecture-layered', 'dependency-management'],
     categories: ['architecture', 'maintainability'],
@@ -138,7 +134,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   security: {
     id: 'security',
     name: 'Security Lens',
-    description: 'Vulnerability detection — SQL injection, XSS, hardcoded secrets, path traversal, weak cryptography',
+    description:
+      'Vulnerability detection — SQL injection, XSS, hardcoded secrets, path traversal, weak cryptography',
     mcpTools: ['check_standards', 'search_code', 'query_cypher'],
     standards: ['security-essentials', 'security-baseline'],
     categories: ['security'],
@@ -148,7 +145,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   performance: {
     id: 'performance',
     name: 'Performance Lens',
-    description: 'Runtime efficiency — N+1 queries, O(n²) patterns, blocking operations, resource leaks, memory issues',
+    description:
+      'Runtime efficiency — N+1 queries, O(n²) patterns, blocking operations, resource leaks, memory issues',
     mcpTools: ['query_cypher', 'trace_path', 'analyze_impact'],
     standards: ['architecture-layered'],
     categories: ['performance'],
@@ -158,7 +156,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   testing: {
     id: 'testing',
     name: 'Testing Lens',
-    description: 'Test quality — missing test coverage, flaky patterns, skipped tests, edge case gaps',
+    description:
+      'Test quality — missing test coverage, flaky patterns, skipped tests, edge case gaps',
     mcpTools: ['query_cypher', 'trace_path', 'search_code'],
     standards: ['testing-standards'],
     categories: ['test'],
@@ -168,7 +167,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   style: {
     id: 'style',
     name: 'Style Lens',
-    description: 'Code style — naming conventions, function length, nesting depth, magic numbers, duplication',
+    description:
+      'Code style — naming conventions, function length, nesting depth, magic numbers, duplication',
     mcpTools: ['check_standards', 'search_code'],
     standards: ['typescript-coding', 'python-pep8', 'go-idiomatic'],
     categories: ['style', 'maintainability'],
@@ -178,7 +178,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   api: {
     id: 'api',
     name: 'API Lens',
-    description: 'API contract integrity — breaking changes, missing validation, inconsistent responses, auth gaps',
+    description:
+      'API contract integrity — breaking changes, missing validation, inconsistent responses, auth gaps',
     mcpTools: ['query_cypher', 'analyze_impact', 'get_architecture'],
     standards: ['api-design'],
     categories: ['api', 'security'],
@@ -188,7 +189,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   deps: {
     id: 'deps',
     name: 'Dependency Health Lens',
-    description: 'Supply chain integrity — outdated dependencies, CVE exposure, license compliance, unpinned versions',
+    description:
+      'Supply chain integrity — outdated dependencies, CVE exposure, license compliance, unpinned versions',
     mcpTools: ['check_standards', 'search_code', 'query_cypher'],
     standards: ['dependency-management', 'security-baseline'],
     categories: ['security', 'maintainability'],
@@ -198,7 +200,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   contract: {
     id: 'contract',
     name: 'API Contract Compliance Lens',
-    description: 'Contract integrity — breaking changes in public APIs, semver violations, missing deprecation notices, signature changes',
+    description:
+      'Contract integrity — breaking changes in public APIs, semver violations, missing deprecation notices, signature changes',
     mcpTools: ['analyze_impact', 'query_cypher', 'get_architecture'],
     standards: ['api-design', 'architecture-layered'],
     categories: ['api', 'maintainability'],
@@ -208,7 +211,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   docs: {
     id: 'docs',
     name: 'Docs Lens',
-    description: 'Documentation completeness — missing JSDoc, undocumented APIs, stale docs, missing changelog',
+    description:
+      'Documentation completeness — missing JSDoc, undocumented APIs, stale docs, missing changelog',
     mcpTools: ['search_code', 'get_architecture'],
     standards: ['documentation'],
     categories: ['documentation'],
@@ -218,7 +222,8 @@ export const LENS_PROFILES: Record<LensId, LensProfile> = {
   synthesis: {
     id: 'synthesis',
     name: 'Synthesis Lens',
-    description: 'HARD GATE — evidence validation, IoU dedup, severity calibration, consensus merge, action plan, block/approve decision',
+    description:
+      'HARD GATE — evidence validation, IoU dedup, severity calibration, consensus merge, action plan, block/approve decision',
     mcpTools: ['generate_report', 'get_trends'],
     standards: [],
     categories: [],
@@ -270,21 +275,25 @@ export const SECURITY_PATTERNS: Array<{
     severity: 'critical',
     pattern: /(["'`]\s*\+\s*|\$\{[^}]*\}\s*\+\s*|\+\s*["'`])/,
     description: 'String concatenation in SQL queries enables SQL injection attacks.',
-    suggestion: 'Use parameterized queries or query builders (e.g., ? placeholders, :named params).',
+    suggestion:
+      'Use parameterized queries or query builders (e.g., ? placeholders, :named params).',
   },
   {
     id: 'sec-hardcoded-key',
     name: 'Hardcoded API Key',
     severity: 'critical',
-    pattern: /(?:api[_-]?key|api[_-]?secret|access[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*["'][\w\-._]{8,}["']/i,
-    description: 'API keys and secrets committed to source code are exposed to anyone with repository access.',
+    pattern:
+      /(?:api[_-]?key|api[_-]?secret|access[_-]?key|secret[_-]?key|auth[_-]?token)\s*[:=]\s*["'][\w\-._]{8,}["']/i,
+    description:
+      'API keys and secrets committed to source code are exposed to anyone with repository access.',
     suggestion: 'Use environment variables (process.env.SECRET) or a secrets manager.',
   },
   {
     id: 'sec-hardcoded-password',
     name: 'Hardcoded Password',
     severity: 'critical',
-    pattern: /(?:password|passwd|pwd)\s*[:=]\s*["'][^"'\s]{3,}["'](?!\s*[;,]?\s*\/\/\s*(?:nosec|no-check))/i,
+    pattern:
+      /(?:password|passwd|pwd)\s*[:=]\s*["'][^"'\s]{3,}["'](?!\s*[;,]?\s*\/\/\s*(?:nosec|no-check))/i,
     description: 'Hardcoded passwords are visible in version control and logs.',
     suggestion: 'Use environment variables or a secure credential store.',
   },
@@ -294,7 +303,8 @@ export const SECURITY_PATTERNS: Array<{
     severity: 'high',
     pattern: /\.innerHTML\s*=/,
     description: 'Setting innerHTML with unsanitized user input enables XSS attacks.',
-    suggestion: 'Use textContent, createElement, or sanitize with DOMPurify before using innerHTML.',
+    suggestion:
+      'Use textContent, createElement, or sanitize with DOMPurify before using innerHTML.',
   },
   {
     id: 'sec-xss-dangerously',
@@ -308,9 +318,11 @@ export const SECURITY_PATTERNS: Array<{
     id: 'sec-path-traversal',
     name: 'Path Traversal',
     severity: 'high',
-    pattern: /path\.(?:resolve|join)\s*\(\s*(?:__dirname|process\.cwd\(\))\s*,\s*(?:req\.|request\.|params\.|query\.|body\.)/,
+    pattern:
+      /path\.(?:resolve|join)\s*\(\s*(?:__dirname|process\.cwd\(\))\s*,\s*(?:req\.|request\.|params\.|query\.|body\.)/,
     description: 'Unsanitized user input in file paths enables path traversal attacks.',
-    suggestion: 'Validate and sanitize user input, use path.basename() to strip directory components.',
+    suggestion:
+      'Validate and sanitize user input, use path.basename() to strip directory components.',
   },
   {
     id: 'sec-weak-crypto-md5',
@@ -348,7 +360,11 @@ export const PERFORMANCE_PATTERNS: Array<{
     detection: (lines) => {
       const findings: Array<{ startLine: number; endLine: number }> = [];
       for (let i = 0; i < lines.length; i++) {
-        if (/\breadFileSync\b|\bwriteFileSync\b|\bexistsSync\b|\bmkdirSync\b|\brmdirSync\b/.test(lines[i]!)) {
+        if (
+          /\breadFileSync\b|\bwriteFileSync\b|\bexistsSync\b|\bmkdirSync\b|\brmdirSync\b/.test(
+            lines[i]!,
+          )
+        ) {
           findings.push({ startLine: i + 1, endLine: i + 1 });
         }
       }
@@ -390,14 +406,18 @@ export const PERFORMANCE_PATTERNS: Array<{
     detection: (lines) => {
       const findings: Array<{ startLine: number; endLine: number }> = [];
       for (let i = 0; i < lines.length; i++) {
-        if (/\bsetInterval\b/.test(lines[i]!) && !lines.slice(i, i + 5).some(l => /\bclearInterval\b/.test(l))) {
+        if (
+          /\bsetInterval\b/.test(lines[i]!) &&
+          !lines.slice(i, i + 5).some((l) => /\bclearInterval\b/.test(l))
+        ) {
           findings.push({ startLine: i + 1, endLine: i + 1 });
         }
       }
       return findings;
     },
     description: 'setInterval without corresponding clearInterval can cause memory leaks.',
-    suggestion: 'Store the interval ID and call clearInterval in cleanup (useEffect return, componentWillUnmount, or try/finally).',
+    suggestion:
+      'Store the interval ID and call clearInterval in cleanup (useEffect return, componentWillUnmount, or try/finally).',
   },
 ];
 
@@ -653,8 +673,14 @@ function parseCargoDeps(lines: string[]): DepEntry[] {
   let inDeps = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (line === '[dependencies]') { inDeps = true; continue; }
-    if (inDeps && line.startsWith('[')) { inDeps = false; continue; }
+    if (line === '[dependencies]') {
+      inDeps = true;
+      continue;
+    }
+    if (inDeps && line.startsWith('[')) {
+      inDeps = false;
+      continue;
+    }
     if (inDeps) {
       const match = line.match(/^(\S+)\s*=\s*"([^"]+)"/);
       if (match) {
@@ -670,8 +696,14 @@ function parseGoDeps(lines: string[]): DepEntry[] {
   let inRequire = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim();
-    if (line.startsWith('require (')) { inRequire = true; continue; }
-    if (inRequire && line === ')') { inRequire = false; continue; }
+    if (line.startsWith('require (')) {
+      inRequire = true;
+      continue;
+    }
+    if (inRequire && line === ')') {
+      inRequire = false;
+      continue;
+    }
     if (inRequire) {
       const parts = line.split(/\s+/);
       if (parts.length >= 2 && parts[0] && parts[1]) {
@@ -717,15 +749,19 @@ function checkDependency(dep: DepEntry, _lines: string[], filePath: string): Len
 
   // Check for known deprecated packages (npm)
   const DEPRECATED_PACKAGES: Record<string, string> = {
-    'request': 'request is deprecated — use node-fetch or axios instead',
+    request: 'request is deprecated — use node-fetch or axios instead',
     'core-js@2': 'core-js@2 is end-of-life — migrate to core-js@3',
     'left-pad': 'left-pad is deprecated — use String.prototype.padStart()',
-    'hoek': 'hoek is deprecated — use @hapi/hoek instead',
+    hoek: 'hoek is deprecated — use @hapi/hoek instead',
     'rimraf@2': 'rimraf@2 is deprecated — use rimraf@3+ or native fs.rm()',
   };
 
   for (const [pkgName, reason] of Object.entries(DEPRECATED_PACKAGES)) {
-    if (pkgName.includes('@') && dep.name === pkgName.split('@')[0] && dep.version.startsWith(pkgName.split('@')[1]!)) {
+    if (
+      pkgName.includes('@') &&
+      dep.name === pkgName.split('@')[0] &&
+      dep.version.startsWith(pkgName.split('@')[1]!)
+    ) {
       const evidence: EvidenceAnchor = {
         filePath,
         startLine: dep.line,
@@ -801,7 +837,7 @@ export function reviewApiContract(
     const previousExports = extractExportedSymbols(prevLines);
 
     for (const prevExp of previousExports) {
-      if (![...currentExports].some(e => e.name === prevExp.name)) {
+      if (![...currentExports].some((e) => e.name === prevExp.name)) {
         const evidence: EvidenceAnchor = {
           filePath,
           startLine: 1,
@@ -837,7 +873,7 @@ export function reviewApiContract(
 
         // Check preceding lines for @deprecated JSDoc tag
         const precedingLines = lines.slice(Math.max(0, i - 10), i);
-        const hasDeprecated = precedingLines.some(l => /@deprecated/.test(l));
+        const hasDeprecated = precedingLines.some((l) => /@deprecated/.test(l));
 
         // Check if signature changed from previous version
         if (previousContent) {
@@ -882,7 +918,9 @@ function extractExportedSymbols(lines: string[]): Set<{ name: string; line: numb
   const symbols = new Set<{ name: string; line: number }>();
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    const match = line.match(/\bexport\s+(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\s+(\w+)/);
+    const match = line.match(
+      /\bexport\s+(?:async\s+)?(?:function|class|const|let|var|interface|type|enum)\s+(\w+)/,
+    );
     if (match) {
       symbols.add({ name: match[1]!, line: i + 1 });
     }
@@ -894,8 +932,10 @@ function extractExportedSymbols(lines: string[]): Set<{ name: string; line: numb
 function extractFunctionSignature(lines: string[], funcName: string): string | null {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if ((line.includes(`function ${funcName}`) || line.includes(`const ${funcName}`)) &&
-        line.includes(')')) {
+    if (
+      (line.includes(`function ${funcName}`) || line.includes(`const ${funcName}`)) &&
+      line.includes(')')
+    ) {
       // Return normalized signature (remove whitespace variance)
       return line.trim().replace(/\s+/g, ' ');
     }

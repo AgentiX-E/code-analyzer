@@ -14,7 +14,9 @@ import { RateLimiter, PRESET_LIMITS } from '../enterprise/rate-limiter.js';
 describe('RBACEngine', () => {
   let rbac: RBACEngine;
 
-  beforeEach(() => { rbac = new RBACEngine(); });
+  beforeEach(() => {
+    rbac = new RBACEngine();
+  });
 
   describe('Role assignment', () => {
     it('defaults to viewer for unknown users', () => {
@@ -37,7 +39,7 @@ describe('RBACEngine', () => {
       rbac.assignRole('bob', 'developer');
       const users = rbac.listUsers();
       expect(users.length).toBe(2);
-      expect(users.find(u => u.userId === 'alice')!.role).toBe('admin');
+      expect(users.find((u) => u.userId === 'alice')!.role).toBe('admin');
     });
   });
 
@@ -102,7 +104,9 @@ describe('RBACEngine', () => {
 
     it('error contains user, role, and permission', () => {
       rbac.assignRole('bob', 'viewer');
-      try { rbac.require('bob', 'index:delete'); } catch (e) {
+      try {
+        rbac.require('bob', 'index:delete');
+      } catch (e) {
         const err = e as RBACError;
         expect(err.userId).toBe('bob');
         expect(err.role).toBe('viewer');
@@ -129,13 +133,18 @@ describe('RBACEngine', () => {
 describe('AuditLogger', () => {
   let logger: AuditLogger;
 
-  beforeEach(() => { logger = new AuditLogger(); });
+  beforeEach(() => {
+    logger = new AuditLogger();
+  });
 
   describe('Logging', () => {
     it('records an audit entry', () => {
       const entry = logger.log({
-        userId: 'alice', action: 'tool.invoke', resource: 'search_graph',
-        description: 'Searched for "login" function', result: 'success',
+        userId: 'alice',
+        action: 'tool.invoke',
+        resource: 'search_graph',
+        description: 'Searched for "login" function',
+        result: 'success',
       });
       expect(entry.id).toBe(1);
       expect(entry.userId).toBe('alice');
@@ -235,16 +244,22 @@ describe('AuditLogger', () => {
   describe('Result tracking', () => {
     it('records result field', () => {
       const entry = logger.log({
-        userId: 'a', action: 'tool.invoke', resource: 'r',
-        description: 'd', result: 'denied',
+        userId: 'a',
+        action: 'tool.invoke',
+        resource: 'r',
+        description: 'd',
+        result: 'denied',
       });
       expect(entry.result).toBe('denied');
     });
 
     it('records duration', () => {
       const entry = logger.log({
-        userId: 'a', action: 'tool.invoke', resource: 'r',
-        description: 'd', durationMs: 42,
+        userId: 'a',
+        action: 'tool.invoke',
+        resource: 'r',
+        description: 'd',
+        durationMs: 42,
       });
       expect(entry.durationMs).toBe(42);
     });
@@ -258,47 +273,51 @@ describe('AuditLogger', () => {
 describe('SecretScanner', () => {
   let scanner: SecretScanner;
 
-  beforeEach(() => { scanner = new SecretScanner(); });
+  beforeEach(() => {
+    scanner = new SecretScanner();
+  });
 
   describe('Pattern matching', () => {
     it('detects AWS access key', () => {
       const findings = scanner.scan('const key = "AKIAJ7K2M9Q3F8V5P4L6"');
-      expect(findings.some(f => f.patternName === 'aws-access-key')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'aws-access-key')).toBe(true);
     });
 
     it('detects GitHub token', () => {
       const findings = scanner.scan('TOKEN=ghp_1234567890abcdef1234567890abcdef12345678');
-      expect(findings.some(f => f.patternName === 'github-token')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'github-token')).toBe(true);
     });
 
     it('detects GitHub PAT', () => {
       const findings = scanner.scan('export GH_TOKEN=github_pat_11AINQNPI0wAZti6M1c0wu_MLYDhEoyf');
-      expect(findings.some(f => f.patternName === 'github-pat')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'github-pat')).toBe(true);
     });
 
     it('detects JWT token', () => {
-      const findings = scanner.scan('Auth: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U');
-      expect(findings.some(f => f.patternName === 'jwt-token')).toBe(true);
+      const findings = scanner.scan(
+        'Auth: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+      );
+      expect(findings.some((f) => f.patternName === 'jwt-token')).toBe(true);
     });
 
     it('detects SSH private key', () => {
       const findings = scanner.scan('-----BEGIN RSA PRIVATE KEY-----');
-      expect(findings.some(f => f.patternName === 'ssh-private-key')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'ssh-private-key')).toBe(true);
     });
 
     it('detects password assignment', () => {
       const findings = scanner.scan('password = "superSecret123!"');
-      expect(findings.some(f => f.patternName === 'password-assignment')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'password-assignment')).toBe(true);
     });
 
     it('detects database connection string', () => {
       const findings = scanner.scan('mongodb://admin:secretpass@localhost:27017/db');
-      expect(findings.some(f => f.patternName === 'db-connection-string')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'db-connection-string')).toBe(true);
     });
 
     it('detects OpenAI key', () => {
       const findings = scanner.scan('OPENAI_API_KEY=sk-proj-abcdef1234567890abcdef1234567890');
-      expect(findings.some(f => f.patternName === 'openai-key')).toBe(true);
+      expect(findings.some((f) => f.patternName === 'openai-key')).toBe(true);
     });
   });
 
@@ -321,24 +340,28 @@ describe('SecretScanner', () => {
 
   describe('Entropy detection', () => {
     it('detects high-entropy base64-like strings', () => {
-      const scanner2 = new SecretScanner({ entropyDetection: true, entropyThreshold: 3.0, entropyMinLength: 10 });
+      const scanner2 = new SecretScanner({
+        entropyDetection: true,
+        entropyThreshold: 3.0,
+        entropyMinLength: 10,
+      });
       // High-entropy alphanumeric string (should have entropy > 4.0)
       const highEntropyStr = 'a7Xk2Mp9Qf3Vn8Lw5Rh1Jy6Cb4Az0Te3sWd7Gu9Iq2Op5';
       const findings = scanner2.scan(highEntropyStr);
-      expect(findings.some(f => f.entropyBased)).toBe(true);
+      expect(findings.some((f) => f.entropyBased)).toBe(true);
     });
 
     it('skips low-entropy tokens', () => {
       const scanner2 = new SecretScanner({ entropyDetection: true, entropyThreshold: 4.5 });
       const findings = scanner2.scan('function calculateTotalAmount(items)');
       // Normal code tokens should have low entropy
-      expect(findings.filter(f => f.entropyBased).length).toBe(0);
+      expect(findings.filter((f) => f.entropyBased).length).toBe(0);
     });
 
     it('entropy-based findings have entropy value', () => {
       const scanner2 = new SecretScanner({ entropyDetection: true, entropyThreshold: 3.5 });
       const findings = scanner2.scan('xK9mQ7fV3pL8wR5nH1jY6cB4aZ0tE3s');
-      const entropyFindings = findings.filter(f => f.entropyBased);
+      const entropyFindings = findings.filter((f) => f.entropyBased);
       for (const f of entropyFindings) {
         expect(typeof f.entropy).toBe('number');
         expect(f.entropy!).toBeGreaterThanOrEqual(3.5);
@@ -359,10 +382,7 @@ describe('SecretScanner', () => {
     });
 
     it('includes line numbers in findings', () => {
-      const content = [
-        '',
-        'password = "secret123"',
-      ].join('\n');
+      const content = ['', 'password = "secret123"'].join('\n');
 
       const findings = scanner.scanLine(content.split('\n')[1]!, 2);
       expect(findings[0]!.line).toBe(2);
@@ -371,7 +391,7 @@ describe('SecretScanner', () => {
     it('returns empty for clean code', () => {
       const findings = scanner.scan('function hello() { return "world"; }');
       // Clean code should have no findings (exclusions handle false positives)
-      expect(findings.filter(f => !f.entropyBased).length).toBe(0);
+      expect(findings.filter((f) => !f.entropyBased).length).toBe(0);
     });
   });
 });
@@ -383,7 +403,9 @@ describe('SecretScanner', () => {
 describe('RateLimiter', () => {
   let limiter: RateLimiter;
 
-  beforeEach(() => { limiter = new RateLimiter(); });
+  beforeEach(() => {
+    limiter = new RateLimiter();
+  });
 
   describe('Token bucket', () => {
     it('allows requests within limits', () => {

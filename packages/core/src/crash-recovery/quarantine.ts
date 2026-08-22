@@ -139,7 +139,7 @@ export class QuarantineManager {
   getRetryableFiles(maxRetries: number = 3, minAgeMs: number = 5 * 60 * 1000): QuarantinedFile[] {
     const now = Date.now();
     return this.loadList().filter(
-      (f) => f.retryCount <= maxRetries && (now - f.timestamp) > minAgeMs,
+      (f) => f.retryCount <= maxRetries && now - f.timestamp > minAgeMs,
     );
   }
 

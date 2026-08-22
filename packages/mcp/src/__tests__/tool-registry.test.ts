@@ -199,10 +199,7 @@ describe('ToolRegistry', () => {
 
 describe('makeSchema', () => {
   it('should create a basic JSON schema', () => {
-    const schema = makeSchema(
-      { name: { type: 'string', description: 'A name' } },
-      ['name'],
-    );
+    const schema = makeSchema({ name: { type: 'string', description: 'A name' } }, ['name']);
 
     expect(schema.type).toBe('object');
     expect(schema.properties).toHaveProperty('name');
@@ -210,10 +207,13 @@ describe('makeSchema', () => {
   });
 
   it('should handle optional properties', () => {
-    const schema = makeSchema({
-      required: { type: 'string', description: 'Required' },
-      optional: { type: 'number', description: 'Optional' },
-    }, ['required']);
+    const schema = makeSchema(
+      {
+        required: { type: 'string', description: 'Required' },
+        optional: { type: 'number', description: 'Optional' },
+      },
+      ['required'],
+    );
 
     expect(schema.required).toHaveLength(1);
     expect(schema.required).toContain('required');

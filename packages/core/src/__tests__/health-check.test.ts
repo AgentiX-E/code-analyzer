@@ -1,14 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import {
-  HealthCheckRegistry,
-} from '../operations/health-check.js';
+import { HealthCheckRegistry } from '../operations/health-check.js';
 
-import type {
-  HealthCheck,
-  HealthCheckResult,
-  HealthStatus,
-} from '../operations/health-check.js';
+import type { HealthCheck, HealthCheckResult, HealthStatus } from '../operations/health-check.js';
 
 describe('HealthCheckRegistry', () => {
   let registry: HealthCheckRegistry;
@@ -229,7 +223,7 @@ describe('HealthCheckRegistry', () => {
     it('should return degraded when non-critical check warns', async () => {
       const r = new HealthCheckRegistry({
         memoryThreshold: 100,
-        minDiskSpace: Number.MAX_SAFE_INTEGER,  // disk-space will warn
+        minDiskSpace: Number.MAX_SAFE_INTEGER, // disk-space will warn
       });
       const status = await r.runAll();
       // Disk-space is not critical and only warns, so overall is degraded
@@ -238,8 +232,8 @@ describe('HealthCheckRegistry', () => {
 
     it('should return unhealthy when a critical check fails and non-critical warns', async () => {
       const r = new HealthCheckRegistry({
-        memoryThreshold: 0,  // memory check will fail (critical)
-        minDiskSpace: Number.MAX_SAFE_INTEGER,  // disk-space will warn
+        memoryThreshold: 0, // memory check will fail (critical)
+        minDiskSpace: Number.MAX_SAFE_INTEGER, // disk-space will warn
       });
       const status = await r.runAll();
       // Critical failure takes precedence over warn
@@ -326,10 +320,10 @@ describe('HealthCheckRegistry', () => {
     it('should return false when all critical checks fail (503 scenario)', async () => {
       // Override the built-in critical checks to fail
       const r = new HealthCheckRegistry({
-        memoryThreshold: 0,  // Will fail memory check
-        storeCheck: async () => false,  // Will fail store check
+        memoryThreshold: 0, // Will fail memory check
+        storeCheck: async () => false, // Will fail store check
         workerPoolCheck: async () => true,
-        minDiskSpace: Number.MAX_SAFE_INTEGER,  // Will warn disk (non-critical)
+        minDiskSpace: Number.MAX_SAFE_INTEGER, // Will warn disk (non-critical)
       });
       const ready = await r.readiness();
       // Both critical checks fail → unhealthy → readiness false
@@ -339,7 +333,7 @@ describe('HealthCheckRegistry', () => {
     it('should return true for degraded (warn) but not failed state', async () => {
       const r = new HealthCheckRegistry({
         memoryThreshold: 100,
-        minDiskSpace: Number.MAX_SAFE_INTEGER,  // disk-space will warn
+        minDiskSpace: Number.MAX_SAFE_INTEGER, // disk-space will warn
       });
       // Only non-critical warn, no critical failures → ready
       expect(await r.readiness()).toBe(true);

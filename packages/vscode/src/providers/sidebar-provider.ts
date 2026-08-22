@@ -63,9 +63,7 @@ export class SidebarLogic {
           return { command: 'graphData', nodes: [], edges: [] };
         }
         try {
-          const related = rootSymbol
-            ? await this.engine.traceCallPath(rootSymbol)
-            : [];
+          const related = rootSymbol ? await this.engine.traceCallPath(rootSymbol) : [];
           return {
             command: 'graphData',
             nodes: related.map((r, i) => ({
@@ -74,13 +72,14 @@ export class SidebarLogic {
               label: 'Function',
               filePath: r.filePath,
             })),
-            edges: related.length > 1
-              ? related.slice(1).map((_, i) => ({
-                  sourceId: i + 1,
-                  targetId: i + 2,
-                  type: EDGE_CALLS,
-                }))
-              : [],
+            edges:
+              related.length > 1
+                ? related.slice(1).map((_, i) => ({
+                    sourceId: i + 1,
+                    targetId: i + 2,
+                    type: EDGE_CALLS,
+                  }))
+                : [],
           };
         } catch {
           return { command: 'graphData', nodes: [], edges: [] };

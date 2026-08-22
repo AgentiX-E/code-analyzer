@@ -64,7 +64,9 @@ describe('SwiftProvider', () => {
       const code = 'actor Counter { var count = 0 }';
       const captures = provider.parse(code, 't.swift');
       const actors = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(actors.some((c) => c.name === 'Counter' && c.properties?.isActor === 'true')).toBe(true);
+      expect(actors.some((c) => c.name === 'Counter' && c.properties?.isActor === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a resultBuilder attribute', () => {
@@ -113,7 +115,11 @@ describe('SwiftProvider', () => {
     it('should extract module path with last segment as name', () => {
       const code = 'import UIKit.UIViewController';
       const imports = provider.extractImports(code, 't.swift');
-      expect(imports.some((i) => i.source === 'UIKit.UIViewController' && i.names.includes('UIViewController'))).toBe(true);
+      expect(
+        imports.some(
+          (i) => i.source === 'UIKit.UIViewController' && i.names.includes('UIViewController'),
+        ),
+      ).toBe(true);
     });
   });
 

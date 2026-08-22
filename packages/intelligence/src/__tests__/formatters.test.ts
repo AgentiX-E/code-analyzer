@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  MarkdownFormatter,
-  JsonFormatter,
-  HtmlFormatter,
-} from '../report/formatters.js';
+import { MarkdownFormatter, JsonFormatter, HtmlFormatter } from '../report/formatters.js';
 import type { AnalysisReport } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -134,7 +130,20 @@ describe('MarkdownFormatter', () => {
   });
 
   it('should include metrics table when metrics exist', () => {
-    const report = makeReport({ metrics: { linesChanged: 100, filesChanged: 3, symbolsAffected: 0, routesAffected: 0, testsImpacted: 0, complexityDelta: 0, coverageDelta: 0, complianceScore: 90, reviewDuration: 0, tokenUsage: 0 } });
+    const report = makeReport({
+      metrics: {
+        linesChanged: 100,
+        filesChanged: 3,
+        symbolsAffected: 0,
+        routesAffected: 0,
+        testsImpacted: 0,
+        complexityDelta: 0,
+        coverageDelta: 0,
+        complianceScore: 90,
+        reviewDuration: 0,
+        tokenUsage: 0,
+      },
+    });
     const md = formatter.format(report);
     expect(md).toContain('## Metrics');
     expect(md).toContain('| Lines Changed |');
@@ -243,11 +252,61 @@ describe('MarkdownFormatter', () => {
   it('should render findings with all severity levels', () => {
     const report = makeReport({
       findings: [
-        { id: 'f-crit', category: 'bug', severity: 'critical', title: 'Critical bug', description: '', filePath: 'a.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-high', category: 'bug', severity: 'high', title: 'High bug', description: '', filePath: 'b.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-med', category: 'bug', severity: 'medium', title: 'Medium bug', description: '', filePath: 'c.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-low', category: 'bug', severity: 'low', title: 'Low bug', description: '', filePath: 'd.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-info', category: 'bug', severity: 'info', title: 'Info bug', description: '', filePath: 'e.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
+        {
+          id: 'f-crit',
+          category: 'bug',
+          severity: 'critical',
+          title: 'Critical bug',
+          description: '',
+          filePath: 'a.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-high',
+          category: 'bug',
+          severity: 'high',
+          title: 'High bug',
+          description: '',
+          filePath: 'b.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-med',
+          category: 'bug',
+          severity: 'medium',
+          title: 'Medium bug',
+          description: '',
+          filePath: 'c.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-low',
+          category: 'bug',
+          severity: 'low',
+          title: 'Low bug',
+          description: '',
+          filePath: 'd.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-info',
+          category: 'bug',
+          severity: 'info',
+          title: 'Info bug',
+          description: '',
+          filePath: 'e.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
       ],
     });
     const md = formatter.format(report);
@@ -260,18 +319,20 @@ describe('MarkdownFormatter', () => {
 
   it('should include standardRef in findings when present', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-1',
-        category: 'bug',
-        severity: 'high',
-        title: 'Test finding',
-        description: 'Description',
-        filePath: 'src/test.ts',
-        lineRange: [1, 1],
-        evidence: 'code',
-        standardRef: 'STD-001',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-1',
+          category: 'bug',
+          severity: 'high',
+          title: 'Test finding',
+          description: 'Description',
+          filePath: 'src/test.ts',
+          lineRange: [1, 1],
+          evidence: 'code',
+          standardRef: 'STD-001',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const md = formatter.format(report);
@@ -280,17 +341,19 @@ describe('MarkdownFormatter', () => {
 
   it('should include lineRange in findings when present', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-1',
-        category: 'bug',
-        severity: 'high',
-        title: 'Test',
-        description: 'Desc',
-        filePath: 'src/test.ts',
-        lineRange: [42, 100],
-        evidence: 'code',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-1',
+          category: 'bug',
+          severity: 'high',
+          title: 'Test',
+          description: 'Desc',
+          filePath: 'src/test.ts',
+          lineRange: [42, 100],
+          evidence: 'code',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const md = formatter.format(report);
@@ -299,17 +362,19 @@ describe('MarkdownFormatter', () => {
 
   it('should include finding description when present', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-1',
-        category: 'bug',
-        severity: 'high',
-        title: 'Test',
-        description: 'A detailed description',
-        filePath: 'src/test.ts',
-        lineRange: null,
-        evidence: '',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-1',
+          category: 'bug',
+          severity: 'high',
+          title: 'Test',
+          description: 'A detailed description',
+          filePath: 'src/test.ts',
+          lineRange: null,
+          evidence: '',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const md = formatter.format(report);
@@ -356,17 +421,19 @@ describe('MarkdownFormatter', () => {
 
   it('should handle report with description in recommendations', () => {
     const report = makeReport({
-      recommendations: [{
-        id: 'rec-desc',
-        priority: 1,
-        title: 'With Description',
-        description: 'A detailed recommendation description',
-        estimatedEffort: 'small',
-        affectedFiles: ['a.ts'],
-        actionItems: [],
-        risksAddressed: [],
-        references: [],
-      }],
+      recommendations: [
+        {
+          id: 'rec-desc',
+          priority: 1,
+          title: 'With Description',
+          description: 'A detailed recommendation description',
+          estimatedEffort: 'small',
+          affectedFiles: ['a.ts'],
+          actionItems: [],
+          risksAddressed: [],
+          references: [],
+        },
+      ],
     });
     const md = formatter.format(report);
     expect(md).toContain('A detailed recommendation description');
@@ -456,17 +523,19 @@ describe('HtmlFormatter', () => {
   it('should escape HTML special characters', () => {
     const report = makeReport({
       title: 'Test <script>alert("xss")</script> Report',
-      findings: [{
-        id: 'f-1',
-        category: 'bug',
-        severity: 'high',
-        title: 'XSS & Injection',
-        description: 'Check for <div> tags',
-        filePath: 'src/main.ts',
-        lineRange: [1, 1],
-        evidence: '<script>alert(1)</script>',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-1',
+          category: 'bug',
+          severity: 'high',
+          title: 'XSS & Injection',
+          description: 'Check for <div> tags',
+          filePath: 'src/main.ts',
+          lineRange: [1, 1],
+          evidence: '<script>alert(1)</script>',
+          relatedFindings: [],
+        },
+      ],
     });
     const html = formatter.format(report);
     expect(html).not.toContain('<script>alert');
@@ -499,17 +568,19 @@ describe('HtmlFormatter', () => {
 
   it('should render findings with lineRange in HTML', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-range',
-        category: 'bug',
-        severity: 'high',
-        title: 'Test with range',
-        description: 'Description',
-        filePath: 'src/test.ts',
-        lineRange: [10, 50],
-        evidence: 'code',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-range',
+          category: 'bug',
+          severity: 'high',
+          title: 'Test with range',
+          description: 'Description',
+          filePath: 'src/test.ts',
+          lineRange: [10, 50],
+          evidence: 'code',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const html = formatter.format(report);
@@ -518,17 +589,19 @@ describe('HtmlFormatter', () => {
 
   it('should render findings without lineRange in HTML', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-no-range',
-        category: 'bug',
-        severity: 'medium',
-        title: 'No range test',
-        description: 'Description',
-        filePath: 'src/test.ts',
-        lineRange: null,
-        evidence: '',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-no-range',
+          category: 'bug',
+          severity: 'medium',
+          title: 'No range test',
+          description: 'Description',
+          filePath: 'src/test.ts',
+          lineRange: null,
+          evidence: '',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const html = formatter.format(report);
@@ -538,17 +611,19 @@ describe('HtmlFormatter', () => {
 
   it('should render recommendations with description in HTML', () => {
     const report = makeReport({
-      recommendations: [{
-        id: 'rec-desc',
-        priority: 1,
-        title: 'With Desc',
-        description: 'HTML recommendation description text',
-        estimatedEffort: 'medium',
-        affectedFiles: ['a.ts'],
-        actionItems: [{ description: 'Action 1', file: 'a.ts' }, { description: 'Action 2' }],
-        risksAddressed: ['bug'],
-        references: [],
-      }],
+      recommendations: [
+        {
+          id: 'rec-desc',
+          priority: 1,
+          title: 'With Desc',
+          description: 'HTML recommendation description text',
+          estimatedEffort: 'medium',
+          affectedFiles: ['a.ts'],
+          actionItems: [{ description: 'Action 1', file: 'a.ts' }, { description: 'Action 2' }],
+          risksAddressed: ['bug'],
+          references: [],
+        },
+      ],
     });
     const html = formatter.format(report);
     expect(html).toContain('HTML recommendation description text');
@@ -558,17 +633,19 @@ describe('HtmlFormatter', () => {
 
   it('should render recommendations without description in HTML', () => {
     const report = makeReport({
-      recommendations: [{
-        id: 'rec-no-desc',
-        priority: 1,
-        title: 'No Desc',
-        description: '',
-        estimatedEffort: 'small',
-        affectedFiles: ['a.ts'],
-        actionItems: [],
-        risksAddressed: [],
-        references: [],
-      }],
+      recommendations: [
+        {
+          id: 'rec-no-desc',
+          priority: 1,
+          title: 'No Desc',
+          description: '',
+          estimatedEffort: 'small',
+          affectedFiles: ['a.ts'],
+          actionItems: [],
+          risksAddressed: [],
+          references: [],
+        },
+      ],
     });
     const html = formatter.format(report);
     expect(html).toContain('No Desc');
@@ -584,11 +661,61 @@ describe('HtmlFormatter', () => {
   it('should render all severity levels as HTML', () => {
     const report = makeReport({
       findings: [
-        { id: 'f-1', category: 'bug', severity: 'critical', title: 'Crit', description: '', filePath: 'a.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-2', category: 'bug', severity: 'high', title: 'High', description: '', filePath: 'b.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-3', category: 'bug', severity: 'medium', title: 'Med', description: '', filePath: 'c.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-4', category: 'bug', severity: 'low', title: 'Low', description: '', filePath: 'd.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
-        { id: 'f-5', category: 'bug', severity: 'info', title: 'Info', description: '', filePath: 'e.ts', lineRange: [1, 1], evidence: '', relatedFindings: [] },
+        {
+          id: 'f-1',
+          category: 'bug',
+          severity: 'critical',
+          title: 'Crit',
+          description: '',
+          filePath: 'a.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-2',
+          category: 'bug',
+          severity: 'high',
+          title: 'High',
+          description: '',
+          filePath: 'b.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-3',
+          category: 'bug',
+          severity: 'medium',
+          title: 'Med',
+          description: '',
+          filePath: 'c.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-4',
+          category: 'bug',
+          severity: 'low',
+          title: 'Low',
+          description: '',
+          filePath: 'd.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
+        {
+          id: 'f-5',
+          category: 'bug',
+          severity: 'info',
+          title: 'Info',
+          description: '',
+          filePath: 'e.ts',
+          lineRange: [1, 1],
+          evidence: '',
+          relatedFindings: [],
+        },
       ],
       recommendations: [],
     });
@@ -617,17 +744,19 @@ describe('HtmlFormatter', () => {
 
   it('should handle actionItems with file in HTML', () => {
     const report = makeReport({
-      recommendations: [{
-        id: 'rec-file',
-        priority: 1,
-        title: 'File Action',
-        description: 'Action with file',
-        estimatedEffort: 'small',
-        affectedFiles: ['src/app.ts'],
-        actionItems: [{ description: 'Fix issue', file: 'src/app.ts' }],
-        risksAddressed: ['bug'],
-        references: [],
-      }],
+      recommendations: [
+        {
+          id: 'rec-file',
+          priority: 1,
+          title: 'File Action',
+          description: 'Action with file',
+          estimatedEffort: 'small',
+          affectedFiles: ['src/app.ts'],
+          actionItems: [{ description: 'Fix issue', file: 'src/app.ts' }],
+          risksAddressed: ['bug'],
+          references: [],
+        },
+      ],
     });
     const html = formatter.format(report);
     expect(html).toContain('File Action');
@@ -636,18 +765,20 @@ describe('HtmlFormatter', () => {
 
   it('should include standardRef in HTML findings when present', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-std',
-        category: 'bug',
-        severity: 'high',
-        title: 'Standard Finding',
-        description: 'Standards violation',
-        filePath: 'src/test.ts',
-        lineRange: [1, 1],
-        evidence: 'code',
-        standardRef: 'STD-001',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-std',
+          category: 'bug',
+          severity: 'high',
+          title: 'Standard Finding',
+          description: 'Standards violation',
+          filePath: 'src/test.ts',
+          lineRange: [1, 1],
+          evidence: 'code',
+          standardRef: 'STD-001',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const html = formatter.format(report);
@@ -656,17 +787,19 @@ describe('HtmlFormatter', () => {
 
   it('should include evidence code block in HTML', () => {
     const report = makeReport({
-      findings: [{
-        id: 'f-ev',
-        category: 'bug',
-        severity: 'high',
-        title: 'Evidence Test',
-        description: 'Has evidence',
-        filePath: 'src/test.ts',
-        lineRange: [1, 1],
-        evidence: 'const x = maybeNull.value;',
-        relatedFindings: [],
-      }],
+      findings: [
+        {
+          id: 'f-ev',
+          category: 'bug',
+          severity: 'high',
+          title: 'Evidence Test',
+          description: 'Has evidence',
+          filePath: 'src/test.ts',
+          lineRange: [1, 1],
+          evidence: 'const x = maybeNull.value;',
+          relatedFindings: [],
+        },
+      ],
       recommendations: [],
     });
     const html = formatter.format(report);
@@ -726,17 +859,19 @@ describe('MarkdownFormatter — edge cases', () => {
 
   it('should include action items with file in Markdown', () => {
     const report = makeReport({
-      recommendations: [{
-        id: 'rec-file',
-        priority: 1,
-        title: 'File Rec',
-        description: 'With file',
-        estimatedEffort: 'small',
-        affectedFiles: ['src/a.ts'],
-        actionItems: [{ description: 'Do this', file: 'src/a.ts' }],
-        risksAddressed: ['bug'],
-        references: [],
-      }],
+      recommendations: [
+        {
+          id: 'rec-file',
+          priority: 1,
+          title: 'File Rec',
+          description: 'With file',
+          estimatedEffort: 'small',
+          affectedFiles: ['src/a.ts'],
+          actionItems: [{ description: 'Do this', file: 'src/a.ts' }],
+          risksAddressed: ['bug'],
+          references: [],
+        },
+      ],
     });
     const md = formatter.format(report);
     expect(md).toContain('File: `src/a.ts`');

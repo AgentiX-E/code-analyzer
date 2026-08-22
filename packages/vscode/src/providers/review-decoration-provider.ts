@@ -211,9 +211,7 @@ export class ReviewDecorationLogic {
   /**
    * Group decorations by file path with line ranges.
    */
-  groupDecorationsByFile(
-    comments: ReviewCommentItem[],
-  ): Map<string, FileDecorationGroup[]> {
+  groupDecorationsByFile(comments: ReviewCommentItem[]): Map<string, FileDecorationGroup[]> {
     const groups = new Map<string, FileDecorationGroup[]>();
     for (const comment of comments) {
       const severity = (comment.severity || 'info') as DecorationSeverity;
@@ -279,10 +277,13 @@ export class ReviewDecorationLogic {
   private categorizeIssue(comment: ReviewCommentItem): string {
     const msg = (comment.message || '').toLowerCase();
     if (msg.includes('complexity') || msg.includes('cyclomatic')) return 'maintainability';
-    if (msg.includes('security') || msg.includes('injection') || msg.includes('xss')) return 'security';
+    if (msg.includes('security') || msg.includes('injection') || msg.includes('xss'))
+      return 'security';
     if (msg.includes('performance') || msg.includes('optimize')) return 'performance';
-    if (msg.includes('naming') || msg.includes('convention') || msg.includes('style')) return 'code-style';
-    if (msg.includes('error') || msg.includes('exception') || msg.includes('handling')) return 'reliability';
+    if (msg.includes('naming') || msg.includes('convention') || msg.includes('style'))
+      return 'code-style';
+    if (msg.includes('error') || msg.includes('exception') || msg.includes('handling'))
+      return 'reliability';
     if (msg.includes('dependency') || msg.includes('coupling')) return 'architecture';
     if (msg.includes('test') || msg.includes('coverage')) return 'testing';
     return 'general';

@@ -118,7 +118,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -130,7 +133,7 @@ describe('createServer', () => {
     // Make a request to the running server
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.status).toMatch(/^(healthy|degraded|unhealthy)$/);
     expect(body.version).toBeDefined();
   });
@@ -139,7 +142,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -148,7 +154,7 @@ describe('createServer', () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/tools/list`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.total).toBe(4);
     expect(Array.isArray(body.tools)).toBe(true);
   });
@@ -157,7 +163,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -170,7 +179,7 @@ describe('createServer', () => {
       body: JSON.stringify({ tool: 'hello', args: { name: 'CodeBuddy' } }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.success).toBe(true);
   });
 
@@ -178,7 +187,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -199,13 +211,18 @@ describe('createServer', () => {
 
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
-      plugins: [{
-        plugin: async (app: FastifyInstance) => {
-          pluginRegistered = true;
-          app.get('/custom-plugin', async (_req, reply) => reply.send({ plugin: 'ok' }));
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
+      plugins: [
+        {
+          plugin: async (app: FastifyInstance) => {
+            pluginRegistered = true;
+            app.get('/custom-plugin', async (_req, reply) => reply.send({ plugin: 'ok' }));
+          },
         },
-      }],
+      ],
     });
 
     await server.start();
@@ -224,13 +241,18 @@ describe('createServer', () => {
 
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
-      plugins: [{
-        plugin: async (app: FastifyInstance) => {
-          pluginRegistered = true;
-          app.get('/no-opts-plugin', async (_req, reply) => reply.send({ ok: true }));
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
+      plugins: [
+        {
+          plugin: async (app: FastifyInstance) => {
+            pluginRegistered = true;
+            app.get('/no-opts-plugin', async (_req, reply) => reply.send({ ok: true }));
+          },
         },
-      }],
+      ],
     });
 
     await server.start();
@@ -247,7 +269,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -270,7 +295,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -283,7 +311,7 @@ describe('createServer', () => {
       body: JSON.stringify({ tool: 'hello' }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.processed).toBe(true);
     expect(body.broadcastTo).toBeDefined();
   });
@@ -292,7 +320,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -301,7 +332,7 @@ describe('createServer', () => {
 
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/sse/connections`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(typeof body.activeConnections).toBe('number');
   });
 
@@ -323,7 +354,7 @@ describe('createServer', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/tools/list`, {
       method: 'OPTIONS',
       headers: {
-        'Origin': 'https://example.com',
+        Origin: 'https://example.com',
         'Access-Control-Request-Method': 'GET',
       },
     });
@@ -334,7 +365,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -367,7 +401,10 @@ describe('createServer', () => {
 
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();
@@ -428,7 +465,10 @@ describe('createServer', () => {
       const registry = createTestRegistry();
       server = await createServer({
         registry,
-        config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
+        config: {
+          port: 0,
+          logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+        },
       });
 
       expect(server.app).toBeDefined();
@@ -447,7 +487,10 @@ describe('createServer', () => {
     const registry = createTestRegistry();
     server = await createServer({
       registry,
-      config: { port: 0, logging: { enabled: true, level: 'info', includeBody: false, pretty: false } },
+      config: {
+        port: 0,
+        logging: { enabled: true, level: 'info', includeBody: false, pretty: false },
+      },
     });
 
     await server.start();

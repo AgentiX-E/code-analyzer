@@ -52,7 +52,7 @@ const SearchView: React.FC = () => {
   }, [results, typeFilter]);
 
   const selected = useMemo(
-    () => (selectedIdx !== null ? filteredResults[selectedIdx] ?? null : null),
+    () => (selectedIdx !== null ? (filteredResults[selectedIdx] ?? null) : null),
     [selectedIdx, filteredResults],
   );
 
@@ -100,7 +100,8 @@ const SearchView: React.FC = () => {
       {hasSearched && (
         <div className="search-stats">
           <span>
-            <strong>{filteredResults.length}</strong> result{filteredResults.length !== 1 ? 's' : ''} found
+            <strong>{filteredResults.length}</strong> result
+            {filteredResults.length !== 1 ? 's' : ''} found
             {total !== filteredResults.length && ` (filtered from ${total})`}
           </span>
         </div>
@@ -143,12 +144,10 @@ const SearchView: React.FC = () => {
                 </span>
                 <span className="result-line">:{result.line}</span>
                 {result.score != null && (
-                  <span className="result-score">
-                    {Math.round(result.score * 100)}% match
-                  </span>
+                  <span className="result-score">{Math.round(result.score * 100)}% match</span>
                 )}
               </div>
-              {(result.score != null) && (
+              {result.score != null && (
                 <div className="result-score-bar">
                   <div
                     className="result-score-fill"
@@ -180,14 +179,10 @@ const SearchView: React.FC = () => {
               {selected.score != null && (
                 <div className="detail-row">
                   <span className="detail-label">Score</span>
-                  <span className="detail-value">
-                    {Math.round(selected.score * 100)}%
-                  </span>
+                  <span className="detail-value">{Math.round(selected.score * 100)}%</span>
                 </div>
               )}
-              {selected.snippet && (
-                <div className="detail-snippet">{selected.snippet}</div>
-              )}
+              {selected.snippet && <div className="detail-snippet">{selected.snippet}</div>}
             </>
           ) : (
             <div className="detail-empty">

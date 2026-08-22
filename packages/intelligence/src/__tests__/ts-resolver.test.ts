@@ -11,30 +11,54 @@ describe('TSResolverContext', () => {
 
   const registryDefs: FileDefinition[] = [
     {
-      qn: 'lib.types.User', shortName: 'User', label: 'Class', moduleQn: 'lib.types',
+      qn: 'lib.types.User',
+      shortName: 'User',
+      label: 'Class',
+      moduleQn: 'lib.types',
       resolvedType: t.objectLiteral([
         t.prop('id', t.named('number', true)),
         t.prop('name', t.named('string', true)),
         t.prop('email', t.named('string', true)),
       ]),
-      language: 'typescript', sourceFile: 'lib/types.ts', sourceLine: 1,
+      language: 'typescript',
+      sourceFile: 'lib/types.ts',
+      sourceLine: 1,
     },
     {
-      qn: 'lib.types.createUser', shortName: 'createUser', label: 'Function',
-      moduleQn: 'lib.types', returnTypes: 'lib.types.User', paramCount: 2,
-      paramTypes: 'string|string', isAsync: false,
-      language: 'typescript', sourceFile: 'lib/types.ts', sourceLine: 10,
+      qn: 'lib.types.createUser',
+      shortName: 'createUser',
+      label: 'Function',
+      moduleQn: 'lib.types',
+      returnTypes: 'lib.types.User',
+      paramCount: 2,
+      paramTypes: 'string|string',
+      isAsync: false,
+      language: 'typescript',
+      sourceFile: 'lib/types.ts',
+      sourceLine: 10,
     },
     {
-      qn: 'services.db.query', shortName: 'query', label: 'Method',
-      moduleQn: 'services.db', returnTypes: 'unknown', paramCount: 1,
-      paramTypes: 'string', isAsync: true,
-      language: 'typescript', sourceFile: 'services/db.ts', sourceLine: 5,
+      qn: 'services.db.query',
+      shortName: 'query',
+      label: 'Method',
+      moduleQn: 'services.db',
+      returnTypes: 'unknown',
+      paramCount: 1,
+      paramTypes: 'string',
+      isAsync: true,
+      language: 'typescript',
+      sourceFile: 'services/db.ts',
+      sourceLine: 5,
     },
     {
-      qn: 'services.db.Database', shortName: 'Database', label: 'Class',
-      moduleQn: 'services.db', resolvedType: t.named('Database'),
-      language: 'typescript', sourceFile: 'services/db.ts', sourceLine: 3,
+      qn: 'services.db.Database',
+      shortName: 'Database',
+      label: 'Class',
+      moduleQn: 'services.db',
+      resolvedType: t.named('Database'),
+      language: 'typescript',
+      sourceFile: 'services/db.ts',
+      sourceLine: 3,
     },
   ];
 
@@ -76,7 +100,8 @@ describe('TSResolverContext', () => {
     it('number literal', () => expect(typeToString(ctx.evalLiteral(42))).toBe('number'));
     it('boolean literal', () => expect(typeToString(ctx.evalLiteral(true))).toBe('boolean'));
     it('null literal', () => expect(typeToString(ctx.evalLiteral(null))).toBe('null'));
-    it('undefined literal', () => expect(typeToString(ctx.evalLiteral(undefined))).toBe('undefined'));
+    it('undefined literal', () =>
+      expect(typeToString(ctx.evalLiteral(undefined))).toBe('undefined'));
   });
 
   describe('Import resolution', () => {
@@ -87,7 +112,9 @@ describe('TSResolverContext', () => {
 
     it('resolveImport computes module QN', () => {
       expect(resolveImport('./foo', 'app.main', false)).toBe('app.main.foo');
-      expect(resolveImport('../lib/utils', 'app.components.widget', false)).toBe('app.components.lib.utils');
+      expect(resolveImport('../lib/utils', 'app.components.widget', false)).toBe(
+        'app.components.lib.utils',
+      );
     });
   });
 
@@ -198,9 +225,7 @@ describe('TSResolverContext', () => {
 
   describe('JSDoc mode', () => {
     it('parses JSDoc types in jsMode', () => {
-      const jsCtx = new TSResolverContext(
-        new TypeRegistry(), new Map(), true, 'test.js',
-      );
+      const jsCtx = new TSResolverContext(new TypeRegistry(), new Map(), true, 'test.js');
       const tp = jsCtx.evalJSDocType('string');
       expect(typeToString(tp)).toBe('string');
     });

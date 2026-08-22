@@ -109,17 +109,22 @@ describe('RecommendationEngine — generateRecommendations', () => {
   });
 
   it('should respect maxRecommendations option', () => {
-    const findings = Array(20).fill(null).map((_, i) =>
-      makeFinding({ id: `f-${i}`, filePath: `src/file${i}.ts`, category: i % 2 === 0 ? 'bug' : 'performance' }));
+    const findings = Array(20)
+      .fill(null)
+      .map((_, i) =>
+        makeFinding({
+          id: `f-${i}`,
+          filePath: `src/file${i}.ts`,
+          category: i % 2 === 0 ? 'bug' : 'performance',
+        }),
+      );
 
     const recs = engine.generateRecommendations(findings, { maxRecommendations: 5 });
     expect(recs.length).toBeLessThanOrEqual(5);
   });
 
   it('should assign priorities based on severity', () => {
-    const findings = [
-      makeFinding({ id: 'f-critical', severity: 'critical' }),
-    ];
+    const findings = [makeFinding({ id: 'f-critical', severity: 'critical' })];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThan(0);
     expect(recs[0].priority).toBe(1);
@@ -309,8 +314,12 @@ describe('RecommendationEngine — estimateEffort', () => {
       title: 'L',
       description: 'L',
       estimatedEffort: 'small',
-      affectedFiles: Array(10).fill('file.ts').map((f, i) => `${i}${f}`),
-      actionItems: Array(15).fill(0).map((_, i) => ({ description: `Action ${i}` })),
+      affectedFiles: Array(10)
+        .fill('file.ts')
+        .map((f, i) => `${i}${f}`),
+      actionItems: Array(15)
+        .fill(0)
+        .map((_, i) => ({ description: `Action ${i}` })),
       risksAddressed: [],
       references: [],
     };
@@ -324,8 +333,12 @@ describe('RecommendationEngine — estimateEffort', () => {
       title: 'XL',
       description: 'XL',
       estimatedEffort: 'small',
-      affectedFiles: Array(20).fill('file.ts').map((f, i) => `${i}${f}`),
-      actionItems: Array(25).fill(0).map((_, i) => ({ description: `Action ${i}` })),
+      affectedFiles: Array(20)
+        .fill('file.ts')
+        .map((f, i) => `${i}${f}`),
+      actionItems: Array(25)
+        .fill(0)
+        .map((_, i) => ({ description: `Action ${i}` })),
       risksAddressed: [],
       references: [],
     };
@@ -340,7 +353,9 @@ describe('RecommendationEngine — estimateEffort', () => {
       description: 'Med',
       estimatedEffort: 'small',
       affectedFiles: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts'],
-      actionItems: Array(7).fill(0).map((_, i) => ({ description: `Action ${i}` })),
+      actionItems: Array(7)
+        .fill(0)
+        .map((_, i) => ({ description: `Action ${i}` })),
       risksAddressed: [],
       references: [],
     };
@@ -429,9 +444,39 @@ describe('RecommendationEngine edge cases', () => {
 
   it('groups related findings by file and category', () => {
     const findings: Finding[] = [
-      { id: '1', title: 't1', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'high', category: 'bug', recommendation: '', relatedFindings: [] },
-      { id: '2', title: 't2', description: '', filePath: 'a.ts', lineRange: [3,4], severity: 'high', category: 'bug', recommendation: '', relatedFindings: [] },
-      { id: '3', title: 't3', description: '', filePath: 'b.ts', lineRange: [1,2], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+      {
+        id: '1',
+        title: 't1',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'high',
+        category: 'bug',
+        recommendation: '',
+        relatedFindings: [],
+      },
+      {
+        id: '2',
+        title: 't2',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [3, 4],
+        severity: 'high',
+        category: 'bug',
+        recommendation: '',
+        relatedFindings: [],
+      },
+      {
+        id: '3',
+        title: 't3',
+        description: '',
+        filePath: 'b.ts',
+        lineRange: [1, 2],
+        severity: 'low',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     // a.ts bug findings should be grouped together
@@ -440,8 +485,28 @@ describe('RecommendationEngine edge cases', () => {
 
   it('finds related findings by id reference', () => {
     const findings: Finding[] = [
-      { id: '1', title: 't1', description: '', filePath: 'x.ts', lineRange: [1,2], severity: 'medium', category: 'bug', recommendation: '', relatedFindings: ['2'] },
-      { id: '2', title: 't2', description: '', filePath: 'y.ts', lineRange: [3,4], severity: 'medium', category: 'bug', recommendation: '', relatedFindings: ['1'] },
+      {
+        id: '1',
+        title: 't1',
+        description: '',
+        filePath: 'x.ts',
+        lineRange: [1, 2],
+        severity: 'medium',
+        category: 'bug',
+        recommendation: '',
+        relatedFindings: ['2'],
+      },
+      {
+        id: '2',
+        title: 't2',
+        description: '',
+        filePath: 'y.ts',
+        lineRange: [3, 4],
+        severity: 'medium',
+        category: 'bug',
+        recommendation: '',
+        relatedFindings: ['1'],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     // Should be grouped together since they reference each other
@@ -450,53 +515,78 @@ describe('RecommendationEngine edge cases', () => {
 
   it('estimateEffort returns trivial for 1 file, 1 action', () => {
     const effort = engine.estimateEffort({
-      id: 'r1', priority: 1, title: '', description: '',
-      estimatedEffort: 'small', affectedFiles: ['a.ts'], actionItems: [{ description: '', file: 'a.ts' }],
-      risksAddressed: [], references: [],
+      id: 'r1',
+      priority: 1,
+      title: '',
+      description: '',
+      estimatedEffort: 'small',
+      affectedFiles: ['a.ts'],
+      actionItems: [{ description: '', file: 'a.ts' }],
+      risksAddressed: [],
+      references: [],
     });
     expect(effort).toBe('trivial');
   });
 
   it('estimateEffort returns xlarge for many files', () => {
     const effort = engine.estimateEffort({
-      id: 'r1', priority: 1, title: '', description: '',
+      id: 'r1',
+      priority: 1,
+      title: '',
+      description: '',
       estimatedEffort: 'small',
       affectedFiles: Array.from({ length: 20 }, (_, i) => `f${i}.ts`),
-      actionItems: Array.from({ length: 30 }, (_, i) => ({ description: `a${i}`, file: `f${i}.ts` })),
-      risksAddressed: [], references: [],
+      actionItems: Array.from({ length: 30 }, (_, i) => ({
+        description: `a${i}`,
+        file: `f${i}.ts`,
+      })),
+      risksAddressed: [],
+      references: [],
     });
     expect(effort).toBe('xlarge');
   });
 
   it('estimateEffort returns small for 3 files, 5 actions', () => {
     const effort = engine.estimateEffort({
-      id: 'r1', priority: 2, title: '', description: '',
+      id: 'r1',
+      priority: 2,
+      title: '',
+      description: '',
       estimatedEffort: 'small',
       affectedFiles: ['a.ts', 'b.ts', 'c.ts'],
       actionItems: Array.from({ length: 5 }, (_, i) => ({ description: `a${i}`, file: 'x.ts' })),
-      risksAddressed: [], references: [],
+      risksAddressed: [],
+      references: [],
     });
     expect(effort).toBe('small');
   });
 
   it('estimateEffort returns medium for 7 files, 10 actions', () => {
     const effort = engine.estimateEffort({
-      id: 'r1', priority: 2, title: '', description: '',
+      id: 'r1',
+      priority: 2,
+      title: '',
+      description: '',
       estimatedEffort: 'small',
       affectedFiles: Array.from({ length: 7 }, (_, i) => `f${i}.ts`),
       actionItems: Array.from({ length: 10 }, (_, i) => ({ description: `a${i}`, file: 'x.ts' })),
-      risksAddressed: [], references: [],
+      risksAddressed: [],
+      references: [],
     });
     expect(effort).toBe('medium');
   });
 
   it('estimateEffort returns large for 15 files, 20 actions', () => {
     const effort = engine.estimateEffort({
-      id: 'r1', priority: 2, title: '', description: '',
+      id: 'r1',
+      priority: 2,
+      title: '',
+      description: '',
       estimatedEffort: 'small',
       affectedFiles: Array.from({ length: 15 }, (_, i) => `f${i}.ts`),
       actionItems: Array.from({ length: 20 }, (_, i) => ({ description: `a${i}`, file: 'x.ts' })),
-      risksAddressed: [], references: [],
+      risksAddressed: [],
+      references: [],
     });
     expect(effort).toBe('large');
   });
@@ -504,9 +594,15 @@ describe('RecommendationEngine edge cases', () => {
   it('computes priority correctly for all severity levels', () => {
     // Test via generateRecommendations
     const severe: Finding = {
-      id: 's1', title: 'Critical bug', description: '', filePath: 'a.ts',
-      lineRange: [1, 2], severity: 'critical', category: 'bug',
-      recommendation: '', relatedFindings: [],
+      id: 's1',
+      title: 'Critical bug',
+      description: '',
+      filePath: 'a.ts',
+      lineRange: [1, 2],
+      severity: 'critical',
+      category: 'bug',
+      recommendation: '',
+      relatedFindings: [],
     };
     const recs = engine.generateRecommendations([severe]);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -515,7 +611,17 @@ describe('RecommendationEngine edge cases', () => {
 
   it('handles info severity correctly', () => {
     const findings: Finding[] = [
-      { id: 'i1', title: 'Info note', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'info', category: 'documentation', recommendation: '', relatedFindings: [] },
+      {
+        id: 'i1',
+        title: 'Info note',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'info',
+        category: 'documentation',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -524,7 +630,17 @@ describe('RecommendationEngine edge cases', () => {
 
   it('handles medium severity correctly', () => {
     const findings: Finding[] = [
-      { id: 'm1', title: 'Medium issue', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'medium', category: 'maintainability', recommendation: '', relatedFindings: [] },
+      {
+        id: 'm1',
+        title: 'Medium issue',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'medium',
+        category: 'maintainability',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -533,7 +649,17 @@ describe('RecommendationEngine edge cases', () => {
 
   it('handles unknown risk category gracefully', () => {
     const findings: Finding[] = [
-      { id: 'u1', title: 'Unknown', description: '', filePath: 'a.ts', lineRange: [1,2], severity: 'low', category: 'other', recommendation: '', relatedFindings: [] },
+      {
+        id: 'u1',
+        title: 'Unknown',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'low',
+        category: 'other',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -541,12 +667,15 @@ describe('RecommendationEngine edge cases', () => {
 
   it('enforces max recommendations limit', () => {
     const findings: Finding[] = Array.from({ length: 50 }, (_, i) => ({
-      id: `f${i}`, title: `Issue ${i}`, description: '',
+      id: `f${i}`,
+      title: `Issue ${i}`,
+      description: '',
       filePath: `src/file${i % 5}.ts`,
       lineRange: [1, 2] as [number, number],
       severity: (['low', 'medium', 'high'] as const)[i % 3],
       category: (['bug', 'style', 'performance'] as const)[i % 3],
-      recommendation: '', relatedFindings: [],
+      recommendation: '',
+      relatedFindings: [],
     }));
     const recs = engine.generateRecommendations(findings, { maxRecommendations: 5 });
     expect(recs.length).toBeLessThanOrEqual(5);
@@ -557,7 +686,17 @@ describe('RecommendationEngine edge cases', () => {
     // We access the private method indirectly through generateRecommendations
     // with findings that produce recommendations having specific priorities
     const findings: Finding[] = [
-      { id: 'i1', title: 'Info issue', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'info', category: 'style', recommendation: '', relatedFindings: [] },
+      {
+        id: 'i1',
+        title: 'Info issue',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'info',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     // Info severity → priority 3 → weight 0.2
@@ -571,8 +710,28 @@ describe('RecommendationEngine edge cases', () => {
     // When all findings are 'info' severity, the first non-matching iteration
     // falls through to return 'low' at the end
     const findings: Finding[] = [
-      { id: 'i1', title: 'Info 1', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'info', category: 'style', recommendation: '', relatedFindings: [] },
-      { id: 'i2', title: 'Info 2', description: '', filePath: 'b.ts', lineRange: [1, 2], severity: 'info', category: 'style', recommendation: '', relatedFindings: [] },
+      {
+        id: 'i1',
+        title: 'Info 1',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'info',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
+      {
+        id: 'i2',
+        title: 'Info 2',
+        description: '',
+        filePath: 'b.ts',
+        lineRange: [1, 2],
+        severity: 'info',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(0);
@@ -621,7 +780,17 @@ describe('RecommendationEngine edge cases', () => {
     // When the ONLY findings have 'low' severity, the for loop must reach 'low'
     // and return it as the highest severity — covering the return sev branch
     const lowFindings: Finding[] = [
-      { id: 'l1', title: 'Low issue', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+      {
+        id: 'l1',
+        title: 'Low issue',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'low',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(lowFindings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -632,8 +801,28 @@ describe('RecommendationEngine edge cases', () => {
   it('returns low severity with multiple low findings (L230)', () => {
     // Multiple low severity findings should still return 'low' as highest
     const lowFindings: Finding[] = [
-      { id: 'l1', title: 'Low 1', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
-      { id: 'l2', title: 'Low 2', description: '', filePath: 'b.ts', lineRange: [1, 2], severity: 'low', category: 'documentation', recommendation: '', relatedFindings: [] },
+      {
+        id: 'l1',
+        title: 'Low 1',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'low',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
+      {
+        id: 'l2',
+        title: 'Low 2',
+        description: '',
+        filePath: 'b.ts',
+        lineRange: [1, 2],
+        severity: 'low',
+        category: 'documentation',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(lowFindings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -643,8 +832,28 @@ describe('RecommendationEngine edge cases', () => {
   it('returns medium severity when highest severity is medium (L230)', () => {
     // Findings with mixed medium and low severities — highest should be medium
     const findings: Finding[] = [
-      { id: 'm1', title: 'Medium', description: '', filePath: 'a.ts', lineRange: [1, 2], severity: 'medium', category: 'maintainability', recommendation: '', relatedFindings: [] },
-      { id: 'l1', title: 'Low', description: '', filePath: 'a.ts', lineRange: [3, 4], severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+      {
+        id: 'm1',
+        title: 'Medium',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [1, 2],
+        severity: 'medium',
+        category: 'maintainability',
+        recommendation: '',
+        relatedFindings: [],
+      },
+      {
+        id: 'l1',
+        title: 'Low',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: [3, 4],
+        severity: 'low',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -665,7 +874,17 @@ describe('RecommendationEngine edge cases', () => {
     // When a finding has no lineRange, the ?? undefined branch on line 180
     // should be triggered: lineRange: f.lineRange ?? undefined
     const findings: Finding[] = [
-      { id: 'no-range', title: 'No range', description: '', filePath: 'a.ts', lineRange: undefined, severity: 'low', category: 'style', recommendation: '', relatedFindings: [] },
+      {
+        id: 'no-range',
+        title: 'No range',
+        description: '',
+        filePath: 'a.ts',
+        lineRange: undefined,
+        severity: 'low',
+        category: 'style',
+        recommendation: '',
+        relatedFindings: [],
+      },
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);

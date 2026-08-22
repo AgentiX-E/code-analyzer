@@ -40,9 +40,7 @@ export function createAgentCommand(): Command {
       console.log(`Detected ${installed.length} agent(s):`);
       for (const id of installed) {
         const config = manager.getConfig(id);
-        const configured = manager.isConfigured(id)
-          ? ' (configured)'
-          : ' (not configured)';
+        const configured = manager.isConfigured(id) ? ' (configured)' : ' (not configured)';
         console.log(`  - ${config.displayName}${configured}`);
       }
     });
@@ -55,10 +53,7 @@ export function createAgentCommand(): Command {
     .command('configure')
     .description('Configure detected or specified agents to use code-analyzer')
     .option('-a, --all', 'Configure all supported agents')
-    .option(
-      '-t, --target <agents>',
-      'Comma-separated list of agent IDs to configure',
-    )
+    .option('-t, --target <agents>', 'Comma-separated list of agent IDs to configure')
     .option('--dry-run', 'Show what would be configured without making changes')
     .action((options: { all?: boolean; target?: string; dryRun?: boolean }) => {
       let agents: SupportedAgent[];
@@ -73,9 +68,7 @@ export function createAgentCommand(): Command {
 
       /* v8 ignore next 3 */
       if (agents.length === 0) {
-        console.log(
-          'No agents to configure. Run `code-analyzer agent detect` first.',
-        );
+        console.log('No agents to configure. Run `code-analyzer agent detect` first.');
         return;
       }
 

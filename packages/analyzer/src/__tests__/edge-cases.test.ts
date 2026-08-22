@@ -85,9 +85,14 @@ describe('Parser Edge Cases', () => {
 
     it('all parsers handle whitespace-only gracefully', () => {
       const providers = [
-        new CProvider(), new CppProvider(), new ScalaProvider(),
-        new LuaProvider(), new ZigProvider(), new ElixirProvider(),
-        new DartProvider(), new DockerfileProvider(),
+        new CProvider(),
+        new CppProvider(),
+        new ScalaProvider(),
+        new LuaProvider(),
+        new ZigProvider(),
+        new ElixirProvider(),
+        new DartProvider(),
+        new DockerfileProvider(),
       ];
       for (const provider of providers) {
         const result = parseSafe(provider, whitespaceOnly, `empty.${provider.language}`);

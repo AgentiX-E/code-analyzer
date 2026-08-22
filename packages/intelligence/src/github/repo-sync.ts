@@ -187,10 +187,13 @@ export class GitHubRepoSync {
     const branch = this.branch ?? 'main';
     /* v8 ignore start — git fetch from remote origin, untestable without real GitHub repo */
     try {
-      execSync(`cd "${repoDir}" && git fetch origin "${branch}" --depth 1 && git reset --hard "origin/${branch}"`, {
-        stdio: 'pipe',
-        timeout: 90_000,
-      });
+      execSync(
+        `cd "${repoDir}" && git fetch origin "${branch}" --depth 1 && git reset --hard "origin/${branch}"`,
+        {
+          stdio: 'pipe',
+          timeout: 90_000,
+        },
+      );
     } catch (err) {
       throw new Error(
         `Failed to pull ${owner}/${repo}: ${err instanceof Error ? err.message : String(err)}`,
@@ -225,9 +228,7 @@ export class GitHubRepoSync {
     const limit = 4;
     for (let i = 0; i < repos.length; i += limit) {
       const batch = repos.slice(i, i + limit);
-      const batchResults = await Promise.allSettled(
-        batch.map((r) => this.clone(r.owner, r.repo)),
-      );
+      const batchResults = await Promise.allSettled(batch.map((r) => this.clone(r.owner, r.repo)));
 
       for (let j = 0; j < batchResults.length; j++) {
         const result = batchResults[j]!;
@@ -239,7 +240,12 @@ export class GitHubRepoSync {
           errors.push({
             owner: batch[j]!.owner,
             repo: batch[j]!.repo,
-            error: result.reason instanceof Error ? result.reason.message : /* v8 ignore next — defensive: non-Error rejection reason */ String(result.reason),
+            error:
+              result.reason instanceof Error
+                ? result.reason.message
+                : /* v8 ignore next — defensive: non-Error rejection reason */ String(
+                    result.reason,
+                  ),
           });
         }
       }
@@ -340,12 +346,14 @@ export class GitHubRepoSync {
     if (!existsSync(this.cacheDir)) return result;
     /* v8 ignore stop */
 
-    const owners = fs.readdirSync(this.cacheDir, { withFileTypes: true })
+    const owners = fs
+      .readdirSync(this.cacheDir, { withFileTypes: true })
       .filter((d: { isDirectory: () => boolean }) => d.isDirectory());
 
     for (const ownerDir of owners) {
       const ownerPath = join(this.cacheDir, ownerDir.name);
-      const repos = fs.readdirSync(ownerPath, { withFileTypes: true })
+      const repos = fs
+        .readdirSync(ownerPath, { withFileTypes: true })
         .filter((d: { isDirectory: () => boolean }) => d.isDirectory());
 
       for (const repoDir of repos) {
@@ -386,10 +394,14 @@ function getDirSize(dir: string): number {
         try {
           size += fs.statSync(fullPath).size;
           /* v8 ignore next 2 — defensive: inaccessible file during stat */
-        } catch { /* skip inaccessible files */ }
+        } catch {
+          /* skip inaccessible files */
+        }
       }
     }
     /* v8 ignore next — defensive: inaccessible directory during readdir */
-  } catch { /* skip inaccessible directories */ }
+  } catch {
+    /* skip inaccessible directories */
+  }
   return size;
 }

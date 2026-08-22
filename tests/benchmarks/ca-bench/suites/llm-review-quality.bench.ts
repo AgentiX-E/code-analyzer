@@ -160,7 +160,9 @@ interface ReviewBenchmarkMetrics {
   categoryScores: Record<string, { tp: number; fp: number; fn: number }>;
 }
 
-function computeMetrics(results: Array<{ caseId: string; foundKeywords: string[] }>): ReviewBenchmarkMetrics {
+function computeMetrics(
+  results: Array<{ caseId: string; foundKeywords: string[] }>,
+): ReviewBenchmarkMetrics {
   const metrics: ReviewBenchmarkMetrics = {
     totalCases: TEST_CASES.length,
     truePositives: 0,
@@ -220,7 +222,8 @@ function computeMetrics(results: Array<{ caseId: string; foundKeywords: string[]
     metrics.recall = metrics.truePositives / (metrics.truePositives + metrics.falseNegatives);
   }
   if (metrics.precision + metrics.recall > 0) {
-    metrics.f1Score = (2 * metrics.precision * metrics.recall) / (metrics.precision + metrics.recall);
+    metrics.f1Score =
+      (2 * metrics.precision * metrics.recall) / (metrics.precision + metrics.recall);
   }
 
   return metrics;
@@ -231,16 +234,48 @@ function computeMetrics(results: Array<{ caseId: string; foundKeywords: string[]
 // ---------------------------------------------------------------------------
 
 const PATTERN_DETECTORS: Array<{ pattern: RegExp; keyword: string; category: string }> = [
-  { pattern: /["']\s*\+\s*\w+\s*\+\s*["']/g, keyword: 'string concatenation', category: 'SQL Injection' },
-  { pattern: /\bquery\s*\(\s*["'\`].*?\$\{/g, keyword: 'template literal SQL', category: 'SQL Injection' },
+  {
+    pattern: /["']\s*\+\s*\w+\s*\+\s*["']/g,
+    keyword: 'string concatenation',
+    category: 'SQL Injection',
+  },
+  {
+    pattern: /\bquery\s*\(\s*["'\`].*?\$\{/g,
+    keyword: 'template literal SQL',
+    category: 'SQL Injection',
+  },
   { pattern: /\.innerHTML\s*\+=?/g, keyword: 'innerHTML', category: 'Cross-Site Scripting' },
-  { pattern: /\.send\s*\(\s*`.*?\$\{.*?req\./g, keyword: 'reflected XSS', category: 'Cross-Site Scripting' },
-  { pattern: /(apiKey|api_key|API_KEY)\s*[:=]\s*["']example-/g, keyword: 'hardcoded API key', category: 'Hardcoded Secrets' },
-  { pattern: /(password|secret|token)\s*[:=]\s*["'][^'"\n]{8,}/gi, keyword: 'hardcoded secret', category: 'Hardcoded Secrets' },
-  { pattern: /req\.(query|params|body)\.[^)]+\)/, keyword: 'user input path', category: 'Path Traversal' },
+  {
+    pattern: /\.send\s*\(\s*`.*?\$\{.*?req\./g,
+    keyword: 'reflected XSS',
+    category: 'Cross-Site Scripting',
+  },
+  {
+    pattern: /(apiKey|api_key|API_KEY)\s*[:=]\s*["']example-/g,
+    keyword: 'hardcoded API key',
+    category: 'Hardcoded Secrets',
+  },
+  {
+    pattern: /(password|secret|token)\s*[:=]\s*["'][^'"\n]{8,}/gi,
+    keyword: 'hardcoded secret',
+    category: 'Hardcoded Secrets',
+  },
+  {
+    pattern: /req\.(query|params|body)\.[^)]+\)/,
+    keyword: 'user input path',
+    category: 'Path Traversal',
+  },
   { pattern: /\beval\s*\(/, keyword: 'eval', category: 'Insecure Deserialization' },
-  { pattern: /app\.(delete|put|post)\(\s*['"][^'"]*['"],(?![\s\S]*auth)/, keyword: 'missing auth', category: 'Missing Authentication' },
-  { pattern: /\b(transfer|withdraw|debit)\b(?![\s\S]*transaction)/, keyword: 'missing transaction', category: 'Race Condition' },
+  {
+    pattern: /app\.(delete|put|post)\(\s*['"][^'"]*['"],(?![\s\S]*auth)/,
+    keyword: 'missing auth',
+    category: 'Missing Authentication',
+  },
+  {
+    pattern: /\b(transfer|withdraw|debit)\b(?![\s\S]*transaction)/,
+    keyword: 'missing transaction',
+    category: 'Race Condition',
+  },
 ];
 
 function heuristicAnalyze(source: string): string[] {
@@ -272,7 +307,10 @@ export async function runLLMReviewBenchmark(): Promise<BenchmarkResult> {
     usedLLM = true;
 
     for (const testCase of TEST_CASES) {
-      const diff = `--- a/test.ts\n+++ b/test.ts\n@@ -0,0 +1,5 @@\n${testCase.source.split('\n').map((l) => '+' + l).join('\n')}`;
+      const diff = `--- a/test.ts\n+++ b/test.ts\n@@ -0,0 +1,5 @@\n${testCase.source
+        .split('\n')
+        .map((l) => '+' + l)
+        .join('\n')}`;
 
       try {
         const comments = await engine.reviewDiffAsComments(diff, undefined);
@@ -313,9 +351,11 @@ export async function runLLMReviewBenchmark(): Promise<BenchmarkResult> {
   details.push('');
   details.push('Per-category scores:');
   for (const [category, scores] of Object.entries(metrics.categoryScores)) {
-    const catPrecision = (scores.tp + scores.fp) > 0 ? scores.tp / (scores.tp + scores.fp) : 0;
-    const catRecall = (scores.tp + scores.fn) > 0 ? scores.tp / (scores.tp + scores.fn) : 0;
-    details.push(`  ${category}: P=${(catPrecision * 100).toFixed(0)}% R=${(catRecall * 100).toFixed(0)}% (TP=${scores.tp}, FP=${scores.fp}, FN=${scores.fn})`);
+    const catPrecision = scores.tp + scores.fp > 0 ? scores.tp / (scores.tp + scores.fp) : 0;
+    const catRecall = scores.tp + scores.fn > 0 ? scores.tp / (scores.tp + scores.fn) : 0;
+    details.push(
+      `  ${category}: P=${(catPrecision * 100).toFixed(0)}% R=${(catRecall * 100).toFixed(0)}% (TP=${scores.tp}, FP=${scores.fp}, FN=${scores.fn})`,
+    );
   }
 
   const passed = metrics.f1Score >= 0.7;
@@ -333,8 +373,8 @@ export async function runLLMReviewBenchmark(): Promise<BenchmarkResult> {
     },
     thresholds: {
       precision: { min: 0.6, target: 0.85 },
-      recall: { min: 0.5, target: 0.80 },
-      f1Score: { min: 0.55, target: 0.80 },
+      recall: { min: 0.5, target: 0.8 },
+      f1Score: { min: 0.55, target: 0.8 },
     },
     passed,
     details,

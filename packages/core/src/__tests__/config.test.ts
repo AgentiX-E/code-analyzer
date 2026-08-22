@@ -8,7 +8,6 @@ import { getDefaultConfig, loadConfig, deepMerge, validateConfig } from '../conf
 
 import type { CodeAnalyzerConfig } from '@code-analyzer/shared';
 
-
 describe('getDefaultConfig', () => {
   it('should return a valid configuration object', () => {
     const config = getDefaultConfig();
@@ -216,8 +215,16 @@ describe('loadConfig', () => {
     await fs.rm(testDir, { recursive: true, force: true });
     // Clean up global config if created
     const globalConfigPath = path.join(globalConfigDir, 'config.json');
-    try { await fs.unlink(globalConfigPath); } catch { /* ignore */ }
-    try { await fs.rmdir(globalConfigDir); } catch { /* ignore */ }
+    try {
+      await fs.unlink(globalConfigPath);
+    } catch {
+      /* ignore */
+    }
+    try {
+      await fs.rmdir(globalConfigDir);
+    } catch {
+      /* ignore */
+    }
   });
 
   it('should return defaults when no config files exist', async () => {
@@ -233,7 +240,7 @@ describe('loadConfig', () => {
     const projectConfigPath = path.join(testDir, '.code-analyzer.json');
     await fs.writeFile(
       projectConfigPath,
-      JSON.stringify({ projectId: 'test-project', maxFileSize: 500 })
+      JSON.stringify({ projectId: 'test-project', maxFileSize: 500 }),
     );
 
     const config = await loadConfig(testDir);
@@ -300,10 +307,7 @@ describe('loadConfig', () => {
 
   it('should set rootPath to the provided path', async () => {
     const projectConfigPath = path.join(testDir, '.code-analyzer.json');
-    await fs.writeFile(
-      projectConfigPath,
-      JSON.stringify({ rootPath: '/custom/path' })
-    );
+    await fs.writeFile(projectConfigPath, JSON.stringify({ rootPath: '/custom/path' }));
 
     const config = await loadConfig(testDir);
     expect(config.rootPath).toBe('/custom/path');
@@ -358,10 +362,7 @@ describe('loadConfig', () => {
   it('should merge global config if it exists', async () => {
     const globalConfigPath = path.join(globalConfigDir, 'config.json');
     await fs.mkdir(globalConfigDir, { recursive: true });
-    await fs.writeFile(
-      globalConfigPath,
-      JSON.stringify({ maxFileSize: 9999 })
-    );
+    await fs.writeFile(globalConfigPath, JSON.stringify({ maxFileSize: 9999 }));
 
     try {
       const config = await loadConfig(testDir);
@@ -410,10 +411,7 @@ describe('loadConfig', () => {
   it('should merge MCP env var with existing config', async () => {
     // First create project config with mcp settings
     const projectConfigPath = path.join(testDir, '.code-analyzer.json');
-    await fs.writeFile(
-      projectConfigPath,
-      JSON.stringify({ mcp: { maxResults: 100 } })
-    );
+    await fs.writeFile(projectConfigPath, JSON.stringify({ mcp: { maxResults: 100 } }));
 
     // Then override one field via env var
     process.env['CODE_ANALYZER_MCP_NAME'] = 'from-env';
@@ -434,14 +432,14 @@ describe('loadConfig', () => {
     const globalConfigPath = path.join(globalConfigDir, 'config.json');
     await fs.writeFile(
       globalConfigPath,
-      JSON.stringify({ maxFileSize: 7777, projectId: 'global-id' })
+      JSON.stringify({ maxFileSize: 7777, projectId: 'global-id' }),
     );
 
     // Project config
     const projectConfigPath = path.join(testDir, '.code-analyzer.json');
     await fs.writeFile(
       projectConfigPath,
-      JSON.stringify({ projectId: 'project-id', maxFiles: 999 })
+      JSON.stringify({ projectId: 'project-id', maxFiles: 999 }),
     );
 
     try {
@@ -533,7 +531,7 @@ describe('validateConfig', () => {
     };
     const errors = validateConfig(config);
     expect(errors.length).toBeGreaterThan(0);
-    const arrayError = errors.find(e => e.message.includes('excludePatterns[0]'));
+    const arrayError = errors.find((e) => e.message.includes('excludePatterns[0]'));
     expect(arrayError).toBeDefined();
     expect(arrayError!.path).toBe('');
   });

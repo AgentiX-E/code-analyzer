@@ -5,46 +5,46 @@
 version: 2
 updates:
   # Root workspace dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Shanghai"
-    versioning-strategy: "increase"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
+    versioning-strategy: 'increase'
     open-pull-requests-limit: 10
     labels:
-      - "dependencies"
-      - "automated"
+      - 'dependencies'
+      - 'automated'
     commit-message:
-      prefix: "deps"
-      prefix-development: "deps(dev)"
-      include: "scope"
+      prefix: 'deps'
+      prefix-development: 'deps(dev)'
+      include: 'scope'
     groups:
       typescript-eslint:
         patterns:
-          - "@typescript-eslint/*"
-          - "typescript-eslint"
+          - '@typescript-eslint/*'
+          - 'typescript-eslint'
       testing:
         patterns:
-          - "vitest"
-          - "@vitest/*"
+          - 'vitest'
+          - '@vitest/*'
       types:
         patterns:
-          - "@types/*"
+          - '@types/*'
 
   # GitHub Actions dependencies
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Shanghai"
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'Asia/Shanghai'
     open-pull-requests-limit: 5
     labels:
-      - "dependencies"
-      - "ci"
+      - 'dependencies'
+      - 'ci'
     commit-message:
-      prefix: "ci(deps)"
+      prefix: 'ci(deps)'

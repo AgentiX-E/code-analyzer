@@ -457,10 +457,7 @@ describe('validateSuggestionSyntax', () => {
   });
 
   it('should flag empty code', () => {
-    const result = validateSuggestionSyntax(
-      { ...baseSuggestion, afterCode: '' },
-      'typescript',
-    );
+    const result = validateSuggestionSyntax({ ...baseSuggestion, afterCode: '' }, 'typescript');
     expect(result.valid).toBe(false);
     expect(result.warnings).toHaveLength(1);
   });
@@ -534,10 +531,7 @@ describe('validateSuggestionSyntax', () => {
   });
 
   it('should not flag semicolons in short code', () => {
-    const result = validateSuggestionSyntax(
-      { ...baseSuggestion, afterCode: 'x' },
-      'typescript',
-    );
+    const result = validateSuggestionSyntax({ ...baseSuggestion, afterCode: 'x' }, 'typescript');
     // Short code (<50 chars) doesn't trigger the semicolon check
     expect(result.warnings.some((w) => w.includes('semicolons'))).toBe(false);
   });
@@ -590,11 +584,20 @@ describe('generateSuggestionSummary', () => {
   it('should include auto-applicable count', () => {
     const suggestions = [
       {
-        id: 's1', findingId: 'f1', category: 'style', title: 'S1',
-        description: 'D', beforeCode: '', afterCode: 'x;',
-        filePath: '/a.ts', startLine: 1, endLine: 1,
-        effort: 'trivial' as const, isAutoApplicable: true,
-        syntaxValid: true, warnings: [],
+        id: 's1',
+        findingId: 'f1',
+        category: 'style',
+        title: 'S1',
+        description: 'D',
+        beforeCode: '',
+        afterCode: 'x;',
+        filePath: '/a.ts',
+        startLine: 1,
+        endLine: 1,
+        effort: 'trivial' as const,
+        isAutoApplicable: true,
+        syntaxValid: true,
+        warnings: [],
       },
     ];
     const summary = generateSuggestionSummary(suggestions);
@@ -605,18 +608,36 @@ describe('generateSuggestionSummary', () => {
   it('should include effort distribution', () => {
     const suggestions = [
       {
-        id: 's1', findingId: 'f1', category: 'bug', title: 'S1',
-        description: 'D', beforeCode: '', afterCode: 'x;',
-        filePath: '/a.ts', startLine: 1, endLine: 1,
-        effort: 'medium' as const, isAutoApplicable: false,
-        syntaxValid: true, warnings: [],
+        id: 's1',
+        findingId: 'f1',
+        category: 'bug',
+        title: 'S1',
+        description: 'D',
+        beforeCode: '',
+        afterCode: 'x;',
+        filePath: '/a.ts',
+        startLine: 1,
+        endLine: 1,
+        effort: 'medium' as const,
+        isAutoApplicable: false,
+        syntaxValid: true,
+        warnings: [],
       },
       {
-        id: 's2', findingId: 'f2', category: 'style', title: 'S2',
-        description: 'D', beforeCode: '', afterCode: 'y;',
-        filePath: '/b.ts', startLine: 1, endLine: 1,
-        effort: 'trivial' as const, isAutoApplicable: true,
-        syntaxValid: true, warnings: [],
+        id: 's2',
+        findingId: 'f2',
+        category: 'style',
+        title: 'S2',
+        description: 'D',
+        beforeCode: '',
+        afterCode: 'y;',
+        filePath: '/b.ts',
+        startLine: 1,
+        endLine: 1,
+        effort: 'trivial' as const,
+        isAutoApplicable: true,
+        syntaxValid: true,
+        warnings: [],
       },
     ];
     const summary = generateSuggestionSummary(suggestions);
@@ -721,8 +742,14 @@ describe('edge cases', () => {
 
   it('should generate suggestions for all supported categories', () => {
     const categories = [
-      'bug', 'security', 'performance', 'maintainability',
-      'style', 'test', 'documentation', 'architecture',
+      'bug',
+      'security',
+      'performance',
+      'maintainability',
+      'style',
+      'test',
+      'documentation',
+      'architecture',
     ] as const;
 
     for (const category of categories) {

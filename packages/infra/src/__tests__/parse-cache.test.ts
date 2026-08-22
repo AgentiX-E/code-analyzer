@@ -194,10 +194,7 @@ describe('ParseCache', () => {
     it('uses default maxSize of 1000', () => {
       const defaultCache = createParseCache();
       for (let i = 0; i < 100; i++) {
-        defaultCache.set(
-          computeContentHash(`def${i}`),
-          createMockParsedFile(`f${i}.ts`),
-        );
+        defaultCache.set(computeContentHash(`def${i}`), createMockParsedFile(`f${i}.ts`));
       }
       expect(defaultCache.size).toBe(100);
     });
@@ -232,10 +229,7 @@ describe('ParseCache', () => {
     it('handles maxSize=Infinity (no eviction)', () => {
       const infiniteCache = createParseCache(Infinity);
       for (let i = 0; i < 100; i++) {
-        infiniteCache.set(
-          computeContentHash(`inf${i}`),
-          createMockParsedFile(`inf${i}.ts`),
-        );
+        infiniteCache.set(computeContentHash(`inf${i}`), createMockParsedFile(`inf${i}.ts`));
       }
       expect(infiniteCache.size).toBe(100);
     });

@@ -20,43 +20,46 @@ describe('RubyProvider', () => {
   describe('parse', () => {
     it('detects method definitions', () => {
       const captures = provider.parse("def hello\n  return 'hi'\nend", 'test.rb');
-      const methods = captures.filter(c => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some(c => c.name === 'hello')).toBe(true);
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some((c) => c.name === 'hello')).toBe(true);
     });
 
     it('detects class definitions', () => {
-      const captures = provider.parse("class MyClass\n  def method\n  end\nend", 'test.rb');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classes.some(c => c.name === 'MyClass')).toBe(true);
+      const captures = provider.parse('class MyClass\n  def method\n  end\nend', 'test.rb');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some((c) => c.name === 'MyClass')).toBe(true);
     });
 
     it('detects class with inheritance', () => {
-      const captures = provider.parse("class Dog < Animal\nend", 'test.rb');
-      const classes = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classes.some(c => c.name === 'Dog')).toBe(true);
+      const captures = provider.parse('class Dog < Animal\nend', 'test.rb');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some((c) => c.name === 'Dog')).toBe(true);
     });
 
     it('detects module definitions', () => {
-      const captures = provider.parse("module Utilities\n  def self.helper\n  end\nend", 'test.rb');
-      const modules = captures.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(modules.some(c => c.name === 'Utilities')).toBe(true);
+      const captures = provider.parse('module Utilities\n  def self.helper\n  end\nend', 'test.rb');
+      const modules = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(modules.some((c) => c.name === 'Utilities')).toBe(true);
     });
 
     it('detects constants', () => {
-      const captures = provider.parse("MAX_SIZE = 100\nDEFAULT_CONFIG = { key: 'value' }", 'test.rb');
-      const consts = captures.filter(c => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
-      expect(consts.some(c => c.name === 'MAX_SIZE')).toBe(true);
+      const captures = provider.parse(
+        "MAX_SIZE = 100\nDEFAULT_CONFIG = { key: 'value' }",
+        'test.rb',
+      );
+      const consts = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(consts.some((c) => c.name === 'MAX_SIZE')).toBe(true);
     });
 
     it('detects attr_accessor', () => {
-      const captures = provider.parse("class User\n  attr_accessor :name, :email\nend", 'test.rb');
-      const vars = captures.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some(v => v.name === 'name')).toBe(true);
+      const captures = provider.parse('class User\n  attr_accessor :name, :email\nend', 'test.rb');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.some((v) => v.name === 'name')).toBe(true);
     });
 
     it('detects imports (require)', () => {
       const captures = provider.parse("require 'json'\nrequire 'net/http'", 'test.rb');
-      const imports = captures.filter(c => c.tag === CAPTURE_TAGS.IMPORT);
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -84,15 +87,15 @@ describe('RubyProvider', () => {
 
   describe('isExported', () => {
     it('detects class as public', () => {
-      expect(provider.isExported("class MyClass\nend", 'MyClass')).toBe(true);
+      expect(provider.isExported('class MyClass\nend', 'MyClass')).toBe(true);
     });
 
     it('returns false for a non-existent symbol', () => {
-      expect(provider.isExported("class MyClass\nend", 'Other')).toBe(false);
+      expect(provider.isExported('class MyClass\nend', 'Other')).toBe(false);
     });
 
     it('detects a method as public', () => {
-      expect(provider.isExported("def hello\nend", 'hello')).toBe(true);
+      expect(provider.isExported('def hello\nend', 'hello')).toBe(true);
     });
   });
 });

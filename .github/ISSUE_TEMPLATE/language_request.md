@@ -36,9 +36,9 @@ What analysis features are most important for this language?
 
 ## Ecosystem
 
-- Package manager: 
-- Build system: 
-- Popular frameworks: 
+- Package manager:
+- Build system:
+- Popular frameworks:
 
 ## Additional Context
 

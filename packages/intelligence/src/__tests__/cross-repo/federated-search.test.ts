@@ -110,10 +110,14 @@ describe('FederatedSearchEngine — Edge Cases', () => {
   it('should return zero duplicates for single-repo group', async () => {
     // Insert two files in the same repo — same-repo is skipped
     const fileA = createNode('repo-a', 'fileA.ts', 'File', 'fileA.ts', false, {
-      startLine: 1, endLine: 100, fingerprint: 'abc',
+      startLine: 1,
+      endLine: 100,
+      fingerprint: 'abc',
     });
     const fileB = createNode('repo-a', 'fileB.ts', 'File', 'fileB.ts', false, {
-      startLine: 1, endLine: 100, fingerprint: 'def',
+      startLine: 1,
+      endLine: 100,
+      fingerprint: 'def',
     });
     store.insertNode(fileA);
     store.insertNode(fileB);
@@ -133,15 +137,11 @@ describe('FederatedSearchEngine — Edge Cases', () => {
   // -------------------------------------------------------------------
 
   it('should throw on empty dependency name', async () => {
-    await expect(engine.getCrossRepoUsage('', 'g1')).rejects.toThrow(
-      'Dependency name is required',
-    );
+    await expect(engine.getCrossRepoUsage('', 'g1')).rejects.toThrow('Dependency name is required');
   });
 
   it('should throw on empty group ID', async () => {
-    await expect(engine.getCrossRepoUsage('lodash', '')).rejects.toThrow(
-      'Group ID is required',
-    );
+    await expect(engine.getCrossRepoUsage('lodash', '')).rejects.toThrow('Group ID is required');
   });
 
   it('should return empty usage for unknown dependency', async () => {
@@ -152,9 +152,16 @@ describe('FederatedSearchEngine — Edge Cases', () => {
   });
 
   it('should filter out cross-repo namespace nodes', async () => {
-    const crossRepoNode = createNode('cross-repo:bridge', 'someDep', 'Function', 'bridge.ts', false, {
-      signature: 'import someDep',
-    });
+    const crossRepoNode = createNode(
+      'cross-repo:bridge',
+      'someDep',
+      'Function',
+      'bridge.ts',
+      false,
+      {
+        signature: 'import someDep',
+      },
+    );
     store.insertNode(crossRepoNode);
 
     const result = await engine.getCrossRepoUsage('someDep', 'g1');

@@ -1,11 +1,7 @@
 // @code-analyzer/intelligence — GitHub API Client Tests
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  GitHubApiClient,
-  GitHubApiError,
-  GitHubRateLimitError,
-} from '../github/client.js';
+import { GitHubApiClient, GitHubApiError, GitHubRateLimitError } from '../github/client.js';
 import type { GitHubAuth } from '../github/client.js';
 
 // ---------------------------------------------------------------------------
@@ -247,21 +243,25 @@ XXBa1zHOQFnZFN5uc2P73yc=
 -----END PRIVATE KEY-----`;
 
   it('should use JWT app auth flow when installationId and appPrivateKey are set', async () => {
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
+    const mockFetch = vi
+      .spyOn(globalThis, 'fetch')
       // First call: POST to get installation token
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({
-          token: 'ghs_installation_token',
-          expires_at: new Date(Date.now() + 3600_000).toISOString(),
-        }), {
-          status: 201,
-          headers: new Headers({
-            'x-ratelimit-limit': '5000',
-            'x-ratelimit-remaining': '4999',
-            'x-ratelimit-reset': '1700000000',
-            'x-ratelimit-used': '1',
+        new Response(
+          JSON.stringify({
+            token: 'ghs_installation_token',
+            expires_at: new Date(Date.now() + 3600_000).toISOString(),
           }),
-        }),
+          {
+            status: 201,
+            headers: new Headers({
+              'x-ratelimit-limit': '5000',
+              'x-ratelimit-remaining': '4999',
+              'x-ratelimit-reset': '1700000000',
+              'x-ratelimit-used': '1',
+            }),
+          },
+        ),
       );
 
     const client = createClient({
@@ -279,20 +279,24 @@ XXBa1zHOQFnZFN5uc2P73yc=
   });
 
   it('should cache installation token and reuse it before expiry', async () => {
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
+    const mockFetch = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({
-          token: 'ghs_cached_token',
-          expires_at: new Date(Date.now() + 3600_000).toISOString(),
-        }), {
-          status: 201,
-          headers: new Headers({
-            'x-ratelimit-limit': '5000',
-            'x-ratelimit-remaining': '4999',
-            'x-ratelimit-reset': '1700000000',
-            'x-ratelimit-used': '1',
+        new Response(
+          JSON.stringify({
+            token: 'ghs_cached_token',
+            expires_at: new Date(Date.now() + 3600_000).toISOString(),
           }),
-        }),
+          {
+            status: 201,
+            headers: new Headers({
+              'x-ratelimit-limit': '5000',
+              'x-ratelimit-remaining': '4999',
+              'x-ratelimit-reset': '1700000000',
+              'x-ratelimit-used': '1',
+            }),
+          },
+        ),
       )
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ id: 1, full_name: 'test/repo' }), {
@@ -430,7 +434,10 @@ describe('GitHubApiClient — HTTP error handling', () => {
 
   it('should throw GitHubApiError with body for error responses', async () => {
     const client = createClient({ token: 'ghp_test' });
-    const errorBody = { message: 'Bad request', errors: [{ resource: 'PullRequest', code: 'missing' }] };
+    const errorBody = {
+      message: 'Bad request',
+      errors: [{ resource: 'PullRequest', code: 'missing' }],
+    };
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify(errorBody), {
         status: 422,
@@ -524,7 +531,8 @@ describe('GitHubApiClient — retry logic', () => {
 
   it('should retry on 429 rate limit errors and succeed', async () => {
     const client = createClient({ token: 'ghp_test' });
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
+    const mockFetch = vi
+      .spyOn(globalThis, 'fetch')
       // First call: 429
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ message: 'Rate limit' }), {
@@ -569,8 +577,11 @@ describe('GitHubApiClient — retry logic', () => {
     });
 
     // All 4 calls (1 initial + 3 retries) return 429
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({}), { status: 429, headers: rateLimitHeaders }));
+    const mockFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({}), { status: 429, headers: rateLimitHeaders }),
+      );
 
     await expect(client.getRepo('test', 'repo')).rejects.toThrow(GitHubRateLimitError);
 
@@ -586,10 +597,17 @@ describe('GitHubApiClient — retry logic', () => {
       'x-ratelimit-used': '0',
     });
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 500, headers: serverHeaders }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 503, headers: serverHeaders }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 1 }), { status: 200, headers: serverHeaders }));
+    const mockFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({}), { status: 500, headers: serverHeaders }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({}), { status: 503, headers: serverHeaders }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 1 }), { status: 200, headers: serverHeaders }),
+      );
 
     const result = await client.getRepo('test', 'repo');
     expect(result).toBeDefined();
@@ -628,8 +646,12 @@ describe('GitHubApiClient — retry logic', () => {
       'x-ratelimit-used': '0',
     });
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({ message: 'Server error' }), { status: 500, headers: serverHeaders }));
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ message: 'Server error' }), {
+        status: 500,
+        headers: serverHeaders,
+      }),
+    );
 
     await expect(client.getRepo('test', 'repo')).rejects.toThrow(GitHubApiError);
     expect(mockFetch).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
@@ -639,8 +661,8 @@ describe('GitHubApiClient — retry logic', () => {
 
   it('should default retry-after to 60 seconds when header is missing', async () => {
     const client = createClient({ token: 'ghp_test' });
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response(JSON.stringify({}), {
+    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), {
         status: 429,
         headers: new Headers({
           'x-ratelimit-limit': '5000',
@@ -649,7 +671,8 @@ describe('GitHubApiClient — retry logic', () => {
           'x-ratelimit-used': '5000',
           // No retry-after header → defaults to 60
         }),
-      }));
+      }),
+    );
 
     // setTimeout is mocked to fire immediately, so all 4 attempts happen instantly
     await expect(client.getRepo('test', 'repo')).rejects.toThrow(GitHubRateLimitError);
@@ -811,7 +834,12 @@ describe('GitHubApiClient — request construction', () => {
       }),
     );
 
-    await client.listPRs('test', 'repo', { state: 'open', head: 'feature', base: 'main', per_page: 100 });
+    await client.listPRs('test', 'repo', {
+      state: 'open',
+      head: 'feature',
+      base: 'main',
+      per_page: 100,
+    });
     const callArgs3 = mockFetch.mock.calls[0]!;
     const url3 = callArgs3[0] as string;
     expect(url3).toContain('state=open');
@@ -853,17 +881,20 @@ describe('GitHubApiClient — GraphQL', () => {
   it('should execute GraphQL query and return response', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({
-        data: { repository: { id: 'abc', name: 'test' } },
-      }), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      new Response(
+        JSON.stringify({
+          data: { repository: { id: 'abc', name: 'test' } },
         }),
-      }),
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const result = await client.graphql<{ repository: { id: string; name: string } }>(
@@ -880,18 +911,21 @@ describe('GitHubApiClient — GraphQL', () => {
   it('should handle GraphQL errors in response', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({
-        data: null,
-        errors: [{ message: 'Field not found', path: ['repository', 'nonexistent'] }],
-      }), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      new Response(
+        JSON.stringify({
+          data: null,
+          errors: [{ message: 'Field not found', path: ['repository', 'nonexistent'] }],
         }),
-      }),
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const result = await client.graphql('query { nonexistent }');
@@ -911,15 +945,18 @@ describe('GitHubApiClient — PR diff (text)', () => {
   it('should fetch PR diff as raw text', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response('diff --git a/file.ts b/file.ts\nindex abc..def 100644\n--- a/file.ts\n+++ b/file.ts\n@@ -1,3 +1,4 @@\n+new line', {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
-        }),
-      }),
+      new Response(
+        'diff --git a/file.ts b/file.ts\nindex abc..def 100644\n--- a/file.ts\n+++ b/file.ts\n@@ -1,3 +1,4 @@\n+new line',
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const diff = await client.getPRDiff('test', 'repo', 42);
@@ -938,18 +975,21 @@ describe('GitHubApiClient — PR files', () => {
   it('should fetch PR files list', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify([
-        { filename: 'src/test.ts', status: 'modified', additions: 10, deletions: 3, changes: 13 },
-        { filename: 'src/new.ts', status: 'added', additions: 42, deletions: 0, changes: 42 },
-      ]), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
-        }),
-      }),
+      new Response(
+        JSON.stringify([
+          { filename: 'src/test.ts', status: 'modified', additions: 10, deletions: 3, changes: 13 },
+          { filename: 'src/new.ts', status: 'added', additions: 42, deletions: 0, changes: 42 },
+        ]),
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const files = await client.getPRFiles('test', 'repo', 42);
@@ -970,15 +1010,26 @@ describe('GitHubApiClient — webhooks', () => {
   it('should list webhooks', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify([{ id: 1, url: 'https://api.github.com/repos/test/repo/hooks/1', active: true, events: ['push'], config: { url: 'https://example.com/webhook', content_type: 'json', insecure_ssl: '0' } }]), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
-        }),
-      }),
+      new Response(
+        JSON.stringify([
+          {
+            id: 1,
+            url: 'https://api.github.com/repos/test/repo/hooks/1',
+            active: true,
+            events: ['push'],
+            config: { url: 'https://example.com/webhook', content_type: 'json', insecure_ssl: '0' },
+          },
+        ]),
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const hooks = await client.listWebhooks('test', 'repo');
@@ -991,15 +1042,24 @@ describe('GitHubApiClient — webhooks', () => {
   it('should create webhook', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: 2, url: 'https://api.github.com/repos/test/repo/hooks/2', active: true, events: ['pull_request'], config: { url: 'https://example.com/hook', content_type: 'json', insecure_ssl: '0' } }), {
-        status: 201,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      new Response(
+        JSON.stringify({
+          id: 2,
+          url: 'https://api.github.com/repos/test/repo/hooks/2',
+          active: true,
+          events: ['pull_request'],
+          config: { url: 'https://example.com/hook', content_type: 'json', insecure_ssl: '0' },
         }),
-      }),
+        {
+          status: 201,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const hook = await client.createWebhook('test', 'repo', { url: 'https://example.com/hook' });
@@ -1012,15 +1072,24 @@ describe('GitHubApiClient — webhooks', () => {
   it('should create webhook with custom events', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: 3, url: 'https://api.github.com/repos/test/repo/hooks/3', active: true, events: ['issues', 'push'], config: { url: 'https://example.com/custom', content_type: 'json', insecure_ssl: '0' } }), {
-        status: 201,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      new Response(
+        JSON.stringify({
+          id: 3,
+          url: 'https://api.github.com/repos/test/repo/hooks/3',
+          active: true,
+          events: ['issues', 'push'],
+          config: { url: 'https://example.com/custom', content_type: 'json', insecure_ssl: '0' },
         }),
-      }),
+        {
+          status: 201,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const hook = await client.createWebhook('test', 'repo', {
@@ -1041,15 +1110,23 @@ describe('GitHubApiClient — check runs and branches', () => {
   it('should list check runs', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ total_count: 2, check_runs: [{ id: 1, name: 'lint', head_sha: 'abc', status: 'completed', conclusion: 'success' }] }), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      new Response(
+        JSON.stringify({
+          total_count: 2,
+          check_runs: [
+            { id: 1, name: 'lint', head_sha: 'abc', status: 'completed', conclusion: 'success' },
+          ],
         }),
-      }),
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const result = await client.listCheckRuns('test', 'repo', 'abc123');
@@ -1104,25 +1181,28 @@ describe('GitHubApiClient — check runs and branches', () => {
   it('should get a single PR', async () => {
     const client = createClient({ token: 'ghp_test' });
     const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({
-        number: 42,
-        title: 'Test PR',
-        body: 'Description',
-        state: 'open',
-        head: { sha: 'def456', ref: 'feature', repo: { full_name: 'test/repo' } },
-        base: { sha: 'abc123', ref: 'main', repo: { full_name: 'test/repo' } },
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z',
-        user: { login: 'test-user' },
-      }), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      new Response(
+        JSON.stringify({
+          number: 42,
+          title: 'Test PR',
+          body: 'Description',
+          state: 'open',
+          head: { sha: 'def456', ref: 'feature', repo: { full_name: 'test/repo' } },
+          base: { sha: 'abc123', ref: 'main', repo: { full_name: 'test/repo' } },
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+          user: { login: 'test-user' },
         }),
-      }),
+        {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
+        },
+      ),
     );
 
     const pr = await client.getPR('test', 'repo', 42);
@@ -1315,7 +1395,11 @@ describe('GitHubApiClient — createCheckRun defaults', () => {
       }),
     );
 
-    await client.createCheckRun('test', 'repo', { name: 'check', head_sha: 'abc', status: 'completed' });
+    await client.createCheckRun('test', 'repo', {
+      name: 'check',
+      head_sha: 'abc',
+      status: 'completed',
+    });
     const callArgs = mockFetch.mock.calls[0]!;
     const body = JSON.parse((callArgs[1] as any).body);
     expect(body.status).toBe('completed');
@@ -1483,26 +1567,31 @@ describe('GitHubApiClient — 429 with custom retry-after', () => {
       return 0 as any;
     });
 
-    const mockFetch = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({}), {
-        status: 429,
-        headers: new Headers({
-          'retry-after': '5',
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '0',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '5000',
+    const mockFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({}), {
+          status: 429,
+          headers: new Headers({
+            'retry-after': '5',
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '5000',
+          }),
         }),
-      }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 1 }), {
-        status: 200,
-        headers: new Headers({
-          'x-ratelimit-limit': '5000',
-          'x-ratelimit-remaining': '4999',
-          'x-ratelimit-reset': '1700000000',
-          'x-ratelimit-used': '1',
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: new Headers({
+            'x-ratelimit-limit': '5000',
+            'x-ratelimit-remaining': '4999',
+            'x-ratelimit-reset': '1700000000',
+            'x-ratelimit-used': '1',
+          }),
         }),
-      }));
+      );
 
     await client.getRepo('test', 'repo');
 

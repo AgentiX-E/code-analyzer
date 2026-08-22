@@ -1,13 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import {
-  RetryPolicy,
-  DeadLetterQueue,
-} from '../operations/resilience.js';
+import { RetryPolicy, DeadLetterQueue } from '../operations/resilience.js';
 
-import type {
-  DeadLetterEntry,
-} from '../operations/resilience.js';
+import type { DeadLetterEntry } from '../operations/resilience.js';
 
 describe('RetryPolicy', () => {
   describe('successful execution', () => {
@@ -56,9 +51,11 @@ describe('RetryPolicy', () => {
     it('should throw the last error after maxAttempts', async () => {
       const policy = new RetryPolicy({ maxAttempts: 2, jitter: false });
 
-      await expect(policy.execute(async () => {
-        throw new Error('Persistent error');
-      })).rejects.toThrow('Persistent error');
+      await expect(
+        policy.execute(async () => {
+          throw new Error('Persistent error');
+        }),
+      ).rejects.toThrow('Persistent error');
 
       expect(policy.getAttempt()).toBe(2);
     });
@@ -67,10 +64,12 @@ describe('RetryPolicy', () => {
       let attempts = 0;
       const policy = new RetryPolicy({ maxAttempts: 3, jitter: false });
 
-      await expect(policy.execute(async () => {
-        attempts++;
-        throw new Error('Always fails');
-      })).rejects.toThrow();
+      await expect(
+        policy.execute(async () => {
+          attempts++;
+          throw new Error('Always fails');
+        }),
+      ).rejects.toThrow();
 
       expect(attempts).toBe(3);
     });
@@ -86,9 +85,11 @@ describe('RetryPolicy', () => {
 
       const policy = new RetryPolicy({ maxAttempts: 3, jitter: false });
 
-      await expect(policy.execute(async () => {
-        throw new CustomError('Custom failure', 'ERR_500');
-      })).rejects.toBeInstanceOf(CustomError);
+      await expect(
+        policy.execute(async () => {
+          throw new CustomError('Custom failure', 'ERR_500');
+        }),
+      ).rejects.toBeInstanceOf(CustomError);
     });
   });
 
@@ -116,9 +117,11 @@ describe('RetryPolicy', () => {
 
     it('should support disabling jitter', async () => {
       const policy = new RetryPolicy({ jitter: false, maxAttempts: 2 });
-      await expect(policy.execute(async () => {
-        throw new Error('test');
-      })).rejects.toThrow('test');
+      await expect(
+        policy.execute(async () => {
+          throw new Error('test');
+        }),
+      ).rejects.toThrow('test');
       // The fact that it executed without timing issues confirms jitter was disabled
     });
 
@@ -138,9 +141,11 @@ describe('RetryPolicy', () => {
 
     it('should throw immediately with maxAttempts=1 on failure', async () => {
       const policy = new RetryPolicy({ maxAttempts: 1, jitter: false });
-      await expect(policy.execute(async () => {
-        throw new Error('instant fail');
-      })).rejects.toThrow('instant fail');
+      await expect(
+        policy.execute(async () => {
+          throw new Error('instant fail');
+        }),
+      ).rejects.toThrow('instant fail');
       expect(policy.getAttempt()).toBe(1);
     });
 
@@ -196,9 +201,11 @@ describe('RetryPolicy', () => {
       const policy = new RetryPolicy({ maxAttempts: 2, jitter: false });
 
       // First attempt
-      await expect(policy.execute(async () => {
-        throw new Error('fail');
-      })).rejects.toThrow();
+      await expect(
+        policy.execute(async () => {
+          throw new Error('fail');
+        }),
+      ).rejects.toThrow();
 
       // After first attempt, isLastAttempt should have returned true on the last iteration
       expect(policy.getAttempt()).toBe(2);
@@ -219,9 +226,11 @@ describe('RetryPolicy', () => {
 
     it('should return maxAttempts after exhaustion', async () => {
       const policy = new RetryPolicy({ maxAttempts: 3, jitter: false });
-      await expect(policy.execute(async () => {
-        throw new Error('fail');
-      })).rejects.toThrow();
+      await expect(
+        policy.execute(async () => {
+          throw new Error('fail');
+        }),
+      ).rejects.toThrow();
       expect(policy.getAttempt()).toBe(3);
     });
   });

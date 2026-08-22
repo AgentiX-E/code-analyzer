@@ -29,7 +29,9 @@ function setupFixture(): void {
   mkdirSync(join(FIXTURE_DIR, 'src', 'services'), { recursive: true });
 
   // Original (base) version of the code
-  writeFileSync(join(FIXTURE_DIR, 'src', 'services', 'payment.service.ts'), `
+  writeFileSync(
+    join(FIXTURE_DIR, 'src', 'services', 'payment.service.ts'),
+    `
 export class PaymentService {
   private transactions: Map<string, Transaction> = new Map();
 
@@ -58,31 +60,64 @@ export interface Transaction {
   status: string;
   createdAt: Date;
 }
-`.trim());
+`.trim(),
+  );
 
   // We'll use a realistic git diff string instead of modifying files
 }
 
 function populateStore(store: InMemoryGraphStore): void {
   store.insertNode({
-    projectId: PROJECT_ID, name: 'PaymentService', qualifiedName: 'src/services/payment.service::PaymentService',
-    label: 'Class', filePath: 'src/services/payment.service.ts', startLine: 2, endLine: 18,
-    language: 'typescript', isExported: true, complexity: 4, properties: {},
+    projectId: PROJECT_ID,
+    name: 'PaymentService',
+    qualifiedName: 'src/services/payment.service::PaymentService',
+    label: 'Class',
+    filePath: 'src/services/payment.service.ts',
+    startLine: 2,
+    endLine: 18,
+    language: 'typescript',
+    isExported: true,
+    complexity: 4,
+    properties: {},
   });
   store.insertNode({
-    projectId: PROJECT_ID, name: 'processPayment', qualifiedName: 'src/services/payment.service::PaymentService.processPayment',
-    label: 'Method', filePath: 'src/services/payment.service.ts', startLine: 5, endLine: 8,
-    language: 'typescript', isExported: false, complexity: 2, properties: {},
+    projectId: PROJECT_ID,
+    name: 'processPayment',
+    qualifiedName: 'src/services/payment.service::PaymentService.processPayment',
+    label: 'Method',
+    filePath: 'src/services/payment.service.ts',
+    startLine: 5,
+    endLine: 8,
+    language: 'typescript',
+    isExported: false,
+    complexity: 2,
+    properties: {},
   });
   store.insertNode({
-    projectId: PROJECT_ID, name: 'createTransaction', qualifiedName: 'src/services/payment.service::PaymentService.createTransaction',
-    label: 'Method', filePath: 'src/services/payment.service.ts', startLine: 10, endLine: 20,
-    language: 'typescript', isExported: false, complexity: 5, properties: {},
+    projectId: PROJECT_ID,
+    name: 'createTransaction',
+    qualifiedName: 'src/services/payment.service::PaymentService.createTransaction',
+    label: 'Method',
+    filePath: 'src/services/payment.service.ts',
+    startLine: 10,
+    endLine: 20,
+    language: 'typescript',
+    isExported: false,
+    complexity: 5,
+    properties: {},
   });
   store.insertNode({
-    projectId: PROJECT_ID, name: 'Transaction', qualifiedName: 'src/services/payment.service::Transaction',
-    label: 'Interface', filePath: 'src/services/payment.service.ts', startLine: 23, endLine: 30,
-    language: 'typescript', isExported: true, complexity: null, properties: {},
+    projectId: PROJECT_ID,
+    name: 'Transaction',
+    qualifiedName: 'src/services/payment.service::Transaction',
+    label: 'Interface',
+    filePath: 'src/services/payment.service.ts',
+    startLine: 23,
+    endLine: 30,
+    language: 'typescript',
+    isExported: true,
+    complexity: null,
+    properties: {},
   });
 }
 
@@ -146,7 +181,7 @@ function parseDiffs(diffText: string): GitDiff[] {
 // Helper: parse diffs and assign to a project ID
 function parseDiffsFor(projectId: string, diffText: string): GitDiff[] {
   const diffs = parseDiffs(diffText);
-  return diffs.map(d => ({ ...d, repositoryId: projectId }));
+  return diffs.map((d) => ({ ...d, repositoryId: projectId }));
 }
 // ---------------------------------------------------------------------------
 
@@ -165,7 +200,11 @@ describe('PR Review Pipeline — E2E Integration', () => {
 
   afterAll(() => {
     store.close();
-    try { rmSync(FIXTURE_DIR, { recursive: true, force: true }); } catch { /* cleanup */ }
+    try {
+      rmSync(FIXTURE_DIR, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
   });
 
   // =========================================================================
@@ -291,18 +330,52 @@ function riskyFunction(userInput) {
     it('should complete full PR review with standards + impact + review', async () => {
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);
 
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 42,
-        title: 'feat: add payment method support',
-        body: 'Adds payment method tracking and input validation to PaymentService.',
-        state: 'open',
-        base: { ref: 'main', sha: 'abc123', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feat/payment-method', sha: 'def456', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: 'typescript', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'developer' },
-        labels: ['enhancement'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 42,
+          title: 'feat: add payment method support',
+          body: 'Adds payment method tracking and input validation to PaymentService.',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: 'abc123',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: 'typescript',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feat/payment-method',
+            sha: 'def456',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: 'typescript',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'developer' },
+          labels: ['enhancement'],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       // Verify result structure
       expect(result).toHaveProperty('sessionId');
@@ -322,8 +395,9 @@ function riskyFunction(userInput) {
       expect(['critical', 'high', 'medium', 'low']).toContain(result.summary.riskLevel);
 
       // Verify merge recommendation
-      expect(['approve', 'approve-with-comments', 'request-changes', 'block'])
-        .toContain(result.summary.mergeRecommendation);
+      expect(['approve', 'approve-with-comments', 'request-changes', 'block']).toContain(
+        result.summary.mergeRecommendation,
+      );
 
       // Verify impact result
       expect(result.impactResult).toHaveProperty('riskLevel');
@@ -368,32 +442,87 @@ function riskyFunction(userInput) {
 
       // Use insertNode to get auto-assigned IDs for the edge connection
       const txIfaceId = ifaceStore.insertNode({
-        projectId: PROJECT_ID, name: 'Transaction', qualifiedName: 'src/services/payment.service::Transaction',
-        label: 'Interface', filePath: 'src/services/payment.service.ts', startLine: 23, endLine: 30,
-        language: 'typescript', isExported: true, complexity: null, properties: {},
+        projectId: PROJECT_ID,
+        name: 'Transaction',
+        qualifiedName: 'src/services/payment.service::Transaction',
+        label: 'Interface',
+        filePath: 'src/services/payment.service.ts',
+        startLine: 23,
+        endLine: 30,
+        language: 'typescript',
+        isExported: true,
+        complexity: null,
+        properties: {},
       });
       const consumerId = ifaceStore.insertNode({
-        projectId: PROJECT_ID, name: 'OrderProcessor', qualifiedName: 'src/orders/processor::OrderProcessor',
-        label: 'Class', filePath: 'src/orders/processor.ts', startLine: 1, endLine: 10,
-        language: 'typescript', isExported: true, complexity: 3, properties: {},
+        projectId: PROJECT_ID,
+        name: 'OrderProcessor',
+        qualifiedName: 'src/orders/processor::OrderProcessor',
+        label: 'Class',
+        filePath: 'src/orders/processor.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        isExported: true,
+        complexity: 3,
+        properties: {},
       });
-      ifaceStore.insertEdge({ sourceId: consumerId, targetId: txIfaceId, type: 'IMPLEMENTS', projectId: PROJECT_ID });
+      ifaceStore.insertEdge({
+        sourceId: consumerId,
+        targetId: txIfaceId,
+        type: 'IMPLEMENTS',
+        projectId: PROJECT_ID,
+      });
 
       const ifaceReviewEngine = new CodeReviewEngine(ifaceStore, { allowMetadataFallback: true });
       const ifacePrEngine = new PRReviewEngine(ifaceReviewEngine, ifaceStore);
 
-      const result = await ifacePrEngine.reviewPR(PROJECT_ID, {
-        number: 43,
-        title: 'feat: add currency fields to Transaction',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await ifacePrEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 43,
+          title: 'feat: add currency fields to Transaction',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       expect(result.summary).toBeDefined();
       ifaceStore.close();
@@ -413,18 +542,52 @@ new file mode 100644
 +};`;
 
       const diffs = parseDiffsFor(PROJECT_ID, securityDiff);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 44,
-        title: 'add config file',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 44,
+          title: 'add config file',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       // Security-sensitive diffs should be flagged at some severity level
       expect(result.summary.riskLevel).toBeDefined();
@@ -440,36 +603,104 @@ new file mode 100644
 +# My Project v2`;
 
       const diffs = parseDiffsFor(PROJECT_ID, trivialDiff);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 45,
-        title: 'docs: update readme title',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'docs', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: ['documentation'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 45,
+          title: 'docs: update readme title',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'docs',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: ['documentation'],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       expect(result.summary).toBeDefined();
     });
 
     it('should generate valid standards check results', async () => {
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 46,
-        title: 'test standards check',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'test', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 46,
+          title: 'test standards check',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'test',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       for (const sr of result.standardsResults) {
         expect(sr).toHaveProperty('standardId');
@@ -491,18 +722,52 @@ new file mode 100644
   describe('Report Generation & Recommendations', () => {
     it('should produce merge recommendation based on findings', async () => {
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 47,
-        title: 'merge check',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 47,
+          title: 'merge check',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       // Risk level must be one of the valid values
       const validRisks = ['critical', 'high', 'medium', 'low'];
@@ -520,23 +785,62 @@ new file mode 100644
 
     it('should provide by-category and by-severity breakdowns', async () => {
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 48,
-        title: 'category breakdown',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 48,
+          title: 'category breakdown',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       // byCategory should have all review categories
       const categories: ReviewCategory[] = [
-        'bug', 'security', 'performance', 'maintainability',
-        'style', 'documentation', 'architecture',
+        'bug',
+        'security',
+        'performance',
+        'maintainability',
+        'style',
+        'documentation',
+        'architecture',
       ];
       for (const cat of categories) {
         expect(result.summary.byCategory).toHaveProperty(cat);
@@ -549,10 +853,14 @@ new file mode 100644
       }
 
       // Total should equal sum of all categories
-      const categoryTotal = Object.values(result.summary.byCategory)
-        .reduce((a: number, b: any) => a + (typeof b === 'number' ? b : 0), 0);
-      const severityTotal = Object.values(result.summary.bySeverity)
-        .reduce((a: number, b: any) => a + (typeof b === 'number' ? b : 0), 0);
+      const categoryTotal = Object.values(result.summary.byCategory).reduce(
+        (a: number, b: any) => a + (typeof b === 'number' ? b : 0),
+        0,
+      );
+      const severityTotal = Object.values(result.summary.bySeverity).reduce(
+        (a: number, b: any) => a + (typeof b === 'number' ? b : 0),
+        0,
+      );
 
       expect(result.summary.totalComments).toBeGreaterThanOrEqual(0);
     });
@@ -572,18 +880,52 @@ diff --git a/src/b.ts b/src/b.ts
 +const y = 3;`;
 
       const diffs = parseDiffsFor(PROJECT_ID, multiDiff);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 49,
-        title: 'multi-file PR',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 49,
+          title: 'multi-file PR',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       expect(result.summary).toBeDefined();
       expect(diffs.length).toBeGreaterThanOrEqual(1);
@@ -603,16 +945,44 @@ diff --git a/src/b.ts b/src/b.ts
     it('should pre-filter diffs (skip generated/binary/config files)', () => {
       const pipeline = new ReviewPipeline(store);
       const diffs: GitDiff[] = [
-        { id: '1', repositoryId: PROJECT_ID, filePath: 'package-lock.json', changeType: 'modified', ranges: [], createdAt: '' },
-        { id: '2', repositoryId: PROJECT_ID, filePath: 'src/main.ts', changeType: 'modified', ranges: [], createdAt: '' },
-        { id: '3', repositoryId: PROJECT_ID, filePath: 'dist/bundle.js', changeType: 'added', ranges: [], createdAt: '' },
-        { id: '4', repositoryId: PROJECT_ID, filePath: 'image.png', changeType: 'modified', ranges: [], createdAt: '' },
+        {
+          id: '1',
+          repositoryId: PROJECT_ID,
+          filePath: 'package-lock.json',
+          changeType: 'modified',
+          ranges: [],
+          createdAt: '',
+        },
+        {
+          id: '2',
+          repositoryId: PROJECT_ID,
+          filePath: 'src/main.ts',
+          changeType: 'modified',
+          ranges: [],
+          createdAt: '',
+        },
+        {
+          id: '3',
+          repositoryId: PROJECT_ID,
+          filePath: 'dist/bundle.js',
+          changeType: 'added',
+          ranges: [],
+          createdAt: '',
+        },
+        {
+          id: '4',
+          repositoryId: PROJECT_ID,
+          filePath: 'image.png',
+          changeType: 'modified',
+          ranges: [],
+          createdAt: '',
+        },
       ];
 
       const { included: filtered } = pipeline.preFilter(diffs);
 
       // Config, dist, and binary files should be filtered out
-      const paths = filtered.map(d => d.filePath);
+      const paths = filtered.map((d) => d.filePath);
       expect(paths).toContain('src/main.ts');
       expect(paths).not.toContain('package-lock.json');
       expect(paths).not.toContain('dist/bundle.js');
@@ -622,13 +992,34 @@ diff --git a/src/b.ts b/src/b.ts
     it('should filter out generated files based on patterns', () => {
       const pipeline = new ReviewPipeline(store);
       const diffs: GitDiff[] = [
-        { id: '1', repositoryId: PROJECT_ID, filePath: 'src/generated/types.ts', changeType: 'modified', ranges: [], createdAt: '' },
-        { id: '2', repositoryId: PROJECT_ID, filePath: 'src/min/bundle.min.js', changeType: 'modified', ranges: [], createdAt: '' },
-        { id: '3', repositoryId: PROJECT_ID, filePath: 'src/normal.ts', changeType: 'modified', ranges: [], createdAt: '' },
+        {
+          id: '1',
+          repositoryId: PROJECT_ID,
+          filePath: 'src/generated/types.ts',
+          changeType: 'modified',
+          ranges: [],
+          createdAt: '',
+        },
+        {
+          id: '2',
+          repositoryId: PROJECT_ID,
+          filePath: 'src/min/bundle.min.js',
+          changeType: 'modified',
+          ranges: [],
+          createdAt: '',
+        },
+        {
+          id: '3',
+          repositoryId: PROJECT_ID,
+          filePath: 'src/normal.ts',
+          changeType: 'modified',
+          ranges: [],
+          createdAt: '',
+        },
       ];
 
       const { included: filtered } = pipeline.preFilter(diffs);
-      const paths = filtered.map(d => d.filePath);
+      const paths = filtered.map((d) => d.filePath);
       expect(paths).toContain('src/normal.ts');
       expect(paths).not.toContain('src/generated/types.ts');
     });
@@ -667,18 +1058,52 @@ diff --git a/src/b.ts b/src/b.ts
 
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);
 
-      const result = await emptyPrEngine.reviewPR(PROJECT_ID, {
-        number: 99,
-        title: 'test',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await emptyPrEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 99,
+          title: 'test',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       // Should handle gracefully even without graph data
       expect(result.summary).toBeDefined();
@@ -687,21 +1112,58 @@ diff --git a/src/b.ts b/src/b.ts
 
     it('should compute impact correctly on affected files', async () => {
       const diffs = parseDiffsFor(PROJECT_ID, REALISTIC_DIFF);
-      const result = await prEngine.reviewPR(PROJECT_ID, {
-        number: 50,
-        title: 'impact test',
-        body: '',
-        state: 'open',
-        base: { ref: 'main', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        head: { ref: 'feature', sha: '', repo: { id: 1, owner: 'test', name: PROJECT_ID, fullName: PROJECT_ID, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-        user: { login: 'dev' },
-        labels: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, diffs);
+      const result = await prEngine.reviewPR(
+        PROJECT_ID,
+        {
+          number: 50,
+          title: 'impact test',
+          body: '',
+          state: 'open',
+          base: {
+            ref: 'main',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          head: {
+            ref: 'feature',
+            sha: '',
+            repo: {
+              id: 1,
+              owner: 'test',
+              name: PROJECT_ID,
+              fullName: PROJECT_ID,
+              defaultBranch: 'main',
+              cloneUrl: '',
+              language: '',
+              topics: [],
+              isPrivate: false,
+              description: '',
+            },
+          },
+          user: { login: 'dev' },
+          labels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        diffs,
+      );
 
       expect(result.impactResult.riskLevel).toBeDefined();
-      expect(typeof result.impactResult.changedFiles === "number" || Array.isArray(result.impactResult.changedFiles)).toBe(true);
+      expect(
+        typeof result.impactResult.changedFiles === 'number' ||
+          Array.isArray(result.impactResult.changedFiles),
+      ).toBe(true);
       expect(Array.isArray(result.impactResult.changedSymbols ?? [])).toBe(true);
     });
   });

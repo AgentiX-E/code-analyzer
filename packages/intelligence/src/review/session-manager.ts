@@ -38,9 +38,7 @@ export class ReviewSessionManager {
 
   constructor(repoPath: string) {
     this.sessionsDir = path.join(repoPath, '.code-analyzer', 'sessions');
-    this.sessionStore = new SessionStore(
-      path.join(repoPath, '.code-analyzer', 'sessions.db'),
-    );
+    this.sessionStore = new SessionStore(path.join(repoPath, '.code-analyzer', 'sessions.db'));
   }
 
   // -------------------------------------------------------------------------
@@ -48,11 +46,7 @@ export class ReviewSessionManager {
   // -------------------------------------------------------------------------
 
   /** Create a new review session for a PR. */
-  createSession(
-    prUrl: string,
-    repoPath: string,
-    metadata: SessionMetadata,
-  ): ReviewCheckpoint {
+  createSession(prUrl: string, repoPath: string, metadata: SessionMetadata): ReviewCheckpoint {
     const sessionId = this.generateSessionId(prUrl);
     const session: ReviewCheckpoint = {
       sessionId,
@@ -71,11 +65,7 @@ export class ReviewSessionManager {
   }
 
   /** Save a checkpoint — records progress and findings. */
-  checkpoint(
-    sessionId: string,
-    findings: ReviewComment[],
-    filesReviewed: string[],
-  ): void {
+  checkpoint(sessionId: string, findings: ReviewComment[], filesReviewed: string[]): void {
     const session = this.loadSession(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
@@ -97,9 +87,7 @@ export class ReviewSessionManager {
     }
 
     // Remove from remaining
-    session.filesRemaining = session.filesRemaining.filter(
-      (f) => !filesReviewed.includes(f),
-    );
+    session.filesRemaining = session.filesRemaining.filter((f) => !filesReviewed.includes(f));
 
     session.lastCheckpointAt = new Date().toISOString();
     this.persistSession(session);
@@ -158,9 +146,7 @@ export class ReviewSessionManager {
       throw new Error(`Session not found: ${sessionId}`);
     }
 
-    session.filesRemaining = files.filter(
-      (f) => !session.filesReviewed.includes(f),
-    );
+    session.filesRemaining = files.filter((f) => !session.filesReviewed.includes(f));
     this.persistSession(session);
   }
 

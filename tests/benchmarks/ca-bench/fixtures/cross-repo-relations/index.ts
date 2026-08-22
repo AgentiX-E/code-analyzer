@@ -95,12 +95,58 @@ export interface RepoMetadata {
 }
 
 export const REPO_METADATA: RepoMetadata[] = [
-  { name: 'frontend-app', language: 'typescript', description: 'React-based frontend application', files: ['src/api/client.ts', 'src/components/Header.tsx'] },
-  { name: 'backend-api', language: 'typescript', description: 'Node.js REST API service', files: ['src/routes/users.ts', 'src/services/auth.ts', 'src/middleware/audit.ts', 'src/config/database.ts', 'src/queues/orders.ts'] },
-  { name: 'shared-lib', language: 'typescript', description: 'Shared utility library', files: ['src/crypto/jwt.ts', 'src/types/models.ts'] },
-  { name: 'analytics-service', language: 'typescript', description: 'Event analytics pipeline', files: ['src/events/sink.ts'] },
-  { name: 'mobile-app', language: 'typescript', description: 'React Native mobile app', files: ['src/screens/home.ts'] },
-  { name: 'infra-config', language: 'hcl', description: 'Terraform infrastructure configuration', files: ['terraform/modules/database/main.tf'] },
-  { name: 'order-worker', language: 'typescript', description: 'Order processing worker', files: ['src/handlers/processOrder.ts'] },
-  { name: 'notification-svc', language: 'typescript', description: 'Notification dispatch service', files: ['src/senders/email.ts'] },
+  {
+    name: 'frontend-app',
+    language: 'typescript',
+    description: 'React-based frontend application',
+    files: ['src/api/client.ts', 'src/components/Header.tsx'],
+  },
+  {
+    name: 'backend-api',
+    language: 'typescript',
+    description: 'Node.js REST API service',
+    files: [
+      'src/routes/users.ts',
+      'src/services/auth.ts',
+      'src/middleware/audit.ts',
+      'src/config/database.ts',
+      'src/queues/orders.ts',
+    ],
+  },
+  {
+    name: 'shared-lib',
+    language: 'typescript',
+    description: 'Shared utility library',
+    files: ['src/crypto/jwt.ts', 'src/types/models.ts'],
+  },
+  {
+    name: 'analytics-service',
+    language: 'typescript',
+    description: 'Event analytics pipeline',
+    files: ['src/events/sink.ts'],
+  },
+  {
+    name: 'mobile-app',
+    language: 'typescript',
+    description: 'React Native mobile app',
+    files: ['src/screens/home.ts'],
+  },
+  {
+    name: 'infra-config',
+    language: 'hcl',
+    description: 'Terraform infrastructure configuration',
+    files: ['terraform/modules/database/main.tf'],
+  },
+  {
+    name: 'order-worker',
+    language: 'typescript',
+    description: 'Order processing worker',
+    files: ['src/handlers/processOrder.ts'],
+  },
+  {
+    name: 'notification-svc',
+    language: 'typescript',
+    description: 'Notification dispatch service',
+    files: ['src/senders/email.ts'],
+  },
 ];

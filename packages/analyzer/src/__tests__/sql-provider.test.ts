@@ -50,7 +50,8 @@ describe('SqlProvider', () => {
     });
 
     it('should parse CREATE PROCEDURE statements', () => {
-      const code = 'CREATE PROCEDURE update_salary(IN emp_id INT) BEGIN UPDATE employees SET salary = salary * 1.1 WHERE id = emp_id; END;';
+      const code =
+        'CREATE PROCEDURE update_salary(IN emp_id INT) BEGIN UPDATE employees SET salary = salary * 1.1 WHERE id = emp_id; END;';
       const captures = provider.parse(code, 'test.sql');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'update_salary')).toBe(true);
@@ -65,14 +66,14 @@ describe('SqlProvider', () => {
     });
 
     it('should parse INSERT statements', () => {
-      const code = 'INSERT INTO users (name) VALUES (\'John\');';
+      const code = "INSERT INTO users (name) VALUES ('John');";
       const captures = provider.parse(code, 'test.sql');
       const dmls = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(dmls.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should parse UPDATE statements', () => {
-      const code = 'UPDATE users SET active = 0 WHERE last_login < \'2020-01-01\';';
+      const code = "UPDATE users SET active = 0 WHERE last_login < '2020-01-01';";
       const captures = provider.parse(code, 'test.sql');
       const dmls = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(dmls.length).toBeGreaterThanOrEqual(1);
@@ -194,7 +195,8 @@ describe('SqlProvider', () => {
     });
 
     it('parse should parse DML statements', () => {
-      const code = 'SELECT * FROM users;\nINSERT INTO users VALUES (1);\nUPDATE users SET x=1;\nDELETE FROM users;';
+      const code =
+        'SELECT * FROM users;\nINSERT INTO users VALUES (1);\nUPDATE users SET x=1;\nDELETE FROM users;';
       const captures = provider.parse(code, 'test.sql');
       const dmls = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       // Fallback regex uses: /(SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+["`]?(\w+)["`]?/gi

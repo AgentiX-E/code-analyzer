@@ -50,7 +50,7 @@ export class DefaultTranslator implements Translator {
     switch (localeId) {
       case 'en':
       default:
-        this.messages = { ...(DEFAULT_MESSAGES) };
+        this.messages = { ...DEFAULT_MESSAGES };
         break;
     }
   }

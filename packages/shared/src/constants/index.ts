@@ -1,11 +1,7 @@
 // @code-analyzer/shared — Constants & Lookup Tables
 // Pre-computed mappings used by all packages in the monorepo.
 
-import type {
-  NodeLabel,
-  RelationshipType,
-  SupportedLanguage,
-} from '../types/graph.js';
+import type { NodeLabel, RelationshipType, SupportedLanguage } from '../types/graph.js';
 
 // ---------------------------------------------------------------------------
 // NODE_TABLES — SQL table name per node label
@@ -161,8 +157,8 @@ export const LANGUAGE_EXTENSIONS: Record<SupportedLanguage, string[]> = {
 
 export const EXTENSION_TO_LANGUAGE: Map<string, SupportedLanguage> = new Map(
   Object.entries(LANGUAGE_EXTENSIONS).flatMap(([lang, exts]) =>
-    exts.map((ext): [string, SupportedLanguage] => [ext, lang as SupportedLanguage])
-  )
+    exts.map((ext): [string, SupportedLanguage] => [ext, lang as SupportedLanguage]),
+  ),
 );
 
 // ext → language helpers for extensions missing from LANGUAGE_EXTENSIONS
@@ -275,13 +271,9 @@ COMPATIBLE_EDGES.set('IMPLEMENTS', [
   ['Trait', 'Interface'],
 ]);
 
-COMPATIBLE_EDGES.set('METHOD_OVERRIDES', [
-  ['Method', 'Method'],
-]);
+COMPATIBLE_EDGES.set('METHOD_OVERRIDES', [['Method', 'Method']]);
 
-COMPATIBLE_EDGES.set('METHOD_IMPLEMENTS', [
-  ['Method', 'Method'],
-]);
+COMPATIBLE_EDGES.set('METHOD_IMPLEMENTS', [['Method', 'Method']]);
 
 // Data & Control Flow
 COMPATIBLE_EDGES.set('CALLS', [
@@ -413,9 +405,7 @@ COMPATIBLE_EDGES.set('STEP_IN_PROCESS', [
 ]);
 
 // PDG
-COMPATIBLE_EDGES.set('CFG', [
-  ['BasicBlock', 'BasicBlock'],
-]);
+COMPATIBLE_EDGES.set('CFG', [['BasicBlock', 'BasicBlock']]);
 
 COMPATIBLE_EDGES.set('REACHING_DEF', [
   ['Function', 'Variable'],

@@ -103,10 +103,7 @@ export class ImpactGraphBuilder {
    * Calculate the blast radius of changes from a source repo.
    * Returns direct, transitive, and critical path impact.
    */
-  calculateBlastRadius(
-    sourceRepo: string,
-    graph?: ImpactGraph,
-  ): BlastRadiusResult {
+  calculateBlastRadius(sourceRepo: string, graph?: ImpactGraph): BlastRadiusResult {
     const g = graph ?? this.graph;
     const visited = new Set<string>();
     const directImpact: string[] = [];
@@ -174,19 +171,11 @@ export class ImpactGraphBuilder {
   /**
    * Find all dependency chains from a source repo.
    */
-  findDependencyChains(
-    sourceRepo: string,
-    graph?: ImpactGraph,
-  ): DependencyChain[] {
+  findDependencyChains(sourceRepo: string, graph?: ImpactGraph): DependencyChain[] {
     const g = graph ?? this.graph;
     const chains: DependencyChain[] = [];
 
-    const dfs = (
-      current: string,
-      path: string[],
-      symbols: string[],
-      depth: number,
-    ) => {
+    const dfs = (current: string, path: string[], symbols: string[], depth: number) => {
       const edges = g.edges.filter((e) => e.from === current);
       if (edges.length === 0 && path.length > 1) {
         // Leaf node — record chain
@@ -260,11 +249,16 @@ export class ImpactGraphBuilder {
 
   private impactLevelToWeight(level: string): number {
     switch (level) {
-      case 'critical': return 10;
-      case 'high': return 7;
-      case 'medium': return 4;
-      case 'low': return 1;
-      default: return 1;
+      case 'critical':
+        return 10;
+      case 'high':
+        return 7;
+      case 'medium':
+        return 4;
+      case 'low':
+        return 1;
+      default:
+        return 1;
     }
   }
 

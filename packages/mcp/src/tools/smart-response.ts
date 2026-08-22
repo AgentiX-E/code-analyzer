@@ -3,11 +3,14 @@
 // answers in single queries — eliminating round-trips.
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import type {
-  GraphNode,
-  GraphEdge,
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_CROSS_REPO_CALLS,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
 } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
 import { computeConfidence, type ConfidenceScore } from './confidence.js';
 
 // ---------------------------------------------------------------------------
@@ -183,7 +186,11 @@ function detectSideEffect(name: string, signature: string | null): string | null
   const sig = (signature ?? '').toLowerCase();
 
   // Database operations
-  if (/\b(query|sql|db\.|database|orm|sequel|prisma|knex|mongoose|find|insert|update|delete|select)\b/i.test(lower)) {
+  if (
+    /\b(query|sql|db\.|database|orm|sequel|prisma|knex|mongoose|find|insert|update|delete|select)\b/i.test(
+      lower,
+    )
+  ) {
     return 'database';
   }
   if (/\b(http|fetch|axios|request|api\.|get|post|put|patch|delete)\b/i.test(sig)) {
@@ -286,11 +293,16 @@ export function buildImpactResponse(
   store: InMemoryGraphStore,
   targetSymbol?: string,
 ): EnrichedImpactResult {
-  const projectId = result.changedSymbols.length > 0
-    ? (store.getAllNodes().find(n =>
-        ((result.changedSymbols[0] as Record<string, unknown>)['symbolQname']) === n.qualifiedName,
-      )?.projectId ?? 'unknown')
-    : 'unknown';
+  const projectId =
+    result.changedSymbols.length > 0
+      ? (store
+          .getAllNodes()
+          .find(
+            (n) =>
+              (result.changedSymbols[0] as Record<string, unknown>)['symbolQname'] ===
+              n.qualifiedName,
+          )?.projectId ?? 'unknown')
+      : 'unknown';
 
   // Direct callers — collect from the first layer of the impact tree
   const directCallers: EnrichedCaller[] = [];
@@ -304,13 +316,16 @@ export function buildImpactResponse(
     const depth = (node['depth'] as number) ?? 0;
 
     const caller: EnrichedCaller = {
-      name: ((node['symbolQname'] as string)?.split('.').pop()) ?? 'unknown',
+      name: (node['symbolQname'] as string)?.split('.').pop() ?? 'unknown',
       qualifiedName: (node['symbolQname'] as string) ?? 'unknown',
       filePath: (node['filePath'] as string) ?? null,
       label: (node['label'] as string) ?? 'unknown',
       callType: (impactType as string) ?? EDGE_CALLS,
       confidence: computeConfidence(
-        { qualifiedName: node['symbolQname'] as string | null, filePath: node['filePath'] as string | null },
+        {
+          qualifiedName: node['symbolQname'] as string | null,
+          filePath: node['filePath'] as string | null,
+        },
         { targetSymbol, edgeType: EDGE_CALLS, hasDirectEdge: depth <= 1 },
       ),
       lineNumber: (node['startLine'] as number) ?? undefined,
@@ -338,7 +353,7 @@ export function buildImpactResponse(
     // Collect direct callers from graph edges
     const callers = getCallers(targetNode, store);
     for (const [, { caller, edge }] of callers) {
-      if (!directCallers.some(dc => dc.qualifiedName === caller.qualifiedName)) {
+      if (!directCallers.some((dc) => dc.qualifiedName === caller.qualifiedName)) {
         directCallers.push({
           name: caller.name,
           qualifiedName: caller.qualifiedName,
@@ -358,8 +373,8 @@ export function buildImpactResponse(
     const transitiveCallers = collectTransitiveCallers(targetNode, store, 3);
     for (const tc of transitiveCallers) {
       if (
-        !directCallers.some(dc => dc.qualifiedName === tc.qualifiedName) &&
-        !indirectCallers.some(ic => ic.qualifiedName === tc.qualifiedName)
+        !directCallers.some((dc) => dc.qualifiedName === tc.qualifiedName) &&
+        !indirectCallers.some((ic) => ic.qualifiedName === tc.qualifiedName)
       ) {
         indirectCallers.push({
           name: tc.name,
@@ -381,7 +396,10 @@ export function buildImpactResponse(
       if (isTestFile(node.filePath)) {
         const calleeEdges = getCallees(node, store);
         for (const [, { callee }] of calleeEdges) {
-          if (callee.qualifiedName === targetSymbol || callee.qualifiedName === targetNode?.qualifiedName) {
+          if (
+            callee.qualifiedName === targetSymbol ||
+            callee.qualifiedName === targetNode?.qualifiedName
+          ) {
             testFilesAffected.add(node.filePath!);
           }
         }
@@ -470,7 +488,7 @@ export function buildTraceResponse(
         const prevNode = store.getNodeByQualifiedName(prevSymbol);
         if (prevNode) {
           const edges = store.getEdgesForNode(prevNode.id, undefined, 'out');
-          const edge = edges.find(e => e.targetId === node.id);
+          const edge = edges.find((e) => e.targetId === node.id);
           if (edge) {
             callType = edge.type;
           }
@@ -533,7 +551,7 @@ export function buildTraceResponse(
     const prevIdx = visitedSymbols.get(sym);
     if (prevIdx !== undefined) {
       // Found a cycle
-      const cycle = path.path.slice(prevIdx, i + 1).map(s => s.symbol);
+      const cycle = path.path.slice(prevIdx, i + 1).map((s) => s.symbol);
       cyclesDetected.push(cycle);
 
       // Mark hops in the cycle
@@ -571,13 +589,17 @@ export function buildTraceResponse(
             // Collect intermediate nodes by walking back from target
             const intermediateNodes: GraphNode[] = [];
             for (const node of bfsResult.nodes) {
-              if (pathLengths.has(node.id) && node.id !== sourceNode.id && node.id !== targetNode.id) {
+              if (
+                pathLengths.has(node.id) &&
+                node.id !== sourceNode.id &&
+                node.id !== targetNode.id
+              ) {
                 intermediateNodes.push(node);
               }
             }
             /* v8 ignore start */ // alternative path sorting: complex graph traversal tested via integration
             const sortedIntermediate = intermediateNodes
-              .filter(n => (pathLengths.get(n.id) ?? 0) <= altLength)
+              .filter((n) => (pathLengths.get(n.id) ?? 0) <= altLength)
               .sort((a, b) => (pathLengths.get(a.id) ?? 0) - (pathLengths.get(b.id) ?? 0));
             /* v8 ignore stop */
 
@@ -674,7 +696,7 @@ export function buildSearchResponse(
       const importEdges = store.getEdgesForNode(node.id, EDGE_IMPORTS, 'out');
       /* v8 ignore start */ // import resolution via graph store (tested via integration)
       imports = importEdges
-        .map(e => {
+        .map((e) => {
           const target = store.getNode(e.targetId);
           return target?.qualifiedName ?? null;
         })
@@ -702,7 +724,7 @@ export function buildSearchResponse(
     const crossRepoRefs: string[] = [];
     if (node) {
       const crossRepoEdges = store.getEdgesForNode(node.id, EDGE_CROSS_REPO_CALLS, 'out');
-      crossRepoEdges.forEach(e => {
+      crossRepoEdges.forEach((e) => {
         const target = store.getNode(e.targetId);
         if (target && target.projectId !== node.projectId) {
           crossRepoRefs.push(`${target.projectId}:${target.qualifiedName}`);
@@ -786,10 +808,14 @@ function buildRiskAssessment(
     rationaleParts.push('Minimal impact — low risk change');
   }
 
-  const confidenceScore = riskLevel === 'critical' ? 0.95
-    : riskLevel === 'high' ? 0.85
-    : riskLevel === 'medium' ? 0.75
-    : 0.65;
+  const confidenceScore =
+    riskLevel === 'critical'
+      ? 0.95
+      : riskLevel === 'high'
+        ? 0.85
+        : riskLevel === 'medium'
+          ? 0.75
+          : 0.65;
 
   return {
     level: riskLevel,
@@ -828,10 +854,7 @@ function deriveSuggestedReviewers(
   return Array.from(moduleOwners).slice(0, 5);
 }
 
-function buildChangeClusters(
-  impactTree: unknown[],
-  changedFiles: string[],
-): ChangeCluster[] {
+function buildChangeClusters(impactTree: unknown[], changedFiles: string[]): ChangeCluster[] {
   const clusters: ChangeCluster[] = [];
   const fileGroups = new Map<string, string[]>();
 
@@ -845,14 +868,15 @@ function buildChangeClusters(
   let index = 0;
   for (const [dir, files] of fileGroups) {
     // Find a root symbol for this cluster
-    const rootSymbol = impactTree.length > index
-      ? ((impactTree[index] as Record<string, unknown>)['symbolQname'] as string) ?? dir
-      : dir;
+    const rootSymbol =
+      impactTree.length > index
+        ? (((impactTree[index] as Record<string, unknown>)['symbolQname'] as string) ?? dir)
+        : dir;
 
     clusters.push({
       name: `cluster-${index + 1}`,
       rootSymbol,
-      relatedSymbols: files.slice(0, 10).map(f => f.split('/').pop() ?? f),
+      relatedSymbols: files.slice(0, 10).map((f) => f.split('/').pop() ?? f),
       affectedFiles: files,
       estimatedEffort: files.length > 10 ? 'high' : files.length > 5 ? 'medium' : 'low',
     });

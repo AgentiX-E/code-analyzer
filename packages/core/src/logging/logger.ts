@@ -79,7 +79,10 @@ class ConsoleTransport implements LogTransport {
 class FileTransport implements LogTransport {
   private stream: fs.WriteStream | undefined;
 
-  constructor(private readonly logDir: string, private readonly component: string) {
+  constructor(
+    private readonly logDir: string,
+    private readonly component: string,
+  ) {
     fs.mkdirSync(logDir, { recursive: true });
   }
 
@@ -116,7 +119,7 @@ export class LoggerImpl implements Logger {
 
   constructor(
     public readonly component: string,
-    options: LoggerOptions = {}
+    options: LoggerOptions = {},
   ) {
     this.minLevel = options.minLevel ?? 'info';
     this.filters = [createLevelFilter(this.minLevel)];
@@ -145,14 +148,13 @@ export class LoggerImpl implements Logger {
   }
 
   isLevelEnabled(level: LogLevel): boolean {
-    return this.filters.every(
-      (f) =>
-        f({
-          timestamp: '',
-          level,
-          component: '',
-          message: '',
-        })
+    return this.filters.every((f) =>
+      f({
+        timestamp: '',
+        level,
+        component: '',
+        message: '',
+      }),
     );
   }
 
@@ -160,7 +162,7 @@ export class LoggerImpl implements Logger {
     level: LogLevel,
     message: string,
     error?: Error,
-    data?: Record<string, unknown>
+    data?: Record<string, unknown>,
   ): void {
     if (this.closed) return;
 

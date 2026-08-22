@@ -91,10 +91,7 @@ export class TaintPropagator {
    * @param defUseFacts — Pre-computed def→use facts from reaching definitions
    * @returns Taint analysis result
    */
-  analyze(
-    cfg: FunctionCfg,
-    defUseFacts: readonly DefUseFact[],
-  ): TaintFunctionResult {
+  analyze(cfg: FunctionCfg, defUseFacts: readonly DefUseFact[]): TaintFunctionResult {
     const startTime = performance.now();
     const findings: TaintFlowFinding[] = [];
     let sanitizerKills = 0;
@@ -267,9 +264,7 @@ export class TaintPropagator {
     return [...cfg.stmtFacts.sourceSites.values()];
   }
 
-  private buildDefUseIndex(
-    facts: readonly DefUseFact[],
-  ): Map<number, DefUseFact[]> {
+  private buildDefUseIndex(facts: readonly DefUseFact[]): Map<number, DefUseFact[]> {
     const index = new Map<number, DefUseFact[]>();
     for (const fact of facts) {
       const key = this.makeKey(fact.def.blockIndex, fact.def.stmtIndex);
@@ -283,25 +278,27 @@ export class TaintPropagator {
     return index;
   }
 
-  private buildSinkIndex(
-    cfg: FunctionCfg,
-  ): Map<number, TaintSinkOccurrence[]> {
+  private buildSinkIndex(cfg: FunctionCfg): Map<number, TaintSinkOccurrence[]> {
     const index = new Map<number, TaintSinkOccurrence[]>();
     for (const [key, sink] of cfg.stmtFacts.sinkSites) {
       let bucket = index.get(key);
-      if (!bucket) { bucket = []; index.set(key, bucket); }
+      if (!bucket) {
+        bucket = [];
+        index.set(key, bucket);
+      }
       bucket.push(sink);
     }
     return index;
   }
 
-  private buildSanitizerIndex(
-    cfg: FunctionCfg,
-  ): Map<number, SanitizerOccurrence[]> {
+  private buildSanitizerIndex(cfg: FunctionCfg): Map<number, SanitizerOccurrence[]> {
     const index = new Map<number, SanitizerOccurrence[]>();
     for (const [key, san] of cfg.stmtFacts.sanitizerSites) {
       let bucket = index.get(key);
-      if (!bucket) { bucket = []; index.set(key, bucket); }
+      if (!bucket) {
+        bucket = [];
+        index.set(key, bucket);
+      }
       bucket.push(san);
     }
     return index;
@@ -357,11 +354,7 @@ export class TaintPropagator {
     return [...state.viaBlocks];
   }
 
-  private computeConfidence(
-    state: TaintState,
-    _use: DefUseFact,
-    pathLength: number,
-  ): number {
+  private computeConfidence(state: TaintState, _use: DefUseFact, pathLength: number): number {
     let confidence = 0.8;
     if (state.viaCall) confidence *= 0.7;
     if (state.exclusions.size > 0) confidence *= 0.5;

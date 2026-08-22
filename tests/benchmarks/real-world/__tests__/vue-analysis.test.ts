@@ -10,13 +10,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-} from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, extname, relative, dirname } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { memoryUsage } from 'node:process';
@@ -150,10 +144,8 @@ function discoverFiles(root: string): FileInfo[] {
         const ext = extname(entry.name).toLowerCase();
         if (SKIP_EXTS.has(ext)) continue;
         let language: string | null = null;
-        if (['.js', '.jsx', '.mjs', '.cjs'].includes(ext))
-          language = 'javascript';
-        else if (['.ts', '.tsx', '.mts', '.cts'].includes(ext))
-          language = 'typescript';
+        if (['.js', '.jsx', '.mjs', '.cjs'].includes(ext)) language = 'javascript';
+        else if (['.ts', '.tsx', '.mts', '.cts'].includes(ext)) language = 'typescript';
         if (!language) continue;
         try {
           const content = readFileSync(fullPath, 'utf-8');
@@ -178,9 +170,7 @@ function parseFile(file: FileInfo): ParseStats {
   const errors: string[] = [];
   let captures: UnifiedCapture[] = [];
   const provider =
-    file.language === 'typescript'
-      ? new TypeScriptProvider()
-      : new JavaScriptProvider();
+    file.language === 'typescript' ? new TypeScriptProvider() : new JavaScriptProvider();
 
   try {
     const content = readFileSync(file.filePath, 'utf-8');
@@ -218,10 +208,7 @@ function parseFile(file: FileInfo): ParseStats {
     } else if (tag === CAPTURE_TAGS.COMPONENT_PROPS) {
       components++;
       symbols++;
-    } else if (
-      tag === CAPTURE_TAGS.VARIABLE_DEF ||
-      tag === CAPTURE_TAGS.CONSTANT_DEF
-    ) {
+    } else if (tag === CAPTURE_TAGS.VARIABLE_DEF || tag === CAPTURE_TAGS.CONSTANT_DEF) {
       symbols++;
     } else if (
       tag === CAPTURE_TAGS.INTERFACE_DEF ||
@@ -327,13 +314,9 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
     }
     for (const [, entry] of langMap) {
       entry.parseRate =
-        entry.fileCount > 0
-          ? Math.round((entry.parseSuccess / entry.fileCount) * 1000) / 10
-          : 0;
+        entry.fileCount > 0 ? Math.round((entry.parseSuccess / entry.fileCount) * 1000) / 10 : 0;
       entry.avgSymbolsPerFile =
-        entry.parseSuccess > 0
-          ? Math.round(entry.symbolCount / entry.parseSuccess)
-          : 0;
+        entry.parseSuccess > 0 ? Math.round(entry.symbolCount / entry.parseSuccess) : 0;
     }
 
     // ── Key Vue patterns ───────────────────────────────────────────────────
@@ -341,9 +324,7 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
     for (const s of stats) {
       const content = readFileSync(s.filePath, 'utf-8');
       const provider =
-        s.language === 'typescript'
-          ? new TypeScriptProvider()
-          : new JavaScriptProvider();
+        s.language === 'typescript' ? new TypeScriptProvider() : new JavaScriptProvider();
       try {
         const captures = provider.parse(content, s.filePath);
         for (const c of captures) {
@@ -378,17 +359,12 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
     let comparison: BenchmarkReport['comparison'] | undefined;
     if (existsSync(REACT_REPORT_PATH)) {
       try {
-        const reactReport = JSON.parse(
-          readFileSync(REACT_REPORT_PATH, 'utf-8'),
-        );
+        const reactReport = JSON.parse(readFileSync(REACT_REPORT_PATH, 'utf-8'));
         const reactFps =
           reactReport.parse.totalFiles > 0
-            ? (reactReport.parse.totalFiles /
-                reactReport.parse.parseTimeMs) *
-              1000
+            ? (reactReport.parse.totalFiles / reactReport.parse.parseTimeMs) * 1000
             : 0;
-        const vueFps =
-          files.length > 0 ? (files.length / parseTimeMs) * 1000 : 0;
+        const vueFps = files.length > 0 ? (files.length / parseTimeMs) * 1000 : 0;
 
         comparison = {
           react: {
@@ -402,9 +378,7 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
             files: files.length,
             parseRate: Math.round(vueFps * 10) / 10,
             successRate:
-              files.length > 0
-                ? Math.round((successCount / files.length) * 1000) / 10
-                : 0,
+              files.length > 0 ? Math.round((successCount / files.length) * 1000) / 10 : 0,
             symbols: stats.reduce((sum, s) => sum + s.symbols, 0),
             parseTimeMs,
           },
@@ -428,10 +402,7 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
         totalFiles: files.length,
         successCount,
         failCount,
-        successRate:
-          files.length > 0
-            ? Math.round((successCount / files.length) * 1000) / 10
-            : 0,
+        successRate: files.length > 0 ? Math.round((successCount / files.length) * 1000) / 10 : 0,
         parseTimeMs,
         languageBreakdown: Array.from(langMap.values()),
         perFileStats: stats.slice(0, 100), // Keep first 100 for report size
@@ -493,10 +464,7 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
   it('should detect defineComponent in Vue source', () => {
     if (!report) return; // Vue source not available
     expect(report.symbols.keyExportsFound).toContain('defineComponent');
-    console.log(
-      'Key exports found:',
-      report.symbols.keyExportsFound.join(', '),
-    );
+    console.log('Key exports found:', report.symbols.keyExportsFound.join(', '));
   });
 
   // ── Test 5: ref detected ────────────────────────────────────────────────
@@ -576,10 +544,7 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
 
   it('should use memory within bounds (< 2GB delta for full Vue packages)', () => {
     if (!report) return; // Vue source not available
-    console.log(
-      'Memory delta:',
-      report.memory.deltaRssMB.toFixed(1) + 'MB',
-    );
+    console.log('Memory delta:', report.memory.deltaRssMB.toFixed(1) + 'MB');
     expect(report.memory.deltaRssMB).toBeLessThan(2048);
   });
 
@@ -595,10 +560,7 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
 
   it('should parse all files in under 5 minutes', () => {
     if (!report) return; // Vue source not available
-    console.log(
-      'Parse time:',
-      (report.parse.parseTimeMs / 1000).toFixed(1) + 's',
-    );
+    console.log('Parse time:', (report.parse.parseTimeMs / 1000).toFixed(1) + 's');
     expect(report.parse.parseTimeMs).toBeLessThan(300000);
   });
 
@@ -634,16 +596,11 @@ describe('Vue.js Source Code Analysis (Real-World Benchmark)', () => {
   it('should include React comparison in report', () => {
     if (!report) return; // Vue source not available
     if (report.comparison) {
-      console.log(
-        'React vs Vue comparison:',
-        JSON.stringify(report.comparison, null, 2),
-      );
+      console.log('React vs Vue comparison:', JSON.stringify(report.comparison, null, 2));
       expect(report.comparison.react).toBeDefined();
       expect(report.comparison.vue).toBeDefined();
     } else {
-      console.log(
-        'No React report found for comparison (React benchmark not yet run)',
-      );
+      console.log('No React report found for comparison (React benchmark not yet run)');
       // Skippable — React report may not exist yet
       expect(true).toBe(true);
     }

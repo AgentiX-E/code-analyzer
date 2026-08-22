@@ -119,9 +119,8 @@ export class LLMReviewPipeline {
 
     const finalCount = finalComments.length;
     /* v8 ignore next */ // defensive: empty findings
-    const noiseReduction = rawCount > 0
-      ? Math.round(((rawCount - finalCount) / rawCount) * 1000) / 1000
-      : 0;
+    const noiseReduction =
+      rawCount > 0 ? Math.round(((rawCount - finalCount) / rawCount) * 1000) / 1000 : 0;
 
     return {
       comments: finalComments,

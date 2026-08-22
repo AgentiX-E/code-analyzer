@@ -86,10 +86,7 @@ export function create{TypePrefix}Service(config: {TypePrefix}Config): {TypePref
 export { create{TypePrefix}Service as new{TypePrefix}Service };
 `.trim();
 
-function generateSyntheticProject(
-  baseDir: string,
-  fileCount: number,
-): string {
+function generateSyntheticProject(baseDir: string, fileCount: number): string {
   fs.mkdirSync(baseDir, { recursive: true });
 
   const modulesPerDir = 50;
@@ -104,9 +101,10 @@ function generateSyntheticProject(
     for (let f = 0; f < filesInDir; f++) {
       const moduleName = `Module${String(d).padStart(3, '0')}${String(f).padStart(3, '0')}`;
       const typePrefix = `M${d}${f}`;
-      const content = SAMPLE_TYPESCRIPT
-        .replace(/\{moduleName\}/g, moduleName)
-        .replace(/\{TypePrefix\}/g, typePrefix);
+      const content = SAMPLE_TYPESCRIPT.replace(/\{moduleName\}/g, moduleName).replace(
+        /\{TypePrefix\}/g,
+        typePrefix,
+      );
 
       const filePath = path.join(dirPath, `${moduleName}.ts`);
       fs.writeFileSync(filePath, content, 'utf-8');
@@ -210,7 +208,8 @@ export async function runScaleProfile(): Promise<ScaleProfileResult> {
 
     const totalTimeMs = scanTimeMs + indexTimeMs;
     const memoryAfter = getMemoryMB();
-    const filesPerSecond = indexTimeMs > 0 ? Math.round((fileCount / (indexTimeMs / 1000)) * 100) / 100 : 0;
+    const filesPerSecond =
+      indexTimeMs > 0 ? Math.round((fileCount / (indexTimeMs / 1000)) * 100) / 100 : 0;
 
     profilePoints.push({
       fileCount,
@@ -227,7 +226,11 @@ export async function runScaleProfile(): Promise<ScaleProfileResult> {
     });
 
     // Cleanup
-    try { fs.rmSync(baseDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    try {
+      fs.rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
   }
 
   // Summary
@@ -236,16 +239,18 @@ export async function runScaleProfile(): Promise<ScaleProfileResult> {
   const maxLatency = Math.max(...profilePoints.map((p) => p.queryTimeMs));
 
   // Bottleneck detection: if latency grows faster than linear with file count
-  const bottleneck = profilePoints.length >= 2
-    ? ((): string | null => {
-        const first = profilePoints[0]!;
-        const last = profilePoints[profilePoints.length - 1]!;
-        const expectedLinear = first.queryTimeMs * (last.fileCount / first.fileCount);
-        if (last.queryTimeMs > expectedLinear * 1.5) return 'Query latency grows super-linearly';
-        if (last.filesPerSecond < first.filesPerSecond * 0.5) return 'Indexing throughput degrades at scale';
-        return null;
-      })()
-    : null;
+  const bottleneck =
+    profilePoints.length >= 2
+      ? ((): string | null => {
+          const first = profilePoints[0]!;
+          const last = profilePoints[profilePoints.length - 1]!;
+          const expectedLinear = first.queryTimeMs * (last.fileCount / first.fileCount);
+          if (last.queryTimeMs > expectedLinear * 1.5) return 'Query latency grows super-linearly';
+          if (last.filesPerSecond < first.filesPerSecond * 0.5)
+            return 'Indexing throughput degrades at scale';
+          return null;
+        })()
+      : null;
 
   return {
     profilePoints,

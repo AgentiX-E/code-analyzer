@@ -130,10 +130,10 @@ await client.createWebhook('org', 'repo', {
 
 The server exposes:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/webhook/github` | POST | Receive GitHub webhook events |
-| `/api/v1/webhook/github/status` | GET | Check webhook configuration status |
+| Endpoint                        | Method | Description                        |
+| ------------------------------- | ------ | ---------------------------------- |
+| `/api/v1/webhook/github`        | POST   | Receive GitHub webhook events      |
+| `/api/v1/webhook/github/status` | GET    | Check webhook configuration status |
 
 ### Signature Verification
 
@@ -151,20 +151,20 @@ The cross-repo review creates a GitHub Check Run named **"code-analyzer / Cross-
 
 ### Annotation Levels
 
-| Level | Trigger |
-|-------|---------|
-| `failure` | API breaking changes, critical/high severity issues |
+| Level     | Trigger                                                      |
+| --------- | ------------------------------------------------------------ |
+| `failure` | API breaking changes, critical/high severity issues          |
 | `warning` | Cross-repo impact, version conflicts, medium severity issues |
-| `notice` | Test impact predictions, low severity issues |
+| `notice`  | Test impact predictions, low severity issues                 |
 
 ### Check Run Conclusion
 
-| Merge Recommendation | Check Conclusion |
-|---------------------|-----------------|
-| `approve` | `success` |
-| `approve-with-caution` | `neutral` |
-| `request-changes` | `failure` |
-| `block` | `action_required` |
+| Merge Recommendation   | Check Conclusion  |
+| ---------------------- | ----------------- |
+| `approve`              | `success`         |
+| `approve-with-caution` | `neutral`         |
+| `request-changes`      | `failure`         |
+| `block`                | `action_required` |
 
 ## GitHub API Client
 
@@ -202,11 +202,14 @@ await client.createWebhook('org', 'repo', { url: 'https://...' });
 await client.deleteWebhook('org', 'repo', hookId);
 
 // GraphQL
-const { data } = await client.graphql<{ repository: { name: string } }>(`
+const { data } = await client.graphql<{ repository: { name: string } }>(
+  `
   query($owner: String!, $repo: String!) {
     repository(owner: $owner, name: $repo) { name }
   }
-`, { owner: 'org', repo: 'repo' });
+`,
+  { owner: 'org', repo: 'repo' },
+);
 ```
 
 ### Authentication
@@ -219,6 +222,7 @@ Two modes are supported:
 ### Rate Limiting
 
 The client tracks `X-RateLimit-*` headers and provides:
+
 - `getRateLimit()` for current quota status
 - Exponential backoff retry on 429 responses (up to 3 attempts)
 - Automatic retry on 5xx server errors
@@ -244,12 +248,13 @@ const { results, errors } = await sync.ensureSynced([
 ]);
 
 // Cache management
-sync.getCacheSize();   // bytes
-sync.clearCache();     // remove all
+sync.getCacheSize(); // bytes
+sync.clearCache(); // remove all
 sync.remove('org', 'repo'); // remove one
 ```
 
 Features:
+
 - **Shallow clones**: `--depth 1` for faster cloning
 - **Branch tracking**: Defaults to the repo's default branch
 - **Auto-fetch**: Pulls latest changes before indexing
@@ -261,12 +266,12 @@ Features:
 
 Seven cross-repo tools are available via the MCP server:
 
-| Tool | Description |
-|------|-------------|
-| `cross_repo_search` | Full-text search across all indexed repositories |
-| `cross_repo_trace` | BFS call path tracing across repo boundaries |
-| `cross_repo_impact` | Analyze cross-repo impact of symbol changes |
-| `manage_repo_group` | CRUD: create, list, get, update, delete, add_repo, remove_repo |
-| `sync_contracts` | Discover and sync API contracts across repos |
-| `discover_related_repos` | Find repos related by symbol overlap |
-| `cross_repo_review_pr` | Full cross-repo PR review with diff analysis |
+| Tool                     | Description                                                    |
+| ------------------------ | -------------------------------------------------------------- |
+| `cross_repo_search`      | Full-text search across all indexed repositories               |
+| `cross_repo_trace`       | BFS call path tracing across repo boundaries                   |
+| `cross_repo_impact`      | Analyze cross-repo impact of symbol changes                    |
+| `manage_repo_group`      | CRUD: create, list, get, update, delete, add_repo, remove_repo |
+| `sync_contracts`         | Discover and sync API contracts across repos                   |
+| `discover_related_repos` | Find repos related by symbol overlap                           |
+| `cross_repo_review_pr`   | Full cross-repo PR review with diff analysis                   |

@@ -59,7 +59,15 @@ export interface GitHubCheckRun {
   name: string;
   head_sha: string;
   status: 'queued' | 'in_progress' | 'completed';
-  conclusion: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null;
+  conclusion:
+    | 'success'
+    | 'failure'
+    | 'neutral'
+    | 'cancelled'
+    | 'skipped'
+    | 'timed_out'
+    | 'action_required'
+    | null;
   output?: {
     title: string;
     summary: string;
@@ -118,7 +126,15 @@ export interface CreateCheckRunParams {
   name: string;
   head_sha: string;
   status?: 'queued' | 'in_progress' | 'completed';
-  conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null;
+  conclusion?:
+    | 'success'
+    | 'failure'
+    | 'neutral'
+    | 'cancelled'
+    | 'skipped'
+    | 'timed_out'
+    | 'action_required'
+    | null;
   output?: {
     title: string;
     summary: string;
@@ -159,10 +175,7 @@ export class GitHubRateLimitError extends GitHubApiError {
     public retryAfter: number,
     rateLimit: RateLimitInfo,
   ) {
-    super(
-      429,
-      `Rate limit exceeded. Reset at ${new Date(rateLimit.reset * 1000).toISOString()}`,
-    );
+    super(429, `Rate limit exceeded. Reset at ${new Date(rateLimit.reset * 1000).toISOString()}`);
     this.name = 'GitHubRateLimitError';
   }
 }
@@ -219,10 +232,7 @@ export class GitHubApiClient {
     }
 
     // Generate JWT (simplified — in production use @octokit/auth-app)
-    const jwt = await this.generateAppJwt(
-      this.auth.appId,
-      this.auth.appPrivateKey,
-    );
+    const jwt = await this.generateAppJwt(this.auth.appId, this.auth.appPrivateKey);
 
     const res = await this.rawFetch(
       `${API_BASE}/app/installations/${this.auth.installationId}/access_tokens`,
@@ -235,7 +245,7 @@ export class GitHubApiClient {
       },
     );
 
-    const data = await res.json() as { token: string; expires_at: string };
+    const data = (await res.json()) as { token: string; expires_at: string };
     this.appToken = {
       token: data.token,
       expiresAt: new Date(data.expires_at).getTime(),
@@ -266,7 +276,8 @@ export class GitHubApiClient {
     // Sign with the private key using Node.js crypto
     /* v8 ignore start */
     const cryptoModule = await import('node:crypto');
-    const _subtle: unknown = (cryptoModule as unknown as { webcrypto?: { subtle: unknown } }).webcrypto?.subtle ?? null;
+    const _subtle: unknown =
+      (cryptoModule as unknown as { webcrypto?: { subtle: unknown } }).webcrypto?.subtle ?? null;
     /* v8 ignore stop */
 
     const sig = await signWithNode(signingInput, privateKeyPem);
@@ -293,7 +304,10 @@ export class GitHubApiClient {
   }
 
   /** List repositories for an organization or user. */
-  async listRepos(owner: string, options?: { type?: string; sort?: string; per_page?: number }): Promise<GitHubRepo[]> {
+  async listRepos(
+    owner: string,
+    options?: { type?: string; sort?: string; per_page?: number },
+  ): Promise<GitHubRepo[]> {
     const params = new URLSearchParams();
     if (options?.type) params.set('type', options.type);
     if (options?.sort) params.set('sort', options.sort);
@@ -353,21 +367,18 @@ export class GitHubApiClient {
     repo: string,
     params: CreateCheckRunParams,
   ): Promise<GitHubCheckRun> {
-    return this.request<GitHubCheckRun>(
-      `/repos/${owner}/${repo}/check-runs`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          name: params.name,
-          head_sha: params.head_sha,
-          status: params.status ?? 'in_progress',
-          conclusion: params.conclusion,
-          output: params.output,
-          started_at: params.started_at ?? new Date().toISOString(),
-          completed_at: params.completed_at,
-        }),
-      },
-    );
+    return this.request<GitHubCheckRun>(`/repos/${owner}/${repo}/check-runs`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: params.name,
+        head_sha: params.head_sha,
+        status: params.status ?? 'in_progress',
+        conclusion: params.conclusion,
+        output: params.output,
+        started_at: params.started_at ?? new Date().toISOString(),
+        completed_at: params.completed_at,
+      }),
+    });
   }
 
   /** Update an existing check run. */
@@ -377,19 +388,16 @@ export class GitHubApiClient {
     checkRunId: number,
     params: UpdateCheckRunParams,
   ): Promise<GitHubCheckRun> {
-    return this.request<GitHubCheckRun>(
-      `/repos/${owner}/${repo}/check-runs/${checkRunId}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({
-          name: params.name,
-          status: params.status,
-          conclusion: params.conclusion,
-          output: params.output,
-          completed_at: params.completed_at,
-        }),
-      },
-    );
+    return this.request<GitHubCheckRun>(`/repos/${owner}/${repo}/check-runs/${checkRunId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: params.name,
+        status: params.status,
+        conclusion: params.conclusion,
+        output: params.output,
+        completed_at: params.completed_at,
+      }),
+    });
   }
 
   /** List check runs for a commit ref. */
@@ -430,23 +438,20 @@ export class GitHubApiClient {
     repo: string,
     config: { url: string; secret?: string; events?: string[] },
   ): Promise<GitHubWebhook> {
-    return this.request<GitHubWebhook>(
-      `/repos/${owner}/${repo}/hooks`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          name: 'web',
-          active: true,
-          events: config.events ?? ['pull_request', 'push'],
-          config: {
-            url: config.url,
-            content_type: 'json',
-            secret: config.secret,
-            insecure_ssl: '0',
-          },
-        }),
-      },
-    );
+    return this.request<GitHubWebhook>(`/repos/${owner}/${repo}/hooks`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'web',
+        active: true,
+        events: config.events ?? ['pull_request', 'push'],
+        config: {
+          url: config.url,
+          content_type: 'json',
+          secret: config.secret,
+          insecure_ssl: '0',
+        },
+      }),
+    });
   }
 
   /** Delete a webhook. */
@@ -459,7 +464,10 @@ export class GitHubApiClient {
   // -----------------------------------------------------------------------
 
   /** Execute a GraphQL query. */
-  async graphql<T>(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse<T>> {
+  async graphql<T>(
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<GraphQLResponse<T>> {
     const res = await this.authFetch(`${API_BASE}/graphql`, {
       method: 'POST',
       body: JSON.stringify({ query, variables }),
@@ -508,7 +516,11 @@ export class GitHubApiClient {
     const body = await res.json();
 
     if (!res.ok) {
-      throw new GitHubApiError(res.status, (body as { message?: string })?.message ?? 'Unknown error', body);
+      throw new GitHubApiError(
+        res.status,
+        (body as { message?: string })?.message ?? 'Unknown error',
+        body,
+      );
     }
 
     return body as T;
@@ -517,10 +529,7 @@ export class GitHubApiClient {
   /**
    * Make an authenticated request returning raw text.
    */
-  private async requestText(
-    path: string,
-    options?: { Accept?: string },
-  ): Promise<string> {
+  private async requestText(path: string, options?: { Accept?: string }): Promise<string> {
     const url = `${API_BASE}${path}`;
 
     const res = await this.authFetch(url, {
@@ -536,7 +545,12 @@ export class GitHubApiClient {
    */
   private async authFetch(
     url: string,
-    options: { method?: string; body?: string; acceptHeader?: string; headers?: Record<string, string> },
+    options: {
+      method?: string;
+      body?: string;
+      acceptHeader?: string;
+      headers?: Record<string, string>;
+    },
     retryCount = 0,
   ): Promise<Response> {
     const authHeader = await this.getAuthHeader();

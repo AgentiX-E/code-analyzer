@@ -132,7 +132,13 @@ export class TSResolverContext {
   /** Substitute generics in a type. */
   substituteGenerics(type: TypeRep): TypeRep {
     if (type.kind === 'named') return type;
-    if (type.kind === 'void' || type.kind === 'any' || type.kind === 'unknown' || type.kind === 'never') return type;
+    if (
+      type.kind === 'void' ||
+      type.kind === 'any' ||
+      type.kind === 'unknown' ||
+      type.kind === 'never'
+    )
+      return type;
     if (type.kind === 'literal') return type;
 
     if (type.kind === 'typeParam') {
@@ -239,11 +245,7 @@ export class TSResolverContext {
    *   4. Unwrap Promise if async
    *   5. Return the resolved return type
    */
-  evalCall(
-    calleeName: string,
-    argTypes: TypeRep[],
-    receiverType?: TypeRep,
-  ): TypeRep {
+  evalCall(calleeName: string, argTypes: TypeRep[], receiverType?: TypeRep): TypeRep {
     // Try method dispatch first (receiver.methodName)
     if (receiverType && receiverType.kind === 'named') {
       const receiverShort = extractLastName(receiverType.name);
@@ -268,10 +270,7 @@ export class TSResolverContext {
   /**
    * Evaluate the return type of a registered function, inferring generics.
    */
-  private evalRegisteredFunction(
-    func: RegisteredFunction,
-    argTypes: TypeRep[],
-  ): TypeRep {
+  private evalRegisteredFunction(func: RegisteredFunction, argTypes: TypeRep[]): TypeRep {
     this.resetGenerics();
 
     // Build generic parameter bindings from argument types
@@ -303,10 +302,7 @@ export class TSResolverContext {
   /**
    * Evaluate the type of a member access (e.g., `obj.prop`).
    */
-  evalMemberAccess(
-    receiverType: TypeRep,
-    memberName: string,
-  ): TypeRep {
+  evalMemberAccess(receiverType: TypeRep, memberName: string): TypeRep {
     // Named type: look up in registry
     if (receiverType.kind === 'named') {
       const regType = this.registry.lookupType(receiverType.name);
@@ -322,10 +318,7 @@ export class TSResolverContext {
       }
 
       // Check for methods on this type
-      const methods = this.registry.lookupMethod(
-        extractLastName(receiverType.name),
-        memberName,
-      );
+      const methods = this.registry.lookupMethod(extractLastName(receiverType.name), memberName);
       if (methods.length > 0) {
         // Return the function type
         return BUILTINS.function;
@@ -532,7 +525,20 @@ export function resolveImport(
 
 /** Determine if a type is a builtin (string, number, boolean, etc.). */
 export function isBuiltinType(name: string): boolean {
-  return ['string', 'number', 'boolean', 'void', 'any', 'unknown', 'never', 'object', 'undefined', 'null', 'symbol', 'bigint'].includes(name);
+  return [
+    'string',
+    'number',
+    'boolean',
+    'void',
+    'any',
+    'unknown',
+    'never',
+    'object',
+    'undefined',
+    'null',
+    'symbol',
+    'bigint',
+  ].includes(name);
 }
 
 /** Extract the last component of a dot-separated QN. */

@@ -68,11 +68,7 @@ export async function runLLMBenchmark(
       undefined,
     );
 
-    const comments = await engine.reviewFile(
-      'benchmark',
-      fixture.filePath,
-      fixture.content,
-    );
+    const comments = await engine.reviewFile('benchmark', fixture.filePath, fixture.content);
     heuristicDetections.set(fixture.filePath, comments);
   }
 
@@ -84,7 +80,13 @@ export async function runLLMBenchmark(
 
   // Phase 2: LLM-enhanced analysis with provider
   const llmEngine = new LLMReviewEngine(provider, {
-    lanes: ['security' as const, 'performance' as const, 'maintainability' as const, 'testing' as const, 'architecture' as const],
+    lanes: [
+      'security' as const,
+      'performance' as const,
+      'maintainability' as const,
+      'testing' as const,
+      'architecture' as const,
+    ],
     parallel: false,
     maxTokensPerLane: 2048,
     temperature: 0.2,
@@ -143,10 +145,7 @@ export async function runLLMBenchmark(
       totalTokens += totalUsage.totalTokens;
     } catch (err) {
       // LLM review failed for this fixture — use heuristic-only results
-      llmDetections.set(
-        fixture.filePath,
-        heuristicDetections.get(fixture.filePath) ?? [],
-      );
+      llmDetections.set(fixture.filePath, heuristicDetections.get(fixture.filePath) ?? []);
     }
   }
 
@@ -164,9 +163,7 @@ export async function runLLMBenchmark(
   for (const fixture of ALL_BENCHMARK_FIXTURES) {
     const combined = llmDetections.get(fixture.filePath) ?? [];
     const heuristic = heuristicDetections.get(fixture.filePath) ?? [];
-    const llmOnly = combined.filter(
-      (c) => !heuristic.some((h) => h.id === c.id),
-    );
+    const llmOnly = combined.filter((c) => !heuristic.some((h) => h.id === c.id));
     llmOnlyDetections.set(fixture.filePath, llmOnly);
   }
 
@@ -184,9 +181,7 @@ export async function runLLMBenchmark(
       totalPromptTokens,
       totalCompletionTokens,
       totalTokens,
-      avgTokensPerFixture: fixturesWithLLM > 0
-        ? Math.round(totalTokens / fixturesWithLLM)
-        : 0,
+      avgTokensPerFixture: fixturesWithLLM > 0 ? Math.round(totalTokens / fixturesWithLLM) : 0,
     },
     llmDurationMs,
     fixturesWithLLM,
@@ -260,7 +255,9 @@ export function generateLLMComparisonReport(result: LLMBenchmarkResult): string 
   lines.push(`- **Prompt tokens:** ${result.tokenUsage.totalPromptTokens}`);
   lines.push(`- **Completion tokens:** ${result.tokenUsage.totalCompletionTokens}`);
   lines.push(`- **Average per fixture:** ${result.tokenUsage.avgTokensPerFixture}`);
-  lines.push(`- **Cost estimate:** ~$${(result.tokenUsage.totalTokens * 0.00000014).toFixed(4)} (DeepSeek pricing)`);
+  lines.push(
+    `- **Cost estimate:** ~$${(result.tokenUsage.totalTokens * 0.00000014).toFixed(4)} (DeepSeek pricing)`,
+  );
   lines.push('');
 
   return lines.join('\n');
@@ -303,10 +300,7 @@ function toReviewComments(
   }));
 }
 
-function deduplicateComments(
-  heuristic: ReviewComment[],
-  llm: ReviewComment[],
-): ReviewComment[] {
+function deduplicateComments(heuristic: ReviewComment[], llm: ReviewComment[]): ReviewComment[] {
   const result = [...heuristic];
   const overlapThreshold = 3;
 
@@ -315,9 +309,7 @@ function deduplicateComments(
       if (hc.category !== llmComment.category) return false;
       const overlap = Math.max(
         0,
-        Math.min(hc.endLine, llmComment.endLine) -
-          Math.max(hc.startLine, llmComment.startLine) +
-          1,
+        Math.min(hc.endLine, llmComment.endLine) - Math.max(hc.startLine, llmComment.startLine) + 1,
       );
       return overlap >= overlapThreshold;
     });

@@ -1,12 +1,7 @@
 // @code-analyzer/intelligence — Heuristic Analysis Rules
 // Static analysis rules for detecting code issues without LLM dependency.
 
-import type {
-  ReviewComment,
-  ReviewCategory,
-  Severity,
-  GitDiff,
-} from '@code-analyzer/shared';
+import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Rule Result Types
@@ -47,13 +42,11 @@ function checkLongFunction(lines: string[], _filePath: string): HeuristicRuleRes
     const trimmed = line.trim();
 
     // Detect function declarations
-    const funcMatch = trimmed.match(
-      /^(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w+)/,
+    const funcMatch = trimmed.match(/^(?:export\s+)?(?:async\s+)?(?:static\s+)?function\s+(\w+)/);
+    const arrowMatch = trimmed.match(/(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(/);
+    const methodMatch = trimmed.match(
+      /^\s*(?:public|private|protected|static|async)?\s*(\w+)\s*\(/,
     );
-    const arrowMatch = trimmed.match(
-      /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?\(/,
-    );
-    const methodMatch = trimmed.match(/^\s*(?:public|private|protected|static|async)?\s*(\w+)\s*\(/);
 
     if (funcMatch || arrowMatch || methodMatch) {
       const name = funcMatch?.[1] ?? arrowMatch?.[1] ?? methodMatch?.[1] ?? 'function';
@@ -155,9 +148,16 @@ if (!condition) return;
 function checkMissingErrorHandling(lines: string[], _filePath: string): HeuristicRuleResult[] {
   const results: HeuristicRuleResult[] = [];
   const riskyOperations = [
-    /\.readFile/, /\.writeFile/, /\.fetch\s*\(/, /axios/,
-    /await\s+(?!.*(?:catch|try))/, /\.query\s*\(/, /\.execute\s*\(/,
-    /\.connect\s*\(/, /new\s+Promise/, /\.send\s*\(/,
+    /\.readFile/,
+    /\.writeFile/,
+    /\.fetch\s*\(/,
+    /axios/,
+    /await\s+(?!.*(?:catch|try))/,
+    /\.query\s*\(/,
+    /\.execute\s*\(/,
+    /\.connect\s*\(/,
+    /new\s+Promise/,
+    /\.send\s*\(/,
   ];
 
   for (let i = 0; i < lines.length; i++) {
@@ -240,7 +240,8 @@ function checkDeadCodePotential(
       severity: 'low',
       title: 'Potential dead code — unused exports',
       description: `File "${filePath}" exports ${exportedSymbolCount} symbols but has no incoming dependencies. These symbols may be unused and could be removed.`,
-      suggestionCode: '// Verify these exports are not used externally before removal.\n// Consider marking unused exports as deprecated first.',
+      suggestionCode:
+        '// Verify these exports are not used externally before removal.\n// Consider marking unused exports as deprecated first.',
       startLine: 1,
       endLine: 1,
     });
@@ -250,10 +251,7 @@ function checkDeadCodePotential(
 }
 
 /** Rule: Circular dependency detection */
-function checkCircularDeps(
-  filePath: string,
-  cyclePaths: string[][],
-): HeuristicRuleResult[] {
+function checkCircularDeps(filePath: string, cyclePaths: string[][]): HeuristicRuleResult[] {
   const results: HeuristicRuleResult[] = [];
 
   for (const cycle of cyclePaths) {
@@ -286,8 +284,11 @@ function checkCircularDeps(
 /** Rule: Check naming conventions */
 function checkNamingConventions(lines: string[], filePath: string): HeuristicRuleResult[] {
   const results: HeuristicRuleResult[] = [];
-  const isTestFile = filePath.includes('.test.') || filePath.includes('.spec.') ||
-    filePath.includes('__tests__') || filePath.includes('__mocks__');
+  const isTestFile =
+    filePath.includes('.test.') ||
+    filePath.includes('.spec.') ||
+    filePath.includes('__tests__') ||
+    filePath.includes('__mocks__');
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -404,46 +405,57 @@ function checkMissingReturnTypes(lines: string[], filePath: string): HeuristicRu
 // ---------------------------------------------------------------------------
 
 /** Rule: Detect risky changes (shared interfaces, API routes, config) */
-function checkRiskyChanges(
-  filePath: string,
-  changeType: string,
-): HeuristicRuleResult[] {
+function checkRiskyChanges(filePath: string, changeType: string): HeuristicRuleResult[] {
   const results: HeuristicRuleResult[] = [];
 
   // Shared interfaces and types are high-risk
-  if (filePath.includes('/types/') || filePath.includes('/interfaces/') ||
-      filePath.endsWith('.d.ts') || filePath.includes('/shared/')) {
+  if (
+    filePath.includes('/types/') ||
+    filePath.includes('/interfaces/') ||
+    filePath.endsWith('.d.ts') ||
+    filePath.includes('/shared/')
+  ) {
     results.push({
       triggered: true,
       category: 'architecture',
       severity: 'high',
       title: 'Risky change: shared type/interface modified',
       description: `File "${filePath}" contains shared types or interfaces. Changes here can impact many consumers across the codebase.`,
-      suggestionCode: '// Verify all consumers are compatible with this change.\n// Consider versioning or backward-compatible approaches.',
+      suggestionCode:
+        '// Verify all consumers are compatible with this change.\n// Consider versioning or backward-compatible approaches.',
       startLine: 1,
       endLine: 1,
     });
   }
 
   // API routes
-  if (filePath.includes('/routes/') || filePath.includes('/api/') ||
-      filePath.includes('route') || filePath.includes('handler')) {
+  if (
+    filePath.includes('/routes/') ||
+    filePath.includes('/api/') ||
+    filePath.includes('route') ||
+    filePath.includes('handler')
+  ) {
     results.push({
       triggered: true,
       category: 'bug',
       severity: 'high',
       title: 'Risky change: API route modified',
       description: `File "${filePath}" appears to contain API routes or handlers. Changes to API contracts can break consumers and require careful testing.`,
-      suggestionCode: '// Verify API tests pass and the contract hasn\'t changed unintentionally.\n// Consider API versioning if changing behavior.',
+      suggestionCode:
+        "// Verify API tests pass and the contract hasn't changed unintentionally.\n// Consider API versioning if changing behavior.",
       startLine: 1,
       endLine: 1,
     });
   }
 
   // Config files
-  if (filePath.includes('/config/') || filePath.includes('/.env') ||
-      filePath.includes('config.ts') || filePath.includes('config.js') ||
-      filePath.includes('settings')) {
+  if (
+    filePath.includes('/config/') ||
+    filePath.includes('/.env') ||
+    filePath.includes('config.ts') ||
+    filePath.includes('config.js') ||
+    filePath.includes('settings')
+  ) {
     results.push({
       triggered: true,
       category: 'security',
@@ -513,7 +525,9 @@ export function analyzeFileHeuristics(
 
   // Graph analysis rules
   results.push(...checkHighCoupling(filePath, gd.outDegree, gd.edgeCounts));
-  results.push(...checkDeadCodePotential(filePath, gd.inDegree, gd.outDegree, gd.exportedSymbolCount));
+  results.push(
+    ...checkDeadCodePotential(filePath, gd.inDegree, gd.outDegree, gd.exportedSymbolCount),
+  );
   results.push(...checkCircularDeps(filePath, gd.cyclicPaths));
 
   // Standards & style rules
@@ -540,7 +554,11 @@ export function toReviewComment(
   const now = new Date().toISOString();
   const existingLines: string[] = [];
 
-  for (let i = Math.max(0, result.startLine - 3); i < Math.min(lines.length, result.endLine + 3); i++) {
+  for (
+    let i = Math.max(0, result.startLine - 3);
+    i < Math.min(lines.length, result.endLine + 3);
+    i++
+  ) {
     existingLines.push(lines[i]!);
   }
 

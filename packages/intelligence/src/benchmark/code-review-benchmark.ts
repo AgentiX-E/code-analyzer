@@ -165,8 +165,8 @@ export class BenchmarkRunner {
           if (matchedDetections.has(det.id)) continue;
 
           const overlap = this.computeLineOverlap(gt, det);
-          const categoryMatch = !this.config.requireCategoryMatch ||
-            this.categoriesMatch(gt.category, det.category);
+          const categoryMatch =
+            !this.config.requireCategoryMatch || this.categoriesMatch(gt.category, det.category);
 
           if (overlap >= this.config.overlapThreshold && categoryMatch) {
             if (overlap > bestOverlap) {
@@ -212,14 +212,10 @@ export class BenchmarkRunner {
     const falsePositives = allDetections.filter((d) => d.matchType === 'false_positive').length;
     const falseNegatives = allDetections.filter((d) => d.matchType === 'false_negative').length;
 
-    const precision = truePositives > 0
-      ? truePositives / (truePositives + falsePositives) : 0;
-    const recall = allGroundTruth.length > 0
-      ? truePositives / allGroundTruth.length : 0;
-    const f1Score = precision + recall > 0
-      ? 2 * precision * recall / (precision + recall) : 0;
-    const noiseRate = truePositives > 0
-      ? falsePositives / truePositives : 0;
+    const precision = truePositives > 0 ? truePositives / (truePositives + falsePositives) : 0;
+    const recall = allGroundTruth.length > 0 ? truePositives / allGroundTruth.length : 0;
+    const f1Score = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+    const noiseRate = truePositives > 0 ? falsePositives / truePositives : 0;
 
     // Category breakdown
     const categories = new Set(allGroundTruth.map((gt) => gt.category));
@@ -231,15 +227,17 @@ export class BenchmarkRunner {
         (d) => d.matchType === 'true_positive' && d.groundTruth?.category === category,
       ).length;
       const catFP = allDetections.filter(
-        (d) => d.matchType === 'false_positive' &&
-          d.detection?.category === this.mapCategory(category),
+        (d) =>
+          d.matchType === 'false_positive' && d.detection?.category === this.mapCategory(category),
       ).length;
       const catFN = catGT.length - catTP;
 
       const catPrecision = catTP + catFP > 0 ? catTP / (catTP + catFP) : 0;
       const catRecall = catGT.length > 0 ? catTP / catGT.length : 0;
-      const catF1 = catPrecision + catRecall > 0
-        ? 2 * catPrecision * catRecall / (catPrecision + catRecall) : 0;
+      const catF1 =
+        catPrecision + catRecall > 0
+          ? (2 * catPrecision * catRecall) / (catPrecision + catRecall)
+          : 0;
 
       categoryBreakdown.push({
         category,
@@ -282,29 +280,47 @@ export class BenchmarkRunner {
     lines.push('# Code Analyzer — Code Review Benchmark Report');
     lines.push('');
     lines.push(`**Generated:** ${new Date().toISOString()}`);
-    lines.push(`**Fixtures:** ${result.fixturesProcessed} files across ${result.languagesTested} languages`);
+    lines.push(
+      `**Fixtures:** ${result.fixturesProcessed} files across ${result.languagesTested} languages`,
+    );
     lines.push(`**Ground Truth:** ${result.totalGroundTruth} annotated issues`);
-    lines.push(`**Duration:** ${result.totalDurationMs}ms total (${result.avgTimePerFixtureMs}ms avg per file)`);
+    lines.push(
+      `**Duration:** ${result.totalDurationMs}ms total (${result.avgTimePerFixtureMs}ms avg per file)`,
+    );
     lines.push('');
 
     lines.push('## Overall Metrics');
     lines.push('');
     lines.push('| Metric | Value | Description |');
     lines.push('|--------|-------|-------------|');
-    lines.push(`| **Precision** | ${(result.precision * 100).toFixed(1)}% | Proportion of reported issues that are real defects |`);
-    lines.push(`| **Recall** | ${(result.recall * 100).toFixed(1)}% | Proportion of real defects that were found |`);
-    lines.push(`| **F1 Score** | ${result.f1Score.toFixed(3)} | Harmonic mean of precision and recall |`);
-    lines.push(`| **Noise Rate** | ${result.noiseRate.toFixed(1)}x | False positives per true positive (lower is better) |`);
+    lines.push(
+      `| **Precision** | ${(result.precision * 100).toFixed(1)}% | Proportion of reported issues that are real defects |`,
+    );
+    lines.push(
+      `| **Recall** | ${(result.recall * 100).toFixed(1)}% | Proportion of real defects that were found |`,
+    );
+    lines.push(
+      `| **F1 Score** | ${result.f1Score.toFixed(3)} | Harmonic mean of precision and recall |`,
+    );
+    lines.push(
+      `| **Noise Rate** | ${result.noiseRate.toFixed(1)}x | False positives per true positive (lower is better) |`,
+    );
     lines.push(`| **True Positives** | ${result.truePositives} | Issues correctly identified |`);
-    lines.push(`| **False Positives** | ${result.falsePositives} | Issues reported that are not real defects |`);
-    lines.push(`| **False Negatives** | ${result.falseNegatives} | Real defects that were missed |`);
+    lines.push(
+      `| **False Positives** | ${result.falsePositives} | Issues reported that are not real defects |`,
+    );
+    lines.push(
+      `| **False Negatives** | ${result.falseNegatives} | Real defects that were missed |`,
+    );
     lines.push('');
 
     lines.push('## Comparison with Industry Benchmarks');
     lines.push('');
     lines.push('| Tool | Precision | Recall | F1 | Noise Rate |');
     lines.push('|------|-----------|--------|-----|------------|');
-    lines.push(`| **Code Analyzer** | ${(result.precision * 100).toFixed(1)}% | ${(result.recall * 100).toFixed(1)}% | ${result.f1Score.toFixed(3)} | ${result.noiseRate.toFixed(1)}x |`);
+    lines.push(
+      `| **Code Analyzer** | ${(result.precision * 100).toFixed(1)}% | ${(result.recall * 100).toFixed(1)}% | ${result.f1Score.toFixed(3)} | ${result.noiseRate.toFixed(1)}x |`,
+    );
     lines.push('| SonarQube AI | 72% | 48% | 0.576 | 0.8x |');
     lines.push('| Augment Code | 65% | 55% | 0.596 | 1.5x |');
     lines.push('| CodeRabbit | 58% | 52% | 0.549 | 2.1x |');
@@ -324,11 +340,19 @@ export class BenchmarkRunner {
 
     lines.push('## Benchmark Methodology');
     lines.push('');
-    lines.push('1. **Fixture Selection:** 30+ test fixtures across 5 programming languages, containing 30+ known defects across 6 categories');
-    lines.push('2. **Ground Truth:** All fixtures annotated with precise line ranges, categories, and severities');
+    lines.push(
+      '1. **Fixture Selection:** 30+ test fixtures across 5 programming languages, containing 30+ known defects across 6 categories',
+    );
+    lines.push(
+      '2. **Ground Truth:** All fixtures annotated with precise line ranges, categories, and severities',
+    );
     lines.push('3. **Detection:** CodeReviewEngine runs heuristics on each fixture');
-    lines.push('4. **Matching:** Detection matched to ground truth if line-range overlap ≥ 50% and categories match');
-    lines.push('5. **Metrics:** Precision, Recall, F1, and Noise Rate calculated following standard IR evaluation methodology');
+    lines.push(
+      '4. **Matching:** Detection matched to ground truth if line-range overlap ≥ 50% and categories match',
+    );
+    lines.push(
+      '5. **Metrics:** Precision, Recall, F1, and Noise Rate calculated following standard IR evaluation methodology',
+    );
     lines.push('');
 
     lines.push('## Reproducibility');
@@ -337,8 +361,12 @@ export class BenchmarkRunner {
     lines.push('pnpm --filter @code-analyzer/intelligence test:bench');
     lines.push('```');
     lines.push('');
-    lines.push('All benchmark fixtures and ground truth annotations are committed alongside the benchmark runner.');
-    lines.push('Results are deterministic for the heuristic review path. LLM-based results may vary.');
+    lines.push(
+      'All benchmark fixtures and ground truth annotations are committed alongside the benchmark runner.',
+    );
+    lines.push(
+      'Results are deterministic for the heuristic review path. LLM-based results may vary.',
+    );
 
     return lines.join('\n');
   }
@@ -369,21 +397,17 @@ export class BenchmarkRunner {
 
     // Semantic matches
     const mappings: Record<string, string[]> = {
-      'security': ['security', 'bug'],
-      'correctness': ['bug', 'correctness'],
-      'performance': ['performance'],
-      'maintainability': ['maintainability', 'architecture'],
-      'style': ['style', 'documentation'],
+      security: ['security', 'bug'],
+      correctness: ['bug', 'correctness'],
+      performance: ['performance'],
+      maintainability: ['maintainability', 'architecture'],
+      style: ['style', 'documentation'],
     };
 
-    const mappedGt = Object.keys(mappings).find((k) =>
-      mappings[k]?.includes(gt),
-    );
+    const mappedGt = Object.keys(mappings).find((k) => mappings[k]?.includes(gt));
     if (mappedGt && mappings[mappedGt]?.includes(dt)) return true;
 
-    const mappedDt = Object.keys(mappings).find((k) =>
-      mappings[k]?.includes(dt),
-    );
+    const mappedDt = Object.keys(mappings).find((k) => mappings[k]?.includes(dt));
     if (mappedDt && mappings[mappedDt]?.includes(gt)) return true;
 
     return false;
@@ -391,11 +415,11 @@ export class BenchmarkRunner {
 
   private mapCategory(category: string): string {
     const mapping: Record<string, string> = {
-      'security': 'security',
-      'correctness': 'bug',
-      'performance': 'performance',
-      'maintainability': 'maintainability',
-      'style': 'style',
+      security: 'security',
+      correctness: 'bug',
+      performance: 'performance',
+      maintainability: 'maintainability',
+      style: 'style',
     };
     return mapping[category.toLowerCase()] ?? category;
   }

@@ -1,11 +1,7 @@
 // @code-analyzer/analyzer — Pipeline Phase: Markdown
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  DiscoveredFile,
-} from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_CONTAINS } from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
+import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -65,8 +61,7 @@ export class MarkdownPhase implements ExecutablePhase {
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: DiscoveredFile[] }
-        | undefined;
+        { discoveredFiles: DiscoveredFile[] } | undefined;
 
       if (!scanData?.discoveredFiles || !ctx.graph) {
         return { phaseId: this.id, status: 'success', output: { markdownFiles: 0 } };
@@ -87,13 +82,19 @@ export class MarkdownPhase implements ExecutablePhase {
 
         for (const section of sections) {
           const qname = `file:${file.filePath}:section:${section.title}`;
-          const node = builder.addNode(ctx.graph, 'Module', section.title, {
-            name: section.title,
-            filePath: file.filePath,
-            startLine: section.startLine,
-            endLine: section.endLine,
-            language: 'markdown',
-          }, qname);
+          const node = builder.addNode(
+            ctx.graph,
+            'Module',
+            section.title,
+            {
+              name: section.title,
+              filePath: file.filePath,
+              startLine: section.startLine,
+              endLine: section.endLine,
+              language: 'markdown',
+            },
+            qname,
+          );
 
           builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_CONTAINS, ctx.projectId);
         }
@@ -104,7 +105,11 @@ export class MarkdownPhase implements ExecutablePhase {
       ctx.phaseData.set('markdown', { markdownFiles });
       return { phaseId: this.id, status: 'success', output: { markdownFiles } };
     } catch (err) {
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };
     }

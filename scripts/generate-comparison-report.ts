@@ -56,34 +56,35 @@ const DIMENSIONS: ComparisonDimension[] = [
     label: 'Language Coverage',
     weight: 0.15,
     maxValue: 30,
-    values: { 'code-analyzer': 20, 'SonarQube': 29, 'CodeQL': 9, 'Semgrep': 17, 'Sourcegraph': 20 },
+    values: { 'code-analyzer': 20, SonarQube: 29, CodeQL: 9, Semgrep: 17, Sourcegraph: 20 },
     unit: 'languages',
     source: 'Official documentation and GitHub repos (2025-2026).',
   },
   {
     key: 'parse-quality',
     label: 'Parse Success Rate',
-    weight: 0.10,
+    weight: 0.1,
     maxValue: 100,
-    values: { 'code-analyzer': 97.5, 'SonarQube': 95, 'CodeQL': 98, 'Semgrep': 92, 'Sourcegraph': 90 },
+    values: { 'code-analyzer': 97.5, SonarQube: 95, CodeQL: 98, Semgrep: 92, Sourcegraph: 90 },
     unit: 'percent',
-    source: 'code-analyzer: measured via CA-Bench. Competitors: estimated from community benchmarks.',
+    source:
+      'code-analyzer: measured via CA-Bench. Competitors: estimated from community benchmarks.',
   },
   {
     key: 'review-signal-categories',
     label: 'Review Signal Categories',
     weight: 0.12,
     maxValue: 10,
-    values: { 'code-analyzer': 8, 'SonarQube': 5, 'CodeQL': 4, 'Semgrep': 3, 'Sourcegraph': 2 },
+    values: { 'code-analyzer': 8, SonarQube: 5, CodeQL: 4, Semgrep: 3, Sourcegraph: 2 },
     unit: 'categories',
     source: 'code-analyzer: 8-lane swarm. Competitors: documented feature sets.',
   },
   {
     key: 'search-dimensions',
     label: 'Search Dimensions',
-    weight: 0.10,
+    weight: 0.1,
     maxValue: 5,
-    values: { 'code-analyzer': 4, 'SonarQube': 2, 'CodeQL': 2, 'Semgrep': 2, 'Sourcegraph': 3 },
+    values: { 'code-analyzer': 4, SonarQube: 2, CodeQL: 2, Semgrep: 2, Sourcegraph: 3 },
     unit: 'dimensions',
     source: 'Documented search capabilities per tool.',
   },
@@ -92,16 +93,16 @@ const DIMENSIONS: ComparisonDimension[] = [
     label: 'Cross-Repository Capabilities',
     weight: 0.12,
     maxValue: 5,
-    values: { 'code-analyzer': 5, 'SonarQube': 1, 'CodeQL': 2, 'Semgrep': 1, 'Sourcegraph': 4 },
+    values: { 'code-analyzer': 5, SonarQube: 1, CodeQL: 2, Semgrep: 1, Sourcegraph: 4 },
     unit: 'features',
     source: 'Documented cross-repo features per tool.',
   },
   {
     key: 'mcp-integration',
     label: 'MCP Integration',
-    weight: 0.10,
+    weight: 0.1,
     maxValue: 60,
-    values: { 'code-analyzer': 55, 'SonarQube': 0, 'CodeQL': 0, 'Semgrep': 0, 'Sourcegraph': 20 },
+    values: { 'code-analyzer': 55, SonarQube: 0, CodeQL: 0, Semgrep: 0, Sourcegraph: 20 },
     unit: 'tools+resources',
     source: 'MCP marketplace and official docs (2026).',
   },
@@ -110,7 +111,7 @@ const DIMENSIONS: ComparisonDimension[] = [
     label: 'GraphQL API Maturity',
     weight: 0.06,
     maxValue: 30,
-    values: { 'code-analyzer': 28, 'SonarQube': 0, 'CodeQL': 0, 'Semgrep': 0, 'Sourcegraph': 25 },
+    values: { 'code-analyzer': 28, SonarQube: 0, CodeQL: 0, Semgrep: 0, Sourcegraph: 25 },
     unit: 'types+operations',
     source: 'Official API documentation.',
   },
@@ -119,7 +120,7 @@ const DIMENSIONS: ComparisonDimension[] = [
     label: 'IDE Integration Depth',
     weight: 0.08,
     maxValue: 100,
-    values: { 'code-analyzer': 80, 'SonarQube': 85, 'CodeQL': 70, 'Semgrep': 60, 'Sourcegraph': 90 },
+    values: { 'code-analyzer': 80, SonarQube: 85, CodeQL: 70, Semgrep: 60, Sourcegraph: 90 },
     unit: 'score',
     source: 'Official IDE extension documentation.',
   },
@@ -128,7 +129,7 @@ const DIMENSIONS: ComparisonDimension[] = [
     label: 'Throughput (files/sec)',
     weight: 0.09,
     maxValue: 100,
-    values: { 'code-analyzer': 68.9, 'SonarQube': 40, 'CodeQL': 15, 'Semgrep': 50, 'Sourcegraph': 30 },
+    values: { 'code-analyzer': 68.9, SonarQube: 40, CodeQL: 15, Semgrep: 50, Sourcegraph: 30 },
     unit: 'files/sec',
     source: 'code-analyzer: measured (React benchmark). Competitors: estimated.',
   },
@@ -137,7 +138,7 @@ const DIMENSIONS: ComparisonDimension[] = [
     label: 'Test Coverage',
     weight: 0.08,
     maxValue: 100,
-    values: { 'code-analyzer': 96, 'SonarQube': 80, 'CodeQL': 85, 'Semgrep': 75, 'Sourcegraph': 70 },
+    values: { 'code-analyzer': 96, SonarQube: 80, CodeQL: 85, Semgrep: 75, Sourcegraph: 70 },
     unit: 'percent',
     source: 'code-analyzer: measured. Competitors: estimated from open-source repos.',
   },
@@ -156,10 +157,10 @@ function computeReport(): IndustryComparisonReport {
   const tools = ['code-analyzer', 'SonarQube', 'CodeQL', 'Semgrep', 'Sourcegraph'] as const;
   const confidence: Record<string, CompetitorScore['confidence']> = {
     'code-analyzer': 'measured',
-    'SonarQube': 'high-estimate',
-    'CodeQL': 'medium-estimate',
-    'Semgrep': 'medium-estimate',
-    'Sourcegraph': 'high-estimate',
+    SonarQube: 'high-estimate',
+    CodeQL: 'medium-estimate',
+    Semgrep: 'medium-estimate',
+    Sourcegraph: 'high-estimate',
   };
 
   const scores: CompetitorScore[] = [];
@@ -186,13 +187,20 @@ function computeReport(): IndustryComparisonReport {
     let best = '';
     let bestVal = -1;
     for (const [t, v] of Object.entries(dim.values)) {
-      if (v > bestVal) { bestVal = v; best = t; }
+      if (v > bestVal) {
+        bestVal = v;
+        best = t;
+      }
     }
     leaderByDimension[dim.key] = best;
   }
 
   const sorted = [...scores].sort((a, b) => b.compositeScore - a.compositeScore);
-  const ranking = sorted.map((s, i) => ({ rank: i + 1, tool: s.tool, compositeScore: s.compositeScore }));
+  const ranking = sorted.map((s, i) => ({
+    rank: i + 1,
+    tool: s.tool,
+    compositeScore: s.compositeScore,
+  }));
 
   const advantages = Object.entries(leaderByDimension)
     .filter(([, t]) => t === 'code-analyzer')
@@ -233,9 +241,9 @@ function generateMarkdown(report: IndustryComparisonReport): string {
     '## Executive Summary',
     '',
     'Code Analyzer is a next-generation code intelligence platform that combines ' +
-    'multi-language static analysis, hybrid search (BM25 + vector + graph), ' +
-    '8-lane code review swarms, cross-repository impact analysis, and MCP-based ' +
-    'AI agent integration — all in a single, unified tool.',
+      'multi-language static analysis, hybrid search (BM25 + vector + graph), ' +
+      '8-lane code review swarms, cross-repository impact analysis, and MCP-based ' +
+      'AI agent integration — all in a single, unified tool.',
     '',
     '### Composite Scores',
     '',
@@ -246,7 +254,9 @@ function generateMarkdown(report: IndustryComparisonReport): string {
   for (const r of report.summary.overallRanking) {
     const s = report.scores.find((x) => x.tool === r.tool);
     const icon = r.rank === 1 ? '🏆 ' : '';
-    lines.push(`| ${icon}${r.rank} | **${r.tool}** | ${r.compositeScore} | ${s?.confidence ?? 'estimate'} |`);
+    lines.push(
+      `| ${icon}${r.rank} | **${r.tool}** | ${r.compositeScore} | ${s?.confidence ?? 'estimate'} |`,
+    );
   }
 
   lines.push(
@@ -279,8 +289,10 @@ function generateMarkdown(report: IndustryComparisonReport): string {
   }
 
   lines.push(
-    '---', '',
-    '## SWOT Analysis', '',
+    '---',
+    '',
+    '## SWOT Analysis',
+    '',
     '### Strengths',
     '- **MCP Integration**: Only tool with native MCP server (40 tools + 15 resources)',
     '- **Cross-Repository Analysis**: Contract validation, federated search, impact graph',
@@ -292,7 +304,7 @@ function generateMarkdown(report: IndustryComparisonReport): string {
     '- **Test Coverage**: 96%+ across all 4 dimensions',
     '',
     '### Weaknesses',
-    '- **Language Coverage**: 20 languages vs SonarQube\'s 29',
+    "- **Language Coverage**: 20 languages vs SonarQube's 29",
     '- **IDE Integration**: Fewer IDE targets than established tools',
     '- **Market Maturity**: Newer project, smaller community',
     '- **Enterprise Features**: Lacks built-in portfolio management',
@@ -307,20 +319,28 @@ function generateMarkdown(report: IndustryComparisonReport): string {
     '- **SonarQube Cloud Growth**: Aggressively adding AI features',
     '- **Semgrep Community**: 2,000+ community rules',
     '',
-    '---', '',
-    '## Market Positioning Matrix', '',
+    '---',
+    '',
+    '## Market Positioning Matrix',
+    '',
     '|  | AI-Native | Cross-Repo | Search | Review | IDE |',
     '|--|-----------|------------|--------|--------|-----|',
   );
 
   for (const s of report.scores) {
     const d = s.dimensions;
-    const bar = (v: number) => v >= 80 ? '🟢' : v >= 50 ? '🟡' : '🔴';
-    lines.push(`| **${s.tool}** | ${bar(d['mcp-integration'] ?? 0)} ${Math.round(d['mcp-integration'] ?? 0)}% | ${bar(d['cross-repo-capability'] ?? 0)} ${Math.round(d['cross-repo-capability'] ?? 0)}% | ${bar(d['search-dimensions'] ?? 0)} ${Math.round(d['search-dimensions'] ?? 0)}% | ${bar(d['review-signal-categories'] ?? 0)} ${Math.round(d['review-signal-categories'] ?? 0)}% | ${bar(d['ide-integration'] ?? 0)} ${Math.round(d['ide-integration'] ?? 0)}% |`);
+    const bar = (v: number) => (v >= 80 ? '🟢' : v >= 50 ? '🟡' : '🔴');
+    lines.push(
+      `| **${s.tool}** | ${bar(d['mcp-integration'] ?? 0)} ${Math.round(d['mcp-integration'] ?? 0)}% | ${bar(d['cross-repo-capability'] ?? 0)} ${Math.round(d['cross-repo-capability'] ?? 0)}% | ${bar(d['search-dimensions'] ?? 0)} ${Math.round(d['search-dimensions'] ?? 0)}% | ${bar(d['review-signal-categories'] ?? 0)} ${Math.round(d['review-signal-categories'] ?? 0)}% | ${bar(d['ide-integration'] ?? 0)} ${Math.round(d['ide-integration'] ?? 0)}% |`,
+    );
   }
 
   lines.push(
-    '', '---', '', '## Methodology', '',
+    '',
+    '---',
+    '',
+    '## Methodology',
+    '',
     '### Data Sources',
     '- **code-analyzer**: All metrics measured directly from CA-Bench and real-world validation',
     '- **Competitors**: Official documentation, GitHub repos, published benchmarks (2025-2026)',
@@ -330,7 +350,8 @@ function generateMarkdown(report: IndustryComparisonReport): string {
     '- **high-estimate**: Based on official documentation',
     '- **medium-estimate**: Based on community knowledge',
     '',
-    '---', '',
+    '---',
+    '',
     '*Generated by code-analyzer CA-Bench v1.0*',
   );
 
@@ -348,18 +369,18 @@ function generateDashboard(report: IndustryComparisonReport): string {
   // Build datasets for radar chart
   const colors: Record<string, string> = {
     'code-analyzer': 'rgba(99, 102, 241, 0.8)',
-    'SonarQube': 'rgba(34, 197, 94, 0.8)',
-    'CodeQL': 'rgba(249, 115, 22, 0.8)',
-    'Semgrep': 'rgba(236, 72, 153, 0.8)',
-    'Sourcegraph': 'rgba(14, 165, 233, 0.8)',
+    SonarQube: 'rgba(34, 197, 94, 0.8)',
+    CodeQL: 'rgba(249, 115, 22, 0.8)',
+    Semgrep: 'rgba(236, 72, 153, 0.8)',
+    Sourcegraph: 'rgba(14, 165, 233, 0.8)',
   };
 
   const borderColors: Record<string, string> = {
     'code-analyzer': 'rgb(99, 102, 241)',
-    'SonarQube': 'rgb(34, 197, 94)',
-    'CodeQL': 'rgb(249, 115, 22)',
-    'Semgrep': 'rgb(236, 72, 153)',
-    'Sourcegraph': 'rgb(14, 165, 233)',
+    SonarQube: 'rgb(34, 197, 94)',
+    CodeQL: 'rgb(249, 115, 22)',
+    Semgrep: 'rgb(236, 72, 153)',
+    Sourcegraph: 'rgb(14, 165, 233)',
   };
 
   const radarDatasets = report.scores.map((s) => ({
@@ -375,24 +396,29 @@ function generateDashboard(report: IndustryComparisonReport): string {
   // Bar chart: composite scores
   const barLabels = JSON.stringify(report.summary.overallRanking.map((r) => r.tool));
   const barData = JSON.stringify(report.summary.overallRanking.map((r) => r.compositeScore));
-  const barColors = JSON.stringify(report.summary.overallRanking.map((r) => {
-    const c = colors[r.tool] ?? 'rgba(128,128,128,0.8)';
-    return r.tool === 'code-analyzer' ? 'rgba(99, 102, 241, 0.9)' : c;
-  }));
+  const barColors = JSON.stringify(
+    report.summary.overallRanking.map((r) => {
+      const c = colors[r.tool] ?? 'rgba(128,128,128,0.8)';
+      return r.tool === 'code-analyzer' ? 'rgba(99, 102, 241, 0.9)' : c;
+    }),
+  );
 
   // Dimension leader table rows
-  const leaderRows = report.dimensions.map((dim) => {
-    const leader = report.summary.leaderByDimension[dim.key];
-    const caScore = report.scores.find((s) => s.tool === 'code-analyzer')?.dimensions[dim.key] ?? 0;
-    const leaderScore = report.scores.find((s) => s.tool === leader)?.dimensions[dim.key] ?? 0;
-    const isLeader = leader === 'code-analyzer';
-    return `<tr class="${isLeader ? 'highlight' : ''}">
+  const leaderRows = report.dimensions
+    .map((dim) => {
+      const leader = report.summary.leaderByDimension[dim.key];
+      const caScore =
+        report.scores.find((s) => s.tool === 'code-analyzer')?.dimensions[dim.key] ?? 0;
+      const leaderScore = report.scores.find((s) => s.tool === leader)?.dimensions[dim.key] ?? 0;
+      const isLeader = leader === 'code-analyzer';
+      return `<tr class="${isLeader ? 'highlight' : ''}">
       <td>${dim.label}</td>
       <td><strong>${caScore}%</strong></td>
       <td>${leader} (${leaderScore}%)</td>
       <td>${isLeader ? '✅ Leading' : '📈 Trailing'}</td>
     </tr>`;
-  }).join('\n');
+    })
+    .join('\n');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -489,11 +515,15 @@ function generateDashboard(report: IndustryComparisonReport): string {
         <ul class="advantage-list">
           ${report.summary.competitiveAdvantages.map((a) => `<li><span class="check">✅</span> ${a}</li>`).join('\n')}
         </ul>
-        ${report.summary.areasForImprovement.length > 0 ? `
+        ${
+          report.summary.areasForImprovement.length > 0
+            ? `
         <h3 style="margin-top: 16px;">Areas for Improvement</h3>
         <ul class="advantage-list">
           ${report.summary.areasForImprovement.map((a) => `<li><span style="color:#fb923c;margin-right:8px;">📈</span> ${a}</li>`).join('\n')}
-        </ul>` : ''}
+        </ul>`
+            : ''
+        }
       </div>
     </div>
 
@@ -523,16 +553,18 @@ function generateDashboard(report: IndustryComparisonReport): string {
           <tr><th>Rank</th><th>Tool</th><th>Composite Score</th><th>Confidence</th></tr>
         </thead>
         <tbody>
-          ${report.summary.overallRanking.map((r) => {
-            const s = report.scores.find((x) => x.tool === r.tool);
-            const icon = r.rank === 1 ? '🏆 ' : r.rank === 2 ? '🥈 ' : r.rank === 3 ? '🥉 ' : '';
-            return `<tr class="${r.tool === 'code-analyzer' ? 'highlight' : ''}">
+          ${report.summary.overallRanking
+            .map((r) => {
+              const s = report.scores.find((x) => x.tool === r.tool);
+              const icon = r.rank === 1 ? '🏆 ' : r.rank === 2 ? '🥈 ' : r.rank === 3 ? '🥉 ' : '';
+              return `<tr class="${r.tool === 'code-analyzer' ? 'highlight' : ''}">
               <td>${icon}${r.rank}</td>
               <td><strong>${r.tool}</strong></td>
               <td>${r.compositeScore}%</td>
               <td>${s?.confidence ?? '—'}</td>
             </tr>`;
-          }).join('\n')}
+            })
+            .join('\n')}
         </tbody>
       </table>
     </div>
@@ -631,10 +663,18 @@ function main(): void {
 
   // Compute report
   const report = computeReport();
-  console.log(`   Code Analyzer Rank: #${report.summary.codeAnalyzerRank} of ${report.summary.overallRanking.length}`);
-  console.log(`   Composite Score: ${report.scores.find((s) => s.tool === 'code-analyzer')?.compositeScore}%`);
-  console.log(`   Competitive Advantages: ${report.summary.competitiveAdvantages.length} dimensions`);
-  console.log(`   Areas for Improvement: ${report.summary.areasForImprovement.length} dimensions\n`);
+  console.log(
+    `   Code Analyzer Rank: #${report.summary.codeAnalyzerRank} of ${report.summary.overallRanking.length}`,
+  );
+  console.log(
+    `   Composite Score: ${report.scores.find((s) => s.tool === 'code-analyzer')?.compositeScore}%`,
+  );
+  console.log(
+    `   Competitive Advantages: ${report.summary.competitiveAdvantages.length} dimensions`,
+  );
+  console.log(
+    `   Areas for Improvement: ${report.summary.areasForImprovement.length} dimensions\n`,
+  );
 
   // Determine paths
   const __filename = fileURLToPath(import.meta.url);
@@ -665,7 +705,9 @@ function main(): void {
   console.log(`✅ HTML dashboard: ${htmlPath}`);
 
   console.log('\n🎉 Industry comparison report generated successfully!');
-  console.log('   Open docs/comparison-dashboard.html in a browser to view the interactive dashboard.');
+  console.log(
+    '   Open docs/comparison-dashboard.html in a browser to view the interactive dashboard.',
+  );
 }
 
 main();

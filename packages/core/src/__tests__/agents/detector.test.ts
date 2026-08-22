@@ -24,26 +24,51 @@ beforeEach(() => {
   // Restore environment for each test
   for (const key of Object.keys(process.env)) {
     // Don't delete essential env vars
-    if (key.startsWith('ANTHROPIC_') || key.startsWith('CURSOR_') ||
-        key.startsWith('WINDSURF_') || key.startsWith('CONTINUE_') ||
-        key.startsWith('AIDER_') || key.startsWith('CLINE_') ||
-        key.startsWith('COPILOT_') || key.startsWith('CODEIUM_') ||
-        key.startsWith('TABNINE_') || key.startsWith('AMAZON_Q_') ||
-        key.startsWith('AUGMENT_') || key.startsWith('ROO_CODE_') ||
-        key.startsWith('GITHUB_COPILOT_') || key.startsWith('AWS_')) {
+    if (
+      key.startsWith('ANTHROPIC_') ||
+      key.startsWith('CURSOR_') ||
+      key.startsWith('WINDSURF_') ||
+      key.startsWith('CONTINUE_') ||
+      key.startsWith('AIDER_') ||
+      key.startsWith('CLINE_') ||
+      key.startsWith('COPILOT_') ||
+      key.startsWith('CODEIUM_') ||
+      key.startsWith('TABNINE_') ||
+      key.startsWith('AMAZON_Q_') ||
+      key.startsWith('AUGMENT_') ||
+      key.startsWith('ROO_CODE_') ||
+      key.startsWith('GITHUB_COPILOT_') ||
+      key.startsWith('AWS_')
+    ) {
       delete process.env[key];
     }
   }
   // Clean up any leaked agent config files from previous tests
   const leakedConfigs = [
-    '.aider.conf.yml', '.aider.conf.yaml', '.aider.yml', '.aider.conf',
-    '.claude', '.claude.json', '.cursor', '.windsurf', '.continue',
-    '.cline', '.codeium', '.tabnine', '.roo', '.augment', '.amazonq',
+    '.aider.conf.yml',
+    '.aider.conf.yaml',
+    '.aider.yml',
+    '.aider.conf',
+    '.claude',
+    '.claude.json',
+    '.cursor',
+    '.windsurf',
+    '.continue',
+    '.cline',
+    '.codeium',
+    '.tabnine',
+    '.roo',
+    '.augment',
+    '.amazonq',
     '.aws/amazonq',
   ];
   for (const cfg of leakedConfigs) {
     const p = path.join(homeDir, cfg);
-    try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* noop */ }
+    try {
+      fs.rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* noop */
+    }
   }
 });
 
@@ -52,14 +77,30 @@ afterEach(() => {
   process.env = { ...originalEnv };
   // Final cleanup of any leaked config files
   const leakedConfigs = [
-    '.aider.conf.yml', '.aider.conf.yaml', '.aider.yml', '.aider.conf',
-    '.claude', '.claude.json', '.cursor', '.windsurf', '.continue',
-    '.cline', '.codeium', '.tabnine', '.roo', '.augment', '.amazonq',
+    '.aider.conf.yml',
+    '.aider.conf.yaml',
+    '.aider.yml',
+    '.aider.conf',
+    '.claude',
+    '.claude.json',
+    '.cursor',
+    '.windsurf',
+    '.continue',
+    '.cline',
+    '.codeium',
+    '.tabnine',
+    '.roo',
+    '.augment',
+    '.amazonq',
     '.aws/amazonq',
   ];
   for (const cfg of leakedConfigs) {
     const p = path.join(homeDir, cfg);
-    try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* noop */ }
+    try {
+      fs.rmSync(p, { recursive: true, force: true });
+    } catch {
+      /* noop */
+    }
   }
 });
 
@@ -388,9 +429,18 @@ describe('getSupportedAgents', () => {
   it('should return all agent IDs in order', () => {
     const ids = getSupportedAgents();
     expect(ids).toEqual([
-      'claude-code', 'cursor', 'windsurf', 'continue-dev',
-      'aider', 'cline', 'github-copilot', 'codeium',
-      'tabnine', 'amazon-q', 'roo-code', 'augment-code',
+      'claude-code',
+      'cursor',
+      'windsurf',
+      'continue-dev',
+      'aider',
+      'cline',
+      'github-copilot',
+      'codeium',
+      'tabnine',
+      'amazon-q',
+      'roo-code',
+      'augment-code',
     ]);
   });
 
@@ -463,7 +513,11 @@ describe('VS Code Extension Detection', () => {
   });
 
   afterEach(() => {
-    try { fs.rmSync(tmpDir, { recursive: true }); } catch { /* cleanup */ }
+    try {
+      fs.rmSync(tmpDir, { recursive: true });
+    } catch {
+      /* cleanup */
+    }
   });
 
   it('should detect installed VS Code extensions by directory name', () => {
@@ -473,9 +527,7 @@ describe('VS Code Extension Detection', () => {
 
     // Scan the directory manually to verify the logic
     const entries = fs.readdirSync(extensionsDir, { withFileTypes: true });
-    const found = entries.some(
-      (e) => e.isDirectory() && e.name.startsWith('github.copilot'),
-    );
+    const found = entries.some((e) => e.isDirectory() && e.name.startsWith('github.copilot'));
     expect(found).toBe(true);
   });
 
@@ -581,7 +633,11 @@ describe('Config File Detection', () => {
   });
 
   afterEach(() => {
-    try { fs.rmSync(tmpDir, { recursive: true }); } catch { /* cleanup */ }
+    try {
+      fs.rmSync(tmpDir, { recursive: true });
+    } catch {
+      /* cleanup */
+    }
   });
 
   it('should detect .cursor directory', () => {
@@ -661,10 +717,18 @@ describe('Confidence Aggregation — High', () => {
 
   afterEach(() => {
     // Clean up test file
-    try { fs.unlinkSync(aiderConfigPath); } catch { /* noop */ }
+    try {
+      fs.unlinkSync(aiderConfigPath);
+    } catch {
+      /* noop */
+    }
     // Restore original if it existed
     if (existedBefore && backupPath) {
-      try { fs.renameSync(backupPath, aiderConfigPath); } catch { /* noop */ }
+      try {
+        fs.renameSync(backupPath, aiderConfigPath);
+      } catch {
+        /* noop */
+      }
     }
   });
 

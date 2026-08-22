@@ -8,11 +8,7 @@ import {
   getEmbeddingWorkerPool,
   shutdownEmbeddingPool,
 } from '../embeddings/worker-pool.js';
-import type {
-  EmbeddingTask,
-  EmbeddingResult,
-  WorkerPoolStats,
-} from '../embeddings/worker-pool.js';
+import type { EmbeddingTask, EmbeddingResult, WorkerPoolStats } from '../embeddings/worker-pool.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,7 +39,7 @@ function simpleHash(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
   return Math.abs(hash);
@@ -137,10 +133,7 @@ describe('EmbeddingWorkerPool', () => {
     pool = new EmbeddingWorkerPool('/nonexistent/worker.js', 2);
     const fallbackFn = createFallbackFn();
 
-    const result = await pool.embed(
-      { taskId: 'single', content: 'test content' },
-      fallbackFn,
-    );
+    const result = await pool.embed({ taskId: 'single', content: 'test content' }, fallbackFn);
 
     expect(result.taskId).toBe('single');
     expect(result.embedding).toBeInstanceOf(Float32Array);
@@ -153,9 +146,9 @@ describe('EmbeddingWorkerPool', () => {
       throw new Error('fail');
     });
 
-    await expect(
-      pool.embed({ taskId: 'fail', content: 'bad' }, fallbackFn),
-    ).rejects.toThrow('Embedding failed for task fail');
+    await expect(pool.embed({ taskId: 'fail', content: 'bad' }, fallbackFn)).rejects.toThrow(
+      'Embedding failed for task fail',
+    );
   });
 
   // ── Batched embedding ──
@@ -465,10 +458,7 @@ describe('EmbeddingWorkerPool', () => {
       throw 'string error';
     });
 
-    const { errors } = await pool.embedBatch(
-      [{ taskId: 'str-err', content: 'test' }],
-      fallbackFn,
-    );
+    const { errors } = await pool.embedBatch([{ taskId: 'str-err', content: 'test' }], fallbackFn);
     expect(errors.length).toBe(1);
     expect(errors[0]!.error).toBe('string error');
   });
@@ -479,10 +469,7 @@ describe('EmbeddingWorkerPool', () => {
       throw new Error('instance error');
     });
 
-    const { errors } = await pool.embedBatch(
-      [{ taskId: 'inst-err', content: 'test' }],
-      fallbackFn,
-    );
+    const { errors } = await pool.embedBatch([{ taskId: 'inst-err', content: 'test' }], fallbackFn);
     expect(errors.length).toBe(1);
     expect(errors[0]!.error).toBe('instance error');
   });

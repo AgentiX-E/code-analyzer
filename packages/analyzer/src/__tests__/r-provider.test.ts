@@ -320,7 +320,9 @@ describe('RProvider', () => {
   describe('source imports', () => {
     it('should parse source() imports', () => {
       const caps = provider.parse('source("utils.R")', 'test.R');
-      const imports = caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT && c.properties?.importType === 'source');
+      const imports = caps.filter(
+        (c) => c.tag === CAPTURE_TAGS.IMPORT && c.properties?.importType === 'source',
+      );
       expect(imports.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -332,11 +334,15 @@ describe('RProvider', () => {
     });
     it('should detect Sys.getenv as environment source', () => {
       const sources = provider.extractTaintSources('Sys.getenv("TOKEN")');
-      expect(sources.some((s) => s.name === 'Sys.getenv' && s.sourceType === 'environment')).toBe(true);
+      expect(sources.some((s) => s.name === 'Sys.getenv' && s.sourceType === 'environment')).toBe(
+        true,
+      );
     });
     it('should detect download.file as network source', () => {
       const sources = provider.extractTaintSources('download.file(url, "f")');
-      expect(sources.some((s) => s.name === 'download.file' && s.sourceType === 'network')).toBe(true);
+      expect(sources.some((s) => s.name === 'download.file' && s.sourceType === 'network')).toBe(
+        true,
+      );
     });
     it('should detect system as os_command sink', () => {
       const sinks = provider.extractTaintSinks('system("rm -rf /")');
@@ -365,23 +371,41 @@ describe('RProvider', () => {
       }
     });
     it('should detect getOption and commandArgs as environment', () => {
-      expect(provider.extractTaintSources('getOption("x")').some((s) => s.name === 'getOption')).toBe(true);
-      expect(provider.extractTaintSources('commandArgs()').some((s) => s.name === 'commandArgs')).toBe(true);
+      expect(
+        provider.extractTaintSources('getOption("x")').some((s) => s.name === 'getOption'),
+      ).toBe(true);
+      expect(
+        provider.extractTaintSources('commandArgs()').some((s) => s.name === 'commandArgs'),
+      ).toBe(true);
     });
     it('should detect curl as network', () => {
-      expect(provider.extractTaintSources('curl("http://x")').some((s) => s.name === 'curl')).toBe(true);
+      expect(provider.extractTaintSources('curl("http://x")').some((s) => s.name === 'curl')).toBe(
+        true,
+      );
     });
     it('should detect system2, shell, shell.exec as os_command', () => {
       for (const fn of ['system2', 'shell', 'shell.exec']) {
-        expect(provider.extractTaintSinks(`${fn}("x")`).some((s) => s.name === fn && s.sinkType === 'os_command')).toBe(true);
+        expect(
+          provider
+            .extractTaintSinks(`${fn}("x")`)
+            .some((s) => s.name === fn && s.sinkType === 'os_command'),
+        ).toBe(true);
       }
     });
     it('should detect parse as code_injection', () => {
-      expect(provider.extractTaintSinks('parse(text = x)').some((s) => s.name === 'parse' && s.sinkType === 'code_injection')).toBe(true);
+      expect(
+        provider
+          .extractTaintSinks('parse(text = x)')
+          .some((s) => s.name === 'parse' && s.sinkType === 'code_injection'),
+      ).toBe(true);
     });
     it('should detect write.table, saveRDS, save as file_write', () => {
       for (const fn of ['write.table', 'saveRDS', 'save']) {
-        expect(provider.extractTaintSinks(`${fn}(d, "o")`).some((s) => s.name === fn && s.sinkType === 'file_write')).toBe(true);
+        expect(
+          provider
+            .extractTaintSinks(`${fn}(d, "o")`)
+            .some((s) => s.name === fn && s.sinkType === 'file_write'),
+        ).toBe(true);
       }
     });
     it('should detect as.numeric, as.character, sanitize as sanitizers', () => {
@@ -390,8 +414,12 @@ describe('RProvider', () => {
       }
     });
     it('should detect readRDS and readLines as file_read', () => {
-      expect(provider.extractTaintSources('readRDS("d.rds")').some((s) => s.name === 'readRDS')).toBe(true);
-      expect(provider.extractTaintSources('readLines("d.txt")').some((s) => s.name === 'readLines')).toBe(true);
+      expect(
+        provider.extractTaintSources('readRDS("d.rds")').some((s) => s.name === 'readRDS'),
+      ).toBe(true);
+      expect(
+        provider.extractTaintSources('readLines("d.txt")').some((s) => s.name === 'readLines'),
+      ).toBe(true);
     });
     it('should detect is.character, is.logical, type.convert as sanitizers', () => {
       for (const fn of ['is.character', 'is.logical', 'type.convert']) {

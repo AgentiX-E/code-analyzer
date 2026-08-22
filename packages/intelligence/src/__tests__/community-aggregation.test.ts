@@ -1,11 +1,7 @@
 // @code-analyzer/intelligence — Community Aggregation Tests
 
 import { describe, it, expect } from 'vitest';
-import {
-  buildReducedGraph,
-  mapToOriginalNodes,
-  ReducedGraph,
-} from '../community/aggregation.js';
+import { buildReducedGraph, mapToOriginalNodes, ReducedGraph } from '../community/aggregation.js';
 
 /**
  * Create a simple 2-clique test graph:
@@ -20,20 +16,37 @@ function twoCliqueGraph(): {
   const adj = new Map<number, Map<number, number>>();
   // Clique A: 1-2 (fully connected)
   adj.set(1, new Map([[2, 1]]));
-  adj.set(2, new Map([[1, 1], [3, 1]])); // 2 connects to clique B via 3
+  adj.set(
+    2,
+    new Map([
+      [1, 1],
+      [3, 1],
+    ]),
+  ); // 2 connects to clique B via 3
   // Clique B: 3-4
-  adj.set(3, new Map([[2, 1], [4, 1]]));
+  adj.set(
+    3,
+    new Map([
+      [2, 1],
+      [4, 1],
+    ]),
+  );
   adj.set(4, new Map([[3, 1]]));
 
   const deg = new Map<number, number>();
   for (const [node, neighbors] of adj) {
-    deg.set(node, [...neighbors.values()].reduce((a, b) => a + b, 0));
+    deg.set(
+      node,
+      [...neighbors.values()].reduce((a, b) => a + b, 0),
+    );
   }
 
   // Partition: clique A = community 0, clique B = community 1
   const partition = new Map<number, number>();
-  partition.set(1, 0); partition.set(2, 0);
-  partition.set(3, 1); partition.set(4, 1);
+  partition.set(1, 0);
+  partition.set(2, 0);
+  partition.set(3, 1);
+  partition.set(4, 1);
 
   return { adj, deg, partition };
 }
@@ -78,8 +91,14 @@ describe('buildReducedGraph', () => {
     const adj = new Map<number, Map<number, number>>();
     adj.set(1, new Map([[2, 1]]));
     adj.set(2, new Map([[1, 1]]));
-    const deg = new Map([[1, 1], [2, 1]]);
-    const partition = new Map([[1, 0], [2, 0]]);
+    const deg = new Map([
+      [1, 1],
+      [2, 1],
+    ]);
+    const partition = new Map([
+      [1, 0],
+      [2, 0],
+    ]);
 
     const reduced = buildReducedGraph(adj, partition, deg);
     expect(reduced.nodes).toHaveLength(1);
@@ -91,12 +110,14 @@ describe('mapToOriginalNodes', () => {
   it('maps reduced-graph partition back to original nodes', () => {
     // Reduced graph: node 0 → super-community A, node 1 → super-community A
     const reducedPartition = new Map<number, number>([
-      [0, 100], [1, 100],
+      [0, 100],
+      [1, 100],
     ]);
 
     // Community membership: 0 contains [1,2], 1 contains [3,4]
     const members = new Map<number, number[]>([
-      [0, [1, 2]], [1, [3, 4]],
+      [0, [1, 2]],
+      [1, [3, 4]],
     ]);
 
     const result = mapToOriginalNodes(reducedPartition, members);
@@ -114,4 +135,3 @@ describe('mapToOriginalNodes', () => {
     expect(result.size).toBe(0);
   });
 });
-

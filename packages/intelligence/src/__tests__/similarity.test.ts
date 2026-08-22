@@ -51,41 +51,51 @@ describe('End-to-End: Search → Embedding → Similarity', () => {
     store = new InMemoryGraphStore();
 
     // Create diverse set of nodes
-    store.insertNode(createNode(1, {
-      name: 'getUserProfile',
-      qualifiedName: 'api.getUserProfile',
-      signature: 'function getUserProfile(userId: number): UserProfile',
-      docstring: 'Retrieves the user profile from the database',
-    }));
+    store.insertNode(
+      createNode(1, {
+        name: 'getUserProfile',
+        qualifiedName: 'api.getUserProfile',
+        signature: 'function getUserProfile(userId: number): UserProfile',
+        docstring: 'Retrieves the user profile from the database',
+      }),
+    );
 
-    store.insertNode(createNode(2, {
-      name: 'getUserSettings',
-      qualifiedName: 'api.getUserSettings',
-      signature: 'function getUserSettings(userId: number): Settings',
-      docstring: 'Retrieves user settings',
-    }));
+    store.insertNode(
+      createNode(2, {
+        name: 'getUserSettings',
+        qualifiedName: 'api.getUserSettings',
+        signature: 'function getUserSettings(userId: number): Settings',
+        docstring: 'Retrieves user settings',
+      }),
+    );
 
-    store.insertNode(createNode(3, {
-      name: 'createUser',
-      qualifiedName: 'api.createUser',
-      signature: 'function createUser(data: CreateUserDTO): User',
-      docstring: 'Creates a new user in the system',
-    }));
+    store.insertNode(
+      createNode(3, {
+        name: 'createUser',
+        qualifiedName: 'api.createUser',
+        signature: 'function createUser(data: CreateUserDTO): User',
+        docstring: 'Creates a new user in the system',
+      }),
+    );
 
-    store.insertNode(createNode(4, {
-      name: 'deleteUser',
-      qualifiedName: 'api.deleteUser',
-      signature: 'function deleteUser(userId: number): void',
-      docstring: 'Deletes a user from the system',
-    }));
+    store.insertNode(
+      createNode(4, {
+        name: 'deleteUser',
+        qualifiedName: 'api.deleteUser',
+        signature: 'function deleteUser(userId: number): void',
+        docstring: 'Deletes a user from the system',
+      }),
+    );
 
-    store.insertNode(createNode(5, {
-      name: 'DatabaseManager',
-      qualifiedName: 'db.DatabaseManager',
-      label: 'Class' as const,
-      signature: 'class DatabaseManager',
-      docstring: 'Manages database connections and queries',
-    }));
+    store.insertNode(
+      createNode(5, {
+        name: 'DatabaseManager',
+        qualifiedName: 'db.DatabaseManager',
+        label: 'Class' as const,
+        signature: 'class DatabaseManager',
+        docstring: 'Manages database connections and queries',
+      }),
+    );
 
     searchEngine = new HybridSearchEngine(store);
     searchEngine.initialize();
@@ -176,28 +186,33 @@ describe('End-to-End: MinHash → LSH → Similarity Edges', () => {
     const lsh = new LSHSearcher(16);
 
     // Two nearly identical functions
-    store.insertNode(createNode(1, {
-      name: 'getUser',
-      signature: 'function getUser(id: number): User { return db.find(id); }',
-    }));
+    store.insertNode(
+      createNode(1, {
+        name: 'getUser',
+        signature: 'function getUser(id: number): User { return db.find(id); }',
+      }),
+    );
 
-    store.insertNode(createNode(2, {
-      name: 'getUserWithCache',
-      signature: 'function getUserWithCache(id: number): User { const cached = cache.get(id); if (cached) return cached; return db.find(id); }',
-    }));
+    store.insertNode(
+      createNode(2, {
+        name: 'getUserWithCache',
+        signature:
+          'function getUserWithCache(id: number): User { const cached = cache.get(id); if (cached) return cached; return db.find(id); }',
+      }),
+    );
 
-    store.insertNode(createNode(3, {
-      name: 'Database',
-      label: 'Class' as const,
-      signature: 'class Database { connect() {} query(sql: string) {} close() {} }',
-    }));
+    store.insertNode(
+      createNode(3, {
+        name: 'Database',
+        label: 'Class' as const,
+        signature: 'class Database { connect() {} query(sql: string) {} close() {} }',
+      }),
+    );
 
     // Build content fingerprints
     const fingerprints = new Map<number, number[]>();
     for (const node of store.getAllNodes()) {
-      const tokens = tokenizeCode(
-        `${node.name} ${node.signature ?? ''} ${node.docstring ?? ''}`,
-      );
+      const tokens = tokenizeCode(`${node.name} ${node.signature ?? ''} ${node.docstring ?? ''}`);
       fingerprints.set(node.id, mh.computeFingerprint(tokens));
     }
 
@@ -226,15 +241,19 @@ describe('End-to-End: MinHash → LSH → Similarity Edges', () => {
     // Duplicate function
     const code = 'function add(a: number, b: number): number { return a + b; }';
 
-    store.insertNode(createNode(1, {
-      name: 'add',
-      signature: code,
-    }));
+    store.insertNode(
+      createNode(1, {
+        name: 'add',
+        signature: code,
+      }),
+    );
 
-    store.insertNode(createNode(2, {
-      name: 'sum',
-      signature: code,
-    }));
+    store.insertNode(
+      createNode(2, {
+        name: 'sum',
+        signature: code,
+      }),
+    );
 
     const fp = mh.computeFingerprint(tokenizeCode(code));
     const fp1 = mh.computeFingerprint(tokenizeCode(code));
@@ -281,10 +300,7 @@ describe('End-to-End: Incremental Update', () => {
     }
 
     // First batch: embed the first 25
-    await embedEngine.incrementalUpdate(
-      largeSet.slice(0, 25),
-      (id) => contentMap.get(id) ?? '',
-    );
+    await embedEngine.incrementalUpdate(largeSet.slice(0, 25), (id) => contentMap.get(id) ?? '');
 
     for (let i = 1; i <= 25; i++) {
       expect(embedEngine.getEmbedding(i)).not.toBeNull();
@@ -294,10 +310,7 @@ describe('End-to-End: Incremental Update', () => {
     }
 
     // Second batch: embed remaining, but also include some from first batch
-    await embedEngine.incrementalUpdate(
-      largeSet.slice(20, 50),
-      (id) => contentMap.get(id) ?? '',
-    );
+    await embedEngine.incrementalUpdate(largeSet.slice(20, 50), (id) => contentMap.get(id) ?? '');
 
     // All should now have embeddings
     for (let i = 1; i <= 50; i++) {
@@ -317,22 +330,45 @@ describe('End-to-End: Full Intelligence Pipeline', () => {
     // Step 1: Insert a diverse codebase
     const snippets = [
       { name: 'getUser', code: 'function getUser(id: number): User { return db.users.find(id); }' },
-      { name: 'getUserById', code: 'function getUserById(id: number): User { return db.users.findById(id); }' },
-      { name: 'createUser', code: 'function createUser(data: CreateDTO): User { return db.users.create(data); }' },
-      { name: 'updateUser', code: 'function updateUser(id: number, data: UpdateDTO): User { return db.users.update(id, data); }' },
-      { name: 'deleteUser', code: 'function deleteUser(id: number): void { db.users.delete(id); }' },
-      { name: 'listUsers', code: 'function listUsers(opts: ListOptions): User[] { return db.users.list(opts); }' },
-      { name: 'Database', code: 'class Database { connect() { } query(sql: string) { } disconnect() { } }' },
-      { name: 'CacheLayer', code: 'class CacheLayer { get(key: string) { } set(key: string, value: any) { } invalidate(key: string) { } }' },
+      {
+        name: 'getUserById',
+        code: 'function getUserById(id: number): User { return db.users.findById(id); }',
+      },
+      {
+        name: 'createUser',
+        code: 'function createUser(data: CreateDTO): User { return db.users.create(data); }',
+      },
+      {
+        name: 'updateUser',
+        code: 'function updateUser(id: number, data: UpdateDTO): User { return db.users.update(id, data); }',
+      },
+      {
+        name: 'deleteUser',
+        code: 'function deleteUser(id: number): void { db.users.delete(id); }',
+      },
+      {
+        name: 'listUsers',
+        code: 'function listUsers(opts: ListOptions): User[] { return db.users.list(opts); }',
+      },
+      {
+        name: 'Database',
+        code: 'class Database { connect() { } query(sql: string) { } disconnect() { } }',
+      },
+      {
+        name: 'CacheLayer',
+        code: 'class CacheLayer { get(key: string) { } set(key: string, value: any) { } invalidate(key: string) { } }',
+      },
     ];
 
     for (let i = 0; i < snippets.length; i++) {
       const snippet = snippets[i]!;
-      store.insertNode(createNode(i + 1, {
-        name: snippet.name,
-        signature: snippet.code,
-        qualifiedName: `pkg.${snippet.name}`,
-      }));
+      store.insertNode(
+        createNode(i + 1, {
+          name: snippet.name,
+          signature: snippet.code,
+          qualifiedName: `pkg.${snippet.name}`,
+        }),
+      );
     }
 
     // Step 2: Initialize search
@@ -348,9 +384,7 @@ describe('End-to-End: Full Intelligence Pipeline', () => {
     await embedEngine.initialize();
 
     for (const node of store.getAllNodes()) {
-      const vec = await embedEngine.embedCode(
-        `${node.name} ${node.signature ?? ''}`,
-      );
+      const vec = await embedEngine.embedCode(`${node.name} ${node.signature ?? ''}`);
       embedEngine.storeEmbedding(node.id, vec);
     }
 

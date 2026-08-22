@@ -90,7 +90,8 @@ describe('JavaScriptProvider', () => {
     });
 
     it('should detect class methods and constructors', () => {
-      const source = 'class Person {\n  constructor(name) { this.name = name; }\n  greet() { return "hi"; }\n}';
+      const source =
+        'class Person {\n  constructor(name) { this.name = name; }\n  greet() { return "hi"; }\n}';
       const captures = provider.parse(source, 'test.js');
       const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
@@ -133,7 +134,9 @@ describe('JavaScriptProvider', () => {
     it('should handle nested blocks', () => {
       const source = 'function outer() {\n  if (true) {\n    return true;\n  }\n  return false;\n}';
       const captures = provider.parse(source, 'test.js');
-      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'outer');
+      const funcs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'outer',
+      );
       expect(funcs).toHaveLength(1);
     });
 

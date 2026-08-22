@@ -28,16 +28,12 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     oldHash: '',
     newHash: '',
     changeType: 'modified',
-    ranges: [
-      { oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' },
-    ],
+    ranges: [{ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 10, changeType: 'modified' }],
     ...overrides,
   };
 }
 
-function createSourceMap(
-  files: Record<string, string>,
-): Map<string, string> {
+function createSourceMap(files: Record<string, string>): Map<string, string> {
   const map = new Map<string, string>();
   for (const [path, content] of Object.entries(files)) {
     map.set(path, content);
@@ -70,7 +66,7 @@ describe('Lens Profiles', () => {
   });
 
   it('each non-synthesis lens should have MCP tools', () => {
-    const profiles = getLensProfiles().filter(p => p.id !== 'synthesis');
+    const profiles = getLensProfiles().filter((p) => p.id !== 'synthesis');
     for (const p of profiles) {
       expect(p.mcpTools.length).toBeGreaterThan(0);
     }
@@ -130,9 +126,7 @@ describe('createLensFinding', () => {
       lens: 'security',
     };
 
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Test', 'Desc', evidence,
-    );
+    const finding = createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence);
     expect(finding).toBeNull();
   });
 
@@ -145,9 +139,7 @@ describe('createLensFinding', () => {
       lens: 'security',
     };
 
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Test', 'Desc', evidence,
-    );
+    const finding = createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence);
     expect(finding).toBeNull();
   });
 
@@ -160,9 +152,7 @@ describe('createLensFinding', () => {
       lens: 'security',
     };
 
-    const finding = createLensFinding(
-      'security', 'security', 'critical', 'Test', 'Desc', evidence,
-    );
+    const finding = createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence);
     expect(finding).toBeNull();
   });
 
@@ -176,9 +166,17 @@ describe('createLensFinding', () => {
     };
 
     const finding = createLensFinding(
-      'security', 'security', 'critical', 'Eval Usage', 'Avoid eval',
+      'security',
+      'security',
+      'critical',
+      'Eval Usage',
+      'Avoid eval',
       evidence,
-      { suggestion: 'Use JSON.parse instead', graphRef: 'MATCH (f:Function {name: "eval"})', autoFixable: false },
+      {
+        suggestion: 'Use JSON.parse instead',
+        graphRef: 'MATCH (f:Function {name: "eval"})',
+        autoFixable: false,
+      },
     );
 
     expect(finding).not.toBeNull();
@@ -202,7 +200,12 @@ describe('lensFindingToReviewComment', () => {
     };
 
     const finding = createLensFinding(
-      'security', 'security', 'high', 'SQL Injection', 'Unsafe query', evidence,
+      'security',
+      'security',
+      'high',
+      'SQL Injection',
+      'Unsafe query',
+      evidence,
     )!;
 
     const comment = lensFindingToReviewComment(finding);
@@ -225,24 +228,24 @@ describe('Security Patterns', () => {
   });
 
   it('should detect eval() usage', () => {
-    const pattern = SECURITY_PATTERNS.find(p => p.id === 'sec-eval')!;
+    const pattern = SECURITY_PATTERNS.find((p) => p.id === 'sec-eval')!;
     expect(pattern.pattern.test('eval(code)')).toBe(true);
     expect(pattern.severity).toBe('critical');
   });
 
   it('should detect SQL concatenation', () => {
-    const pattern = SECURITY_PATTERNS.find(p => p.id === 'sec-sql-concat')!;
+    const pattern = SECURITY_PATTERNS.find((p) => p.id === 'sec-sql-concat')!;
     expect(pattern.severity).toBe('critical');
   });
 
   it('should detect hardcoded API key', () => {
-    const pattern = SECURITY_PATTERNS.find(p => p.id === 'sec-hardcoded-key')!;
+    const pattern = SECURITY_PATTERNS.find((p) => p.id === 'sec-hardcoded-key')!;
     expect(pattern.pattern.test('api_key = "abcdefghijklmnop"')).toBe(true);
     expect(pattern.severity).toBe('critical');
   });
 
   it('should detect XSS via innerHTML', () => {
-    const pattern = SECURITY_PATTERNS.find(p => p.id === 'sec-xss-innerhtml')!;
+    const pattern = SECURITY_PATTERNS.find((p) => p.id === 'sec-xss-innerhtml')!;
     expect(pattern.pattern.test('div.innerHTML = userInput')).toBe(true);
   });
 });
@@ -266,87 +269,106 @@ describe('ReviewSwarm', () => {
 
   describe('review — security lens', () => {
     it('should detect eval() in code', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/danger.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/danger.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/danger.ts': 'function run(code: string) {\n  eval(code);\n}\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
 
-      const secFindings = result.comments.filter(c => c.category === 'security');
+      const secFindings = result.comments.filter((c) => c.category === 'security');
       expect(secFindings.length).toBeGreaterThan(0);
-      expect(secFindings.some(c => c.content.includes('severe security risk'))).toBe(true);
+      expect(secFindings.some((c) => c.content.includes('severe security risk'))).toBe(true);
     });
 
     it('should detect hardcoded passwords', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/config.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/config.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/config.ts': 'const password = "superSecret123";\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.category === 'security');
-      expect(secFindings.some(c => c.content.includes('Hardcoded passwords'))).toBe(true);
+      const secFindings = result.comments.filter((c) => c.category === 'security');
+      expect(secFindings.some((c) => c.content.includes('Hardcoded passwords'))).toBe(true);
     });
   });
 
   describe('review — performance lens', () => {
     it('should detect synchronous file I/O', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/handler.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/handler.ts',
+        }),
+      ];
       const sources = createSourceMap({
-        '/src/handler.ts': 'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
+        '/src/handler.ts':
+          'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.category === 'performance');
-      expect(perfFindings.some(c => c.content.includes('Synchronous file operations'))).toBe(true);
+      const perfFindings = result.comments.filter((c) => c.category === 'performance');
+      expect(perfFindings.some((c) => c.content.includes('Synchronous file operations'))).toBe(
+        true,
+      );
     });
 
     it('should skip performance checks on test files', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/handler.test.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/handler.test.ts',
+        }),
+      ];
       const sources = createSourceMap({
-        '/src/handler.test.ts': 'import fs from "fs";\nit("test", () => { fs.readFileSync("/x"); });\n',
+        '/src/handler.test.ts':
+          'import fs from "fs";\nit("test", () => { fs.readFileSync("/x"); });\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.category === 'performance');
+      const perfFindings = result.comments.filter((c) => c.category === 'performance');
       expect(perfFindings.length).toBe(0);
     });
   });
 
   describe('review — testing lens', () => {
     it('should detect test.only in test files', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/__tests__/foo.test.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/__tests__/foo.test.ts',
+        }),
+      ];
       const sources = createSourceMap({
-        '/src/__tests__/foo.test.ts': "it.only('should work', () => { expect(true).toBe(true); });\n",
+        '/src/__tests__/foo.test.ts':
+          "it.only('should work', () => { expect(true).toBe(true); });\n",
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const testFindings = result.comments.filter(c => c.category === 'test');
-      expect(testFindings.some(c => c.content.includes('causes other tests to be skipped'))).toBe(true);
+      const testFindings = result.comments.filter((c) => c.category === 'test');
+      expect(testFindings.some((c) => c.content.includes('causes other tests to be skipped'))).toBe(
+        true,
+      );
     });
 
     it('should detect skipped tests', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/__tests__/foo.test.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/__tests__/foo.test.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/__tests__/foo.test.ts': "xit('should work', () => { expect(true).toBe(true); });\n",
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const testFindings = result.comments.filter(c => c.category === 'test');
-      expect(testFindings.some(c => c.content.includes('Skipped tests hide'))).toBe(true);
+      const testFindings = result.comments.filter((c) => c.category === 'test');
+      expect(testFindings.some((c) => c.content.includes('Skipped tests hide'))).toBe(true);
     });
   });
 
@@ -360,7 +382,7 @@ describe('ReviewSwarm', () => {
       const sources = createSourceMap({ '/src/big.ts': lines.join('\n') });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.category === 'style');
+      const styleFindings = result.comments.filter((c) => c.category === 'style');
       // Should have at least some style findings (console.log or long function)
       expect(styleFindings.length).toBeGreaterThanOrEqual(1);
     });
@@ -372,8 +394,8 @@ describe('ReviewSwarm', () => {
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.category === 'style');
-      expect(styleFindings.some(c => c.content.includes('console.log() left'))).toBe(true);
+      const styleFindings = result.comments.filter((c) => c.category === 'style');
+      expect(styleFindings.some((c) => c.content.includes('console.log() left'))).toBe(true);
     });
 
     it('should detect deep nesting (>4 levels)', async () => {
@@ -396,19 +418,13 @@ describe('ReviewSwarm', () => {
       const sources = createSourceMap({ '/src/deep.ts': lines.join('\n') });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.category === 'style');
-      expect(styleFindings.some(c => c.content.includes('nesting depth'))).toBe(true);
+      const styleFindings = result.comments.filter((c) => c.category === 'style');
+      expect(styleFindings.some((c) => c.content.includes('nesting depth'))).toBe(true);
     });
 
     it('should detect method-style function declarations', async () => {
       // Trigger regex capture group 3: (\w+)\s*\([^)]*\)\s*\{
-      const lines = [
-        'class Foo {',
-        '  methodName(x, y) {',
-        '    return x + y;',
-        '  }',
-        '}',
-      ];
+      const lines = ['class Foo {', '  methodName(x, y) {', '    return x + y;', '  }', '}'];
       const diffs = [createDiff({ filePath: '/src/method.ts' })];
       const sources = createSourceMap({ '/src/method.ts': lines.join('\n') });
       const result = await swarm.review('test-project', diffs, sources);
@@ -420,13 +436,16 @@ describe('ReviewSwarm', () => {
     it('should detect route handler without validation', async () => {
       const diffs = [createDiff({ filePath: '/src/api/users.ts' })];
       const sources = createSourceMap({
-        '/src/api/users.ts': 'router.post("/users", async (req, res) => {\n  const data = req.body;\n  await db.save(data);\n  res.json({ ok: true });\n});\n',
+        '/src/api/users.ts':
+          'router.post("/users", async (req, res) => {\n  const data = req.body;\n  await db.save(data);\n  res.json({ ok: true });\n});\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.category === 'api' || c.category === 'other');
+      const apiFindings = result.comments.filter(
+        (c) => c.category === 'api' || c.category === 'other',
+      );
       expect(apiFindings.length).toBeGreaterThan(0);
-      expect(apiFindings.some(c => c.content.includes('input validation'))).toBe(true);
+      expect(apiFindings.some((c) => c.content.includes('input validation'))).toBe(true);
     });
   });
 
@@ -434,12 +453,13 @@ describe('ReviewSwarm', () => {
     it('should detect exported function without JSDoc', async () => {
       const diffs = [createDiff({ filePath: '/src/utils.ts' })];
       const sources = createSourceMap({
-        '/src/utils.ts': 'export function calculateTotal(items: number[]): number {\n  return items.reduce((a, b) => a + b, 0);\n}\n',
+        '/src/utils.ts':
+          'export function calculateTotal(items: number[]): number {\n  return items.reduce((a, b) => a + b, 0);\n}\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
-      expect(docsFindings.some(c => c.content.includes('no JSDoc'))).toBe(true);
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
+      expect(docsFindings.some((c) => c.content.includes('no JSDoc'))).toBe(true);
     });
   });
 
@@ -449,9 +469,11 @@ describe('ReviewSwarm', () => {
 
   describe('synthesis — summary', () => {
     it('should produce summary with bySeverity counts', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/eval.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/eval.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/eval.ts': 'function run() {\n  eval("alert(1)");\n  const pwd = "secret";\n}\n',
       });
@@ -463,9 +485,11 @@ describe('ReviewSwarm', () => {
     });
 
     it('should produce action plan with prioritized items', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/bad.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/bad.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/bad.ts': 'eval("bad");\nconst key = "abc123def456ghi789";\n',
       });
@@ -477,9 +501,11 @@ describe('ReviewSwarm', () => {
     });
 
     it('should block merge when critical findings exist', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/danger.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/danger.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/danger.ts': 'eval(userInput);\n',
       });
@@ -491,9 +517,11 @@ describe('ReviewSwarm', () => {
     });
 
     it('should approve clean code', async () => {
-      const diffs = [createDiff({
-        filePath: '/src/good.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/good.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/good.ts': 'function add(a: number, b: number): number {\n  return a + b;\n}\n',
       });
@@ -504,9 +532,11 @@ describe('ReviewSwarm', () => {
 
     it('should not have duplicate findings (IoU dedup)', async () => {
       // Create a scenario where multiple lenses might flag the same code
-      const diffs = [createDiff({
-        filePath: '/src/overlap.ts',
-      })];
+      const diffs = [
+        createDiff({
+          filePath: '/src/overlap.ts',
+        }),
+      ];
       const sources = createSourceMap({
         '/src/overlap.ts': `
 function handler(req: any, res: any) {
@@ -571,11 +601,9 @@ function handler(req: any, res: any) {
       });
 
       const result = await specificSwarm.review('test-project', diffs, sources);
-      
+
       // Should only have security and style findings
-      const lensCategories = new Set(
-        result.comments.map(c => c.category),
-      );
+      const lensCategories = new Set(result.comments.map((c) => c.category));
       for (const cat of lensCategories) {
         expect(['security', 'style']).toContain(cat);
       }
@@ -608,7 +636,7 @@ function handler(req: any, res: any) {
       const sources = createSourceMap({ '/src/long.ts': longFunc });
 
       const result = await limitedSwarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.category === 'style');
+      const styleFindings = result.comments.filter((c) => c.category === 'style');
       expect(styleFindings.length).toBeLessThanOrEqual(1);
     });
 
@@ -653,7 +681,8 @@ function handler(req: any, res: any) {
     it('should handle file with no issues', async () => {
       const diffs = [createDiff({ filePath: '/src/clean.ts' })];
       const sources = createSourceMap({
-        '/src/clean.ts': '/** @returns sum */\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n',
+        '/src/clean.ts':
+          '/** @returns sum */\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
@@ -663,47 +692,51 @@ function handler(req: any, res: any) {
     it('should detect nested loops as performance issue', async () => {
       const diffs = [createDiff({ filePath: '/src/nested.ts' })];
       const sources = createSourceMap({
-        '/src/nested.ts': 'function findPairs(arr: number[]) {\n  for (let i = 0; i < arr.length; i++) {\n    for (let j = 0; j < arr.length; j++) {\n      if (i !== j) process(arr[i], arr[j]);\n    }\n  }\n}\n',
+        '/src/nested.ts':
+          'function findPairs(arr: number[]) {\n  for (let i = 0; i < arr.length; i++) {\n    for (let j = 0; j < arr.length; j++) {\n      if (i !== j) process(arr[i], arr[j]);\n    }\n  }\n}\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.category === 'performance');
-      expect(perfFindings.some(c => c.content.includes('Nested loops can cause'))).toBe(true);
+      const perfFindings = result.comments.filter((c) => c.category === 'performance');
+      expect(perfFindings.some((c) => c.content.includes('Nested loops can cause'))).toBe(true);
     });
 
     it('should detect setInterval without clearInterval', async () => {
       const diffs = [createDiff({ filePath: '/src/leaky.ts' })];
       const sources = createSourceMap({
-        '/src/leaky.ts': 'function startPolling() {\n  setInterval(() => { fetch("/api"); }, 1000);\n}\n',
+        '/src/leaky.ts':
+          'function startPolling() {\n  setInterval(() => { fetch("/api"); }, 1000);\n}\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const perfFindings = result.comments.filter(c => c.category === 'performance');
-      expect(perfFindings.some(c => c.content.includes('memory leaks'))).toBe(true);
+      const perfFindings = result.comments.filter((c) => c.category === 'performance');
+      expect(perfFindings.some((c) => c.content.includes('memory leaks'))).toBe(true);
     });
 
     it('should NOT flag route with validation middleware', async () => {
       const diffs = [createDiff({ filePath: '/src/api/safe.ts' })];
       const sources = createSourceMap({
-        '/src/api/safe.ts': 'import { validate } from "./middleware";\nrouter.post("/data", validate(schema), async (req, res) => {\n  res.json({ ok: true });\n});\n',
+        '/src/api/safe.ts':
+          'import { validate } from "./middleware";\nrouter.post("/data", validate(schema), async (req, res) => {\n  res.json({ ok: true });\n});\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.category === 'other');
+      const apiFindings = result.comments.filter((c) => c.category === 'other');
       // Should still detect missing auth, but NOT missing validation
-      expect(apiFindings.some(c => c.content.includes('lack input validation'))).toBe(false);
+      expect(apiFindings.some((c) => c.content.includes('lack input validation'))).toBe(false);
     });
 
     it('should flag exported function WITH JSDoc as clean (no finding)', async () => {
       const diffs = [createDiff({ filePath: '/src/documented.ts' })];
       const sources = createSourceMap({
-        '/src/documented.ts': '/** Calculates the sum of two numbers.\\n * @param {number} a - First addend\\n * @param {number} b - Second addend\\n * @returns {number} The sum\\n */\\nexport function add(a: number, b: number): number {\\n  return a + b;\\n}\\n',
+        '/src/documented.ts':
+          '/** Calculates the sum of two numbers.\\n * @param {number} a - First addend\\n * @param {number} b - Second addend\\n * @returns {number} The sum\\n */\\nexport function add(a: number, b: number): number {\\n  return a + b;\\n}\\n',
       });
 
       const result = await swarm.review('test-project', diffs, sources);
       // Should not have any docs findings (function has complete JSDoc)
       // If JSDoc format matches expected patterns, findings should be minimal
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
       expect(docsFindings.length).toBeGreaterThanOrEqual(0);
     });
 
@@ -781,7 +814,7 @@ function handler(req: any, res: any) {
       });
       const result = await swarm.review('test-project', diffs, sources);
       // Security findings on comment lines should be rejected
-      const secFindings = result.comments.filter(c => c.category === 'security');
+      const secFindings = result.comments.filter((c) => c.category === 'security');
       expect(secFindings.length).toBe(0);
     });
 
@@ -795,7 +828,7 @@ function handler(req: any, res: any) {
         '/src/commented.ts': '// console.log("debug");\nfunction ok() { return 1; }\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.category === 'style');
+      const styleFindings = result.comments.filter((c) => c.category === 'style');
       // Style findings on comments are noise and should be rejected
       expect(styleFindings.length).toBe(0);
     });
@@ -844,7 +877,7 @@ function handler(req: any, res: any) {
       // The docs lens flags the commented export function.
       // The adversarial validator sees it's a comment line, but since lens is "docs"
       // (not security/style), it keeps it with low confidence.
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
       // The finding should be kept with appropriate severity
       for (const f of docsFindings) {
         expect(['low', 'medium']).toContain(f.severity);
@@ -862,7 +895,7 @@ function handler(req: any, res: any) {
         '/webpack.config.js': 'module.exports = {\n  devtool: eval("source-map"),\n};\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.category === 'security');
+      const secFindings = result.comments.filter((c) => c.category === 'security');
       // eval in webpack config should be down-ranked to low severity
       for (const f of secFindings) {
         expect(f.severity).toBe('low');
@@ -880,7 +913,7 @@ function handler(req: any, res: any) {
         '/src/__fixtures__/keys.ts': 'const api_key = "sk-test-1234567890abcdef";\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.category === 'security');
+      const secFindings = result.comments.filter((c) => c.category === 'security');
       // Hardcoded keys in test fixtures should be down-ranked to info
       for (const f of secFindings) {
         expect(['low', 'info']).toContain(f.severity);
@@ -898,7 +931,7 @@ function handler(req: any, res: any) {
         '/src/mocks/keys.mock.ts': 'const api_key = "sk-test-1234567890abcdef";\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.category === 'security');
+      const secFindings = result.comments.filter((c) => c.category === 'security');
       for (const f of secFindings) {
         expect(['low', 'info']).toContain(f.severity);
       }
@@ -915,7 +948,7 @@ function handler(req: any, res: any) {
         '/src/cli/main.ts': 'function main() {\n  console.log("Starting CLI...");\n}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const styleFindings = result.comments.filter(c => c.category === 'style');
+      const styleFindings = result.comments.filter((c) => c.category === 'style');
       // console.log in CLI tools is normal — should be low confidence
       for (const f of styleFindings) {
         expect(f.severity).toBe('low');
@@ -930,12 +963,13 @@ function handler(req: any, res: any) {
       });
       const diffs = [createDiff({ filePath: '/src/Button.tsx' })];
       const sources = createSourceMap({
-        '/src/Button.tsx': 'export interface ButtonProps {\n  label: string;\n  onClick: () => void;\n}\n',
+        '/src/Button.tsx':
+          'export interface ButtonProps {\n  label: string;\n  onClick: () => void;\n}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
       // export interface is now flagged by docs lens (no JSDoc),
       // but adversarial check 5 down-ranks Props interfaces to low severity
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
       expect(docsFindings.length).toBeGreaterThanOrEqual(0);
       for (const f of docsFindings) {
         expect(f.severity).toBe('low');
@@ -952,7 +986,7 @@ function handler(req: any, res: any) {
         '/src/real.ts': 'function run(code: string) {\n  eval(code);\n}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const secFindings = result.comments.filter(c => c.category === 'security');
+      const secFindings = result.comments.filter((c) => c.category === 'security');
       expect(secFindings.length).toBeGreaterThan(0);
     });
   });
@@ -971,7 +1005,7 @@ function handler(req: any, res: any) {
       expect(result).toBeDefined();
       expect(result.lensReports.length).toBeGreaterThan(0);
       // At least the security lens should have findings
-      const secReport = result.lensReports.find(r => r.lens === 'security');
+      const secReport = result.lensReports.find((r) => r.lens === 'security');
       expect(secReport).toBeDefined();
       if (secReport) {
         for (const f of secReport.findings) {
@@ -995,7 +1029,9 @@ function handler(req: any, res: any) {
     it('should handle enrichment errors gracefully (catch branch, L191-193)', async () => {
       // Mock enrichWithGraphContext to throw, covering the catch in reviewWithGraphContext
       const originalMethod = (swarm as any).enrichWithGraphContext;
-      (swarm as any).enrichWithGraphContext = () => { throw new Error('Enrichment failed'); };
+      (swarm as any).enrichWithGraphContext = () => {
+        throw new Error('Enrichment failed');
+      };
       try {
         const result = await swarm.reviewWithGraphContext(
           'test-project',
@@ -1031,7 +1067,9 @@ function handler(req: any, res: any) {
       const result = await swarm.review(
         'test-project',
         [createDiff({ filePath: '/src/clean.ts' })],
-        createSourceMap({ '/src/clean.ts': 'function add(a: number, b: number): number {\n  return a + b;\n}\n' }),
+        createSourceMap({
+          '/src/clean.ts': 'function add(a: number, b: number): number {\n  return a + b;\n}\n',
+        }),
       );
       const prompt = swarm.generateMCPPrompt(result, 'Clean PR');
       expect(prompt).toContain('No high-confidence findings');
@@ -1043,7 +1081,8 @@ function handler(req: any, res: any) {
         'test-project',
         [createDiff({ filePath: '/src/perf.ts' })],
         createSourceMap({
-          '/src/perf.ts': 'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
+          '/src/perf.ts':
+            'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
         }),
       );
       const prompt = swarm.generateMCPPrompt(result, 'Performance PR');
@@ -1061,7 +1100,8 @@ function handler(req: any, res: any) {
         'test-project',
         [createDiff({ filePath: '/src/perf2.ts' })],
         createSourceMap({
-          '/src/perf2.ts': 'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
+          '/src/perf2.ts':
+            'import fs from "fs";\nfunction handler() {\n  const data = fs.readFileSync("/path");\n}\n',
         }),
       );
       const prompt = swarm2.generateMCPPrompt(result, 'PR with graph context');
@@ -1175,7 +1215,8 @@ function handler(req: any, res: any) {
       });
       const diffs = [createDiff({ filePath: '/src/api-types.ts' })];
       const sources = createSourceMap({
-        '/src/api-types.ts': 'export interface User {\n  id: string;\n  name: string;\n  email?: string;\n}\n',
+        '/src/api-types.ts':
+          'export interface User {\n  id: string;\n  name: string;\n  email?: string;\n}\n',
       });
       const result = await contractSwarm.review('test-project', diffs, sources);
       expect(result).toBeDefined();
@@ -1233,7 +1274,7 @@ function handler(req: any, res: any) {
         '/src/types.ts': 'export type UserId = string;\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
       // export type is excluded from JSDoc requirement
       expect(docsFindings.length).toBe(0);
     });
@@ -1249,7 +1290,7 @@ function handler(req: any, res: any) {
         '/src/config.ts': 'export interface Config { debug: boolean; }\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
       // export interface alone (< 5 exports) may not trigger coverage check
       // but at least one finding should exist from other detections
       expect(docsFindings.length).toBeGreaterThanOrEqual(0);
@@ -1262,11 +1303,12 @@ function handler(req: any, res: any) {
       });
       const diffs = [createDiff({ filePath: '/src/triple-slash.ts' })];
       const sources = createSourceMap({
-        '/src/triple-slash.ts': '/// <reference path="./types" />\nexport function process(): void {}\n',
+        '/src/triple-slash.ts':
+          '/// <reference path="./types" />\nexport function process(): void {}\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
       // /// comments are not JSDoc — the function should have documentation findings
-      const docsFindings = result.comments.filter(c => c.category === 'documentation');
+      const docsFindings = result.comments.filter((c) => c.category === 'documentation');
       expect(docsFindings.length).toBeGreaterThanOrEqual(0);
     });
   });
@@ -1286,7 +1328,9 @@ function handler(req: any, res: any) {
         '/src/utils/helpers.ts': 'export function helper() { return 42; }\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.category === 'other' || c.category === 'api' || c.category === 'security');
+      const apiFindings = result.comments.filter(
+        (c) => c.category === 'other' || c.category === 'api' || c.category === 'security',
+      );
       expect(apiFindings.length).toBe(0);
     });
 
@@ -1297,10 +1341,13 @@ function handler(req: any, res: any) {
       });
       const diffs = [createDiff({ filePath: '/src/controllers/user.ts' })];
       const sources = createSourceMap({
-        '/src/controllers/user.ts': 'router.delete("/user/:id", async (req, res) => {\n  await db.remove(req.params.id);\n  res.json({ ok: true });\n});\n',
+        '/src/controllers/user.ts':
+          'router.delete("/user/:id", async (req, res) => {\n  await db.remove(req.params.id);\n  res.json({ ok: true });\n});\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.category === 'other' || c.category === 'api' || c.category === 'security');
+      const apiFindings = result.comments.filter(
+        (c) => c.category === 'other' || c.category === 'api' || c.category === 'security',
+      );
       expect(apiFindings.length).toBeGreaterThan(0);
     });
 
@@ -1311,10 +1358,13 @@ function handler(req: any, res: any) {
       });
       const diffs = [createDiff({ filePath: '/src/handlers/auth.ts' })];
       const sources = createSourceMap({
-        '/src/handlers/auth.ts': 'app.post("/login", async (req, res) => {\n  const token = await auth.login(req.body);\n  res.json({ token });\n});\n',
+        '/src/handlers/auth.ts':
+          'app.post("/login", async (req, res) => {\n  const token = await auth.login(req.body);\n  res.json({ token });\n});\n',
       });
       const result = await swarm.review('test-project', diffs, sources);
-      const apiFindings = result.comments.filter(c => c.category === 'other' || c.category === 'api' || c.category === 'security');
+      const apiFindings = result.comments.filter(
+        (c) => c.category === 'other' || c.category === 'api' || c.category === 'security',
+      );
       expect(apiFindings.length).toBeGreaterThan(0);
     });
   });
@@ -1352,13 +1402,44 @@ function handler(req: any, res: any) {
         lens: 'style',
         ruleId: 'test',
       };
-      const f1: any = { id: 'fa', lens: 'security', category: 'security', severity: 'low', confidence: 'rule', title: 'T1', description: 'D1', evidence: { ...evidence, lens: 'security', startLine: 10 } };
-      const f2: any = { id: 'fb', lens: 'style', category: 'style', severity: 'low', confidence: 'rule', title: 'T2', description: 'D2', evidence: { ...evidence, lens: 'style', startLine: 10 } };
-      const f3: any = { id: 'fc', lens: 'docs', category: 'documentation', severity: 'low', confidence: 'rule', title: 'T3', description: 'D3', evidence: { ...evidence, lens: 'docs', startLine: 10 } };
+      const f1: any = {
+        id: 'fa',
+        lens: 'security',
+        category: 'security',
+        severity: 'low',
+        confidence: 'rule',
+        title: 'T1',
+        description: 'D1',
+        evidence: { ...evidence, lens: 'security', startLine: 10 },
+      };
+      const f2: any = {
+        id: 'fb',
+        lens: 'style',
+        category: 'style',
+        severity: 'low',
+        confidence: 'rule',
+        title: 'T2',
+        description: 'D2',
+        evidence: { ...evidence, lens: 'style', startLine: 10 },
+      };
+      const f3: any = {
+        id: 'fc',
+        lens: 'docs',
+        category: 'documentation',
+        severity: 'low',
+        confidence: 'rule',
+        title: 'T3',
+        description: 'D3',
+        evidence: { ...evidence, lens: 'docs', startLine: 10 },
+      };
 
       const fakeReport: any = {
-        lens: 'test', name: 'Test', findings: [f1, f2, f3],
-        filesScanned: 1, linesAnalyzed: 1, durationMs: 10,
+        lens: 'test',
+        name: 'Test',
+        findings: [f1, f2, f3],
+        filesScanned: 1,
+        linesAnalyzed: 1,
+        durationMs: 10,
       };
       const result = (swarm as any).synthesize?.([fakeReport]);
       // With IoU threshold 0.5, exact same location findings are deduplicated.
@@ -1417,7 +1498,9 @@ function handler(req: any, res: any) {
       const highCount = result.summary.bySeverity.high;
       expect(highCount).toBeGreaterThanOrEqual(0);
       // Decision should be either request-changes or approve-with-comments
-      expect(['request-changes', 'approve-with-comments', 'approve']).toContain(result.decision.recommendation);
+      expect(['request-changes', 'approve-with-comments', 'approve']).toContain(
+        result.decision.recommendation,
+      );
       expect(result.decision.canMerge).toBe(true); // No critical findings
     });
 
@@ -1436,7 +1519,9 @@ function handler(req: any, res: any) {
       const result = await swarm.review('test-project', diffs, sources);
       // Long function = medium severity, no critical/high
       // Decision depends on total finding count and severity distribution
-      expect(['approve-with-comments', 'approve', 'request-changes']).toContain(result.decision.recommendation);
+      expect(['approve-with-comments', 'approve', 'request-changes']).toContain(
+        result.decision.recommendation,
+      );
       expect(result.summary.bySeverity.critical).toBe(0);
     });
 

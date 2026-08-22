@@ -13,10 +13,7 @@ import type { GraphNode } from '@code-analyzer/shared';
 
 const PROJECT_ID = 'test-project';
 
-function createNode(
-  id: number,
-  overrides: Partial<GraphNode> = {},
-): GraphNode {
+function createNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
   return {
     id,
     projectId: PROJECT_ID,
@@ -47,7 +44,14 @@ function createEdge(
   id: number,
   sourceId: number,
   targetId: number,
-  type: 'CALLS' | 'IMPLEMENTS' | 'EXTENDS' | 'MEMBER_OF' | 'TESTS' | 'HANDLES_ROUTE' | 'STEP_IN_PROCESS',
+  type:
+    | 'CALLS'
+    | 'IMPLEMENTS'
+    | 'EXTENDS'
+    | 'MEMBER_OF'
+    | 'TESTS'
+    | 'HANDLES_ROUTE'
+    | 'STEP_IN_PROCESS',
 ): void {
   store.insertEdge({
     id,
@@ -172,10 +176,7 @@ describe('ImpactAnalyzer.findDirectDependents', () => {
     store.insertNode(caller);
     createEdge(store, 301, caller.id, target1.id, 'CALLS');
 
-    const result = analyzer.findDirectDependents(PROJECT_ID, [
-      target1.id,
-      target2.id,
-    ]);
+    const result = analyzer.findDirectDependents(PROJECT_ID, [target1.id, target2.id]);
     expect(result).toHaveLength(1);
   });
 
@@ -211,8 +212,8 @@ describe('ImpactAnalyzer.findIndirectDependents', () => {
     const aId = store.insertNode(createNode(1));
     const bId = store.insertNode(createNode(2));
     const cId = store.insertNode(createNode(3));
-    createEdge(store, 201, bId, aId, 'CALLS');  // B calls A
-    createEdge(store, 302, cId, bId, 'CALLS');  // C calls B
+    createEdge(store, 201, bId, aId, 'CALLS'); // B calls A
+    createEdge(store, 302, cId, bId, 'CALLS'); // C calls B
 
     const result = analyzer.findIndirectDependents(PROJECT_ID, [aId], 2);
     expect(result).toHaveLength(2);
@@ -272,10 +273,9 @@ describe('ImpactAnalyzer.findIndirectDependents', () => {
     createEdge(store, 403, dId, cId, 'CALLS');
     createEdge(store, 504, eId, dId, 'CALLS');
 
-    const result = await analyzer.analyze(
-      PROJECT_ID,
-      [makeChangedSymbol('a', 'pkg.fn_1', '/src/file_1.ts')],
-    );
+    const result = await analyzer.analyze(PROJECT_ID, [
+      makeChangedSymbol('a', 'pkg.fn_1', '/src/file_1.ts'),
+    ]);
     // With default depth 3, we get B, C, D but not E
     const nodeIds = result.impactTree.map((n) => n.symbolQname);
     expect(nodeIds).toContain('pkg.fn_2'); // B
@@ -774,9 +774,7 @@ describe('ImpactAnalyzer.analyze', () => {
     createEdge(store, 201, caller.id, fn.id, 'CALLS');
     createEdge(store, 301, test.id, fn.id, 'TESTS');
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/app.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/app.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result.changedFiles).toContain('/src/app.ts');
@@ -793,9 +791,7 @@ describe('ImpactAnalyzer.analyze', () => {
     store.insertNode(caller);
     createEdge(store, 201, caller.id, fn.id, 'CALLS');
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     // With tests disabled, impact tree should still have dependents
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, {
@@ -808,9 +804,7 @@ describe('ImpactAnalyzer.analyze', () => {
     const fn = createNode(1);
     store.insertNode(fn);
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, {
       includeRoutes: false,
@@ -823,9 +817,7 @@ describe('ImpactAnalyzer.analyze', () => {
     const fn = createNode(1);
     store.insertNode(fn);
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, {
       includeProcesses: false,
@@ -842,9 +834,7 @@ describe('ImpactAnalyzer.analyze', () => {
       createEdge(store, i * 100 + i - 1, i, i - 1, 'CALLS');
     }
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, {
       maxDepth: 2,
@@ -877,18 +867,10 @@ describe('ImpactAnalyzer.analyze', () => {
     }
     // nodeIds[i] depends on nodeIds[i-1]
     for (let i = 1; i < nodeIds.length; i++) {
-      createEdge(
-        store,
-        i * 100 + i,
-        nodeIds[i]!,
-        nodeIds[i - 1]!,
-        'CALLS',
-      );
+      createEdge(store, i * 100 + i, nodeIds[i]!, nodeIds[i - 1]!, 'CALLS');
     }
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, {
       maxDepth: 25,
@@ -906,17 +888,9 @@ describe('ImpactAnalyzer.analyze', () => {
       nodeIds.push(actualId);
     }
     for (let i = 1; i < nodeIds.length; i++) {
-      createEdge(
-        store,
-        i * 100 + i,
-        nodeIds[i]!,
-        nodeIds[i - 1]!,
-        'CALLS',
-      );
+      createEdge(store, i * 100 + i, nodeIds[i]!, nodeIds[i - 1]!, 'CALLS');
     }
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, {
       maxDepth: 12,
@@ -929,9 +903,7 @@ describe('ImpactAnalyzer.analyze', () => {
     const fn = createNode(1);
     store.insertNode(fn);
 
-    const changedSymbols = [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ];
+    const changedSymbols = [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result.estimatedEffort).toBe('low');
@@ -1083,7 +1055,15 @@ describe('ImpactAnalyzer risk determination', () => {
     // >= 20 -> 25 points
     const largeImpact: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: Array.from({ length: 20 }, (_, i) => ({
         symbolQname: `imp_${i}`,
         label: 'Function',
@@ -1101,7 +1081,15 @@ describe('ImpactAnalyzer risk determination', () => {
     // >= 10 -> 18 points
     const mediumImpact: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: Array.from({ length: 10 }, (_, i) => ({
         symbolQname: `imp_${i}`,
         label: 'Function',
@@ -1119,7 +1107,15 @@ describe('ImpactAnalyzer risk determination', () => {
     // >= 5 -> 12 points
     const smallImpact: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: Array.from({ length: 5 }, (_, i) => ({
         symbolQname: `imp_${i}`,
         label: 'Function' as const,
@@ -1137,15 +1133,25 @@ describe('ImpactAnalyzer risk determination', () => {
     // >= 1 -> 5 points
     const tinyImpact: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
-      impactTree: [{
-        symbolQname: 'imp_0',
-        label: 'Function' as const,
-        filePath: '/src/i_0.ts',
-        impactType: 'direct' as const,
-        depth: 1,
-        children: [],
-      }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
+      impactTree: [
+        {
+          symbolQname: 'imp_0',
+          label: 'Function' as const,
+          filePath: '/src/i_0.ts',
+          impactType: 'direct' as const,
+          depth: 1,
+          children: [],
+        },
+      ],
       riskLevel: 'low',
       processesAffected: [],
       estimatedEffort: 'low',
@@ -1160,7 +1166,15 @@ describe('ImpactAnalyzer risk determination', () => {
     // >= 10 files -> 15 points
     const hugeFiles: any = {
       changedFiles: Array.from({ length: 10 }, (_, i) => `/src/f_${i}.ts`),
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [],
@@ -1171,7 +1185,15 @@ describe('ImpactAnalyzer risk determination', () => {
     // 1 file -> 2 points
     const oneFile: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [],
@@ -1279,11 +1301,25 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [
-        { processName: 'p1', processId: 0, severity: 'critical', affectedSteps: [], description: '' },
+        {
+          processName: 'p1',
+          processId: 0,
+          severity: 'critical',
+          affectedSteps: [],
+          description: '',
+        },
         { processName: 'p2', processId: 0, severity: 'high', affectedSteps: [], description: '' },
       ],
       estimatedEffort: 'low',
@@ -1298,11 +1334,25 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [
-        { processName: 'p1', processId: 0, severity: 'critical', affectedSteps: [], description: '' },
+        {
+          processName: 'p1',
+          processId: 0,
+          severity: 'critical',
+          affectedSteps: [],
+          description: '',
+        },
       ],
       estimatedEffort: 'low',
     };
@@ -1316,7 +1366,15 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result: any = {
       changedFiles: ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts', '/src/e.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [],
@@ -1332,7 +1390,15 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result: any = {
       changedFiles: ['/src/a.ts', '/src/b.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [],
@@ -1355,7 +1421,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     }));
 
     const result: any = {
-      changedFiles: symbols.map(s => s.filePath),
+      changedFiles: symbols.map((s) => s.filePath),
       changedSymbols: symbols,
       impactTree: [],
       riskLevel: 'low',
@@ -1373,9 +1439,11 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const fn = createNode(1);
     store.insertNode(fn);
 
-    const result = await analyzer.analyze(PROJECT_ID, [
-      makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts'),
-    ], { includeProcesses: false });
+    const result = await analyzer.analyze(
+      PROJECT_ID,
+      [makeChangedSymbol('fn_1', 'pkg.fn_1', '/src/file_1.ts')],
+      { includeProcesses: false },
+    );
     expect(result.processesAffected).toHaveLength(0);
   });
 
@@ -1386,15 +1454,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const fn = createNode(1, { filePath: '/src/removed.ts' });
     store.insertNode(fn);
 
-    const changedSymbols = [{
-      name: 'fn_1',
-      qualifiedName: 'pkg.fn_1',
-      filePath: '/src/removed.ts',
-      changeType: 'removed' as const,
-      lineRange: [10, 20] as [number, number],
-      riskLevel: 'low' as const,
-      reason: '',
-    }];
+    const changedSymbols = [
+      {
+        name: 'fn_1',
+        qualifiedName: 'pkg.fn_1',
+        filePath: '/src/removed.ts',
+        changeType: 'removed' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'low' as const,
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result.changedSymbols.length).toBe(1);
@@ -1408,15 +1478,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const fn = createNode(1, { filePath: '/src/added.ts' });
     store.insertNode(fn);
 
-    const changedSymbols = [{
-      name: 'fn_1',
-      qualifiedName: 'pkg.fn_1',
-      filePath: '/src/added.ts',
-      changeType: 'added' as const,
-      lineRange: [10, 20] as [number, number],
-      riskLevel: 'low' as const,
-      reason: '',
-    }];
+    const changedSymbols = [
+      {
+        name: 'fn_1',
+        qualifiedName: 'pkg.fn_1',
+        filePath: '/src/added.ts',
+        changeType: 'added' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'low' as const,
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result.changedSymbols.length).toBe(1);
@@ -1429,7 +1501,15 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result: any = {
       changedFiles: ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts', '/src/e.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [],
@@ -1452,7 +1532,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     }));
 
     const result: any = {
-      changedFiles: symbols.map(s => s.filePath),
+      changedFiles: symbols.map((s) => s.filePath),
       changedSymbols: symbols,
       impactTree: [],
       riskLevel: 'low',
@@ -1469,7 +1549,15 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [],
@@ -1574,15 +1662,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
       createdAt: '2024-01-01T00:00:00Z',
     });
 
-    const changedSymbols: ChangedSymbol[] = [{
-      name: 'handler',
-      qualifiedName: 'pkg.handler',
-      filePath: '/src/handler.ts',
-      changeType: 'modified',
-      lineRange: [10, 20],
-      riskLevel: 'medium',
-      reason: '',
-    }];
+    const changedSymbols: ChangedSymbol[] = [
+      {
+        name: 'handler',
+        qualifiedName: 'pkg.handler',
+        filePath: '/src/handler.ts',
+        changeType: 'modified',
+        lineRange: [10, 20],
+        riskLevel: 'medium',
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result).toBeDefined();
@@ -1616,15 +1706,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
       createEdge(store, i * 100 + i, nodeIds[i]!, nodeIds[i - 1]!, 'CALLS');
     }
 
-    const changedSymbols = [{
-      name: 'node_1',
-      qualifiedName: 'pkg.node_1',
-      filePath: '/src/file_1.ts',
-      changeType: 'modified' as const,
-      lineRange: [10, 20] as [number, number],
-      riskLevel: 'low' as const,
-      reason: '',
-    }];
+    const changedSymbols = [
+      {
+        name: 'node_1',
+        qualifiedName: 'pkg.node_1',
+        filePath: '/src/file_1.ts',
+        changeType: 'modified' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'low' as const,
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols, { maxDepth: 12 });
     // impactCount >= 10 but < 20 → 'high' (when no blocked processes)
@@ -1638,15 +1730,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const fn = createNode(1, { qualifiedName: 'pkg.medium' });
     store.insertNode(fn);
 
-    const changedSymbols = [{
-      name: 'medium',
-      qualifiedName: 'pkg.medium',
-      filePath: '/src/medium.ts',
-      changeType: 'modified' as const,
-      lineRange: [10, 20] as [number, number],
-      riskLevel: 'medium' as const,
-      reason: '',
-    }];
+    const changedSymbols = [
+      {
+        name: 'medium',
+        qualifiedName: 'pkg.medium',
+        filePath: '/src/medium.ts',
+        changeType: 'modified' as const,
+        lineRange: [10, 20] as [number, number],
+        riskLevel: 'medium' as const,
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     // maxSymbolRisk = medium → no special handling, impactCount = 0 → low
@@ -1660,7 +1754,15 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     // Exactly 2 processes → 13 points
     const result2: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [
@@ -1674,7 +1776,15 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     // Exactly 1 process → 7 points
     const result1: any = {
       changedFiles: ['/src/a.ts'],
-      changedSymbols: [{ symbolQname: 'a', filePath: '/src/a.ts', changeType: 'modified', startLine: 1, endLine: 2 }],
+      changedSymbols: [
+        {
+          symbolQname: 'a',
+          filePath: '/src/a.ts',
+          changeType: 'modified',
+          startLine: 1,
+          endLine: 2,
+        },
+      ],
       impactTree: [],
       riskLevel: 'low',
       processesAffected: [
@@ -1739,15 +1849,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     });
 
     // Call the analyzer with a changed symbol that has matching qualifiedName
-    const changedSymbols: ChangedSymbol[] = [{
-      name: 'handler',
-      qualifiedName: 'pkg.handler',
-      filePath: '/src/handler.ts',
-      changeType: 'modified',
-      lineRange: [10, 20],
-      riskLevel: 'medium',
-      reason: '',
-    }];
+    const changedSymbols: ChangedSymbol[] = [
+      {
+        name: 'handler',
+        qualifiedName: 'pkg.handler',
+        filePath: '/src/handler.ts',
+        changeType: 'modified',
+        lineRange: [10, 20],
+        riskLevel: 'medium',
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result).toBeDefined();
@@ -1758,7 +1870,11 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const analyzer = new ImpactAnalyzer(store);
 
     // Handler - use matching qualifiedName
-    const handler = createNode(1, { name: 'apiHandler', qualifiedName: 'pkg.apiHandler', filePath: '/src/api.ts' });
+    const handler = createNode(1, {
+      name: 'apiHandler',
+      qualifiedName: 'pkg.apiHandler',
+      filePath: '/src/api.ts',
+    });
     store.insertNode(handler);
 
     // Route node
@@ -1772,22 +1888,46 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     store.insertNode(route);
 
     // Consumer with null qualifiedName
-    const consumer = createNode(3, { name: 'consumer', qualifiedName: null as any, filePath: '/src/consumer.ts' });
+    const consumer = createNode(3, {
+      name: 'consumer',
+      qualifiedName: null as any,
+      filePath: '/src/consumer.ts',
+    });
     store.insertNode(consumer);
 
     // Edges: handler → route, route → consumer
-    store.insertEdge({ id: 301, projectId: PROJECT_ID, sourceId: 1, targetId: 2, type: 'HANDLES_ROUTE', properties: {}, weight: 1, createdAt: '2024-01-01T00:00:00Z' });
-    store.insertEdge({ id: 302, projectId: PROJECT_ID, sourceId: 2, targetId: 3, type: 'CALLS', properties: {}, weight: 1, createdAt: '2024-01-01T00:00:00Z' });
+    store.insertEdge({
+      id: 301,
+      projectId: PROJECT_ID,
+      sourceId: 1,
+      targetId: 2,
+      type: 'HANDLES_ROUTE',
+      properties: {},
+      weight: 1,
+      createdAt: '2024-01-01T00:00:00Z',
+    });
+    store.insertEdge({
+      id: 302,
+      projectId: PROJECT_ID,
+      sourceId: 2,
+      targetId: 3,
+      type: 'CALLS',
+      properties: {},
+      weight: 1,
+      createdAt: '2024-01-01T00:00:00Z',
+    });
 
-    const changedSymbols: ChangedSymbol[] = [{
-      name: 'apiHandler',
-      qualifiedName: 'pkg.apiHandler',
-      filePath: '/src/api.ts',
-      changeType: 'modified',
-      lineRange: [10, 20],
-      riskLevel: 'medium',
-      reason: '',
-    }];
+    const changedSymbols: ChangedSymbol[] = [
+      {
+        name: 'apiHandler',
+        qualifiedName: 'pkg.apiHandler',
+        filePath: '/src/api.ts',
+        changeType: 'modified',
+        lineRange: [10, 20],
+        riskLevel: 'medium',
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result).toBeDefined();
@@ -1799,15 +1939,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     // degraded → medium via severityToRiskLevel
     // We test this through the public analyze API
-    const changedSymbols: ChangedSymbol[] = [{
-      name: 'test',
-      qualifiedName: 'pkg.test',
-      filePath: '/src/test.ts',
-      changeType: 'modified',
-      lineRange: [10, 20],
-      riskLevel: 'medium',
-      reason: '',
-    }];
+    const changedSymbols: ChangedSymbol[] = [
+      {
+        name: 'test',
+        qualifiedName: 'pkg.test',
+        filePath: '/src/test.ts',
+        changeType: 'modified',
+        lineRange: [10, 20],
+        riskLevel: 'medium',
+        reason: '',
+      },
+    ];
 
     // This exercises the severityToRiskLevel path
     analyzer.analyze(PROJECT_ID, changedSymbols).then((result) => {
@@ -1819,15 +1961,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const changedSymbols: ChangedSymbol[] = [{
-      name: 'test',
-      qualifiedName: 'pkg.test',
-      filePath: '/src/test.ts',
-      changeType: 'modified',
-      lineRange: [10, 20],
-      riskLevel: 'low',
-      reason: '',
-    }];
+    const changedSymbols: ChangedSymbol[] = [
+      {
+        name: 'test',
+        qualifiedName: 'pkg.test',
+        filePath: '/src/test.ts',
+        changeType: 'modified',
+        lineRange: [10, 20],
+        riskLevel: 'low',
+        reason: '',
+      },
+    ];
 
     analyzer.analyze(PROJECT_ID, changedSymbols).then((result) => {
       expect(result.riskLevel).toBeDefined();
@@ -1877,15 +2021,17 @@ describe('ImpactAnalyzer — additional edge cases', () => {
       createdAt: '2024-01-01T00:00:00Z',
     });
 
-    const changedSymbols: ChangedSymbol[] = [{
-      name: 'buildStep',
-      qualifiedName: 'pkg.buildStep',
-      filePath: '/src/step.ts',
-      changeType: 'modified',
-      lineRange: [10, 20],
-      riskLevel: 'medium',
-      reason: '',
-    }];
+    const changedSymbols: ChangedSymbol[] = [
+      {
+        name: 'buildStep',
+        qualifiedName: 'pkg.buildStep',
+        filePath: '/src/step.ts',
+        changeType: 'modified',
+        lineRange: [10, 20],
+        riskLevel: 'medium',
+        reason: '',
+      },
+    ];
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     // The process should appear with severity 'medium' (from degraded→medium)

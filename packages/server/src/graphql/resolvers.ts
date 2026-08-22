@@ -3,11 +3,7 @@
 // Delegates all data access to the InMemoryGraphStore and analysis engine.
 
 import type { GraphQLContext } from './context.js';
-import type {
-  GraphEdge,
-  GraphNode,
-  InMemoryGraphStore,
-} from '@code-analyzer/infra';
+import type { GraphEdge, GraphNode, InMemoryGraphStore } from '@code-analyzer/infra';
 import type { NodeQuery, EdgeQuery, FtsSearchResult } from '@code-analyzer/infra';
 import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
@@ -192,14 +188,12 @@ export const resolvers = {
   // -----------------------------------------------------------------------
 
   Query: {
-    project: (
-      _root: unknown,
-      args: { id: string },
-      ctx: GraphQLContext,
-    ) => {
+    project: (_root: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const store = ctx.store;
       const projectNodes = getAllNodesFromStore(store);
-      const projectNode = projectNodes.find((n) => n.projectId === args.id && n.label === 'Project');
+      const projectNode = projectNodes.find(
+        (n) => n.projectId === args.id && n.label === 'Project',
+      );
       if (!projectNode) return null;
 
       const projectNodesCount = projectNodes.filter((n) => n.projectId === args.id).length;
@@ -219,11 +213,7 @@ export const resolvers = {
       };
     },
 
-    projects: (
-      _root: unknown,
-      args: { status?: string | null },
-      ctx: GraphQLContext,
-    ) => {
+    projects: (_root: unknown, args: { status?: string | null }, ctx: GraphQLContext) => {
       const store = ctx.store;
       const ids = getProjectIds(store);
       const result: Record<string, unknown>[] = [];
@@ -255,11 +245,7 @@ export const resolvers = {
       return result;
     },
 
-    graph: (
-      _root: unknown,
-      args: GraphQueryArgs,
-      ctx: GraphQLContext,
-    ) => {
+    graph: (_root: unknown, args: GraphQueryArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const limit = args.limit ?? 100;
       const offset = args.offset ?? 0;
@@ -280,11 +266,7 @@ export const resolvers = {
       };
     },
 
-    edges: (
-      _root: unknown,
-      args: EdgesQueryArgs,
-      ctx: GraphQLContext,
-    ) => {
+    edges: (_root: unknown, args: EdgesQueryArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const limit = args.limit ?? 100;
       const offset = args.offset ?? 0;
@@ -305,11 +287,7 @@ export const resolvers = {
       };
     },
 
-    searchGraph: (
-      _root: unknown,
-      args: SearchGraphArgs,
-      ctx: GraphQLContext,
-    ) => {
+    searchGraph: (_root: unknown, args: SearchGraphArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const limit = args.limit ?? 20;
       const offset = args.offset ?? 0;
@@ -324,11 +302,7 @@ export const resolvers = {
       };
     },
 
-    reviewDiff: (
-      _root: unknown,
-      args: ReviewDiffArgs,
-      _ctx: GraphQLContext,
-    ) => {
+    reviewDiff: (_root: unknown, args: ReviewDiffArgs, _ctx: GraphQLContext) => {
       // Review is delegated to the analysis engine at the tool layer.
       // GraphQL provides a thin wrapper returning stub + metadata.
       const lines = args.diff.split('\n').length;
@@ -348,11 +322,7 @@ export const resolvers = {
       };
     },
 
-    reviewPR: (
-      _root: unknown,
-      args: ReviewPRArgs,
-      _ctx: GraphQLContext,
-    ) => {
+    reviewPR: (_root: unknown, args: ReviewPRArgs, _ctx: GraphQLContext) => {
       return {
         comments: [],
         summary: `PR #${args.prNumber} review requested for ${args.owner}/${args.repo} (project ${args.projectId}). Use MCP tool 'review_pr' for detailed analysis.`,
@@ -368,11 +338,7 @@ export const resolvers = {
       };
     },
 
-    crossRepoSearch: (
-      _root: unknown,
-      args: CrossRepoSearchArgs,
-      ctx: GraphQLContext,
-    ) => {
+    crossRepoSearch: (_root: unknown, args: CrossRepoSearchArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const limit = args.limit ?? 20;
       const offset = args.offset ?? 0;
@@ -385,11 +351,7 @@ export const resolvers = {
       };
     },
 
-    impactAnalysis: (
-      _root: unknown,
-      args: ImpactAnalysisArgs,
-      ctx: GraphQLContext,
-    ) => {
+    impactAnalysis: (_root: unknown, args: ImpactAnalysisArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const projectId = args.projectId;
       const changedFiles = args.changedFiles;
@@ -400,25 +362,27 @@ export const resolvers = {
         const fileNodes = Array.from(store.nodes.values()).filter(
           (n) => n.projectId === projectId && n.filePath === file,
         );
-        affectedNodes.push(...fileNodes.map((n) => ({
-          id: n.id,
-          projectId: n.projectId,
-          label: n.label,
-          name: n.name,
-          qualifiedName: n.qualifiedName,
-          filePath: n.filePath,
-          startLine: n.startLine,
-          endLine: n.endLine,
-          language: n.language,
-          properties: n.properties,
-          signature: n.signature,
-          docstring: n.docstring,
-          complexity: n.complexity,
-          isExported: n.isExported,
-          fingerprint: n.fingerprint,
-          createdAt: n.createdAt,
-          updatedAt: n.updatedAt,
-        })));
+        affectedNodes.push(
+          ...fileNodes.map((n) => ({
+            id: n.id,
+            projectId: n.projectId,
+            label: n.label,
+            name: n.name,
+            qualifiedName: n.qualifiedName,
+            filePath: n.filePath,
+            startLine: n.startLine,
+            endLine: n.endLine,
+            language: n.language,
+            properties: n.properties,
+            signature: n.signature,
+            docstring: n.docstring,
+            complexity: n.complexity,
+            isExported: n.isExported,
+            fingerprint: n.fingerprint,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+          })),
+        );
       }
 
       const changedSymbols = affectedNodes.map((n) => ({
@@ -438,27 +402,29 @@ export const resolvers = {
         children: [],
       }));
 
-      const riskLevel = affectedNodes.length > 20 ? 'HIGH' : affectedNodes.length > 5 ? 'MEDIUM' : 'LOW';
+      const riskLevel =
+        affectedNodes.length > 20 ? 'HIGH' : affectedNodes.length > 5 ? 'MEDIUM' : 'LOW';
 
       return {
         changedFiles,
         changedSymbols,
         impactTree,
         riskLevel,
-        estimatedEffort: affectedNodes.length > 20 ? 'high' : affectedNodes.length > 10 ? 'medium' : 'low',
+        estimatedEffort:
+          affectedNodes.length > 20 ? 'high' : affectedNodes.length > 10 ? 'medium' : 'low',
       };
     },
 
-    projectStats: (
-      _root: unknown,
-      args: { projectId: string },
-      ctx: GraphQLContext,
-    ) => {
+    projectStats: (_root: unknown, args: { projectId: string }, ctx: GraphQLContext) => {
       const store = ctx.store;
       const projectId = args.projectId;
 
-      const projectNodes = Array.from(store.nodes.values()).filter((n) => n.projectId === projectId);
-      const projectEdges = Array.from(store.edges.values()).filter((e) => e.projectId === projectId);
+      const projectNodes = Array.from(store.nodes.values()).filter(
+        (n) => n.projectId === projectId,
+      );
+      const projectEdges = Array.from(store.edges.values()).filter(
+        (e) => e.projectId === projectId,
+      );
 
       // Node label distribution
       const labelDist: Record<string, number> = {};
@@ -490,11 +456,7 @@ export const resolvers = {
       };
     },
 
-    health: (
-      _root: unknown,
-      _args: unknown,
-      ctx: GraphQLContext,
-    ) => {
+    health: (_root: unknown, _args: unknown, ctx: GraphQLContext) => {
       const mem = process.memoryUsage();
       return {
         status: 'healthy',
@@ -511,20 +473,12 @@ export const resolvers = {
       };
     },
 
-    repoGroups: (
-      _root: unknown,
-      _args: unknown,
-      _ctx: GraphQLContext,
-    ) => {
+    repoGroups: (_root: unknown, _args: unknown, _ctx: GraphQLContext) => {
       // Groups managed via manageRepoGroup mutation
       return [];
     },
 
-    repoGroup: (
-      _root: unknown,
-      _args: { id: string },
-      _ctx: GraphQLContext,
-    ) => {
+    repoGroup: (_root: unknown, _args: { id: string }, _ctx: GraphQLContext) => {
       return null; // Groups managed via manageRepoGroup mutation
     },
 
@@ -538,7 +492,8 @@ export const resolvers = {
 
       const results: Record<string, unknown>[] = [];
       const nodes = Array.from(store.nodes.values()).filter(
-        (n) => n.projectId === args.projectId &&
+        (n) =>
+          n.projectId === args.projectId &&
           (n.name === args.symbolName || n.qualifiedName.includes(args.symbolName)),
       );
 
@@ -571,11 +526,7 @@ export const resolvers = {
       return results;
     },
 
-    dependencyGraph: (
-      _root: unknown,
-      args: { projectId: string },
-      ctx: GraphQLContext,
-    ) => {
+    dependencyGraph: (_root: unknown, args: { projectId: string }, ctx: GraphQLContext) => {
       const store = ctx.store;
       const projectId = args.projectId;
 
@@ -640,11 +591,7 @@ export const resolvers = {
   // -----------------------------------------------------------------------
 
   Mutation: {
-    indexProject: (
-      _root: unknown,
-      args: IndexProjectArgs,
-      ctx: GraphQLContext,
-    ) => {
+    indexProject: (_root: unknown, args: IndexProjectArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const projectId = args.projectId ?? `proj_${Date.now().toString(36)}`;
       const language = args.language ?? null;
@@ -687,11 +634,7 @@ export const resolvers = {
       };
     },
 
-    deleteProject: (
-      _root: unknown,
-      args: { id: string },
-      ctx: GraphQLContext,
-    ) => {
+    deleteProject: (_root: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const store = ctx.store;
       // Remove all nodes and edges for this project
       const nodeIds: number[] = [];
@@ -711,11 +654,7 @@ export const resolvers = {
       return true;
     },
 
-    runBenchmark: (
-      _root: unknown,
-      args: RunBenchmarkArgs,
-      _ctx: GraphQLContext,
-    ) => {
+    runBenchmark: (_root: unknown, args: RunBenchmarkArgs, _ctx: GraphQLContext) => {
       return {
         suite: args.suite,
         totalTests: 0,
@@ -726,11 +665,7 @@ export const resolvers = {
       };
     },
 
-    manageRepoGroup: (
-      _root: unknown,
-      args: ManageRepoGroupArgs,
-      _ctx: GraphQLContext,
-    ) => {
+    manageRepoGroup: (_root: unknown, args: ManageRepoGroupArgs, _ctx: GraphQLContext) => {
       return {
         id: args.groupId ?? `group_${Date.now().toString(36)}`,
         name: args.name ?? 'Unnamed Group',

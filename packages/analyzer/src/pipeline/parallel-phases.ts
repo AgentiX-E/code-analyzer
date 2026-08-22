@@ -19,12 +19,15 @@ import type {
   UnifiedCapture,
   ScopeTree,
 } from '@code-analyzer/shared';
-import { CAPTURE_TAGS, PhaseLogger, createNoopPhaseLogger , EDGE_DEFINES, EDGE_HAS_METHOD } from '@code-analyzer/shared';
-
 import {
-  InMemoryGraphStore,
-  createFileDiscoverer,
-} from '@code-analyzer/infra';
+  CAPTURE_TAGS,
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_DEFINES,
+  EDGE_HAS_METHOD,
+} from '@code-analyzer/shared';
+
+import { InMemoryGraphStore, createFileDiscoverer } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
 import type { LanguageProvider } from '../languages/provider.js';
@@ -113,9 +116,7 @@ const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
 
 const providerCache = new Map<string, LanguageProvider>();
 
-async function getOrLoadProvider(
-  language: string,
-): Promise<LanguageProvider | null> {
+async function getOrLoadProvider(language: string): Promise<LanguageProvider | null> {
   const cached = providerCache.get(language);
   if (cached) return cached;
 
@@ -170,9 +171,7 @@ function captureTagToNodeLabel(tag: string): NodeLabel {
   }
 }
 
-function captureTagToReferenceKind(
-  tag: string,
-): ReferenceSite['referenceKind'] {
+function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_CALL:
     case CAPTURE_TAGS.METHOD_CALL:
@@ -223,9 +222,7 @@ function groupCaptures(
       const name = capture.name ?? capture.text;
       const kind = captureTagToNodeLabel(tag);
       const containerName = capture.containerName;
-      const qualifiedName = containerName
-        ? `${containerName}.${name}`
-        : `file:${filePath}:${name}`;
+      const qualifiedName = containerName ? `${containerName}.${name}` : `file:${filePath}:${name}`;
       const props = capture.properties ?? {};
       const sig = props['signature'] as string | undefined;
       const retType = props['returnType'] as string | undefined;
@@ -276,10 +273,7 @@ function groupCaptures(
     name: basename(filePath),
     kind: 'File',
     startLine: 1,
-    endLine:
-      captures.length > 0
-        ? captures.reduce((max, c) => Math.max(max, c.endLine), 0)
-        : 1,
+    endLine: captures.length > 0 ? captures.reduce((max, c) => Math.max(max, c.endLine), 0) : 1,
     children: symbols.map((s) => ({
       name: s.name,
       kind: s.kind,
@@ -339,9 +333,7 @@ export class ParallelScanPhase implements ExecutablePhase {
 
       // Build graph file/folder nodes if graph present
       if (ctx.graph) {
-        const builder = new GraphBuilder(
-          null as unknown as InMemoryGraphStore,
-        );
+        const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
 
         for (const file of discoveredFiles) {
           const relPath = relative(ctx.rootPath, file.filePath);
@@ -388,7 +380,11 @@ export class ParallelScanPhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
@@ -401,22 +397,16 @@ export class ParallelScanPhase implements ExecutablePhase {
 export class ParallelParsePhase implements ExecutablePhase {
   readonly id: PipelinePhaseId = 'parse';
   readonly dependencies: PipelinePhaseId[] = ['scan', 'structure'];
-  readonly description =
-    'Parse source files in parallel using worker-pool concurrency';
+  readonly description = 'Parse source files in parallel using worker-pool concurrency';
   readonly parallelizable = true;
   private logger: PhaseLogger = createNoopPhaseLogger();
 
   async execute(ctx: PipelineContext): Promise<PhaseExecutionResult> {
     try {
       const scanData = ctx.phaseData.get('scan') as
-        | { discoveredFiles: DiscoveredFile[] }
-        | undefined;
+        { discoveredFiles: DiscoveredFile[] } | undefined;
 
-      if (
-        !scanData ||
-        !scanData.discoveredFiles ||
-        scanData.discoveredFiles.length === 0
-      ) {
+      if (!scanData || !scanData.discoveredFiles || scanData.discoveredFiles.length === 0) {
         return {
           phaseId: this.id,
           status: 'success',
@@ -464,7 +454,11 @@ export class ParallelParsePhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
@@ -474,10 +468,7 @@ export class ParallelParsePhase implements ExecutablePhase {
    * Extracted to a separate method to enable concurrent execution
    * via Promise.allSettled in execute().
    */
-  private async parseFile(
-    file: DiscoveredFile,
-    ctx: PipelineContext,
-  ): Promise<ParsedFile | null> {
+  private async parseFile(file: DiscoveredFile, ctx: PipelineContext): Promise<ParsedFile | null> {
     const lang = file.language;
     if (!lang) return null;
 
@@ -496,10 +487,7 @@ export class ParallelParsePhase implements ExecutablePhase {
       }
     }
 
-    const { symbols, references, scopeTree } = groupCaptures(
-      captures,
-      file.filePath,
-    );
+    const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
 
     const parsedFile: ParsedFile = {
       filePath: file.filePath,
@@ -537,13 +525,7 @@ export class ParallelParsePhase implements ExecutablePhase {
             ...symbol.properties,
           };
 
-          const node = builder.addNode(
-            ctx.graph,
-            label,
-            symbol.name,
-            properties,
-            qualifiedName,
-          );
+          const node = builder.addNode(ctx.graph, label, symbol.name, properties, qualifiedName);
 
           // Create appropriate edges
           if (label === 'Class') {
@@ -551,7 +533,13 @@ export class ParallelParsePhase implements ExecutablePhase {
             builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
           } else if (label === 'Method' || label === 'Constructor') {
             if (currentClassNodeId) {
-              builder.addEdge(ctx.graph, currentClassNodeId, node.id, EDGE_HAS_METHOD, ctx.projectId);
+              builder.addEdge(
+                ctx.graph,
+                currentClassNodeId,
+                node.id,
+                EDGE_HAS_METHOD,
+                ctx.projectId,
+              );
             } else {
               builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
             }
@@ -581,8 +569,7 @@ export class ParallelBuildPhase implements ExecutablePhase {
     'processes',
     'tests',
   ];
-  readonly description =
-    'Serialize knowledge graph to storage using batched parallel writes';
+  readonly description = 'Serialize knowledge graph to storage using batched parallel writes';
   readonly parallelizable = false;
   private logger: PhaseLogger = createNoopPhaseLogger();
 
@@ -615,7 +602,11 @@ export class ParallelBuildPhase implements ExecutablePhase {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }

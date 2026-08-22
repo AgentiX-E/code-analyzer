@@ -2,11 +2,7 @@
 // Search, Embeddings, Similarity, Review, and Impact Analysis
 
 // Search
-export {
-  HybridSearchEngine,
-  tokenize,
-  cosineSimilarity,
-} from './search/hybrid-search.js';
+export { HybridSearchEngine, tokenize, cosineSimilarity } from './search/hybrid-search.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
 
 // Dataflow Search (5th Search Dimension)
@@ -40,19 +36,11 @@ export type { SimilarityEdge } from './similarity/lsh.js';
 
 // Review Engine
 export { CodeReviewEngine } from './review/review-engine.js';
-export type {
-  ReviewConfig,
-  ReviewContext,
-  ReviewPlan,
-} from './review/review-engine.js';
+export type { ReviewConfig, ReviewContext, ReviewPlan } from './review/review-engine.js';
 
 // PR Review
 export { PRReviewEngine } from './review/pr-review.js';
-export type {
-  PRReviewResult,
-  PRReviewSummary,
-  EnrichedDiff,
-} from './review/pr-review.js';
+export type { PRReviewResult, PRReviewSummary, EnrichedDiff } from './review/pr-review.js';
 
 // Review Swarm (8-Lens Multi-Agent Review)
 export { ReviewSwarm } from './review/review-swarm.js';
@@ -89,11 +77,7 @@ export type {
 } from './review/review-lenses.js';
 
 // Session Store
-export {
-  SessionStore,
-  computeFileFingerprint,
-  generateSessionId,
-} from './review/session-store.js';
+export { SessionStore, computeFileFingerprint, generateSessionId } from './review/session-store.js';
 export type {
   SessionMetadata,
   ReviewItemResult,
@@ -114,10 +98,7 @@ export type {
 } from './review/dashboard-aggregator.js';
 
 // Heuristics
-export {
-  analyzeFileHeuristics,
-  toReviewComment,
-} from './review/heuristics.js';
+export { analyzeFileHeuristics, toReviewComment } from './review/heuristics.js';
 export type {
   HeuristicRuleResult,
   HeuristicResult,
@@ -135,11 +116,7 @@ export type { CompressionConfig } from './compression/memory-compressor.js';
 // Standards Engine
 export { StandardsEngine } from './standards/engine.js';
 export type { AutoFix, CheckViolation, ComplianceReport } from './standards/engine.js';
-export {
-  STANDARD_TEMPLATES,
-  getTemplate,
-  listTemplates,
-} from './standards/templates.js';
+export { STANDARD_TEMPLATES, getTemplate, listTemplates } from './standards/templates.js';
 export type { StandardTemplate } from './standards/templates.js';
 
 export { CustomRuleEditor } from './standards/rule-editor.js';
@@ -164,11 +141,7 @@ export { RecommendationEngine } from './report/recommend.js';
 export type { RecommendationOptions } from './report/recommend.js';
 
 // Report Formatters
-export {
-  MarkdownFormatter,
-  JsonFormatter,
-  HtmlFormatter,
-} from './report/formatters.js';
+export { MarkdownFormatter, JsonFormatter, HtmlFormatter } from './report/formatters.js';
 export type { ReportFormatter } from './report/formatters.js';
 
 // Trend Analyzer
@@ -246,17 +219,10 @@ export {
   TESTING_REVIEW_PROMPT,
   ARCHITECTURE_REVIEW_PROMPT,
 } from './review/llm/prompts.js';
-export type {
-  LLMFinding,
-  PromptContext,
-  ReviewLane,
-} from './review/llm/prompts.js';
+export type { LLMFinding, PromptContext, ReviewLane } from './review/llm/prompts.js';
 
 export { LLMReviewEngine } from './review/llm/llm-review-engine.js';
-export type {
-  LLMReviewOptions,
-  LLMReviewResult,
-} from './review/llm/llm-review-engine.js';
+export type { LLMReviewOptions, LLMReviewResult } from './review/llm/llm-review-engine.js';
 
 // Comment Positioner
 export { CommentPositioner } from './review/comment-positioner.js';
@@ -267,12 +233,7 @@ export { DelegationManager } from './review/delegation-mode.js';
 export type { DelegatePreview, ResolvedRule } from './review/delegation-mode.js';
 
 // Rules Engine
-export {
-  RulesEngine,
-  getFileLanguage,
-  runRules,
-  DEFAULT_RULES,
-} from './rules/rule-runner.js';
+export { RulesEngine, getFileLanguage, runRules, DEFAULT_RULES } from './rules/rule-runner.js';
 export type {
   CodeRule,
   RuleContext,
@@ -401,16 +362,10 @@ export type {
 } from './cross-repo/graph-visualizer.js';
 
 export { IncrementalCrossRepoIndexer } from './cross-repo/incremental-indexer.js';
-export type {
-  ChangeSet,
-  IncrementalIndexResult,
-} from './cross-repo/incremental-indexer.js';
+export type { ChangeSet, IncrementalIndexResult } from './cross-repo/incremental-indexer.js';
 
 export { IncrementalReindexer } from './cross-repo/incremental-reindexer.js';
-export type {
-  ChangedFiles,
-  ReindexResult,
-} from './cross-repo/incremental-reindexer.js';
+export type { ChangedFiles, ReindexResult } from './cross-repo/incremental-reindexer.js';
 
 export { GraphCompressor } from './cross-repo/graph-compressor.js';
 export type { ArtifactMetadata } from './cross-repo/graph-compressor.js';
@@ -455,11 +410,7 @@ export type {
   BenchmarkResult,
 } from './benchmark/benchmark-runner.js';
 export { ALL_BENCHMARK_CASES, lines } from './benchmark/benchmark-data.js';
-export type {
-  BenchmarkCase,
-  FileContent,
-  GroundTruthIssue,
-} from './benchmark/benchmark-data.js';
+export type { BenchmarkCase, FileContent, GroundTruthIssue } from './benchmark/benchmark-data.js';
 
 // Community Rule Registry
 export { RuleRegistry } from './rules/rule-registry.js';

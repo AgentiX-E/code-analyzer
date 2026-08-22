@@ -72,12 +72,7 @@ function formatBytes(mb: number): string {
 
 function getRepoDir(repoUrl: string): string {
   const name = repoUrl.split('/').pop()?.replace('.git', '') ?? 'unknown';
-  return path.join(
-    process.cwd(),
-    '.cache',
-    'benchmark-repos',
-    name,
-  );
+  return path.join(process.cwd(), '.cache', 'benchmark-repos', name);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,10 +81,7 @@ function getRepoDir(repoUrl: string): string {
 
 describe('CA-Bench Published Results', () => {
   const results: BenchmarkResult[] = [];
-  const resultsDir = path.join(
-    process.cwd(),
-    'benchmark-results',
-  );
+  const resultsDir = path.join(process.cwd(), 'benchmark-results');
 
   // Individual repo benchmarks
   for (const [repoName, repoConfig] of Object.entries(BENCHMARK_REPOS)) {
@@ -155,7 +147,7 @@ describe('CA-Bench Published Results', () => {
         const endMem = process.memoryUsage().heapUsed;
         const memDelta = (endMem - startMem) / (1024 * 1024);
 
-        const throughput = files > 0 ? (files / (parseTime / 1000)) : 0;
+        const throughput = files > 0 ? files / (parseTime / 1000) : 0;
 
         console.log(`  Parse time: ${parseTime}ms`);
         console.log(`  Throughput: ${throughput.toFixed(1)} files/sec`);
@@ -259,12 +251,45 @@ function countSourceFiles(dir: string): number {
 
 function* walkFiles(dir: string): Generator<string> {
   const SOURCE_EXTENSIONS = new Set([
-    '.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.java',
-    '.kt', '.rs', '.rb', '.php', '.c', '.cpp', '.h', '.hpp',
-    '.cs', '.swift', '.scala', '.lua', '.zig', '.dart',
-    '.sh', '.bash', '.yaml', '.yml', '.json', '.toml',
-    '.sql', '.md', '.html', '.css', '.r', '.groovy',
-    '.vue', '.svelte', '.elm', '.erl', '.ex', '.clj',
+    '.ts',
+    '.tsx',
+    '.js',
+    '.jsx',
+    '.py',
+    '.go',
+    '.java',
+    '.kt',
+    '.rs',
+    '.rb',
+    '.php',
+    '.c',
+    '.cpp',
+    '.h',
+    '.hpp',
+    '.cs',
+    '.swift',
+    '.scala',
+    '.lua',
+    '.zig',
+    '.dart',
+    '.sh',
+    '.bash',
+    '.yaml',
+    '.yml',
+    '.json',
+    '.toml',
+    '.sql',
+    '.md',
+    '.html',
+    '.css',
+    '.r',
+    '.groovy',
+    '.vue',
+    '.svelte',
+    '.elm',
+    '.erl',
+    '.ex',
+    '.clj',
   ]);
 
   if (!fs.existsSync(dir)) return;

@@ -112,17 +112,70 @@ def ping(host):
 // All Vulnerabilities Map
 // ---------------------------------------------------------------------------
 
-export const ALL_VULNERABILITIES: Record<string, { code: string; language: string; vulnType: string; severity: string }> = {
-  'sql-injection-js': { code: SQL_INJECTION_JS, language: 'javascript', vulnType: 'sql-injection', severity: 'critical' },
-  'sql-injection-ts': { code: SQL_INJECTION_TS, language: 'typescript', vulnType: 'sql-injection', severity: 'critical' },
-  'sql-injection-py': { code: SQL_INJECTION_PY, language: 'python', vulnType: 'sql-injection', severity: 'critical' },
-  'sql-injection-java': { code: SQL_INJECTION_JAVA, language: 'java', vulnType: 'sql-injection', severity: 'critical' },
+export const ALL_VULNERABILITIES: Record<
+  string,
+  { code: string; language: string; vulnType: string; severity: string }
+> = {
+  'sql-injection-js': {
+    code: SQL_INJECTION_JS,
+    language: 'javascript',
+    vulnType: 'sql-injection',
+    severity: 'critical',
+  },
+  'sql-injection-ts': {
+    code: SQL_INJECTION_TS,
+    language: 'typescript',
+    vulnType: 'sql-injection',
+    severity: 'critical',
+  },
+  'sql-injection-py': {
+    code: SQL_INJECTION_PY,
+    language: 'python',
+    vulnType: 'sql-injection',
+    severity: 'critical',
+  },
+  'sql-injection-java': {
+    code: SQL_INJECTION_JAVA,
+    language: 'java',
+    vulnType: 'sql-injection',
+    severity: 'critical',
+  },
   'xss-dom': { code: XSS_JS_DOM, language: 'javascript', vulnType: 'xss', severity: 'high' },
   'xss-react': { code: XSS_TS_REACT, language: 'typescript', vulnType: 'xss', severity: 'high' },
-  'path-traversal-js': { code: PATH_TRAVERSAL_JS, language: 'javascript', vulnType: 'path-traversal', severity: 'high' },
-  'path-traversal-py': { code: PATH_TRAVERSAL_PY, language: 'python', vulnType: 'path-traversal', severity: 'high' },
-  'hardcoded-secret-js': { code: HARDCODED_SECRET_JS, language: 'javascript', vulnType: 'hardcoded-secret', severity: 'critical' },
-  'hardcoded-secret-py': { code: HARDCODED_SECRET_PY, language: 'python', vulnType: 'hardcoded-secret', severity: 'critical' },
-  'command-injection-js': { code: COMMAND_INJECTION_JS, language: 'javascript', vulnType: 'command-injection', severity: 'critical' },
-  'command-injection-py': { code: COMMAND_INJECTION_PY, language: 'python', vulnType: 'command-injection', severity: 'critical' },
+  'path-traversal-js': {
+    code: PATH_TRAVERSAL_JS,
+    language: 'javascript',
+    vulnType: 'path-traversal',
+    severity: 'high',
+  },
+  'path-traversal-py': {
+    code: PATH_TRAVERSAL_PY,
+    language: 'python',
+    vulnType: 'path-traversal',
+    severity: 'high',
+  },
+  'hardcoded-secret-js': {
+    code: HARDCODED_SECRET_JS,
+    language: 'javascript',
+    vulnType: 'hardcoded-secret',
+    severity: 'critical',
+  },
+  'hardcoded-secret-py': {
+    code: HARDCODED_SECRET_PY,
+    language: 'python',
+    vulnType: 'hardcoded-secret',
+    severity: 'critical',
+  },
+  'command-injection-js': {
+    code: COMMAND_INJECTION_JS,
+    language: 'javascript',
+    vulnType: 'command-injection',
+    severity: 'critical',
+  },
+  'command-injection-py': {
+    code: COMMAND_INJECTION_PY,
+    language: 'python',
+    vulnType: 'command-injection',
+    severity: 'critical',
+  },
 };

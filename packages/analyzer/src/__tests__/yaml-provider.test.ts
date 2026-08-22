@@ -53,8 +53,8 @@ describe('YamlProvider', () => {
       const code = 'defaults: &defaults\n  adapter: postgres';
       const captures = provider.parse(code, 'test.yaml');
       // Anchors may be detected as anchor property on the pair, or as a separate node
-      const anchors = captures.filter((c) =>
-        c.properties?.anchor === 'true' || c.name === 'defaults'
+      const anchors = captures.filter(
+        (c) => c.properties?.anchor === 'true' || c.name === 'defaults',
       );
       expect(anchors.length).toBeGreaterThanOrEqual(1);
     });

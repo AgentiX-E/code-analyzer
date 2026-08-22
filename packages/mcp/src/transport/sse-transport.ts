@@ -224,7 +224,7 @@ export class SSETransport extends EventEmitter {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no', // Disable nginx buffering
       'Access-Control-Allow-Origin': '*',
     });
@@ -232,7 +232,7 @@ export class SSETransport extends EventEmitter {
     const client: SSEClient = {
       id: clientId,
       response: res,
-      lastEventId: req.headers['last-event-id'] as string ?? null,
+      lastEventId: (req.headers['last-event-id'] as string) ?? null,
       connectedAt: Date.now(),
       connected: true,
     };
@@ -360,7 +360,10 @@ export class SSETransport extends EventEmitter {
     }
   }
 
-  private writeSSE(res: ServerResponse, fields: { event?: string; data: string; id?: string }): void {
+  private writeSSE(
+    res: ServerResponse,
+    fields: { event?: string; data: string; id?: string },
+  ): void {
     const lines: string[] = [];
     if (fields.event && fields.event !== 'message') {
       lines.push(`event: ${fields.event}`);

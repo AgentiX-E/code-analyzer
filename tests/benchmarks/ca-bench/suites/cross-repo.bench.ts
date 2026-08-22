@@ -50,7 +50,7 @@ export async function runCrossRepo(): Promise<SuiteResult> {
     measurements,
     details: {
       relationTypes: Array.from(relationTypes),
-      repos: REPO_METADATA.map(r => r.name),
+      repos: REPO_METADATA.map((r) => r.name),
     },
   };
 }

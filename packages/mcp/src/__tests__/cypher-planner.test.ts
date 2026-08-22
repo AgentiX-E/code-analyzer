@@ -18,7 +18,7 @@ function makeNode(overrides: Partial<GraphNode> = {}): GraphNode {
     startLine: 10,
     endLine: 20,
     language: 'typescript',
-    properties:  { name: "test" },
+    properties: { name: 'test' },
     signature: 'testFunc(): void',
     docstring: 'A test function',
     complexity: 5,
@@ -60,7 +60,7 @@ describe('Cypher Planner', () => {
       const filterSteps = queryPlan.steps.filter((s) => s.kind === 'filter');
       const labelFilter = filterSteps.find((s) => {
         const detail = s.details as Record<string, unknown>;
-        return detail["predicate"] && String(detail["predicate"]).includes('label');
+        return detail['predicate'] && String(detail['predicate']).includes('label');
       });
       expect(labelFilter).toBeDefined();
     });
@@ -130,7 +130,7 @@ describe('Cypher Planner', () => {
       const hasPropertyFilter = queryPlan.steps.some((s) => {
         if (s.kind !== 'filter') return false;
         const detail = s.details as Record<string, unknown>;
-        return detail["value"] === true;
+        return detail['value'] === true;
       });
       expect(hasPropertyFilter).toBe(true);
     });
@@ -170,12 +170,14 @@ describe('Cypher Planner', () => {
       const tokens = tokenize('MATCH (a) RETURN a, b');
       const ast = parse(tokens);
       // Manually add a relationship to the pattern
-      ast.match[0]!.patterns[0]!.relationships = [{
-        variable: 'r',
-        types: [],
-        direction: 'right' as const,
-        target: { variable: 'b', labels: [], properties: {} },
-      }];
+      ast.match[0]!.patterns[0]!.relationships = [
+        {
+          variable: 'r',
+          types: [],
+          direction: 'right' as const,
+          target: { variable: 'b', labels: [], properties: {} },
+        },
+      ];
       const queryPlan = plan(ast);
 
       const traverseStep = queryPlan.steps.find((s) => s.kind === 'traverse');
@@ -674,7 +676,10 @@ describe('Cypher Planner', () => {
 
     it('should evaluate COUNT function operand', () => {
       const node2 = makeNode({ name: 'funcB', complexity: 15 });
-      const allVars = new Map<string, GraphNode>([['a', node], ['b', node2]]);
+      const allVars = new Map<string, GraphNode>([
+        ['a', node],
+        ['b', node2],
+      ]);
       // a.name = b.name evaluates through evaluateBinaryOperand's variable path
       const expr = {
         type: 'binary' as const,

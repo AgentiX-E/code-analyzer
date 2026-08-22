@@ -32,12 +32,12 @@ export interface BasicBlock {
 
 /** Kinds of CFG edges. */
 export type CfgEdgeKind =
-  | 'seq'        // Sequential fall-through
-  | 'cond-true'  // True branch of a conditional
+  | 'seq' // Sequential fall-through
+  | 'cond-true' // True branch of a conditional
   | 'cond-false' // False branch of a conditional
-  | 'loop-back'  // Back-edge from loop end to header
-  | 'throw'      // Exception edge
-  | 'return'     // Return from function
+  | 'loop-back' // Back-edge from loop end to header
+  | 'throw' // Exception edge
+  | 'return' // Return from function
   | 'switch-case' // Switch case fall-through
   | 'fallthrough'; // Implicit fall-through
 

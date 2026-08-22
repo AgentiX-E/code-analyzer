@@ -33,12 +33,7 @@ export default defineConfig({
       'tests/e2e/**/*.test.ts',
       'tests/property/**/*.test.ts',
     ],
-    exclude: [
-      'packages/web/**',
-      'packages/vscode/**',
-      '**/node_modules/**',
-      '**/dist/**',
-    ],
+    exclude: ['packages/web/**', 'packages/vscode/**', '**/node_modules/**', '**/dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

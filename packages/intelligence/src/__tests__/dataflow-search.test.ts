@@ -48,7 +48,11 @@ function makeGraphNode(overrides: Partial<GraphNode> = {}): GraphNode {
   };
 }
 
-function makeGraphEdge(sourceId: number, targetId: number, type: RelationshipType = 'DATA_FLOWS'): GraphEdge {
+function makeGraphEdge(
+  sourceId: number,
+  targetId: number,
+  type: RelationshipType = 'DATA_FLOWS',
+): GraphEdge {
   return {
     id: sourceId * 1000 + targetId,
     projectId: 'test-project',
@@ -113,9 +117,7 @@ describe('DataflowSearchEngine', () => {
 
     it('should accept custom sanitizer patterns', () => {
       const store = createMockStore();
-      const customSanitizers = [
-        { namePattern: /customSanitize/, protects: 'general' as const },
-      ];
+      const customSanitizers = [{ namePattern: /customSanitize/, protects: 'general' as const }];
       const engine = new DataflowSearchEngine(store, { sanitizers: customSanitizers });
       expect(engine).toBeInstanceOf(DataflowSearchEngine);
     });
@@ -136,9 +138,7 @@ describe('DataflowSearchEngine', () => {
     it('should return empty array when no sources match', () => {
       const store = createMockStore();
       // Node name doesn't match any default source pattern
-      setupNodes(store, [
-        makeGraphNode({ id: 1, name: 'unrelatedFunc' }),
-      ]);
+      setupNodes(store, [makeGraphNode({ id: 1, name: 'unrelatedFunc' })]);
       const engine = new DataflowSearchEngine(store);
 
       const paths = engine.findPaths();
@@ -148,9 +148,7 @@ describe('DataflowSearchEngine', () => {
     it('should return empty array when no sinks match', () => {
       const store = createMockStore();
       // Source exists but no sink in the graph
-      setupNodes(store, [
-        makeGraphNode({ id: 1, name: 'req.body' }),
-      ]);
+      setupNodes(store, [makeGraphNode({ id: 1, name: 'req.body' })]);
       const engine = new DataflowSearchEngine(store);
 
       const paths = engine.findPaths();
@@ -163,8 +161,18 @@ describe('DataflowSearchEngine', () => {
   describe('findPaths — with sources and sinks', () => {
     it('should find a direct source-to-sink path', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', filePath: '/test/handler.ts', startLine: 10 });
-      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', filePath: '/test/handler.ts', startLine: 15 });
+      const sourceNode = makeGraphNode({
+        id: 1,
+        name: 'req.body',
+        filePath: '/test/handler.ts',
+        startLine: 10,
+      });
+      const sinkNode = makeGraphNode({
+        id: 2,
+        name: 'db.query',
+        filePath: '/test/handler.ts',
+        startLine: 15,
+      });
       setupNodes(store, [sourceNode, sinkNode]);
       setupEdges(store, [makeGraphEdge(1, 2)]);
       setupGetNode(store, new Map([[2, sinkNode]]));
@@ -182,19 +190,42 @@ describe('DataflowSearchEngine', () => {
 
     it('should find path through intermediate nodes', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', filePath: '/test/a.ts', startLine: 1 });
-      const intermediate = makeGraphNode({ id: 2, name: 'parseInput', filePath: '/test/b.ts', startLine: 10 });
-      const sinkNode = makeGraphNode({ id: 3, name: 'db.query', filePath: '/test/c.ts', startLine: 20 });
+      const sourceNode = makeGraphNode({
+        id: 1,
+        name: 'req.body',
+        filePath: '/test/a.ts',
+        startLine: 1,
+      });
+      const intermediate = makeGraphNode({
+        id: 2,
+        name: 'parseInput',
+        filePath: '/test/b.ts',
+        startLine: 10,
+      });
+      const sinkNode = makeGraphNode({
+        id: 3,
+        name: 'db.query',
+        filePath: '/test/c.ts',
+        startLine: 20,
+      });
       setupNodes(store, [sourceNode, intermediate, sinkNode]);
       setupEdges(store, [makeGraphEdge(1, 2)]);
-      setupGetNode(store, new Map([[2, intermediate], [3, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, intermediate],
+          [3, sinkNode],
+        ]),
+      );
 
       const engine = new DataflowSearchEngine(store);
 
       // We need queryEdges to return different results for different source IDs
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -208,10 +239,22 @@ describe('DataflowSearchEngine', () => {
       const sink1 = makeGraphNode({ id: 2, name: 'db.query', filePath: '/test/db.ts' });
       const sink2 = makeGraphNode({ id: 3, name: 'eval(', filePath: '/test/eval.ts' });
       setupNodes(store, [sourceNode, sink1, sink2]);
-      setupGetNode(store, new Map([[2, sink1], [3, sink2]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, sink1],
+          [3, sink2],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2), makeGraphEdge(1, 3)], total: 2, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return {
+            items: [makeGraphEdge(1, 2), makeGraphEdge(1, 3)],
+            total: 2,
+            limit: 20,
+            offset: 0,
+          };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -227,11 +270,19 @@ describe('DataflowSearchEngine', () => {
       const sanitizerNode = makeGraphNode({ id: 2, name: 'escapeSQL' });
       const sinkNode = makeGraphNode({ id: 3, name: 'db.query' });
       setupNodes(store, [sourceNode, sanitizerNode, sinkNode]);
-      setupGetNode(store, new Map([[2, sanitizerNode], [3, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, sanitizerNode],
+          [3, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -250,10 +301,22 @@ describe('DataflowSearchEngine', () => {
       const highRiskSink = makeGraphNode({ id: 2, name: 'eval' });
       const lowRiskSink = makeGraphNode({ id: 3, name: 'res.send' });
       setupNodes(store, [sourceNode, highRiskSink, lowRiskSink]);
-      setupGetNode(store, new Map([[2, highRiskSink], [3, lowRiskSink]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, highRiskSink],
+          [3, lowRiskSink],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2), makeGraphEdge(1, 3)], total: 2, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return {
+            items: [makeGraphEdge(1, 2), makeGraphEdge(1, 3)],
+            total: 2,
+            limit: 20,
+            offset: 0,
+          };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -276,12 +339,22 @@ describe('DataflowSearchEngine', () => {
       const mid2 = makeGraphNode({ id: 3, name: 'transform2' });
       const sinkNode = makeGraphNode({ id: 4, name: 'db.query' });
       setupNodes(store, [sourceNode, mid1, mid2, sinkNode]);
-      setupGetNode(store, new Map([[2, mid1], [3, mid2], [4, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, mid1],
+          [3, mid2],
+          [4, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 3) return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 3)
+          return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -312,7 +385,13 @@ describe('DataflowSearchEngine', () => {
       setupGetNode(store, nodeMap);
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: sinks.map(s => makeGraphEdge(1, s.id)), total: sinks.length, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return {
+            items: sinks.map((s) => makeGraphEdge(1, s.id)),
+            total: sinks.length,
+            limit: 20,
+            offset: 0,
+          };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -357,13 +436,30 @@ describe('DataflowSearchEngine', () => {
 
     it('should find reachable sinks from a source node', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'req.body', filePath: '/test/src.ts', startLine: 5 });
-      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', filePath: '/test/db.ts', startLine: 20 });
+      const sourceNode = makeGraphNode({
+        id: 1,
+        name: 'req.body',
+        filePath: '/test/src.ts',
+        startLine: 5,
+      });
+      const sinkNode = makeGraphNode({
+        id: 2,
+        name: 'db.query',
+        filePath: '/test/db.ts',
+        startLine: 20,
+      });
       setupNodes(store, [sourceNode, sinkNode]);
-      setupGetNode(store, new Map([[1, sourceNode], [2, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [1, sourceNode],
+          [2, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -382,10 +478,23 @@ describe('DataflowSearchEngine', () => {
       const sink1 = makeGraphNode({ id: 2, name: 'db.query' });
       const sink2 = makeGraphNode({ id: 3, name: 'eval(' });
       setupNodes(store, [sourceNode, sink1, sink2]);
-      setupGetNode(store, new Map([[1, sourceNode], [2, sink1], [3, sink2]]));
+      setupGetNode(
+        store,
+        new Map([
+          [1, sourceNode],
+          [2, sink1],
+          [3, sink2],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2), makeGraphEdge(1, 3)], total: 2, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return {
+            items: [makeGraphEdge(1, 2), makeGraphEdge(1, 3)],
+            total: 2,
+            limit: 20,
+            offset: 0,
+          };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -402,11 +511,19 @@ describe('DataflowSearchEngine', () => {
       const sinkNode = makeGraphNode({ id: 3, name: 'db.query' });
       (store.getNode as any).mockReturnValue(sourceNode);
       setupNodes(store, [sourceNode, mid, sinkNode]);
-      setupGetNode(store, new Map([[2, mid], [3, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, mid],
+          [3, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -418,12 +535,24 @@ describe('DataflowSearchEngine', () => {
     it('should return ReachableSink with correct structure', () => {
       const store = createMockStore();
       const sourceNode = makeGraphNode({ id: 1, name: 'req.body' });
-      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', filePath: '/test/db.ts', startLine: 10 });
+      const sinkNode = makeGraphNode({
+        id: 2,
+        name: 'db.query',
+        filePath: '/test/db.ts',
+        startLine: 10,
+      });
       setupNodes(store, [sourceNode, sinkNode]);
-      setupGetNode(store, new Map([[1, sourceNode], [2, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [1, sourceNode],
+          [2, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -446,8 +575,18 @@ describe('DataflowSearchEngine', () => {
   describe('taintAnalysis', () => {
     it('should analyze custom entry points', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'customInput', filePath: '/test/input.ts', startLine: 5 });
-      const sinkNode = makeGraphNode({ id: 2, name: 'db.query', filePath: '/test/db.ts', startLine: 20 });
+      const sourceNode = makeGraphNode({
+        id: 1,
+        name: 'customInput',
+        filePath: '/test/input.ts',
+        startLine: 5,
+      });
+      const sinkNode = makeGraphNode({
+        id: 2,
+        name: 'db.query',
+        filePath: '/test/db.ts',
+        startLine: 20,
+      });
       setupNodes(store, [sourceNode, sinkNode]);
       setupEdges(store, [makeGraphEdge(1, 2)]);
       setupGetNode(store, new Map([[2, sinkNode]]));
@@ -482,12 +621,22 @@ describe('DataflowSearchEngine', () => {
       const mid2 = makeGraphNode({ id: 3, name: 'step2' });
       const sinkNode = makeGraphNode({ id: 4, name: 'eval(' });
       setupNodes(store, [sourceNode, mid1, mid2, sinkNode]);
-      setupGetNode(store, new Map([[2, mid1], [3, mid2], [4, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, mid1],
+          [3, mid2],
+          [4, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 3) return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 3)
+          return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -520,11 +669,19 @@ describe('DataflowSearchEngine', () => {
       const sanitizerNode = makeGraphNode({ id: 2, name: 'escapeSQL' });
       const sinkNode = makeGraphNode({ id: 3, name: 'db.query' });
       setupNodes(store, [sourceNode, sanitizerNode, sinkNode]);
-      setupGetNode(store, new Map([[2, sanitizerNode], [3, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, sanitizerNode],
+          [3, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -555,11 +712,19 @@ describe('DataflowSearchEngine', () => {
       const mid = makeGraphNode({ id: 2, name: 'step1' });
       const sinkNode = makeGraphNode({ id: 3, name: 'db.query' });
       setupNodes(store, [sourceNode, mid, sinkNode]);
-      setupGetNode(store, new Map([[2, mid], [3, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, mid],
+          [3, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -666,7 +831,10 @@ describe('DataflowSearchEngine', () => {
       const customSinks = [
         { namePattern: /sendToServer/, category: 'network_send' as const, riskWeight: 6 },
       ];
-      const engine = new DataflowSearchEngine(store, { sources: customSources, sinks: customSinks });
+      const engine = new DataflowSearchEngine(store, {
+        sources: customSources,
+        sinks: customSinks,
+      });
 
       const content = 'sendToServer(getUserInput());';
       const paths = engine.analyzeContent(content, '/test/custom.ts');
@@ -723,11 +891,19 @@ describe('DataflowSearchEngine', () => {
       const sanitizerNode = makeGraphNode({ id: 2, name: 'escapeSQL' });
       const sinkNode = makeGraphNode({ id: 3, name: 'db.query' });
       setupNodes(store, [sourceNode, sanitizerNode, sinkNode]);
-      setupGetNode(store, new Map([[2, sanitizerNode], [3, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, sanitizerNode],
+          [3, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -754,7 +930,13 @@ describe('DataflowSearchEngine', () => {
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
         const nextId = query.sourceId! + 1;
-        if (nextId <= 10) return { items: [makeGraphEdge(query.sourceId!, nextId)], total: 1, limit: 20, offset: 0 };
+        if (nextId <= 10)
+          return {
+            items: [makeGraphEdge(query.sourceId!, nextId)],
+            total: 1,
+            limit: 20,
+            offset: 0,
+          };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -966,11 +1148,24 @@ describe('DataflowSearchEngine', () => {
       const nodeB = makeGraphNode({ id: 2, name: 'transform' });
       const nodeC = makeGraphNode({ id: 3, name: 'db.query' });
       setupNodes(store, [nodeA, nodeB, nodeC]);
-      setupGetNode(store, new Map([[2, nodeB], [3, nodeC]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, nodeB],
+          [3, nodeC],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 1), makeGraphEdge(2, 3)], total: 2, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return {
+            items: [makeGraphEdge(2, 1), makeGraphEdge(2, 3)],
+            total: 2,
+            limit: 20,
+            offset: 0,
+          };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 
@@ -1054,10 +1249,7 @@ describe('DataflowSearchEngine', () => {
 
     it('should handle analyzeContent with both source and sink on same line', () => {
       const engine = new DataflowSearchEngine(createMockStore());
-      const paths = engine.analyzeContent(
-        'const result = db.query(req.body.foo);',
-        '/test.ts',
-      );
+      const paths = engine.analyzeContent('const result = db.query(req.body.foo);', '/test.ts');
       expect(paths.length).toBe(1);
       expect(paths[0]!.riskScore).toBe(80);
       expect(paths[0]!.nodes[0]!.kind).toBe('source');
@@ -1089,7 +1281,11 @@ describe('DataflowSearchEngine', () => {
 
     it('should handle taintAnalysis with overall risk high', () => {
       const store = createMockStore();
-      const sourceNode = makeGraphNode({ id: 1, name: 'customEntry', signature: 'function customEntry()' });
+      const sourceNode = makeGraphNode({
+        id: 1,
+        name: 'customEntry',
+        signature: 'function customEntry()',
+      });
       const sinkNode = makeGraphNode({ id: 2, name: 'eval', signature: 'function eval()' });
       setupNodes(store, [sourceNode, sinkNode]);
       setupEdges(store, [makeGraphEdge(1, 2)]);
@@ -1114,7 +1310,7 @@ describe('DataflowSearchEngine', () => {
       setupEdges(store, edges);
       const nodeMap = new Map<number, GraphNode | null>();
       for (let i = 0; i < 5; i++) {
-        nodeMap.set(i + 10, nodes.find(n => n.id === i + 10) ?? null);
+        nodeMap.set(i + 10, nodes.find((n) => n.id === i + 10) ?? null);
       }
       setupGetNode(store, nodeMap);
 
@@ -1130,7 +1326,14 @@ describe('DataflowSearchEngine', () => {
       const sink2 = makeGraphNode({ id: 3, name: 'res.send' });
       setupNodes(store, [sourceNode, sink1, sink2]);
       setupEdges(store, [makeGraphEdge(1, 2), makeGraphEdge(1, 3)]);
-      setupGetNode(store, new Map([[1, sourceNode], [2, sink1], [3, sink2]]));
+      setupGetNode(
+        store,
+        new Map([
+          [1, sourceNode],
+          [2, sink1],
+          [3, sink2],
+        ]),
+      );
 
       const engine = new DataflowSearchEngine(store);
       const sinks = engine.findReachableSinks(1, 10);
@@ -1156,12 +1359,22 @@ describe('DataflowSearchEngine', () => {
       const sanitizerNode = makeGraphNode({ id: 3, name: 'escapeHtml' });
       const sinkNode = makeGraphNode({ id: 4, name: 'res.send' });
       setupNodes(store, [sourceNode, mid, sanitizerNode, sinkNode]);
-      setupGetNode(store, new Map([[2, mid], [3, sanitizerNode], [4, sinkNode]]));
+      setupGetNode(
+        store,
+        new Map([
+          [2, mid],
+          [3, sanitizerNode],
+          [4, sinkNode],
+        ]),
+      );
 
       (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
-        if (query.sourceId === 1) return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 2) return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
-        if (query.sourceId === 3) return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 2)
+          return { items: [makeGraphEdge(2, 3)], total: 1, limit: 20, offset: 0 };
+        if (query.sourceId === 3)
+          return { items: [makeGraphEdge(3, 4)], total: 1, limit: 20, offset: 0 };
         return { items: [], total: 0, limit: 20, offset: 0 };
       });
 

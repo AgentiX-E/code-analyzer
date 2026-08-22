@@ -30,17 +30,18 @@ Restart Cursor after adding the configuration.
 
 ## What You Get
 
-| Feature | How to Use |
-|---|---|
-| **Code Review** | `@code-analyzer /review` or ask Cursor to review a file |
-| **Code Search** | `@code-analyzer /find <symbol>` |
-| **Architecture View** | `@code-analyzer /explain architecture` |
-| **Impact Analysis** | `@code-analyzer /impact <file>` |
-| **Dependency Graph** | `@code-analyzer /deps <file>` |
+| Feature               | How to Use                                              |
+| --------------------- | ------------------------------------------------------- |
+| **Code Review**       | `@code-analyzer /review` or ask Cursor to review a file |
+| **Code Search**       | `@code-analyzer /find <symbol>`                         |
+| **Architecture View** | `@code-analyzer /explain architecture`                  |
+| **Impact Analysis**   | `@code-analyzer /impact <file>`                         |
+| **Dependency Graph**  | `@code-analyzer /deps <file>`                           |
 
 ## Cursor-Specific Features
 
 Code Analyzer detects Cursor-specific config files:
+
 - `.cursorrules` — project rules that influence analysis
 - `.cursor/rules/` — directory of rule files
 
@@ -70,10 +71,7 @@ Create `.code-analyzer/standards.json` to define custom review rules:
   "mcpServers": {
     "code-analyzer": {
       "command": "npx",
-      "args": [
-        "@code-analyzer/mcp",
-        "--standards", ".code-analyzer/standards.json"
-      ]
+      "args": ["@code-analyzer/mcp", "--standards", ".code-analyzer/standards.json"]
     }
   }
 }

@@ -16,7 +16,9 @@ describe('Structure Lens', () => {
     const content = lines.join('\n');
 
     const findings = analyzeStructure(content, '/src/complex.ts');
-    const complexityFinding = findings.find(f => f.id.startsWith('str-') && f.title.includes('Cyclomatic Complexity'));
+    const complexityFinding = findings.find(
+      (f) => f.id.startsWith('str-') && f.title.includes('Cyclomatic Complexity'),
+    );
     expect(complexityFinding).toBeDefined();
     expect(complexityFinding!.severity).toBe('high');
   });
@@ -24,7 +26,9 @@ describe('Structure Lens', () => {
   it('should not flag low complexity files', () => {
     const content = 'function simple() {\n  return 42;\n}';
     const findings = analyzeStructure(content, '/src/simple.ts');
-    const complexityFinding = findings.find(f => f.id.startsWith('str-') && f.title.includes('Cyclomatic'));
+    const complexityFinding = findings.find(
+      (f) => f.id.startsWith('str-') && f.title.includes('Cyclomatic'),
+    );
     expect(complexityFinding).toBeUndefined();
   });
 
@@ -40,7 +44,9 @@ describe('Structure Lens', () => {
     const content = lines.join('\n');
 
     const findings = analyzeStructure(content, '/src/coupled.ts');
-    const couplingFinding = findings.find(f => f.id.startsWith('str-') && f.title.includes('High Coupling'));
+    const couplingFinding = findings.find(
+      (f) => f.id.startsWith('str-') && f.title.includes('High Coupling'),
+    );
     expect(couplingFinding).toBeDefined();
     expect(couplingFinding!.severity).toBe('medium');
   });
@@ -57,7 +63,9 @@ describe('Structure Lens', () => {
     const content = lines.join('\n');
 
     const findings = analyzeStructure(content, '/src/god.ts');
-    const godFinding = findings.find(f => f.title.includes('God Class') && f.title.includes('lines'));
+    const godFinding = findings.find(
+      (f) => f.title.includes('God Class') && f.title.includes('lines'),
+    );
     expect(godFinding).toBeDefined();
     expect(godFinding!.severity).toBe('high');
   });
@@ -74,7 +82,9 @@ describe('Structure Lens', () => {
     const content = lines.join('\n');
 
     const findings = analyzeStructure(content, '/src/god-methods.ts');
-    const godFinding = findings.find(f => f.title.includes('God Class') && f.title.includes('methods'));
+    const godFinding = findings.find(
+      (f) => f.title.includes('God Class') && f.title.includes('methods'),
+    );
     expect(godFinding).toBeDefined();
   });
 
@@ -91,7 +101,7 @@ describe('Structure Lens', () => {
     const content = lines.join('\n');
 
     const findings = analyzeStructure(content, '/src/long.ts');
-    const longFinding = findings.find(f => f.title.includes('Long Method'));
+    const longFinding = findings.find((f) => f.title.includes('Long Method'));
     expect(longFinding).toBeDefined();
     expect(longFinding!.severity).toBe('medium');
   });
@@ -99,7 +109,7 @@ describe('Structure Lens', () => {
   it('should not flag short methods', () => {
     const content = 'function short() {\n  return 1;\n}';
     const findings = analyzeStructure(content, '/src/short.ts');
-    const longFinding = findings.find(f => f.title.includes('Long Method'));
+    const longFinding = findings.find((f) => f.title.includes('Long Method'));
     expect(longFinding).toBeUndefined();
   });
 
@@ -124,7 +134,7 @@ describe('Structure Lens', () => {
     ].join('\n');
 
     const findings = analyzeStructure(content, '/src/deep.ts');
-    const nestFinding = findings.find(f => f.title.includes('Deep Nesting'));
+    const nestFinding = findings.find((f) => f.title.includes('Deep Nesting'));
     expect(nestFinding).toBeDefined();
   });
 
@@ -140,7 +150,7 @@ describe('Structure Lens', () => {
     const content = lines.join('\n');
 
     const findings = analyzeStructure(content, '/src/low-cohesion.ts');
-    const cohesionFinding = findings.find(f => f.title.includes('Low Module Cohesion'));
+    const cohesionFinding = findings.find((f) => f.title.includes('Low Module Cohesion'));
     expect(cohesionFinding).toBeDefined();
     expect(cohesionFinding!.severity).toBe('low');
   });
@@ -209,7 +219,7 @@ describe('Structure Lens', () => {
 
     const findings = analyzeStructure(content, '/src/user-service.ts');
     // Should not flag this as a god class (only 2 methods, ~20 lines)
-    const godFinding = findings.find(f => f.title.includes('God Class'));
+    const godFinding = findings.find((f) => f.title.includes('God Class'));
     expect(godFinding).toBeUndefined();
   });
 
@@ -238,7 +248,7 @@ describe('Structure Lens', () => {
       '}',
     ].join('\n');
     const findings = analyzeStructure(content, '/src/normal.ts');
-    const godFinding = findings.find(f => f.title.includes('God Class'));
+    const godFinding = findings.find((f) => f.title.includes('God Class'));
     expect(godFinding).toBeUndefined();
   });
 
@@ -256,7 +266,7 @@ describe('Structure Lens', () => {
       '}',
     ].join('\n');
     const findings = analyzeStructure(content, '/src/shallow.ts');
-    const nestFinding = findings.find(f => f.title.includes('Deep Nesting'));
+    const nestFinding = findings.find((f) => f.title.includes('Deep Nesting'));
     expect(nestFinding).toBeUndefined();
   });
 
@@ -272,7 +282,7 @@ describe('Structure Lens', () => {
     lines.push('}');
     const content = lines.join('\n');
     const findings = analyzeStructure(content, '/src/medium.ts');
-    const longFinding = findings.find(f => f.title.includes('Long Method'));
+    const longFinding = findings.find((f) => f.title.includes('Long Method'));
     expect(longFinding).toBeUndefined();
   });
 
@@ -287,7 +297,7 @@ describe('Structure Lens', () => {
       'export function foo() { return a + b; }',
     ].join('\n');
     const findings = analyzeStructure(content, '/src/small.ts');
-    const cohesionFinding = findings.find(f => f.title.includes('Low Module Cohesion'));
+    const cohesionFinding = findings.find((f) => f.title.includes('Low Module Cohesion'));
     expect(cohesionFinding).toBeUndefined();
   });
 
@@ -301,7 +311,7 @@ describe('Structure Lens', () => {
       'export function foo() { return a + b; }',
     ].join('\n');
     const findings = analyzeStructure(content, '/src/normal-imports.ts');
-    const couplingFinding = findings.find(f => f.title.includes('High Coupling'));
+    const couplingFinding = findings.find((f) => f.title.includes('High Coupling'));
     expect(couplingFinding).toBeUndefined();
   });
 
@@ -316,7 +326,9 @@ describe('Structure Lens', () => {
     lines.push('}');
     const content = lines.join('\n');
     const findings = analyzeStructure(content, '/src/bounded.ts');
-    const godFindingByLines = findings.find(f => f.title.includes('God Class') && f.title.includes('lines'));
+    const godFindingByLines = findings.find(
+      (f) => f.title.includes('God Class') && f.title.includes('lines'),
+    );
     expect(godFindingByLines).toBeUndefined();
   });
 

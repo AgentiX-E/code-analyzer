@@ -11,9 +11,7 @@ export default defineConfig({
   cleanUrls: true,
   ignoreDeadLinks: true,
 
-  head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/code-analyzer/favicon.svg' }],
-  ],
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/code-analyzer/favicon.svg' }]],
 
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
@@ -72,9 +70,7 @@ export default defineConfig({
       '/reference/': [
         {
           text: 'API Reference',
-          items: [
-            { text: 'REST API', link: '/reference/api-spec' },
-          ],
+          items: [{ text: 'REST API', link: '/reference/api-spec' }],
         },
         {
           text: 'Packages',
@@ -95,16 +91,12 @@ export default defineConfig({
       '/contributing/': [
         {
           text: 'Contributing',
-          items: [
-            { text: 'Language Provider Guide', link: '/contributing/language-provider' },
-          ],
+          items: [{ text: 'Language Provider Guide', link: '/contributing/language-provider' }],
         },
       ],
     },
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/AgentiX-E/code-analyzer' },
-    ],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/AgentiX-E/code-analyzer' }],
 
     search: {
       provider: 'local',

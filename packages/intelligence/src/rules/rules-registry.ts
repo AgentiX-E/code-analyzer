@@ -97,11 +97,7 @@ export class RulesRegistry {
    * Run all registered rules against the given source lines.
    * Rules are filtered by language before execution.
    */
-  runAll(
-    lines: string[],
-    filePath: string,
-    language: string,
-  ): RuleCheckResult[] {
+  runAll(lines: string[], filePath: string, language: string): RuleCheckResult[] {
     if (!lines) return [];
 
     const results: RuleCheckResult[] = [];

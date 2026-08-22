@@ -184,11 +184,11 @@ export class DiffParser {
       changeType = 'modified';
     } else {
       // Check if all lines are additions (new file)
-      const allAdditions = hunks.every(
-        (h) => h.lines.every((l) => l.type === 'added' || l.type === 'context'),
+      const allAdditions = hunks.every((h) =>
+        h.lines.every((l) => l.type === 'added' || l.type === 'context'),
       );
-      const allDeletions = hunks.every(
-        (h) => h.lines.every((l) => l.type === 'removed' || l.type === 'context'),
+      const allDeletions = hunks.every((h) =>
+        h.lines.every((l) => l.type === 'removed' || l.type === 'context'),
       );
 
       const totalLines = hunks.reduce((sum, h) => sum + h.lines.length, 0);
@@ -215,9 +215,11 @@ export class DiffParser {
       newStart: h.newStart,
       newEnd: h.newStart + h.newCount,
       changeType:
-        h.oldCount === 0 ? ('added' as const) :
-        h.newCount === 0 ? ('removed' as const) :
-        ('modified' as const),
+        h.oldCount === 0
+          ? ('added' as const)
+          : h.newCount === 0
+            ? ('removed' as const)
+            : ('modified' as const),
     }));
 
     // If no hunks and no ranges, create a default range
@@ -400,9 +402,8 @@ export class DiffParser {
 
       // Parse individual diff lines
       if (line.startsWith('+')) {
-        const newLine = currentHunk.newStart + currentHunk.lines.filter(
-          (l) => l.type !== 'removed',
-        ).length;
+        const newLine =
+          currentHunk.newStart + currentHunk.lines.filter((l) => l.type !== 'removed').length;
         currentHunk.lines.push({
           type: 'added',
           newLineNumber: newLine,
@@ -410,9 +411,8 @@ export class DiffParser {
           content: line.slice(1),
         });
       } else if (line.startsWith('-')) {
-        const oldLine = currentHunk.oldStart + currentHunk.lines.filter(
-          (l) => l.type !== 'added',
-        ).length;
+        const oldLine =
+          currentHunk.oldStart + currentHunk.lines.filter((l) => l.type !== 'added').length;
         currentHunk.lines.push({
           type: 'removed',
           newLineNumber: 0,
@@ -420,12 +420,10 @@ export class DiffParser {
           content: line.slice(1),
         });
       } else if (line.startsWith(' ')) {
-        const oldLine = currentHunk.oldStart + currentHunk.lines.filter(
-          (l) => l.type !== 'added',
-        ).length;
-        const newLine = currentHunk.newStart + currentHunk.lines.filter(
-          (l) => l.type !== 'removed',
-        ).length;
+        const oldLine =
+          currentHunk.oldStart + currentHunk.lines.filter((l) => l.type !== 'added').length;
+        const newLine =
+          currentHunk.newStart + currentHunk.lines.filter((l) => l.type !== 'removed').length;
         currentHunk.lines.push({
           type: 'context',
           newLineNumber: newLine,

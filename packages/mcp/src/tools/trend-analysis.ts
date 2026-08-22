@@ -47,7 +47,12 @@ export const trendAnalysisTool: McpToolDefinition = {
 
     if (nodes.length === 0) {
       return {
-        content: [{ type: 'text', text: `No data found for project "${projectIdStr}". Index the project first.` }],
+        content: [
+          {
+            type: 'text',
+            text: `No data found for project "${projectIdStr}". Index the project first.`,
+          },
+        ],
         metadata: { projectId: projectIdStr, metric: metricKey },
       };
     }
@@ -174,7 +179,8 @@ function complexityReport(
 
   if (avg > 15) {
     report += '\n### Recommendations\n';
-    report += '- Average complexity is high (>15). Consider refactoring the most complex symbols.\n';
+    report +=
+      '- Average complexity is high (>15). Consider refactoring the most complex symbols.\n';
   }
 
   report += '\n> Complexity = outgoing CALLS + incoming CALLS + 3× EXTENDS + 2× IMPLEMENTS.\n';
@@ -231,17 +237,13 @@ function dependencyReport(
 // Structure report
 // ---------------------------------------------------------------------------
 
-function structureReport(
-  projectId: string,
-  nodes: GraphNode[],
-): string {
+function structureReport(projectId: string, nodes: GraphNode[]): string {
   const labelCounts = new Map<string, number>();
   for (const node of nodes) {
     labelCounts.set(node.label, (labelCounts.get(node.label) ?? 0) + 1);
   }
 
-  const sorted = Array.from(labelCounts.entries())
-    .sort((a, b) => b[1] - a[1]);
+  const sorted = Array.from(labelCounts.entries()).sort((a, b) => b[1] - a[1]);
 
   const total = nodes.length;
 
@@ -266,21 +268,22 @@ function structureReport(
 // Health report
 // ---------------------------------------------------------------------------
 
-function healthReport(
-  store: InMemoryGraphStore,
-  projectId: string,
-  nodes: GraphNode[],
-): string {
+function healthReport(store: InMemoryGraphStore, projectId: string, nodes: GraphNode[]): string {
   const edges = store.getAllEdges().filter((e) => e.projectId === projectId);
   const fileNodes = nodes.filter((n) => n.label === 'File');
   const funcNodes = nodes.filter((n) => n.label === 'Function' || n.label === 'Method');
   const isolatedNodes = nodes.filter(
-    (n) => store.getEdgesForNode(n.id).length === 0 && n.label !== 'File' && n.label !== 'Folder' && n.label !== 'Project',
+    (n) =>
+      store.getEdgesForNode(n.id).length === 0 &&
+      n.label !== 'File' &&
+      n.label !== 'Folder' &&
+      n.label !== 'Project',
   );
 
-  const density = nodes.length > 1
-    ? Math.round((edges.length / (nodes.length * (nodes.length - 1))) * 10000) / 100
-    : 0;
+  const density =
+    nodes.length > 1
+      ? Math.round((edges.length / (nodes.length * (nodes.length - 1))) * 10000) / 100
+      : 0;
 
   let report = `## Health Report — ${projectId}\n\n`;
 
@@ -292,7 +295,8 @@ function healthReport(
   report += `| Graph Density | ${density}% | ${density < 1 ? '🟢 Healthy' : density < 5 ? '🟡 Moderate' : '🔴 Dense'} |\n`;
   report += `| Files | ${fileNodes.length} | — |\n`;
   report += `| Functions/Methods | ${funcNodes.length} | — |\n`;
-  const isolatedPct = nodes.length > 0 ? Math.round((isolatedNodes.length / nodes.length) * 100) : 0;
+  const isolatedPct =
+    nodes.length > 0 ? Math.round((isolatedNodes.length / nodes.length) * 100) : 0;
   report += `| Isolated Nodes | ${isolatedNodes.length} (${isolatedPct}%) | ${isolatedPct < 5 ? '🟢 Healthy' : isolatedPct < 20 ? '🟡 Moderate' : '🔴 High'} |\n`;
 
   const edgeTypes = new Map<string, number>();

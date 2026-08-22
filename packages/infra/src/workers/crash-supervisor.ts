@@ -69,7 +69,11 @@ export class CrashSupervisor {
       const result = await Promise.race([
         task(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`TIMEOUT: Task for "${filePath}" exceeded ${effectiveTimeout}ms`)), effectiveTimeout),
+          setTimeout(
+            () =>
+              reject(new Error(`TIMEOUT: Task for "${filePath}" exceeded ${effectiveTimeout}ms`)),
+            effectiveTimeout,
+          ),
         ),
       ]);
 

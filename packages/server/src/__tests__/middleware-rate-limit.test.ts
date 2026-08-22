@@ -306,17 +306,20 @@ describe('registerRateLimit', () => {
 
     // All requests use the same key, so after 2, the 3rd should be limited
     await app.inject({
-      method: 'GET', url: '/test',
+      method: 'GET',
+      url: '/test',
       headers: { 'x-forwarded-for': '1.1.1.1' },
     });
     await app.inject({
-      method: 'GET', url: '/test',
+      method: 'GET',
+      url: '/test',
       headers: { 'x-forwarded-for': '2.2.2.2' },
     });
 
     // 3rd request with yet another IP should still be limited (same custom key)
     const res = await app.inject({
-      method: 'GET', url: '/test',
+      method: 'GET',
+      url: '/test',
       headers: { 'x-forwarded-for': '3.3.3.3' },
     });
     expect(res.statusCode).toBe(429);

@@ -25,9 +25,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     filePath: 'src/app.ts',
     oldHash: 'abc',
     newHash: 'def',
-    ranges: [
-      { oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' },
-    ],
+    ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' }],
     changeType: 'modified',
     ...overrides,
   };
@@ -185,10 +183,27 @@ describe('ReviewPipeline - Pre-filter', () => {
 
     // Test various binary extensions
     const binaryExts = [
-      'image.png', 'photo.jpg', 'doc.pdf', 'archive.zip', 'program.exe',
-      'lib.dll', 'lib.so', 'audio.mp3', 'video.mp4', 'font.woff', 'font.woff2',
-      'data.db', 'data.sqlite', 'icon.ico', 'file.bin', 'java.class',
-      'animation.gif', 'image.bmp', 'icon.svg', 'movie.mov', 'sound.wav',
+      'image.png',
+      'photo.jpg',
+      'doc.pdf',
+      'archive.zip',
+      'program.exe',
+      'lib.dll',
+      'lib.so',
+      'audio.mp3',
+      'video.mp4',
+      'font.woff',
+      'font.woff2',
+      'data.db',
+      'data.sqlite',
+      'icon.ico',
+      'file.bin',
+      'java.class',
+      'animation.gif',
+      'image.bmp',
+      'icon.svg',
+      'movie.mov',
+      'sound.wav',
     ];
 
     for (const path of binaryExts) {
@@ -483,9 +498,7 @@ describe('ReviewPipeline - Review Execution', () => {
     const pipeline = new ReviewPipeline();
 
     // Mock engine.reviewDiff to throw, triggering the catch block
-    vi.spyOn(engine, 'reviewDiff').mockRejectedValueOnce(
-      new Error('Engine failure'),
-    );
+    vi.spyOn(engine, 'reviewDiff').mockRejectedValueOnce(new Error('Engine failure'));
 
     const diffs = [
       {
@@ -565,12 +578,14 @@ describe('ReviewPipeline - Deduplication', () => {
     const comments = [
       createReviewComment({
         path: 'src/app.ts',
-        startLine: 1, endLine: 5,
+        startLine: 1,
+        endLine: 5,
         content: 'First comment',
       }),
       createReviewComment({
         path: 'src/app.ts',
-        startLine: 10, endLine: 15,
+        startLine: 10,
+        endLine: 15,
         content: 'Second comment',
       }),
     ];
@@ -584,14 +599,16 @@ describe('ReviewPipeline - Deduplication', () => {
     const comments = [
       createReviewComment({
         path: 'src/app.ts',
-        startLine: 1, endLine: 10,
+        startLine: 1,
+        endLine: 10,
         content: 'Function is too long and complex',
         severity: 'low',
         category: 'maintainability',
       }),
       createReviewComment({
         path: 'src/app.ts',
-        startLine: 5, endLine: 15,
+        startLine: 5,
+        endLine: 15,
         content: 'Function is too long and complex',
         severity: 'high',
         category: 'maintainability',
@@ -648,12 +665,14 @@ describe('ReviewPipeline - Severity Normalization', () => {
 
     // Create many low-severity comments
     for (let i = 0; i < 30; i++) {
-      comments.push(createReviewComment({
-        id: `low-${i}`,
-        severity: 'low',
-        startLine: i + 1,
-        endLine: i + 1,
-      }));
+      comments.push(
+        createReviewComment({
+          id: `low-${i}`,
+          severity: 'low',
+          startLine: i + 1,
+          endLine: i + 1,
+        }),
+      );
     }
 
     const result = pipeline.normalize(comments);
@@ -797,10 +816,7 @@ describe('ReviewPipeline - Configuration', () => {
       configFilePatterns: ['**/env.ts', '**/config.ts'],
     });
 
-    const diffs = [
-      createDiff({ filePath: 'src/env.ts' }),
-      createDiff({ filePath: 'src/app.ts' }),
-    ];
+    const diffs = [createDiff({ filePath: 'src/env.ts' }), createDiff({ filePath: 'src/app.ts' })];
 
     const { included, excluded } = pipeline.preFilter(diffs);
     expect(included).toHaveLength(1);
@@ -908,13 +924,15 @@ describe('ReviewPipeline - Edge Cases', () => {
       createReviewComment({
         id: '1',
         path: 'src/app.ts',
-        startLine: 1, endLine: 5,
+        startLine: 1,
+        endLine: 5,
         content: 'First issue',
       }),
       createReviewComment({
         id: '2',
         path: 'src/app.ts',
-        startLine: 20, endLine: 25,
+        startLine: 20,
+        endLine: 25,
         content: 'Second issue',
       }),
     ];

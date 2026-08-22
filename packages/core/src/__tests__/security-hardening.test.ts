@@ -4,15 +4,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { SecretScanner } from '../security/secret-scanner.js';
-import {
-  SecurityAuditor,
-  DEFAULT_SECURITY_POLICY,
-} from '../security/assurance-case.js';
-import type {
-  SecurityPolicy,
-  ThreatCategory,
-  Countermeasure,
-} from '../security/assurance-case.js';
+import { SecurityAuditor, DEFAULT_SECURITY_POLICY } from '../security/assurance-case.js';
+import type { SecurityPolicy, ThreatCategory, Countermeasure } from '../security/assurance-case.js';
 
 // ===========================================================================
 // Secret Scanner Tests
@@ -31,7 +24,10 @@ describe('SecretScanner', () => {
     it('should detect GitHub classic PATs', () => {
       const scanner = new SecretScanner();
       // Classic PAT: ghp_ prefix + exactly 36 alphanumeric chars
-      const results = scanner.scanFile('.env', 'GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ');
+      const results = scanner.scanFile(
+        '.env',
+        'GITHUB_TOKEN=ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ',
+      );
       expect(results.some((r) => r.type === 'token' && r.severity === 'critical')).toBe(true);
     });
 
@@ -44,7 +40,10 @@ describe('SecretScanner', () => {
 
     it('should detect JWT tokens', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanFile('config.json', '"token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcd1234efgh5678"');
+      const results = scanner.scanFile(
+        'config.json',
+        '"token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcd1234efgh5678"',
+      );
       expect(results.some((r) => r.type === 'token')).toBe(true);
     });
 
@@ -66,7 +65,10 @@ test1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP
 
     it('should detect PostgreSQL connection strings', () => {
       const scanner = new SecretScanner();
-      const results = scanner.scanFile('app.config', 'postgresql://user:secret@localhost:5432/mydb');
+      const results = scanner.scanFile(
+        'app.config',
+        'postgresql://user:secret@localhost:5432/mydb',
+      );
       expect(results.some((r) => r.type === 'connection_string')).toBe(true);
     });
 
@@ -79,7 +81,10 @@ test1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP
     it('should detect API key assignments', () => {
       const scanner = new SecretScanner();
       // API key regex requires 20+ alphanumeric chars in quotes after api_key[:=]
-      const results = scanner.scanFile('config.ts', 'const api_key = "sk1234567890abcdef1234567890"');
+      const results = scanner.scanFile(
+        'config.ts',
+        'const api_key = "sk1234567890abcdef1234567890"',
+      );
       expect(results.some((r) => r.type === 'api_key')).toBe(true);
     });
 
@@ -169,7 +174,8 @@ test1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP
 
     it('should detect multiple secrets in same content', () => {
       const scanner = new SecretScanner();
-      const content = 'const key = "AKIAIOSFODNN7EXAMPLE";\nconst token = "ghp_1234567890abcdef1234567890abcdef12345678";';
+      const content =
+        'const key = "AKIAIOSFODNN7EXAMPLE";\nconst token = "ghp_1234567890abcdef1234567890abcdef12345678";';
       const results = scanner.scanFile('multi.ts', content);
       expect(results.length).toBeGreaterThanOrEqual(2);
     });
@@ -217,9 +223,7 @@ describe('SecurityAuditor', () => {
     it('should produce a valid summary', () => {
       const auditor = new SecurityAuditor();
       const report = auditor.audit();
-      expect(report.summary.totalControls).toBe(
-        report.summary.passed + report.summary.failed,
-      );
+      expect(report.summary.totalControls).toBe(report.summary.passed + report.summary.failed);
       expect(report.summary.failed).toBe(0);
       expect(report.summary.critical).toBe(0);
     });
@@ -279,9 +283,7 @@ describe('SecurityAuditor', () => {
       const auditor = new SecurityAuditor();
       const report = auditor.audit(policy);
       expect(report.passed).toBe(false);
-      const gapFindings = report.findings.filter(
-        (f) => !f.passed && f.id.startsWith('gap-'),
-      );
+      const gapFindings = report.findings.filter((f) => !f.passed && f.id.startsWith('gap-'));
       expect(gapFindings.length).toBeGreaterThan(0);
       expect(gapFindings.some((f) => f.category === 'pathTraversal')).toBe(true);
     });
@@ -440,9 +442,7 @@ describe('Path Traversal Prevention', () => {
 
   it('should sanitize paths with traversal sequences', () => {
     function sanitizePath(input: string): string {
-      return input
-        .replace(/\.\./g, '__')
-        .replace(/[^a-zA-Z0-9._\-\/]/g, '_');
+      return input.replace(/\.\./g, '__').replace(/[^a-zA-Z0-9._\-\/]/g, '_');
     }
     const sanitized = sanitizePath('../../../etc/passwd');
     expect(sanitized).not.toContain('..');
@@ -467,7 +467,7 @@ describe('Injection Prevention', () => {
     // Test the pattern that detects SQL injection attempts
     const sqlRegex = /\b(OR|AND|UNION|DROP|SELECT)\b/i;
     const injStr1 = "x' OR 1=1 --";
-    const injStr2 = "name UNION SELECT * FROM";
+    const injStr2 = 'name UNION SELECT * FROM';
     const injStr3 = 'x; DROP TABLE users';
     expect(sqlRegex.test(injStr1)).toBe(true);
     expect(sqlRegex.test(injStr2)).toBe(true);
@@ -475,10 +475,7 @@ describe('Injection Prevention', () => {
   });
 
   it('should not flag normal SQL strings', () => {
-    const safeStrings = [
-      "SELECT * FROM users WHERE id = ?",
-      'name LIKE "test"',
-    ];
+    const safeStrings = ['SELECT * FROM users WHERE id = ?', 'name LIKE "test"'];
     for (const str of safeStrings) {
       // Parameterized/safe queries without injection patterns
       const hasInjection = /(?:'|")\s*(?:OR|AND)\s*(?:'|")/i.test(str);

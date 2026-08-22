@@ -23,51 +23,52 @@ vi.mock('@code-analyzer/infra', () => {
   };
 });
 
-import {
-  PipelineOrchestrator,
-  createAllPhases,
-} from '@code-analyzer/analyzer';
+import { PipelineOrchestrator, createAllPhases } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import {
-  analyzeRepository,
-  formatAnalyzeResult,
-  type AnalyzeOutput,
-} from '../commands/analyze.js';
+import { analyzeRepository, formatAnalyzeResult, type AnalyzeOutput } from '../commands/analyze.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function setupMockOrchestrator(overrides: {
-  status?: string;
-  nodeCount?: number;
-  edgeCount?: number;
-  fileCount?: number;
-  errors?: Array<{ phaseId: string; message: string }>;
-  phases?: Array<{
-    phaseId: string;
-    status: string;
-    duration: number;
-    output?: unknown;
-    error?: string | null;
-  }>;
-  duration?: number;
-} = {}) {
+function setupMockOrchestrator(
+  overrides: {
+    status?: string;
+    nodeCount?: number;
+    edgeCount?: number;
+    fileCount?: number;
+    errors?: Array<{ phaseId: string; message: string }>;
+    phases?: Array<{
+      phaseId: string;
+      status: string;
+      duration: number;
+      output?: unknown;
+      error?: string | null;
+    }>;
+    duration?: number;
+  } = {},
+) {
   const executeMock = vi.fn().mockResolvedValue({
     status: overrides.status ?? 'success',
     graph: {
-      nodes: new Map(Array.from({ length: overrides.nodeCount ?? 2 }, (_, i) => [
-        String(i),
-        { id: String(i), type: 'function', name: `fn${i}` },
-      ])),
-      edges: new Map(Array.from({ length: overrides.edgeCount ?? 3 }, (_, i) => [
-        `e${i}`,
-        { from: String(i), to: String(i + 1), type: 'import' },
-      ])),
-      fileIndex: new Map(Array.from({ length: overrides.fileCount ?? 1 }, (_, i) => [
-        `file${i}.ts`,
-        { path: `file${i}.ts` },
-      ])),
+      nodes: new Map(
+        Array.from({ length: overrides.nodeCount ?? 2 }, (_, i) => [
+          String(i),
+          { id: String(i), type: 'function', name: `fn${i}` },
+        ]),
+      ),
+      edges: new Map(
+        Array.from({ length: overrides.edgeCount ?? 3 }, (_, i) => [
+          `e${i}`,
+          { from: String(i), to: String(i + 1), type: 'import' },
+        ]),
+      ),
+      fileIndex: new Map(
+        Array.from({ length: overrides.fileCount ?? 1 }, (_, i) => [
+          `file${i}.ts`,
+          { path: `file${i}.ts` },
+        ]),
+      ),
     },
     errors: overrides.errors ?? [],
     phases: overrides.phases ?? [
@@ -107,7 +108,11 @@ describe('analyzeRepository', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should fail gracefully for non-existent path', async () => {

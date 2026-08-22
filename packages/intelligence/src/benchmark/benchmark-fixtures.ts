@@ -690,7 +690,8 @@ def parse_data(data: str):
       severity: 'medium',
       startLine: 10,
       endLine: 12,
-      description: 'Missing error handling for file operation — FileNotFoundError, PermissionError not handled',
+      description:
+        'Missing error handling for file operation — FileNotFoundError, PermissionError not handled',
       language: 'python',
     },
   ],
@@ -1104,8 +1105,26 @@ function getDiscount(user: User): number {
 
 interface User { id: string; email: string; }`,
   groundTruth: [
-    { id: 'ts-debug-1', filePath: 'fixtures/typescript/console-log-debug.ts', category: 'style', severity: 'low', startLine: 2, endLine: 2, description: 'console.log left in production code', language: 'typescript' },
-    { id: 'ts-debug-2', filePath: 'fixtures/typescript/console-log-debug.ts', category: 'style', severity: 'low', startLine: 6, endLine: 6, description: 'console.log with user data left in production code', language: 'typescript' },
+    {
+      id: 'ts-debug-1',
+      filePath: 'fixtures/typescript/console-log-debug.ts',
+      category: 'style',
+      severity: 'low',
+      startLine: 2,
+      endLine: 2,
+      description: 'console.log left in production code',
+      language: 'typescript',
+    },
+    {
+      id: 'ts-debug-2',
+      filePath: 'fixtures/typescript/console-log-debug.ts',
+      category: 'style',
+      severity: 'low',
+      startLine: 6,
+      endLine: 6,
+      description: 'console.log with user data left in production code',
+      language: 'typescript',
+    },
   ],
 };
 
@@ -1123,7 +1142,16 @@ def authenticate(username, password):
         return True
     return False`,
   groundTruth: [
-    { id: 'py-log-1', filePath: 'fixtures/python/logging_leak.py', category: 'security', severity: 'medium', startLine: 6, endLine: 6, description: 'Sensitive data (password) logged in debug output', language: 'python' },
+    {
+      id: 'py-log-1',
+      filePath: 'fixtures/python/logging_leak.py',
+      category: 'security',
+      severity: 'medium',
+      startLine: 6,
+      endLine: 6,
+      description: 'Sensitive data (password) logged in debug output',
+      language: 'python',
+    },
   ],
 };
 

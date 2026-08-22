@@ -18,16 +18,27 @@ vi.mock('../review/llm/provider.js', () => {
 vi.mock('../review/llm/llm-review-engine.js', () => {
   class MockLLMReviewEngine {
     reviewDiff() {
-      return Promise.resolve([{
-        filePath: 'test.ts',
-        lane: 'security',
-        findings: [{
-          id: 'f1', lane: 'security', title: 'Issue', description: 'desc',
-          startLine: 1, endLine: 1, suggestion: 'fix', severity: 'critical', category: 'security',
-        }],
-        success: true,
-        tokenUsage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
-      }]);
+      return Promise.resolve([
+        {
+          filePath: 'test.ts',
+          lane: 'security',
+          findings: [
+            {
+              id: 'f1',
+              lane: 'security',
+              title: 'Issue',
+              description: 'desc',
+              startLine: 1,
+              endLine: 1,
+              suggestion: 'fix',
+              severity: 'critical',
+              category: 'security',
+            },
+          ],
+          success: true,
+          tokenUsage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        },
+      ]);
     }
   }
   return { LLMReviewEngine: MockLLMReviewEngine };
@@ -35,11 +46,21 @@ vi.mock('../review/llm/llm-review-engine.js', () => {
 vi.mock('../review/review-engine.js', () => {
   class MockCodeReviewEngine {
     reviewFile() {
-      return Promise.resolve([{
-        id: 'heur-1', path: 'test.ts', content: 'comment', thinking: '',
-        existingCode: '', startLine: 1, endLine: 1, category: 'security',
-        severity: 'critical', filtered: false, createdAt: new Date().toISOString(),
-      }]);
+      return Promise.resolve([
+        {
+          id: 'heur-1',
+          path: 'test.ts',
+          content: 'comment',
+          thinking: '',
+          existingCode: '',
+          startLine: 1,
+          endLine: 1,
+          category: 'security',
+          severity: 'critical',
+          filtered: false,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
     }
   }
   return { CodeReviewEngine: MockCodeReviewEngine };
@@ -48,20 +69,35 @@ vi.mock('../code-review-benchmark.js', () => {
   class MockBenchmarkRunner {
     runBenchmark() {
       return {
-        totalFixtures: 2, totalIssues: 2, totalDetections: 3,
+        totalFixtures: 2,
+        totalIssues: 2,
+        totalDetections: 3,
         totalGroundTruth: 2,
-        truePositives: 2, falsePositives: 1, falseNegatives: 0,
-        precision: 0.667, recall: 1.0, f1Score: 0.8, noiseRate: 0.5,
-        durationMs: 100, matchResults: [],
+        truePositives: 2,
+        falsePositives: 1,
+        falseNegatives: 0,
+        precision: 0.667,
+        recall: 1.0,
+        f1Score: 0.8,
+        noiseRate: 0.5,
+        durationMs: 100,
+        matchResults: [],
         fixturesProcessed: 2,
         languagesTested: 1,
         totalDurationMs: 100,
         avgTimePerFixtureMs: 50,
         detections: [],
-        categoryBreakdown: [{
-          category: 'security', truePositives: 2, falsePositives: 1,
-          falseNegatives: 0, precision: 0.667, recall: 1.0, f1: 0.8,
-        }],
+        categoryBreakdown: [
+          {
+            category: 'security',
+            truePositives: 2,
+            falsePositives: 1,
+            falseNegatives: 0,
+            precision: 0.667,
+            recall: 1.0,
+            f1: 0.8,
+          },
+        ],
       };
     }
   }
@@ -73,21 +109,35 @@ vi.mock('../benchmark-fixtures.js', () => ({
       filePath: 'fixtures/test/sql-injection.ts',
       language: 'typescript',
       content: 'const q = `SELECT * FROM users WHERE id = "${userId}"`;\n',
-      groundTruth: [{
-        id: 'SQL-001', filePath: 'fixtures/test/sql-injection.ts',
-        category: 'security', severity: 'critical', startLine: 1, endLine: 1,
-        description: 'SQL injection', language: 'typescript',
-      }],
+      groundTruth: [
+        {
+          id: 'SQL-001',
+          filePath: 'fixtures/test/sql-injection.ts',
+          category: 'security',
+          severity: 'critical',
+          startLine: 1,
+          endLine: 1,
+          description: 'SQL injection',
+          language: 'typescript',
+        },
+      ],
     },
     {
       filePath: 'fixtures/test/xss.ts',
       language: 'typescript',
       content: 'element.innerHTML = userInput;\n',
-      groundTruth: [{
-        id: 'XSS-001', filePath: 'fixtures/test/xss.ts',
-        category: 'security', severity: 'high', startLine: 1, endLine: 1,
-        description: 'XSS via innerHTML', language: 'typescript',
-      }],
+      groundTruth: [
+        {
+          id: 'XSS-001',
+          filePath: 'fixtures/test/xss.ts',
+          category: 'security',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: 'XSS via innerHTML',
+          language: 'typescript',
+        },
+      ],
     },
   ],
 }));
@@ -124,7 +174,15 @@ function makeBenchmarkResult(overrides: any = {}): BenchmarkResult {
     languagesTested: overrides.languagesTested ?? 1,
     detections: overrides.detections ?? [],
     categoryBreakdown: overrides.categoryBreakdown ?? [
-      { category: 'security', truePositives: 2, falsePositives: 2, falseNegatives: 0, precision: 0.5, recall: 1.0, f1: 0.667 },
+      {
+        category: 'security',
+        truePositives: 2,
+        falsePositives: 2,
+        falseNegatives: 0,
+        precision: 0.5,
+        recall: 1.0,
+        f1: 0.667,
+      },
     ],
   };
 }
@@ -139,13 +197,22 @@ describe('generateLLMComparisonReport', () => {
   beforeEach(() => {
     baseResult = {
       heuristic: makeBenchmarkResult({
-        precision: 0.4, recall: 0.8, f1Score: 0.533, noiseRate: 1.5,
+        precision: 0.4,
+        recall: 0.8,
+        f1Score: 0.533,
+        noiseRate: 1.5,
       }),
       combined: makeBenchmarkResult({
-        precision: 0.7, recall: 0.9, f1Score: 0.787, noiseRate: 0.8,
+        precision: 0.7,
+        recall: 0.9,
+        f1Score: 0.787,
+        noiseRate: 0.8,
       }),
       llmOnly: makeBenchmarkResult({
-        precision: 0.6, recall: 0.5, f1Score: 0.545, noiseRate: 1.2,
+        precision: 0.6,
+        recall: 0.5,
+        f1Score: 0.545,
+        noiseRate: 1.2,
       }),
       tokenUsage: {
         totalPromptTokens: 5000,
@@ -200,7 +267,12 @@ describe('generateLLMComparisonReport', () => {
   it('handles zero token usage', () => {
     const zeroResult: LLMBenchmarkResult = {
       ...baseResult,
-      tokenUsage: { totalPromptTokens: 0, totalCompletionTokens: 0, totalTokens: 0, avgTokensPerFixture: 0 },
+      tokenUsage: {
+        totalPromptTokens: 0,
+        totalCompletionTokens: 0,
+        totalTokens: 0,
+        avgTokensPerFixture: 0,
+      },
       fixturesWithLLM: 0,
     };
     const report = generateLLMComparisonReport(zeroResult);
@@ -257,11 +329,38 @@ describe('generateLLMComparisonReport', () => {
     const multi: LLMBenchmarkResult = {
       ...baseResult,
       combined: makeBenchmarkResult({
-        precision: 0.8, recall: 0.85, f1Score: 0.824, noiseRate: 0.4,
+        precision: 0.8,
+        recall: 0.85,
+        f1Score: 0.824,
+        noiseRate: 0.4,
         categoryBreakdown: [
-          { category: 'security', truePositives: 3, falsePositives: 1, falseNegatives: 0, precision: 0.75, recall: 1.0, f1: 0.857 },
-          { category: 'performance', truePositives: 2, falsePositives: 0, falseNegatives: 1, precision: 1.0, recall: 0.667, f1: 0.8 },
-          { category: 'maintainability', truePositives: 1, falsePositives: 2, falseNegatives: 0, precision: 0.333, recall: 1.0, f1: 0.5 },
+          {
+            category: 'security',
+            truePositives: 3,
+            falsePositives: 1,
+            falseNegatives: 0,
+            precision: 0.75,
+            recall: 1.0,
+            f1: 0.857,
+          },
+          {
+            category: 'performance',
+            truePositives: 2,
+            falsePositives: 0,
+            falseNegatives: 1,
+            precision: 1.0,
+            recall: 0.667,
+            f1: 0.8,
+          },
+          {
+            category: 'maintainability',
+            truePositives: 1,
+            falsePositives: 2,
+            falseNegatives: 0,
+            precision: 0.333,
+            recall: 1.0,
+            f1: 0.5,
+          },
         ],
       }),
     };

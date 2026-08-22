@@ -21,8 +21,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-javascript') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -62,7 +62,11 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
             startByte: nameNode.startIndex,
             endByte: nameNode.endIndex,
             name: nameNode.text,
-            properties: { arrow: 'true', async: String(node.text.includes('async')), filePath: this.filePath },
+            properties: {
+              arrow: 'true',
+              async: String(node.text.includes('async')),
+              filePath: this.filePath,
+            },
           });
         }
       }
@@ -95,7 +99,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
           if (cn) containerName = cn.text;
         }
 
-        const tag = nameNode.text === 'constructor' ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF;
+        const tag =
+          nameNode.text === 'constructor' ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF;
         captures.push({
           tag,
           text: nameNode.text,
@@ -168,11 +173,15 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
     // JSX component detection
     if (nodeType === 'arrow_function' || nodeType === 'function_declaration') {
-      const hasJSX = node.text.includes('<') && (node.text.includes('/>') || node.text.includes('</'));
+      const hasJSX =
+        node.text.includes('<') && (node.text.includes('/>') || node.text.includes('</'));
       /* v8 ignore next -- @preserve -- arrow functions are always assigned to a variable_declarator here */
-      const nameNode = node.type === 'function_declaration'
-        ? this.findNamedChild(node, 'identifier')
-        : node.parent?.type === 'variable_declarator' ? this.findNamedChild(node.parent, 'identifier') : null;
+      const nameNode =
+        node.type === 'function_declaration'
+          ? this.findNamedChild(node, 'identifier')
+          : node.parent?.type === 'variable_declarator'
+            ? this.findNamedChild(node.parent, 'identifier')
+            : null;
 
       if (nameNode && hasJSX && nameNode.text[0] === nameNode.text[0]?.toUpperCase()) {
         captures.push({
@@ -224,7 +233,9 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
                 const spec = sub.child(k);
                 if (spec.type === 'import_specifier') {
                   /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                  const id = this.findDeepChild(spec, 'identifier') || this.findDeepChild(spec, 'property_identifier');
+                  const id =
+                    this.findDeepChild(spec, 'identifier') ||
+                    this.findDeepChild(spec, 'property_identifier');
                   /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                   if (id) names.push(id.text);
                 }
@@ -239,7 +250,12 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
       /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (sourcePath && names.length > 0) {
-        imports.push({ source: sourcePath, names, type: importType, lineNumber: node.startPosition.row + 1 });
+        imports.push({
+          source: sourcePath,
+          names,
+          type: importType,
+          lineNumber: node.startPosition.row + 1,
+        });
       }
       return;
     }
@@ -264,7 +280,12 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
                   if (id) names.push(id.text);
                 }
                 /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                imports.push({ source: path, names: names.length > 0 ? names : [path], type: 'default', lineNumber: node.startPosition.row + 1 });
+                imports.push({
+                  source: path,
+                  names: names.length > 0 ? names : [path],
+                  type: 'default',
+                  lineNumber: node.startPosition.row + 1,
+                });
               }
             }
           }
@@ -312,23 +333,68 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     const funcRegex = /(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+(\w+)/g;
     let m: RegExpExecArray | null;
     while ((m = funcRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.lineOff(source, m.index), endLine: this.lineOff(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.lineOff(source, m.index),
+        endLine: this.lineOff(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const arrRegex = /(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
     while ((m = arrRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.FUNCTION_DEF, text: m[1]!, startLine: this.lineOff(source, m.index), endLine: this.lineOff(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { arrow: 'true', filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: m[1]!,
+        startLine: this.lineOff(source, m.index),
+        endLine: this.lineOff(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { arrow: 'true', filePath },
+      });
     }
     const clRegex = /(?:export\s+(?:default\s+)?)?class\s+(\w+)/g;
     while ((m = clRegex.exec(source)) !== null) {
-      captures.push({ tag: CAPTURE_TAGS.CLASS_DEF, text: `class ${m[1]!}`, startLine: this.lineOff(source, m.index), endLine: this.lineOff(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${m[1]!}`,
+        startLine: this.lineOff(source, m.index),
+        endLine: this.lineOff(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const vrRegex = /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=(?![^=]*=>)/g;
     while ((m = vrRegex.exec(source)) !== null) {
-      captures.push({ tag: m[0].includes('const') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF, text: m[1]!, startLine: this.lineOff(source, m.index), endLine: this.lineOff(source, m.index + m[0].length), startByte: m.index, endByte: m.index + m[0].length, name: m[1]!, properties: { filePath } });
+      captures.push({
+        tag: m[0].includes('const') ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
+        text: m[1]!,
+        startLine: this.lineOff(source, m.index),
+        endLine: this.lineOff(source, m.index + m[0].length),
+        startByte: m.index,
+        endByte: m.index + m[0].length,
+        name: m[1]!,
+        properties: { filePath },
+      });
     }
     const imps = this.fallbackExtractImports(source);
     for (const imp of imps) {
-      captures.push({ tag: CAPTURE_TAGS.IMPORT, text: imp.source, startLine: imp.lineNumber, endLine: imp.lineNumber, startByte: 0, endByte: 0, name: imp.source, properties: { names: imp.names.join(','), importType: imp.type, filePath } });
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: imp.source,
+        startLine: imp.lineNumber,
+        endLine: imp.lineNumber,
+        startByte: 0,
+        endByte: 0,
+        name: imp.source,
+        properties: { names: imp.names.join(','), importType: imp.type, filePath },
+      });
     }
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
@@ -339,20 +405,27 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     const regex = /import\s+(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
     let m: RegExpExecArray | null;
     while ((m = regex.exec(source)) !== null) {
-      const p = m[5]!, l = this.lineOff(source, m.index);
+      const p = m[5]!,
+        l = this.lineOff(source, m.index);
       if (m[2]) imports.push({ source: p, names: [m[2]], type: 'namespace', lineNumber: l });
       else if (m[3]) {
-        const nm: string[] = []; const nr = /(\w+)/g; let n: RegExpExecArray | null;
+        const nm: string[] = [];
+        const nr = /(\w+)/g;
+        let n: RegExpExecArray | null;
         while ((n = nr.exec(m[3]))) nm.push(n[1]!);
         imports.push({ source: p, names: nm, type: 'named', lineNumber: l });
       } else if (m[4]) imports.push({ source: p, names: [m[4]], type: 'default', lineNumber: l });
     }
     // require()
-    const rqRx = /(?:const|let|var)\s+(?:(\{[\s\S]*?\})|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+    const rqRx =
+      /(?:const|let|var)\s+(?:(\{[\s\S]*?\})|(\w+))\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
     while ((m = rqRx.exec(source)) !== null) {
-      const p = m[3]!, l = this.lineOff(source, m.index);
+      const p = m[3]!,
+        l = this.lineOff(source, m.index);
       if (m[1]) {
-        const nm: string[] = []; const nr = /(\w+)/g; let n: RegExpExecArray | null;
+        const nm: string[] = [];
+        const nr = /(\w+)/g;
+        let n: RegExpExecArray | null;
         while ((n = nr.exec(m[1]))) nm.push(n[1]!);
         imports.push({ source: p, names: nm, type: 'named', lineNumber: l });
       } else if (m[2]) imports.push({ source: p, names: [m[2]], type: 'default', lineNumber: l });
@@ -363,7 +436,9 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`module\\.exports\\s*=\\s*${s}\\b|exports\\.${s}\\s*=|export\\s*\\{[^}]*\\b${s}\\b[^}]*\\}|export\\s+default\\s+(?:function|class)\\s+${s}\\b|export\\s+(?:const|let|var|function|class)\\s+${s}\\b`).test(source);
+    return new RegExp(
+      `module\\.exports\\s*=\\s*${s}\\b|exports\\.${s}\\s*=|export\\s*\\{[^}]*\\b${s}\\b[^}]*\\}|export\\s+default\\s+(?:function|class)\\s+${s}\\b|export\\s+(?:const|let|var|function|class)\\s+${s}\\b`,
+    ).test(source);
   }
 
   // Helpers

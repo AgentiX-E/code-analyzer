@@ -1,7 +1,13 @@
 // @code-analyzer/infra — Retry Tests
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { withRetry, isNetworkError, isServerError, isRateLimitError, isTransientError } from '../../resilience/retry.js';
+import {
+  withRetry,
+  isNetworkError,
+  isServerError,
+  isRateLimitError,
+  isTransientError,
+} from '../../resilience/retry.js';
 import type { RetryOptions } from '../../resilience/retry.js';
 
 // ---------------------------------------------------------------------------
@@ -60,9 +66,7 @@ describe('withRetry', () => {
     vi.useRealTimers();
     const fn = vi.fn().mockRejectedValue(new Error('always fails'));
 
-    await expect(
-      withRetry(fn, { maxRetries: 2, baseDelayMs: 1 }),
-    ).rejects.toThrow('always fails');
+    await expect(withRetry(fn, { maxRetries: 2, baseDelayMs: 1 })).rejects.toThrow('always fails');
 
     expect(fn).toHaveBeenCalledTimes(3); // initial + 2 retries
     vi.useFakeTimers();
@@ -72,9 +76,7 @@ describe('withRetry', () => {
     vi.useRealTimers();
     const fn = vi.fn().mockRejectedValue(new Error('fail'));
 
-    await expect(
-      withRetry(fn, { maxRetries: 0 }),
-    ).rejects.toThrow('fail');
+    await expect(withRetry(fn, { maxRetries: 0 })).rejects.toThrow('fail');
 
     expect(fn).toHaveBeenCalledTimes(1);
     vi.useFakeTimers();
@@ -111,11 +113,7 @@ describe('withRetry', () => {
     });
 
     expect(onRetry).toHaveBeenCalledTimes(2);
-    expect(onRetry).toHaveBeenCalledWith(
-      expect.any(Error),
-      1,
-      expect.any(Number),
-    );
+    expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 1, expect.any(Number));
   });
 
   it('should not retry if error is not retryable', async () => {
@@ -174,9 +172,9 @@ describe('withRetry', () => {
     // Abort immediately
     controller.abort();
 
-    await expect(
-      withRetry(fn, { maxRetries: 3, signal: controller.signal }),
-    ).rejects.toThrow('Operation aborted');
+    await expect(withRetry(fn, { maxRetries: 3, signal: controller.signal })).rejects.toThrow(
+      'Operation aborted',
+    );
 
     expect(fn).toHaveBeenCalledTimes(0);
   });

@@ -18,7 +18,7 @@ export const DEFAULT_MESSAGES: Record<string, string | number> = {
   'config.envWarning': 'Environment variable {name} has invalid value: {value}',
   'config.invalid': 'Invalid configuration: {errors}',
   'config.validationFailed': 'Configuration validation failed with {count} error(s)',
-  'defaults_maxFiles': 50000,
+  defaults_maxFiles: 50000,
 
   // Logging
   'logging.initialized': 'Logger initialized for component "{component}" at level {level}',

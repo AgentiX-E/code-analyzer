@@ -64,8 +64,7 @@ export function getMcpTemplate(
           2,
         ),
         configPath: '~/.cursor/mcp.json',
-        instructions:
-          'Create or edit ~/.cursor/mcp.json with this config, then restart Cursor.',
+        instructions: 'Create or edit ~/.cursor/mcp.json with this config, then restart Cursor.',
       };
 
     case 'windsurf':
@@ -107,8 +106,7 @@ export function getMcpTemplate(
           2,
         ),
         configPath: '~/.continue/config.json',
-        instructions:
-          'Merge into your existing config.json under the "mcpServers" key.',
+        instructions: 'Merge into your existing config.json under the "mcpServers" key.',
       };
 
     case 'aider':
@@ -121,8 +119,7 @@ mcp_servers:
     command: npx
     args: ["@code-analyzer/mcp"]`,
         configPath: '.aider.conf.yml',
-        instructions:
-          'Add the snippet above to your .aider.conf.yml in the project root.',
+        instructions: 'Add the snippet above to your .aider.conf.yml in the project root.',
       };
 
     case 'cline':
@@ -144,8 +141,7 @@ mcp_servers:
           2,
         ),
         configPath: '~/.cline/mcp_settings.json',
-        instructions:
-          'Open Cline → MCP Servers → Configure, then add this server.',
+        instructions: 'Open Cline → MCP Servers → Configure, then add this server.',
       };
 
     case 'github-copilot':
@@ -166,8 +162,7 @@ mcp_servers:
           2,
         ),
         configPath: '.github/copilot/mcp.json',
-        instructions:
-          'Create .github/copilot/mcp.json in your project root with this config.',
+        instructions: 'Create .github/copilot/mcp.json in your project root with this config.',
       };
 
     case 'codeium':
@@ -187,8 +182,7 @@ mcp_servers:
           2,
         ),
         configPath: '~/.codeium/mcp.json',
-        instructions:
-          'Create or edit ~/.codeium/mcp.json with this config.',
+        instructions: 'Create or edit ~/.codeium/mcp.json with this config.',
       };
 
     case 'tabnine':
@@ -208,8 +202,7 @@ mcp_servers:
           2,
         ),
         configPath: '~/.tabnine/mcp.json',
-        instructions:
-          'Add this config to Tabnine → MCP Servers settings.',
+        instructions: 'Add this config to Tabnine → MCP Servers settings.',
       };
 
     case 'amazon-q':
@@ -229,8 +222,7 @@ mcp_servers:
           2,
         ),
         configPath: '~/.aws/amazonq/mcp.json',
-        instructions:
-          'Create ~/.aws/amazonq/mcp.json with this config.',
+        instructions: 'Create ~/.aws/amazonq/mcp.json with this config.',
       };
 
     case 'roo-code':
@@ -252,8 +244,7 @@ mcp_servers:
           2,
         ),
         configPath: '~/.roo/mcp_settings.json',
-        instructions:
-          'Open Roo Code → MCP Servers → Configure, then add this server.',
+        instructions: 'Open Roo Code → MCP Servers → Configure, then add this server.',
       };
 
     case 'augment-code':
@@ -273,8 +264,7 @@ mcp_servers:
           2,
         ),
         configPath: '~/.augment/mcp.json',
-        instructions:
-          'Create ~/.augment/mcp.json with this config.',
+        instructions: 'Create ~/.augment/mcp.json with this config.',
       };
 
     default:

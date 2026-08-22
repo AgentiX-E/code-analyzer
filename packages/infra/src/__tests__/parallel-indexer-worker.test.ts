@@ -22,25 +22,20 @@ import type {
 let tmpDirCounter = 0;
 
 function createTempDir(): string {
-  const dir = join(
-    tmpdir(),
-    `ca-parallel-worker-test-${Date.now()}-${tmpDirCounter++}`,
-  );
+  const dir = join(tmpdir(), `ca-parallel-worker-test-${Date.now()}-${tmpDirCounter++}`);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-function createTestFiles(
-  rootPath: string,
-  fileCount: number,
-  baseContent?: string,
-): string[] {
+function createTestFiles(rootPath: string, fileCount: number, baseContent?: string): string[] {
   const paths: string[] = [];
   for (let i = 0; i < fileCount; i++) {
     const subDir = join(rootPath, `src/module_${i % 3}`);
     mkdirSync(subDir, { recursive: true });
-    const content = baseContent ?? `
+    const content =
+      baseContent ??
+      `
 export function func_${i}(input: string): string {
   return "result_${i}_" + input;
 }
@@ -479,8 +474,12 @@ def world():
 
       let cb1Count = 0;
       let cb2Count = 0;
-      indexer.onProgress(() => { cb1Count++; });
-      indexer.onProgress(() => { cb2Count++; });
+      indexer.onProgress(() => {
+        cb1Count++;
+      });
+      indexer.onProgress(() => {
+        cb2Count++;
+      });
 
       await indexer.indexDirectory(rootPath);
 
@@ -500,8 +499,12 @@ def world():
 
       let cb1Called = false;
       let cb2Called = false;
-      indexer.onComplete(() => { cb1Called = true; });
-      indexer.onComplete(() => { cb2Called = true; });
+      indexer.onComplete(() => {
+        cb1Called = true;
+      });
+      indexer.onComplete(() => {
+        cb2Called = true;
+      });
 
       await indexer.indexDirectory(rootPath);
 

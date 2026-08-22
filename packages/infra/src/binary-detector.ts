@@ -62,18 +62,75 @@ const DEFAULT_SIGNATURES: BinarySignature[] = [
 
 // Known text extensions (source code, config, markup)
 const TEXT_EXTENSIONS = new Set([
-  'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'py', 'pyi', 'go', 'java', 'kt', 'kts',
-  'rs', 'rb', 'php', 'c', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hh', 'hxx',
-  'cs', 'swift', 'lua', 'r', 'zig', 'scala', 'ex', 'exs', 'dart',
-  'html', 'htm', 'css', 'scss', 'sass', 'less',
-  'json', 'yaml', 'yml', 'toml', 'xml', 'svg',
-  'md', 'mdx', 'txt', 'csv', 'tsv',
-  'sh', 'bash', 'zsh', 'fish',
-  'sql', 'psql',
-  'env', 'cfg', 'conf', 'ini', 'properties',
-  'graphql', 'gql', 'proto',
-  'tf', 'tfvars', 'hcl',
-  'vue', 'svelte', 'astro',
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'mjs',
+  'cjs',
+  'py',
+  'pyi',
+  'go',
+  'java',
+  'kt',
+  'kts',
+  'rs',
+  'rb',
+  'php',
+  'c',
+  'cpp',
+  'cc',
+  'cxx',
+  'h',
+  'hpp',
+  'hh',
+  'hxx',
+  'cs',
+  'swift',
+  'lua',
+  'r',
+  'zig',
+  'scala',
+  'ex',
+  'exs',
+  'dart',
+  'html',
+  'htm',
+  'css',
+  'scss',
+  'sass',
+  'less',
+  'json',
+  'yaml',
+  'yml',
+  'toml',
+  'xml',
+  'svg',
+  'md',
+  'mdx',
+  'txt',
+  'csv',
+  'tsv',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'sql',
+  'psql',
+  'env',
+  'cfg',
+  'conf',
+  'ini',
+  'properties',
+  'graphql',
+  'gql',
+  'proto',
+  'tf',
+  'tfvars',
+  'hcl',
+  'vue',
+  'svelte',
+  'astro',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -86,7 +143,7 @@ export class BinaryFileDetector {
 
   constructor(options: BinaryDetectorOptions = {}) {
     this.maxBytesToRead = options.maxBytesToRead ?? 4096;
-    void (options.useEncodingDetection);
+    void options.useEncodingDetection;
 
     // Custom signatures go first so they take priority over defaults
     const custom = options.customSignatures ?? [];
@@ -124,7 +181,11 @@ export class BinaryFileDetector {
       return { isBinary: true, reason: 'Unable to read file', format: null };
     } finally {
       if (fd !== null) {
-        try { fs.closeSync(fd); } catch { /* best effort */ }
+        try {
+          fs.closeSync(fd);
+        } catch {
+          /* best effort */
+        }
       }
     }
 
@@ -142,18 +203,15 @@ export class BinaryFileDetector {
 
     // Step 2: Check BOM (Byte Order Mark)
     // UTF-8 BOM: EF BB BF
-    if (buffer.length >= 3 &&
-      buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+    if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
       return { isBinary: false, format: null };
     }
     // UTF-16 LE BOM: FF FE
-    if (buffer.length >= 2 &&
-      buffer[0] === 0xff && buffer[1] === 0xfe) {
+    if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
       return { isBinary: false, format: null };
     }
     // UTF-16 BE BOM: FE FF
-    if (buffer.length >= 2 &&
-      buffer[0] === 0xfe && buffer[1] === 0xff) {
+    if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
       return { isBinary: false, format: null };
     }
 
@@ -187,8 +245,7 @@ export class BinaryFileDetector {
     for (let i = 0; i < checkSize; i++) {
       const byte = buffer[i]!;
       // Allow: tab(9), newline(10), carriage return(13), space(32) through tilde(126)
-      if (byte !== 0x09 && byte !== 0x0a && byte !== 0x0d &&
-        (byte < 0x20 || byte > 0x7e)) {
+      if (byte !== 0x09 && byte !== 0x0a && byte !== 0x0d && (byte < 0x20 || byte > 0x7e)) {
         nonPrintable++;
       }
     }

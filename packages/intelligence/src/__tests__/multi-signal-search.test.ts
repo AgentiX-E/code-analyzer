@@ -101,9 +101,12 @@ describe('HybridSearchEngine', () => {
 
     it('applies minScore threshold filter', async () => {
       // Use a high threshold to ensure filtering works
-      const engine = new HybridSearchEngine(new EmbeddingEngine() as unknown as EmbeddingEngineType, {
-        minScore: 999, // impossible threshold
-      });
+      const engine = new HybridSearchEngine(
+        new EmbeddingEngine() as unknown as EmbeddingEngineType,
+        {
+          minScore: 999, // impossible threshold
+        },
+      );
       engine.indexDocument('x', 'function x does something');
       const results = await engine.searchMultiSignal('x');
       expect(results).toHaveLength(0);
@@ -183,8 +186,9 @@ describe('EmbeddingEngine', () => {
 
   it('throws on dimension mismatch', () => {
     const engine = new EmbeddingEngine();
-    expect(() => engine.cosineSimilarity(new Float32Array([1, 0]), new Float32Array([1])))
-      .toThrow(/dimension mismatch/i);
+    expect(() => engine.cosineSimilarity(new Float32Array([1, 0]), new Float32Array([1]))).toThrow(
+      /dimension mismatch/i,
+    );
   });
 
   it('stores and retrieves embeddings', () => {

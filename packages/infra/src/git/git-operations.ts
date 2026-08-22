@@ -5,11 +5,7 @@ import { exec as cpExec } from 'node:child_process';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
-import type {
-  GitDiff,
-  DiffRange,
-  StalenessResult,
-} from '@code-analyzer/shared';
+import type { GitDiff, DiffRange, StalenessResult } from '@code-analyzer/shared';
 
 const execAsync = promisify(cpExec);
 
@@ -196,7 +192,12 @@ export function createGitOperations(repoPath: string): GitOperations {
 
     async listBranches(): Promise<string[]> {
       const output = await git(`branch -a --format='%(refname:short)'`);
-      return output ? output.split('\n').map((b) => b.trim()).filter(Boolean) : [];
+      return output
+        ? output
+            .split('\n')
+            .map((b) => b.trim())
+            .filter(Boolean)
+        : [];
     },
 
     async getCurrentBranch(): Promise<string> {

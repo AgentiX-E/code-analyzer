@@ -93,10 +93,7 @@ describe('Mirror/convention pairs', () => {
 
 describe('Test file pairing', () => {
   it('pairs .test.ts with source .ts file', () => {
-    const result = bundle([
-      '/project/src/user.service.ts',
-      '/project/src/user.service.test.ts',
-    ]);
+    const result = bundle(['/project/src/user.service.ts', '/project/src/user.service.test.ts']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
@@ -106,10 +103,7 @@ describe('Test file pairing', () => {
   });
 
   it('pairs .spec.tsx with source .tsx file', () => {
-    const result = bundle([
-      '/project/src/Button.tsx',
-      '/project/src/Button.spec.tsx',
-    ]);
+    const result = bundle(['/project/src/Button.tsx', '/project/src/Button.spec.tsx']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
@@ -117,10 +111,7 @@ describe('Test file pairing', () => {
   });
 
   it('pairs __tests__ directory file with source', () => {
-    const result = bundle([
-      '/project/src/utils.ts',
-      '/project/src/__tests__/utils.test.ts',
-    ]);
+    const result = bundle(['/project/src/utils.ts', '/project/src/__tests__/utils.test.ts']);
 
     // These are in different directories, so dir+base grouping won't catch them,
     // but test file key matching should.
@@ -135,10 +126,7 @@ describe('Test file pairing', () => {
 
 describe('Interface/implementation pairs', () => {
   it('pairs IUserService.ts with UserService.ts', () => {
-    const result = bundle([
-      '/project/src/IUserService.ts',
-      '/project/src/UserService.ts',
-    ]);
+    const result = bundle(['/project/src/IUserService.ts', '/project/src/UserService.ts']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.category).toBe('impl');
@@ -149,10 +137,7 @@ describe('Interface/implementation pairs', () => {
   });
 
   it('pairs AbstractRepository.ts with Repository.ts', () => {
-    const result = bundle([
-      '/project/src/AbstractRepository.ts',
-      '/project/src/Repository.ts',
-    ]);
+    const result = bundle(['/project/src/AbstractRepository.ts', '/project/src/Repository.ts']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.category).toBe('impl');
@@ -186,10 +171,7 @@ describe('Same-directory siblings', () => {
   });
 
   it('groups component with .module.css', () => {
-    const result = bundle([
-      '/project/src/Card.tsx',
-      '/project/src/Card.module.css',
-    ]);
+    const result = bundle(['/project/src/Card.tsx', '/project/src/Card.module.css']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
@@ -197,29 +179,20 @@ describe('Same-directory siblings', () => {
   });
 
   it('groups component with .stories.tsx', () => {
-    const result = bundle([
-      '/project/src/Header.tsx',
-      '/project/src/Header.stories.tsx',
-    ]);
+    const result = bundle(['/project/src/Header.tsx', '/project/src/Header.stories.tsx']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
   });
 
   it('groups file with .d.ts type declaration', () => {
-    const result = bundle([
-      '/project/src/types.ts',
-      '/project/src/types.d.ts',
-    ]);
+    const result = bundle(['/project/src/types.ts', '/project/src/types.d.ts']);
 
     expect(result).toHaveLength(1);
   });
 
   it('groups file with .types.ts', () => {
-    const result = bundle([
-      '/project/src/UserProfile.tsx',
-      '/project/src/UserProfile.types.ts',
-    ]);
+    const result = bundle(['/project/src/UserProfile.tsx', '/project/src/UserProfile.types.ts']);
 
     expect(result).toHaveLength(1);
   });
@@ -231,10 +204,7 @@ describe('Same-directory siblings', () => {
 
 describe('Configuration file pairs', () => {
   it('groups config.dev.ts with config.prod.ts as config category', () => {
-    const result = bundle([
-      '/project/src/config.dev.ts',
-      '/project/src/config.prod.ts',
-    ]);
+    const result = bundle(['/project/src/config.dev.ts', '/project/src/config.prod.ts']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.category).toBe('mirror');
@@ -288,10 +258,7 @@ describe('Complex scenarios', () => {
   });
 
   it('handles files in different directories with same base name separately', () => {
-    const result = bundle([
-      '/project/src/components/Button.tsx',
-      '/project/src/utils/Button.ts',
-    ]);
+    const result = bundle(['/project/src/components/Button.tsx', '/project/src/utils/Button.ts']);
 
     expect(result).toHaveLength(2);
     expect(result.every((b) => b.category === 'solo')).toBe(true);
@@ -318,10 +285,7 @@ describe('Edge cases', () => {
   });
 
   it('handles files without extensions', () => {
-    const result = bundle([
-      '/project/src/script',
-      '/project/src/script.test',
-    ]);
+    const result = bundle(['/project/src/script', '/project/src/script.test']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
@@ -386,10 +350,7 @@ describe('Edge cases', () => {
   });
 
   it('preserves ordering: primary file is non-test source', () => {
-    const result = bundle([
-      '/project/src/Component.test.tsx',
-      '/project/src/Component.tsx',
-    ]);
+    const result = bundle(['/project/src/Component.test.tsx', '/project/src/Component.tsx']);
 
     expect(result).toHaveLength(1);
     expect(result[0]!.primaryFile).toBe('Component.tsx');
@@ -397,54 +358,36 @@ describe('Edge cases', () => {
 
   // --- Additional branch coverage ---
   it('groups .d.ts with source as sibling', () => {
-    const result = bundle([
-      '/project/src/lib.ts',
-      '/project/src/lib.d.ts',
-    ]);
+    const result = bundle(['/project/src/lib.ts', '/project/src/lib.d.ts']);
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
   });
 
   it('groups .module.css with component', () => {
-    const result = bundle([
-      '/project/src/Widget.tsx',
-      '/project/src/Widget.module.css',
-    ]);
+    const result = bundle(['/project/src/Widget.tsx', '/project/src/Widget.module.css']);
     expect(result).toHaveLength(1);
     expect(result[0]!.files).toHaveLength(2);
     expect(result[0]!.category).toBe('sibling');
   });
 
   it('groups .module.scss with component', () => {
-    const result = bundle([
-      '/project/src/Panel.tsx',
-      '/project/src/Panel.module.scss',
-    ]);
+    const result = bundle(['/project/src/Panel.tsx', '/project/src/Panel.module.scss']);
     expect(result).toHaveLength(1);
   });
 
   it('groups .module.less with component', () => {
-    const result = bundle([
-      '/project/src/Modal.tsx',
-      '/project/src/Modal.module.less',
-    ]);
+    const result = bundle(['/project/src/Modal.tsx', '/project/src/Modal.module.less']);
     expect(result).toHaveLength(1);
   });
 
   it('groups .story.tsx with component', () => {
-    const result = bundle([
-      '/project/src/Avatar.tsx',
-      '/project/src/Avatar.story.tsx',
-    ]);
+    const result = bundle(['/project/src/Avatar.tsx', '/project/src/Avatar.story.tsx']);
     expect(result).toHaveLength(1);
   });
 
   it('handles files outside project root with absolute path fallback', () => {
     const bundlerInstance = bundler();
-    const result = bundlerInstance.bundleFiles(
-      ['/outside/file.ts'],
-      '/project',
-    );
+    const result = bundlerInstance.bundleFiles(['/outside/file.ts'], '/project');
     expect(result).toHaveLength(1);
     expect(result[0]!.files[0]).toContain('outside');
   });
@@ -464,18 +407,12 @@ describe('Category detection', () => {
   });
 
   it('detects impl category for interface/implementation', () => {
-    const result = bundle([
-      '/project/src/IService.ts',
-      '/project/src/Service.ts',
-    ]);
+    const result = bundle(['/project/src/IService.ts', '/project/src/Service.ts']);
     expect(result[0]!.category).toBe('impl');
   });
 
   it('detects sibling category for component + styles', () => {
-    const result = bundle([
-      '/project/src/Box.tsx',
-      '/project/src/Box.styles.ts',
-    ]);
+    const result = bundle(['/project/src/Box.tsx', '/project/src/Box.styles.ts']);
     expect(result[0]!.category).toBe('sibling');
   });
 
@@ -485,20 +422,14 @@ describe('Category detection', () => {
   });
 
   it('detects sibling for same-base files in same directory', () => {
-    const result = bundle([
-      '/project/src/Foo.tsx',
-      '/project/src/Foo.helpers.ts',
-    ]);
+    const result = bundle(['/project/src/Foo.tsx', '/project/src/Foo.helpers.ts']);
     expect(result[0]!.category).toBe('sibling');
   });
 
   it('detects sibling for same-base files with no conventional suffix (lines 283-286)', () => {
     // Files with same base name but no mirror/impl/sibling-suffix/test suffix
     // Should fall through to same-base sibling detection at line 286
-    const result = bundle([
-      '/project/src/User.model.ts',
-      '/project/src/User.controller.ts',
-    ]);
+    const result = bundle(['/project/src/User.model.ts', '/project/src/User.controller.ts']);
     expect(result[0]!.category).toBe('sibling');
     expect(result[0]!.files).toHaveLength(2);
     expect(result[0]!.files).toContain('User.model.ts');
@@ -508,10 +439,7 @@ describe('Category detection', () => {
   it('detects mirror for files with dev/prod suffix (line 268 before config check)', () => {
     // Files matching mirror patterns (dev/prod) are caught by mirror check
     // before config check at line 274
-    const result = bundle([
-      '/project/src/app.dev.conf',
-      '/project/src/app.prod.conf',
-    ]);
+    const result = bundle(['/project/src/app.dev.conf', '/project/src/app.prod.conf']);
     expect(result[0]!.category).toBe('mirror');
     expect(result[0]!.files).toHaveLength(2);
     expect(result[0]!.files).toContain('app.dev.conf');
@@ -525,7 +453,7 @@ describe('Category detection', () => {
     // A file like "settings.prod.config" has [._]prod[._] which matches both mirror and config
     // But mirror check comes first, so config only triggers when mirror doesn't match.
     // We need a file where the mirror stem pattern doesn't match but the config regex does.
-    // Mirror stem patterns match [._]dev(?:[._]|$) etc. 
+    // Mirror stem patterns match [._]dev(?:[._]|$) etc.
     // "settings-dev.json" has "-dev." which doesn't match [._]dev[._] (dash, not dot/underscore)
     // Wait, "-" doesn't match [._], so this won't match mirror patterns.
     // But the config regex uses [._](dev|prod|...)[._] which also requires [._] not "-"
@@ -538,10 +466,7 @@ describe('Category detection', () => {
     // "settings.dev.json" matches [._]dev\. so mirror catches it first.
     // There's actually no way for config to be reached since mirror catches all dev/prod/staging
     // This branch is effectively dead code. The test verifies the behavior.
-    const result = bundle([
-      '/project/src/settings.json',
-      '/project/src/settings.dev.json',
-    ]);
+    const result = bundle(['/project/src/settings.json', '/project/src/settings.dev.json']);
     // These group because logicalBaseName strips the .dev suffix
     expect(result).toHaveLength(1);
     // Category is mirror because mirror check comes before config check
@@ -551,10 +476,7 @@ describe('Category detection', () => {
   it('detects sibling for same-base files with different base names (line 286 false branch)', () => {
     // Files in same directory but with DIFFERENT base names
     // Should be solo bundles since they don't share the same base
-    const result = bundle([
-      '/project/src/foo.ts',
-      '/project/src/bar.ts',
-    ]);
+    const result = bundle(['/project/src/foo.ts', '/project/src/bar.ts']);
     expect(result).toHaveLength(2);
     expect(result.every((b) => b.category === 'solo')).toBe(true);
   });
@@ -591,26 +513,17 @@ describe('Category detection', () => {
 
 describe('Primary file selection', () => {
   it('selects non-test file as primary', () => {
-    const result = bundle([
-      '/project/src/auth.ts',
-      '/project/src/auth.test.ts',
-    ]);
+    const result = bundle(['/project/src/auth.ts', '/project/src/auth.test.ts']);
     expect(result[0]!.primaryFile).toBe('auth.ts');
   });
 
   it('selects implementation over interface as primary', () => {
-    const result = bundle([
-      '/project/src/IStore.ts',
-      '/project/src/Store.ts',
-    ]);
+    const result = bundle(['/project/src/IStore.ts', '/project/src/Store.ts']);
     expect(result[0]!.primaryFile).toBe('Store.ts');
   });
 
   it('selects main component over style file as primary', () => {
-    const result = bundle([
-      '/project/src/Modal.tsx',
-      '/project/src/Modal.styles.ts',
-    ]);
+    const result = bundle(['/project/src/Modal.tsx', '/project/src/Modal.styles.ts']);
     expect(result[0]!.primaryFile).toBe('Modal.tsx');
   });
 
@@ -631,10 +544,7 @@ describe('Primary file selection', () => {
 
 describe('FileBundle type', () => {
   it('every bundle has required fields', () => {
-    const result = bundle([
-      '/project/src/a.ts',
-      '/project/src/b.ts',
-    ]);
+    const result = bundle(['/project/src/a.ts', '/project/src/b.ts']);
 
     for (const b of result) {
       expect(b).toHaveProperty('id');

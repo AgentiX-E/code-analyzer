@@ -44,8 +44,10 @@ export class AuthMiddleware {
 
     for (const storedHash of this.apiKeyHashes) {
       const storedBuf = Buffer.from(storedHash, 'hex');
-      if (hashedInputBuf.length === storedBuf.length &&
-          timingSafeEqual(hashedInputBuf, storedBuf)) {
+      if (
+        hashedInputBuf.length === storedBuf.length &&
+        timingSafeEqual(hashedInputBuf, storedBuf)
+      ) {
         return { allowed: true };
       }
     }
@@ -107,12 +109,14 @@ export class AuthMiddleware {
       const [headerB64, payloadB64, signatureB64] = parts;
 
       // Decode header and payload
-      const header = JSON.parse(
-        Buffer.from(headerB64!, 'base64url').toString('utf-8'),
-      ) as Record<string, unknown>;
-      const payload = JSON.parse(
-        Buffer.from(payloadB64!, 'base64url').toString('utf-8'),
-      ) as Record<string, unknown>;
+      const header = JSON.parse(Buffer.from(headerB64!, 'base64url').toString('utf-8')) as Record<
+        string,
+        unknown
+      >;
+      const payload = JSON.parse(Buffer.from(payloadB64!, 'base64url').toString('utf-8')) as Record<
+        string,
+        unknown
+      >;
 
       // Verify algorithm
       if (header['alg'] !== 'HS256') {
@@ -285,9 +289,7 @@ export class RequestLogger {
   getStats(): { total: number; errors: number; avgDuration: number } {
     const total = this.logs.length;
     const errors = this.logs.filter((l) => l.error).length;
-    const avgDuration = total > 0
-      ? this.logs.reduce((sum, l) => sum + l.duration, 0) / total
-      : 0;
+    const avgDuration = total > 0 ? this.logs.reduce((sum, l) => sum + l.duration, 0) / total : 0;
     return { total, errors, avgDuration };
   }
 }

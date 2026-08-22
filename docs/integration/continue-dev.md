@@ -31,13 +31,13 @@ Note: Continue.dev uses an **array** format for MCP servers, different from othe
 
 ## Features
 
-| Tool | Use Case |
-|---|---|
-| `search_codebase` | Full-text and semantic search |
-| `review_changes` | Review current workspace changes |
-| `analyze_impact` | Predict change impact |
-| `get_architecture` | View project structure |
-| `find_references` | Find all references to a symbol |
+| Tool               | Use Case                         |
+| ------------------ | -------------------------------- |
+| `search_codebase`  | Full-text and semantic search    |
+| `review_changes`   | Review current workspace changes |
+| `analyze_impact`   | Predict change impact            |
+| `get_architecture` | View project structure           |
+| `find_references`  | Find all references to a symbol  |
 
 ## Continue.dev-Specific Features
 

@@ -53,7 +53,11 @@ const DEFAULT_PATTERNS: GeneratedPattern[] = [
   { pattern: '**/*.pb.go', description: 'Protobuf generated Go', priority: 95 },
   { pattern: '**/*_pb2.py', description: 'Protobuf generated Python', priority: 95 },
   { pattern: '**/generated/**', description: 'GraphQL codegen output', priority: 90 },
-  { pattern: '**/node_modules/.prisma/client/**', description: 'Prisma generated client', priority: 90 },
+  {
+    pattern: '**/node_modules/.prisma/client/**',
+    description: 'Prisma generated client',
+    priority: 90,
+  },
   { pattern: '**/*.pb.ts', description: 'Protobuf generated TypeScript', priority: 95 },
   { pattern: '**/*.grpc.*', description: 'gRPC generated code', priority: 95 },
 ];

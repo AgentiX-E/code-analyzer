@@ -4,11 +4,11 @@
 
 ## Prerequisites
 
-| Requirement | Minimum | How to Check |
-|-------------|---------|---------------|
-| **Node.js** | >= 20.0.0 | `node --version` |
-| **pnpm** | >= 9.0.0 | `pnpm --version` |
-| **Git** | Any recent version | `git --version` |
+| Requirement    | Minimum                     | How to Check            |
+| -------------- | --------------------------- | ----------------------- |
+| **Node.js**    | >= 20.0.0                   | `node --version`        |
+| **pnpm**       | >= 9.0.0                    | `pnpm --version`        |
+| **Git**        | Any recent version          | `git --version`         |
 | **Disk Space** | ~50 MB core + graph storage | Varies by codebase size |
 
 If you don't have pnpm installed:
@@ -99,6 +99,7 @@ code-analyzer analyze .
 ```
 
 **What happens during analysis:**
+
 1. **File Discovery** — Scans your project, respecting `.gitignore` and `.code-analyzerignore`
 2. **Parsing** — Each source file is parsed by the appropriate language provider
 3. **Graph Building** — A 19-phase DAG pipeline constructs a knowledge graph with 33 entity types and 44 relationship types
@@ -290,13 +291,13 @@ After installation, you should see:
 
 ### Key Features
 
-| Feature | How to Access |
-|---------|---------------|
-| **Knowledge Graph Sidebar** | Click the Code Analyzer icon in the activity bar |
+| Feature                      | How to Access                                                   |
+| ---------------------------- | --------------------------------------------------------------- |
+| **Knowledge Graph Sidebar**  | Click the Code Analyzer icon in the activity bar                |
 | **Copilot Chat Integration** | Type `@code-analyzer` in Copilot Chat (requires GitHub Copilot) |
-| **Inline Review Comments** | Hover over code to see AI review suggestions |
-| **Impact Analysis** | Right-click a function → "Code Analyzer: Analyze Impact" |
-| **Command Palette** | `Ctrl+Shift+P` → search "Code Analyzer" |
+| **Inline Review Comments**   | Hover over code to see AI review suggestions                    |
+| **Impact Analysis**          | Right-click a function → "Code Analyzer: Analyze Impact"        |
+| **Command Palette**          | `Ctrl+Shift+P` → search "Code Analyzer"                         |
 
 ### Copilot Chat Commands
 
@@ -316,12 +317,12 @@ After installation, you should see:
 
 Configure via `Ctrl+,` → search "Code Analyzer":
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `codeAnalyzer.indexOnOpen` | `true` | Auto-index workspace when opened |
-| `codeAnalyzer.languages` | `["typescript","javascript"]` | Languages to analyze |
-| `codeAnalyzer.autoReview` | `false` | Automatically review on file save |
-| `codeAnalyzer.ignorePatterns` | `["node_modules","dist"]` | Patterns to skip |
+| Setting                       | Default                       | Description                       |
+| ----------------------------- | ----------------------------- | --------------------------------- |
+| `codeAnalyzer.indexOnOpen`    | `true`                        | Auto-index workspace when opened  |
+| `codeAnalyzer.languages`      | `["typescript","javascript"]` | Languages to analyze              |
+| `codeAnalyzer.autoReview`     | `false`                       | Automatically review on file save |
+| `codeAnalyzer.ignorePatterns` | `["node_modules","dist"]`     | Patterns to skip                  |
 
 ---
 
@@ -341,6 +342,7 @@ Or use npx directly: `npx @code-analyzer/cli analyze .`
 ### "No files found to analyze"
 
 Check that:
+
 1. You're in a directory with supported source files (`.ts`, `.py`, `.go`, `.java`, etc.)
 2. Your files aren't excluded by `.gitignore` patterns
 3. You've specified the right language: `code-analyzer analyze . --languages typescript`
@@ -370,11 +372,11 @@ Check that:
 
 ## Next Steps
 
-| Resource | Description |
-|----------|-------------|
-| [Configuration Reference](configuration-reference.md) | All config options and environment variables |
-| [MCP Tool Reference](mcp-tool-reference.md) | Complete 45-tool reference for AI agents |
-| [Scenario Guides](scenario-guides.md) | Task-based workflows (PR review, CI/CD, monorepo) |
-| [Troubleshooting](troubleshooting.md) | Detailed solutions for common issues |
-| [Architecture](architecture.md) | Deep dive into the system design |
-| [Language Support](language-support.md) | Supported languages and feature matrix |
+| Resource                                              | Description                                       |
+| ----------------------------------------------------- | ------------------------------------------------- |
+| [Configuration Reference](configuration-reference.md) | All config options and environment variables      |
+| [MCP Tool Reference](mcp-tool-reference.md)           | Complete 45-tool reference for AI agents          |
+| [Scenario Guides](scenario-guides.md)                 | Task-based workflows (PR review, CI/CD, monorepo) |
+| [Troubleshooting](troubleshooting.md)                 | Detailed solutions for common issues              |
+| [Architecture](architecture.md)                       | Deep dive into the system design                  |
+| [Language Support](language-support.md)               | Supported languages and feature matrix            |

@@ -1,7 +1,4 @@
-import type {
-  ProjectStandard,
-  StandardCategory,
-} from '@code-analyzer/shared';
+import type { ProjectStandard, StandardCategory } from '@code-analyzer/shared';
 
 export interface StandardTemplate {
   id: string;
@@ -19,7 +16,8 @@ const typescriptCoding: ProjectStandard = {
   name: 'TypeScript Coding Standards',
   version: '1.0.0',
   category: 'code-style',
-  description: 'Standard TypeScript coding conventions: function size limits, naming conventions, type safety.',
+  description:
+    'Standard TypeScript coding conventions: function size limits, naming conventions, type safety.',
   rules: [
     {
       id: 'ts-func-lines',
@@ -68,7 +66,10 @@ const typescriptCoding: ProjectStandard = {
       id: 'ts-explicit-return',
       description: 'Public functions must have explicit return types',
       checkType: 'regex',
-      checkConfig: { pattern: 'export\\s+(?:async\\s+)?function\\s+\\w+\\s*\\([^)]*\\)\\s*(?![:\\(\\{])', flags: 'g' },
+      checkConfig: {
+        pattern: 'export\\s+(?:async\\s+)?function\\s+\\w+\\s*\\([^)]*\\)\\s*(?![:\\(\\{])',
+        flags: 'g',
+      },
       severity: 'medium',
       autoFixable: false,
       fixSuggestion: 'Add an explicit return type annotation.',
@@ -236,7 +237,8 @@ const securityBaseline: ProjectStandard = {
   name: 'Security Baseline',
   version: '1.0.0',
   category: 'security',
-  description: 'Security best practices: no eval, no innerHTML, parameterized SQL, no hardcoded secrets.',
+  description:
+    'Security best practices: no eval, no innerHTML, parameterized SQL, no hardcoded secrets.',
   rules: [
     {
       id: 'sec-no-eval',
@@ -270,7 +272,8 @@ const securityBaseline: ProjectStandard = {
       description: 'No hardcoded secrets (passwords, tokens, keys)',
       checkType: 'regex',
       checkConfig: {
-        pattern: '(?:password|secret|token|api[_-]?key|api[_-]?secret)\\s*[:=]\\s*[`\'"][^`\'"]{8,}[`\'"]',
+        pattern:
+          '(?:password|secret|token|api[_-]?key|api[_-]?secret)\\s*[:=]\\s*[`\'"][^`\'"]{8,}[`\'"]',
         flags: 'gi',
       },
       severity: 'critical',
@@ -310,13 +313,17 @@ const apiDesign: ProjectStandard = {
   name: 'API Design Standards',
   version: '1.0.0',
   category: 'api-design',
-  description: 'RESTful API design conventions: route naming, HTTP methods, versioning, error responses.',
+  description:
+    'RESTful API design conventions: route naming, HTTP methods, versioning, error responses.',
   rules: [
     {
       id: 'api-restful-routes',
       description: 'Routes must follow RESTful naming (plural nouns, kebab-case)',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:get|post|put|delete|patch)\\s*\\(\\s*[`\'"]/(?:[a-z][a-z0-9-]*/?)+[`\'"]', flags: 'g' },
+      checkConfig: {
+        pattern: '(?:get|post|put|delete|patch)\\s*\\(\\s*[`\'"]/(?:[a-z][a-z0-9-]*/?)+[`\'"]',
+        flags: 'g',
+      },
       severity: 'medium',
       autoFixable: false,
     },
@@ -324,7 +331,10 @@ const apiDesign: ProjectStandard = {
       id: 'api-http-methods',
       description: 'Use proper HTTP methods (GET, POST, PUT, DELETE, PATCH)',
       checkType: 'regex',
-      checkConfig: { pattern: 'app\\.(?!get|post|put|delete|patch|options|head)\\w+\\s*\\(', flags: 'g' },
+      checkConfig: {
+        pattern: 'app\\.(?!get|post|put|delete|patch|options|head)\\w+\\s*\\(',
+        flags: 'g',
+      },
       severity: 'high',
       autoFixable: false,
     },
@@ -523,10 +533,12 @@ const securityEssentials: ProjectStandard = {
   rules: [
     {
       id: 'sec-sql-injection',
-      description: 'No SQL injection patterns — detect string concatenation in SQL queries and raw queries without parameterization',
+      description:
+        'No SQL injection patterns — detect string concatenation in SQL queries and raw queries without parameterization',
       checkType: 'regex',
       checkConfig: {
-        pattern: '(?:execute|query|run)\\s*\\(\\s*[`\'"][^`\'"]*\\$\\{|(?:SELECT|INSERT|UPDATE|DELETE|DROP)\\s+.*?\\+.*?["\'`]',
+        pattern:
+          '(?:execute|query|run)\\s*\\(\\s*[`\'"][^`\'"]*\\$\\{|(?:SELECT|INSERT|UPDATE|DELETE|DROP)\\s+.*?\\+.*?["\'`]',
         flags: 'gi',
       },
       severity: 'critical',
@@ -536,7 +548,8 @@ const securityEssentials: ProjectStandard = {
     },
     {
       id: 'sec-hardcoded-secrets',
-      description: 'No hardcoded secrets — detect API keys, tokens, passwords, and credentials in source code',
+      description:
+        'No hardcoded secrets — detect API keys, tokens, passwords, and credentials in source code',
       checkType: 'regex',
       checkConfig: {
         pattern:
@@ -550,7 +563,8 @@ const securityEssentials: ProjectStandard = {
     },
     {
       id: 'sec-no-password-plaintext',
-      description: 'No plaintext passwords — detect hardcoded password assignments in config or source',
+      description:
+        'No plaintext passwords — detect hardcoded password assignments in config or source',
       checkType: 'regex',
       checkConfig: {
         pattern: '(?:password|passwd|pwd)\\s*[:=]\\s*[`\'"][^`\'"]{3,}[`\'"]',
@@ -558,12 +572,12 @@ const securityEssentials: ProjectStandard = {
       },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion:
-        'Never hardcode passwords. Use environment variables or secure vault storage.',
+      fixSuggestion: 'Never hardcode passwords. Use environment variables or secure vault storage.',
     },
     {
       id: 'sec-input-validation',
-      description: 'Input validation required — detect missing validation on user-facing function parameters',
+      description:
+        'Input validation required — detect missing validation on user-facing function parameters',
       checkType: 'ast-pattern',
       checkConfig: { pattern: 'missing-input-validation' },
       severity: 'high',
@@ -573,7 +587,8 @@ const securityEssentials: ProjectStandard = {
     },
     {
       id: 'sec-path-traversal',
-      description: 'No path traversal — detect unsanitized file path operations that could allow directory traversal',
+      description:
+        'No path traversal — detect unsanitized file path operations that could allow directory traversal',
       checkType: 'regex',
       checkConfig: {
         pattern:
@@ -587,7 +602,8 @@ const securityEssentials: ProjectStandard = {
     },
     {
       id: 'sec-csrf-protection',
-      description: 'CSRF protection required — detect POST/PUT/DELETE endpoints missing CSRF token validation',
+      description:
+        'CSRF protection required — detect POST/PUT/DELETE endpoints missing CSRF token validation',
       checkType: 'ast-pattern',
       checkConfig: { pattern: 'missing-csrf-token' },
       severity: 'high',
@@ -597,7 +613,8 @@ const securityEssentials: ProjectStandard = {
     },
     {
       id: 'sec-xss-prevention',
-      description: 'XSS prevention — detect unescaped user input in HTML templates, JSX, and innerHTML usage',
+      description:
+        'XSS prevention — detect unescaped user input in HTML templates, JSX, and innerHTML usage',
       checkType: 'regex',
       checkConfig: {
         pattern:
@@ -624,10 +641,12 @@ const securityEssentials: ProjectStandard = {
     },
     {
       id: 'sec-crypto-weak',
-      description: 'No weak cryptographic algorithms — detect MD5, SHA1, or hardcoded keys for encryption',
+      description:
+        'No weak cryptographic algorithms — detect MD5, SHA1, or hardcoded keys for encryption',
       checkType: 'regex',
       checkConfig: {
-        pattern: '\\b(?:md5|sha1|des\\b|rc4|ecb)\\b|createHash\\s*\\(\\s*[`\'"]md5[`\'"]|createHash\\s*\\(\\s*[`\'"]sha1[`\'"]',
+        pattern:
+          '\\b(?:md5|sha1|des\\b|rc4|ecb)\\b|createHash\\s*\\(\\s*[`\'"]md5[`\'"]|createHash\\s*\\(\\s*[`\'"]sha1[`\'"]',
         flags: 'gi',
       },
       severity: 'high',
@@ -703,7 +722,8 @@ const architectureLayered: ProjectStandard = {
   name: 'Architecture Layered Standards',
   version: '1.0.0',
   category: 'architecture',
-  description: 'Architecture conventions: no upward imports, no circular deps, proper module boundaries.',
+  description:
+    'Architecture conventions: no upward imports, no circular deps, proper module boundaries.',
   rules: [
     {
       id: 'arch-no-upward-imports',
@@ -813,13 +833,18 @@ const owaspTop10: ProjectStandard = {
   name: 'OWASP Top 10 Standards',
   version: '1.0.0',
   category: 'security',
-  description: 'Checks covering OWASP Top 10: injection, broken auth, sensitive data exposure, XXE, broken access control, security misconfig, XSS, insecure deserialization, vulnerable components, insufficient logging.',
+  description:
+    'Checks covering OWASP Top 10: injection, broken auth, sensitive data exposure, XXE, broken access control, security misconfig, XSS, insecure deserialization, vulnerable components, insufficient logging.',
   rules: [
     {
       id: 'owasp-injection',
       description: 'A1: Injection — no string concatenation in SQL/command execution',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:execute|query|exec|spawn|execSync|execFile)\\s*\\(\\s*[`\'"][^`\'"]*(?:\\$\\{|\\$\\w+|%s|%d|\\{\\d+\\})', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '(?:execute|query|exec|spawn|execSync|execFile)\\s*\\(\\s*[`\'"][^`\'"]*(?:\\$\\{|\\$\\w+|%s|%d|\\{\\d+\\})',
+        flags: 'gi',
+      },
       severity: 'critical',
       autoFixable: false,
       fixSuggestion: 'Use parameterized queries or prepared statements.',
@@ -837,7 +862,11 @@ const owaspTop10: ProjectStandard = {
       id: 'owasp-sensitive-data',
       description: 'A3: Sensitive Data Exposure — detect plaintext PII/sensitive data in logs',
       checkType: 'regex',
-      checkConfig: { pattern: '\\b(?:password|ssn|credit[_-]?card|secret|token|private[_-]?key)\\b.*?(?:console\\.log|logger\\.(?:info|debug|log)|print|echo)', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '\\b(?:password|ssn|credit[_-]?card|secret|token|private[_-]?key)\\b.*?(?:console\\.log|logger\\.(?:info|debug|log)|print|echo)',
+        flags: 'gi',
+      },
       severity: 'critical',
       autoFixable: false,
       fixSuggestion: 'Never log sensitive data. Redact or hash PII before logging.',
@@ -846,7 +875,11 @@ const owaspTop10: ProjectStandard = {
       id: 'owasp-xxe',
       description: 'A4: XML External Entities (XXE) — detect XML parsers without XXE protection',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:xml2js|DOMParser|XMLHttpRequest|libxml|etree\\.parse|xml\\.dom|xml\\.sax|xml\\.etree)', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '(?:xml2js|DOMParser|XMLHttpRequest|libxml|etree\\.parse|xml\\.dom|xml\\.sax|xml\\.etree)',
+        flags: 'gi',
+      },
       severity: 'high',
       autoFixable: false,
       fixSuggestion: 'Disable external entity processing in XML parsers.',
@@ -864,7 +897,11 @@ const owaspTop10: ProjectStandard = {
       id: 'owasp-security-misconfig',
       description: 'A6: Security Misconfiguration — detect debug mode, verbose errors',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:DEBUG\\s*=\\s*(?:True|true|1)|NODE_ENV\\s*=\\s*[\'"]development[\'"]|app\\.use\\(express\\.errorHandler)', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '(?:DEBUG\\s*=\\s*(?:True|true|1)|NODE_ENV\\s*=\\s*[\'"]development[\'"]|app\\.use\\(express\\.errorHandler)',
+        flags: 'gi',
+      },
       severity: 'high',
       autoFixable: false,
       fixSuggestion: 'Disable debug mode and verbose error messages in production.',
@@ -873,7 +910,11 @@ const owaspTop10: ProjectStandard = {
       id: 'owasp-xss',
       description: 'A7: XSS — detect unescaped user input in HTML responses',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:innerHTML|outerHTML|document\\.write|dangerouslySetInnerHTML|v-html|\\\\{\\\\{.*?\\}\\}|<%=\\s)', flags: 'g' },
+      checkConfig: {
+        pattern:
+          '(?:innerHTML|outerHTML|document\\.write|dangerouslySetInnerHTML|v-html|\\\\{\\\\{.*?\\}\\}|<%=\\s)',
+        flags: 'g',
+      },
       severity: 'critical',
       autoFixable: false,
       fixSuggestion: 'Escape or sanitize user input before rendering in HTML.',
@@ -882,14 +923,19 @@ const owaspTop10: ProjectStandard = {
       id: 'owasp-insecure-deserial',
       description: 'A8: Insecure Deserialization — detect unsafe deserialization patterns',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:pickle\\.loads|yaml\\.load\\s*\\(|JSON\\.parse\\s*\\(\\s*(?:req|request|input)|unserialize|deserialize)', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '(?:pickle\\.loads|yaml\\.load\\s*\\(|JSON\\.parse\\s*\\(\\s*(?:req|request|input)|unserialize|deserialize)',
+        flags: 'gi',
+      },
       severity: 'high',
       autoFixable: false,
       fixSuggestion: 'Use safe deserialization libraries and validate input before deserializing.',
     },
     {
       id: 'owasp-vuln-components',
-      description: 'A9: Using Components with Known Vulnerabilities — detect unpinned or outdated dependencies',
+      description:
+        'A9: Using Components with Known Vulnerabilities — detect unpinned or outdated dependencies',
       checkType: 'regex',
       checkConfig: { pattern: '"[\\^~*]', flags: 'g' },
       severity: 'medium',
@@ -898,12 +944,14 @@ const owaspTop10: ProjectStandard = {
     },
     {
       id: 'owasp-insufficient-logging',
-      description: 'A10: Insufficient Logging & Monitoring — detect missing audit logging on sensitive operations',
+      description:
+        'A10: Insufficient Logging & Monitoring — detect missing audit logging on sensitive operations',
       checkType: 'ast-pattern',
       checkConfig: { pattern: 'missing-audit-logging' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Add audit logging for all authentication, authorization, and data modification operations.',
+      fixSuggestion:
+        'Add audit logging for all authentication, authorization, and data modification operations.',
     },
   ],
   examples: [
@@ -929,13 +977,18 @@ const apiSecurity: ProjectStandard = {
   name: 'API Security Standards',
   version: '1.0.0',
   category: 'security',
-  description: 'API security: key exposure, rate limiting, auth middleware, CORS configuration, input validation.',
+  description:
+    'API security: key exposure, rate limiting, auth middleware, CORS configuration, input validation.',
   rules: [
     {
       id: 'apisec-key-exposure',
       description: 'No API keys exposed in client-side code or public repos',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:api[_-]?key|api[_-]?secret|auth[_-]?token|bearer)\\s*[:=]\\s*[`\'"][A-Za-z0-9_\\-]{16,}[`\'"]', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '(?:api[_-]?key|api[_-]?secret|auth[_-]?token|bearer)\\s*[:=]\\s*[`\'"][A-Za-z0-9_\\-]{16,}[`\'"]',
+        flags: 'gi',
+      },
       severity: 'critical',
       autoFixable: false,
       fixSuggestion: 'Move API keys to environment variables or server-side only code.',
@@ -962,7 +1015,11 @@ const apiSecurity: ProjectStandard = {
       id: 'apisec-cors-config',
       description: 'CORS must be explicitly configured, not wide open',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:Access-Control-Allow-Origin\\s*:\\s*\\*|cors\\s*\\(\\s*\\)|origins\\s*:\\s*\\[\\s*[\'"]\\*[\'"]\\s*\\])', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '(?:Access-Control-Allow-Origin\\s*:\\s*\\*|cors\\s*\\(\\s*\\)|origins\\s*:\\s*\\[\\s*[\'"]\\*[\'"]\\s*\\])',
+        flags: 'gi',
+      },
       severity: 'high',
       autoFixable: false,
       fixSuggestion: 'Configure CORS with explicit allowed origins, not wildcard.',
@@ -974,7 +1031,8 @@ const apiSecurity: ProjectStandard = {
       checkConfig: { pattern: 'missing-input-validation' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Validate all request inputs using a schema validation library (zod, joi, pydantic).',
+      fixSuggestion:
+        'Validate all request inputs using a schema validation library (zod, joi, pydantic).',
     },
     {
       id: 'apisec-https-only',
@@ -1024,14 +1082,19 @@ const dependencySecurity: ProjectStandard = {
       id: 'depsec-vuln-patterns',
       description: 'Detect known vulnerable library patterns',
       checkType: 'regex',
-      checkConfig: { pattern: '"(?:lodash|jquery|moment|request|left-pad|event-stream|flatmap-stream)":\\s*"[\\^~]?[0-9]', flags: 'gi' },
+      checkConfig: {
+        pattern:
+          '"(?:lodash|jquery|moment|request|left-pad|event-stream|flatmap-stream)":\\s*"[\\^~]?[0-9]',
+        flags: 'gi',
+      },
       severity: 'high',
       autoFixable: false,
       fixSuggestion: 'Audit and update vulnerable dependencies. Run npm audit or pip audit.',
     },
     {
       id: 'depsec-no-integrity',
-      description: 'Dependencies should have integrity hashes (package-lock, yarn.lock, Pipfile.lock)',
+      description:
+        'Dependencies should have integrity hashes (package-lock, yarn.lock, Pipfile.lock)',
       checkType: 'ast-pattern',
       checkConfig: { pattern: 'missing-lockfile' },
       severity: 'medium',
@@ -1071,7 +1134,8 @@ const containerSecurity: ProjectStandard = {
   name: 'Container Security Standards',
   version: '1.0.0',
   category: 'security',
-  description: 'Dockerfile best practices: non-root user, COPY not ADD, specific tags, health checks.',
+  description:
+    'Dockerfile best practices: non-root user, COPY not ADD, specific tags, health checks.',
   rules: [
     {
       id: 'container-non-root',
@@ -1142,19 +1206,22 @@ const dataPrivacy: ProjectStandard = {
   name: 'Data Privacy Standards',
   version: '1.0.0',
   category: 'security',
-  description: 'PII detection patterns, data encryption requirements, GDPR/data protection compliance.',
+  description:
+    'PII detection patterns, data encryption requirements, GDPR/data protection compliance.',
   rules: [
     {
       id: 'priv-pii-detection',
       description: 'Detect potential PII patterns in code (SSN, email, phone, credit card)',
       checkType: 'regex',
       checkConfig: {
-        pattern: '(?:\\b\\d{3}-\\d{2}-\\d{4}\\b|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}|\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b|\\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\\b)',
+        pattern:
+          '(?:\\b\\d{3}-\\d{2}-\\d{4}\\b|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}|\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b|\\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\\b)',
         flags: 'g',
       },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion: 'Remove hardcoded PII. Use environment variables or secure vault for sensitive data.',
+      fixSuggestion:
+        'Remove hardcoded PII. Use environment variables or secure vault for sensitive data.',
     },
     {
       id: 'priv-data-encryption',
@@ -1181,7 +1248,8 @@ const dataPrivacy: ProjectStandard = {
       checkConfig: { pattern: 'missing-consent-mechanism' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Implement explicit consent mechanisms for data collection per GDPR Article 7.',
+      fixSuggestion:
+        'Implement explicit consent mechanisms for data collection per GDPR Article 7.',
     },
     {
       id: 'priv-right-to-delete',
@@ -1220,7 +1288,8 @@ const errorHandlingExtended: ProjectStandard = {
   name: 'Error Handling Extended Standards',
   version: '1.0.0',
   category: 'error-handling',
-  description: 'Comprehensive error handling: try-catch patterns, error propagation, custom error types.',
+  description:
+    'Comprehensive error handling: try-catch patterns, error propagation, custom error types.',
   rules: [
     {
       id: 'err-ext-try-catch',
@@ -1247,7 +1316,8 @@ const errorHandlingExtended: ProjectStandard = {
       checkConfig: { pattern: 'generic-error-usage' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Define custom error classes (e.g., ValidationError, NotFoundError) for better error handling.',
+      fixSuggestion:
+        'Define custom error classes (e.g., ValidationError, NotFoundError) for better error handling.',
     },
     {
       id: 'err-ext-context',
@@ -1256,7 +1326,8 @@ const errorHandlingExtended: ProjectStandard = {
       checkConfig: { pattern: 'error-missing-context' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Include relevant context (userId, requestId, operation) when throwing errors.',
+      fixSuggestion:
+        'Include relevant context (userId, requestId, operation) when throwing errors.',
     },
     {
       id: 'err-ext-boundary',
@@ -1265,7 +1336,8 @@ const errorHandlingExtended: ProjectStandard = {
       checkConfig: { pattern: 'missing-error-boundary' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Add error boundaries at module/service interfaces to prevent cascading failures.',
+      fixSuggestion:
+        'Add error boundaries at module/service interfaces to prevent cascading failures.',
     },
   ],
   examples: [
@@ -1291,7 +1363,10 @@ const testingExtended: ProjectStandard = {
       id: 'test-ext-file-naming',
       description: 'Test files must follow naming convention (*.test.ts, *_test.py, *_test.go)',
       checkType: 'regex',
-      checkConfig: { pattern: '\\.(?:test|spec)\\.[jt]sx?$|_test\\.(?:py|go|rs|java)$', flags: 'g' },
+      checkConfig: {
+        pattern: '\\.(?:test|spec)\\.[jt]sx?$|_test\\.(?:py|go|rs|java)$',
+        flags: 'g',
+      },
       severity: 'low',
       autoFixable: false,
     },
@@ -1311,7 +1386,8 @@ const testingExtended: ProjectStandard = {
       checkConfig: { pattern: 'prefer-unit-tests' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Write unit tests for business logic. Use integration tests sparingly for external interactions.',
+      fixSuggestion:
+        'Write unit tests for business logic. Use integration tests sparingly for external interactions.',
     },
     {
       id: 'test-ext-mock-properly',
@@ -1320,13 +1396,18 @@ const testingExtended: ProjectStandard = {
       checkConfig: { pattern: 'excessive-mocking' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Use test fakes or stubs instead of mocks when possible for simpler, more readable tests.',
+      fixSuggestion:
+        'Use test fakes or stubs instead of mocks when possible for simpler, more readable tests.',
     },
     {
       id: 'test-ext-no-skip',
       description: 'No skipped tests in committed code',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:it\\.skip|describe\\.skip|test\\.skip|xdescribe|xit|xtest|@unittest\\.skip|@pytest\\.mark\\.skip)\\s*\\(', flags: 'g' },
+      checkConfig: {
+        pattern:
+          '(?:it\\.skip|describe\\.skip|test\\.skip|xdescribe|xit|xtest|@unittest\\.skip|@pytest\\.mark\\.skip)\\s*\\(',
+        flags: 'g',
+      },
       severity: 'medium',
       autoFixable: false,
       fixSuggestion: 'Remove skipped tests or fix them before committing.',
@@ -1349,7 +1430,8 @@ const loggingStandard: ProjectStandard = {
   name: 'Logging Standards',
   version: '1.0.0',
   category: 'code-style',
-  description: 'Structured logging requirements: log levels, structured format, no console.log in production.',
+  description:
+    'Structured logging requirements: log levels, structured format, no console.log in production.',
   rules: [
     {
       id: 'log-no-console',
@@ -1376,13 +1458,17 @@ const loggingStandard: ProjectStandard = {
       checkConfig: { pattern: 'incorrect-log-level' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Use error for failures, warn for recoverable issues, info for key events, debug for development.',
+      fixSuggestion:
+        'Use error for failures, warn for recoverable issues, info for key events, debug for development.',
     },
     {
       id: 'log-no-sensitive',
       description: 'Never log sensitive information (passwords, tokens, PII)',
       checkType: 'regex',
-      checkConfig: { pattern: 'logger\\.\\w+\\([^)]*(?:password|token|secret|api[_-]?key|ssn|credit)', flags: 'gi' },
+      checkConfig: {
+        pattern: 'logger\\.\\w+\\([^)]*(?:password|token|secret|api[_-]?key|ssn|credit)',
+        flags: 'gi',
+      },
       severity: 'critical',
       autoFixable: false,
       fixSuggestion: 'Redact or hash sensitive data before logging.',
@@ -1420,7 +1506,8 @@ const apiDesignExtended: ProjectStandard = {
   name: 'API Design Extended Standards',
   version: '1.0.0',
   category: 'api-design',
-  description: 'Extended API design: RESTful patterns, versioning, pagination, error responses, HATEOAS.',
+  description:
+    'Extended API design: RESTful patterns, versioning, pagination, error responses, HATEOAS.',
   rules: [
     {
       id: 'apides-ext-restful',
@@ -1429,7 +1516,8 @@ const apiDesignExtended: ProjectStandard = {
       checkConfig: { pattern: '/(?:get|create|update|delete|fetch|remove)[A-Z]', flags: 'g' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Use HTTP methods with resource nouns: GET /users, POST /users, not GET /getUsers.',
+      fixSuggestion:
+        'Use HTTP methods with resource nouns: GET /users, POST /users, not GET /getUsers.',
     },
     {
       id: 'apides-ext-pagination',
@@ -1438,7 +1526,8 @@ const apiDesignExtended: ProjectStandard = {
       checkConfig: { pattern: 'missing-pagination' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Add pagination to list endpoints: query params for page/limit or cursor-based.',
+      fixSuggestion:
+        'Add pagination to list endpoints: query params for page/limit or cursor-based.',
     },
     {
       id: 'apides-ext-error-response',
@@ -1453,7 +1542,10 @@ const apiDesignExtended: ProjectStandard = {
       id: 'apides-ext-status-codes',
       description: 'Use correct HTTP status codes',
       checkType: 'regex',
-      checkConfig: { pattern: 'res\\.status\\((?:200|201|204|400|401|403|404|409|422|429|500)\\)', flags: 'g' },
+      checkConfig: {
+        pattern: 'res\\.status\\((?:200|201|204|400|401|403|404|409|422|429|500)\\)',
+        flags: 'g',
+      },
       severity: 'medium',
       autoFixable: false,
       fixSuggestion: 'Use appropriate HTTP status codes for different scenarios.',
@@ -1500,7 +1592,10 @@ const configurationManagement: ProjectStandard = {
       id: 'cfg-no-hardcoded-config',
       description: 'No hardcoded configuration values (URLs, ports, timeouts)',
       checkType: 'regex',
-      checkConfig: { pattern: '(?:const|let|var)\\s+\\w+\\s*=\\s*(?:\\d{4,5}|https?://\\S+)\\s*;', flags: 'g' },
+      checkConfig: {
+        pattern: '(?:const|let|var)\\s+\\w+\\s*=\\s*(?:\\d{4,5}|https?://\\S+)\\s*;',
+        flags: 'g',
+      },
       severity: 'medium',
       autoFixable: false,
       fixSuggestion: 'Extract configuration values into config files or environment variables.',
@@ -1512,7 +1607,8 @@ const configurationManagement: ProjectStandard = {
       checkConfig: { pattern: 'missing-secrets-manager' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Use a secrets manager (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault) for production secrets.',
+      fixSuggestion:
+        'Use a secrets manager (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault) for production secrets.',
     },
     {
       id: 'cfg-config-validation',
@@ -1521,7 +1617,8 @@ const configurationManagement: ProjectStandard = {
       checkConfig: { pattern: 'missing-config-validation' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Validate all required configuration at application startup with clear error messages.',
+      fixSuggestion:
+        'Validate all required configuration at application startup with clear error messages.',
     },
     {
       id: 'cfg-no-secrets-in-vcs',
@@ -1530,7 +1627,8 @@ const configurationManagement: ProjectStandard = {
       checkConfig: { pattern: '\\.env(?!\\.example$)', flags: 'g' },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion: 'Add .env to .gitignore. Use .env.example with placeholder values for documentation.',
+      fixSuggestion:
+        'Add .env to .gitignore. Use .env.example with placeholder values for documentation.',
     },
   ],
   examples: [
@@ -1560,7 +1658,8 @@ const typescriptBestPractices: ProjectStandard = {
   name: 'TypeScript Best Practices Extended',
   version: '1.0.0',
   category: 'code-style',
-  description: 'TypeScript best practices: strict mode, no `any`, proper null checks, enum usage, discriminated unions.',
+  description:
+    'TypeScript best practices: strict mode, no `any`, proper null checks, enum usage, discriminated unions.',
   rules: [
     {
       id: 'tsbp-strict-mode',
@@ -1587,7 +1686,8 @@ const typescriptBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'missing-null-checks' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Use optional chaining (?.) and nullish coalescing (??) for safe property access.',
+      fixSuggestion:
+        'Use optional chaining (?.) and nullish coalescing (??) for safe property access.',
     },
     {
       id: 'tsbp-enum-usage',
@@ -1605,13 +1705,17 @@ const typescriptBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'prefer-discriminated-unions' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Use discriminated unions with a `type` or `kind` field for exhaustive type narrowing.',
+      fixSuggestion:
+        'Use discriminated unions with a `type` or `kind` field for exhaustive type narrowing.',
     },
     {
       id: 'tsbp-no-type-assertion',
       description: 'Avoid unsafe type assertions (as, !)',
       checkType: 'regex',
-      checkConfig: { pattern: '\\bas\\s+\\w+(?:<[^>]*>)?\\s*(?:[;,\\)\\}])|!\\s*[;,\\)\\}]', flags: 'g' },
+      checkConfig: {
+        pattern: '\\bas\\s+\\w+(?:<[^>]*>)?\\s*(?:[;,\\)\\}])|!\\s*[;,\\)\\}]',
+        flags: 'g',
+      },
       severity: 'medium',
       autoFixable: false,
       fixSuggestion: 'Use type guards and proper type narrowing instead of type assertions.',
@@ -1640,7 +1744,8 @@ const javascriptBestPractices: ProjectStandard = {
   name: 'JavaScript Best Practices',
   version: '1.0.0',
   category: 'code-style',
-  description: 'JavaScript best practices: strict mode, const/let, template literals, arrow functions.',
+  description:
+    'JavaScript best practices: strict mode, const/let, template literals, arrow functions.',
   rules: [
     {
       id: 'jsbp-use-strict',
@@ -1684,7 +1789,8 @@ const javascriptBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'prefer-destructuring' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Use destructuring: const { name, age } = user; instead of const name = user.name;',
+      fixSuggestion:
+        'Use destructuring: const { name, age } = user; instead of const name = user.name;',
     },
     {
       id: 'jsbp-equality',
@@ -1719,7 +1825,8 @@ const pythonPep8Extended: ProjectStandard = {
   name: 'Python PEP8 Extended Standards',
   version: '1.0.0',
   category: 'code-style',
-  description: 'Extended Python best practices: type hints, f-strings, context managers, walrus operator.',
+  description:
+    'Extended Python best practices: type hints, f-strings, context managers, walrus operator.',
   rules: [
     {
       id: 'pyext-type-hints',
@@ -1755,7 +1862,8 @@ const pythonPep8Extended: ProjectStandard = {
       checkConfig: { pattern: 'walrus-opportunity' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Consider using the walrus operator (:=) for cleaner assignment-in-expression patterns.',
+      fixSuggestion:
+        'Consider using the walrus operator (:=) for cleaner assignment-in-expression patterns.',
     },
     {
       id: 'pyext-list-comprehension',
@@ -1764,13 +1872,17 @@ const pythonPep8Extended: ProjectStandard = {
       checkConfig: { pattern: '(?:map\\s*\\(|filter\\s*\\()\\s*lambda', flags: 'g' },
       severity: 'low',
       autoFixable: false,
-      fixSuggestion: 'Use list comprehensions: [x*2 for x in items] instead of map(lambda x: x*2, items).',
+      fixSuggestion:
+        'Use list comprehensions: [x*2 for x in items] instead of map(lambda x: x*2, items).',
     },
     {
       id: 'pyext-pathlib',
       description: 'Use pathlib instead of os.path for file path operations',
       checkType: 'regex',
-      checkConfig: { pattern: 'os\\.path\\.(?:join|exists|isfile|isdir|basename|dirname)', flags: 'g' },
+      checkConfig: {
+        pattern: 'os\\.path\\.(?:join|exists|isfile|isdir|basename|dirname)',
+        flags: 'g',
+      },
       severity: 'low',
       autoFixable: false,
       fixSuggestion: 'Use pathlib.Path for modern file path handling.',
@@ -1864,7 +1976,8 @@ const rustBestPractices: ProjectStandard = {
   name: 'Rust Best Practices',
   version: '1.0.0',
   category: 'code-style',
-  description: 'Rust best practices: ownership patterns, unsafe blocks, error handling, derive macros.',
+  description:
+    'Rust best practices: ownership patterns, unsafe blocks, error handling, derive macros.',
   rules: [
     {
       id: 'rust-ownership',
@@ -2004,7 +2117,8 @@ const microservicesPatterns: ProjectStandard = {
   name: 'Microservices Patterns Standards',
   version: '1.0.0',
   category: 'architecture',
-  description: 'Microservices patterns: service boundaries, circuit breakers, eventual consistency, idempotency.',
+  description:
+    'Microservices patterns: service boundaries, circuit breakers, eventual consistency, idempotency.',
   rules: [
     {
       id: 'ms-service-boundaries',
@@ -2022,7 +2136,8 @@ const microservicesPatterns: ProjectStandard = {
       checkConfig: { pattern: 'missing-circuit-breaker' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Add circuit breaker (e.g., resilience4j, polly, gobreaker) to external service calls.',
+      fixSuggestion:
+        'Add circuit breaker (e.g., resilience4j, polly, gobreaker) to external service calls.',
     },
     {
       id: 'ms-eventual-consistency',
@@ -2049,7 +2164,8 @@ const microservicesPatterns: ProjectStandard = {
       checkConfig: { pattern: 'https?://(?!localhost|127\\.0\\.0\\.1)[^/]+/api/', flags: 'g' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Use service discovery (Consul, Eureka, Kubernetes DNS) instead of hardcoded URLs.',
+      fixSuggestion:
+        'Use service discovery (Consul, Eureka, Kubernetes DNS) instead of hardcoded URLs.',
     },
     {
       id: 'ms-health-checks',
@@ -2152,7 +2268,8 @@ const cleanArchitecture: ProjectStandard = {
       checkConfig: { pattern: 'missing-layer-separation' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Organize code into clear layers: domain, application, infrastructure, presentation.',
+      fixSuggestion:
+        'Organize code into clear layers: domain, application, infrastructure, presentation.',
     },
     {
       id: 'ca-dependency-inversion',
@@ -2161,7 +2278,8 @@ const cleanArchitecture: ProjectStandard = {
       checkConfig: { pattern: 'dependency-inversion-violation' },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion: 'Domain layer should not depend on infrastructure. Use interfaces for dependency inversion.',
+      fixSuggestion:
+        'Domain layer should not depend on infrastructure. Use interfaces for dependency inversion.',
     },
     {
       id: 'ca-entity-vs-dto',
@@ -2170,7 +2288,8 @@ const cleanArchitecture: ProjectStandard = {
       checkConfig: { pattern: 'entity-dto-coupling' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Keep domain entities pure. Use separate DTOs for API contracts and database models.',
+      fixSuggestion:
+        'Keep domain entities pure. Use separate DTOs for API contracts and database models.',
     },
     {
       id: 'ca-use-case-boundaries',
@@ -2179,16 +2298,21 @@ const cleanArchitecture: ProjectStandard = {
       checkConfig: { pattern: 'large-use-case' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Split large use cases into smaller, focused operations following single responsibility.',
+      fixSuggestion:
+        'Split large use cases into smaller, focused operations following single responsibility.',
     },
     {
       id: 'ca-no-framework-leak',
       description: 'Domain layer must not depend on frameworks (Express, FastAPI, Spring)',
       checkType: 'regex',
-      checkConfig: { pattern: 'import\\s+.*(?:express|fastapi|spring|django|flask|nestjs)', flags: 'gi' },
+      checkConfig: {
+        pattern: 'import\\s+.*(?:express|fastapi|spring|django|flask|nestjs)',
+        flags: 'gi',
+      },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Keep domain logic framework-agnostic. Use interfaces for framework integration.',
+      fixSuggestion:
+        'Keep domain logic framework-agnostic. Use interfaces for framework integration.',
     },
   ],
   examples: [
@@ -2212,7 +2336,8 @@ const mlPipelineBestPractices: ProjectStandard = {
   name: 'ML Pipeline Best Practices',
   version: '1.0.0',
   category: 'custom',
-  description: 'ML pipeline best practices: data validation, model versioning, reproducibility, bias detection.',
+  description:
+    'ML pipeline best practices: data validation, model versioning, reproducibility, bias detection.',
   rules: [
     {
       id: 'ml-data-validation',
@@ -2221,7 +2346,8 @@ const mlPipelineBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'missing-data-validation' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Add data validation using Great Expectations, TFDV, or custom validation pipelines.',
+      fixSuggestion:
+        'Add data validation using Great Expectations, TFDV, or custom validation pipelines.',
     },
     {
       id: 'ml-model-versioning',
@@ -2239,7 +2365,8 @@ const mlPipelineBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'non-reproducible-training' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Set random seeds, pin dependencies, and version training data for reproducibility.',
+      fixSuggestion:
+        'Set random seeds, pin dependencies, and version training data for reproducibility.',
     },
     {
       id: 'ml-bias-detection',
@@ -2248,7 +2375,8 @@ const mlPipelineBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'missing-bias-evaluation' },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion: 'Add fairness metrics (demographic parity, equal opportunity) to model evaluation.',
+      fixSuggestion:
+        'Add fairness metrics (demographic parity, equal opportunity) to model evaluation.',
     },
     {
       id: 'ml-feature-doc',
@@ -2257,7 +2385,8 @@ const mlPipelineBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'missing-feature-documentation' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Maintain a feature registry documenting all features, their sources, and transformations.',
+      fixSuggestion:
+        'Maintain a feature registry documenting all features, their sources, and transformations.',
     },
     {
       id: 'ml-monitoring',
@@ -2266,7 +2395,8 @@ const mlPipelineBestPractices: ProjectStandard = {
       checkConfig: { pattern: 'missing-model-monitoring' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Implement model monitoring for data drift, concept drift, and performance degradation.',
+      fixSuggestion:
+        'Implement model monitoring for data drift, concept drift, and performance degradation.',
     },
   ],
   examples: [
@@ -2295,7 +2425,8 @@ const aiAgentCodePatterns: ProjectStandard = {
       checkConfig: { pattern: 'missing-tool-safety' },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion: 'Validate all tool inputs, set rate limits, and define clear safety boundaries.',
+      fixSuggestion:
+        'Validate all tool inputs, set rate limits, and define clear safety boundaries.',
     },
     {
       id: 'ai-prompt-engineering',
@@ -2304,7 +2435,8 @@ const aiAgentCodePatterns: ProjectStandard = {
       checkConfig: { pattern: 'unstructured-prompt' },
       severity: 'medium',
       autoFixable: false,
-      fixSuggestion: 'Structure prompts as modular templates with version tracking and A/B testing.',
+      fixSuggestion:
+        'Structure prompts as modular templates with version tracking and A/B testing.',
     },
     {
       id: 'ai-tool-schema',
@@ -2313,7 +2445,8 @@ const aiAgentCodePatterns: ProjectStandard = {
       checkConfig: { pattern: 'incomplete-tool-schema' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Define complete JSON schemas for all tool inputs with descriptions and constraints.',
+      fixSuggestion:
+        'Define complete JSON schemas for all tool inputs with descriptions and constraints.',
     },
     {
       id: 'ai-error-graceful',
@@ -2322,7 +2455,8 @@ const aiAgentCodePatterns: ProjectStandard = {
       checkConfig: { pattern: 'missing-graceful-error' },
       severity: 'high',
       autoFixable: false,
-      fixSuggestion: 'Implement graceful error handling with user-friendly error messages for tool failures.',
+      fixSuggestion:
+        'Implement graceful error handling with user-friendly error messages for tool failures.',
     },
     {
       id: 'ai-output-validation',
@@ -2340,7 +2474,8 @@ const aiAgentCodePatterns: ProjectStandard = {
       checkConfig: { pattern: 'prompt-injection-vulnerability' },
       severity: 'critical',
       autoFixable: false,
-      fixSuggestion: 'Sanitize user inputs in prompts. Use input/output separation and content filtering.',
+      fixSuggestion:
+        'Sanitize user inputs in prompts. Use input/output separation and content filtering.',
     },
   ],
   examples: [
@@ -2433,7 +2568,8 @@ export function listTemplates(): StandardTemplate[] {
       id: 'security-essentials',
       name: 'Security Essentials',
       category: 'security',
-      description: 'Comprehensive security checks: SQL injection, hardcoded secrets, input validation, path traversal, CSRF, XSS.',
+      description:
+        'Comprehensive security checks: SQL injection, hardcoded secrets, input validation, path traversal, CSRF, XSS.',
       language: 'any',
     },
     {
@@ -2483,14 +2619,16 @@ export function listTemplates(): StandardTemplate[] {
       id: 'owasp-top10',
       name: 'OWASP Top 10 Standards',
       category: 'security',
-      description: 'Checks covering OWASP Top 10: injection, broken auth, sensitive data exposure, XXE, broken access control, security misconfig, XSS, insecure deserialization, vulnerable components, insufficient logging.',
+      description:
+        'Checks covering OWASP Top 10: injection, broken auth, sensitive data exposure, XXE, broken access control, security misconfig, XSS, insecure deserialization, vulnerable components, insufficient logging.',
       language: 'any',
     },
     {
       id: 'api-security',
       name: 'API Security Standards',
       category: 'security',
-      description: 'API key exposure, rate limiting, auth middleware, CORS configuration, input validation.',
+      description:
+        'API key exposure, rate limiting, auth middleware, CORS configuration, input validation.',
       language: 'any',
     },
     {
@@ -2519,7 +2657,8 @@ export function listTemplates(): StandardTemplate[] {
       id: 'error-handling-standard',
       name: 'Error Handling Extended Standards',
       category: 'error-handling',
-      description: 'Comprehensive error handling: try-catch patterns, error propagation, custom error types.',
+      description:
+        'Comprehensive error handling: try-catch patterns, error propagation, custom error types.',
       language: 'any',
     },
     {

@@ -142,7 +142,12 @@ describe('GeneratedFileDetector', () => {
     });
     it('accepts regex patterns', () => {
       const d = new GeneratedFileDetector([
-        { pattern: '^codegen-output/.*\\.ts$', isRegex: true, description: 'Codegen regex', priority: 99 },
+        {
+          pattern: '^codegen-output/.*\\.ts$',
+          isRegex: true,
+          description: 'Codegen regex',
+          priority: 99,
+        },
       ]);
       expect(d.detectByPath('codegen-output/models.ts').isGenerated).toBe(true);
     });

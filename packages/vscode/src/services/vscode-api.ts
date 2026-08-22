@@ -22,20 +22,14 @@ export interface IVSCodeAPI {
   getConfiguration(section: string): WorkspaceConfiguration;
 
   // Commands
-  registerCommand(
-    command: string,
-    callback: (...args: unknown[]) => unknown,
-  ): Disposable;
+  registerCommand(command: string, callback: (...args: unknown[]) => unknown): Disposable;
   executeCommand(command: string, ...args: unknown[]): PromiseLike<unknown>;
 
   // Diagnostics
   createDiagnosticCollection(name: string): DiagnosticCollection;
 
   // Status Bar
-  createStatusBarItem(
-    alignment: StatusBarAlignment,
-    priority: number,
-  ): StatusBarItem;
+  createStatusBarItem(alignment: StatusBarAlignment, priority: number): StatusBarItem;
 
   // Webview
   readonly Uri: {
@@ -127,10 +121,7 @@ export interface StatusBarItem {
 // ---------------------------------------------------------------------------
 
 export interface DiagnosticCollection {
-  set(
-    uri: { toString(): string },
-    diagnostics: Diagnostic[],
-  ): void;
+  set(uri: { toString(): string }, diagnostics: Diagnostic[]): void;
   delete(uri: { toString(): string }): void;
   clear(): void;
   dispose(): void;

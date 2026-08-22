@@ -1,9 +1,7 @@
 // @code-analyzer/core — Operations Module
 // Health checks, metrics export, graceful shutdown, resilience patterns
 
-export {
-  HealthCheckRegistry,
-} from './health-check.js';
+export { HealthCheckRegistry } from './health-check.js';
 export type {
   HealthStatus,
   HealthCheckResult,
@@ -11,10 +9,7 @@ export type {
   HealthCheckRegistryOptions,
 } from './health-check.js';
 
-export {
-  MetricsRegistry,
-  createStandardMetrics,
-} from './metrics-exporter.js';
+export { MetricsRegistry, createStandardMetrics } from './metrics-exporter.js';
 export type {
   MetricType,
   MetricLabel,
@@ -23,9 +18,7 @@ export type {
   HistogramMetric,
 } from './metrics-exporter.js';
 
-export {
-  GracefulShutdown,
-} from './graceful-shutdown.js';
+export { GracefulShutdown } from './graceful-shutdown.js';
 export type {
   ShutdownSignal,
   ShutdownHandler,
@@ -33,10 +26,7 @@ export type {
   GracefulShutdownOptions,
 } from './graceful-shutdown.js';
 
-export {
-  RetryPolicy,
-  DeadLetterQueue,
-} from './resilience.js';
+export { RetryPolicy, DeadLetterQueue } from './resilience.js';
 export type {
   RetryConfig,
   DeadLetterEntry,

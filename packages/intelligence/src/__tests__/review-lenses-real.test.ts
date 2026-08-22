@@ -14,7 +14,7 @@ import type { LensReport } from '../review/review-lenses.js';
 // ---------------------------------------------------------------------------
 
 function findAllFindings(findings: ReturnType<typeof analyzeStructure>, ruleIdPrefix: string) {
-  return findings.filter(f => f.evidence.ruleId?.startsWith(ruleIdPrefix));
+  return findings.filter((f) => f.evidence.ruleId?.startsWith(ruleIdPrefix));
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,9 @@ describe('Structure Lens — Real Detection', () => {
     }
     content += '}\n';
     const findings = analyzeStructure(content, '/src/god.ts');
-    const godFinding = findings.find(f => f.title.includes('God Class') && f.title.includes('lines'));
+    const godFinding = findings.find(
+      (f) => f.title.includes('God Class') && f.title.includes('lines'),
+    );
     expect(godFinding).toBeDefined();
   });
 
@@ -83,7 +85,7 @@ describe('Structure Lens — Real Detection', () => {
     }
     content += '}\n';
     const findings = analyzeStructure(content, '/src/long.ts');
-    const longFinding = findings.find(f => f.title.includes('Long Method'));
+    const longFinding = findings.find((f) => f.title.includes('Long Method'));
     expect(longFinding).toBeDefined();
   });
 
@@ -113,17 +115,14 @@ describe('Structure Lens — Real Detection', () => {
     for (let i = 0; i < 5; i++) {
       content += `export { Thing${i} } from './Thing${i}';\n`;
     }
-    const findings = findAllFindings(
-      analyzeStructure(content, '/src/index.ts'),
-      'struct-barrel',
-    );
+    const findings = findAllFindings(analyzeStructure(content, '/src/index.ts'), 'struct-barrel');
     expect(findings.length).toBe(0);
   });
 
   it('ADV-3: should not flag small class with few methods as god class', () => {
     const content = `class SmallClass {\n  method1() { return 1; }\n  method2() { return 2; }\n}\n`;
     const findings = analyzeStructure(content, '/src/small.ts');
-    const godFinding = findings.find(f => f.title.includes('God Class'));
+    const godFinding = findings.find((f) => f.title.includes('God Class'));
     expect(godFinding).toBeUndefined();
   });
 
@@ -144,21 +143,21 @@ layers:
 `;
     const badCode = `
 import { db } from 'src/data/database';
-${Array.from({length: 32}, (_, i) => `import { mod${i} } from './mod${i}';`).join('\n')}
+${Array.from({ length: 32 }, (_, i) => `import { mod${i} } from './mod${i}';`).join('\n')}
 
 export function complex() {
-  ${Array.from({length: 18}, (_, i) => `if (x === ${i}) { doThing(${i}); }`).join('\n')}
+  ${Array.from({ length: 18 }, (_, i) => `if (x === ${i}) { doThing(${i}); }`).join('\n')}
 
-  ${Array.from({length: 10}, () => '  '.repeat(6) + 'if (true) {}').join('\n')}
+  ${Array.from({ length: 10 }, () => '  '.repeat(6) + 'if (true) {}').join('\n')}
   return 1;
 }
 
 class GodClass {
-${Array.from({length: 510}, (_, i) => `  method${i}() { return ${i}; }`).join('\n')}
+${Array.from({ length: 510 }, (_, i) => `  method${i}() { return ${i}; }`).join('\n')}
 }
 
 function longFunction() {
-${Array.from({length: 55}, (_, i) => `  console.log(${i});`).join('\n')}
+${Array.from({ length: 55 }, (_, i) => `  console.log(${i});`).join('\n')}
 }
 `;
     const findings = analyzeStructure(badCode, 'src/web/bad.ts', { layerConfig });
@@ -194,7 +193,7 @@ function calculate(input: number) {
     // Use full analyzeStyle to check all findings, not just aggregated
     const findings = findAllFindings(
       analyzeStyle(content, '/src/calc.ts'),
-      'style-magic-number-',  // matches both per-line and aggregated
+      'style-magic-number-', // matches both per-line and aggregated
     );
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
@@ -208,10 +207,7 @@ let activeUsers = 0;
 const totalCount = 100;
 let max_items = 50;
 `;
-    const findings = findAllFindings(
-      analyzeStyle(content, '/src/users.ts'),
-      'style-inconsistent',
-    );
+    const findings = findAllFindings(analyzeStyle(content, '/src/users.ts'), 'style-inconsistent');
     // Should detect mixed variable naming conventions
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
@@ -232,10 +228,7 @@ let max_items = 50;
   it('BAD-4: should detect non-standard naming', () => {
     const content = 'const my-variable = 10;\n';
     // The hyphen breaks both camelCase and snake_case patterns
-    const findings = findAllFindings(
-      analyzeStyle(content, '/src/broken.ts'),
-      'style-naming',
-    );
+    const findings = findAllFindings(analyzeStyle(content, '/src/broken.ts'), 'style-naming');
     // The original checkNaming uses const/let/var capture
     expect(findings.length).toBeGreaterThanOrEqual(0); // May not match due to hyphen
   });
@@ -264,8 +257,10 @@ let max_items = 50;
   }
   return total;
 }`;
-    const content1 = codeSnippet + '\nfunction helper1() { return 1; }\nfunction helper2() { return 2; }';
-    const content2 = codeSnippet + '\nfunction helper3() { return 3; }\nfunction helper4() { return 4; }';
+    const content1 =
+      codeSnippet + '\nfunction helper1() { return 1; }\nfunction helper2() { return 2; }';
+    const content2 =
+      codeSnippet + '\nfunction helper3() { return 3; }\nfunction helper4() { return 4; }';
     const repoFiles = new Map<string, string>();
     repoFiles.set('/src/math2.ts', content2);
     const findings = findAllFindings(
@@ -330,10 +325,7 @@ const activeUsers = 0;
 const totalCount = 100;
 const maxItems = 50;
 `;
-    const findings = findAllFindings(
-      analyzeStyle(content, '/src/clean.ts'),
-      'style-inconsistent',
-    );
+    const findings = findAllFindings(analyzeStyle(content, '/src/clean.ts'), 'style-inconsistent');
     expect(findings.length).toBe(0);
   });
 
@@ -434,10 +426,7 @@ const cors = require('cors');
 app.use(cors({ origin: '*' }));
 app.options('*', cors());
 `;
-    const findings = findAllFindings(
-      analyzeApi(content, '/src/app.ts'),
-      'api-cors-wildcard',
-    );
+    const findings = findAllFindings(analyzeApi(content, '/src/app.ts'), 'api-cors-wildcard');
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -449,10 +438,7 @@ app.use(cors({
   credentials: true,
 }));
 `;
-    const findings = findAllFindings(
-      analyzeApi(content, '/src/app.ts'),
-      'api-cors-credentials',
-    );
+    const findings = findAllFindings(analyzeApi(content, '/src/app.ts'), 'api-cors-credentials');
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -541,10 +527,7 @@ router.get('/data', getData);
     const content = `
 app.use(cors({ origin: 'https://app.example.com' }));
 `;
-    const findings = findAllFindings(
-      analyzeApi(content, '/src/app.ts'),
-      'api-cors-wildcard',
-    );
+    const findings = findAllFindings(analyzeApi(content, '/src/app.ts'), 'api-cors-wildcard');
     expect(findings.length).toBe(0);
   });
 
@@ -597,10 +580,7 @@ describe('Docs Lens — Real Detection', () => {
 
   it('BAD-1: should detect incomplete README', () => {
     const content = '# My App\n\nA simple app.\n';
-    const findings = findAllFindings(
-      analyzeDocs(content, 'README.md'),
-      'docs-stale-readme',
-    );
+    const findings = findAllFindings(analyzeDocs(content, 'README.md'), 'docs-stale-readme');
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -619,19 +599,13 @@ describe('Docs Lens — Real Detection', () => {
     for (let i = 0; i < 10; i++) {
       content += `export function apiMethod${i}(param: string): string { return param; }\n`;
     }
-    const findings = findAllFindings(
-      analyzeDocs(content, '/src/api.ts'),
-      'docs-low-coverage',
-    );
+    const findings = findAllFindings(analyzeDocs(content, '/src/api.ts'), 'docs-low-coverage');
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
   it('BAD-4: should detect missing JSDoc on exported function', () => {
     const content = `export function calculateTotal(items: number[]): number {\n  return items.reduce((a, b) => a + b, 0);\n}\n`;
-    const findings = findAllFindings(
-      analyzeDocs(content, '/src/math.ts'),
-      'docs-missing-jsdoc',
-    );
+    const findings = findAllFindings(analyzeDocs(content, '/src/math.ts'), 'docs-missing-jsdoc');
     expect(findings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -687,10 +661,7 @@ Documentation for the API endpoints.
 ## Contributing
 Guidelines for contributors.
 `;
-    const findings = findAllFindings(
-      analyzeDocs(content, 'README.md'),
-      'docs-stale-readme',
-    );
+    const findings = findAllFindings(analyzeDocs(content, 'README.md'), 'docs-stale-readme');
     expect(findings.length).toBe(0);
   });
 
@@ -731,10 +702,7 @@ export function listUsers(filter: UserFilter): User[] { return []; }
 /** Counts users. @returns {number} Total count */
 export function countUsers(): number { return 0; }
 `;
-    const findings = findAllFindings(
-      analyzeDocs(content, '/src/api.ts'),
-      'docs-low-coverage',
-    );
+    const findings = findAllFindings(analyzeDocs(content, '/src/api.ts'), 'docs-low-coverage');
     expect(findings.length).toBe(0);
   });
 
@@ -790,9 +758,7 @@ describe('Synthesis Lens — Real Detection', () => {
     };
   }
 
-  function makeFinding(
-    overrides: Partial<any> = {},
-  ): any {
+  function makeFinding(overrides: Partial<any> = {}): any {
     return {
       id: `test-${Math.random().toString(36).slice(2, 8)}`,
       lens: 'structure',
@@ -817,13 +783,34 @@ describe('Synthesis Lens — Real Detection', () => {
 
   it('BAD-1: should deduplicate overlapping findings (IoU > 0.5)', () => {
     const findings = [
-      makeFinding({ id: 'a', title: 'Issue A', evidence: { filePath: '/src/a.ts', startLine: 10, endLine: 20, codeSnippet: 'x', lens: 'structure' }, lens: 'structure', severity: 'low' }),
-      makeFinding({ id: 'b', title: 'Issue B', evidence: { filePath: '/src/a.ts', startLine: 12, endLine: 22, codeSnippet: 'y', lens: 'style' }, lens: 'style', severity: 'high' }),
+      makeFinding({
+        id: 'a',
+        title: 'Issue A',
+        evidence: {
+          filePath: '/src/a.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'x',
+          lens: 'structure',
+        },
+        lens: 'structure',
+        severity: 'low',
+      }),
+      makeFinding({
+        id: 'b',
+        title: 'Issue B',
+        evidence: {
+          filePath: '/src/a.ts',
+          startLine: 12,
+          endLine: 22,
+          codeSnippet: 'y',
+          lens: 'style',
+        },
+        lens: 'style',
+        severity: 'high',
+      }),
     ];
-    const reports = [
-      makeReport('structure', [findings[0]!]),
-      makeReport('style', [findings[1]!]),
-    ];
+    const reports = [makeReport('structure', [findings[0]!]), makeReport('style', [findings[1]!])];
     const result = synthesizeFindings(reports, 200);
     // Should be deduped to fewer than 2
     expect(result.findings.length).toBeLessThan(2);
@@ -833,13 +820,30 @@ describe('Synthesis Lens — Real Detection', () => {
 
   it('BAD-2: should not deduplicate non-overlapping findings', () => {
     const findings = [
-      makeFinding({ id: 'a', evidence: { filePath: '/src/a.ts', startLine: 10, endLine: 20, codeSnippet: 'x', lens: 'structure' }, severity: 'low' }),
-      makeFinding({ id: 'b', evidence: { filePath: '/src/b.ts', startLine: 10, endLine: 20, codeSnippet: 'y', lens: 'style' }, severity: 'low' }),
+      makeFinding({
+        id: 'a',
+        evidence: {
+          filePath: '/src/a.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'x',
+          lens: 'structure',
+        },
+        severity: 'low',
+      }),
+      makeFinding({
+        id: 'b',
+        evidence: {
+          filePath: '/src/b.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'y',
+          lens: 'style',
+        },
+        severity: 'low',
+      }),
     ];
-    const reports = [
-      makeReport('structure', [findings[0]!]),
-      makeReport('style', [findings[1]!]),
-    ];
+    const reports = [makeReport('structure', [findings[0]!]), makeReport('style', [findings[1]!])];
     const result = synthesizeFindings(reports, 200);
     expect(result.findings.length).toBe(2);
   });
@@ -847,9 +851,42 @@ describe('Synthesis Lens — Real Detection', () => {
   it('BAD-3: should boost severity via ensemble voting (3+ lenses)', () => {
     // Use different line ranges so dedup doesn't merge them first
     const findings = [
-      makeFinding({ id: 'a', lens: 'structure', severity: 'low', evidence: { filePath: '/src/x.ts', startLine: 10, endLine: 12, codeSnippet: 'x1', lens: 'structure' } }),
-      makeFinding({ id: 'b', lens: 'style', severity: 'low', evidence: { filePath: '/src/x.ts', startLine: 10, endLine: 12, codeSnippet: 'x2', lens: 'style' } }),
-      makeFinding({ id: 'c', lens: 'security', severity: 'low', evidence: { filePath: '/src/x.ts', startLine: 10, endLine: 12, codeSnippet: 'x3', lens: 'security' } }),
+      makeFinding({
+        id: 'a',
+        lens: 'structure',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/x.ts',
+          startLine: 10,
+          endLine: 12,
+          codeSnippet: 'x1',
+          lens: 'structure',
+        },
+      }),
+      makeFinding({
+        id: 'b',
+        lens: 'style',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/x.ts',
+          startLine: 10,
+          endLine: 12,
+          codeSnippet: 'x2',
+          lens: 'style',
+        },
+      }),
+      makeFinding({
+        id: 'c',
+        lens: 'security',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/x.ts',
+          startLine: 10,
+          endLine: 12,
+          codeSnippet: 'x3',
+          lens: 'security',
+        },
+      }),
     ];
     const reports = [
       makeReport('structure', [findings[0]!]),
@@ -858,14 +895,19 @@ describe('Synthesis Lens — Real Detection', () => {
     ];
     const result = synthesizeFindings(reports, 200);
     // Ensemble voted findings should have boosted severity
-    const boosted = result.findings.filter(f => f.description.includes('[Ensemble Boosted'));
+    const boosted = result.findings.filter((f) => f.description.includes('[Ensemble Boosted'));
     expect(boosted.length).toBeGreaterThanOrEqual(1);
   });
 
   it('BAD-4: should generate executive summary', () => {
     const findings = [
       makeFinding({ severity: 'critical', title: 'Critical Bug' }),
-      makeFinding({ severity: 'high', title: 'Security Issue', lens: 'security', category: 'security' }),
+      makeFinding({
+        severity: 'high',
+        title: 'Security Issue',
+        lens: 'security',
+        category: 'security',
+      }),
       makeFinding({ severity: 'medium', title: 'Style Issue', lens: 'style' }),
     ];
     const reports = [makeReport('security', findings)];
@@ -893,14 +935,60 @@ describe('Synthesis Lens — Real Detection', () => {
 
   it('BAD-6: should calibrate severity for frequent issues (>3 files)', () => {
     const findings = [
-      makeFinding({ id: 'a', title: 'Repeated Issue', severity: 'low', evidence: { filePath: '/src/a.ts', startLine: 1, endLine: 1, codeSnippet: 'a', lens: 'structure' } }),
-      makeFinding({ id: 'b', title: 'Repeated Issue', severity: 'low', evidence: { filePath: '/src/b.ts', startLine: 1, endLine: 1, codeSnippet: 'b', lens: 'structure' } }),
-      makeFinding({ id: 'c', title: 'Repeated Issue', severity: 'low', evidence: { filePath: '/src/c.ts', startLine: 1, endLine: 1, codeSnippet: 'c', lens: 'structure' } }),
-      makeFinding({ id: 'd', title: 'Repeated Issue', severity: 'low', evidence: { filePath: '/src/d.ts', startLine: 1, endLine: 1, codeSnippet: 'd', lens: 'structure' } }),
+      makeFinding({
+        id: 'a',
+        title: 'Repeated Issue',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/a.ts',
+          startLine: 1,
+          endLine: 1,
+          codeSnippet: 'a',
+          lens: 'structure',
+        },
+      }),
+      makeFinding({
+        id: 'b',
+        title: 'Repeated Issue',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/b.ts',
+          startLine: 1,
+          endLine: 1,
+          codeSnippet: 'b',
+          lens: 'structure',
+        },
+      }),
+      makeFinding({
+        id: 'c',
+        title: 'Repeated Issue',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/c.ts',
+          startLine: 1,
+          endLine: 1,
+          codeSnippet: 'c',
+          lens: 'structure',
+        },
+      }),
+      makeFinding({
+        id: 'd',
+        title: 'Repeated Issue',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/d.ts',
+          startLine: 1,
+          endLine: 1,
+          codeSnippet: 'd',
+          lens: 'structure',
+        },
+      }),
     ];
     const reports = [makeReport('structure', findings)];
     const result = synthesizeFindings(reports, 400);
-    const repeated = result.findings.filter(f => f.title === 'Repeated Issue' && f.severity === 'medium');
+    const repeated = result.findings.filter(
+      (f) => f.title === 'Repeated Issue' && f.severity === 'medium',
+    );
     expect(repeated.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -908,13 +996,32 @@ describe('Synthesis Lens — Real Detection', () => {
 
   it('ADV-1: should not doublest-boost findings below 3-lens threshold', () => {
     const findings = [
-      makeFinding({ id: 'a', lens: 'structure', severity: 'low', evidence: { filePath: '/src/x.ts', startLine: 10, endLine: 20, codeSnippet: 'x', lens: 'structure' } }),
-      makeFinding({ id: 'b', lens: 'style', severity: 'low', evidence: { filePath: '/src/x.ts', startLine: 10, endLine: 20, codeSnippet: 'y', lens: 'style' } }),
+      makeFinding({
+        id: 'a',
+        lens: 'structure',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/x.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'x',
+          lens: 'structure',
+        },
+      }),
+      makeFinding({
+        id: 'b',
+        lens: 'style',
+        severity: 'low',
+        evidence: {
+          filePath: '/src/x.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'y',
+          lens: 'style',
+        },
+      }),
     ];
-    const reports = [
-      makeReport('structure', [findings[0]!]),
-      makeReport('style', [findings[1]!]),
-    ];
+    const reports = [makeReport('structure', [findings[0]!]), makeReport('style', [findings[1]!])];
     const result = synthesizeFindings(reports, 200);
     // Only 2 lenses, so no ensemble boosting
     expect(result.summary.ensembleBoostedCount).toBe(0);
@@ -929,8 +1036,28 @@ describe('Synthesis Lens — Real Detection', () => {
 
   it('ADV-3: should not deduplicate findings on different files', () => {
     const findings = [
-      makeFinding({ id: 'a', evidence: { filePath: '/src/a.ts', startLine: 10, endLine: 20, codeSnippet: 'x', lens: 'structure' }, severity: 'high' }),
-      makeFinding({ id: 'b', evidence: { filePath: '/src/b.ts', startLine: 10, endLine: 20, codeSnippet: 'y', lens: 'structure' }, severity: 'high' }),
+      makeFinding({
+        id: 'a',
+        evidence: {
+          filePath: '/src/a.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'x',
+          lens: 'structure',
+        },
+        severity: 'high',
+      }),
+      makeFinding({
+        id: 'b',
+        evidence: {
+          filePath: '/src/b.ts',
+          startLine: 10,
+          endLine: 20,
+          codeSnippet: 'y',
+          lens: 'structure',
+        },
+        severity: 'high',
+      }),
     ];
     const reports = [makeReport('structure', findings)];
     const result = synthesizeFindings(reports, 200);
@@ -942,21 +1069,69 @@ describe('Synthesis Lens — Real Detection', () => {
 
   it('should build action plan with priorities', () => {
     const findings = [
-      makeFinding({ id: 'a', severity: 'critical', lens: 'security', evidence: { filePath: '/src/auth.ts', startLine: 10, endLine: 10, codeSnippet: 'x', lens: 'security' } }),
-      makeFinding({ id: 'b', severity: 'high', lens: 'performance', evidence: { filePath: '/src/db.ts', startLine: 20, endLine: 20, codeSnippet: 'y', lens: 'performance' } }),
-      makeFinding({ id: 'c', severity: 'medium', lens: 'style', evidence: { filePath: '/src/ui.ts', startLine: 30, endLine: 30, codeSnippet: 'z', lens: 'style' } }),
+      makeFinding({
+        id: 'a',
+        severity: 'critical',
+        lens: 'security',
+        evidence: {
+          filePath: '/src/auth.ts',
+          startLine: 10,
+          endLine: 10,
+          codeSnippet: 'x',
+          lens: 'security',
+        },
+      }),
+      makeFinding({
+        id: 'b',
+        severity: 'high',
+        lens: 'performance',
+        evidence: {
+          filePath: '/src/db.ts',
+          startLine: 20,
+          endLine: 20,
+          codeSnippet: 'y',
+          lens: 'performance',
+        },
+      }),
+      makeFinding({
+        id: 'c',
+        severity: 'medium',
+        lens: 'style',
+        evidence: {
+          filePath: '/src/ui.ts',
+          startLine: 30,
+          endLine: 30,
+          codeSnippet: 'z',
+          lens: 'style',
+        },
+      }),
     ];
-    const reports = [makeReport('security', [findings[0]!]), makeReport('performance', [findings[1]!]), makeReport('style', [findings[2]!])];
+    const reports = [
+      makeReport('security', [findings[0]!]),
+      makeReport('performance', [findings[1]!]),
+      makeReport('style', [findings[2]!]),
+    ];
     const result = synthesizeFindings(reports, 300);
     expect(result.actionPlan.length).toBeGreaterThanOrEqual(1);
     // Critical finding should be priority 1
-    const criticalAction = result.actionPlan.find(a => a.priority === 1);
+    const criticalAction = result.actionPlan.find((a) => a.priority === 1);
     expect(criticalAction).toBeDefined();
   });
 
   it('should include all synthesis features in result', () => {
     const findings = [
-      makeFinding({ id: 'a', severity: 'high', evidence: { filePath: '/src/a.ts', startLine: 10, endLine: 10, codeSnippet: 'a', lens: 'structure' }, lens: 'structure' }),
+      makeFinding({
+        id: 'a',
+        severity: 'high',
+        evidence: {
+          filePath: '/src/a.ts',
+          startLine: 10,
+          endLine: 10,
+          codeSnippet: 'a',
+          lens: 'structure',
+        },
+        lens: 'structure',
+      }),
     ];
     const reports = [makeReport('structure', findings)];
     const result = synthesizeFindings(reports, 100);

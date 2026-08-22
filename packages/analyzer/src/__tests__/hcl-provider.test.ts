@@ -59,14 +59,18 @@ describe('HclProvider', () => {
       const code = 'output "vpc_id" {\n  value = aws_vpc.main.id\n}';
       const captures = provider.parse(code, 'outputs.tf');
       const outputs = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(outputs.some((c) => c.name === 'vpc_id' && c.properties?.isOutput === 'true')).toBe(true);
+      expect(outputs.some((c) => c.name === 'vpc_id' && c.properties?.isOutput === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a provider block with isProvider flag', () => {
       const code = 'provider "aws" {\n  region = "us-east-1"\n}';
       const captures = provider.parse(code, 'providers.tf');
       const providers = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(providers.some((c) => c.name === 'aws' && c.properties?.isProvider === 'true')).toBe(true);
+      expect(providers.some((c) => c.name === 'aws' && c.properties?.isProvider === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a module block with isModule flag', () => {
@@ -80,7 +84,9 @@ describe('HclProvider', () => {
       const code = 'locals {\n  env = "prod"\n}';
       const captures = provider.parse(code, 'locals.tf');
       const locals = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(locals.some((c) => c.name === 'locals' && c.properties?.isLocals === 'true')).toBe(true);
+      expect(locals.some((c) => c.name === 'locals' && c.properties?.isLocals === 'true')).toBe(
+        true,
+      );
     });
   });
 

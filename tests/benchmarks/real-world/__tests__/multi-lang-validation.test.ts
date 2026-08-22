@@ -24,7 +24,10 @@ import { execSync } from 'node:child_process';
 import { PythonProvider } from '../../../../packages/analyzer/src/languages/python.js';
 import { GoProvider } from '../../../../packages/analyzer/src/languages/go.js';
 import { JavaProvider } from '../../../../packages/analyzer/src/languages/java.js';
-import type { LanguageProvider, ParsedImport } from '../../../../packages/analyzer/src/languages/provider.js';
+import type {
+  LanguageProvider,
+  ParsedImport,
+} from '../../../../packages/analyzer/src/languages/provider.js';
 import type { UnifiedCapture } from '../../../../packages/shared/src/types/capture-tags.js';
 import { CAPTURE_TAGS } from '../../../../packages/shared/src/types/capture-tags.js';
 
@@ -75,7 +78,11 @@ function collectSourceFiles(dir: string, extensions: string[], maxFiles = 2000):
       for (const entry of readdirSync(d, { withFileTypes: true })) {
         const full = join(d, entry.name);
         if (entry.isDirectory()) {
-          if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== '__pycache__') {
+          if (
+            !entry.name.startsWith('.') &&
+            entry.name !== 'node_modules' &&
+            entry.name !== '__pycache__'
+          ) {
             walk(full);
           }
         } else if (entry.isFile()) {
@@ -186,10 +193,10 @@ function cloneIfNeeded(repoUrl: string, dest: string): void {
   }
   console.log(`  Cloning ${repoUrl} -> ${dest}...`);
   try {
-    execSync(
-      `git clone --depth 1 --single-branch --filter=blob:none ${repoUrl} ${dest}`,
-      { stdio: 'pipe', timeout: 120_000 },
-    );
+    execSync(`git clone --depth 1 --single-branch --filter=blob:none ${repoUrl} ${dest}`, {
+      stdio: 'pipe',
+      timeout: 120_000,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`  Clone warning: ${msg}`);
@@ -204,20 +211,29 @@ describe('Multi-Language Real-world Validation', () => {
     results: [],
   };
 
-  beforeAll(() => {
-    // Clone repos (skip if network unavailable or already cloned)
-    try {
-      cloneIfNeeded('https://github.com/django/django.git', REPO_PATHS.django);
-    } catch { /* network unavailable — skip */ }
+  beforeAll(
+    () => {
+      // Clone repos (skip if network unavailable or already cloned)
+      try {
+        cloneIfNeeded('https://github.com/django/django.git', REPO_PATHS.django);
+      } catch {
+        /* network unavailable — skip */
+      }
 
-    try {
-      cloneIfNeeded('https://github.com/kubernetes/client-go.git', REPO_PATHS.k8sClientGo);
-    } catch { /* network unavailable — skip */ }
+      try {
+        cloneIfNeeded('https://github.com/kubernetes/client-go.git', REPO_PATHS.k8sClientGo);
+      } catch {
+        /* network unavailable — skip */
+      }
 
-    try {
-      cloneIfNeeded('https://github.com/spring-projects/spring-boot.git', REPO_PATHS.springBoot);
-    } catch { /* network unavailable — skip */ }
-  }, { timeout: 300_000 });
+      try {
+        cloneIfNeeded('https://github.com/spring-projects/spring-boot.git', REPO_PATHS.springBoot);
+      } catch {
+        /* network unavailable — skip */
+      }
+    },
+    { timeout: 300_000 },
+  );
 
   // ── Python / Django ───────────────────────────────────────────────────────
 

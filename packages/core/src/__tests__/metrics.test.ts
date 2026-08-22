@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import {
-  DefaultMetricsCollector,
-  NoopMetricsCollector,
-  createMetrics,
-} from '../metrics/index.js';
+import { DefaultMetricsCollector, NoopMetricsCollector, createMetrics } from '../metrics/index.js';
 
 import type { MetricsCollector } from '../metrics/index.js';
 

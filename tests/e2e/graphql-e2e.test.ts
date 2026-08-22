@@ -19,7 +19,9 @@ const serverRequire = createRequire(import.meta.url.replace('tests/e2e', 'packag
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createYoga } = serverRequire('graphql-yoga') as typeof import('graphql-yoga');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { makeExecutableSchema } = serverRequire('@graphql-tools/schema') as typeof import('@graphql-tools/schema');
+const { makeExecutableSchema } = serverRequire(
+  '@graphql-tools/schema',
+) as typeof import('@graphql-tools/schema');
 
 import { typeDefs } from '@code-analyzer/server/graphql/schema';
 import { resolvers } from '@code-analyzer/server/graphql/resolvers';
@@ -30,9 +32,17 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 // Setup
 // ---------------------------------------------------------------------------
 
-function setupYoga(): { yoga: ReturnType<typeof createYoga>; store: InMemoryGraphStore; ctx: ReturnType<typeof createGraphQLContext> } {
+function setupYoga(): {
+  yoga: ReturnType<typeof createYoga>;
+  store: InMemoryGraphStore;
+  ctx: ReturnType<typeof createGraphQLContext>;
+} {
   const store = new InMemoryGraphStore(':memory:');
-  const ctx = createGraphQLContext(store, { metadata: { name: 'e2e', version: '1.0.0', environment: 'test' } } as any, Date.now());
+  const ctx = createGraphQLContext(
+    store,
+    { metadata: { name: 'e2e', version: '1.0.0', environment: 'test' } } as any,
+    Date.now(),
+  );
   const schema = makeExecutableSchema({ typeDefs, resolvers });
   const yoga = createYoga({ schema, context: async () => ctx });
 
@@ -57,32 +67,74 @@ function populateStore(store: InMemoryGraphStore): void {
   const projectId = 'e2e-gql-project';
 
   store.insertNode({
-    id: 0, projectId, label: 'Project' as any, name: 'e2e-gql-project',
-    qualifiedName: 'e2e-gql-project', filePath: '/', startLine: 1, endLine: 1,
-    language: 'typescript', properties: { version: '1.0.0' },
-    signature: null, docstring: null, complexity: null,
-    isExported: true, fingerprint: null, createdAt: now, updatedAt: now,
+    id: 0,
+    projectId,
+    label: 'Project' as any,
+    name: 'e2e-gql-project',
+    qualifiedName: 'e2e-gql-project',
+    filePath: '/',
+    startLine: 1,
+    endLine: 1,
+    language: 'typescript',
+    properties: { version: '1.0.0' },
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   const classA = store.insertNode({
-    id: 0, projectId, label: 'Class' as any, name: 'AuthService',
-    qualifiedName: 'AuthService', filePath: 'src/auth.ts', startLine: 10, endLine: 50,
-    language: 'typescript', properties: { layer: 'service' },
-    signature: 'class AuthService', docstring: 'Authentication service',
-    complexity: 5, isExported: true, fingerprint: null, createdAt: now, updatedAt: now,
+    id: 0,
+    projectId,
+    label: 'Class' as any,
+    name: 'AuthService',
+    qualifiedName: 'AuthService',
+    filePath: 'src/auth.ts',
+    startLine: 10,
+    endLine: 50,
+    language: 'typescript',
+    properties: { layer: 'service' },
+    signature: 'class AuthService',
+    docstring: 'Authentication service',
+    complexity: 5,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   const classB = store.insertNode({
-    id: 0, projectId, label: 'Class' as any, name: 'UserRepository',
-    qualifiedName: 'UserRepository', filePath: 'src/repo.ts', startLine: 5, endLine: 30,
-    language: 'typescript', properties: { layer: 'data' },
-    signature: 'class UserRepository', docstring: null,
-    complexity: 3, isExported: true, fingerprint: null, createdAt: now, updatedAt: now,
+    id: 0,
+    projectId,
+    label: 'Class' as any,
+    name: 'UserRepository',
+    qualifiedName: 'UserRepository',
+    filePath: 'src/repo.ts',
+    startLine: 5,
+    endLine: 30,
+    language: 'typescript',
+    properties: { layer: 'data' },
+    signature: 'class UserRepository',
+    docstring: null,
+    complexity: 3,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   store.insertEdge({
-    id: 0, projectId, sourceId: classA, targetId: classB,
-    type: 'IMPORTS' as any, properties: {}, weight: 1, createdAt: now,
+    id: 0,
+    projectId,
+    sourceId: classA,
+    targetId: classB,
+    type: 'IMPORTS' as any,
+    properties: {},
+    weight: 1,
+    createdAt: now,
   });
 }
 
@@ -120,11 +172,9 @@ describe('GraphQL E2E — Queries', () => {
 
   it('should return null for non-existent project', async () => {
     const { yoga } = setupYoga();
-    const result = await executeQuery(
-      yoga,
-      `query($id: ID!) { project(id: $id) { name } }`,
-      { id: 'nonexistent' },
-    );
+    const result = await executeQuery(yoga, `query($id: ID!) { project(id: $id) { name } }`, {
+      id: 'nonexistent',
+    });
     expect(result.data.project).toBeNull();
   });
 
@@ -178,22 +228,18 @@ describe('GraphQL E2E — Mutations', () => {
   it('should delete a project', async () => {
     const { yoga, store } = setupYoga();
     populateStore(store);
-    const result = await executeQuery(
-      yoga,
-      `mutation($id: ID!) { deleteProject(id: $id) }`,
-      { id: 'e2e-gql-project' },
-    );
+    const result = await executeQuery(yoga, `mutation($id: ID!) { deleteProject(id: $id) }`, {
+      id: 'e2e-gql-project',
+    });
     expect(result.data.deleteProject).toBe(true);
   });
 
   // skip: deleteProject for non-existent requires project listing (resolver scaffolded)
   it('should return false when deleting non-existent project', async () => {
     const { yoga } = setupYoga();
-    const result = await executeQuery(
-      yoga,
-      `mutation($id: ID!) { deleteProject(id: $id) }`,
-      { id: 'nonexistent' },
-    );
+    const result = await executeQuery(yoga, `mutation($id: ID!) { deleteProject(id: $id) }`, {
+      id: 'nonexistent',
+    });
     expect(result.data.deleteProject).toBe(false);
   });
 });
@@ -209,11 +255,23 @@ describe('GraphQL E2E — Pagination', () => {
     const now = new Date().toISOString();
     for (let i = 0; i < 20; i++) {
       store.insertNode({
-        id: 0, projectId: 'e2e-gql-project', label: 'Function' as any,
-        name: `fn${i}`, qualifiedName: `fn${i}`, filePath: `src/fn${i}.ts`,
-        startLine: 1, endLine: 5, language: 'typescript', properties: {},
-        signature: null, docstring: null, complexity: null,
-        isExported: true, fingerprint: null, createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'e2e-gql-project',
+        label: 'Function' as any,
+        name: `fn${i}`,
+        qualifiedName: `fn${i}`,
+        filePath: `src/fn${i}.ts`,
+        startLine: 1,
+        endLine: 5,
+        language: 'typescript',
+        properties: {},
+        signature: null,
+        docstring: null,
+        complexity: null,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       });
     }
 

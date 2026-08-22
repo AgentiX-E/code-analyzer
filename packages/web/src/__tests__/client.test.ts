@@ -145,7 +145,12 @@ describe('getServiceInfo', () => {
   });
 
   it('should return service info from root endpoint', async () => {
-    const info = { service: 'code-analyzer', version: '0.1.0', docs: '/api/v1/tools/list', health: '/api/v1/health' };
+    const info = {
+      service: 'code-analyzer',
+      version: '0.1.0',
+      docs: '/api/v1/tools/list',
+      health: '/api/v1/health',
+    };
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(info),
@@ -560,7 +565,18 @@ describe('analyzeRepository', () => {
         Promise.resolve({
           tool: 'analyze_repository',
           success: true,
-          content: [{ type: 'text', text: JSON.stringify({ projectId: 'p1', status: 'completed', nodes: 50, edges: 100, files: 10 }) }],
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                projectId: 'p1',
+                status: 'completed',
+                nodes: 50,
+                edges: 100,
+                files: 10,
+              }),
+            },
+          ],
         }),
     });
 

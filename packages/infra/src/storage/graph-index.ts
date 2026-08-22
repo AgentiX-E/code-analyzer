@@ -99,7 +99,12 @@ export class NodeIndex {
   }
 
   /** Statistics about the index. */
-  getStats(): { totalNodes: number; uniqueNames: number; uniqueLabels: number; uniqueProjects: number } {
+  getStats(): {
+    totalNodes: number;
+    uniqueNames: number;
+    uniqueLabels: number;
+    uniqueProjects: number;
+  } {
     return {
       totalNodes: this._size,
       uniqueNames: this.byName.size,

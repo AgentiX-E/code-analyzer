@@ -17,10 +17,7 @@ interface HealthResponse {
   };
 }
 
-function buildHealthResponse(
-  config: ServerConfig,
-  startTime: number,
-): HealthResponse {
+function buildHealthResponse(config: ServerConfig, startTime: number): HealthResponse {
   const uptime = Date.now() - startTime;
   const memUsage = process.memoryUsage();
   const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);

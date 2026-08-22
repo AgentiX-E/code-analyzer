@@ -13,7 +13,15 @@ import type { TaintSource, TaintSink, TaintSanitizer } from './tree-sitter-base.
 import { extractSecretSources } from './regex-helpers.js';
 
 /** Secret-bearing keys that mark a YAML value as a config-secret taint source. */
-const SECRET_KEYWORDS = ['password', 'secret', 'token', 'api_key', 'api-key', 'credential', 'private_key'];
+const SECRET_KEYWORDS = [
+  'password',
+  'secret',
+  'token',
+  'api_key',
+  'api-key',
+  'credential',
+  'private_key',
+];
 
 const YAML_EXTENSIONS = ['.yaml', '.yml'];
 const YAML_GLOBS = ['**/*.yaml', '**/*.yml'];
@@ -33,23 +41,45 @@ export class YamlProvider implements LanguageProvider {
       const line = lines[i]!;
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#') || trimmed === '---' || trimmed === '...') continue;
-      if (trimmed === '|' || trimmed === '>' || trimmed === '|-' || trimmed === '>-') { inBlockScalar = true; continue; }
-      if (inBlockScalar) { if (line.startsWith(' ') || line.startsWith('\t')) continue; inBlockScalar = false; }
+      if (trimmed === '|' || trimmed === '>' || trimmed === '|-' || trimmed === '>-') {
+        inBlockScalar = true;
+        continue;
+      }
+      if (inBlockScalar) {
+        if (line.startsWith(' ') || line.startsWith('\t')) continue;
+        inBlockScalar = false;
+      }
       const anchorMatch = trimmed.match(/(?:^|\s)&(\w+)/);
       if (anchorMatch) {
-        captures.push(this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, anchorMatch[1]!, i + 1, filePath, { anchor: 'true' }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, anchorMatch[1]!, i + 1, filePath, {
+            anchor: 'true',
+          }),
+        );
       }
       const aliasMatch = trimmed.match(/(?:^|\s)\*(\w+)/);
       if (aliasMatch && !anchorMatch) {
-        captures.push(this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, aliasMatch[1]!, i + 1, filePath, { alias: 'true' }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, aliasMatch[1]!, i + 1, filePath, {
+            alias: 'true',
+          }),
+        );
       }
       const kvMatch = trimmed.match(/^(\s*)([\w.\-]+)\s*:\s*(.*)/);
       if (kvMatch) {
-        captures.push(this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, kvMatch[2]!, i + 1, filePath, { indent: String(kvMatch[1]!.length) }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, kvMatch[2]!, i + 1, filePath, {
+            indent: String(kvMatch[1]!.length),
+          }),
+        );
       }
       const seqMatch = trimmed.match(/^\s*-\s+(.+)/);
       if (seqMatch) {
-        captures.push(this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, seqMatch[1]!, i + 1, filePath, { isListItem: 'true' }));
+        captures.push(
+          this.makeCapture(CAPTURE_TAGS.VARIABLE_DEF, seqMatch[1]!, i + 1, filePath, {
+            isListItem: 'true',
+          }),
+        );
       }
     }
     return captures;
@@ -80,7 +110,7 @@ export class YamlProvider implements LanguageProvider {
   }
 
   private makeCapture(
-    tag: typeof CAPTURE_TAGS[keyof typeof CAPTURE_TAGS],
+    tag: (typeof CAPTURE_TAGS)[keyof typeof CAPTURE_TAGS],
     name: string,
     line: number,
     filePath: string,

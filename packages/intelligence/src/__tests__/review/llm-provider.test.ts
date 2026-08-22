@@ -92,10 +92,10 @@ function emptyChoicesResponse(): Response {
 }
 
 function errorResponse(status: number, body?: string): Response {
-  return new Response(
-    body ?? JSON.stringify({ error: { message: 'Test error' } }),
-    { status, headers: { 'Content-Type': 'application/json' } },
-  );
+  return new Response(body ?? JSON.stringify({ error: { message: 'Test error' } }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -239,7 +239,10 @@ describe('DeepSeekProvider — complete()', () => {
   });
 
   it('should handle empty choices array', async () => {
-    vi.stubGlobal('fetch', createMockFetch(() => emptyChoicesResponse()));
+    vi.stubGlobal(
+      'fetch',
+      createMockFetch(() => emptyChoicesResponse()),
+    );
 
     await expect(provider.complete('test')).rejects.toThrow(LLMError);
   });
@@ -267,7 +270,11 @@ describe('DeepSeekProvider — completeWithTools()', () => {
     globalThis.fetch = mockFetch;
 
     await provider.completeWithTools('test', [
-      { name: 'get_weather', description: 'Get weather', parameters: { type: 'object', properties: { city: { type: 'string' } } } },
+      {
+        name: 'get_weather',
+        description: 'Get weather',
+        parameters: { type: 'object', properties: { city: { type: 'string' } } },
+      },
     ]);
 
     const callArgs2 = (mockFetch as any).mock.calls[0] as [string, RequestInit];
@@ -283,7 +290,11 @@ describe('DeepSeekProvider — completeWithTools()', () => {
     globalThis.fetch = mockFetch;
 
     const result = await provider.completeWithTools('What is the weather in London?', [
-      { name: 'get_weather', description: 'Get weather', parameters: { type: 'object', properties: { city: { type: 'string' } } } },
+      {
+        name: 'get_weather',
+        description: 'Get weather',
+        parameters: { type: 'object', properties: { city: { type: 'string' } } },
+      },
     ]);
 
     expect(result.content).toBe('get_weather({"city":"London"})');
@@ -294,9 +305,11 @@ describe('DeepSeekProvider — completeWithTools()', () => {
     const mockFetch = createMockFetch(() => successResponse('ok'));
     globalThis.fetch = mockFetch;
 
-    await provider.completeWithTools('test', [
-      { name: 'search', description: 'Search', parameters: {} },
-    ], { temperature: 0.1, timeout: 30000 });
+    await provider.completeWithTools(
+      'test',
+      [{ name: 'search', description: 'Search', parameters: {} }],
+      { temperature: 0.1, timeout: 30000 },
+    );
 
     const callArgs3 = (mockFetch as any).mock.calls[0] as [string, RequestInit];
     const body3 = JSON.parse(callArgs3[1].body as string);

@@ -100,8 +100,8 @@ const PRReviewPanel: React.FC<PRReviewPanelProps> = ({
         <div className="empty-state">
           <h3>PR Review</h3>
           <p className="text-muted">
-            No PR selected. Use the search to find a PR or configure GitHub webhook
-            integration to automatically review pull requests.
+            No PR selected. Use the search to find a PR or configure GitHub webhook integration to
+            automatically review pull requests.
           </p>
           {onRefresh && (
             <button className="btn-secondary" onClick={onRefresh}>
@@ -243,7 +243,9 @@ const PRReviewPanel: React.FC<PRReviewPanelProps> = ({
           <h3>Actionable Recommendations</h3>
           <ul className="rec-list">
             {data.recommendations.map((rec, idx) => (
-              <li key={idx} className="rec-item">{rec}</li>
+              <li key={idx} className="rec-item">
+                {rec}
+              </li>
             ))}
           </ul>
         </div>

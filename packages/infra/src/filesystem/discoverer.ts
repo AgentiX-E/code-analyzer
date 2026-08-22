@@ -6,10 +6,7 @@ import * as path from 'node:path';
 
 import { getLanguageFromFilename } from '@code-analyzer/shared';
 
-import type {
-  SupportedLanguage,
-  DiscoveredFile,
-} from '@code-analyzer/shared';
+import type { SupportedLanguage, DiscoveredFile } from '@code-analyzer/shared';
 
 export interface DiscoverOptions {
   excludePatterns?: string[];
@@ -70,30 +67,15 @@ export function createFileDiscoverer(): FileDiscoverer {
     result = result.replace(/[.+^${}()|[\]\\]/g, '\\$&');
 
     // Replace placeholders with regex patterns
-    result = result.replace(
-      new RegExp(placeholder + 'DS' + placeholder, 'g'),
-      '(?:.+/)?',
-    );
-    result = result.replace(
-      new RegExp(placeholder + 'DA' + placeholder, 'g'),
-      '.*',
-    );
-    result = result.replace(
-      new RegExp(placeholder + 'S' + placeholder, 'g'),
-      '[^/]*',
-    );
-    result = result.replace(
-      new RegExp(placeholder + 'Q' + placeholder, 'g'),
-      '[^/]',
-    );
+    result = result.replace(new RegExp(placeholder + 'DS' + placeholder, 'g'), '(?:.+/)?');
+    result = result.replace(new RegExp(placeholder + 'DA' + placeholder, 'g'), '.*');
+    result = result.replace(new RegExp(placeholder + 'S' + placeholder, 'g'), '[^/]*');
+    result = result.replace(new RegExp(placeholder + 'Q' + placeholder, 'g'), '[^/]');
 
     return new RegExp(`^${result}$`).test(str);
   }
 
-  function isExcluded(
-    relativePath: string,
-    excludePatterns: string[],
-  ): boolean {
+  function isExcluded(relativePath: string, excludePatterns: string[]): boolean {
     for (const pattern of excludePatterns) {
       if (minimatch(pattern, relativePath)) return true;
       // Also match against basename for patterns like *.log
@@ -103,10 +85,7 @@ export function createFileDiscoverer(): FileDiscoverer {
     return false;
   }
 
-  function matchesInclude(
-    relativePath: string,
-    includePatterns: string[],
-  ): boolean {
+  function matchesInclude(relativePath: string, includePatterns: string[]): boolean {
     if (includePatterns.length === 0) return true;
     for (const pattern of includePatterns) {
       if (minimatch(pattern, relativePath)) return true;
@@ -159,7 +138,7 @@ export function createFileDiscoverer(): FileDiscoverer {
 
       try {
         entries = fs.readdirSync(currentDir, { withFileTypes: true });
-      /* v8 ignore start */
+        /* v8 ignore start */
       } catch {
         // Permission denied or directory removed — skip
         continue;
@@ -188,7 +167,7 @@ export function createFileDiscoverer(): FileDiscoverer {
             let content = '';
             try {
               content = fs.readFileSync(fullPath, 'utf-8');
-            /* v8 ignore start */
+              /* v8 ignore start */
             } catch {
               // Binary or unreadable — skip
               continue;
@@ -204,7 +183,7 @@ export function createFileDiscoverer(): FileDiscoverer {
               hash,
               size: stat.size,
             });
-          /* v8 ignore start */
+            /* v8 ignore start */
           } catch {
             // Permission denied or file removed — skip
             continue;

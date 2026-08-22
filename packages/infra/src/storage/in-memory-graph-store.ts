@@ -21,7 +21,6 @@ import type {
   EdgeProperties,
 } from '@code-analyzer/shared';
 
-
 interface StoredNode {
   id: number;
   projectId: string;
@@ -218,7 +217,8 @@ export class InMemoryGraphStore {
 
     // Apply property updates into the new properties object
     if (props.returnType !== undefined) node.properties.returnType = props.returnType;
-    if (props.cognitiveComplexity !== undefined) node.properties.cognitiveComplexity = props.cognitiveComplexity;
+    if (props.cognitiveComplexity !== undefined)
+      node.properties.cognitiveComplexity = props.cognitiveComplexity;
     if (props.parameterCount !== undefined) node.properties.parameterCount = props.parameterCount;
     if (props.isAsync !== undefined) node.properties.isAsync = props.isAsync;
     if (props.visibility !== undefined) node.properties.visibility = props.visibility;
@@ -229,7 +229,8 @@ export class InMemoryGraphStore {
     if (props.routeMethod !== undefined) node.properties.routeMethod = props.routeMethod;
     if (props.decorators !== undefined) node.properties.decorators = props.decorators;
     if (props.baseClasses !== undefined) node.properties.baseClasses = props.baseClasses;
-    if (props.implementedInterfaces !== undefined) node.properties.implementedInterfaces = props.implementedInterfaces;
+    if (props.implementedInterfaces !== undefined)
+      node.properties.implementedInterfaces = props.implementedInterfaces;
 
     // Merge any extra properties
     for (const [key, value] of Object.entries(props)) {
@@ -517,46 +518,70 @@ export class InMemoryGraphStore {
 
   private addToProjectNodesIndex(projectId: string, nodeId: number): void {
     let s = this.projectNodesIndex.get(projectId);
-    if (!s) { s = new Set(); this.projectNodesIndex.set(projectId, s); }
+    if (!s) {
+      s = new Set();
+      this.projectNodesIndex.set(projectId, s);
+    }
     s.add(nodeId);
   }
 
   private removeFromProjectNodesIndex(projectId: string, nodeId: number): void {
     const s = this.projectNodesIndex.get(projectId);
-    if (s) { s.delete(nodeId); if (s.size === 0) this.projectNodesIndex.delete(projectId); }
+    if (s) {
+      s.delete(nodeId);
+      if (s.size === 0) this.projectNodesIndex.delete(projectId);
+    }
   }
 
   private addToLabelNodesIndex(label: NodeLabel, nodeId: number): void {
     let s = this.labelNodesIndex.get(label);
-    if (!s) { s = new Set(); this.labelNodesIndex.set(label, s); }
+    if (!s) {
+      s = new Set();
+      this.labelNodesIndex.set(label, s);
+    }
     s.add(nodeId);
   }
 
   private removeFromLabelNodesIndex(label: NodeLabel, nodeId: number): void {
     const s = this.labelNodesIndex.get(label);
-    if (s) { s.delete(nodeId); if (s.size === 0) this.labelNodesIndex.delete(label); }
+    if (s) {
+      s.delete(nodeId);
+      if (s.size === 0) this.labelNodesIndex.delete(label);
+    }
   }
 
   private addToProjectEdgesIndex(projectId: string, edgeId: number): void {
     let s = this.projectEdgesIndex.get(projectId);
-    if (!s) { s = new Set(); this.projectEdgesIndex.set(projectId, s); }
+    if (!s) {
+      s = new Set();
+      this.projectEdgesIndex.set(projectId, s);
+    }
     s.add(edgeId);
   }
 
   private removeFromProjectEdgesIndex(projectId: string, edgeId: number): void {
     const s = this.projectEdgesIndex.get(projectId);
-    if (s) { s.delete(edgeId); if (s.size === 0) this.projectEdgesIndex.delete(projectId); }
+    if (s) {
+      s.delete(edgeId);
+      if (s.size === 0) this.projectEdgesIndex.delete(projectId);
+    }
   }
 
   private addToTypeEdgesIndex(type: RelationshipType, edgeId: number): void {
     let s = this.typeEdgesIndex.get(type);
-    if (!s) { s = new Set(); this.typeEdgesIndex.set(type, s); }
+    if (!s) {
+      s = new Set();
+      this.typeEdgesIndex.set(type, s);
+    }
     s.add(edgeId);
   }
 
   private removeFromTypeEdgesIndex(type: RelationshipType, edgeId: number): void {
     const s = this.typeEdgesIndex.get(type);
-    if (s) { s.delete(edgeId); if (s.size === 0) this.typeEdgesIndex.delete(type); }
+    if (s) {
+      s.delete(edgeId);
+      if (s.size === 0) this.typeEdgesIndex.delete(type);
+    }
   }
 
   /**
@@ -715,9 +740,7 @@ export class InMemoryGraphStore {
 
     // Use project index to pre-filter nodes when available
     const projectSet = options?.projectId ? this.projectNodesIndex.get(options.projectId) : null;
-    const labelSet = (options?.labels && options.labels.length > 0)
-      ? new Set(options.labels)
-      : null;
+    const labelSet = options?.labels && options.labels.length > 0 ? new Set(options.labels) : null;
 
     const iterateFn = (node: StoredNode): void => {
       if (labelSet && !labelSet.has(node.label)) return;
@@ -803,7 +826,8 @@ export class InMemoryGraphStore {
       // Boost rank based on number of matched terms
       if (bestRank > 0) {
         const joined = [lowerName, lowerQname, lowerSig, lowerDoc, lowerPath]
-          .filter(Boolean).join(' ');
+          .filter(Boolean)
+          .join(' ');
         const matchedTerms = terms.filter((t) => joined.includes(t)).length;
         bestRank += matchedTerms * 3;
       }
@@ -843,11 +867,7 @@ export class InMemoryGraphStore {
   // Graph Traversal — BFS
   // -------------------------------------------------------------------------
 
-  bfs(
-    sourceId: number,
-    maxDepth: number,
-    edgeTypes?: RelationshipType[],
-  ): BfsResult {
+  bfs(sourceId: number, maxDepth: number, edgeTypes?: RelationshipType[]): BfsResult {
     this.ensureOpen();
 
     const sourceNode = this.nodes.get(sourceId);
@@ -873,7 +893,6 @@ export class InMemoryGraphStore {
     let maxDepthReached = 0;
 
     while (queue.length > 0) {
-       
       const current = queue.shift()!;
       if (current.depth > maxDepthReached) {
         maxDepthReached = current.depth;

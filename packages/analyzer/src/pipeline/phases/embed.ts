@@ -2,11 +2,7 @@
 // Uses @agentix-e/embed-code-node (nomic-embed-code ONNX) when available.
 // Falls back to deterministic hash-based embeddings when ONNX is unavailable.
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-  KnowledgeGraph,
-} from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -194,10 +190,18 @@ export class EmbedPhase implements ExecutablePhase {
       }
 
       ctx.phaseData.set('embed', { embeddingsGenerated: embeddings.length });
-      return { phaseId: this.id, status: 'success', output: { embeddingsGenerated: embeddings.length } };
+      return {
+        phaseId: this.id,
+        status: 'success',
+        output: { embeddingsGenerated: embeddings.length },
+      };
     } catch (err) {
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */

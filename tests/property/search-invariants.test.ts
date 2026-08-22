@@ -16,7 +16,11 @@ const DATABASE = ['database', 'query', 'migration', 'schema', 'index', 'transact
 const NETWORK = ['http', 'request', 'response', 'socket', 'api', 'endpoint'];
 const STORAGE = ['file', 'storage', 'cache', 'buffer', 'stream', 'persist'];
 
-interface CorpusEntry { nodeId: number; labels: string[]; content: string }
+interface CorpusEntry {
+  nodeId: number;
+  labels: string[];
+  content: string;
+}
 
 function makeStore(): InMemoryGraphStore {
   return new InMemoryGraphStore(':memory:');
@@ -30,12 +34,23 @@ function addCorpusNode(
 ): number {
   const now = new Date().toISOString();
   return store.insertNode({
-    id: 0, projectId: 'prop-test', label: label as any,
-    name, qualifiedName: name, filePath: `src/${name}.ts`,
-    startLine: 1, endLine: 10, language: 'typescript',
-    properties: props, signature: `function ${name}()`, docstring: null,
-    complexity: 5, isExported: true, fingerprint: null,
-    createdAt: now, updatedAt: now,
+    id: 0,
+    projectId: 'prop-test',
+    label: label as any,
+    name,
+    qualifiedName: name,
+    filePath: `src/${name}.ts`,
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: props,
+    signature: `function ${name}()`,
+    docstring: null,
+    complexity: 5,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
@@ -86,9 +101,7 @@ describe('Search Invariants', () => {
       const expandedResults = await engine2.search({ query: 'benchmark performance' });
 
       // With more data, we should get at least as many results (or more)
-      expect(expandedResults.length).toBeGreaterThanOrEqual(
-        Math.max(0, baseResults.length - 1),
-      );
+      expect(expandedResults.length).toBeGreaterThanOrEqual(Math.max(0, baseResults.length - 1));
     });
   });
 
@@ -149,9 +162,7 @@ describe('Search Invariants', () => {
       const results = await engine.search({ query: 'authenticate user' });
 
       // The matching node should be in top results
-      const hasMatchingNode = results.slice(0, 10).some(
-        (r) => r.node.name === 'authenticateUser',
-      );
+      const hasMatchingNode = results.slice(0, 10).some((r) => r.node.name === 'authenticateUser');
       expect(hasMatchingNode).toBe(true);
     });
 
@@ -161,32 +172,52 @@ describe('Search Invariants', () => {
 
       // Node with exact name match
       store.insertNode({
-        id: 0, projectId: 'prop-test', label: 'Function' as any,
-        name: 'connectToDatabase', qualifiedName: 'connectToDatabase',
-        filePath: 'src/db.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: {},
-        signature: 'function connectToDatabase()', docstring: null,
-        complexity: 5, isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'prop-test',
+        label: 'Function' as any,
+        name: 'connectToDatabase',
+        qualifiedName: 'connectToDatabase',
+        filePath: 'src/db.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {},
+        signature: 'function connectToDatabase()',
+        docstring: null,
+        complexity: 5,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       });
 
       // Node with content-only match
       store.insertNode({
-        id: 0, projectId: 'prop-test', label: 'Function' as any,
-        name: 'unrelatedFunc', qualifiedName: 'unrelatedFunc',
-        filePath: 'src/util.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: { content: 'connect to database helper' },
-        signature: 'function unrelatedFunc()', docstring: null,
-        complexity: 5, isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'prop-test',
+        label: 'Function' as any,
+        name: 'unrelatedFunc',
+        qualifiedName: 'unrelatedFunc',
+        filePath: 'src/util.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: { content: 'connect to database helper' },
+        signature: 'function unrelatedFunc()',
+        docstring: null,
+        complexity: 5,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       });
 
       const engine = buildEngine(store);
       const results = engine.bm25Search('connectToDatabase');
 
       if (results.length >= 2) {
-        const nameIdx = results.findIndex(r => r.node.name === 'connectToDatabase');
-        const contentIdx = results.findIndex(r => r.node.name === 'unrelatedFunc');
+        const nameIdx = results.findIndex((r) => r.node.name === 'connectToDatabase');
+        const contentIdx = results.findIndex((r) => r.node.name === 'unrelatedFunc');
         if (nameIdx >= 0 && contentIdx >= 0) {
           expect(nameIdx).toBeLessThan(contentIdx);
         }
@@ -270,26 +301,46 @@ describe('Search Invariants', () => {
 
       // Node with term appearing once
       store.insertNode({
-        id: 0, projectId: 'prop-test', label: 'Function' as any,
-        name: 'SingleMention', qualifiedName: 'SingleMention',
-        filePath: 'src/single.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: { content: 'cache' },
-        signature: 'function SingleMention()', docstring: null,
-        complexity: 5, isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        id: 0,
+        projectId: 'prop-test',
+        label: 'Function' as any,
+        name: 'SingleMention',
+        qualifiedName: 'SingleMention',
+        filePath: 'src/single.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: { content: 'cache' },
+        signature: 'function SingleMention()',
+        docstring: null,
+        complexity: 5,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       });
 
       // Node with term appearing multiple times
       store.insertNode({
-        id: 0, projectId: 'prop-test', label: 'Function' as any,
-        name: 'MultiMention', qualifiedName: 'MultiMention',
-        filePath: 'src/multi.ts', startLine: 1, endLine: 10,
-        language: 'typescript', properties: {
+        id: 0,
+        projectId: 'prop-test',
+        label: 'Function' as any,
+        name: 'MultiMention',
+        qualifiedName: 'MultiMention',
+        filePath: 'src/multi.ts',
+        startLine: 1,
+        endLine: 10,
+        language: 'typescript',
+        properties: {
           content: 'cache cache cache cache cache implementation',
         },
-        signature: 'function MultiMention()', docstring: null,
-        complexity: 5, isExported: true, fingerprint: null,
-        createdAt: now, updatedAt: now,
+        signature: 'function MultiMention()',
+        docstring: null,
+        complexity: 5,
+        isExported: true,
+        fingerprint: null,
+        createdAt: now,
+        updatedAt: now,
       });
 
       // Add filler nodes
@@ -302,8 +353,8 @@ describe('Search Invariants', () => {
       const engine = buildEngine(store);
       const results = engine.bm25Search('cache');
 
-      const multiIdx = results.findIndex(r => r.node.name === 'MultiMention');
-      const singleIdx = results.findIndex(r => r.node.name === 'SingleMention');
+      const multiIdx = results.findIndex((r) => r.node.name === 'MultiMention');
+      const singleIdx = results.findIndex((r) => r.node.name === 'SingleMention');
 
       if (multiIdx >= 0 && singleIdx >= 0) {
         expect(multiIdx).toBeLessThan(singleIdx);
@@ -312,15 +363,17 @@ describe('Search Invariants', () => {
 
     it('queried terms not in document do not contribute to score', () => {
       const store = makeStore();
-      addCorpusNode(store, 'benchmarkRunner', 'Function', { content: 'benchmark performance optimization' });
+      addCorpusNode(store, 'benchmarkRunner', 'Function', {
+        content: 'benchmark performance optimization',
+      });
       buildCorpus(store, 10, 100);
       const engine = buildEngine(store);
       const results = engine.bm25Search('benchmark nonexistentterm');
 
       // Should still return results for matching terms
       expect(results.length).toBeGreaterThan(0);
-      expect(results.some(r => r.node.name === 'benchmarkRunner')).toBe(true);
-      expect(results.every(r => r.score >= 0)).toBe(true);
+      expect(results.some((r) => r.node.name === 'benchmarkRunner')).toBe(true);
+      expect(results.every((r) => r.score >= 0)).toBe(true);
     });
   });
 });

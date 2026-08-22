@@ -235,8 +235,24 @@ describe('Aggregate Metrics Computation', () => {
   it('should compute perfect metrics for all-correct results', () => {
     const runner = createRunner();
     const perfectResults: SingleCaseResult[] = [
-      { caseId: 'test-1', truePositives: 5, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1, f1Score: 1 },
-      { caseId: 'test-2', truePositives: 3, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1, f1Score: 1 },
+      {
+        caseId: 'test-1',
+        truePositives: 5,
+        falsePositives: 0,
+        falseNegatives: 0,
+        precision: 1,
+        recall: 1,
+        f1Score: 1,
+      },
+      {
+        caseId: 'test-2',
+        truePositives: 3,
+        falsePositives: 0,
+        falseNegatives: 0,
+        precision: 1,
+        recall: 1,
+        f1Score: 1,
+      },
     ];
     const metrics = runner.computeMetrics(perfectResults);
     expect(metrics.overallPrecision).toBe(1);
@@ -249,7 +265,15 @@ describe('Aggregate Metrics Computation', () => {
   it('should compute zero metrics for all-wrong results', () => {
     const runner = createRunner();
     const wrongResults: SingleCaseResult[] = [
-      { caseId: 'test-1', truePositives: 0, falsePositives: 2, falseNegatives: 5, precision: 0, recall: 0, f1Score: 0 },
+      {
+        caseId: 'test-1',
+        truePositives: 0,
+        falsePositives: 2,
+        falseNegatives: 5,
+        precision: 0,
+        recall: 0,
+        f1Score: 0,
+      },
     ];
     const metrics = runner.computeMetrics(wrongResults);
     expect(metrics.overallPrecision).toBe(0);
@@ -261,8 +285,24 @@ describe('Aggregate Metrics Computation', () => {
   it('should handle mixed results correctly', () => {
     const runner = createRunner();
     const mixedResults: SingleCaseResult[] = [
-      { caseId: 'test-1', truePositives: 4, falsePositives: 1, falseNegatives: 1, precision: 0.8, recall: 0.8, f1Score: 0.8 },
-      { caseId: 'test-2', truePositives: 2, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1, f1Score: 1 },
+      {
+        caseId: 'test-1',
+        truePositives: 4,
+        falsePositives: 1,
+        falseNegatives: 1,
+        precision: 0.8,
+        recall: 0.8,
+        f1Score: 0.8,
+      },
+      {
+        caseId: 'test-2',
+        truePositives: 2,
+        falsePositives: 0,
+        falseNegatives: 0,
+        precision: 1,
+        recall: 1,
+        f1Score: 1,
+      },
     ];
     const metrics = runner.computeMetrics(mixedResults);
     expect(metrics.overallPrecision).toBeCloseTo(0.8571, 3);
@@ -275,7 +315,15 @@ describe('Aggregate Metrics Computation', () => {
   it('should include per-severity metrics in aggregate', () => {
     const runner = createRunner();
     const results: SingleCaseResult[] = [
-      { caseId: 'test-1', truePositives: 5, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1, f1Score: 1 },
+      {
+        caseId: 'test-1',
+        truePositives: 5,
+        falsePositives: 0,
+        falseNegatives: 0,
+        precision: 1,
+        recall: 1,
+        f1Score: 1,
+      },
     ];
     const metrics = runner.computeMetrics(results);
     expect(metrics.bySeverity).toHaveProperty('critical');
@@ -293,7 +341,15 @@ describe('Aggregate Metrics Computation', () => {
   it('should include per-category metrics in aggregate', () => {
     const runner = createRunner();
     const results: SingleCaseResult[] = [
-      { caseId: 'test-1', truePositives: 3, falsePositives: 1, falseNegatives: 1, precision: 0.75, recall: 0.75, f1Score: 0.75 },
+      {
+        caseId: 'test-1',
+        truePositives: 3,
+        falsePositives: 1,
+        falseNegatives: 1,
+        precision: 0.75,
+        recall: 0.75,
+        f1Score: 0.75,
+      },
     ];
     const metrics = runner.computeMetrics(results);
     expect(metrics.byCategory).toHaveProperty('bug');
@@ -521,7 +577,15 @@ describe('Metric Edge Cases', () => {
   it('precision should be 1 when no predictions are made and no ground truth', () => {
     const runner = createRunner();
     const results: SingleCaseResult[] = [
-      { caseId: 'empty-1', truePositives: 0, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1, f1Score: 0 },
+      {
+        caseId: 'empty-1',
+        truePositives: 0,
+        falsePositives: 0,
+        falseNegatives: 0,
+        precision: 1,
+        recall: 1,
+        f1Score: 0,
+      },
     ];
     const metrics = runner.computeMetrics(results);
     // When TP=0, FP=0, FN=0 → precision = 1, recall = 1
@@ -532,7 +596,15 @@ describe('Metric Edge Cases', () => {
   it('f1 should be 0 when precision and recall are both 0', () => {
     const runner = createRunner();
     const results: SingleCaseResult[] = [
-      { caseId: 'fail-1', truePositives: 0, falsePositives: 5, falseNegatives: 5, precision: 0, recall: 0, f1Score: 0 },
+      {
+        caseId: 'fail-1',
+        truePositives: 0,
+        falsePositives: 5,
+        falseNegatives: 5,
+        precision: 0,
+        recall: 0,
+        f1Score: 0,
+      },
     ];
     const metrics = runner.computeMetrics(results);
     expect(metrics.overallF1).toBe(0);
@@ -541,7 +613,15 @@ describe('Metric Edge Cases', () => {
   it('f1 should be 1 when perfect precision and recall', () => {
     const runner = createRunner();
     const results: SingleCaseResult[] = [
-      { caseId: 'perfect-1', truePositives: 10, falsePositives: 0, falseNegatives: 0, precision: 1, recall: 1, f1Score: 1 },
+      {
+        caseId: 'perfect-1',
+        truePositives: 10,
+        falsePositives: 0,
+        falseNegatives: 0,
+        precision: 1,
+        recall: 1,
+        f1Score: 1,
+      },
     ];
     const metrics = runner.computeMetrics(results);
     expect(metrics.overallF1).toBe(1);

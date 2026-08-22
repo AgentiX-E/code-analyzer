@@ -5,7 +5,13 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
-import { brotliCompressSync, brotliDecompressSync, gzipSync, gunzipSync, constants as zConstants } from 'node:zlib';
+import {
+  brotliCompressSync,
+  brotliDecompressSync,
+  gzipSync,
+  gunzipSync,
+  constants as zConstants,
+} from 'node:zlib';
 
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -216,9 +222,10 @@ export class GraphCompressor {
       version: ARTIFACT_VERSION,
       compressedSize,
       originalSize,
-      compressionRatio: originalSize > 0
-        ? Math.round((compressedSize / originalSize) * 10000) / 10000
-        : /* istanbul ignore next -- @preserve */ 0,
+      compressionRatio:
+        originalSize > 0
+          ? Math.round((compressedSize / originalSize) * 10000) / 10000
+          : /* istanbul ignore next -- @preserve */ 0,
       nodeCount: allNodes.length,
       edgeCount: allEdges.length,
       checksum,
@@ -258,9 +265,7 @@ export class GraphCompressor {
     // Verify checksum
     const computedChecksum = this.computeChecksum(originalBuffer);
     if (computedChecksum !== checksum) {
-      throw new Error(
-        `Artifact checksum mismatch: expected ${checksum}, got ${computedChecksum}`,
-      );
+      throw new Error(`Artifact checksum mismatch: expected ${checksum}, got ${computedChecksum}`);
     }
 
     // Parse JSON
@@ -319,9 +324,10 @@ export class GraphCompressor {
       version: serialized.version,
       compressedSize,
       originalSize,
-      compressionRatio: originalSize > 0
-        ? Math.round((compressedSize / originalSize) * 10000) / 10000
-        : /* istanbul ignore next -- @preserve */ 0,
+      compressionRatio:
+        originalSize > 0
+          ? Math.round((compressedSize / originalSize) * 10000) / 10000
+          : /* istanbul ignore next -- @preserve */ 0,
       nodeCount: serialized.nodes.length,
       edgeCount: serialized.edges.length,
       checksum,

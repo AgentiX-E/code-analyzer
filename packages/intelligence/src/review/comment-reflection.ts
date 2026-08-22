@@ -24,8 +24,13 @@ export interface ReflectionResult {
 
 export interface ReflectionIssue {
   /** Type of quality issue detected. */
-  type: 'position_invalid' | 'position_out_of_bounds' | 'empty_content' |
-       'duplicate' | 'low_confidence' | 'irrelevant_context';
+  type:
+    | 'position_invalid'
+    | 'position_out_of_bounds'
+    | 'empty_content'
+    | 'duplicate'
+    | 'low_confidence'
+    | 'irrelevant_context';
   /** Human-readable description of the issue. */
   message: string;
   /** Severity of the issue. */
@@ -96,11 +101,7 @@ export class CommentReflectionModule {
    * @param filePath — the file path these comments refer to
    * @returns ReflectionReport with quality metrics and adjusted comments
    */
-  reflect(
-    comments: ReviewComment[],
-    fileContent: string,
-    _filePath: string,
-  ): ReflectionReport {
+  reflect(comments: ReviewComment[], fileContent: string, _filePath: string): ReflectionReport {
     const fileLines = fileContent.split('\n');
     const totalLines = fileLines.length;
 
@@ -132,9 +133,7 @@ export class CommentReflectionModule {
       }
     }
 
-    const positioned = comments.map((c) =>
-      this.positioner.positionComment(c, fileContent),
-    );
+    const positioned = comments.map((c) => this.positioner.positionComment(c, fileContent));
 
     const results: ReflectionResult[] = [];
     let passedComments = 0;
@@ -218,7 +217,12 @@ export class CommentReflectionModule {
 
       results.push({
         comment: adjustedPosition
-          ? { ...comment, ...adjustedPosition, positionMethod: 'heuristic' as const, positionConfidence: 0.5 }
+          ? {
+              ...comment,
+              ...adjustedPosition,
+              positionMethod: 'heuristic' as const,
+              positionConfidence: 0.5,
+            }
           : comment,
         passed,
         issues,
@@ -241,7 +245,8 @@ export class CommentReflectionModule {
         const isLowConf = r.comment.positionConfidence < this.options.minConfidence;
         if (isLowConf) {
           failedComments++;
-          issueBreakdown['filtered_low_confidence'] = (issueBreakdown['filtered_low_confidence'] ?? 0) + 1;
+          issueBreakdown['filtered_low_confidence'] =
+            (issueBreakdown['filtered_low_confidence'] ?? 0) + 1;
         }
         return !isLowConf;
       });
@@ -264,11 +269,7 @@ export class CommentReflectionModule {
       };
     }
 
-    const qualityScore = this.calculateQualityScore(
-      passedComments,
-      failedComments,
-      results.length,
-    );
+    const qualityScore = this.calculateQualityScore(passedComments, failedComments, results.length);
 
     return {
       totalComments: comments.length,
@@ -342,10 +343,7 @@ export class CommentReflectionModule {
             1,
         );
 
-        const contentSimilarity = this.contentSimilarity(
-          a.comment.content,
-          b.comment.content,
-        );
+        const contentSimilarity = this.contentSimilarity(a.comment.content, b.comment.content);
 
         if (lineOverlap >= overlapThreshold && contentSimilarity >= 0.7) {
           if (!a.issues.some((iss) => iss.type === 'duplicate')) {
@@ -372,10 +370,16 @@ export class CommentReflectionModule {
    */
   private contentSimilarity(a: string, b: string): number {
     const tokensA = new Set(
-      a.toLowerCase().split(/[\s,;:.!?()[\]{}'"]+/).filter((t) => t.length > 2),
+      a
+        .toLowerCase()
+        .split(/[\s,;:.!?()[\]{}'"]+/)
+        .filter((t) => t.length > 2),
     );
     const tokensB = new Set(
-      b.toLowerCase().split(/[\s,;:.!?()[\]{}'"]+/).filter((t) => t.length > 2),
+      b
+        .toLowerCase()
+        .split(/[\s,;:.!?()[\]{}'"]+/)
+        .filter((t) => t.length > 2),
     );
 
     if (tokensA.size === 0 && tokensB.size === 0) return 1;
@@ -388,11 +392,7 @@ export class CommentReflectionModule {
   /**
    * Calculate overall quality score based on passed/failed ratio.
    */
-  private calculateQualityScore(
-    passed: number,
-    _failed: number,
-    total: number,
-  ): number {
+  private calculateQualityScore(passed: number, _failed: number, total: number): number {
     if (total === 0) return 1;
     return Math.round((passed / total) * 100) / 100;
   }

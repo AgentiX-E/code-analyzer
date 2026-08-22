@@ -48,14 +48,16 @@ describe('CommentLogic', () => {
     });
 
     it('converts a single comment to diagnostic', () => {
-      const comments = [{
-        severity: 'high',
-        title: 'Missing error handling',
-        path: 'src/auth.ts',
-        startLine: 42,
-        endLine: 45,
-        message: 'Missing error handling in login function',
-      }];
+      const comments = [
+        {
+          severity: 'high',
+          title: 'Missing error handling',
+          path: 'src/auth.ts',
+          startLine: 42,
+          endLine: 45,
+          message: 'Missing error handling in login function',
+        },
+      ];
       const result = logic.mapCommentsToDiagnostics(comments);
       expect(result.length).toBe(1);
       expect(result[0]).toBeDefined();
@@ -65,28 +67,32 @@ describe('CommentLogic', () => {
     });
 
     it('adjusts line numbers to 0-based', () => {
-      const comments = [{
-        severity: 'medium',
-        title: 'Long function',
-        path: 'src/utils.ts',
-        startLine: 10,
-        endLine: 20,
-        message: 'Function is too long',
-      }];
+      const comments = [
+        {
+          severity: 'medium',
+          title: 'Long function',
+          path: 'src/utils.ts',
+          startLine: 10,
+          endLine: 20,
+          message: 'Function is too long',
+        },
+      ];
       const result = logic.mapCommentsToDiagnostics(comments);
       expect(result[0]!.range.startLine).toBe(9);
       expect(result[0]!.range.endLine).toBe(19);
     });
 
     it('prefixes message with [Code Analyzer]', () => {
-      const comments = [{
-        severity: 'low',
-        title: 'Naming',
-        path: 'src/app.ts',
-        startLine: 1,
-        endLine: 1,
-        message: 'Use camelCase naming',
-      }];
+      const comments = [
+        {
+          severity: 'low',
+          title: 'Naming',
+          path: 'src/app.ts',
+          startLine: 1,
+          endLine: 1,
+          message: 'Use camelCase naming',
+        },
+      ];
       const result = logic.mapCommentsToDiagnostics(comments);
       expect(result[0]!.message).toContain('[Code Analyzer]');
     });
@@ -94,16 +100,28 @@ describe('CommentLogic', () => {
     it('converts multiple comments', () => {
       const comments = [
         {
-          severity: 'critical', title: 'Issue 1', path: 'a.ts',
-          startLine: 1, endLine: 1, message: 'msg1',
+          severity: 'critical',
+          title: 'Issue 1',
+          path: 'a.ts',
+          startLine: 1,
+          endLine: 1,
+          message: 'msg1',
         },
         {
-          severity: 'high', title: 'Issue 2', path: 'b.ts',
-          startLine: 5, endLine: 10, message: 'msg2',
+          severity: 'high',
+          title: 'Issue 2',
+          path: 'b.ts',
+          startLine: 5,
+          endLine: 10,
+          message: 'msg2',
         },
         {
-          severity: 'low', title: 'Issue 3', path: 'a.ts',
-          startLine: 20, endLine: 25, message: 'msg3',
+          severity: 'low',
+          title: 'Issue 3',
+          path: 'a.ts',
+          startLine: 20,
+          endLine: 25,
+          message: 'msg3',
         },
       ];
       const result = logic.mapCommentsToDiagnostics(comments);
@@ -111,20 +129,32 @@ describe('CommentLogic', () => {
     });
 
     it('handles single-line comments (startLine === endLine)', () => {
-      const comments = [{
-        severity: 'medium', title: 'Note', path: 'x.ts',
-        startLine: 5, endLine: 5, message: 'Single line',
-      }];
+      const comments = [
+        {
+          severity: 'medium',
+          title: 'Note',
+          path: 'x.ts',
+          startLine: 5,
+          endLine: 5,
+          message: 'Single line',
+        },
+      ];
       const result = logic.mapCommentsToDiagnostics(comments);
       expect(result[0]!.range.startLine).toBe(4);
       expect(result[0]!.range.endLine).toBe(4);
     });
 
     it('ensures line numbers are not negative', () => {
-      const comments = [{
-        severity: 'info', title: 'Edge', path: 'x.ts',
-        startLine: 1, endLine: 1, message: 'Line 1',
-      }];
+      const comments = [
+        {
+          severity: 'info',
+          title: 'Edge',
+          path: 'x.ts',
+          startLine: 1,
+          endLine: 1,
+          message: 'Line 1',
+        },
+      ];
       const result = logic.mapCommentsToDiagnostics(comments);
       expect(result[0]!.range.startLine).toBe(0);
     });
@@ -139,18 +169,24 @@ describe('CommentLogic', () => {
       const diagnostics = [
         {
           range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
-          message: 'A', severity: 'warning' as const,
-          source: 'CA', filePath: 'a.ts',
+          message: 'A',
+          severity: 'warning' as const,
+          source: 'CA',
+          filePath: 'a.ts',
         },
         {
           range: { startLine: 1, startCharacter: 0, endLine: 1, endCharacter: 0 },
-          message: 'B', severity: 'error' as const,
-          source: 'CA', filePath: 'a.ts',
+          message: 'B',
+          severity: 'error' as const,
+          source: 'CA',
+          filePath: 'a.ts',
         },
         {
           range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
-          message: 'C', severity: 'information' as const,
-          source: 'CA', filePath: 'b.ts',
+          message: 'C',
+          severity: 'information' as const,
+          source: 'CA',
+          filePath: 'b.ts',
         },
       ];
 
@@ -167,11 +203,15 @@ describe('CommentLogic', () => {
     });
 
     it('handles single file', () => {
-      const diagnostics = [{
-        range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
-        message: 'Test', severity: 'hint' as const,
-        source: 'CA', filePath: 'single.ts',
-      }];
+      const diagnostics = [
+        {
+          range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
+          message: 'Test',
+          severity: 'hint' as const,
+          source: 'CA',
+          filePath: 'single.ts',
+        },
+      ];
       const groups = logic.groupByFile(diagnostics);
       expect(groups.size).toBe(1);
     });

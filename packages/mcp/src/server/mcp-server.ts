@@ -97,9 +97,7 @@ export class CodeAnalyzerMCPServer {
           resources: this.config.enableResources
             ? { subscribe: true, listChanged: true }
             : undefined,
-          prompts: this.config.enablePrompts
-            ? { listChanged: true }
-            : undefined,
+          prompts: this.config.enablePrompts ? { listChanged: true } : undefined,
           logging: {},
         },
       },
@@ -123,142 +121,119 @@ export class CodeAnalyzerMCPServer {
 
     // Call tool with middleware chain
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.server.setRequestHandler(
-      CallToolRequestSchema,
-      async (request): Promise<any> => {
-        const start = Date.now();
-        const { name, arguments: args } = request.params;
-        const argsObj = (args ?? {}) as Record<string, unknown>;
+    this.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<any> => {
+      const start = Date.now();
+      const { name, arguments: args } = request.params;
+      const argsObj = (args ?? {}) as Record<string, unknown>;
 
-        try {
-          // Auth check
-          const authResult = this.auth.validate(
-            request as unknown as Record<string, unknown>,
-          );
-          if (!authResult.allowed) {
-            this.logger.warn('Unauthorized tool access attempt', {
-              toolName: name,
-              reason: authResult.message,
-            });
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: authResult.message ?? 'Unauthorized',
-                },
-              ],
-              isError: true,
-            };
-          }
-
-          // Rate limiting
-          const rateResult = this.rateLimiter.check(name);
-          if (!rateResult.allowed) {
-            this.logger.warn('Rate limited tool call', {
-              toolName: name,
-              retryAfterMs: rateResult.retryAfterMs,
-            });
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: `Rate limited: ${rateResult.message}. Retry after ${rateResult.retryAfterMs}ms`,
-                },
-              ],
-              isError: true,
-            };
-          }
-
-          // Execute tool
-          const result = await this.registry.execute(
-            name,
-            argsObj,
-            this.toolContext,
-          );
-
-          // Log successful request
-          this.logger.info('Tool executed successfully', {
+      try {
+        // Auth check
+        const authResult = this.auth.validate(request as unknown as Record<string, unknown>);
+        if (!authResult.allowed) {
+          this.logger.warn('Unauthorized tool access attempt', {
             toolName: name,
-            duration: Date.now() - start,
-          });
-
-          return result;
-        } catch (error: unknown) {
-          const msg = error instanceof Error ? error.message : String(error);
-          this.logger.error('Tool execution failed', undefined, {
-            toolName: name,
-            errorMessage: msg,
-            duration: Date.now() - start,
+            reason: authResult.message,
           });
           return {
             content: [
-              { type: 'text' as const, text: `Internal error: ${msg}` },
+              {
+                type: 'text' as const,
+                text: authResult.message ?? 'Unauthorized',
+              },
             ],
             isError: true,
           };
         }
-      },
-    );
+
+        // Rate limiting
+        const rateResult = this.rateLimiter.check(name);
+        if (!rateResult.allowed) {
+          this.logger.warn('Rate limited tool call', {
+            toolName: name,
+            retryAfterMs: rateResult.retryAfterMs,
+          });
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Rate limited: ${rateResult.message}. Retry after ${rateResult.retryAfterMs}ms`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // Execute tool
+        const result = await this.registry.execute(name, argsObj, this.toolContext);
+
+        // Log successful request
+        this.logger.info('Tool executed successfully', {
+          toolName: name,
+          duration: Date.now() - start,
+        });
+
+        return result;
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.error('Tool execution failed', undefined, {
+          toolName: name,
+          errorMessage: msg,
+          duration: Date.now() - start,
+        });
+        return {
+          content: [{ type: 'text' as const, text: `Internal error: ${msg}` }],
+          isError: true,
+        };
+      }
+    });
 
     // List resources
     if (this.config.enableResources) {
-      this.server.setRequestHandler(
-        ListResourcesRequestSchema,
-        async () => {
-          const resources = this.resourceProvider.listResources();
-          return {
-            resources: resources.map((r) => this.formatResource(r)),
-          };
-        },
-      );
+      this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+        const resources = this.resourceProvider.listResources();
+        return {
+          resources: resources.map((r) => this.formatResource(r)),
+        };
+      });
 
-      this.server.setRequestHandler(
-        ReadResourceRequestSchema,
-        async (request) => {
-          const { uri } = request.params;
-          const result = await this.resourceProvider.getResource(uri);
-          if ('error' in result) {
-            throw new Error(result.error);
-          }
-          return {
-            contents: [
-              {
-                uri: result.uri,
-                mimeType: result.mimeType,
-                text: result.text,
-              },
-            ],
-          };
-        },
-      );
+      this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+        const { uri } = request.params;
+        const result = await this.resourceProvider.getResource(uri);
+        if ('error' in result) {
+          throw new Error(result.error);
+        }
+        return {
+          contents: [
+            {
+              uri: result.uri,
+              mimeType: result.mimeType,
+              text: result.text,
+            },
+          ],
+        };
+      });
     }
 
     // List prompts
     if (this.config.enablePrompts) {
-      this.server.setRequestHandler(
-        ListPromptsRequestSchema,
-        async () => {
-          const prompts = this.promptProvider.listPrompts();
-          return {
-            prompts: prompts.map((p) => this.formatPrompt(p)),
-          };
-        },
-      );
+      this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
+        const prompts = this.promptProvider.listPrompts();
+        return {
+          prompts: prompts.map((p) => this.formatPrompt(p)),
+        };
+      });
 
-      this.server.setRequestHandler(
-        GetPromptRequestSchema,
-        async (request) => {
-          const { name, arguments: args } = request.params;
-          const result = await this.promptProvider.getPrompt(
-            name,
-            args as Record<string, unknown> | undefined,
-          );
-          return {
-            messages: result.messages,
-            description: result.description,
-          };
-        },
-      );
+      this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+        const { name, arguments: args } = request.params;
+        const result = await this.promptProvider.getPrompt(
+          name,
+          args as Record<string, unknown> | undefined,
+        );
+        return {
+          messages: result.messages,
+          description: result.description,
+        };
+      });
     }
   }
 
@@ -321,11 +296,7 @@ export class CodeAnalyzerMCPServer {
    * Start MCP server on HTTP transport.
    * Provides a health-check endpoint and falls back to stdio for MCP communication.
    */
-  async startHTTP(
-    port: number,
-    host?: string,
-    rootPath?: string,
-  ): Promise<void> {
+  async startHTTP(port: number, host?: string, rootPath?: string): Promise<void> {
     try {
       const httpModule = await import('http');
       const server: http.Server = httpModule.createServer((_req, res) => {
@@ -370,11 +341,7 @@ export class CodeAnalyzerMCPServer {
    * Start MCP server with SSE transport for real-time streaming.
    * MCP events (notifications, errors, tool results) are broadcast via SSE.
    */
-  async startSSE(
-    port: number,
-    host?: string,
-    rootPath?: string,
-  ): Promise<void> {
+  async startSSE(port: number, host?: string, rootPath?: string): Promise<void> {
     try {
       const httpModule = await import('http');
       const server: http.Server = httpModule.createServer();
@@ -426,13 +393,9 @@ export class CodeAnalyzerMCPServer {
     rootPath?: string;
   }): Promise<void> {
     const transport =
-      options?.transport ??
-      (process.env['MCP_TRANSPORT'] === 'stdio' ? 'stdio' : 'sse');
+      options?.transport ?? (process.env['MCP_TRANSPORT'] === 'stdio' ? 'stdio' : 'sse');
     const rawPort = options?.port ?? process.env['MCP_PORT'];
-    const port =
-      rawPort !== undefined && rawPort !== ''
-        ? parseInt(String(rawPort), 10)
-        : 3000;
+    const port = rawPort !== undefined && rawPort !== '' ? parseInt(String(rawPort), 10) : 3000;
     const host = options?.host ?? process.env['MCP_HOST'] ?? '0.0.0.0';
     const rootPath = options?.rootPath;
 

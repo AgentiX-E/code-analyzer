@@ -65,28 +65,30 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 30,
     values: {
       'code-analyzer': 20,
-      'SonarQube': 29,
-      'CodeQL': 9,
-      'Semgrep': 17,
-      'Sourcegraph': 20,
+      SonarQube: 29,
+      CodeQL: 9,
+      Semgrep: 17,
+      Sourcegraph: 20,
     },
     unit: 'languages',
-    source: 'Official documentation and GitHub repos (2025-2026). SonarQube: sonarsource.com. CodeQL: codeql.github.com. Semgrep: semgrep.dev. Sourcegraph: sourcegraph.com.',
+    source:
+      'Official documentation and GitHub repos (2025-2026). SonarQube: sonarsource.com. CodeQL: codeql.github.com. Semgrep: semgrep.dev. Sourcegraph: sourcegraph.com.',
   },
   {
     key: 'parse-quality',
     label: 'Parse Success Rate (avg across languages)',
-    weight: 0.10,
+    weight: 0.1,
     maxValue: 100,
     values: {
       'code-analyzer': 97.5,
-      'SonarQube': 95,
-      'CodeQL': 98,
-      'Semgrep': 92,
-      'Sourcegraph': 90,
+      SonarQube: 95,
+      CodeQL: 98,
+      Semgrep: 92,
+      Sourcegraph: 90,
     },
     unit: 'percent',
-    source: 'code-analyzer: measured via CA-Bench parse-accuracy suite (React: 99.6%). Competitors: estimated from community benchmarks and language parser maturity.',
+    source:
+      'code-analyzer: measured via CA-Bench parse-accuracy suite (React: 99.6%). Competitors: estimated from community benchmarks and language parser maturity.',
   },
   {
     key: 'review-signal-categories',
@@ -95,28 +97,30 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 10,
     values: {
       'code-analyzer': 8,
-      'SonarQube': 5,
-      'CodeQL': 4,
-      'Semgrep': 3,
-      'Sourcegraph': 2,
+      SonarQube: 5,
+      CodeQL: 4,
+      Semgrep: 3,
+      Sourcegraph: 2,
     },
     unit: 'categories',
-    source: 'code-analyzer: 8-lane swarm (security, performance, style, architecture, accessibility, i18n, testing, documentation). SonarQube: bugs, vulnerabilities, code smells, security hotspots, duplications. CodeQL: correctness, security, performance, maintainability. Semgrep: security, correctness, best-practices. Sourcegraph: batch changes, code insights.',
+    source:
+      'code-analyzer: 8-lane swarm (security, performance, style, architecture, accessibility, i18n, testing, documentation). SonarQube: bugs, vulnerabilities, code smells, security hotspots, duplications. CodeQL: correctness, security, performance, maintainability. Semgrep: security, correctness, best-practices. Sourcegraph: batch changes, code insights.',
   },
   {
     key: 'search-dimensions',
     label: 'Search Dimensions',
-    weight: 0.10,
+    weight: 0.1,
     maxValue: 5,
     values: {
       'code-analyzer': 4,
-      'SonarQube': 2,
-      'CodeQL': 2,
-      'Semgrep': 2,
-      'Sourcegraph': 3,
+      SonarQube: 2,
+      CodeQL: 2,
+      Semgrep: 2,
+      Sourcegraph: 3,
     },
     unit: 'dimensions',
-    source: 'code-analyzer: BM25 + Vector + Graph + Regex. SonarQube: text + symbol. CodeQL: AST + dataflow. Semgrep: pattern + taint. Sourcegraph: text + symbol + structural.',
+    source:
+      'code-analyzer: BM25 + Vector + Graph + Regex. SonarQube: text + symbol. CodeQL: AST + dataflow. Semgrep: pattern + taint. Sourcegraph: text + symbol + structural.',
   },
   {
     key: 'cross-repo-capability',
@@ -125,28 +129,30 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 5,
     values: {
       'code-analyzer': 5,
-      'SonarQube': 1,
-      'CodeQL': 2,
-      'Semgrep': 1,
-      'Sourcegraph': 4,
+      SonarQube: 1,
+      CodeQL: 2,
+      Semgrep: 1,
+      Sourcegraph: 4,
     },
     unit: 'features',
-    source: 'code-analyzer: contract validation, impact graph, federated search, dependency matrix, breaking change detection. SonarQube: portfolio view. CodeQL: multi-repo analysis. Semgrep: supply chain scanning. Sourcegraph: cross-repo search, batch changes, code intelligence, insights.',
+    source:
+      'code-analyzer: contract validation, impact graph, federated search, dependency matrix, breaking change detection. SonarQube: portfolio view. CodeQL: multi-repo analysis. Semgrep: supply chain scanning. Sourcegraph: cross-repo search, batch changes, code intelligence, insights.',
   },
   {
     key: 'mcp-integration',
     label: 'MCP Integration (Tools + Resources)',
-    weight: 0.10,
+    weight: 0.1,
     maxValue: 60,
     values: {
       'code-analyzer': 55,
-      'SonarQube': 0,
-      'CodeQL': 0,
-      'Semgrep': 0,
-      'Sourcegraph': 20,
+      SonarQube: 0,
+      CodeQL: 0,
+      Semgrep: 0,
+      Sourcegraph: 20,
     },
     unit: 'tools+resources',
-    source: 'code-analyzer: 40 MCP tools + 15 resources. Sourcegraph: Cody agent with ~20 MCP-adjacent capabilities. Others: no MCP integration as of 2026.',
+    source:
+      'code-analyzer: 40 MCP tools + 15 resources. Sourcegraph: Cody agent with ~20 MCP-adjacent capabilities. Others: no MCP integration as of 2026.',
   },
   {
     key: 'graphql-api',
@@ -155,13 +161,14 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 30,
     values: {
       'code-analyzer': 28,
-      'SonarQube': 0,
-      'CodeQL': 0,
-      'Semgrep': 0,
-      'Sourcegraph': 25,
+      SonarQube: 0,
+      CodeQL: 0,
+      Semgrep: 0,
+      Sourcegraph: 25,
     },
     unit: 'types+operations',
-    source: 'code-analyzer: 15 types, 10 queries, 4 mutations, 3 subscriptions. Sourcegraph: GraphQL API with ~25 types+operations. Others: REST-only or CLI-only.',
+    source:
+      'code-analyzer: 15 types, 10 queries, 4 mutations, 3 subscriptions. Sourcegraph: GraphQL API with ~25 types+operations. Others: REST-only or CLI-only.',
   },
   {
     key: 'ide-integration',
@@ -170,13 +177,14 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 100,
     values: {
       'code-analyzer': 80,
-      'SonarQube': 85,
-      'CodeQL': 70,
-      'Semgrep': 60,
-      'Sourcegraph': 90,
+      SonarQube: 85,
+      CodeQL: 70,
+      Semgrep: 60,
+      Sourcegraph: 90,
     },
     unit: 'score',
-    source: 'code-analyzer: VS Code Copilot Chat Participant + sidebar + decorations. SonarQube: SonarLint in VS Code, IntelliJ, Eclipse. CodeQL: VS Code extension. Semgrep: VS Code, IntelliJ. Sourcegraph: browser extension + IDE integrations.',
+    source:
+      'code-analyzer: VS Code Copilot Chat Participant + sidebar + decorations. SonarQube: SonarLint in VS Code, IntelliJ, Eclipse. CodeQL: VS Code extension. Semgrep: VS Code, IntelliJ. Sourcegraph: browser extension + IDE integrations.',
   },
   {
     key: 'throughput',
@@ -185,13 +193,14 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 100,
     values: {
       'code-analyzer': 68.9,
-      'SonarQube': 40,
-      'CodeQL': 15,
-      'Semgrep': 50,
-      'Sourcegraph': 30,
+      SonarQube: 40,
+      CodeQL: 15,
+      Semgrep: 50,
+      Sourcegraph: 30,
     },
     unit: 'files/sec',
-    source: 'code-analyzer: measured via React benchmark (1898 files, 27.5s). Competitors: estimated from published benchmarks and community reports.',
+    source:
+      'code-analyzer: measured via React benchmark (1898 files, 27.5s). Competitors: estimated from published benchmarks and community reports.',
   },
   {
     key: 'test-coverage',
@@ -200,13 +209,14 @@ const DIMENSIONS: ComparisonDimension[] = [
     maxValue: 100,
     values: {
       'code-analyzer': 96,
-      'SonarQube': 80,
-      'CodeQL': 85,
-      'Semgrep': 75,
-      'Sourcegraph': 70,
+      SonarQube: 80,
+      CodeQL: 85,
+      Semgrep: 75,
+      Sourcegraph: 70,
     },
     unit: 'percent',
-    source: 'code-analyzer: measured (lines 96%+, branches 96%+, functions 96%+, statements 96%+). Competitors: estimated from open-source repository analysis.',
+    source:
+      'code-analyzer: measured (lines 96%+, branches 96%+, functions 96%+, statements 96%+). Competitors: estimated from open-source repository analysis.',
   },
 ];
 
@@ -224,10 +234,10 @@ function computeCompetitorScores(dimensions: ComparisonDimension[]): CompetitorS
   const tools = ['code-analyzer', 'SonarQube', 'CodeQL', 'Semgrep', 'Sourcegraph'] as const;
   const confidence: Record<string, CompetitorScore['confidence']> = {
     'code-analyzer': 'measured',
-    'SonarQube': 'high-estimate',
-    'CodeQL': 'medium-estimate',
-    'Semgrep': 'medium-estimate',
-    'Sourcegraph': 'high-estimate',
+    SonarQube: 'high-estimate',
+    CodeQL: 'medium-estimate',
+    Semgrep: 'medium-estimate',
+    Sourcegraph: 'high-estimate',
   };
 
   const results: CompetitorScore[] = [];
@@ -245,9 +255,7 @@ function computeCompetitorScores(dimensions: ComparisonDimension[]): CompetitorS
       totalWeight += dim.weight;
     }
 
-    const compositeScore = totalWeight > 0
-      ? Math.round((weightedSum / totalWeight) * 10) / 10
-      : 0;
+    const compositeScore = totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 10) / 10 : 0;
 
     results.push({
       tool,
@@ -260,7 +268,10 @@ function computeCompetitorScores(dimensions: ComparisonDimension[]): CompetitorS
   return results;
 }
 
-function generateReport(dimensions: ComparisonDimension[], scores: CompetitorScore[]): IndustryComparisonReport {
+function generateReport(
+  dimensions: ComparisonDimension[],
+  scores: CompetitorScore[],
+): IndustryComparisonReport {
   // Leader by dimension
   const leaderByDimension: Record<string, string> = {};
   for (const dim of dimensions) {
@@ -323,9 +334,9 @@ function generateMarkdownReport(report: IndustryComparisonReport): string {
     '## Executive Summary',
     '',
     'Code Analyzer is a next-generation code intelligence platform that combines ' +
-    'multi-language static analysis, hybrid search (BM25 + vector + graph), ' +
-    '8-lane code review swarms, cross-repository impact analysis, and MCP-based ' +
-    'AI agent integration — all in a single, unified tool.',
+      'multi-language static analysis, hybrid search (BM25 + vector + graph), ' +
+      '8-lane code review swarms, cross-repository impact analysis, and MCP-based ' +
+      'AI agent integration — all in a single, unified tool.',
     '',
     '### Composite Scores',
     '',
@@ -352,13 +363,7 @@ function generateMarkdownReport(report: IndustryComparisonReport): string {
     lines.push(`- ✅ **${adv}** — Code Analyzer leads the industry`);
   }
 
-  lines.push(
-    '',
-    '---',
-    '',
-    '## Dimension-by-Dimension Analysis',
-    '',
-  );
+  lines.push('', '---', '', '## Dimension-by-Dimension Analysis', '');
 
   for (const dim of report.dimensions) {
     const leader = report.summary.leaderByDimension[dim.key];
@@ -376,11 +381,7 @@ function generateMarkdownReport(report: IndustryComparisonReport): string {
       lines.push(`| **${score.tool}**${marker} | ${rawValue} ${dim.unit} | ${normScore}% |`);
     }
 
-    lines.push(
-      '',
-      `**Leader**: ${leader} | **Source**: ${dim.source}`,
-      '',
-    );
+    lines.push('', `**Leader**: ${leader} | **Source**: ${dim.source}`, '');
   }
 
   lines.push(
@@ -399,7 +400,7 @@ function generateMarkdownReport(report: IndustryComparisonReport): string {
     '- **Test Coverage**: 96%+ across all 4 dimensions — highest internal quality bar',
     '',
     '### Weaknesses',
-    '- **Language Coverage**: 20 languages vs SonarQube\'s 29 — missing COBOL, ABAP, PL/SQL, etc.',
+    "- **Language Coverage**: 20 languages vs SonarQube's 29 — missing COBOL, ABAP, PL/SQL, etc.",
     '- **IDE Integration**: SonarQube/SonarLint supports more IDEs (IntelliJ, Eclipse)',
     '- **Market Maturity**: Newer project compared to established tools with decades of history',
     '- **Enterprise Features**: Lacks built-in portfolio management, project governance dashboards',
@@ -438,7 +439,9 @@ function generateMarkdownReport(report: IndustryComparisonReport): string {
       return '🔴';
     };
 
-    lines.push(`| **${score.tool}** | ${bar(aiNative)} ${Math.round(aiNative)}% | ${bar(crossRepo)} ${Math.round(crossRepo)}% | ${bar(search)} ${Math.round(search)}% | ${bar(review)} ${Math.round(review)}% | ${bar(ide)} ${Math.round(ide)}% |`);
+    lines.push(
+      `| **${score.tool}** | ${bar(aiNative)} ${Math.round(aiNative)}% | ${bar(crossRepo)} ${Math.round(crossRepo)}% | ${bar(search)} ${Math.round(search)}% | ${bar(review)} ${Math.round(review)}% | ${bar(ide)} ${Math.round(ide)}% |`,
+    );
   }
 
   lines.push(

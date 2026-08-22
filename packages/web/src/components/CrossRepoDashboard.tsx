@@ -172,15 +172,26 @@ const DepGraphMini: React.FC<DepGraphProps> = ({ graph }) => {
           return (
             <g key={`edge-${i}`}>
               <line
-                x1={src.x} y1={src.y} x2={tgt.x} y2={tgt.y}
-                stroke="#888" strokeWidth={Math.min(3, edge.weight / 10 + 1)}
-                strokeDasharray={edge.type === 'CROSS_REPO_CALLS' ? '6,3' :
-                  edge.type === 'CROSS_REPO_DEPENDS' ? '2,4' : 'none'}
+                x1={src.x}
+                y1={src.y}
+                x2={tgt.x}
+                y2={tgt.y}
+                stroke="#888"
+                strokeWidth={Math.min(3, edge.weight / 10 + 1)}
+                strokeDasharray={
+                  edge.type === 'CROSS_REPO_CALLS'
+                    ? '6,3'
+                    : edge.type === 'CROSS_REPO_DEPENDS'
+                      ? '2,4'
+                      : 'none'
+                }
               />
               <text
                 x={(src.x + tgt.x) / 2}
                 y={(src.y + tgt.y) / 2 - 5}
-                fontSize="9" fill="#666" textAnchor="middle"
+                fontSize="9"
+                fill="#666"
+                textAnchor="middle"
               >
                 {shortType} ({edge.count})
               </text>
@@ -190,8 +201,22 @@ const DepGraphMini: React.FC<DepGraphProps> = ({ graph }) => {
         {/* Nodes */}
         {positions.map((node) => (
           <g key={node.id}>
-            <circle cx={node.x} cy={node.y} r={22} fill={`${node.color}44`} stroke={node.color} strokeWidth="2" />
-            <text x={node.x} y={node.y + 4} fontSize="10" textAnchor="middle" fill={node.color} fontWeight="bold">
+            <circle
+              cx={node.x}
+              cy={node.y}
+              r={22}
+              fill={`${node.color}44`}
+              stroke={node.color}
+              strokeWidth="2"
+            />
+            <text
+              x={node.x}
+              y={node.y + 4}
+              fontSize="10"
+              textAnchor="middle"
+              fill={node.color}
+              fontWeight="bold"
+            >
               {node.label.length > 12 ? node.label.slice(0, 10) + '..' : node.label}
             </text>
             <title>
@@ -200,10 +225,23 @@ const DepGraphMini: React.FC<DepGraphProps> = ({ graph }) => {
           </g>
         ))}
       </svg>
-      <div className="graph-legend" style={{ display: 'flex', gap: '1rem', justifyContent: 'center', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+      <div
+        className="graph-legend"
+        style={{
+          display: 'flex',
+          gap: '1rem',
+          justifyContent: 'center',
+          fontSize: '0.75rem',
+          marginTop: '0.5rem',
+        }}
+      >
         <span>— IMPORTS</span>
-        <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed' }}>- - CALLS</span>
-        <span style={{ textDecoration: 'underline', textDecorationStyle: 'dotted' }}>··· DEPENDS</span>
+        <span style={{ textDecoration: 'underline', textDecorationStyle: 'dashed' }}>
+          - - CALLS
+        </span>
+        <span style={{ textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
+          ··· DEPENDS
+        </span>
       </div>
     </div>
   );
@@ -238,7 +276,10 @@ const VersionCompatibilityTable: React.FC<VersionTableProps> = ({ data }) => {
           <div className="stat-row">
             <span className="stat-badge warning">{data.incompatiblePairs.length} Conflicts</span>
           </div>
-          <table className="compact-table" style={{ width: '100%', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+          <table
+            className="compact-table"
+            style={{ width: '100%', fontSize: '0.8rem', marginTop: '0.5rem' }}
+          >
             <thead>
               <tr>
                 <th>Repo A</th>
@@ -252,9 +293,13 @@ const VersionCompatibilityTable: React.FC<VersionTableProps> = ({ data }) => {
               {data.incompatiblePairs.slice(0, 10).map((pair, i) => (
                 <tr key={i}>
                   <td>{pair.repoA}</td>
-                  <td><code>{pair.depA}</code></td>
+                  <td>
+                    <code>{pair.depA}</code>
+                  </td>
                   <td>{pair.repoB}</td>
-                  <td><code>{pair.depB}</code></td>
+                  <td>
+                    <code>{pair.depB}</code>
+                  </td>
                   <td>{pair.issue}</td>
                 </tr>
               ))}
@@ -365,22 +410,43 @@ const RuleEditorPanel: React.FC<RuleEditorPanelProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="rule-editor-panel" style={{ padding: '1rem', border: '1px solid #e0e0e0', borderRadius: '8px', marginTop: '1rem' }}>
+    <div
+      className="rule-editor-panel"
+      style={{
+        padding: '1rem',
+        border: '1px solid #e0e0e0',
+        borderRadius: '8px',
+        marginTop: '1rem',
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h4 style={{ margin: 0 }}>Custom Rule Editor</h4>
-        {onClose && <button className="btn-secondary" onClick={onClose} style={{ fontSize: '0.8rem' }}>Close</button>}
+        {onClose && (
+          <button className="btn-secondary" onClick={onClose} style={{ fontSize: '0.8rem' }}>
+            Close
+          </button>
+        )}
       </div>
 
       {message && (
-        <div className={message.startsWith('Error') ? 'error-banner' : 'success-banner'}
-          style={{ margin: '0.5rem 0', padding: '0.5rem', borderRadius: '4px', fontSize: '0.85rem' }}>
+        <div
+          className={message.startsWith('Error') ? 'error-banner' : 'success-banner'}
+          style={{
+            margin: '0.5rem 0',
+            padding: '0.5rem',
+            borderRadius: '4px',
+            fontSize: '0.85rem',
+          }}
+        >
           {message}
         </div>
       )}
 
       <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Template</label>
+          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+            Template
+          </label>
           <select
             value={selectedTemplate}
             onChange={(e) => handleTemplateSelect(e.target.value)}
@@ -388,13 +454,17 @@ const RuleEditorPanel: React.FC<RuleEditorPanelProps> = ({ onClose }) => {
           >
             <option value="">-- Select template --</option>
             {templates.map((t) => (
-              <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.category})
+              </option>
             ))}
           </select>
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Rule ID *</label>
+          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+            Rule ID *
+          </label>
           <input
             type="text"
             value={ruleId}
@@ -405,7 +475,9 @@ const RuleEditorPanel: React.FC<RuleEditorPanelProps> = ({ onClose }) => {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Description *</label>
+          <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+            Description *
+          </label>
           <input
             type="text"
             value={description}
@@ -417,9 +489,14 @@ const RuleEditorPanel: React.FC<RuleEditorPanelProps> = ({ onClose }) => {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Severity</label>
-            <select value={severity} onChange={(e) => setSeverity(e.target.value)}
-              style={{ width: '100%', padding: '0.4rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+              Severity
+            </label>
+            <select
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+              style={{ width: '100%', padding: '0.4rem' }}
+            >
               <option value="critical">Critical</option>
               <option value="high">High</option>
               <option value="medium">Medium</option>
@@ -428,7 +505,9 @@ const RuleEditorPanel: React.FC<RuleEditorPanelProps> = ({ onClose }) => {
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Regex Pattern</label>
+            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+              Regex Pattern
+            </label>
             <input
               type="text"
               value={pattern}
@@ -473,11 +552,7 @@ const CrossRepoDashboard: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    Promise.all([
-      fetchCrossRepoStats(),
-      fetchGraphData(),
-      fetchVersionCompatibility(),
-    ])
+    Promise.all([fetchCrossRepoStats(), fetchGraphData(), fetchVersionCompatibility()])
       .then(([s, g, v]) => {
         if (mounted) {
           setStats(s);
@@ -486,8 +561,15 @@ const CrossRepoDashboard: React.FC = () => {
           setLoading(false);
         }
       })
-      .catch((e) => { if (mounted) { setError(e.message); setLoading(false); } });
-    return () => { mounted = false; };
+      .catch((e) => {
+        if (mounted) {
+          setError(e.message);
+          setLoading(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   if (loading) return <div className="loading">Loading cross-repo data...</div>;
@@ -505,7 +587,9 @@ const CrossRepoDashboard: React.FC = () => {
           <div className="stat-label">Symbols Indexed</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{graphData?.metadata?.totalEdges ?? stats.crossRepoEdges}</div>
+          <div className="stat-value">
+            {graphData?.metadata?.totalEdges ?? stats.crossRepoEdges}
+          </div>
           <div className="stat-label">Cross-Repo Edges</div>
         </div>
         <div className="stat-card">
@@ -537,9 +621,8 @@ const CrossRepoDashboard: React.FC = () => {
         <div className="card">
           <h3>Repository Groups</h3>
           <p className="text-muted">
-            Repo groups define related repositories that share dependencies,
-            APIs, or domain boundaries. Create groups to enable cross-repo
-            impact analysis and federated search.
+            Repo groups define related repositories that share dependencies, APIs, or domain
+            boundaries. Create groups to enable cross-repo impact analysis and federated search.
           </p>
           <div className="quick-actions">
             <button className="btn-primary">+ Create Group</button>
@@ -566,21 +649,19 @@ const CrossRepoDashboard: React.FC = () => {
         <div className="card">
           <h3>Recent Cross-Repo Activity</h3>
           <p className="text-muted">
-            Track PRs and changes that span multiple repositories.
-            Monitor cross-repo impact in real time.
+            Track PRs and changes that span multiple repositories. Monitor cross-repo impact in real
+            time.
           </p>
           <div className="activity-list">
-            <div className="activity-item text-muted">
-              No recent cross-repo activity
-            </div>
+            <div className="activity-item text-muted">No recent cross-repo activity</div>
           </div>
         </div>
 
         <div className="card">
           <h3>Custom Standards Rules</h3>
           <p className="text-muted">
-            Create and manage custom project standards rules for code review.
-            Define regex patterns, severity levels, and fix suggestions.
+            Create and manage custom project standards rules for code review. Define regex patterns,
+            severity levels, and fix suggestions.
           </p>
           <div className="quick-actions">
             <button className="btn-primary" onClick={() => setShowRuleEditor(!showRuleEditor)}>

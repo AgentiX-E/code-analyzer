@@ -51,7 +51,13 @@ export class ToolRegistry {
   private tools: Map<string, RegisteredTool> = new Map();
 
   /** Register a tool with its handler and profile. */
-  register(name: string, description: string, inputSchema: Record<string, unknown>, handler: ToolHandler, profile: ToolProfile = 'all'): void {
+  register(
+    name: string,
+    description: string,
+    inputSchema: Record<string, unknown>,
+    handler: ToolHandler,
+    profile: ToolProfile = 'all',
+  ): void {
     if (this.tools.has(name)) {
       throw new Error(`Tool "${name}" is already registered`);
     }
@@ -136,9 +142,13 @@ export class ToolRegistry {
 // Argument Validation
 // ---------------------------------------------------------------------------
 
-function validateArgs(args: Record<string, unknown>, schema: Record<string, unknown>): string | null {
+function validateArgs(
+  args: Record<string, unknown>,
+  schema: Record<string, unknown>,
+): string | null {
   // Get required fields from the schema
-  const schemaProperties = schema['properties'] as Record<string, { type?: string; description?: string }> | undefined;
+  const schemaProperties = schema['properties'] as
+    Record<string, { type?: string; description?: string }> | undefined;
   const requiredFields = (schema['required'] as string[]) ?? [];
 
   if (!schemaProperties) return null;

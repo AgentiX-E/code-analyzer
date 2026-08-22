@@ -147,14 +147,24 @@ describe('TypeRegistry', () => {
 
     it('looks up by short name', () => {
       registry.registerType({
-        qn: 'proj.src.models.User', shortName: 'User', label: 'Class',
-        moduleQn: 'proj.src.models', type: t.named('User'),
-        language: 'typescript', sourceFile: 'src/models/User.ts', sourceLine: 10,
+        qn: 'proj.src.models.User',
+        shortName: 'User',
+        label: 'Class',
+        moduleQn: 'proj.src.models',
+        type: t.named('User'),
+        language: 'typescript',
+        sourceFile: 'src/models/User.ts',
+        sourceLine: 10,
       });
       registry.registerType({
-        qn: 'proj.src.views.UserView', shortName: 'UserView', label: 'Class',
-        moduleQn: 'proj.src.views', type: t.named('UserView'),
-        language: 'typescript', sourceFile: 'src/views/UserView.ts', sourceLine: 5,
+        qn: 'proj.src.views.UserView',
+        shortName: 'UserView',
+        label: 'Class',
+        moduleQn: 'proj.src.views',
+        type: t.named('UserView'),
+        language: 'typescript',
+        sourceFile: 'src/views/UserView.ts',
+        sourceLine: 5,
       });
 
       const found = registry.lookupTypeByName('User');
@@ -164,10 +174,17 @@ describe('TypeRegistry', () => {
 
     it('registers and looks up a function', () => {
       registry.registerFunction({
-        qn: 'proj.src.services.login', shortName: 'login', label: 'Function',
-        moduleQn: 'proj.src.services', returnTypes: 'boolean', paramCount: 2,
-        paramTypes: 'string|string', isAsync: true,
-        language: 'typescript', sourceFile: 'src/services/auth.ts', sourceLine: 20,
+        qn: 'proj.src.services.login',
+        shortName: 'login',
+        label: 'Function',
+        moduleQn: 'proj.src.services',
+        returnTypes: 'boolean',
+        paramCount: 2,
+        paramTypes: 'string|string',
+        isAsync: true,
+        language: 'typescript',
+        sourceFile: 'src/services/auth.ts',
+        sourceLine: 20,
       });
 
       const found = registry.lookupFunction('proj.src.services.login');
@@ -181,17 +198,30 @@ describe('TypeRegistry', () => {
     it('resolves methods on a receiver type', () => {
       // Register a class
       registry.registerType({
-        qn: 'proj.services.Database', shortName: 'Database', label: 'Class',
-        moduleQn: 'proj.services', type: t.named('Database'),
-        language: 'typescript', sourceFile: 'src/services/Database.ts', sourceLine: 5,
+        qn: 'proj.services.Database',
+        shortName: 'Database',
+        label: 'Class',
+        moduleQn: 'proj.services',
+        type: t.named('Database'),
+        language: 'typescript',
+        sourceFile: 'src/services/Database.ts',
+        sourceLine: 5,
       });
 
       // Register methods on that class
       registry.registerFunction({
-        qn: 'proj.services.Database.connect', shortName: 'connect', label: 'Method',
-        receiverType: 'proj.services.Database', moduleQn: 'proj.services',
-        returnTypes: 'void', paramCount: 0, paramTypes: '', isAsync: true,
-        language: 'typescript', sourceFile: 'src/services/Database.ts', sourceLine: 7,
+        qn: 'proj.services.Database.connect',
+        shortName: 'connect',
+        label: 'Method',
+        receiverType: 'proj.services.Database',
+        moduleQn: 'proj.services',
+        returnTypes: 'void',
+        paramCount: 0,
+        paramTypes: '',
+        isAsync: true,
+        language: 'typescript',
+        sourceFile: 'src/services/Database.ts',
+        sourceLine: 7,
       });
 
       const methods = registry.lookupMethod('Database', 'connect');
@@ -203,16 +233,30 @@ describe('TypeRegistry', () => {
   describe('Finalize', () => {
     it('prevents registration after finalize', () => {
       registry.registerType({
-        qn: 'proj.A', shortName: 'A', label: 'Class', moduleQn: 'proj',
-        type: t.named('A'), language: 'typescript', sourceFile: 'A.ts', sourceLine: 1,
+        qn: 'proj.A',
+        shortName: 'A',
+        label: 'Class',
+        moduleQn: 'proj',
+        type: t.named('A'),
+        language: 'typescript',
+        sourceFile: 'A.ts',
+        sourceLine: 1,
       });
 
       registry.finalize();
 
-      expect(() => registry.registerType({
-        qn: 'proj.B', shortName: 'B', label: 'Class', moduleQn: 'proj',
-        type: t.named('B'), language: 'typescript', sourceFile: 'B.ts', sourceLine: 1,
-      })).toThrow('finalized');
+      expect(() =>
+        registry.registerType({
+          qn: 'proj.B',
+          shortName: 'B',
+          label: 'Class',
+          moduleQn: 'proj',
+          type: t.named('B'),
+          language: 'typescript',
+          sourceFile: 'B.ts',
+          sourceLine: 1,
+        }),
+      ).toThrow('finalized');
     });
   });
 
@@ -220,17 +264,27 @@ describe('TypeRegistry', () => {
     it('chains lookups to the fallback base', () => {
       const base = new TypeRegistry();
       base.registerType({
-        qn: 'proj.lib.Utils', shortName: 'Utils', label: 'Class',
-        moduleQn: 'proj.lib', type: t.named('Utils'),
-        language: 'typescript', sourceFile: 'lib/Utils.ts', sourceLine: 3,
+        qn: 'proj.lib.Utils',
+        shortName: 'Utils',
+        label: 'Class',
+        moduleQn: 'proj.lib',
+        type: t.named('Utils'),
+        language: 'typescript',
+        sourceFile: 'lib/Utils.ts',
+        sourceLine: 3,
       });
       base.finalize();
 
       const overlay = new TypeRegistry(base);
       overlay.registerType({
-        qn: 'proj.app.MyApp', shortName: 'MyApp', label: 'Class',
-        moduleQn: 'proj.app', type: t.named('MyApp'),
-        language: 'typescript', sourceFile: 'app/MyApp.ts', sourceLine: 1,
+        qn: 'proj.app.MyApp',
+        shortName: 'MyApp',
+        label: 'Class',
+        moduleQn: 'proj.app',
+        type: t.named('MyApp'),
+        language: 'typescript',
+        sourceFile: 'app/MyApp.ts',
+        sourceLine: 1,
       });
       overlay.finalize();
 
@@ -244,17 +298,27 @@ describe('TypeRegistry', () => {
     it('overlay can override base types', () => {
       const base = new TypeRegistry();
       base.registerType({
-        qn: 'proj.A', shortName: 'A', label: 'Interface',
-        moduleQn: 'proj', type: t.named('A'),
-        language: 'typescript', sourceFile: 'base/A.ts', sourceLine: 1,
+        qn: 'proj.A',
+        shortName: 'A',
+        label: 'Interface',
+        moduleQn: 'proj',
+        type: t.named('A'),
+        language: 'typescript',
+        sourceFile: 'base/A.ts',
+        sourceLine: 1,
       });
       base.finalize();
 
       const overlay = new TypeRegistry(base);
       overlay.registerType({
-        qn: 'proj.A', shortName: 'A', label: 'Class', // Different label
-        moduleQn: 'proj', type: t.named('A'),
-        language: 'typescript', sourceFile: 'overlay/A.ts', sourceLine: 1,
+        qn: 'proj.A',
+        shortName: 'A',
+        label: 'Class', // Different label
+        moduleQn: 'proj',
+        type: t.named('A'),
+        language: 'typescript',
+        sourceFile: 'overlay/A.ts',
+        sourceLine: 1,
       });
       overlay.finalize();
 
@@ -273,21 +337,41 @@ describe('TypeRegistry', () => {
 describe('buildProjectRegistry', () => {
   const defs: FileDefinition[] = [
     {
-      qn: 'proj.models.User', shortName: 'User', label: 'Class',
-      moduleQn: 'proj.models', resolvedType: t.named('User'),
-      language: 'typescript', sourceFile: 'models/User.ts', sourceLine: 5,
+      qn: 'proj.models.User',
+      shortName: 'User',
+      label: 'Class',
+      moduleQn: 'proj.models',
+      resolvedType: t.named('User'),
+      language: 'typescript',
+      sourceFile: 'models/User.ts',
+      sourceLine: 5,
     },
     {
-      qn: 'proj.models.createUser', shortName: 'createUser', label: 'Function',
-      moduleQn: 'proj.models', returnTypes: 'proj.models.User',
-      paramCount: 1, paramTypes: 'string', isAsync: false,
-      language: 'typescript', sourceFile: 'models/User.ts', sourceLine: 15,
+      qn: 'proj.models.createUser',
+      shortName: 'createUser',
+      label: 'Function',
+      moduleQn: 'proj.models',
+      returnTypes: 'proj.models.User',
+      paramCount: 1,
+      paramTypes: 'string',
+      isAsync: false,
+      language: 'typescript',
+      sourceFile: 'models/User.ts',
+      sourceLine: 15,
     },
     {
-      qn: 'proj.models.User.getId', shortName: 'getId', label: 'Method',
-      receiverType: 'proj.models.User', moduleQn: 'proj.models',
-      returnTypes: 'number', paramCount: 0, paramTypes: '', isAsync: false,
-      language: 'typescript', sourceFile: 'models/User.ts', sourceLine: 10,
+      qn: 'proj.models.User.getId',
+      shortName: 'getId',
+      label: 'Method',
+      receiverType: 'proj.models.User',
+      moduleQn: 'proj.models',
+      returnTypes: 'number',
+      paramCount: 0,
+      paramTypes: '',
+      isAsync: false,
+      language: 'typescript',
+      sourceFile: 'models/User.ts',
+      sourceLine: 10,
     },
   ];
 
@@ -324,24 +408,43 @@ describe('buildProjectRegistry', () => {
 describe('createPerFileOverlay', () => {
   const baseDefs: FileDefinition[] = [
     {
-      qn: 'lib.utils.helper', shortName: 'helper', label: 'Function',
-      moduleQn: 'lib.utils', returnTypes: 'string', paramCount: 1,
-      paramTypes: 'string', isAsync: false,
-      language: 'typescript', sourceFile: 'lib/utils.ts', sourceLine: 3,
+      qn: 'lib.utils.helper',
+      shortName: 'helper',
+      label: 'Function',
+      moduleQn: 'lib.utils',
+      returnTypes: 'string',
+      paramCount: 1,
+      paramTypes: 'string',
+      isAsync: false,
+      language: 'typescript',
+      sourceFile: 'lib/utils.ts',
+      sourceLine: 3,
     },
     {
-      qn: 'lib.types.Config', shortName: 'Config', label: 'Interface',
-      moduleQn: 'lib.types', resolvedType: t.objectLiteral([]),
-      language: 'typescript', sourceFile: 'lib/types.ts', sourceLine: 1,
+      qn: 'lib.types.Config',
+      shortName: 'Config',
+      label: 'Interface',
+      moduleQn: 'lib.types',
+      resolvedType: t.objectLiteral([]),
+      language: 'typescript',
+      sourceFile: 'lib/types.ts',
+      sourceLine: 1,
     },
   ];
 
   const ownDefs: FileDefinition[] = [
     {
-      qn: 'app.handler.handle', shortName: 'handle', label: 'Function',
-      moduleQn: 'app.handler', returnTypes: 'void', paramCount: 1,
-      paramTypes: 'lib.types.Config', isAsync: true,
-      language: 'typescript', sourceFile: 'app/handler.ts', sourceLine: 10,
+      qn: 'app.handler.handle',
+      shortName: 'handle',
+      label: 'Function',
+      moduleQn: 'app.handler',
+      returnTypes: 'void',
+      paramCount: 1,
+      paramTypes: 'lib.types.Config',
+      isAsync: true,
+      language: 'typescript',
+      sourceFile: 'app/handler.ts',
+      sourceLine: 10,
     },
   ];
 
@@ -432,12 +535,24 @@ describe('TypeRegistry edge cases', () => {
   it('handles multiple types with same short name', () => {
     const registry = new TypeRegistry();
     registry.registerType({
-      qn: 'proj.a.Foo', shortName: 'Foo', label: 'Class', moduleQn: 'proj.a',
-      type: t.named('Foo'), language: 'typescript', sourceFile: 'a.ts', sourceLine: 1,
+      qn: 'proj.a.Foo',
+      shortName: 'Foo',
+      label: 'Class',
+      moduleQn: 'proj.a',
+      type: t.named('Foo'),
+      language: 'typescript',
+      sourceFile: 'a.ts',
+      sourceLine: 1,
     });
     registry.registerType({
-      qn: 'proj.b.Foo', shortName: 'Foo', label: 'Class', moduleQn: 'proj.b',
-      type: t.named('Foo'), language: 'typescript', sourceFile: 'b.ts', sourceLine: 1,
+      qn: 'proj.b.Foo',
+      shortName: 'Foo',
+      label: 'Class',
+      moduleQn: 'proj.b',
+      type: t.named('Foo'),
+      language: 'typescript',
+      sourceFile: 'b.ts',
+      sourceLine: 1,
     });
 
     const found = registry.lookupTypeByName('Foo');
@@ -447,22 +562,40 @@ describe('TypeRegistry edge cases', () => {
   it('handles deep chaining of registries', () => {
     const base = new TypeRegistry();
     base.registerType({
-      qn: 'base.Type', shortName: 'Type', label: 'Interface', moduleQn: 'base',
-      type: t.named('Type'), language: 'typescript', sourceFile: 'base.ts', sourceLine: 1,
+      qn: 'base.Type',
+      shortName: 'Type',
+      label: 'Interface',
+      moduleQn: 'base',
+      type: t.named('Type'),
+      language: 'typescript',
+      sourceFile: 'base.ts',
+      sourceLine: 1,
     });
     base.finalize();
 
     const mid = new TypeRegistry(base);
     mid.registerType({
-      qn: 'mid.Type', shortName: 'Type', label: 'Class', moduleQn: 'mid',
-      type: t.named('Type'), language: 'typescript', sourceFile: 'mid.ts', sourceLine: 1,
+      qn: 'mid.Type',
+      shortName: 'Type',
+      label: 'Class',
+      moduleQn: 'mid',
+      type: t.named('Type'),
+      language: 'typescript',
+      sourceFile: 'mid.ts',
+      sourceLine: 1,
     });
     mid.finalize();
 
     const top = new TypeRegistry(mid);
     top.registerType({
-      qn: 'top.Type', shortName: 'Type', label: 'Class', moduleQn: 'top',
-      type: t.named('Type'), language: 'typescript', sourceFile: 'top.ts', sourceLine: 1,
+      qn: 'top.Type',
+      shortName: 'Type',
+      label: 'Class',
+      moduleQn: 'top',
+      type: t.named('Type'),
+      language: 'typescript',
+      sourceFile: 'top.ts',
+      sourceLine: 1,
     });
     top.finalize();
 
@@ -477,9 +610,39 @@ describe('TypeRegistry edge cases', () => {
 
   it('stats are accurate', () => {
     const defs: FileDefinition[] = [
-      { qn: 'p.A', shortName: 'A', label: 'Class', moduleQn: 'p', resolvedType: t.named('A'), language: 'typescript', sourceFile: 'A.ts', sourceLine: 1 },
-      { qn: 'p.B', shortName: 'B', label: 'Class', moduleQn: 'p', resolvedType: t.named('B'), language: 'typescript', sourceFile: 'B.ts', sourceLine: 1 },
-      { qn: 'p.fn', shortName: 'fn', label: 'Function', moduleQn: 'p', returnTypes: 'void', paramCount: 0, paramTypes: '', isAsync: false, language: 'typescript', sourceFile: 'fn.ts', sourceLine: 1 },
+      {
+        qn: 'p.A',
+        shortName: 'A',
+        label: 'Class',
+        moduleQn: 'p',
+        resolvedType: t.named('A'),
+        language: 'typescript',
+        sourceFile: 'A.ts',
+        sourceLine: 1,
+      },
+      {
+        qn: 'p.B',
+        shortName: 'B',
+        label: 'Class',
+        moduleQn: 'p',
+        resolvedType: t.named('B'),
+        language: 'typescript',
+        sourceFile: 'B.ts',
+        sourceLine: 1,
+      },
+      {
+        qn: 'p.fn',
+        shortName: 'fn',
+        label: 'Function',
+        moduleQn: 'p',
+        returnTypes: 'void',
+        paramCount: 0,
+        paramTypes: '',
+        isAsync: false,
+        language: 'typescript',
+        sourceFile: 'fn.ts',
+        sourceLine: 1,
+      },
     ];
     const registry = buildProjectRegistry(defs);
     expect(registry.typeCount).toBe(2);

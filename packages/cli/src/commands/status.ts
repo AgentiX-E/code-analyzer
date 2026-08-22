@@ -121,10 +121,7 @@ export function getStatus(options: StatusOptions = {}): StatusReport {
 /**
  * Format status report for display.
  */
-export function formatStatusReport(
-  report: StatusReport,
-  format: 'text' | 'json',
-): string {
+export function formatStatusReport(report: StatusReport, format: 'text' | 'json'): string {
   if (format === 'json') {
     return JSON.stringify(report, null, 2);
   }
@@ -145,8 +142,12 @@ export function formatStatusReport(
   lines.push(`  Platform:   ${report.system.platform}`);
   lines.push(`  Hostname:   ${report.system.hostname}`);
   lines.push(`  Node.js:    ${report.system.nodeVersion}`);
-  lines.push(`  Uptime:     ${Math.floor(report.system.uptime / 3600)}h ${Math.floor((report.system.uptime % 3600) / 60)}m`);
-  lines.push(`  Memory:     ${Math.round(report.system.memory.free / 1024 / 1024)}MB free / ${Math.round(report.system.memory.total / 1024 / 1024)}MB total (${report.system.memory.percentUsed}% used)`);
+  lines.push(
+    `  Uptime:     ${Math.floor(report.system.uptime / 3600)}h ${Math.floor((report.system.uptime % 3600) / 60)}m`,
+  );
+  lines.push(
+    `  Memory:     ${Math.round(report.system.memory.free / 1024 / 1024)}MB free / ${Math.round(report.system.memory.total / 1024 / 1024)}MB total (${report.system.memory.percentUsed}% used)`,
+  );
   lines.push(` `);
 
   // Project
@@ -161,7 +162,9 @@ export function formatStatusReport(
     const dataMB = Math.round(report.project.dataSize / 1024 / 1024);
     lines.push(`  Data Dir:       ${report.project.dataDir} (${dataMB}MB)`);
   }
-  lines.push(`  Standards:      ${report.project.standardsExist ? '✓ Configured' : '✗ Not configured'}`);
+  lines.push(
+    `  Standards:      ${report.project.standardsExist ? '✓ Configured' : '✗ Not configured'}`,
+  );
   lines.push(` `);
 
   // Index

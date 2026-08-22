@@ -148,9 +148,7 @@ export class DeadLetterQueue {
    *
    * @returns The ID of the newly created entry.
    */
-  enqueue(
-    entry: Omit<DeadLetterEntry, 'id' | 'timestamp'>
-  ): string {
+  enqueue(entry: Omit<DeadLetterEntry, 'id' | 'timestamp'>): string {
     if (this.entries.length >= this.maxSize) {
       this.entries.shift(); // Drop oldest entry
     }
@@ -199,9 +197,7 @@ export class DeadLetterQueue {
    * @param processor - Function to process a DLQ entry. Return true on success, false on failure.
    * @returns Summary of retry results.
    */
-  async retryAll(
-    processor: (entry: DeadLetterEntry) => Promise<boolean>
-  ): Promise<RetryResult> {
+  async retryAll(processor: (entry: DeadLetterEntry) => Promise<boolean>): Promise<RetryResult> {
     const total = this.entries.length;
     let succeeded = 0;
     let failed = 0;

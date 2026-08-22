@@ -78,7 +78,7 @@ export async function searchGraph(
         id: r.nodeId ?? r.id ?? 0,
         name: node?.name ?? r.name ?? 'unknown',
         type: node?.label ?? r.matchedColumn ?? r.label ?? r.type ?? 'unknown',
-        file: (node?.filePath ?? r.file ?? ''),
+        file: node?.filePath ?? r.file ?? '',
         line: node?.startLine ?? r.line ?? 1,
         score: r.rank ?? r.score ?? 0,
         snippet: options.verbose ? (snippetRaw ?? '').slice(0, 200) : undefined,
@@ -87,7 +87,7 @@ export async function searchGraph(
 
     // Filter by type if specified
     const filtered = options.type
-      ? results.filter((r) => r.type.toLowerCase() === (options.type!).toLowerCase())
+      ? results.filter((r) => r.type.toLowerCase() === options.type!.toLowerCase())
       : results;
 
     // Sort by score descending
@@ -131,7 +131,9 @@ export function formatSearchResult(
   const lines: string[] = [];
 
   if (format === 'summary') {
-    lines.push(`Found ${result.totalResults} results for "${result.query}" in ${result.duration}ms`);
+    lines.push(
+      `Found ${result.totalResults} results for "${result.query}" in ${result.duration}ms`,
+    );
     return lines.join(EOL);
   }
 

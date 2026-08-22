@@ -3,13 +3,22 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { IVSCodeAPI, DiagnosticCollection } from '../services/vscode-api.js';
-import type { EngineBridge, SearchResultItem, ReviewCommentItem, ImpactResultItem, TraceResultItem, SymbolDetailItem } from '../services/engine-bridge.js';
+import type {
+  EngineBridge,
+  SearchResultItem,
+  ReviewCommentItem,
+  ImpactResultItem,
+  TraceResultItem,
+  SymbolDetailItem,
+} from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------
 // Mock infrastructure
 // ---------------------------------------------------------------------------
 
-function createMockAPI(): IVSCodeAPI & { registrations: Map<string, (...args: unknown[]) => unknown> } {
+function createMockAPI(): IVSCodeAPI & {
+  registrations: Map<string, (...args: unknown[]) => unknown>;
+} {
   const registrations = new Map<string, (...args: unknown[]) => unknown>();
 
   return {
@@ -23,7 +32,9 @@ function createMockAPI(): IVSCodeAPI & { registrations: Map<string, (...args: un
     withProgress: vi.fn().mockImplementation(async (_opts, task) => {
       await task({ report: vi.fn() });
     }),
-    getWorkspaceFolders: vi.fn().mockReturnValue([{ uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 }]),
+    getWorkspaceFolders: vi
+      .fn()
+      .mockReturnValue([{ uri: { fsPath: '/test/workspace' }, name: 'test', index: 0 }]),
     getConfiguration: vi.fn(),
     registerCommand: vi.fn((cmd: string, handler: (...args: unknown[]) => unknown) => {
       registrations.set(cmd, handler);
@@ -42,7 +53,9 @@ function createMockEngine(): EngineBridge {
     search: vi.fn().mockResolvedValue([]),
     reviewWorkspace: vi.fn().mockResolvedValue([]),
     detectChanges: vi.fn().mockResolvedValue([]),
-    analyzeImpact: vi.fn().mockResolvedValue({ riskLevel: 'low', affectedSymbols: 0 } satisfies ImpactResultItem),
+    analyzeImpact: vi
+      .fn()
+      .mockResolvedValue({ riskLevel: 'low', affectedSymbols: 0 } satisfies ImpactResultItem),
     traceCallPath: vi.fn().mockResolvedValue([]),
     findCallers: vi.fn().mockResolvedValue([]),
     findCallees: vi.fn().mockResolvedValue([]),
@@ -52,7 +65,12 @@ function createMockEngine(): EngineBridge {
     checkStandards: vi.fn().mockResolvedValue({ passed: true, message: '' }),
     getSymbolDetail: vi.fn(),
     findRelatedTests: vi.fn().mockResolvedValue([]),
-    getComplexityMetrics: vi.fn().mockResolvedValue({ cyclomaticComplexity: 1, linesOfCode: 10, parameterCount: 0, nestingDepth: 1 }),
+    getComplexityMetrics: vi.fn().mockResolvedValue({
+      cyclomaticComplexity: 1,
+      linesOfCode: 10,
+      parameterCount: 0,
+      nestingDepth: 1,
+    }),
     searchWithScores: vi.fn().mockResolvedValue([]),
     setProjectId: vi.fn(),
     getProjectId: vi.fn().mockReturnValue('test-proj'),
@@ -147,7 +165,9 @@ describe('Core Commands', () => {
     it('executes workbench view command', () => {
       const handler = api.registrations.get('code-analyzer.showSidebar')!;
       handler();
-      expect(api.executeCommand).toHaveBeenCalledWith('workbench.view.extension.code-analyzer-sidebar');
+      expect(api.executeCommand).toHaveBeenCalledWith(
+        'workbench.view.extension.code-analyzer-sidebar',
+      );
     });
   });
 
@@ -246,9 +266,7 @@ describe('Symbol Context Commands', () => {
 
   describe('findCallers', () => {
     it('shows caller results', async () => {
-      const callers: TraceResultItem[] = [
-        { name: 'callerFunc', filePath: 'src/caller.ts' },
-      ];
+      const callers: TraceResultItem[] = [{ name: 'callerFunc', filePath: 'src/caller.ts' }];
       engine.findCallers = vi.fn().mockResolvedValue(callers);
 
       const handler = api.registrations.get('code-analyzer.findCallers')!;
@@ -272,9 +290,7 @@ describe('Symbol Context Commands', () => {
 
   describe('findCallees', () => {
     it('finds callees for a symbol', async () => {
-      const callees: TraceResultItem[] = [
-        { name: 'helper', filePath: 'src/helper.ts' },
-      ];
+      const callees: TraceResultItem[] = [{ name: 'helper', filePath: 'src/helper.ts' }];
       engine.findCallees = vi.fn().mockResolvedValue(callees);
 
       const handler = api.registrations.get('code-analyzer.findCallees')!;
@@ -293,9 +309,7 @@ describe('Symbol Context Commands', () => {
       const handler = api.registrations.get('code-analyzer.traceImpact')!;
       await handler('criticalFunc');
       expect(engine.analyzeImpact).toHaveBeenCalledWith('criticalFunc');
-      expect(api.showInformationMessage).toHaveBeenCalledWith(
-        expect.stringContaining('high'),
-      );
+      expect(api.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('high'));
     });
   });
 
@@ -315,9 +329,7 @@ describe('Symbol Context Commands', () => {
       const handler = api.registrations.get('code-analyzer.showSymbolDetail')!;
       await handler('MyClass');
       expect(engine.getSymbolDetail).toHaveBeenCalledWith('MyClass');
-      expect(api.showInformationMessage).toHaveBeenCalledWith(
-        expect.stringContaining('MyClass'),
-      );
+      expect(api.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('MyClass'));
     });
 
     it('warns when symbol not found', async () => {
@@ -374,9 +386,7 @@ describe('CodeLens Action Commands', () => {
         message: 'Style issue',
       });
       expect(diag.delete).toHaveBeenCalled();
-      expect(api.showInformationMessage).toHaveBeenCalledWith(
-        'Issue ignored: Style issue',
-      );
+      expect(api.showInformationMessage).toHaveBeenCalledWith('Issue ignored: Style issue');
     });
   });
 
@@ -388,9 +398,7 @@ describe('CodeLens Action Commands', () => {
         startLine: 5,
         message: 'Security concern',
       });
-      expect(api.showInformationMessage).toHaveBeenCalledWith(
-        expect.stringContaining('/explain'),
-      );
+      expect(api.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('/explain'));
     });
   });
 });

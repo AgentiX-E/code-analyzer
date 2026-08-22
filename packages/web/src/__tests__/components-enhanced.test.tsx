@@ -115,9 +115,7 @@ describe('MetricCards', () => {
   });
 
   it('should apply accent border color when provided', () => {
-    const metrics: MetricCardData[] = [
-      { id: 'a', label: 'Test', value: '1', accent: '#ff0000' },
-    ];
+    const metrics: MetricCardData[] = [{ id: 'a', label: 'Test', value: '1', accent: '#ff0000' }];
     const { container } = render(<MetricCards metrics={metrics} />);
     const card = container.querySelector('.metric-card') as HTMLElement;
     expect(card.style.borderLeftColor).toBe('rgb(255, 0, 0)');
@@ -163,13 +161,21 @@ const ToastTrigger: React.FC = () => {
     <div>
       <button
         data-testid="add-success"
-        onClick={() => addToast({ variant: 'success', message: 'Operation completed', duration: 0 })}
+        onClick={() =>
+          addToast({ variant: 'success', message: 'Operation completed', duration: 0 })
+        }
       >
         Add Success
       </button>
       <button
         data-testid="add-error"
-        onClick={() => addToast({ variant: 'error', message: 'Something went wrong', detail: 'Stack trace details' })}
+        onClick={() =>
+          addToast({
+            variant: 'error',
+            message: 'Something went wrong',
+            detail: 'Stack trace details',
+          })
+        }
       >
         Add Error
       </button>
@@ -293,9 +299,12 @@ describe('Toast', () => {
     fireEvent.click(dismissBtn);
 
     // Wait for exit animation to complete
-    await waitFor(() => {
-      expect(screen.queryByText('Something went wrong')).toBeNull();
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Something went wrong')).toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     vi.useFakeTimers();
   });
@@ -326,9 +335,12 @@ describe('Toast', () => {
     fireEvent.click(screen.getByTestId('add-error'));
     expect(screen.getByText('Something went wrong')).toBeDefined();
 
-    await waitFor(() => {
-      expect(screen.queryByText('Something went wrong')).toBeNull();
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(screen.queryByText('Something went wrong')).toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     vi.useFakeTimers();
   });
@@ -368,9 +380,12 @@ describe('Toast', () => {
 
     fireEvent.click(screen.getByTestId('dismiss-all'));
 
-    await waitFor(() => {
-      expect(document.querySelectorAll('.toast').length).toBe(0);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(document.querySelectorAll('.toast').length).toBe(0);
+      },
+      { timeout: 5000 },
+    );
 
     vi.useFakeTimers();
   });
@@ -426,8 +441,6 @@ describe('Toast', () => {
       return null;
     };
 
-    expect(() => render(<BadComponent />)).toThrow(
-      'useToast must be used within a ToastProvider',
-    );
+    expect(() => render(<BadComponent />)).toThrow('useToast must be used within a ToastProvider');
   });
 });

@@ -137,6 +137,7 @@ POST /api/analyze
 Index a repository into the knowledge graph.
 
 **Request:**
+
 ```json
 {
   "path": "/path/to/repository",
@@ -147,6 +148,7 @@ Index a repository into the knowledge graph.
 ```
 
 **Response:**
+
 ```json
 {
   "projectId": "my-project",
@@ -167,6 +169,7 @@ POST /api/search
 Full-text search across the indexed knowledge graph using FTS5.
 
 **Request:**
+
 ```json
 {
   "query": "authentication",
@@ -178,6 +181,7 @@ Full-text search across the indexed knowledge graph using FTS5.
 ```
 
 **Response:**
+
 ```json
 {
   "items": [
@@ -208,6 +212,7 @@ POST /api/review/pr
 Run code review analysis on diffs, files, or pull requests.
 
 **Request (diff review):**
+
 ```json
 {
   "projectId": "my-project",
@@ -220,6 +225,7 @@ Run code review analysis on diffs, files, or pull requests.
 ```
 
 **Response:**
+
 ```json
 {
   "projectId": "my-project",
@@ -246,6 +252,7 @@ POST /api/impact
 Analyze the impact of code changes using graph traversal.
 
 **Request:**
+
 ```json
 {
   "projectId": "my-project",
@@ -257,6 +264,7 @@ Analyze the impact of code changes using graph traversal.
 ```
 
 **Response:**
+
 ```json
 {
   "range": { "from": "v1.0.0", "to": "v1.1.0" },
@@ -286,6 +294,7 @@ POST /api/routes
 Get API route mappings for a project.
 
 **Request:**
+
 ```json
 {
   "projectId": "my-project",
@@ -294,13 +303,24 @@ Get API route mappings for a project.
 ```
 
 **Response:**
+
 ```json
 {
   "projectId": "my-project",
   "routeCount": 12,
   "routes": [
-    { "method": "GET", "path": "/api/users", "handler": "getUsers", "filePath": "src/controllers/user.ts" },
-    { "method": "POST", "path": "/api/users", "handler": "createUser", "filePath": "src/controllers/user.ts" }
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "handler": "getUsers",
+      "filePath": "src/controllers/user.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users",
+      "handler": "createUser",
+      "filePath": "src/controllers/user.ts"
+    }
   ]
 }
 ```
@@ -314,6 +334,7 @@ POST /api/cycles
 Detect circular dependencies in the project graph.
 
 **Request:**
+
 ```json
 {
   "projectId": "my-project",
@@ -323,6 +344,7 @@ Detect circular dependencies in the project graph.
 ```
 
 **Response:**
+
 ```json
 {
   "cyclesFound": 1,
@@ -347,6 +369,7 @@ GET  /api/reports/:reportId
 Generate and export analysis reports.
 
 **Request (generate):**
+
 ```json
 {
   "projectId": "my-project",
@@ -357,6 +380,7 @@ Generate and export analysis reports.
 ```
 
 **Response:**
+
 ```json
 {
   "id": "report_1710000000000",
@@ -423,42 +447,42 @@ Program Dependence Graph queries and taint analysis for security auditing.
 
 ### Environment Variables
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `CODE_ANALYZER_PORT` | `number` | `8080` | HTTP server port |
-| `CODE_ANALYZER_HOST` | `string` | `0.0.0.0` | HTTP server bind address |
-| `CODE_ANALYZER_DATA_DIR` | `string` | `~/.code-analyzer/data` | Data directory for in-memory graph stores |
-| `CODE_ANALYZER_LOG_LEVEL` | `string` | `info` | Log level (debug, info, warn, error) |
-| `CODE_ANALYZER_MAX_BODY_SIZE` | `string` | `10mb` | Maximum request body size |
-| `CODE_ANALYZER_TIMEOUT` | `number` | `30000` | Request timeout in milliseconds |
-| `CODE_ANALYZER_CORS_ORIGIN` | `string` | `*` | CORS allowed origins |
+| Variable                      | Type     | Default                 | Description                               |
+| ----------------------------- | -------- | ----------------------- | ----------------------------------------- |
+| `CODE_ANALYZER_PORT`          | `number` | `8080`                  | HTTP server port                          |
+| `CODE_ANALYZER_HOST`          | `string` | `0.0.0.0`               | HTTP server bind address                  |
+| `CODE_ANALYZER_DATA_DIR`      | `string` | `~/.code-analyzer/data` | Data directory for in-memory graph stores |
+| `CODE_ANALYZER_LOG_LEVEL`     | `string` | `info`                  | Log level (debug, info, warn, error)      |
+| `CODE_ANALYZER_MAX_BODY_SIZE` | `string` | `10mb`                  | Maximum request body size                 |
+| `CODE_ANALYZER_TIMEOUT`       | `number` | `30000`                 | Request timeout in milliseconds           |
+| `CODE_ANALYZER_CORS_ORIGIN`   | `string` | `*`                     | CORS allowed origins                      |
 
 ### Server Configuration
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `port` | `number` | `8080` | HTTP listen port |
-| `host` | `string` | `'0.0.0.0'` | HTTP bind host |
-| `maxResults` | `number` | `100` | Maximum results per query |
-| `enableStreaming` | `boolean` | `false` | Enable SSE streaming |
-| `cors` | `boolean \| object` | `true` | CORS configuration |
+| Property          | Type                | Default     | Description               |
+| ----------------- | ------------------- | ----------- | ------------------------- |
+| `port`            | `number`            | `8080`      | HTTP listen port          |
+| `host`            | `string`            | `'0.0.0.0'` | HTTP bind host            |
+| `maxResults`      | `number`            | `100`       | Maximum results per query |
+| `enableStreaming` | `boolean`           | `false`     | Enable SSE streaming      |
+| `cors`            | `boolean \| object` | `true`      | CORS configuration        |
 
 ## Package Dependencies
 
-| Dependency | Description |
-|------------|-------------|
-| `@code-analyzer/shared` | Shared type definitions and schemas |
-| `@code-analyzer/core` | Core engine interfaces and abstractions |
-| `@code-analyzer/infra` | Infrastructure layer (`InMemoryGraphStore`, logging, configuration) |
-| `@code-analyzer/analyzer` | Static code analysis and AST parsing |
-| `@code-analyzer/intelligence` | AI-powered code intelligence engine |
+| Dependency                    | Description                                                         |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `@code-analyzer/shared`       | Shared type definitions and schemas                                 |
+| `@code-analyzer/core`         | Core engine interfaces and abstractions                             |
+| `@code-analyzer/infra`        | Infrastructure layer (`InMemoryGraphStore`, logging, configuration) |
+| `@code-analyzer/analyzer`     | Static code analysis and AST parsing                                |
+| `@code-analyzer/intelligence` | AI-powered code intelligence engine                                 |
 
 ### Dev Dependencies
 
-| Dependency | Description |
-|------------|-------------|
+| Dependency   | Description                  |
+| ------------ | ---------------------------- |
 | `typescript` | TypeScript compiler (^5.6.0) |
-| `vitest` | Unit test runner (^2.1.0) |
+| `vitest`     | Unit test runner (^2.1.0)    |
 
 ## Integration Examples
 
@@ -545,20 +569,23 @@ export function useCodeAnalyzer(baseUrl = 'http://localhost:8080') {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const search = useCallback(async (query: string, projectId: string) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${baseUrl}/api/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, projectId, limit: 50 }),
-      });
-      const data = await res.json();
-      setResults(data.items);
-    } finally {
-      setLoading(false);
-    }
-  }, [baseUrl]);
+  const search = useCallback(
+    async (query: string, projectId: string) => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${baseUrl}/api/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, projectId, limit: 50 }),
+        });
+        const data = await res.json();
+        setResults(data.items);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [baseUrl],
+  );
 
   return { results, loading, search };
 }
@@ -610,15 +637,15 @@ JSON Response
 
 ## Comparison with @code-analyzer/mcp
 
-| Feature | `@code-analyzer/server` | `@code-analyzer/mcp` |
-|---------|------------------------|---------------------|
-| **Protocol** | HTTP REST (JSON) | MCP (stdio / HTTP+SSE) |
-| **Target** | Web apps, CI/CD, SDKs | AI coding agents |
-| **Tool Count** | Same engine, REST endpoints | 38 MCP tools |
-| **Transport** | HTTP only | stdio + HTTP |
-| **Auth** | Standard HTTP auth | API key middleware |
-| **Streaming** | SSE support planned | SSE support planned |
-| **Use Case** | Programmatic integration | Agent-assisted development |
+| Feature        | `@code-analyzer/server`     | `@code-analyzer/mcp`       |
+| -------------- | --------------------------- | -------------------------- |
+| **Protocol**   | HTTP REST (JSON)            | MCP (stdio / HTTP+SSE)     |
+| **Target**     | Web apps, CI/CD, SDKs       | AI coding agents           |
+| **Tool Count** | Same engine, REST endpoints | 38 MCP tools               |
+| **Transport**  | HTTP only                   | stdio + HTTP               |
+| **Auth**       | Standard HTTP auth          | API key middleware         |
+| **Streaming**  | SSE support planned         | SSE support planned        |
+| **Use Case**   | Programmatic integration    | Agent-assisted development |
 
 ## License
 

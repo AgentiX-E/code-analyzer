@@ -13,9 +13,7 @@ import {
   type ExecutablePhase,
 } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type {
-  PipelineContext,
-} from '@code-analyzer/shared';
+import type { PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,9 +74,7 @@ async function loadPhases() {
  * This is the primary entry point for indexing. It runs the full 18-phase
  * pipeline and stores results in an InMemoryGraphStore.
  */
-export async function analyzeRepository(
-  options: AnalyzeOptions,
-): Promise<AnalyzeOutput> {
+export async function analyzeRepository(options: AnalyzeOptions): Promise<AnalyzeOutput> {
   const repoPath = resolve(options.path);
   const projectId = (options.projectId ?? relative(process.cwd(), repoPath)) || 'default';
   const startTime = Date.now();
@@ -179,7 +175,10 @@ export async function analyzeRepository(
 /**
  * Format analyze output as human-readable text.
  */
-export function formatAnalyzeResult(result: AnalyzeOutput, format: 'text' | 'json' | 'summary'): string {
+export function formatAnalyzeResult(
+  result: AnalyzeOutput,
+  format: 'text' | 'json' | 'summary',
+): string {
   if (format === 'json') {
     return JSON.stringify(result, null, 2);
   }
@@ -188,7 +187,9 @@ export function formatAnalyzeResult(result: AnalyzeOutput, format: 'text' | 'jso
   const status = result.success ? '✓' : '✗';
 
   if (format === 'summary') {
-    lines.push(`${status} ${result.projectId}: ${result.graph.nodeCount} nodes, ${result.graph.edgeCount} edges, ${result.graph.fileCount} files`);
+    lines.push(
+      `${status} ${result.projectId}: ${result.graph.nodeCount} nodes, ${result.graph.edgeCount} edges, ${result.graph.fileCount} files`,
+    );
     lines.push(`  Duration: ${result.duration}ms, Phases: ${result.graph.phaseCount}`);
     if (result.errors.length > 0) {
       lines.push(`  Errors: ${result.errors.length}`);

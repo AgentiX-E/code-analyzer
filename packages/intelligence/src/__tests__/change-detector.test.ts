@@ -2,15 +2,9 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ChangeDetector } from '../impact/change-detector.js';
-import type {
-  ChangedSymbol,
-} from '../impact/change-detector.js';
+import type { ChangedSymbol } from '../impact/change-detector.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type {
-  GraphNode,
-  GraphEdge,
-  GitDiff,
-} from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -18,10 +12,7 @@ import type {
 
 const PROJECT_ID = 'test-project';
 
-function createNode(
-  id: number,
-  overrides: Partial<GraphNode> = {},
-): GraphNode {
+function createNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
   return {
     id,
     projectId: PROJECT_ID,
@@ -47,10 +38,7 @@ function createNode(
   };
 }
 
-function createEdge(
-  id: number,
-  overrides: Partial<GraphEdge> = {},
-): GraphEdge {
+function createEdge(id: number, overrides: Partial<GraphEdge> = {}): GraphEdge {
   return {
     id,
     projectId: PROJECT_ID,
@@ -273,12 +261,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      15,
-      18,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 15, 18);
     expect(result).toHaveLength(1);
     expect(result[0]!.name).toBe('fn_1');
   });
@@ -292,12 +275,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      10,
-      20,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 10, 20);
     expect(result).toHaveLength(1);
   });
 
@@ -310,22 +288,12 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      30,
-      40,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 30, 40);
     expect(result).toHaveLength(0);
   });
 
   it('should return empty array when no symbols in file', () => {
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      1,
-      100,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 1, 100);
     expect(result).toHaveLength(0);
   });
 
@@ -345,12 +313,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      10,
-      20,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 10, 20);
     expect(result).toHaveLength(1);
     expect(result[0]!.name).toBe('fn_1');
   });
@@ -371,12 +334,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      12,
-      18,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 12, 18);
     expect(result).toHaveLength(2);
   });
 
@@ -389,12 +347,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      40,
-      50,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 40, 50);
     expect(result).toHaveLength(1);
   });
 
@@ -408,12 +361,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      10,
-      20,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 10, 20);
     expect(result).toHaveLength(0);
   });
 
@@ -426,12 +374,7 @@ describe('ChangeDetector.getSymbolsInRange', () => {
       }),
     );
 
-    const result = detector.getSymbolsInRange(
-      PROJECT_ID,
-      '/src/app.ts',
-      10,
-      20,
-    );
+    const result = detector.getSymbolsInRange(PROJECT_ID, '/src/app.ts', 10, 20);
     expect(result).toHaveLength(0);
   });
 });

@@ -30,9 +30,12 @@ describe('inferHttpMethod', () => {
   it('returns GET for .get suffix', () => expect(inferHttpMethod('client.get')).toBe('GET'));
   it('returns POST for .post suffix', () => expect(inferHttpMethod('client.post')).toBe('POST'));
   it('returns PUT for .put suffix', () => expect(inferHttpMethod('client.put')).toBe('PUT'));
-  it('returns DELETE for .delete suffix', () => expect(inferHttpMethod('client.delete')).toBe('DELETE'));
-  it('returns GET for GetAsync suffix', () => expect(inferHttpMethod('client.GetAsync')).toBe('GET'));
-  it('returns GET for getForObject suffix', () => expect(inferHttpMethod('rest.getForObject')).toBe('GET'));
+  it('returns DELETE for .delete suffix', () =>
+    expect(inferHttpMethod('client.delete')).toBe('DELETE'));
+  it('returns GET for GetAsync suffix', () =>
+    expect(inferHttpMethod('client.GetAsync')).toBe('GET'));
+  it('returns GET for getForObject suffix', () =>
+    expect(inferHttpMethod('rest.getForObject')).toBe('GET'));
   it('returns null for unknown suffix', () => expect(inferHttpMethod('client.doStuff')).toBeNull());
 });
 
@@ -66,87 +69,105 @@ describe('isGlobalFetch', () => {
 
 describe('classifyCall', () => {
   it('classifies route registration (ROUTE_REG)', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'router.get',
-      resolvedQn: 'express.router.get',
-      firstStringArg: '/users',
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'router.get',
+        resolvedQn: 'express.router.get',
+        firstStringArg: '/users',
+      }),
+    );
     expect(c?.edgeType).toBe('ROUTE_REG');
     expect(c?.httpMethod).toBe('GET');
     expect(c?.urlPath).toBe('/users');
   });
 
   it('classifies HTTP client call (path-based URL)', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'requests.get',
-      resolvedQn: 'requests.api.get',
-      args: [{ expr: '/api/users', value: '/api/users', index: 0 }],
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'requests.get',
+        resolvedQn: 'requests.api.get',
+        args: [{ expr: '/api/users', value: '/api/users', index: 0 }],
+      }),
+    );
     expect(c?.edgeType).toBe('HTTP_CALLS');
     expect(c?.httpMethod).toBe('GET');
     expect(c?.urlPath).toBe('/api/users');
   });
 
   it('classifies async dispatch with broker', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'publish',
-      resolvedQn: 'kafkajs.producer.send',
-      args: [{ expr: '/topic/orders', value: '/topic/orders', index: 0 }],
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'publish',
+        resolvedQn: 'kafkajs.producer.send',
+        args: [{ expr: '/topic/orders', value: '/topic/orders', index: 0 }],
+      }),
+    );
     expect(c?.edgeType).toBe('ASYNC_CALLS');
     expect(c?.broker).toBe('kafka');
   });
 
   it('classifies config access', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'getenv',
-      resolvedQn: 'os.getenv',
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'getenv',
+        resolvedQn: 'os.getenv',
+      }),
+    );
     expect(c?.edgeType).toBe('CONFIGURES');
     expect(c?.via).toBe('library_pattern');
   });
 
   it('classifies gRPC call', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'GetCart',
-      resolvedQn: 'io.grpc.CartServiceClient.GetCart',
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'GetCart',
+        resolvedQn: 'io.grpc.CartServiceClient.GetCart',
+      }),
+    );
     expect(c?.edgeType).toBe('GRPC_CALLS');
   });
 
   it('classifies GraphQL call', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'query',
-      resolvedQn: '@apollo/client.query',
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'query',
+        resolvedQn: '@apollo/client.query',
+      }),
+    );
     expect(c?.edgeType).toBe('GRAPHQL_CALLS');
   });
 
   it('classifies tRPC call', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'useQuery',
-      resolvedQn: '@trpc/client.useQuery',
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'useQuery',
+        resolvedQn: '@trpc/client.useQuery',
+      }),
+    );
     expect(c?.edgeType).toBe('TRPC_CALLS');
   });
 
   it('falls back to URL-in-args when no library matches', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'something',
-      resolvedQn: 'unknown.lib.call',
-      args: [{ expr: '/api/items', value: '/api/items', index: 0 }],
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [{ expr: '/api/items', value: '/api/items', index: 0 }],
+      }),
+    );
     expect(c?.edgeType).toBe('HTTP_CALLS');
     expect(c?.httpMethod).toBe('ANY');
     expect(c?.via).toBe('arg_url');
   });
 
   it('classifies global fetch by callee name', () => {
-    const c = classifyCall(makeCall({
-      calleeName: 'fetch',
-      resolvedQn: '',
-      args: [{ expr: 'https://example.com/x', value: 'https://example.com/x', index: 0 }],
-    }));
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'fetch',
+        resolvedQn: '',
+        args: [{ expr: 'https://example.com/x', value: 'https://example.com/x', index: 0 }],
+      }),
+    );
     expect(c?.edgeType).toBe('HTTP_CALLS');
     expect(c?.via).toBe('arg_url');
   });
@@ -247,7 +268,10 @@ describe('canonicRoutePath', () => {
 describe('synthesizeRouteNode', () => {
   it('synthesizes HTTP route node', () => {
     const node = synthesizeRouteNode({
-      edgeType: 'HTTP_CALLS', httpMethod: 'GET', urlPath: '/users/:id', via: 'arg_url',
+      edgeType: 'HTTP_CALLS',
+      httpMethod: 'GET',
+      urlPath: '/users/:id',
+      via: 'arg_url',
     });
     expect(node.label).toBe('Route');
     expect(node.qn).toContain('GET');
@@ -255,13 +279,23 @@ describe('synthesizeRouteNode', () => {
   });
 
   it('synthesizes async route node', () => {
-    const node = synthesizeRouteNode({ edgeType: 'ASYNC_CALLS', broker: 'kafka', urlPath: '/t', via: 'library_pattern' });
+    const node = synthesizeRouteNode({
+      edgeType: 'ASYNC_CALLS',
+      broker: 'kafka',
+      urlPath: '/t',
+      via: 'library_pattern',
+    });
     expect(node.broker).toBe('kafka');
     expect(node.qn).toContain('ASYNC');
   });
 
   it('synthesizes gRPC route node', () => {
-    const node = synthesizeRouteNode({ edgeType: 'GRPC_CALLS', grpcService: 'S', grpcMethod: 'M', via: 'library_pattern' });
+    const node = synthesizeRouteNode({
+      edgeType: 'GRPC_CALLS',
+      grpcService: 'S',
+      grpcMethod: 'M',
+      via: 'library_pattern',
+    });
     expect(node.name).toBe('S/M');
   });
 
@@ -271,13 +305,18 @@ describe('synthesizeRouteNode', () => {
   });
 
   it('synthesizes tRPC route node', () => {
-    const node = synthesizeRouteNode({ edgeType: 'TRPC_CALLS', urlPath: 'proc', via: 'library_pattern' });
+    const node = synthesizeRouteNode({
+      edgeType: 'TRPC_CALLS',
+      urlPath: 'proc',
+      via: 'library_pattern',
+    });
     expect(node.qn).toContain('proc');
   });
 
   it('throws for unknown edge type', () => {
-    expect(() => synthesizeRouteNode({ edgeType: 'THROWS' as any, via: 'library_pattern' }))
-      .toThrow(/Cannot synthesize route/);
+    expect(() =>
+      synthesizeRouteNode({ edgeType: 'THROWS' as any, via: 'library_pattern' }),
+    ).toThrow(/Cannot synthesize route/);
   });
 });
 
@@ -288,7 +327,10 @@ describe('synthesizeRouteNode', () => {
 describe('buildServiceEdge', () => {
   it('builds HTTP service edge', () => {
     const edge = buildServiceEdge('caller.main', {
-      edgeType: 'HTTP_CALLS', httpMethod: 'GET', urlPath: '/x', via: 'arg_url',
+      edgeType: 'HTTP_CALLS',
+      httpMethod: 'GET',
+      urlPath: '/x',
+      via: 'arg_url',
     });
     expect(edge?.sourceQn).toBe('caller.main');
     expect(edge?.type).toBe('HTTP_CALLS');
@@ -298,14 +340,20 @@ describe('buildServiceEdge', () => {
 
   it('maps ROUTE_REG to EDGE_CALLS', () => {
     const edge = buildServiceEdge('h.main', {
-      edgeType: 'ROUTE_REG', httpMethod: 'POST', urlPath: '/x', via: 'route_registration',
+      edgeType: 'ROUTE_REG',
+      httpMethod: 'POST',
+      urlPath: '/x',
+      via: 'route_registration',
     });
     expect(edge?.type).toBe('CALLS');
   });
 
   it('includes gRPC properties', () => {
     const edge = buildServiceEdge('c.main', {
-      edgeType: 'GRPC_CALLS', grpcService: 'S', grpcMethod: 'M', via: 'library_pattern',
+      edgeType: 'GRPC_CALLS',
+      grpcService: 'S',
+      grpcMethod: 'M',
+      via: 'library_pattern',
     });
     expect(edge?.properties['service']).toBe('S');
     expect(edge?.properties['rpc_method']).toBe('M');

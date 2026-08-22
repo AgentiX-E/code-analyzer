@@ -87,8 +87,11 @@ export class LeidenCommunityDetector {
 
     if (n === 0) {
       return {
-        nodeToCommunity: new Map(), communities: new Map(),
-        modularity: 0, communityCount: 0, iterations: 0,
+        nodeToCommunity: new Map(),
+        communities: new Map(),
+        modularity: 0,
+        communityCount: 0,
+        iterations: 0,
         resolution: this.resolution,
       };
     }
@@ -113,7 +116,10 @@ export class LeidenCommunityDetector {
     }
 
     let currentModularity = this.computeModularity(
-      nodeToCommunity, adjacency, totalWeight, communityWeights,
+      nodeToCommunity,
+      adjacency,
+      totalWeight,
+      communityWeights,
     );
     let iteration = 0;
     let improved = true;
@@ -157,10 +163,8 @@ export class LeidenCommunityDetector {
           // Modularity gain for moving node to target community
           const deltaQ =
             weightToTarget / (2 * totalWeight) -
-            (this.resolution * targetCommWeight * nodeWeight) /
-              (2 * totalWeight * totalWeight) +
-            (this.resolution * currentCommWeight * nodeWeight) /
-              (2 * totalWeight * totalWeight);
+            (this.resolution * targetCommWeight * nodeWeight) / (2 * totalWeight * totalWeight) +
+            (this.resolution * currentCommWeight * nodeWeight) / (2 * totalWeight * totalWeight);
 
           if (deltaQ > bestDeltaQ) {
             bestDeltaQ = deltaQ;
@@ -184,7 +188,10 @@ export class LeidenCommunityDetector {
           // Add to best
           nodeToCommunity.set(nodeId, bestCommunity);
           let bestNodes = communityToNodes.get(bestCommunity);
-          if (!bestNodes) { bestNodes = []; communityToNodes.set(bestCommunity, bestNodes); }
+          if (!bestNodes) {
+            bestNodes = [];
+            communityToNodes.set(bestCommunity, bestNodes);
+          }
           bestNodes.push(nodeId);
 
           communityWeights.set(
@@ -201,13 +208,20 @@ export class LeidenCommunityDetector {
       // For each community, we allow nodes to move only within that community
       // to form a refined partition. This guarantees well-connected communities.
       this.refineCommunities(
-        nodeToCommunity, communityToNodes, communityWeights, adjacency,
-        totalWeight, nodeWeights,
+        nodeToCommunity,
+        communityToNodes,
+        communityWeights,
+        adjacency,
+        totalWeight,
+        nodeWeights,
       );
 
       // Recompute modularity
       const newModularity = this.computeModularity(
-        nodeToCommunity, adjacency, totalWeight, communityWeights,
+        nodeToCommunity,
+        adjacency,
+        totalWeight,
+        communityWeights,
       );
 
       if (newModularity - currentModularity < this.minModularityImprovement) {
@@ -287,8 +301,7 @@ export class LeidenCommunityDetector {
             const deltaQ =
               weightToTarget / (2 * totalWeight) -
               (this.resolution * targetSW * nWeight) / (2 * totalWeight * totalWeight) +
-              (this.resolution * currentSubWeight * nWeight) /
-                (2 * totalWeight * totalWeight);
+              (this.resolution * currentSubWeight * nWeight) / (2 * totalWeight * totalWeight);
 
             if (deltaQ > bestDelta) {
               bestDelta = deltaQ;
@@ -310,7 +323,10 @@ export class LeidenCommunityDetector {
       const subCommGroups = new Map<number, number[]>();
       for (const [nodeId, subId] of refinedComm) {
         let group = subCommGroups.get(subId);
-        if (!group) { group = []; subCommGroups.set(subId, group); }
+        if (!group) {
+          group = [];
+          subCommGroups.set(subId, group);
+        }
         group.push(nodeId);
       }
 
@@ -357,10 +373,7 @@ export class LeidenCommunityDetector {
   /**
    * Extract metadata about each detected community.
    */
-  describeCommunities(
-    graph: KnowledgeGraph,
-    result: LeidenResult,
-  ): LeidenCommunityInfo[] {
+  describeCommunities(graph: KnowledgeGraph, result: LeidenResult): LeidenCommunityInfo[] {
     const infos: LeidenCommunityInfo[] = [];
 
     for (const [communityId, memberIds] of result.communities) {
@@ -397,15 +410,17 @@ export class LeidenCommunityDetector {
         [...languageCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unknown';
 
       const cohesion =
-        internalEdges + externalEdges > 0
-          ? internalEdges / (internalEdges + externalEdges)
-          : 0;
+        internalEdges + externalEdges > 0 ? internalEdges / (internalEdges + externalEdges) : 0;
 
       infos.push({
-        id: communityId, size: memberIds.length,
-        dominantLabel, dominantLanguage,
+        id: communityId,
+        size: memberIds.length,
+        dominantLabel,
+        dominantLanguage,
         topSymbols: symbols.slice(0, 10),
-        internalEdges, externalEdges, cohesion,
+        internalEdges,
+        externalEdges,
+        cohesion,
       });
     }
 
@@ -420,11 +435,17 @@ export class LeidenCommunityDetector {
     const adj = new Map<number, Map<number, number>>();
     for (const [, edge] of graph.edges) {
       let sa = adj.get(edge.sourceId);
-      if (!sa) { sa = new Map(); adj.set(edge.sourceId, sa); }
+      if (!sa) {
+        sa = new Map();
+        adj.set(edge.sourceId, sa);
+      }
       sa.set(edge.targetId, (sa.get(edge.targetId) ?? 0) + edge.weight);
 
       let ta = adj.get(edge.targetId);
-      if (!ta) { ta = new Map(); adj.set(edge.targetId, ta); }
+      if (!ta) {
+        ta = new Map();
+        adj.set(edge.targetId, ta);
+      }
       ta.set(edge.sourceId, (ta.get(edge.sourceId) ?? 0) + edge.weight);
     }
     return adj;
@@ -436,15 +457,20 @@ export class LeidenCommunityDetector {
     for (const [sid, targets] of adj) {
       for (const [tid, w] of targets) {
         const key = sid < tid ? `${sid}-${tid}` : `${tid}-${sid}`;
-        if (!counted.has(key)) { counted.add(key); total += w; }
+        if (!counted.has(key)) {
+          counted.add(key);
+          total += w;
+        }
       }
     }
     return total || 1;
   }
 
   private computeModularity(
-    n2c: Map<number, number>, adj: Map<number, Map<number, number>>,
-    totalWeight: number, cw: Map<number, number>,
+    n2c: Map<number, number>,
+    adj: Map<number, Map<number, number>>,
+    totalWeight: number,
+    cw: Map<number, number>,
   ): number {
     let q = 0;
     const counted = new Set<string>();
@@ -470,13 +496,14 @@ export class LeidenCommunityDetector {
     }
   }
 
-  private renumber(
-    n2c: Map<number, number>, modularity: number, iterations: number,
-  ): LeidenResult {
+  private renumber(n2c: Map<number, number>, modularity: number, iterations: number): LeidenResult {
     const communities = new Map<number, number[]>();
     for (const [nid, cid] of n2c) {
       let m = communities.get(cid);
-      if (!m) { m = []; communities.set(cid, m); }
+      if (!m) {
+        m = [];
+        communities.set(cid, m);
+      }
       m.push(nid);
     }
     const rn2c = new Map<number, number>();
@@ -488,9 +515,12 @@ export class LeidenCommunityDetector {
       for (const n of members) rn2c.set(n, id);
     }
     return {
-      nodeToCommunity: rn2c, communities: rCommunities,
-      modularity, communityCount: rCommunities.size,
-      iterations, resolution: this.resolution,
+      nodeToCommunity: rn2c,
+      communities: rCommunities,
+      modularity,
+      communityCount: rCommunities.size,
+      iterations,
+      resolution: this.resolution,
     };
   }
 }

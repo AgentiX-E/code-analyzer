@@ -35,15 +35,15 @@ Requires Node.js >= 22.
 
 ## Key Exports
 
-| Category | Exports | Description |
-|----------|---------|-------------|
-| **Node Labels** | `NODE_LABELS`, `NodeLabel` | 33 distinct code entity types (Class, Function, Interface, Route, etc.) |
-| **Relationship Types** | `RELATIONSHIP_TYPES`, `RelationshipType` | 39 edge types (CONTAINS, CALLS, EXTENDS, DATA_FLOWS, TAINT_PATH, etc.) |
-| **Capture Tags** | `CAPTURE_TAGS`, `CaptureTag`, `UnifiedCapture` | Language-agnostic AST capture tags |
-| **Graph Primitives** | `GraphNode`, `GraphEdge`, `KnowledgeGraph`, `PipelinePhase`, `PipelineContext` | Core graph data structures |
-| **Constants** | `NODE_TABLES`, `REL_INVERSES`, `LANGUAGE_EXTENSIONS`, `COMPATIBLE_EDGES` | Pre-computed lookup tables |
-| **Validation** | `validateNodeProperties`, `validateEdgeCompatibility`, `validateConfig`, `validateReviewComment`, `validateStandard`, `validateReport` | Runtime validation utilities |
-| **Guards** | `isNodeLabel`, `isRelationshipType`, `getLanguageFromFilename` | Type guard and utility functions |
+| Category               | Exports                                                                                                                                | Description                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Node Labels**        | `NODE_LABELS`, `NodeLabel`                                                                                                             | 33 distinct code entity types (Class, Function, Interface, Route, etc.) |
+| **Relationship Types** | `RELATIONSHIP_TYPES`, `RelationshipType`                                                                                               | 39 edge types (CONTAINS, CALLS, EXTENDS, DATA_FLOWS, TAINT_PATH, etc.)  |
+| **Capture Tags**       | `CAPTURE_TAGS`, `CaptureTag`, `UnifiedCapture`                                                                                         | Language-agnostic AST capture tags                                      |
+| **Graph Primitives**   | `GraphNode`, `GraphEdge`, `KnowledgeGraph`, `PipelinePhase`, `PipelineContext`                                                         | Core graph data structures                                              |
+| **Constants**          | `NODE_TABLES`, `REL_INVERSES`, `LANGUAGE_EXTENSIONS`, `COMPATIBLE_EDGES`                                                               | Pre-computed lookup tables                                              |
+| **Validation**         | `validateNodeProperties`, `validateEdgeCompatibility`, `validateConfig`, `validateReviewComment`, `validateStandard`, `validateReport` | Runtime validation utilities                                            |
+| **Guards**             | `isNodeLabel`, `isRelationshipType`, `getLanguageFromFilename`                                                                         | Type guard and utility functions                                        |
 
 ## Usage
 
@@ -144,47 +144,47 @@ const node: GraphNode = {
 
 The `CodeAnalyzerConfig` interface defines the full configuration schema:
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `projectId` | `string` | Yes | — | Unique project identifier |
-| `rootPath` | `string` | Yes | — | Root directory of the project |
-| `language` | `SupportedLanguage` | No | — | Target language |
-| `excludePatterns` | `string[]` | Yes | — | Glob patterns to exclude |
-| `includePatterns` | `string[]` | Yes | — | Glob patterns to include |
-| `maxFileSize` | `number` | Yes | — | Max file size in bytes |
-| `maxFiles` | `number` | Yes | — | Max files to process |
-| `parseWorkers` | `number` | Yes | — | Parallel parsing workers |
-| `cacheDir` | `string` | No | — | Cache directory path |
-| `ignorePaths` | `string[]` | Yes | — | Directory names to ignore |
-| `mcp` | `MCPServerConfig` | No | — | MCP server settings |
-| `review` | `object` | No | — | Review engine settings |
-| `embed` | `object` | No | — | Embedding model settings |
-| `pruner` | `object` | No | — | Symbol pruning settings |
+| Field             | Type                | Required | Default | Description                   |
+| ----------------- | ------------------- | -------- | ------- | ----------------------------- |
+| `projectId`       | `string`            | Yes      | —       | Unique project identifier     |
+| `rootPath`        | `string`            | Yes      | —       | Root directory of the project |
+| `language`        | `SupportedLanguage` | No       | —       | Target language               |
+| `excludePatterns` | `string[]`          | Yes      | —       | Glob patterns to exclude      |
+| `includePatterns` | `string[]`          | Yes      | —       | Glob patterns to include      |
+| `maxFileSize`     | `number`            | Yes      | —       | Max file size in bytes        |
+| `maxFiles`        | `number`            | Yes      | —       | Max files to process          |
+| `parseWorkers`    | `number`            | Yes      | —       | Parallel parsing workers      |
+| `cacheDir`        | `string`            | No       | —       | Cache directory path          |
+| `ignorePaths`     | `string[]`          | Yes      | —       | Directory names to ignore     |
+| `mcp`             | `MCPServerConfig`   | No       | —       | MCP server settings           |
+| `review`          | `object`            | No       | —       | Review engine settings        |
+| `embed`           | `object`            | No       | —       | Embedding model settings      |
+| `pruner`          | `object`            | No       | —       | Symbol pruning settings       |
 
 ## Supported Languages
 
 The package defines types for 18 languages, with 8 having file extension mappings:
 
-| Language | Extensions |
-|----------|------------|
-| `typescript` | `.ts`, `.tsx`, `.mts`, `.cts` |
-| `javascript` | `.js`, `.jsx`, `.mjs`, `.cjs` |
-| `python` | `.py`, `.pyi`, `.pyx`, `.pxd` |
-| `go` | `.go` |
-| `java` | `.java` |
-| `kotlin` | `.kt`, `.kts` |
-| `csharp` | `.cs`, `.csx` |
-| `rust` | `.rs` |
-| `c` | `.c`, `.h` |
-| `cpp` | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` |
-| `php` | `.php`, `.phtml` |
-| `ruby` | `.rb`, `.rake`, `.gemspec` |
-| `swift` | `.swift` |
-| `dart` | `.dart` |
-| `lua` | `.lua` |
-| `scala` | `.scala`, `.sc` |
-| `zig` | `.zig` |
-| `elixir` | `.ex`, `.exs` |
+| Language     | Extensions                                   |
+| ------------ | -------------------------------------------- |
+| `typescript` | `.ts`, `.tsx`, `.mts`, `.cts`                |
+| `javascript` | `.js`, `.jsx`, `.mjs`, `.cjs`                |
+| `python`     | `.py`, `.pyi`, `.pyx`, `.pxd`                |
+| `go`         | `.go`                                        |
+| `java`       | `.java`                                      |
+| `kotlin`     | `.kt`, `.kts`                                |
+| `csharp`     | `.cs`, `.csx`                                |
+| `rust`       | `.rs`                                        |
+| `c`          | `.c`, `.h`                                   |
+| `cpp`        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx` |
+| `php`        | `.php`, `.phtml`                             |
+| `ruby`       | `.rb`, `.rake`, `.gemspec`                   |
+| `swift`      | `.swift`                                     |
+| `dart`       | `.dart`                                      |
+| `lua`        | `.lua`                                       |
+| `scala`      | `.scala`, `.sc`                              |
+| `zig`        | `.zig`                                       |
+| `elixir`     | `.ex`, `.exs`                                |
 
 ## Package Dependencies
 

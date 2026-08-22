@@ -133,12 +133,7 @@ export class EmbeddingCache {
    * @param contentHash — SHA-256 hash of the source content
    * @param sourceLength — length of the source text (for stats)
    */
-  set(
-    key: string,
-    vector: Float32Array,
-    contentHash: string,
-    sourceLength = 0,
-  ): void {
+  set(key: string, vector: Float32Array, contentHash: string, sourceLength = 0): void {
     // If key already exists, update it
     const existing = this.map.get(key);
     if (existing) {
@@ -279,7 +274,8 @@ export class EmbeddingCache {
 
     let estimatedMemoryBytes = 0;
     for (const node of this.map.values()) {
-      estimatedMemoryBytes += node.embedding.vector.byteLength + node.embedding.contentHash.length + 100;
+      estimatedMemoryBytes +=
+        node.embedding.vector.byteLength + node.embedding.contentHash.length + 100;
     }
 
     return {

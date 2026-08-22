@@ -48,36 +48,66 @@ function setupStore(projectId: string = 'test-project'): InMemoryGraphStore {
 
   const node1 = makeNode({ name: 'funcA', qualifiedName: 'pkg.funcA', complexity: 5, projectId });
   const node2 = makeNode({ name: 'funcB', qualifiedName: 'pkg.funcB', complexity: 15, projectId });
-  const node3 = makeNode({ name: 'MyClass', qualifiedName: 'pkg.MyClass', label: 'Class', complexity: 8, projectId });
+  const node3 = makeNode({
+    name: 'MyClass',
+    qualifiedName: 'pkg.MyClass',
+    label: 'Class',
+    complexity: 8,
+    projectId,
+  });
   const node4 = makeNode({ name: 'funcC', qualifiedName: 'pkg.funcC', complexity: 3, projectId });
-  const node5 = makeNode({ name: 'handler', qualifiedName: 'pkg.handler', complexity: 25, projectId, filePath: '/src/handler.ts' });
+  const node5 = makeNode({
+    name: 'handler',
+    qualifiedName: 'pkg.handler',
+    complexity: 25,
+    projectId,
+    filePath: '/src/handler.ts',
+  });
 
   store.insertNodes([node1, node2, node3, node4, node5]);
 
-  const allNodes = store.getAllNodes().filter(n => n.projectId === projectId);
-  const a = allNodes.find(n => n.name === 'funcA');
-  const b = allNodes.find(n => n.name === 'funcB');
-  const c = allNodes.find(n => n.name === 'MyClass');
-  const d = allNodes.find(n => n.name === 'funcC');
-  const e = allNodes.find(n => n.name === 'handler');
+  const allNodes = store.getAllNodes().filter((n) => n.projectId === projectId);
+  const a = allNodes.find((n) => n.name === 'funcA');
+  const b = allNodes.find((n) => n.name === 'funcB');
+  const c = allNodes.find((n) => n.name === 'MyClass');
+  const d = allNodes.find((n) => n.name === 'funcC');
+  const e = allNodes.find((n) => n.name === 'handler');
 
   // Create edges: a calls b, a calls d, b calls c, c has method
   if (a && b) {
     store.insertEdge({
-      id: 0, projectId, sourceId: a.id, targetId: b.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: a.id,
+      targetId: b.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
   if (a && d) {
     store.insertEdge({
-      id: 0, projectId, sourceId: a.id, targetId: d.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: a.id,
+      targetId: d.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
   if (b && c) {
     store.insertEdge({
-      id: 0, projectId, sourceId: b.id, targetId: c.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId,
+      sourceId: b.id,
+      targetId: c.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 
@@ -119,12 +149,14 @@ describe('Cypher Executor — MATCH nodes', () => {
     // Build a plan manually with a property filter in the scan step
     const planWithProps: QueryPlan = {
       source: 'code_analyzer_graph',
-      steps: [{
-        kind: 'scan',
-        details: {
-          pattern: { variable: 'n', labels: ['Function'], properties: { name: 'funcA' } },
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: ['Function'], properties: { name: 'funcA' } },
+          },
         },
-      }],
+      ],
       columns: [{ name: 'n', expression: 'n', type: 'node' }],
       params: {},
       distinct: false,
@@ -345,7 +377,7 @@ describe('Cypher Executor — DISTINCT', () => {
     expect(result.rows.length).toBeGreaterThan(0);
 
     // Verify no duplicate names
-    const names = result.rows.map(r => r.name);
+    const names = result.rows.map((r) => r.name);
     const uniqueNames = new Set(names);
     expect(names.length).toBe(uniqueNames.size);
   });
@@ -387,12 +419,14 @@ describe('Cypher Executor — Error cases', () => {
     const store = setupStore();
     const planWithScan: QueryPlan = {
       source: 'code_analyzer_graph',
-      steps: [{
-        kind: 'scan',
-        details: {
-          pattern: { variable: 'n', labels: ['Function'], properties: {} },
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: ['Function'], properties: {} },
+          },
         },
-      }],
+      ],
       columns: [],
       params: {},
       distinct: false,
@@ -512,7 +546,10 @@ describe('Cypher Executor — Coverage fillers', () => {
     const scanPlan: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } } },
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
         { kind: 'filter', details: { label: 'n', value: ['Function'] } },
       ],
       columns: [{ name: 'n', expression: 'n', type: 'node' }],
@@ -528,7 +565,10 @@ describe('Cypher Executor — Coverage fillers', () => {
     const scanPlan: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } } },
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
         { kind: 'filter', details: { label: 'n' } },
       ],
       columns: [{ name: 'n', expression: 'n', type: 'node' }],
@@ -588,12 +628,14 @@ describe('Cypher Executor — Coverage fillers', () => {
     const store = setupStore();
     const planWithStar: QueryPlan = {
       source: 'code_analyzer_graph',
-      steps: [{
-        kind: 'scan',
-        details: {
-          pattern: { variable: 'n', labels: ['Function'], properties: {} },
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: ['Function'], properties: {} },
+          },
         },
-      }],
+      ],
       columns: [{ name: 'star', expression: '*', type: 'computed' }],
       params: {},
       distinct: false,
@@ -632,12 +674,14 @@ describe('Cypher Executor — Coverage fillers', () => {
     const store = setupStore();
     const planWithAvg: QueryPlan = {
       source: 'code_analyzer_graph',
-      steps: [{
-        kind: 'scan',
-        details: {
-          pattern: { variable: 'n', labels: [], properties: {} },
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: [], properties: {} },
+          },
         },
-      }],
+      ],
       columns: [{ name: 'avg', expression: 'AVG(n)', type: 'computed' }],
       params: {},
       distinct: false,
@@ -651,12 +695,14 @@ describe('Cypher Executor — Coverage fillers', () => {
     const store = setupStore();
     const planWithMin: QueryPlan = {
       source: 'code_analyzer_graph',
-      steps: [{
-        kind: 'scan',
-        details: {
-          pattern: { variable: 'n', labels: [], properties: {} },
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: [], properties: {} },
+          },
         },
-      }],
+      ],
       columns: [{ name: 'min', expression: 'MIN(n)', type: 'computed' }],
       params: {},
       distinct: false,
@@ -670,12 +716,14 @@ describe('Cypher Executor — Coverage fillers', () => {
     const store = setupStore();
     const planWithMax: QueryPlan = {
       source: 'code_analyzer_graph',
-      steps: [{
-        kind: 'scan',
-        details: {
-          pattern: { variable: 'n', labels: [], properties: {} },
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: [], properties: {} },
+          },
         },
-      }],
+      ],
       columns: [{ name: 'max', expression: 'MAX(n)', type: 'computed' }],
       params: {},
       distinct: false,
@@ -698,12 +746,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planWithEdge: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'r', expression: 'r', type: 'edge' }],
       params: {},
@@ -719,12 +773,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planWithEdgeProp: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'weight', expression: 'r.weight', type: 'property' }],
       params: {},
@@ -740,12 +800,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planWithDuplicates: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['CALLS'], direction: 'both' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'both' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'a', expression: 'a.name', type: 'property' }],
       params: {},
@@ -754,7 +820,7 @@ describe('Cypher Executor — Coverage fillers', () => {
     const result = execute(planWithDuplicates, store, 'test-project');
     expect(result.rows).toBeDefined();
     // Verify rows are deduplicated
-    const names = result.rows.map(r => r.a);
+    const names = result.rows.map((r) => r.a);
     const uniqueNames = new Set(names);
     expect(names.length).toBe(uniqueNames.size);
   });
@@ -764,11 +830,14 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoSource: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'traverse', details: {
-          source: 'unknown',
-          relationship: { types: ['CALLS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'traverse',
+          details: {
+            source: 'unknown',
+            relationship: { types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'b', expression: 'b', type: 'node' }],
       params: {},
@@ -783,7 +852,17 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planFilterNoVars: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'filter', details: { expression: { type: 'binary', operator: '=', left: { type: 'property', object: 'n', property: 'name' }, right: { type: 'literal', value: 'test' } } } },
+        {
+          kind: 'filter',
+          details: {
+            expression: {
+              type: 'binary',
+              operator: '=',
+              left: { type: 'property', object: 'n', property: 'name' },
+              right: { type: 'literal', value: 'test' },
+            },
+          },
+        },
       ],
       columns: [{ name: 'n', expression: 'n', type: 'node' }],
       params: {},
@@ -815,14 +894,23 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoTarget: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['IMPLEMENTS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['IMPLEMENTS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
-      columns: [{ name: 'a', expression: 'a', type: 'node' }, { name: 'b', expression: 'b', type: 'node' }],
+      columns: [
+        { name: 'a', expression: 'a', type: 'node' },
+        { name: 'b', expression: 'b', type: 'node' },
+      ],
       params: {},
       distinct: false,
     };
@@ -835,14 +923,23 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planLeftTraverse: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Class'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['CALLS'], direction: 'left' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Class'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'left' },
+            target: 'b',
+          },
+        },
       ],
-      columns: [{ name: 'a', expression: 'a', type: 'node' }, { name: 'b', expression: 'b', type: 'node' }],
+      columns: [
+        { name: 'a', expression: 'a', type: 'node' },
+        { name: 'b', expression: 'b', type: 'node' },
+      ],
       params: {},
       distinct: false,
     };
@@ -856,12 +953,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planEdgeProp: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { variable: 'r', types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'weight', expression: 'r.weight', type: 'property' }],
       params: {},
@@ -876,7 +979,10 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planMissingProp: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } } },
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
       ],
       columns: [{ name: 'missing', expression: 'n.', type: 'property' }],
       params: {},
@@ -892,7 +998,10 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoFuncMatch: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } } },
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
       ],
       columns: [{ name: 'val', expression: '(n)', type: 'computed' }],
       params: {},
@@ -908,12 +1017,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planDup: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['CALLS'], direction: 'both' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'both' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'a', expression: 'a.name', type: 'property' }],
       params: {},
@@ -928,12 +1043,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoTypes: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: [], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: [], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'a', expression: 'a', type: 'node' }],
       params: {},
@@ -948,12 +1069,18 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoTypesLeft: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'b', labels: ['Class'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'b',
-          relationship: { types: [], direction: 'left' },
-          target: 'a',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'b', labels: ['Class'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'b',
+            relationship: { types: [], direction: 'left' },
+            target: 'a',
+          },
+        },
       ],
       columns: [{ name: 'b', expression: 'b', type: 'node' }],
       params: {},
@@ -968,11 +1095,17 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoTargetVar: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['CALLS'], direction: 'right' },
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'right' },
+          },
+        },
       ],
       columns: [{ name: 'a', expression: 'a', type: 'node' }],
       params: {},
@@ -987,14 +1120,23 @@ describe('Cypher Executor — Coverage fillers', () => {
     const planNoRelVar: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['CALLS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
-      columns: [{ name: 'a', expression: 'a', type: 'node' }, { name: 'b', expression: 'b', type: 'node' }],
+      columns: [
+        { name: 'a', expression: 'a', type: 'node' },
+        { name: 'b', expression: 'b', type: 'node' },
+      ],
       params: {},
       distinct: false,
     };
@@ -1006,19 +1148,27 @@ describe('Cypher Executor — Coverage fillers', () => {
     const store = new InMemoryGraphStore();
     const node = makeNode({ name: 'orphan', projectId: 'test-project' });
     store.insertNodes([node]);
-    const allNodes = store.getAllNodes().filter(n => n.projectId === 'test-project');
+    const allNodes = store.getAllNodes().filter((n) => n.projectId === 'test-project');
     const orphanNode = allNodes[0];
     if (!orphanNode) return;
-    
+
     const planOrphan: QueryPlan = {
       source: 'code_analyzer_graph',
       steps: [
-        { kind: 'scan', details: { pattern: { variable: 'a', labels: ['Function'], properties: { name: 'orphan' } } } },
-        { kind: 'traverse', details: {
-          source: 'a',
-          relationship: { types: ['CALLS'], direction: 'right' },
-          target: 'b',
-        }},
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'a', labels: ['Function'], properties: { name: 'orphan' } },
+          },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
       ],
       columns: [{ name: 'a', expression: 'a', type: 'node' }],
       params: {},

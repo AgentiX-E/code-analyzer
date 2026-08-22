@@ -21,7 +21,17 @@ describe('Cypher Lexer', () => {
     it('should tokenize keywords correctly', () => {
       const tokens = tokenize('MATCH WHERE RETURN ORDER BY ASC DESC LIMIT SKIP');
       const values = tokens.map((t) => t.value);
-      expect(values).toEqual(['MATCH', 'WHERE', 'RETURN', 'ORDER', 'BY', 'ASC', 'DESC', 'LIMIT', 'SKIP']);
+      expect(values).toEqual([
+        'MATCH',
+        'WHERE',
+        'RETURN',
+        'ORDER',
+        'BY',
+        'ASC',
+        'DESC',
+        'LIMIT',
+        'SKIP',
+      ]);
       expect(tokens.every((t) => t.type === 'KEYWORD')).toBe(true);
     });
 
@@ -32,7 +42,7 @@ describe('Cypher Lexer', () => {
     });
 
     it('should tokenize string literals', () => {
-      const tokens = tokenize("'hello world' \"double\"");
+      const tokens = tokenize('\'hello world\' "double"');
       const strings = tokens.filter((t) => t.type === 'STRING');
       expect(strings.map((t) => t.value)).toEqual(['hello world', 'double']);
     });
@@ -52,7 +62,18 @@ describe('Cypher Lexer', () => {
     it('should tokenize punctuation', () => {
       const tokens = tokenize('( ) [ ] { } , . : ;');
       const puncts = tokens.filter((t) => t.type === 'PUNCTUATION');
-      expect(puncts.map((t) => t.value)).toEqual(['(', ')', '[', ']', '{', '}', ',', '.', ':', ';']);
+      expect(puncts.map((t) => t.value)).toEqual([
+        '(',
+        ')',
+        '[',
+        ']',
+        '{',
+        '}',
+        ',',
+        '.',
+        ':',
+        ';',
+      ]);
     });
 
     it('should handle logical operators', () => {
@@ -110,7 +131,8 @@ describe('Cypher Lexer', () => {
     });
 
     it('should tokenize a full Cypher query', () => {
-      const query = 'MATCH (n:Function) WHERE n.complexity > 10 RETURN n.name, n.complexity ORDER BY n.complexity DESC LIMIT 5';
+      const query =
+        'MATCH (n:Function) WHERE n.complexity > 10 RETURN n.name, n.complexity ORDER BY n.complexity DESC LIMIT 5';
       const tokens = tokenize(query);
       expect(tokens.length).toBeGreaterThan(15);
       expect(tokens[0]!!.value).toBe('MATCH');

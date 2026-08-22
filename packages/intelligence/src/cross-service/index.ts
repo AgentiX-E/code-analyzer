@@ -45,10 +45,7 @@ export {
 } from './http-linking.js';
 
 // gRPC Linking
-export {
-  GRPC_LIBRARIES,
-  extractGrpcServiceMethod,
-} from './grpc-linking.js';
+export { GRPC_LIBRARIES, extractGrpcServiceMethod } from './grpc-linking.js';
 
 // GraphQL & tRPC Linking
 export {

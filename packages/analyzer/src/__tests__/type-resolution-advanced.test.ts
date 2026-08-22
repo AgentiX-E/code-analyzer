@@ -217,7 +217,17 @@ describe('TypeScriptAdvancedResolver', () => {
   describe('Primitive detection', () => {
     it('should detect primitives', async () => {
       const resolver = makeTSResolver();
-      for (const prim of ['string', 'number', 'boolean', 'void', 'undefined', 'null', 'any', 'never', 'unknown']) {
+      for (const prim of [
+        'string',
+        'number',
+        'boolean',
+        'void',
+        'undefined',
+        'null',
+        'any',
+        'never',
+        'unknown',
+      ]) {
         const result = await resolver.resolveType(prim, makeContext());
         expect(result).not.toBeNull();
         expect(result!.kind).toBe('primitive');
@@ -391,7 +401,10 @@ describe('PythonAdvancedResolver', () => {
   describe('Callable types', () => {
     it('should resolve Callable[[int, str], bool]', async () => {
       const resolver = makePyResolver();
-      const result = await resolver.resolveType('Callable[[int, str], bool]', makeContext('/test.py'));
+      const result = await resolver.resolveType(
+        'Callable[[int, str], bool]',
+        makeContext('/test.py'),
+      );
       expect(result).not.toBeNull();
       expect(result!.kind).toBe('function');
       expect(result!.parameterTypes).toHaveLength(2);
@@ -662,7 +675,10 @@ describe('JavaResolver', () => {
 
     it('should resolve HashMap<K, V>', async () => {
       const resolver = makeJavaResolver();
-      const result = await resolver.resolveType('HashMap<String, Integer>', makeContext('/test.java'));
+      const result = await resolver.resolveType(
+        'HashMap<String, Integer>',
+        makeContext('/test.java'),
+      );
       expect(result).not.toBeNull();
       expect(result!.kind).toBe('generic');
     });
@@ -729,8 +745,8 @@ describe('JavaResolver', () => {
       const resolver = makeJavaResolver();
       const types = resolver.extractTypes(
         'public class ArrayList<T> extends AbstractList<T> implements List<T>, RandomAccess {\n' +
-        '  public int size() { return 0; }\n' +
-        '}',
+          '  public int size() { return 0; }\n' +
+          '}',
         '/test.java',
       );
       expect(types).toHaveLength(1);
@@ -786,7 +802,10 @@ describe('Edge cases', () => {
   describe('Deeply nested generics', () => {
     it('should resolve triple-nested generics in TS', async () => {
       const resolver = makeTSResolver();
-      const result = await resolver.resolveType('Promise<Array<Map<string, number>>>', makeContext());
+      const result = await resolver.resolveType(
+        'Promise<Array<Map<string, number>>>',
+        makeContext(),
+      );
       expect(result).not.toBeNull();
       expect(result!.kind).toBe('generic');
     });

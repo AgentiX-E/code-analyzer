@@ -54,9 +54,9 @@ export const testGenerationTool: McpToolDefinition = {
     }
 
     const projectIdStr = projectId as string;
-    let nodes = store.getAllNodes().filter(
-      (n) => n.projectId === projectIdStr && isTestableNode(n.label),
-    );
+    let nodes = store
+      .getAllNodes()
+      .filter((n) => n.projectId === projectIdStr && isTestableNode(n.label));
 
     if (symbolName) {
       nodes = nodes.filter((n) => n.name === (symbolName as string));
@@ -67,7 +67,12 @@ export const testGenerationTool: McpToolDefinition = {
 
     if (nodes.length === 0) {
       return {
-        content: [{ type: 'text', text: `No testable symbols found for project "${projectIdStr}". Index the project first.` }],
+        content: [
+          {
+            type: 'text',
+            text: `No testable symbols found for project "${projectIdStr}". Index the project first.`,
+          },
+        ],
         metadata: { projectId: projectIdStr },
       };
     }
@@ -115,11 +120,16 @@ function generateTestSkeletons(
   for (const node of nodes) {
     // Detect language from file extension
     const ext = node.filePath ? node.filePath.split('.').pop()?.toLowerCase() : '';
-    const language = ext === 'ts' || ext === 'tsx' ? 'typescript'
-      : ext === 'js' || ext === 'jsx' ? 'javascript'
-      : ext === 'py' ? 'python'
-      : ext === 'go' ? 'go'
-      : 'typescript';
+    const language =
+      ext === 'ts' || ext === 'tsx'
+        ? 'typescript'
+        : ext === 'js' || ext === 'jsx'
+          ? 'javascript'
+          : ext === 'py'
+            ? 'python'
+            : ext === 'go'
+              ? 'go'
+              : 'typescript';
 
     // Get dependencies (called symbols)
     const outgoingEdges = store.getEdgesForNode(node.id, EDGE_CALLS, 'out');
@@ -325,9 +335,8 @@ function formatSkeletons(skeletons: TestSkeleton[], projectId: string, framework
   report += `> Dependencies listed are those detected via CALLS edges in the graph.\n\n`;
 
   for (const sk of skeletons) {
-    const depInfo = sk.dependencies.length > 0
-      ? ` | **Dependencies**: ${sk.dependencies.join(', ')}`
-      : '';
+    const depInfo =
+      sk.dependencies.length > 0 ? ` | **Dependencies**: ${sk.dependencies.join(', ')}` : '';
     report += `### \`${sk.functionName}\` — ${sk.language}${depInfo}\n\n`;
     report += '```' + (sk.language === 'typescript' ? 'typescript' : sk.language) + '\n';
     report += sk.testCode;

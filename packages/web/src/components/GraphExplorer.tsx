@@ -252,14 +252,14 @@ const GraphExplorer: React.FC = () => {
       .finally(() => {
         if (!cancelled) setApiLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [stats?.nodes]);
 
   // Determine data source
   const useApiData = apiGraphData && apiGraphData.nodes.length > 0;
-  const converted = useApiData
-    ? convertGraphData(apiGraphData!)
-    : buildFallbackData();
+  const converted = useApiData ? convertGraphData(apiGraphData!) : buildFallbackData();
 
   const [graph, setGraph] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>(converted);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
@@ -300,9 +300,7 @@ const GraphExplorer: React.FC = () => {
 
   const handleNodeHover = useCallback(
     (node: GraphNode, e: React.MouseEvent) => {
-      const related = graph.edges.filter(
-        (ed) => ed.source === node.id || ed.target === node.id,
-      );
+      const related = graph.edges.filter((ed) => ed.source === node.id || ed.target === node.id);
       const rect = (e.target as SVGCircleElement).getBoundingClientRect();
       setTooltip({
         node,
@@ -316,29 +314,29 @@ const GraphExplorer: React.FC = () => {
 
   const handleNodeLeave = useCallback(() => setTooltip(null), []);
 
-  const handleNodeClick = useCallback(
-    (nodeId: string) => {
-      setSelectedNode((prev) => (prev === nodeId ? null : nodeId));
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        if (next.has(nodeId)) {
-          next.delete(nodeId);
-        } else {
-          next.add(nodeId);
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const handleNodeClick = useCallback((nodeId: string) => {
+    setSelectedNode((prev) => (prev === nodeId ? null : nodeId));
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   // Pan & zoom handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget || (e.target as Element).tagName === 'svg') {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - zoom.x, y: e.clientY - zoom.y });
-    }
-  }, [zoom.x, zoom.y]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget || (e.target as Element).tagName === 'svg') {
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - zoom.x, y: e.clientY - zoom.y });
+      }
+    },
+    [zoom.x, zoom.y],
+  );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -399,7 +397,10 @@ const GraphExplorer: React.FC = () => {
             Reset View
           </button>
           {useApiData && (
-            <span className="graph-data-source" style={{ fontSize: '0.75rem', color: 'var(--accent)', alignSelf: 'center' }}>
+            <span
+              className="graph-data-source"
+              style={{ fontSize: '0.75rem', color: 'var(--accent)', alignSelf: 'center' }}
+            >
               Live data — {stats?.nodes ?? '?'} nodes, {stats?.edges ?? '?'} edges
             </span>
           )}
@@ -442,8 +443,7 @@ const GraphExplorer: React.FC = () => {
                 const s = graph.nodes.find((n) => n.id === edge.source);
                 const t = graph.nodes.find((n) => n.id === edge.target);
                 if (!s || !t) return null;
-                const isSelected =
-                  selectedNode === edge.source || selectedNode === edge.target;
+                const isSelected = selectedNode === edge.source || selectedNode === edge.target;
                 return (
                   <g key={`edge-${i}`} className={`graph-edge ${edge.type}`}>
                     <line
@@ -509,9 +509,7 @@ const GraphExplorer: React.FC = () => {
       {/* Legend */}
       <div className="graph-legend">
         <h3>Legend</h3>
-        <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginBottom: 10 }}>
-          Nodes
-        </p>
+        <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginBottom: 10 }}>Nodes</p>
         {Object.entries(NODE_COLORS).map(([type, color]) => (
           <div className="legend-item" key={type}>
             <span className={`legend-dot ${type}`} style={{ background: color }} />

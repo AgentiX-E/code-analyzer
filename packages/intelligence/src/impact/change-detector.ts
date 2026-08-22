@@ -1,13 +1,15 @@
 // @code-analyzer/intelligence — Change Detector
 // Detects changed symbols from git diffs and classifies risk per change.
 
-import type {
-  GitDiff,
-  RiskLevel,
-  GraphNode,
-  RelationshipType,
+import type { GitDiff, RiskLevel, GraphNode, RelationshipType } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_EXTENDS,
+  EDGE_HANDLES_ROUTE,
+  EDGE_IMPLEMENTS,
+  EDGE_MEMBER_OF,
+  EDGE_TESTS,
 } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_HANDLES_ROUTE, EDGE_IMPLEMENTS, EDGE_MEMBER_OF, EDGE_TESTS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -65,10 +67,7 @@ export class ChangeDetector {
    * Detect changed symbols from a set of git diffs.
    * For each diff, maps changed line ranges to symbols and classifies risk.
    */
-  async detectChanges(
-    projectId: string,
-    diffs: GitDiff[],
-  ): Promise<ChangeDetectionResult> {
+  async detectChanges(projectId: string, diffs: GitDiff[]): Promise<ChangeDetectionResult> {
     const allChangedSymbols: ChangedSymbol[] = [];
     const riskByFile = new Map<string, RiskLevel>();
 
@@ -79,9 +78,7 @@ export class ChangeDetector {
         allChangedSymbols.push(swc.symbol);
       }
 
-      const fileSymbols = allChangedSymbols.filter(
-        (s) => s.filePath === diff.filePath,
-      );
+      const fileSymbols = allChangedSymbols.filter((s) => s.filePath === diff.filePath);
       const maxRisk = this.maxRisk(fileSymbols.map((s) => s.riskLevel));
       riskByFile.set(diff.filePath, maxRisk);
     }
@@ -98,9 +95,7 @@ export class ChangeDetector {
       .filter((s) => s.changeType === 'modified')
       .map((s) => s.qualifiedName);
 
-    const overallRisk = this.maxRisk(
-      allChangedSymbols.map((s) => s.riskLevel),
-    );
+    const overallRisk = this.maxRisk(allChangedSymbols.map((s) => s.riskLevel));
 
     return {
       changedSymbols: allChangedSymbols,
@@ -117,25 +112,15 @@ export class ChangeDetector {
    * For each diff range, finds overlapping symbols and resolves callers,
    * callees, tests, and routes.
    */
-  async mapDiffToSymbols(
-    projectId: string,
-    diff: GitDiff,
-  ): Promise<SymbolWithChanges[]> {
+  async mapDiffToSymbols(projectId: string, diff: GitDiff): Promise<SymbolWithChanges[]> {
     const results: SymbolWithChanges[] = [];
     const symbolChangeType = this.mapChangeType(diff.changeType);
 
     for (const range of diff.ranges) {
-      const startLine =
-        diff.changeType === 'added' ? range.newStart : range.oldStart;
-      const endLine =
-        diff.changeType === 'added' ? range.newEnd : range.oldEnd;
+      const startLine = diff.changeType === 'added' ? range.newStart : range.oldStart;
+      const endLine = diff.changeType === 'added' ? range.newEnd : range.oldEnd;
 
-      const symbols = this.getSymbolsInRange(
-        projectId,
-        diff.filePath,
-        startLine,
-        endLine,
-      );
+      const symbols = this.getSymbolsInRange(projectId, diff.filePath, startLine, endLine);
 
       for (const symbol of symbols) {
         symbol.changeType = symbolChangeType;
@@ -153,9 +138,7 @@ export class ChangeDetector {
           limit: 100000,
         });
         const callers = incomingCalls.items.map(
-          (e) =>
-            this.store.getNode(e.sourceId)?.qualifiedName ??
-            `node-${e.sourceId}`,
+          (e) => this.store.getNode(e.sourceId)?.qualifiedName ?? `node-${e.sourceId}`,
         );
 
         // Callees: outgoing CALLS edges
@@ -166,9 +149,7 @@ export class ChangeDetector {
           limit: 100000,
         });
         const callees = outgoingCalls.items.map(
-          (e) =>
-            this.store.getNode(e.targetId)?.qualifiedName ??
-            `node-${e.targetId}`,
+          (e) => this.store.getNode(e.targetId)?.qualifiedName ?? `node-${e.targetId}`,
         );
 
         // Tests: incoming TESTS edges
@@ -179,9 +160,7 @@ export class ChangeDetector {
           limit: 100000,
         });
         const tests = testEdges.items.map(
-          (e) =>
-            this.store.getNode(e.sourceId)?.qualifiedName ??
-            `node-${e.sourceId}`,
+          (e) => this.store.getNode(e.sourceId)?.qualifiedName ?? `node-${e.sourceId}`,
         );
 
         // Routes: check if node handles route or is a route
@@ -192,9 +171,7 @@ export class ChangeDetector {
           limit: 100000,
         });
         const routes = routeEdges.items.map(
-          (e) =>
-            this.store.getNode(e.targetId)?.qualifiedName ??
-            `node-${e.targetId}`,
+          (e) => this.store.getNode(e.targetId)?.qualifiedName ?? `node-${e.targetId}`,
         );
 
         const context = {
@@ -202,8 +179,7 @@ export class ChangeDetector {
           degree: this.computeDependentDegree(projectId, nodeId),
           isRoute:
             node.label === 'Route' ||
-            (node.properties.routePath !== undefined &&
-              node.properties.routePath !== null),
+            (node.properties.routePath !== undefined && node.properties.routePath !== null),
           isInterface: node.label === 'Interface',
         };
         symbol.riskLevel = this.classifyRisk(symbol, context);
@@ -292,29 +268,23 @@ export class ChangeDetector {
           n.startLine !== null &&
           n.endLine !== null,
       )
-      .filter(
-        (n: GraphNode) => n.startLine! <= endLine && n.endLine! >= startLine,
-      )
-      .map(
-        (n: GraphNode): ChangedSymbol => ({
-          name: n.name,
-          qualifiedName: n.qualifiedName,
-          filePath: n.filePath ?? filePath,
-          changeType: 'modified',
-          lineRange: [n.startLine!, n.endLine!],
-          riskLevel: 'low',
-          reason: `Symbol overlaps change range [${startLine}, ${endLine}]`,
-        }),
-      );
+      .filter((n: GraphNode) => n.startLine! <= endLine && n.endLine! >= startLine)
+      .map((n: GraphNode): ChangedSymbol => ({
+        name: n.name,
+        qualifiedName: n.qualifiedName,
+        filePath: n.filePath ?? filePath,
+        changeType: 'modified',
+        lineRange: [n.startLine!, n.endLine!],
+        riskLevel: 'low',
+        reason: `Symbol overlaps change range [${startLine}, ${endLine}]`,
+      }));
   }
 
   // ---------------------------------------------------------------------------
   // Private Helpers
   // ---------------------------------------------------------------------------
 
-  private mapChangeType(
-    diffChangeType: GitDiff['changeType'],
-  ): ChangedSymbol['changeType'] {
+  private mapChangeType(diffChangeType: GitDiff['changeType']): ChangedSymbol['changeType'] {
     switch (diffChangeType) {
       case 'added':
         return 'added';
@@ -326,10 +296,7 @@ export class ChangeDetector {
     }
   }
 
-  private computeDependentDegree(
-    projectId: string,
-    nodeId: number,
-  ): number {
+  private computeDependentDegree(projectId: string, nodeId: number): number {
     let degree = 0;
     for (const relType of DEPENDENT_RELATIONSHIPS) {
       const incoming = this.store.queryEdges({

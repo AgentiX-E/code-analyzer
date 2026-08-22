@@ -161,10 +161,7 @@ export class HealthCheckRegistry {
 // ---------------------------------------------------------------------------
 
 /** Create a health check that verifies an object is non-null. */
-export function createDependencyCheck(
-  name: string,
-  getDep: () => unknown,
-): HealthCheckFn {
+export function createDependencyCheck(name: string, getDep: () => unknown): HealthCheckFn {
   return async () => {
     try {
       const dep = getDep();
@@ -193,10 +190,16 @@ export function createThresholdCheck(
     try {
       const value = getValue();
       if (value >= criticalThreshold) {
-        return { status: 'unhealthy', message: `${name}: ${value}${unit} >= critical threshold ${criticalThreshold}${unit}` };
+        return {
+          status: 'unhealthy',
+          message: `${name}: ${value}${unit} >= critical threshold ${criticalThreshold}${unit}`,
+        };
       }
       if (value >= warnThreshold) {
-        return { status: 'degraded', message: `${name}: ${value}${unit} >= warning threshold ${warnThreshold}${unit}` };
+        return {
+          status: 'degraded',
+          message: `${name}: ${value}${unit} >= warning threshold ${warnThreshold}${unit}`,
+        };
       }
       return { status: 'healthy', message: `${name}: ${value}${unit}` };
     } catch (error: unknown) {

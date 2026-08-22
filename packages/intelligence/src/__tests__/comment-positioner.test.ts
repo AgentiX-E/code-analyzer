@@ -2,10 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { CommentPositioner } from '../review/comment-positioner.js';
-import type {
-  PositionedComment,
-  PositionResult,
-} from '../review/comment-positioner.js';
+import type { PositionedComment, PositionResult } from '../review/comment-positioner.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -32,9 +29,7 @@ function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
   };
 }
 
-function positioned(
-  overrides: Partial<PositionedComment> = {},
-): PositionedComment {
+function positioned(overrides: Partial<PositionedComment> = {}): PositionedComment {
   return {
     path: 'src/app.ts',
     content: 'Use const instead of let',

@@ -30,13 +30,13 @@ Alternatively, open Windsurf Settings → MCP Servers → Add Server.
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| **Smart Code Review** | Review PRs and staged changes with 70+ lint rules |
-| **Semantic Search** | Find code by meaning, not just text |
-| **Impact Analysis** | Predict which files will be affected by a change |
-| **Knowledge Graph** | Query the codebase as a graph for architectural insights |
-| **Cross-Repo Analysis** | Analyze relationships across multiple repositories |
+| Feature                 | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| **Smart Code Review**   | Review PRs and staged changes with 70+ lint rules        |
+| **Semantic Search**     | Find code by meaning, not just text                      |
+| **Impact Analysis**     | Predict which files will be affected by a change         |
+| **Knowledge Graph**     | Query the codebase as a graph for architectural insights |
+| **Cross-Repo Analysis** | Analyze relationships across multiple repositories       |
 
 ## Windsurf-Specific Configuration
 

@@ -61,10 +61,7 @@ export class CircuitBreaker {
   private onFailure(): void {
     this.failureCount++;
 
-    if (
-      this.stateInternal === 'closed' &&
-      this.failureCount >= this.failureThreshold
-    ) {
+    if (this.stateInternal === 'closed' && this.failureCount >= this.failureThreshold) {
       this.transitionTo('open');
     }
 

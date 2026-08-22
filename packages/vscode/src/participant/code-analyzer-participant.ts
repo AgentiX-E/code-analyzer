@@ -75,8 +75,20 @@ export const SLASH_COMMANDS = [
 // Intent Classification
 // ---------------------------------------------------------------------------
 
-export type IntentType = 'explore' | 'search' | 'review' | 'impact' | 'debug' | 'refactor'
-  | 'explain' | 'find' | 'deps' | 'test' | 'analyze' | 'coverage' | 'standards';
+export type IntentType =
+  | 'explore'
+  | 'search'
+  | 'review'
+  | 'impact'
+  | 'debug'
+  | 'refactor'
+  | 'explain'
+  | 'find'
+  | 'deps'
+  | 'test'
+  | 'analyze'
+  | 'coverage'
+  | 'standards';
 
 export interface ClassifiedIntent {
   type: IntentType;
@@ -274,23 +286,14 @@ export class CodeAnalyzerChatParticipant {
     // Detect slash command in prompt text (e.g. "/review")
     const parsedCommand = this.parseSlashCommandFromPrompt(request.prompt);
     if (parsedCommand) {
-      return this.handleSlashCommand(
-        parsedCommand.command,
-        parsedCommand.params,
-        stream,
-        token,
-      );
+      return this.handleSlashCommand(parsedCommand.command, parsedCommand.params, stream, token);
     }
 
     // 1. Classify user intent
     const intent = this.classifyIntent(request.prompt);
 
     // 2. Gather enriched context via analyzer tools
-    const analysisContext = await this.gatherAnalysisContext(
-      intent,
-      request,
-      token,
-    );
+    const analysisContext = await this.gatherAnalysisContext(intent, request, token);
 
     // 3. Build context for Copilot's language model
     const contextMessage = this.buildContextMessage(intent, analysisContext);
@@ -348,7 +351,9 @@ export class CodeAnalyzerChatParticipant {
       case 'audit-security':
         return this.handleAuditSecurityCommand(stream, token);
       default:
-        stream.markdown('## Unknown Command\n\nCommand not recognized. Available commands:\n- `/review`\n- `/explain <symbol>`\n- `/impact <symbol>`\n- `/find <query>`\n- `/deps <symbol>`\n- `/refactor <symbol>`\n- `/test <symbol>`\n- `/analyze`\n- `/coverage`\n- `/standards`\n- `/review-deps`\n- `/check-contract <file>`\n- `/trace-dataflow <file>`\n- `/find-hotspots`\n- `/audit-security`\n');
+        stream.markdown(
+          '## Unknown Command\n\nCommand not recognized. Available commands:\n- `/review`\n- `/explain <symbol>`\n- `/impact <symbol>`\n- `/find <query>`\n- `/deps <symbol>`\n- `/refactor <symbol>`\n- `/test <symbol>`\n- `/analyze`\n- `/coverage`\n- `/standards`\n- `/review-deps`\n- `/check-contract <file>`\n- `/trace-dataflow <file>`\n- `/find-hotspots`\n- `/audit-security`\n',
+        );
         return { metadata: { command, error: 'unknown_command' } };
     }
   }
@@ -413,7 +418,9 @@ export class CodeAnalyzerChatParticipant {
     token: CancellationToken,
   ): Promise<ChatResult> {
     if (!params) {
-      stream.markdown('## /explain\n\n**Usage:** `/explain <symbol>`\n\nProvide a symbol name to explain.\n');
+      stream.markdown(
+        '## /explain\n\n**Usage:** `/explain <symbol>`\n\nProvide a symbol name to explain.\n',
+      );
       return { metadata: { command: 'explain', error: 'missing_params' } };
     }
 
@@ -448,7 +455,9 @@ export class CodeAnalyzerChatParticipant {
     token: CancellationToken,
   ): Promise<ChatResult> {
     if (!params) {
-      stream.markdown('## /impact\n\n**Usage:** `/impact <symbol>`\n\nProvide a symbol name to analyze impact.\n');
+      stream.markdown(
+        '## /impact\n\n**Usage:** `/impact <symbol>`\n\nProvide a symbol name to analyze impact.\n',
+      );
       return { metadata: { command: 'impact', error: 'missing_params' } };
     }
 
@@ -530,7 +539,9 @@ export class CodeAnalyzerChatParticipant {
     token: CancellationToken,
   ): Promise<ChatResult> {
     if (!params) {
-      stream.markdown('## /deps\n\n**Usage:** `/deps <symbol>`\n\nProvide a symbol name to show dependencies.\n');
+      stream.markdown(
+        '## /deps\n\n**Usage:** `/deps <symbol>`\n\nProvide a symbol name to show dependencies.\n',
+      );
       return { metadata: { command: 'deps', error: 'missing_params' } };
     }
 
@@ -577,7 +588,9 @@ export class CodeAnalyzerChatParticipant {
     token: CancellationToken,
   ): Promise<ChatResult> {
     if (!params) {
-      stream.markdown('## /refactor\n\n**Usage:** `/refactor <symbol>`\n\nProvide a symbol name to find refactoring opportunities.\n');
+      stream.markdown(
+        '## /refactor\n\n**Usage:** `/refactor <symbol>`\n\nProvide a symbol name to find refactoring opportunities.\n',
+      );
       return { metadata: { command: 'refactor', error: 'missing_params' } };
     }
 
@@ -594,7 +607,11 @@ export class CodeAnalyzerChatParticipant {
         const violations = await this.engine.checkStandards(ctx.symbolDetail.filePath);
         ctx.standardsViolations = violations
           .filter((v) => !v.passed)
-          .map((v) => ({ ruleId: v.passed ? 'passed' : 'failed', message: v.message, severity: 'warning' }));
+          .map((v) => ({
+            ruleId: v.passed ? 'passed' : 'failed',
+            message: v.message,
+            severity: 'warning',
+          }));
       } catch {
         // No standards available
       }
@@ -628,7 +645,9 @@ export class CodeAnalyzerChatParticipant {
     token: CancellationToken,
   ): Promise<ChatResult> {
     if (!params) {
-      stream.markdown('## /test\n\n**Usage:** `/test <symbol>`\n\nProvide a symbol name to find related tests.\n');
+      stream.markdown(
+        '## /test\n\n**Usage:** `/test <symbol>`\n\nProvide a symbol name to find related tests.\n',
+      );
       return { metadata: { command: 'test', error: 'missing_params' } };
     }
 
@@ -647,9 +666,7 @@ export class CodeAnalyzerChatParticipant {
     };
 
     // Identify coverage gaps: related symbols without tests
-    const testedSymbols = new Set(
-      (ctx.relatedTests ?? []).map((t) => t.name.toLowerCase()),
-    );
+    const testedSymbols = new Set((ctx.relatedTests ?? []).map((t) => t.name.toLowerCase()));
     for (const sym of ctx.symbols ?? []) {
       if (!testedSymbols.has(sym.name.toLowerCase())) {
         ctx.testCoverage.coverageGaps.push(sym.name);
@@ -702,13 +719,13 @@ export class CodeAnalyzerChatParticipant {
 
       stream.markdown(
         `## /analyze — Results\n\n` +
-        `### Analysis Complete ✅\n\n` +
-        `| Metric | Value |\n` +
-        `|--------|-------|\n` +
-        `| Symbols Indexed | ${symbolCount} |\n` +
-        `| Files Analyzed | ${fileCount} |\n` +
-        `| Results Found | ${resultCount} |\n\n` +
-        `Use \`/review\` to check for issues, or \`/find <query>\` to search the codebase.\n`,
+          `### Analysis Complete ✅\n\n` +
+          `| Metric | Value |\n` +
+          `|--------|-------|\n` +
+          `| Symbols Indexed | ${symbolCount} |\n` +
+          `| Files Analyzed | ${fileCount} |\n` +
+          `| Results Found | ${resultCount} |\n\n` +
+          `Use \`/review\` to check for issues, or \`/find <query>\` to search the codebase.\n`,
       );
 
       return {
@@ -720,7 +737,9 @@ export class CodeAnalyzerChatParticipant {
         },
       };
     } catch {
-      stream.markdown('## /analyze\n\n⚠️ Analysis failed. Make sure you are in a valid workspace.\n');
+      stream.markdown(
+        '## /analyze\n\n⚠️ Analysis failed. Make sure you are in a valid workspace.\n',
+      );
       return { metadata: { command: 'analyze', error: 'analysis_failed' } };
     }
   }
@@ -736,7 +755,7 @@ export class CodeAnalyzerChatParticipant {
     if (!params) {
       stream.markdown(
         '## /coverage\n\n**Usage:** `/coverage <symbol|file>`\n\n' +
-        'Analyze test coverage for a symbol or file.\n',
+          'Analyze test coverage for a symbol or file.\n',
       );
       return { metadata: { command: 'coverage', error: 'missing_params' } };
     }
@@ -757,15 +776,18 @@ export class CodeAnalyzerChatParticipant {
     const testedSymbols = new Set(tests.map((t) => t.name.toLowerCase()));
     const untested: string[] = [];
     for (const s of symbols) {
-      if (!testedSymbols.has(s.name.toLowerCase())
-        && !testedSymbols.has(`${s.name}.test`.toLowerCase())) {
+      if (
+        !testedSymbols.has(s.name.toLowerCase()) &&
+        !testedSymbols.has(`${s.name}.test`.toLowerCase())
+      ) {
         untested.push(s.name);
       }
     }
 
-    const coveragePercent = symbols.length > 0
-      ? Math.round((symbols.length - untested.length) / symbols.length * 100)
-      : 0;
+    const coveragePercent =
+      symbols.length > 0
+        ? Math.round(((symbols.length - untested.length) / symbols.length) * 100)
+        : 0;
 
     let msg = '## /coverage — Test Coverage\n\n';
     msg += `### Coverage Summary\n`;
@@ -789,9 +811,10 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    msg += `**Recommendation:** ${coveragePercent >= 80
-      ? 'Coverage looks good!'
-      : 'Consider adding tests for the uncovered symbols listed above.'
+    msg += `**Recommendation:** ${
+      coveragePercent >= 80
+        ? 'Coverage looks good!'
+        : 'Consider adding tests for the uncovered symbols listed above.'
     }\n`;
 
     stream.markdown(msg);
@@ -824,10 +847,12 @@ export class CodeAnalyzerChatParticipant {
     try {
       const files = params
         ? [params]
-        : (await this.engine.getChangedFiles())?.map((f) => f.path).slice(0, 10) ?? [];
+        : ((await this.engine.getChangedFiles())?.map((f) => f.path).slice(0, 10) ?? []);
 
       if (files.length === 0) {
-        stream.markdown('## /standards\n\nNo files to check. Make changes and try again, or specify a file path.\n');
+        stream.markdown(
+          '## /standards\n\nNo files to check. Make changes and try again, or specify a file path.\n',
+        );
         return { metadata: { command: 'standards', fileCount: 0 } };
       }
 
@@ -846,9 +871,13 @@ export class CodeAnalyzerChatParticipant {
       }
 
       // Compliance ratio
-      const complianceRatio = files.length > 0
-        ? Math.max(0, 100 - Math.min(100, Math.round(allViolations.length / files.length * 100)))
-        : 100;
+      const complianceRatio =
+        files.length > 0
+          ? Math.max(
+              0,
+              100 - Math.min(100, Math.round((allViolations.length / files.length) * 100)),
+            )
+          : 100;
 
       let msg = '## /standards — Compliance Report\n\n';
       msg += `### Summary\n`;
@@ -877,7 +906,9 @@ export class CodeAnalyzerChatParticipant {
         },
       };
     } catch {
-      stream.markdown('## /standards\n\n⚠️ Standards check failed. Ensure the workspace has been analyzed.\n');
+      stream.markdown(
+        '## /standards\n\n⚠️ Standards check failed. Ensure the workspace has been analyzed.\n',
+      );
       return { metadata: { command: 'standards', error: 'check_failed' } };
     }
   }
@@ -911,7 +942,9 @@ export class CodeAnalyzerChatParticipant {
       stream.markdown(msg);
       return { metadata: { command: 'review-deps', fileCount: changedFiles?.length ?? 0 } };
     } catch {
-      stream.markdown('## /review-deps\n\n⚠️ Unable to analyze dependencies. Run codebase analysis first.\n');
+      stream.markdown(
+        '## /review-deps\n\n⚠️ Unable to analyze dependencies. Run codebase analysis first.\n',
+      );
       return { metadata: { command: 'review-deps', error: 'analysis_failed' } };
     }
   }
@@ -935,7 +968,13 @@ export class CodeAnalyzerChatParticipant {
 
       let msg = '## /check-contract — API Contract Compliance\n\n';
       if (symbols && symbols.length > 0) {
-        const exported = symbols.filter((s) => s.name && (s.name.startsWith('class ') || s.name.startsWith('function ') || s.name.startsWith('interface ')));
+        const exported = symbols.filter(
+          (s) =>
+            s.name &&
+            (s.name.startsWith('class ') ||
+              s.name.startsWith('function ') ||
+              s.name.startsWith('interface ')),
+        );
         msg += `### Exported Symbols (${exported.length})\n`;
         for (const s of exported.slice(0, 15)) {
           msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
@@ -970,9 +1009,7 @@ export class CodeAnalyzerChatParticipant {
     if (token.isCancellationRequested) return { metadata: { cancelled: true } };
 
     try {
-      const traces = params
-        ? await this.engine.traceCallPath(params)
-        : [];
+      const traces = params ? await this.engine.traceCallPath(params) : [];
       const symbols = params ? await this.engine.findRelatedSymbols(params) : [];
 
       let msg = '## /trace-dataflow — Data Flow Analysis\n\n';
@@ -1021,7 +1058,9 @@ export class CodeAnalyzerChatParticipant {
 
       if (changedFiles && changedFiles.length > 0) {
         msg += `### Recently Changed Files (${changedFiles.length})\n`;
-        const highChurn = changedFiles.filter((f) => f.status === 'modified' || f.status === 'added');
+        const highChurn = changedFiles.filter(
+          (f) => f.status === 'modified' || f.status === 'added',
+        );
         for (const f of highChurn.slice(0, 10)) {
           msg += `- \`${f.path}\` (${f.status})\n`;
         }
@@ -1034,7 +1073,9 @@ export class CodeAnalyzerChatParticipant {
       msg += '- Add integration tests for critical paths\n';
 
       stream.markdown(msg);
-      return { metadata: { command: 'find-hotspots', changedFileCount: changedFiles?.length ?? 0 } };
+      return {
+        metadata: { command: 'find-hotspots', changedFileCount: changedFiles?.length ?? 0 },
+      };
     } catch {
       stream.markdown('## /find-hotspots\n\n⚠️ Hotspot detection failed.\n');
       return { metadata: { command: 'find-hotspots', error: 'detection_failed' } };
@@ -1054,9 +1095,8 @@ export class CodeAnalyzerChatParticipant {
 
     try {
       const reviewComments = await this.engine.reviewWorkspace();
-      const securityIssues = reviewComments?.filter(
-        (c) => c.severity === 'critical' || c.severity === 'high',
-      ) ?? [];
+      const securityIssues =
+        reviewComments?.filter((c) => c.severity === 'critical' || c.severity === 'high') ?? [];
 
       let msg = '## /audit-security — Security Audit\n\n';
       msg += `### Results (${securityIssues.length} issues)\n`;
@@ -1105,8 +1145,12 @@ export class CodeAnalyzerChatParticipant {
     msg += '\n';
 
     if (ctx.reviewComments && ctx.reviewComments.length > 0) {
-      const critical = ctx.reviewComments.filter((c) => c.severity === 'critical' || c.severity === 'high');
-      const warnings = ctx.reviewComments.filter((c) => c.severity === 'medium' || c.severity === 'warning');
+      const critical = ctx.reviewComments.filter(
+        (c) => c.severity === 'critical' || c.severity === 'high',
+      );
+      const warnings = ctx.reviewComments.filter(
+        (c) => c.severity === 'medium' || c.severity === 'warning',
+      );
       const info = ctx.reviewComments.filter((c) => c.severity === 'low' || c.severity === 'info');
 
       msg += `### Review Findings (${ctx.reviewComments.length} issues)\n`;
@@ -1204,7 +1248,8 @@ export class CodeAnalyzerChatParticipant {
     }
 
     if (!ctx.symbolDetail) {
-      msg += '> Symbol not found in the knowledge graph. Run analysis first or check the symbol name.\n';
+      msg +=
+        '> Symbol not found in the knowledge graph. Run analysis first or check the symbol name.\n';
     }
 
     return msg;
@@ -1268,9 +1313,8 @@ export class CodeAnalyzerChatParticipant {
 
     msg += `### Symbols Found (${ctx.searchResults.length})\n`;
     for (const r of ctx.searchResults.slice(0, 15)) {
-      const score = r.relevanceScore !== undefined
-        ? ` (score: ${r.relevanceScore.toFixed(2)})`
-        : '';
+      const score =
+        r.relevanceScore !== undefined ? ` (score: ${r.relevanceScore.toFixed(2)})` : '';
       msg += `- \`${r.name}\` — \`${r.filePath}\` [${r.label}]${score}\n`;
     }
     if (ctx.searchResults.length > 15) {
@@ -1388,11 +1432,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (
-      !ctx.refactoringOpportunities?.length &&
-      !ctx.computedComplexity &&
-      !ctx.symbolDetail
-    ) {
+    if (!ctx.refactoringOpportunities?.length && !ctx.computedComplexity && !ctx.symbolDetail) {
       msg += 'No analysis data available. The symbol may not exist in the knowledge graph.\n';
     }
 
@@ -1451,9 +1491,7 @@ export class CodeAnalyzerChatParticipant {
   /**
    * Derive refactoring opportunities from complexity and analysis context.
    */
-  private deriveRefactoringOpportunities(
-    ctx: AnalysisContext,
-  ): Array<{
+  private deriveRefactoringOpportunities(ctx: AnalysisContext): Array<{
     title: string;
     description: string;
     filePath: string;
@@ -1542,9 +1580,7 @@ export class CodeAnalyzerChatParticipant {
 
     const trimmed = prompt.trim();
     const spaceIdx = trimmed.indexOf(' ');
-    const commandPart = spaceIdx > 0
-      ? trimmed.substring(1, spaceIdx)
-      : trimmed.substring(1);
+    const commandPart = spaceIdx > 0 ? trimmed.substring(1, spaceIdx) : trimmed.substring(1);
 
     if (!this.isSlashCommand(commandPart)) return null;
 
@@ -1566,9 +1602,7 @@ export class CodeAnalyzerChatParticipant {
       for (const pattern of intentDef.patterns) {
         const match = trimmed.match(pattern);
         if (match) {
-          const entity = intentDef.extractEntity
-            ? intentDef.extractEntity(match)
-            : undefined;
+          const entity = intentDef.extractEntity ? intentDef.extractEntity(match) : undefined;
           return {
             type: intentDef.type,
             entity,
@@ -1635,9 +1669,7 @@ export class CodeAnalyzerChatParticipant {
       }
       case 'search':
         return {
-          searchResults: await this.engine.search(
-            intent.query ?? request.prompt,
-          ),
+          searchResults: await this.engine.search(intent.query ?? request.prompt),
         };
       case 'refactor': {
         const entity = intent.entity ?? '';
@@ -1658,10 +1690,7 @@ export class CodeAnalyzerChatParticipant {
    * Build a structured Markdown context message for Copilot.
    * This enriches Copilot's understanding without making LLM calls.
    */
-  buildContextMessage(
-    intent: ClassifiedIntent,
-    ctx: AnalysisContext,
-  ): string {
+  buildContextMessage(intent: ClassifiedIntent, ctx: AnalysisContext): string {
     let msg = `## Code Analyzer Context\n\n`;
     msg += `**Intent:** ${intent.type}\n\n`;
 

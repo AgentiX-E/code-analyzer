@@ -130,9 +130,18 @@ function generateHotspots(
 
 function isStructuralNode(label: string): boolean {
   const structuralLabels = new Set([
-    'Function', 'Method', 'Class', 'Interface', 'Module',
-    'Component', 'Service', 'Controller', 'Handler',
-    'Route', 'Endpoint', 'Resolver',
+    'Function',
+    'Method',
+    'Class',
+    'Interface',
+    'Module',
+    'Component',
+    'Service',
+    'Controller',
+    'Handler',
+    'Route',
+    'Endpoint',
+    'Resolver',
   ]);
   return structuralLabels.has(label);
 }
@@ -143,10 +152,12 @@ function isStructuralNode(label: string): boolean {
 
 function hotspotReport(hotspots: Hotspot[], projectId: string): string {
   if (hotspots.length === 0) {
-    return `## Hotspot Analysis — ${projectId}\n\n` +
+    return (
+      `## Hotspot Analysis — ${projectId}\n\n` +
       'No hotspots detected. The codebase appears to have low structural complexity.\n\n' +
       '> Note: This analysis is based on the knowledge graph edge degree.\n' +
-      '> Run a full analysis pipeline to populate the graph with more data.\n';
+      '> Run a full analysis pipeline to populate the graph with more data.\n'
+    );
   }
 
   const highCount = hotspots.filter((h) => h.riskLevel === 'high').length;
@@ -175,7 +186,8 @@ function hotspotReport(hotspots: Hotspot[], projectId: string): string {
   if (lowCount > 0) {
     report += `- **${lowCount} low-risk symbols**: Monitor for increasing complexity trends.\n`;
   }
-  report += '\n> Complexity is measured as weighted edge degree in the knowledge graph (outgoing CALLS + incoming CALLS + 3× EXTENDS + 2× IMPLEMENTS).\n';
+  report +=
+    '\n> Complexity is measured as weighted edge degree in the knowledge graph (outgoing CALLS + incoming CALLS + 3× EXTENDS + 2× IMPLEMENTS).\n';
 
   return report;
 }

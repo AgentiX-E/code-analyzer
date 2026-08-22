@@ -30,7 +30,9 @@ const rootDir = join(fileURLToPath(import.meta.url), '../..');
 function loadEnv(): void {
   const envPath = join(rootDir, '.env');
   if (!existsSync(envPath)) {
-    console.warn(`Warning: .env file not found at ${envPath}. Ensure ZHIPU_API_KEY is set in environment.`);
+    console.warn(
+      `Warning: .env file not found at ${envPath}. Ensure ZHIPU_API_KEY is set in environment.`,
+    );
     return;
   }
 
@@ -46,8 +48,10 @@ function loadEnv(): void {
     let value = trimmed.slice(eqIdx + 1).trim();
 
     // Strip surrounding quotes
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
 
@@ -292,7 +296,9 @@ async function main(): Promise<void> {
 
     // Token usage info
     if (data.usage) {
-      console.log(`  Tokens: ${data.usage.total_tokens} (${data.usage.prompt_tokens} prompt + ${data.usage.completion_tokens} completion)`);
+      console.log(
+        `  Tokens: ${data.usage.total_tokens} (${data.usage.prompt_tokens} prompt + ${data.usage.completion_tokens} completion)`,
+      );
     }
 
     console.log(`  Model reported: ${data.model}`);

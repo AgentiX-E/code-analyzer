@@ -37,11 +37,13 @@ export function registerToolRoutes(
   app.get(`${prefix}/tools/list`, async (_req, reply) => {
     const registry = getRegistry();
     const tools = registry.list();
-    const items: ToolListItem[] = tools.map((t: { name: string; description: string; profile: string }) => ({
-      name: t.name,
-      description: t.description,
-      category: t.profile,
-    }));
+    const items: ToolListItem[] = tools.map(
+      (t: { name: string; description: string; profile: string }) => ({
+        name: t.name,
+        description: t.description,
+        category: t.profile,
+      }),
+    );
 
     return reply.status(200).send({
       total: items.length,

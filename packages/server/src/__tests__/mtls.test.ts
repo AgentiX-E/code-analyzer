@@ -590,7 +590,10 @@ describe('MtlsConfig', () => {
   it('should accept array of CA certs', () => {
     const config: MtlsConfig = {
       enabled: true,
-      caCerts: ['-----BEGIN CERTIFICATE-----\nca1\n-----END CERTIFICATE-----', '-----BEGIN CERTIFICATE-----\nca2\n-----END CERTIFICATE-----'],
+      caCerts: [
+        '-----BEGIN CERTIFICATE-----\nca1\n-----END CERTIFICATE-----',
+        '-----BEGIN CERTIFICATE-----\nca2\n-----END CERTIFICATE-----',
+      ],
       requireCert: false,
       failureMode: 'reject',
       skipHealthEndpoints: true,

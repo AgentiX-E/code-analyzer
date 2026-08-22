@@ -10,6 +10,7 @@
 ## Summary
 
 Iteration 3 successfully delivered 5 major performance and scale improvements:
+
 1. LSP Integration for semantic type resolution
 2. LRU Embedding Cache with content-hash invalidation
 3. Framework Route Detection (Express, FastAPI, NestJS, Django)
@@ -26,6 +27,7 @@ Iteration 3 successfully delivered 5 major performance and scale improvements:
 LSPManager (orchestrator) → LSPClient (per-language server process) → JSON-RPC 2.0 over stdio → LRU caching layer
 
 **Capabilities:**
+
 - TypeScript/JavaScript: typescript-language-server (wraps tsserver)
 - Python: pyright-langserver (preferred) or jedi-language-server
 - Go: gopls (configured, awaiting integration)
@@ -39,6 +41,7 @@ LSPManager (orchestrator) → LSPClient (per-language server process) → JSON-R
 ### 2. Embedding Cache (`packages/intelligence/src/embeddings/embedding-cache.ts` — 308 lines)
 
 **Algorithm:** LRU with doubly-linked list + hash map
+
 - Configurable capacity (default: 10,000 entries)
 - Content-hash-based staleness detection
 - TTL-based expiration (configurable)
@@ -49,25 +52,27 @@ LSPManager (orchestrator) → LSPClient (per-language server process) → JSON-R
 ### 3. Framework Route Detection (`packages/intelligence/src/impact/framework-routes.ts` — 434 lines)
 
 **Supported Frameworks:**
-| Framework | Detection Method | Route Types | Handler Extraction |
-|-----------|-----------------|-------------|-------------------|
-| Express.js | regex: `app.verb("/path")` | HTTP | ✅ handler arg parsing |
-| FastAPI | regex: `@app.verb("/path")` | HTTP, WebSocket | ✅ async def parsing |
-| NestJS | regex: `@Controller + @Verb` | HTTP, GraphQL, WebSocket | ✅ method extraction |
-| Django | regex: `urlpatterns = [path()]` | HTTP, INCLUDE | ✅ view function extraction |
+
+| Framework  | Detection Method                | Route Types              | Handler Extraction          |
+| ---------- | ------------------------------- | ------------------------ | --------------------------- |
+| Express.js | regex: `app.verb("/path")`      | HTTP                     | ✅ handler arg parsing      |
+| FastAPI    | regex: `@app.verb("/path")`     | HTTP, WebSocket          | ✅ async def parsing        |
+| NestJS     | regex: `@Controller + @Verb`    | HTTP, GraphQL, WebSocket | ✅ method extraction        |
+| Django     | regex: `urlpatterns = [path()]` | HTTP, INCLUDE            | ✅ view function extraction |
 
 **Knowledge Graph Integration:**
+
 - Creates Route nodes with method, path, framework, routeType properties
 - Creates HANDLES edges: File → Route → Handler
 - Configurable framework whitelist
 
 ### 4. Test Coverage
 
-| Test File | Lines | Test Cases | Focus |
-|-----------|-------|-----------|-------|
-| lsp-manager.test.ts | 285 | 50+ | Construction, availability, graceful degradation, cache invalidation, LRU eviction, shutdown |
-| embedding-cache.test.ts | 260 | 40+ | CRUD, LRU ordering, TTL, invalidation, statistics, iteration, access tracking |
-| framework-routes.test.ts | 212 | 30+ | Express, FastAPI, NestJS HTTP/GraphQL/WS, Django, config, acceptance criteria |
+| Test File                | Lines | Test Cases | Focus                                                                                        |
+| ------------------------ | ----- | ---------- | -------------------------------------------------------------------------------------------- |
+| lsp-manager.test.ts      | 285   | 50+        | Construction, availability, graceful degradation, cache invalidation, LRU eviction, shutdown |
+| embedding-cache.test.ts  | 260   | 40+        | CRUD, LRU ordering, TTL, invalidation, statistics, iteration, access tracking                |
+| framework-routes.test.ts | 212   | 30+        | Express, FastAPI, NestJS HTTP/GraphQL/WS, Django, config, acceptance criteria                |
 
 ---
 
@@ -109,6 +114,7 @@ git push origin main
 ```
 
 Or using the PAT:
+
 ```bash
 git push https://Lambertyan:GITHUB_PAT@github.com/AgentiX-E/code-analyzer.git main
 ```
@@ -118,6 +124,7 @@ git push https://Lambertyan:GITHUB_PAT@github.com/AgentiX-E/code-analyzer.git ma
 ## Next Steps — Iteration 4: Benchmarking & Validation
 
 Estimated 10 engineering days across:
+
 - Code Review Benchmark (50+ PRs, 10 languages, ground-truth annotations)
 - Token Efficiency Benchmark (10+ repos of varying size)
 - Indexing Performance Benchmark (1K-1M LOC scale)

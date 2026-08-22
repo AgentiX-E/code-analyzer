@@ -135,9 +135,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'src/index.ts' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'src/index.ts' }]);
 
     // Wait for debounce
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -160,9 +158,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'node_modules/pkg/index.js' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'node_modules/pkg/index.js' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);
@@ -177,9 +173,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: '.git/config' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: '.git/config' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);
@@ -194,9 +188,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'add', filePath: 'dist/bundle.js' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'add', filePath: 'dist/bundle.js' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);
@@ -211,9 +203,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'build/output.js' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'build/output.js' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);
@@ -228,9 +218,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'lib.min.js' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'lib.min.js' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);
@@ -245,9 +233,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'yarn.lock' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'yarn.lock' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);
@@ -313,9 +299,7 @@ describe('AutoWatcher', () => {
 
     aw.watch(rootPath);
 
-    const changes: FileChangeEvent[] = [
-      { type: 'modify', filePath: 'src/app.ts' },
-    ];
+    const changes: FileChangeEvent[] = [{ type: 'modify', filePath: 'src/app.ts' }];
     aw.triggerReindex(changes);
 
     expect(reindexEvents.length).toBe(1);
@@ -346,9 +330,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'app.py' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'app.py' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -363,9 +345,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'main.go' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'main.go' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -380,9 +360,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'src/main.rs' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'src/main.rs' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -397,9 +375,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'Main.java' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'Main.java' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -414,9 +390,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'config.json' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'config.json' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -431,9 +405,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: '.github/workflows/ci.yml' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: '.github/workflows/ci.yml' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -448,9 +420,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'Dockerfile' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'Dockerfile' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -465,9 +435,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'README.md' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'README.md' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(1);
@@ -482,9 +450,7 @@ describe('AutoWatcher', () => {
     });
 
     aw.watch(rootPath);
-    mockWatcher.triggerChanges([
-      { type: 'modify', filePath: 'data.bin' },
-    ]);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'data.bin' }]);
 
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reindexEvents.length).toBe(0);

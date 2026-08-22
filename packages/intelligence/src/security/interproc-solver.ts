@@ -237,7 +237,10 @@ export class InterprocSolver {
     this.callGraph.clear();
     for (const e of edges) {
       let bucket = this.callGraph.get(e.callerQn);
-      if (!bucket) { bucket = []; this.callGraph.set(e.callerQn, bucket); }
+      if (!bucket) {
+        bucket = [];
+        this.callGraph.set(e.callerQn, bucket);
+      }
       bucket.push(e);
     }
   }
@@ -260,7 +263,10 @@ export class InterprocSolver {
     for (const [callerQn, edges] of this.callGraph) {
       for (const edge of edges) {
         let callers = reverseCallGraph.get(edge.calleeQn);
-        if (!callers) { callers = []; reverseCallGraph.set(edge.calleeQn, callers); }
+        if (!callers) {
+          callers = [];
+          reverseCallGraph.set(edge.calleeQn, callers);
+        }
         if (!callers.includes(callerQn)) callers.push(callerQn);
       }
     }
@@ -391,10 +397,7 @@ export class InterprocSolver {
   // Private Helpers
   // ---------------------------------------------------------------------------
 
-  private shouldProcess(
-    state: TaintedParameter,
-    processed: Map<string, number>,
-  ): boolean {
+  private shouldProcess(state: TaintedParameter, processed: Map<string, number>): boolean {
     const key = `${state.fnQn}:${state.param}:${state.source.point.blockIndex}:${state.source.point.stmtIndex}`;
     const prevNeutralized = processed.get(key);
     // Process if never seen, or if we have fewer neutralizations (more dangerous)
@@ -405,10 +408,7 @@ export class InterprocSolver {
     return false;
   }
 
-  private effectiveNeutralized(
-    state: TaintedParameter,
-    p2s: ParamToSink,
-  ): ReadonlySet<string> {
+  private effectiveNeutralized(state: TaintedParameter, p2s: ParamToSink): ReadonlySet<string> {
     // Union of state's neutralized + the sink-flow's neutralized
     const effective = new Set(state.neutralized);
     if (p2s.neutralized) {
@@ -482,10 +482,7 @@ export class InterprocSolver {
     }
   }
 
-  private computeConfidence(
-    state: TaintedParameter,
-    sinkHops: number,
-  ): number {
+  private computeConfidence(state: TaintedParameter, sinkHops: number): number {
     let confidence = 0.8;
     if (state.origin === 'param') confidence *= 0.9;
     if (state.neutralized.size > 0) confidence *= 0.5;

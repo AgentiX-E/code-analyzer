@@ -147,10 +147,7 @@ export class NearCloneDetector {
   /**
    * Add SIMILAR_TO edges to the knowledge graph.
    */
-  addSimilarToEdges(
-    graph: KnowledgeGraph,
-    result: NearCloneResult,
-  ): void {
+  addSimilarToEdges(graph: KnowledgeGraph, result: NearCloneResult): void {
     for (const pair of result.pairs) {
       const edgeId = Math.max(0, ...Array.from(graph.edges.keys())) + 1;
       graph.edges.set(edgeId, {
@@ -176,9 +173,7 @@ export class NearCloneDetector {
   /**
    * Compute MinHash signatures for all candidate nodes.
    */
-  private computeSignatures(
-    candidates: GraphNode[],
-  ): Map<number, MinHashSignature> {
+  private computeSignatures(candidates: GraphNode[]): Map<number, MinHashSignature> {
     const signatures = new Map<number, MinHashSignature>();
 
     for (const node of candidates) {
@@ -335,7 +330,7 @@ export class NearCloneDetector {
       const b = (i * 1597334677) % M; // Additive constant
       functions.push((x: number) => {
         // Ensure positive modulo
-        const result = ((a * x + b) % M + M) % M;
+        const result = (((a * x + b) % M) + M) % M;
         return result;
       });
     }

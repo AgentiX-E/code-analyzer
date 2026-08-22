@@ -23,7 +23,12 @@ function source(line: number, block: number = 0, stmt: number = 0): TaintSourceO
   };
 }
 
-function sink(kind: string, line: number, block: number = 0, stmt: number = 0): TaintSinkOccurrence {
+function sink(
+  kind: string,
+  line: number,
+  block: number = 0,
+  stmt: number = 0,
+): TaintSinkOccurrence {
   return {
     point: { blockIndex: block, stmtIndex: stmt, line },
     kind,
@@ -32,9 +37,16 @@ function sink(kind: string, line: number, block: number = 0, stmt: number = 0): 
   };
 }
 
-function makeSummary(fnQn: string, fnName: string, paramCount: number, overrides?: Partial<FunctionSummary>): FunctionSummary {
+function makeSummary(
+  fnQn: string,
+  fnName: string,
+  paramCount: number,
+  overrides?: Partial<FunctionSummary>,
+): FunctionSummary {
   return {
-    fnQn, fnName, paramCount,
+    fnQn,
+    fnName,
+    paramCount,
     paramToReturns: [],
     paramToCallArgs: [],
     paramToSinks: [],
@@ -46,7 +58,12 @@ function makeSummary(fnQn: string, fnName: string, paramCount: number, overrides
   };
 }
 
-function makeEdge(callerQn: string, calleeQn: string, callLine: number = 1, argCount: number = 1): CallGraphEdge {
+function makeEdge(
+  callerQn: string,
+  calleeQn: string,
+  callLine: number = 1,
+  argCount: number = 1,
+): CallGraphEdge {
   return { callerQn, calleeQn, callLine, argCount };
 }
 
@@ -71,19 +88,21 @@ describe('InterprocSolver', () => {
       const summaries: FunctionSummary[] = [
         makeSummary('A.handle', 'handle', 1, {
           sourceToCallArgs: [
-            { source: source(10), callLine: 15, calleeName: 'B.login', argIndex: 0, resolved: true },
+            {
+              source: source(10),
+              callLine: 15,
+              calleeName: 'B.login',
+              argIndex: 0,
+              resolved: true,
+            },
           ],
         }),
         makeSummary('B.login', 'login', 1, {
-          paramToSinks: [
-            { param: 0, sinkLine: 5, sink: sink('sql-injection', 5), hops: 1 },
-          ],
+          paramToSinks: [{ param: 0, sinkLine: 5, sink: sink('sql-injection', 5), hops: 1 }],
         }),
       ];
 
-      const edges: CallGraphEdge[] = [
-        makeEdge('A.handle', 'B.login'),
-      ];
+      const edges: CallGraphEdge[] = [makeEdge('A.handle', 'B.login')];
 
       solver.loadSummaries(summaries);
       solver.loadCallGraph(edges);
@@ -107,18 +126,20 @@ describe('InterprocSolver', () => {
       const summaries: FunctionSummary[] = [
         makeSummary('A.process', 'process', 1, {
           sourceToCallArgs: [
-            { source: source(1), callLine: 3, calleeName: 'B.validate', argIndex: 0, resolved: true },
+            {
+              source: source(1),
+              callLine: 3,
+              calleeName: 'B.validate',
+              argIndex: 0,
+              resolved: true,
+            },
           ],
         }),
         makeSummary('B.validate', 'validate', 1, {
-          paramToCallArgs: [
-            { param: 0, callLine: 2, calleeName: 'C.execute', argIndex: 0 },
-          ],
+          paramToCallArgs: [{ param: 0, callLine: 2, calleeName: 'C.execute', argIndex: 0 }],
         }),
         makeSummary('C.execute', 'execute', 1, {
-          paramToSinks: [
-            { param: 0, sinkLine: 1, sink: sink('command-injection', 1), hops: 1 },
-          ],
+          paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('command-injection', 1), hops: 1 }],
         }),
       ];
 
@@ -144,7 +165,13 @@ describe('InterprocSolver', () => {
       const summaries: FunctionSummary[] = [
         makeSummary('A.handler', 'handler', 1, {
           sourceToCallArgs: [
-            { source: source(1), callLine: 2, calleeName: 'B.sanitize', argIndex: 0, resolved: true },
+            {
+              source: source(1),
+              callLine: 2,
+              calleeName: 'B.sanitize',
+              argIndex: 0,
+              resolved: true,
+            },
           ],
         }),
         makeSummary('B.sanitize', 'sanitize', 1, {
@@ -153,9 +180,7 @@ describe('InterprocSolver', () => {
           ],
         }),
         makeSummary('C.output', 'output', 1, {
-          paramToSinks: [
-            { param: 0, sinkLine: 1, sink: sink('xss', 1), hops: 1 },
-          ],
+          paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('xss', 1), hops: 1 }],
         }),
       ];
 
@@ -185,23 +210,15 @@ describe('InterprocSolver', () => {
       // B.process: calls A.fetchData() → uses return → passes to sink
       const summaries: FunctionSummary[] = [
         makeSummary('A.fetchData', 'fetchData', 0, {
-          sourceToReturns: [
-            { source: source(3), returnIndices: [0] },
-          ],
+          sourceToReturns: [{ source: source(3), returnIndices: [0] }],
         }),
         makeSummary('B.process', 'process', 0, {
-          callResults: [
-            { calleeName: 'A.fetchData', callLine: 5, returnIndex: 0 },
-          ],
-          paramToSinks: [
-            { param: -1, sinkLine: 7, sink: sink('path-traversal', 7), hops: 2 },
-          ],
+          callResults: [{ calleeName: 'A.fetchData', callLine: 5, returnIndex: 0 }],
+          paramToSinks: [{ param: -1, sinkLine: 7, sink: sink('path-traversal', 7), hops: 2 }],
         }),
       ];
 
-      const edges: CallGraphEdge[] = [
-        makeEdge('B.process', 'A.fetchData'),
-      ];
+      const edges: CallGraphEdge[] = [makeEdge('B.process', 'A.fetchData')];
 
       solver.loadSummaries(summaries);
       solver.loadCallGraph(edges);
@@ -224,14 +241,10 @@ describe('InterprocSolver', () => {
           ],
         }),
         makeSummary('F1.step1', 'step1', 1, {
-          paramToCallArgs: [
-            { param: 0, callLine: 1, calleeName: 'F2.step2', argIndex: 0 },
-          ],
+          paramToCallArgs: [{ param: 0, callLine: 1, calleeName: 'F2.step2', argIndex: 0 }],
         }),
         makeSummary('F2.step2', 'step2', 1, {
-          paramToCallArgs: [
-            { param: 0, callLine: 1, calleeName: 'F3.step3', argIndex: 0 },
-          ],
+          paramToCallArgs: [{ param: 0, callLine: 1, calleeName: 'F3.step3', argIndex: 0 }],
         }),
         makeSummary('F3.step3', 'step3', 1, {
           paramToCallArgs: [
@@ -273,7 +286,9 @@ describe('InterprocSolver', () => {
 
       const summaries: FunctionSummary[] = [
         makeSummary('A.a', 'a', 1, {
-          sourceToCallArgs: [{ source: source(1), callLine: 2, calleeName: 'B.b', argIndex: 0, resolved: true }],
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.b', argIndex: 0, resolved: true },
+          ],
           paramToCallArgs: [{ param: 0, callLine: 3, calleeName: 'C.c', argIndex: 0 }],
         }),
         makeSummary('B.b', 'b', 1, {
@@ -297,7 +312,9 @@ describe('InterprocSolver', () => {
 
       solver.loadSummaries([
         makeSummary('A.fn', 'fn', 1, {
-          sourceToCallArgs: [{ source: source(1), callLine: 2, calleeName: 'B.sink', argIndex: 0, resolved: true }],
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.sink', argIndex: 0, resolved: true },
+          ],
         }),
         makeSummary('B.sink', 'sink', 1, {
           paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('xss', 1), hops: 1 }],
@@ -317,7 +334,9 @@ describe('InterprocSolver', () => {
 
       solver.loadSummaries([
         makeSummary('A.fn', 'fn', 1, {
-          sourceToCallArgs: [{ source: source(1), callLine: 2, calleeName: 'B.sink', argIndex: 0, resolved: true }],
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.sink', argIndex: 0, resolved: true },
+          ],
         }),
         makeSummary('B.sink', 'sink', 1, {
           paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('sql-injection', 1, 0, 0), hops: 1 }],
@@ -347,7 +366,13 @@ describe('InterprocSolver', () => {
       solver.loadSummaries([
         makeSummary('A.fn', 'fn', 1, {
           sourceToCallArgs: [
-            { source: source(1), callLine: 2, calleeName: 'NonExistent.fn', argIndex: 0, resolved: false },
+            {
+              source: source(1),
+              callLine: 2,
+              calleeName: 'NonExistent.fn',
+              argIndex: 0,
+              resolved: false,
+            },
           ],
         }),
       ]);
@@ -373,7 +398,9 @@ describe('InterprocSolver', () => {
       // A → B → A (circular)
       const summaries: FunctionSummary[] = [
         makeSummary('A.fn', 'fn', 1, {
-          sourceToCallArgs: [{ source: source(1), callLine: 2, calleeName: 'B.fn', argIndex: 0, resolved: true }],
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.fn', argIndex: 0, resolved: true },
+          ],
           paramToCallArgs: [{ param: 0, callLine: 3, calleeName: 'B.fn', argIndex: 0 }],
         }),
         makeSummary('B.fn', 'fn', 1, {

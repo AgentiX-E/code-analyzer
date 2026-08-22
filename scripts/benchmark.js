@@ -82,26 +82,34 @@ class BenchmarkRunner {
       : true;
 
     this.results.push({
-      name, elapsed, memDeltaMB, passed, error,
+      name,
+      elapsed,
+      memDeltaMB,
+      passed,
+      error,
       target: target ? target.label : null,
     });
 
     const status = error ? '❌ ERROR' : passed ? '✅ PASS' : '⚠️  SLOW';
-    console.log(`  ${status} ${name}: ${elapsed}ms, ${memDeltaMB}MB${error ? ' (' + error + ')' : ''}${target ? ' [target: ' + target.label + ']' : ''}`);
+    console.log(
+      `  ${status} ${name}: ${elapsed}ms, ${memDeltaMB}MB${error ? ' (' + error + ')' : ''}${target ? ' [target: ' + target.label + ']' : ''}`,
+    );
 
     return { elapsed, memDeltaMB, passed, error };
   }
 
   summary() {
     const total = this.results.length;
-    const passed = this.results.filter(r => r.passed).length;
-    const failed = this.results.filter(r => !r.passed && !r.error).length;
-    const errors = this.results.filter(r => r.error).length;
+    const passed = this.results.filter((r) => r.passed).length;
+    const failed = this.results.filter((r) => !r.passed && !r.error).length;
+    const errors = this.results.filter((r) => r.error).length;
     const totalMs = Math.round(this.results.reduce((s, r) => s + r.elapsed, 0));
 
     console.log('\n' + '='.repeat(60));
-    console.log(`RESULTS: ${passed} passed, ${failed} below target, ${errors} errors (${total} total)`);
-    console.log(`Total wall time: ${totalMs}ms (${Math.round(totalMs/1000)}s)`);
+    console.log(
+      `RESULTS: ${passed} passed, ${failed} below target, ${errors} errors (${total} total)`,
+    );
+    console.log(`Total wall time: ${totalMs}ms (${Math.round(totalMs / 1000)}s)`);
     console.log('='.repeat(60));
 
     return { total, passed, failed, errors, totalMs };
@@ -195,123 +203,206 @@ async function main() {
   // --- Component Benchmarks ---
 
   // 1. InMemoryGraphStore insert + query performance
-  await runner.run('GraphStore: 100K node insert', async () => {
-    const { InMemoryGraphStore } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
-    const store = new InMemoryGraphStore();
-    const now = new Date().toISOString();
-    for (let i = 0; i < 100_000; i++) {
-      store.insertNode({
-        id: 0, projectId: 'bench', label: 'Function', name: `fn${i}`,
-        qualifiedName: `fn${i}`, filePath: `src/mod${i%10}/file${i}.ts`,
-        startLine: 1, endLine: 3, language: 'typescript',
-        properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: now, updatedAt: now,
-      });
-    }
-  }, TARGETS['scan-index-complete']);
+  await runner.run(
+    'GraphStore: 100K node insert',
+    async () => {
+      const {
+        InMemoryGraphStore,
+      } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
+      const store = new InMemoryGraphStore();
+      const now = new Date().toISOString();
+      for (let i = 0; i < 100_000; i++) {
+        store.insertNode({
+          id: 0,
+          projectId: 'bench',
+          label: 'Function',
+          name: `fn${i}`,
+          qualifiedName: `fn${i}`,
+          filePath: `src/mod${i % 10}/file${i}.ts`,
+          startLine: 1,
+          endLine: 3,
+          language: 'typescript',
+          properties: {},
+          signature: null,
+          docstring: null,
+          complexity: null,
+          isExported: false,
+          fingerprint: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    },
+    TARGETS['scan-index-complete'],
+  );
 
   // 2. GraphStore: getNode performance
-  await runner.run('GraphStore: 10K node lookup', async () => {
-    const { InMemoryGraphStore } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
-    const store = new InMemoryGraphStore();
-    const now = new Date().toISOString();
-    const ids = [];
-    for (let i = 0; i < 10_000; i++) {
-      const id = store.insertNode({
-        id: 0, projectId: 'bench', label: 'Function', name: `fn${i}`,
-        qualifiedName: `fn${i}`, filePath: 'src/f.ts',
-        startLine: 1, endLine: 1, language: 'typescript',
-        properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: now, updatedAt: now,
-      });
-      ids.push(id);
-    }
-    for (const id of ids) store.getNode(id);
-  }, TARGETS['query-cypher-simple']);
+  await runner.run(
+    'GraphStore: 10K node lookup',
+    async () => {
+      const {
+        InMemoryGraphStore,
+      } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
+      const store = new InMemoryGraphStore();
+      const now = new Date().toISOString();
+      const ids = [];
+      for (let i = 0; i < 10_000; i++) {
+        const id = store.insertNode({
+          id: 0,
+          projectId: 'bench',
+          label: 'Function',
+          name: `fn${i}`,
+          qualifiedName: `fn${i}`,
+          filePath: 'src/f.ts',
+          startLine: 1,
+          endLine: 1,
+          language: 'typescript',
+          properties: {},
+          signature: null,
+          docstring: null,
+          complexity: null,
+          isExported: false,
+          fingerprint: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        ids.push(id);
+      }
+      for (const id of ids) store.getNode(id);
+    },
+    TARGETS['query-cypher-simple'],
+  );
 
   // 3. GraphStore: edge traversal
-  await runner.run('GraphStore: 100K edge insert + BFS', async () => {
-    const { InMemoryGraphStore } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
-    const store = new InMemoryGraphStore();
-    const now = new Date().toISOString();
-    const ids = [];
-    // Create 1K nodes
-    for (let i = 0; i < 1_000; i++) {
-      const id = store.insertNode({
-        id: 0, projectId: 'bench', label: 'Function', name: `fn${i}`,
-        qualifiedName: `fn${i}`, filePath: 'src/f.ts',
-        startLine: 1, endLine: 1, language: 'typescript',
-        properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: now, updatedAt: now,
-      });
-      ids.push(id);
-    }
-    // Create 100K edges (CALLS chain)
-    for (let i = 0; i < 99_999; i++) {
-      store.insertEdge({
-        id: 0, projectId: 'bench', type: 'CALLS',
-        sourceId: ids[i % ids.length],
-        targetId: ids[(i + 1) % ids.length],
-      });
-    }
-    // BFS from first node
-    store.bfs(ids[0], 5);
-  }, TARGETS['scan-index-complete']);
+  await runner.run(
+    'GraphStore: 100K edge insert + BFS',
+    async () => {
+      const {
+        InMemoryGraphStore,
+      } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
+      const store = new InMemoryGraphStore();
+      const now = new Date().toISOString();
+      const ids = [];
+      // Create 1K nodes
+      for (let i = 0; i < 1_000; i++) {
+        const id = store.insertNode({
+          id: 0,
+          projectId: 'bench',
+          label: 'Function',
+          name: `fn${i}`,
+          qualifiedName: `fn${i}`,
+          filePath: 'src/f.ts',
+          startLine: 1,
+          endLine: 1,
+          language: 'typescript',
+          properties: {},
+          signature: null,
+          docstring: null,
+          complexity: null,
+          isExported: false,
+          fingerprint: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        ids.push(id);
+      }
+      // Create 100K edges (CALLS chain)
+      for (let i = 0; i < 99_999; i++) {
+        store.insertEdge({
+          id: 0,
+          projectId: 'bench',
+          type: 'CALLS',
+          sourceId: ids[i % ids.length],
+          targetId: ids[(i + 1) % ids.length],
+        });
+      }
+      // BFS from first node
+      store.bfs(ids[0], 5);
+    },
+    TARGETS['scan-index-complete'],
+  );
 
   // 4. AST rule checker: parse + check performance
-  await runner.run('AST Rules: parse 100 lines + run all 32 security checks', async () => {
-    const { createAstContext } = require('../packages/intelligence/dist/rules/ast-rule-checker.js');
-    const { CHECKER_MAP } = require('../packages/intelligence/dist/rules/rule-runner.js');
-    const source = Array(100).fill(null).map((_, i) =>
-      `function fn${i}(x: string) { const v = "secret_${i}"; console.log(v); return eval(x); }`
-    );
-    const ctx = createAstContext(source, 'test.ts', 'typescript');
-    for (const [ruleId, checker] of Object.entries(CHECKER_MAP).slice(0, 32)) {
-      checker(source, 'test.ts', 'typescript');
-    }
-  }, TARGETS['single-file-scan']);
+  await runner.run(
+    'AST Rules: parse 100 lines + run all 32 security checks',
+    async () => {
+      const {
+        createAstContext,
+      } = require('../packages/intelligence/dist/rules/ast-rule-checker.js');
+      const { CHECKER_MAP } = require('../packages/intelligence/dist/rules/rule-runner.js');
+      const source = Array(100)
+        .fill(null)
+        .map(
+          (_, i) =>
+            `function fn${i}(x: string) { const v = "secret_${i}"; console.log(v); return eval(x); }`,
+        );
+      const ctx = createAstContext(source, 'test.ts', 'typescript');
+      for (const [ruleId, checker] of Object.entries(CHECKER_MAP).slice(0, 32)) {
+        checker(source, 'test.ts', 'typescript');
+      }
+    },
+    TARGETS['single-file-scan'],
+  );
 
   // 5. SCIP export performance
-  await runner.run('SCIP Export: 1K nodes to SCIP Index', async () => {
-    const { InMemoryGraphStore } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
-    const { exportScipIndex } = require('../packages/intelligence/dist/scip/scip-exporter.js');
-    const store = new InMemoryGraphStore();
-    const now = new Date().toISOString();
-    for (let i = 0; i < 1_000; i++) {
-      store.insertNode({
-        id: 0, projectId: 'bench', label: 'Function', name: `fn${i}`,
-        qualifiedName: `fn${i}`, filePath: `src/mod${i%5}/file${i}.ts`,
-        startLine: i%50+1, endLine: i%50+5, language: 'typescript',
-        properties: {}, signature: null, docstring: null,
-        complexity: null, isExported: false, fingerprint: null,
-        createdAt: now, updatedAt: now,
-      });
-    }
-    exportScipIndex(store, 'bench');
-  }, { maxMs: 5000, label: 'SCIP export' });
+  await runner.run(
+    'SCIP Export: 1K nodes to SCIP Index',
+    async () => {
+      const {
+        InMemoryGraphStore,
+      } = require('../packages/infra/dist/storage/in-memory-graph-store.js');
+      const { exportScipIndex } = require('../packages/intelligence/dist/scip/scip-exporter.js');
+      const store = new InMemoryGraphStore();
+      const now = new Date().toISOString();
+      for (let i = 0; i < 1_000; i++) {
+        store.insertNode({
+          id: 0,
+          projectId: 'bench',
+          label: 'Function',
+          name: `fn${i}`,
+          qualifiedName: `fn${i}`,
+          filePath: `src/mod${i % 5}/file${i}.ts`,
+          startLine: (i % 50) + 1,
+          endLine: (i % 50) + 5,
+          language: 'typescript',
+          properties: {},
+          signature: null,
+          docstring: null,
+          complexity: null,
+          isExported: false,
+          fingerprint: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      exportScipIndex(store, 'bench');
+    },
+    { maxMs: 5000, label: 'SCIP export' },
+  );
 
   // --- Synthetic Project Benchmarks ---
   if (process.argv.includes('--full')) {
     console.log('\n--- Synthetic Project Benchmarks (--full) ---\n');
 
     for (const [size, config] of Object.entries(BENCHMARKS)) {
-      await runner.run(`Generate + analyze: ${config.name}`, async () => {
-        const projPath = generateProject(size, config);
-        console.log(`    Generated ${config.fileCount} files in ${projPath}`);
-        fs.rmSync(projPath, { recursive: true, force: true });
-      }, { maxMs: (config.fileCount / 10) * 1000, label: `${config.fileCount / 10}s` });
+      await runner.run(
+        `Generate + analyze: ${config.name}`,
+        async () => {
+          const projPath = generateProject(size, config);
+          console.log(`    Generated ${config.fileCount} files in ${projPath}`);
+          fs.rmSync(projPath, { recursive: true, force: true });
+        },
+        { maxMs: (config.fileCount / 10) * 1000, label: `${config.fileCount / 10}s` },
+      );
     }
   }
 
   // --- Summary ---
   runner.summary();
-  process.exit(runner.results.some(r => r.error) ? 1 : 0);
+  process.exit(runner.results.some((r) => r.error) ? 1 : 0);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Benchmark failed:', err);
   process.exit(1);
 });

@@ -22,8 +22,8 @@ export class HclProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('@tree-sitter-grammars/tree-sitter-hcl') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -66,9 +66,10 @@ export class HclProvider extends TreeSitterBaseProvider {
         // Labels come from string_lit children; for single-label blocks
         // (variable, output, provider, module) use the first label.
         // For resource/data: labels[0] = type, labels[1] = name
-        const blockLabel = labels.length >= 2
-          ? `${labels[0]!}.${labels[1]!}`
-          : (labels[0] ?? identifiers.slice(1).join('.'));
+        const blockLabel =
+          labels.length >= 2
+            ? `${labels[0]!}.${labels[1]!}`
+            : (labels[0] ?? identifiers.slice(1).join('.'));
 
         if (blockType === 'resource') {
           captures.push({
@@ -246,7 +247,10 @@ export class HclProvider extends TreeSitterBaseProvider {
   }
 
   /** Find the first named child of a given type */
-  private findFirstNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+  private findFirstNamedChild(
+    node: TreeSitterSyntaxNode,
+    type: string,
+  ): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       if (node.namedChild(i).type === type) return node.namedChild(i);
     }

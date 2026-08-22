@@ -1,10 +1,7 @@
 // @code-analyzer/mcp — Cypher Planner
 // Translates a Cypher AST into a SQL-compatible query plan.
 
-import type {
-  CypherExpression,
-  GraphNode,
-} from '@code-analyzer/shared';
+import type { CypherExpression, GraphNode } from '@code-analyzer/shared';
 import type { CypherQuery } from './parser.js';
 import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
 
@@ -22,7 +19,20 @@ export interface GraphSchema {
 export const DEFAULT_SCHEMA: GraphSchema = {
   nodeLabels: NODE_LABELS as unknown as string[],
   relationshipTypes: RELATIONSHIP_TYPES as unknown as string[],
-  nodeProperties: ['name', 'qualifiedName', 'filePath', 'startLine', 'endLine', 'language', 'complexity', 'signature', 'docstring', 'isExported', 'createdAt', 'updatedAt'],
+  nodeProperties: [
+    'name',
+    'qualifiedName',
+    'filePath',
+    'startLine',
+    'endLine',
+    'language',
+    'complexity',
+    'signature',
+    'docstring',
+    'isExported',
+    'createdAt',
+    'updatedAt',
+  ],
   edgeProperties: ['weight', 'createdAt'],
 };
 
@@ -273,7 +283,13 @@ function inferColumnType(expr: CypherExpression): 'node' | 'edge' | 'property' |
 function resolveConcreteValue(expr: unknown): unknown {
   /* v8 ignore start -- @preserve */
   if (typeof expr === 'object' && expr !== null && 'type' in expr) {
-    const e = expr as { type: string; value?: unknown; name?: string; object?: string; property?: string };
+    const e = expr as {
+      type: string;
+      value?: unknown;
+      name?: string;
+      object?: string;
+      property?: string;
+    };
     if (e.type === 'literal') return e.value;
     if (e.type === 'variable') return e.name;
     if (e.type === 'property') return `${e.object}.${e.property}`;
@@ -318,9 +334,7 @@ export function buildFilterPredicate(
         case 'IS NOT':
           return rightVal === null ? leftVal !== null : leftVal !== rightVal;
         case 'IN':
-          return Array.isArray(rightVal)
-            ? rightVal.includes(leftVal)
-            : false;
+          return Array.isArray(rightVal) ? rightVal.includes(leftVal) : false;
         case 'CONTAINS':
           return typeof leftVal === 'string' && typeof rightVal === 'string'
             ? leftVal.toLowerCase().includes(rightVal.toLowerCase())

@@ -260,7 +260,10 @@ Project ID: ${projectId}
 `,
   };
 
-  return templates[skillName] ?? `# Code Analyzer - ${skillName}\n\nSkill template for ${skillName}.\nProject ID: ${projectId}`;
+  return (
+    templates[skillName] ??
+    `# Code Analyzer - ${skillName}\n\nSkill template for ${skillName}.\nProject ID: ${projectId}`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -275,13 +278,13 @@ interface AgentConfig {
 
 const AGENT_CONFIGS: Record<string, AgentConfig> = {
   'claude-code': { format: 'markdown', installPath: '.claude/skills/', alias: 'claude' },
-  'cursor': { format: 'markdown', installPath: '.cursor/skills/', alias: 'cursor' },
-  'codex': { format: 'markdown', installPath: '.openai/skills/', alias: 'codex' },
-  'windsurf': { format: 'markdown', installPath: '.windsurf/skills/', alias: 'windsurf' },
-  'codebuddy': { format: 'markdown', installPath: '.codebuddy/skills/', alias: 'codebuddy' },
-  'aider': { format: 'markdown', installPath: '.aider/skills/', alias: 'aider' },
-  'continue': { format: 'yaml', installPath: '.continue/rules/', alias: 'continue' },
-  'custom': { format: 'markdown', installPath: '.ai/skills/', alias: 'custom' },
+  cursor: { format: 'markdown', installPath: '.cursor/skills/', alias: 'cursor' },
+  codex: { format: 'markdown', installPath: '.openai/skills/', alias: 'codex' },
+  windsurf: { format: 'markdown', installPath: '.windsurf/skills/', alias: 'windsurf' },
+  codebuddy: { format: 'markdown', installPath: '.codebuddy/skills/', alias: 'codebuddy' },
+  aider: { format: 'markdown', installPath: '.aider/skills/', alias: 'aider' },
+  continue: { format: 'yaml', installPath: '.continue/rules/', alias: 'continue' },
+  custom: { format: 'markdown', installPath: '.ai/skills/', alias: 'custom' },
 };
 
 // ---------------------------------------------------------------------------
@@ -358,16 +361,36 @@ export class SkillInstaller {
     return skillNames.map((name) => {
       const content = getSkillContent(name, projectId);
       const toolMap: Record<string, string[]> = {
-        exploration: ['get_architecture', 'explore_symbol', 'search_graph', 'trace_call_path', 'get_graph_schema'],
+        exploration: [
+          'get_architecture',
+          'explore_symbol',
+          'search_graph',
+          'trace_call_path',
+          'get_graph_schema',
+        ],
         debugging: ['trace_call_path', 'explore_symbol', 'query_graph', 'search_code'],
         impact: ['impact_analysis', 'detect_changes', 'check_cycles', 'cross_repo_impact'],
         refactoring: ['impact_analysis', 'find_implementations', 'check_cycles', 'review_file'],
         review: ['review_diff', 'review_file', 'check_standards'],
         'pr-review': ['review_pr', 'review_diff', 'check_standards', 'generate_report'],
         architecture: ['get_architecture', 'route_map', 'check_cycles', 'manage_adr'],
-        'cross-repo': ['cross_repo_search', 'cross_repo_trace', 'cross_repo_impact', 'manage_repo_group'],
+        'cross-repo': [
+          'cross_repo_search',
+          'cross_repo_trace',
+          'cross_repo_impact',
+          'manage_repo_group',
+        ],
         security: ['taint_analysis', 'pdg_query', 'review_file', 'check_standards'],
-        'tool-reference': ['search_graph', 'search_code', 'query_graph', 'explore_symbol', 'get_architecture', 'impact_analysis', 'review_diff', 'generate_report'],
+        'tool-reference': [
+          'search_graph',
+          'search_code',
+          'query_graph',
+          'explore_symbol',
+          'get_architecture',
+          'impact_analysis',
+          'review_diff',
+          'generate_report',
+        ],
       };
 
       const categoryMap: Record<string, AgentSkill['category']> = {

@@ -1,10 +1,13 @@
 // @code-analyzer/analyzer — Pipeline Phase: Semantic
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
+import {
+  PhaseLogger,
+  createNoopPhaseLogger,
+  EDGE_CALLS,
+  EDGE_HAS_METHOD,
+  EDGE_SEMANTICALLY_RELATED,
 } from '@code-analyzer/shared';
-import { PhaseLogger, createNoopPhaseLogger , EDGE_CALLS, EDGE_HAS_METHOD, EDGE_SEMANTICALLY_RELATED } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -43,7 +46,13 @@ export class SemanticPhase implements ExecutablePhase {
           classes.push({ id: nodeId, name: node.name, parent: null });
         } else if (node.label === 'Function' || node.label === 'Method') {
           const sig = node.properties?.signature as string | undefined;
-          const params = sig ? sig.replace(/^.*?\(([^)]*)\).*$/, '$1').split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          const params = sig
+            ? sig
+                .replace(/^.*?\(([^)]*)\).*$/, '$1')
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean)
+            : [];
           functions.push({ id: nodeId, name: node.name, params });
         }
       }
@@ -76,15 +85,24 @@ export class SemanticPhase implements ExecutablePhase {
           }
 
           /* v8 ignore next -- @preserve -- denominator is non-zero when at least one method exists */
-          const overlapRatio = methodsA.length + methodsB.length > 0
-            ? (2 * overlap) / (methodsA.length + methodsB.length)
-            : 0;
+          const overlapRatio =
+            methodsA.length + methodsB.length > 0
+              ? (2 * overlap) / (methodsA.length + methodsB.length)
+              : 0;
 
           if (overlapRatio >= 0.3 && methodsA.length >= 2) {
             try {
-              builder.addEdge(ctx.graph, classes[i]!.id, classes[j]!.id, EDGE_SEMANTICALLY_RELATED, ctx.projectId);
+              builder.addEdge(
+                ctx.graph,
+                classes[i]!.id,
+                classes[j]!.id,
+                EDGE_SEMANTICALLY_RELATED,
+                ctx.projectId,
+              );
               semanticRelations++;
-            } catch { /* Edge may exist */ }
+            } catch {
+              /* Edge may exist */
+            }
           }
         }
       }
@@ -126,7 +144,9 @@ export class SemanticPhase implements ExecutablePhase {
             try {
               builder.addEdge(ctx.graph, idA, idB, EDGE_SEMANTICALLY_RELATED, ctx.projectId);
               semanticRelations++;
-            } catch { /* Edge may exist */ }
+            } catch {
+              /* Edge may exist */
+            }
           }
         }
       }
@@ -135,7 +155,11 @@ export class SemanticPhase implements ExecutablePhase {
       return { phaseId: this.id, status: 'success', output: { semanticRelations } };
     } catch (err) {
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };

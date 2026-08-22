@@ -59,7 +59,9 @@ export class StandardsEngine {
   /** Register a custom standard. */
   registerStandard(standard: ProjectStandard): void {
     if (STANDARD_TEMPLATES[standard.id]) {
-      throw new Error(`Cannot register custom standard: "${standard.id}" conflicts with a built-in template.`);
+      throw new Error(
+        `Cannot register custom standard: "${standard.id}" conflicts with a built-in template.`,
+      );
     }
     this.customStandards.set(standard.id, standard);
   }
@@ -140,8 +142,8 @@ export class StandardsEngine {
     }
 
     const totalRules = standard.rules.filter((r) => !disabledRules.has(r.id)).length;
-    const complianceScore = files.length === 0 ? 100
-      : totalRules > 0 ? (summary.passed / totalRules) * 100 : 100;
+    const complianceScore =
+      files.length === 0 ? 100 : totalRules > 0 ? (summary.passed / totalRules) * 100 : 100;
 
     return {
       standardId: standard.id,
@@ -240,7 +242,8 @@ export class StandardsEngine {
               lineNumber: fb.startLine,
               message: `Function spans ${funcLines} lines (threshold: ${config.threshold})`,
               codeSnippet: lines[fb.startLine - 1]?.trim() ?? '',
-              suggestion: rule.fixSuggestion ?? 'Consider splitting this function into smaller functions.',
+              suggestion:
+                rule.fixSuggestion ?? 'Consider splitting this function into smaller functions.',
               standardRef: rule.id,
             });
           }
@@ -255,7 +258,8 @@ export class StandardsEngine {
             lineNumber: 1,
             message: `Maximum nesting depth is ${maxDepth} (threshold: ${config.threshold})`,
             codeSnippet: `Max nesting depth: ${maxDepth}`,
-            suggestion: rule.fixSuggestion ?? 'Reduce nesting by extracting logic into helper functions.',
+            suggestion:
+              rule.fixSuggestion ?? 'Reduce nesting by extracting logic into helper functions.',
             standardRef: rule.id,
           });
         }
@@ -321,7 +325,8 @@ export class StandardsEngine {
         }
 
         // For Python-style (colon + indent): use indentation change as boundary
-        const pythonStyle = trimmed.endsWith(':') && trimmed.match(/^\s*(def|class|if|for|while|with|try)/);
+        const pythonStyle =
+          trimmed.endsWith(':') && trimmed.match(/^\s*(def|class|if|for|while|with|try)/);
 
         if (braceDepth <= 0 && inFunction && i > funcStart - 1 && !pythonStyle) {
           boundaries.push({ startLine: funcStart, endLine: i + 1 });
@@ -419,8 +424,10 @@ export class StandardsEngine {
         extensions.add(filename.slice(dotIdx));
         // Compound extensions
         if (filename.endsWith('.d.ts')) extensions.add('.d.ts');
-        if (filename.endsWith('.test.ts') || filename.endsWith('.spec.ts')) extensions.add('.test.ts');
-        if (filename.endsWith('.test.js') || filename.endsWith('.spec.js')) extensions.add('.test.js');
+        if (filename.endsWith('.test.ts') || filename.endsWith('.spec.ts'))
+          extensions.add('.test.ts');
+        if (filename.endsWith('.test.js') || filename.endsWith('.spec.js'))
+          extensions.add('.test.js');
       }
     }
 
@@ -434,7 +441,12 @@ export class StandardsEngine {
       applicable.add('typescript-coding');
       applicable.add('typescript-best-practices');
     }
-    if (extensions.has('.js') || extensions.has('.jsx') || extensions.has('.mjs') || extensions.has('.cjs')) {
+    if (
+      extensions.has('.js') ||
+      extensions.has('.jsx') ||
+      extensions.has('.mjs') ||
+      extensions.has('.cjs')
+    ) {
       applicable.add('javascript-best-practices');
     }
     if (extensions.has('.py') || extensions.has('.pyi')) {
@@ -453,14 +465,29 @@ export class StandardsEngine {
     }
 
     // Test file detection
-    if (extensions.has('.test.ts') || extensions.has('.spec.ts') || extensions.has('.test.js') || extensions.has('.spec.js') ||
-        [...lowerPaths].some((p) => p.includes('_test.py') || p.includes('test_') || p.includes('_test.go') || p.includes('_test.rs'))) {
+    if (
+      extensions.has('.test.ts') ||
+      extensions.has('.spec.ts') ||
+      extensions.has('.test.js') ||
+      extensions.has('.spec.js') ||
+      [...lowerPaths].some(
+        (p) =>
+          p.includes('_test.py') ||
+          p.includes('test_') ||
+          p.includes('_test.go') ||
+          p.includes('_test.rs'),
+      )
+    ) {
       applicable.add('testing-standards');
       applicable.add('testing-standard');
     }
 
     // Dockerfile detection
-    if (filenames.has('dockerfile') || filenames.has('docker-compose.yml') || filenames.has('docker-compose.yaml')) {
+    if (
+      filenames.has('dockerfile') ||
+      filenames.has('docker-compose.yml') ||
+      filenames.has('docker-compose.yaml')
+    ) {
       applicable.add('container-security');
       applicable.add('dependency-security');
     }
@@ -470,7 +497,11 @@ export class StandardsEngine {
       applicable.add('dependency-management');
       applicable.add('dependency-security');
     }
-    if (filenames.has('requirements.txt') || filenames.has('pyproject.toml') || filenames.has('pipfile')) {
+    if (
+      filenames.has('requirements.txt') ||
+      filenames.has('pyproject.toml') ||
+      filenames.has('pipfile')
+    ) {
       applicable.add('dependency-security');
     }
     if (filenames.has('go.mod')) {
@@ -481,7 +512,14 @@ export class StandardsEngine {
     }
 
     // API files detection
-    const apiPatterns = ['/routes/', '/api/', '/controllers/', '/handlers/', 'router.', 'middleware.'];
+    const apiPatterns = [
+      '/routes/',
+      '/api/',
+      '/controllers/',
+      '/handlers/',
+      'router.',
+      'middleware.',
+    ];
     if (apiPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
       applicable.add('api-design');
       applicable.add('api-design-standard');
@@ -496,7 +534,14 @@ export class StandardsEngine {
     }
 
     // Architecture detection
-    const archPatterns = ['/domain/', '/usecase/', '/infrastructure/', '/repository/', '/service/', '/entity/'];
+    const archPatterns = [
+      '/domain/',
+      '/usecase/',
+      '/infrastructure/',
+      '/repository/',
+      '/service/',
+      '/entity/',
+    ];
     if (archPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
       applicable.add('architecture-layered');
       applicable.add('clean-architecture');
@@ -509,13 +554,33 @@ export class StandardsEngine {
     }
 
     // Event-driven detection
-    const eventPatterns = ['/events/', '/handlers/', '/consumers/', '/producers/', 'event', 'message', 'queue', 'kafka', 'rabbitmq'];
+    const eventPatterns = [
+      '/events/',
+      '/handlers/',
+      '/consumers/',
+      '/producers/',
+      'event',
+      'message',
+      'queue',
+      'kafka',
+      'rabbitmq',
+    ];
     if (eventPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
       applicable.add('event-driven-architecture');
     }
 
     // ML detection
-    const mlPatterns = ['/models/', '/training/', '/pipelines/', '/notebooks/', 'train', 'model', 'dataset', 'mlflow', 'dvc'];
+    const mlPatterns = [
+      '/models/',
+      '/training/',
+      '/pipelines/',
+      '/notebooks/',
+      'train',
+      'model',
+      'dataset',
+      'mlflow',
+      'dvc',
+    ];
     if (mlPatterns.some((p) => [...lowerPaths].some((lp) => lp.includes(p)))) {
       applicable.add('ml-pipeline-best-practices');
     }
@@ -527,7 +592,13 @@ export class StandardsEngine {
     }
 
     // Config file detection
-    if (filenames.has('.env') || filenames.has('.env.example') || filenames.has('config.ts') || filenames.has('config.js') || filenames.has('settings.py')) {
+    if (
+      filenames.has('.env') ||
+      filenames.has('.env.example') ||
+      filenames.has('config.ts') ||
+      filenames.has('config.js') ||
+      filenames.has('settings.py')
+    ) {
       applicable.add('configuration-management');
     }
 
@@ -535,7 +606,15 @@ export class StandardsEngine {
     applicable.add('data-privacy');
 
     // OWASP always applicable for web projects
-    if (extensions.has('.ts') || extensions.has('.tsx') || extensions.has('.js') || extensions.has('.jsx') || extensions.has('.py') || extensions.has('.go') || extensions.has('.java')) {
+    if (
+      extensions.has('.ts') ||
+      extensions.has('.tsx') ||
+      extensions.has('.js') ||
+      extensions.has('.jsx') ||
+      extensions.has('.py') ||
+      extensions.has('.go') ||
+      extensions.has('.java')
+    ) {
       applicable.add('owasp-top10');
     }
 
@@ -547,7 +626,10 @@ export class StandardsEngine {
    * Merges rules from all standards with deduplication by rule ID.
    * Later standards override earlier ones when rule IDs conflict.
    */
-  composeStandards(standardIds: string[], options?: { name?: string; description?: string }): ProjectStandard {
+  composeStandards(
+    standardIds: string[],
+    options?: { name?: string; description?: string },
+  ): ProjectStandard {
     const mergedRules = new Map<string, StandardRule>();
     const mergedExamples: ProjectStandard['examples'] = [];
 

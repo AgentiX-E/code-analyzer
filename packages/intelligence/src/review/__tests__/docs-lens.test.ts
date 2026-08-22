@@ -6,7 +6,7 @@ describe('Docs Lens', () => {
   it('should detect exported function without JSDoc', () => {
     const content = 'export function getUser(id: string) {\n  return { id };\n}';
     const findings = analyzeDocs(content, '/src/user.ts');
-    const docFinding = findings.find(f => f.title.includes('Missing JSDoc'));
+    const docFinding = findings.find((f) => f.title.includes('Missing JSDoc'));
     expect(docFinding).toBeDefined();
     expect(docFinding!.severity).toBe('medium');
   });
@@ -20,7 +20,7 @@ describe('Docs Lens', () => {
     ].join('\n');
 
     const findings = analyzeDocs(content, '/src/user.ts');
-    const paramFinding = findings.find(f => f.title.includes('Missing @param'));
+    const paramFinding = findings.find((f) => f.title.includes('Missing @param'));
     expect(paramFinding).toBeDefined();
   });
 
@@ -33,7 +33,7 @@ describe('Docs Lens', () => {
     ].join('\n');
 
     const findings = analyzeDocs(content, '/src/user.ts');
-    const incompleteFinding = findings.find(f => f.title.includes('@param'));
+    const incompleteFinding = findings.find((f) => f.title.includes('@param'));
     expect(incompleteFinding).toBeDefined();
   });
 
@@ -46,14 +46,14 @@ describe('Docs Lens', () => {
     ].join('\n');
 
     const findings = analyzeDocs(content, '/src/user.ts');
-    const returnFinding = findings.find(f => f.title.includes('Missing @returns'));
+    const returnFinding = findings.find((f) => f.title.includes('Missing @returns'));
     expect(returnFinding).toBeDefined();
   });
 
   it('should skip internal (non-exported) functions without JSDoc', () => {
     const content = 'function helper(x: number) {\n  return x * 2;\n}';
     const findings = analyzeDocs(content, '/src/helper.ts');
-    const docFinding = findings.find(f => f.title.includes('Missing JSDoc'));
+    const docFinding = findings.find((f) => f.title.includes('Missing JSDoc'));
     expect(docFinding).toBeUndefined();
   });
 
@@ -71,7 +71,7 @@ describe('Docs Lens', () => {
     ].join('\n');
 
     const findings = analyzeDocs(content, '/src/user.ts');
-    const docFinding = findings.find(f => f.title.includes('Missing JSDoc'));
+    const docFinding = findings.find((f) => f.title.includes('Missing JSDoc'));
     expect(docFinding).toBeUndefined();
   });
 
@@ -81,7 +81,7 @@ describe('Docs Lens', () => {
       version: '1.0.0',
     });
     const findings = analyzeDocs(content, '/project/package.json');
-    const readmeFinding = findings.find(f => f.title.includes('Missing README'));
+    const readmeFinding = findings.find((f) => f.title.includes('Missing README'));
     expect(readmeFinding).toBeDefined();
   });
 
@@ -99,7 +99,7 @@ describe('Docs Lens', () => {
     ].join('\n');
 
     const findings = analyzeDocs(content, '/src/multi.ts');
-    const jsdocFindings = findings.filter(f => f.title.includes('Missing JSDoc'));
+    const jsdocFindings = findings.filter((f) => f.title.includes('Missing JSDoc'));
     expect(jsdocFindings.length).toBeGreaterThanOrEqual(2);
   });
 

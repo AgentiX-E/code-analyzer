@@ -9,9 +9,7 @@ function main() {
   const email = formatEmail(user.getName(), 'example.com');
   const slug = slugify('Hello World');
 
-  const posts: Post[] = [
-    new Post('1', 'First Post', 'Content here', user.id),
-  ];
+  const posts: Post[] = [new Post('1', 'First Post', 'Content here', user.id)];
 
   const userPosts = getUserPosts(user.id, posts);
 

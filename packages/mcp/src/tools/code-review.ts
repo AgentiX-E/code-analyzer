@@ -43,13 +43,23 @@ export const reviewDiffSchema = {
     diff: { type: 'string', description: 'Git diff content to review' },
     fromRef: { type: 'string', description: 'Base reference' },
     toRef: { type: 'string', description: 'Target reference' },
-    severity: { type: 'string', description: 'Minimum severity to report (critical, high, medium, low)' },
-    categories: { type: 'array', items: { type: 'string' }, description: 'Review categories to include' },
+    severity: {
+      type: 'string',
+      description: 'Minimum severity to report (critical, high, medium, low)',
+    },
+    categories: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Review categories to include',
+    },
   },
   required: ['projectId'],
 };
 
-export async function reviewDiff(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function reviewDiff(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as ReviewDiffParams;
   const projectId = params.projectId;
   const diffContent = params.diff;
@@ -69,50 +79,102 @@ export async function reviewDiff(args: Record<string, unknown>, store?: unknown)
         // Use PRReviewEngine for deep analysis (standards + impact + review)
         try {
           const prEngine = ctx.getPRReviewEngine();
-          const prResult = await prEngine.reviewPR(projectId, {
-            number: 0,
-            title: `Review: ${fromRef}..${toRef}`,
-            body: '',
-            state: 'open',
-            base: { ref: fromRef, sha: '', repo: { id: 0, owner: '', name: projectId, fullName: projectId, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-            head: { ref: toRef, sha: '', repo: { id: 0, owner: '', name: projectId, fullName: projectId, defaultBranch: 'main', cloneUrl: '', language: '', topics: [], isPrivate: false, description: '' } },
-            user: { login: 'code-analyzer' },
-            labels: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }, diffs);
+          const prResult = await prEngine.reviewPR(
+            projectId,
+            {
+              number: 0,
+              title: `Review: ${fromRef}..${toRef}`,
+              body: '',
+              state: 'open',
+              base: {
+                ref: fromRef,
+                sha: '',
+                repo: {
+                  id: 0,
+                  owner: '',
+                  name: projectId,
+                  fullName: projectId,
+                  defaultBranch: 'main',
+                  cloneUrl: '',
+                  language: '',
+                  topics: [],
+                  isPrivate: false,
+                  description: '',
+                },
+              },
+              head: {
+                ref: toRef,
+                sha: '',
+                repo: {
+                  id: 0,
+                  owner: '',
+                  name: projectId,
+                  fullName: projectId,
+                  defaultBranch: 'main',
+                  cloneUrl: '',
+                  language: '',
+                  topics: [],
+                  isPrivate: false,
+                  description: '',
+                },
+              },
+              user: { login: 'code-analyzer' },
+              labels: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            diffs,
+          );
 
-          const filtered = filterComments(prResult.comments, severity as Severity, categories as ReviewCategory[]);
+          const filtered = filterComments(
+            prResult.comments,
+            severity as Severity,
+            categories as ReviewCategory[],
+          );
           const sum = buildSummary(filtered);
 
           return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                projectId,
-                range: { from: fromRef, to: toRef },
-                hasDiff: true,
-                sessionId: prResult.sessionId,
-                comments: filtered.slice(0, 50),
-                summary: sum,
-                totalFindings: prResult.summary.totalComments,
-                riskLevel: prResult.summary.riskLevel,
-                mergeRecommendation: prResult.summary.mergeRecommendation,
-                byCategory: prResult.summary.byCategory,
-                bySeverity: prResult.summary.bySeverity,
-                impactResult: {
-                  riskLevel: prResult.impactResult.riskLevel,
-                  affectedFiles: prResult.impactResult.changedFiles?.length ?? 0,
-                  estimatedEffort: prResult.impactResult.estimatedEffort,
-                },
-                standardsChecked: prResult.standardsResults.length,
-                severity,
-                categories: categories ?? ['bug', 'security', 'performance', 'maintainability', 'style', 'documentation', 'architecture'],
-                filesReviewed: diffs.length,
-                reviewMethod: 'Deep review (PRReviewEngine: standards + impact + heuristics)',
-                actionableRecommendations: generateActionableRecommendations(prResult.summary),
-              }, null, 2),
-            }],
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    projectId,
+                    range: { from: fromRef, to: toRef },
+                    hasDiff: true,
+                    sessionId: prResult.sessionId,
+                    comments: filtered.slice(0, 50),
+                    summary: sum,
+                    totalFindings: prResult.summary.totalComments,
+                    riskLevel: prResult.summary.riskLevel,
+                    mergeRecommendation: prResult.summary.mergeRecommendation,
+                    byCategory: prResult.summary.byCategory,
+                    bySeverity: prResult.summary.bySeverity,
+                    impactResult: {
+                      riskLevel: prResult.impactResult.riskLevel,
+                      affectedFiles: prResult.impactResult.changedFiles?.length ?? 0,
+                      estimatedEffort: prResult.impactResult.estimatedEffort,
+                    },
+                    standardsChecked: prResult.standardsResults.length,
+                    severity,
+                    categories: categories ?? [
+                      'bug',
+                      'security',
+                      'performance',
+                      'maintainability',
+                      'style',
+                      'documentation',
+                      'architecture',
+                    ],
+                    filesReviewed: diffs.length,
+                    reviewMethod: 'Deep review (PRReviewEngine: standards + impact + heuristics)',
+                    actionableRecommendations: generateActionableRecommendations(prResult.summary),
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
           };
         } catch {
           // PRReviewEngine failed — fall back to basic review engine
@@ -123,44 +185,76 @@ export async function reviewDiff(args: Record<string, unknown>, store?: unknown)
         const session = await reviewEngine.reviewDiff(projectId, diffs);
 
         const allComments = extractCommentsFromSession(session);
-        const filtered = filterComments(allComments, severity as Severity, categories as ReviewCategory[]);
+        const filtered = filterComments(
+          allComments,
+          severity as Severity,
+          categories as ReviewCategory[],
+        );
         const sum = buildSummary(filtered);
 
         return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              projectId,
-              range: { from: fromRef, to: toRef },
-              hasDiff: true,
-              comments: filtered,
-              summary: sum,
-              severity,
-              categories: categories ?? ['bug', 'security', 'performance', 'maintainability', 'style', 'documentation', 'architecture'],
-              sessionId: session.id,
-              filesReviewed: session.filesReviewed,
-              reviewMethod: 'Basic code review (heuristics)',
-            }, null, 2),
-          }],
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  projectId,
+                  range: { from: fromRef, to: toRef },
+                  hasDiff: true,
+                  comments: filtered,
+                  summary: sum,
+                  severity,
+                  categories: categories ?? [
+                    'bug',
+                    'security',
+                    'performance',
+                    'maintainability',
+                    'style',
+                    'documentation',
+                    'architecture',
+                  ],
+                  sessionId: session.id,
+                  filesReviewed: session.filesReviewed,
+                  reviewMethod: 'Basic code review (heuristics)',
+                },
+                null,
+                2,
+              ),
+            },
+          ],
         };
       }
 
       // No diff content — run heuristic analysis on what we know
       const heuristicsResults = runBasicHeuristics(projectId, ctx);
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            range: { from: fromRef, to: toRef },
-            hasDiff: false,
-            comments: heuristicsResults.comments,
-            summary: heuristicsResults.summary,
-            severity,
-            categories: categories ?? ['bug', 'security', 'performance', 'maintainability', 'style', 'documentation', 'architecture'],
-            note: 'No diff content provided. Supply diff content for full analysis.',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                range: { from: fromRef, to: toRef },
+                hasDiff: false,
+                comments: heuristicsResults.comments,
+                summary: heuristicsResults.summary,
+                severity,
+                categories: categories ?? [
+                  'bug',
+                  'security',
+                  'performance',
+                  'maintainability',
+                  'style',
+                  'documentation',
+                  'architecture',
+                ],
+                note: 'No diff content provided. Supply diff content for full analysis.',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
@@ -169,44 +263,72 @@ export async function reviewDiff(args: Record<string, unknown>, store?: unknown)
     if (graphStore) {
       const integrity = graphStore.validateIntegrity(projectId);
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            range: { from: fromRef, to: toRef },
-            hasDiff: false,
-            comments: [],
-            summary: {
-              total: 0,
-              critical: 0,
-              high: 0,
-              medium: 0,
-              low: 0,
-              info: 0,
-            },
-            severity,
-            categories: categories ?? ['bug', 'security', 'performance', 'maintainability', 'style', 'documentation', 'architecture'],
-            graphIntegrity: integrity,
-            note: 'Graph data available. Supply diff content for in-depth review.',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                range: { from: fromRef, to: toRef },
+                hasDiff: false,
+                comments: [],
+                summary: {
+                  total: 0,
+                  critical: 0,
+                  high: 0,
+                  medium: 0,
+                  low: 0,
+                  info: 0,
+                },
+                severity,
+                categories: categories ?? [
+                  'bug',
+                  'security',
+                  'performance',
+                  'maintainability',
+                  'style',
+                  'documentation',
+                  'architecture',
+                ],
+                graphIntegrity: integrity,
+                note: 'Graph data available. Supply diff content for in-depth review.',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          range: { from: fromRef, to: toRef },
-          hasDiff: Boolean(diffContent),
-          comments: [],
-          summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 },
-          severity,
-          categories: categories ?? ['bug', 'security', 'performance', 'maintainability', 'style', 'documentation', 'architecture'],
-          note: 'No graph store or ToolContext available',
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              range: { from: fromRef, to: toRef },
+              hasDiff: Boolean(diffContent),
+              comments: [],
+              summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+              severity,
+              categories: categories ?? [
+                'bug',
+                'security',
+                'performance',
+                'maintainability',
+                'style',
+                'documentation',
+                'architecture',
+              ],
+              note: 'No graph store or ToolContext available',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -233,13 +355,19 @@ export const reviewFileSchema = {
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
     filePath: { type: 'string', description: 'File path to review' },
-    content: { type: 'string', description: 'File content (optional, auto-detected if not provided)' },
+    content: {
+      type: 'string',
+      description: 'File content (optional, auto-detected if not provided)',
+    },
     severity: { type: 'string', description: 'Minimum severity to report' },
   },
   required: ['projectId', 'filePath'],
 };
 
-export async function reviewFile(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function reviewFile(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as ReviewFileParams;
   const projectId = params.projectId;
   const filePath = params.filePath;
@@ -257,18 +385,24 @@ export async function reviewFile(args: Record<string, unknown>, store?: unknown)
       const summary = buildSummary(filtered);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            filePath,
-            hasContent: true,
-            comments: filtered,
-            summary,
-            severity,
-            reviewMethod: 'Heuristics-based code review',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                filePath,
+                hasContent: true,
+                comments: filtered,
+                summary,
+                severity,
+                reviewMethod: 'Heuristics-based code review',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
@@ -281,35 +415,47 @@ export async function reviewFile(args: Record<string, unknown>, store?: unknown)
       const summary = buildSummary(filtered);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            filePath,
-            hasContent: false,
-            comments: filtered,
-            summary,
-            severity,
-            symbolsInFile: fileNodes.length,
-            note: 'Graph-based analysis. Provide file content for detailed review.',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                filePath,
+                hasContent: false,
+                comments: filtered,
+                summary,
+                severity,
+                symbolsInFile: fileNodes.length,
+                note: 'Graph-based analysis. Provide file content for detailed review.',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          filePath,
-          hasContent: Boolean(content),
-          comments: [],
-          summary: { total: 0, files: 1 },
-          severity,
-          note: 'File-level review requires a graph store with indexed data',
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              filePath,
+              hasContent: Boolean(content),
+              comments: [],
+              summary: { total: 0, files: 1 },
+              severity,
+              note: 'File-level review requires a graph store with indexed data',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -369,7 +515,8 @@ function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
             oldEnd: oldStart + oldCount,
             newStart,
             newEnd: newStart + newCount,
-            changeType: (oldCount > 0 && newCount > 0) ? 'modified' : oldCount > 0 ? 'removed' : 'added',
+            changeType:
+              oldCount > 0 && newCount > 0 ? 'modified' : oldCount > 0 ? 'removed' : 'added',
           });
         }
       }
@@ -380,13 +527,18 @@ function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
         newHash: '',
         oldPath,
         changeType,
-        ranges: ranges.length > 0 ? ranges : [{
-          oldStart: 1,
-          oldEnd: 1,
-          newStart: 1,
-          newEnd: 1,
-          changeType: 'modified',
-        }],
+        ranges:
+          ranges.length > 0
+            ? ranges
+            : [
+                {
+                  oldStart: 1,
+                  oldEnd: 1,
+                  newStart: 1,
+                  newEnd: 1,
+                  changeType: 'modified',
+                },
+              ],
       });
     }
   }
@@ -394,7 +546,11 @@ function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
   return diffs;
 }
 
-function extractCommentsFromSession(session: { id?: string; commentsGenerated?: number; filesReviewed?: number }): unknown[] {
+function extractCommentsFromSession(session: {
+  id?: string;
+  commentsGenerated?: number;
+  filesReviewed?: number;
+}): unknown[] {
   // Session stores item_done records in the session store (JSONL).
   // Each record contains the item (file review) with its comments.
   // Return a basic extraction — the actual comments are accessible via
@@ -407,7 +563,8 @@ function extractCommentsFromSession(session: { id?: string; commentsGenerated?: 
       id: `session-info-${Date.now()}`,
       path: `[review session: ${session.id}]`,
       content: `Review session completed: ${session.commentsGenerated} comments across ${session.filesReviewed ?? 0} files`,
-      thinking: 'Review comments are stored in the session store (JSONL). Use session store API to retrieve individual file reviews with comment details.',
+      thinking:
+        'Review comments are stored in the session store (JSONL). Use session store API to retrieve individual file reviews with comment details.',
       startLine: 0,
       endLine: 0,
       category: 'documentation' as const,
@@ -420,7 +577,13 @@ function extractCommentsFromSession(session: { id?: string; commentsGenerated?: 
 }
 
 function filterComments(comments: any[], minSeverity?: string, categories?: string[]): any[] {
-  const severityOrder: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+  const severityOrder: Record<string, number> = {
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+    info: 0,
+  };
   const minOrder = minSeverity ? (severityOrder[minSeverity] ?? 2) : 2;
 
   return comments.filter((c: any) => {
@@ -444,9 +607,12 @@ function buildSummary(comments: any[]): Record<string, number> {
   return summary;
 }
 
-function runBasicHeuristics(projectId: string, ctx: ToolContext): { comments: unknown[]; summary: Record<string, number> } {
+function runBasicHeuristics(
+  projectId: string,
+  ctx: ToolContext,
+): { comments: unknown[]; summary: Record<string, number> } {
   const comments: unknown[] = [];
-  const allNodes = ctx.store.getAllNodes().filter(n => n.projectId === projectId);
+  const allNodes = ctx.store.getAllNodes().filter((n) => n.projectId === projectId);
 
   // Check for high-complexity functions
   for (const node of allNodes) {
@@ -489,7 +655,10 @@ function runBasicHeuristics(projectId: string, ctx: ToolContext): { comments: un
   };
 }
 
-function analyzeFileFromGraph(filePath: string, fileNodes: import('@code-analyzer/shared').GraphNode[]): unknown[] {
+function analyzeFileFromGraph(
+  filePath: string,
+  fileNodes: import('@code-analyzer/shared').GraphNode[],
+): unknown[] {
   const comments: unknown[] = [];
 
   if (fileNodes.length === 0) {
@@ -546,9 +715,13 @@ function analyzeFileFromGraph(filePath: string, fileNodes: import('@code-analyze
  * Generate actionable recommendations from PR review summary.
  * Produces prioritized, concrete fix suggestions based on review findings.
  */
-function generateActionableRecommendations(
-  summary: { totalComments: number; riskLevel: string; mergeRecommendation: string; byCategory?: Record<string, number>; bySeverity?: Record<string, number> },
-): Array<{ priority: string; action: string; detail: string }> {
+function generateActionableRecommendations(summary: {
+  totalComments: number;
+  riskLevel: string;
+  mergeRecommendation: string;
+  byCategory?: Record<string, number>;
+  bySeverity?: Record<string, number>;
+}): Array<{ priority: string; action: string; detail: string }> {
   const recs: Array<{ priority: string; action: string; detail: string }> = [];
 
   if (summary.riskLevel === 'critical' || summary.riskLevel === 'high') {
@@ -559,11 +732,15 @@ function generateActionableRecommendations(
     });
   }
 
-  if (summary.mergeRecommendation === 'request-changes' || summary.mergeRecommendation === 'block') {
+  if (
+    summary.mergeRecommendation === 'request-changes' ||
+    summary.mergeRecommendation === 'block'
+  ) {
     recs.push({
       priority: 'high',
       action: 'Request changes before merging',
-      detail: 'Review all findings and resolve blocking issues. Add regression tests for affected code paths.',
+      detail:
+        'Review all findings and resolve blocking issues. Add regression tests for affected code paths.',
     });
   }
 
@@ -572,7 +749,8 @@ function generateActionableRecommendations(
     recs.push({
       priority: bugCount > 3 ? 'high' : 'medium',
       action: `Fix ${bugCount} potential bug(s)`,
-      detail: 'Add unit tests covering the edge cases identified. Verify input validation and error handling.',
+      detail:
+        'Add unit tests covering the edge cases identified. Verify input validation and error handling.',
     });
   }
 
@@ -581,7 +759,8 @@ function generateActionableRecommendations(
     recs.push({
       priority: 'high',
       action: `Address ${securityCount} security concern(s)`,
-      detail: 'Review for input sanitization, authentication, authorization, and data exposure issues. Run security scan.',
+      detail:
+        'Review for input sanitization, authentication, authorization, and data exposure issues. Run security scan.',
     });
   }
 
@@ -590,7 +769,8 @@ function generateActionableRecommendations(
     recs.push({
       priority: 'medium',
       action: `Optimize ${perfCount} performance issue(s)`,
-      detail: 'Consider caching, lazy loading, or algorithmic improvements. Run performance benchmarks.',
+      detail:
+        'Consider caching, lazy loading, or algorithmic improvements. Run performance benchmarks.',
     });
   }
 
@@ -607,13 +787,15 @@ function generateActionableRecommendations(
   recs.push({
     priority: 'low',
     action: 'Ensure test coverage for changed code',
-    detail: 'Add or update unit tests to cover new and modified code paths. Target >80% coverage on changed files.',
+    detail:
+      'Add or update unit tests to cover new and modified code paths. Target >80% coverage on changed files.',
   });
 
   recs.push({
     priority: 'low',
     action: 'Update documentation',
-    detail: 'Update API docs, changelog, and architecture decision records if public interfaces changed.',
+    detail:
+      'Update API docs, changelog, and architecture decision records if public interfaces changed.',
   });
 
   return recs;

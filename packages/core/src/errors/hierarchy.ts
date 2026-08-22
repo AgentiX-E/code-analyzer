@@ -23,7 +23,7 @@ export class CodeAnalyzerError extends Error {
     category: ErrorCategory,
     codeSuffix: string,
     message: string,
-    context: Record<string, unknown> = {}
+    context: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -70,7 +70,6 @@ export class CodeAnalyzerError extends Error {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const err: CodeAnalyzerError = Object.create(ctor.prototype) as CodeAnalyzerError;
 
-     
     const mutable = err as unknown as {
       code: string;
       category: ErrorCategory;

@@ -4,13 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import {
-  mkdtempSync,
-  writeFileSync,
-  readFileSync,
-  existsSync,
-  rmSync,
-} from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as nodeZlib from 'node:zlib';
@@ -327,7 +321,7 @@ describe('GraphCompressor', () => {
       // Corrupt the file
       const buffer = readFileSync(artifactPath);
       const corrupted = Buffer.from(buffer);
-      corrupted[corrupted.length - 1] = (corrupted[corrupted.length - 1] ?? 0) ^ 0xFF;
+      corrupted[corrupted.length - 1] = (corrupted[corrupted.length - 1] ?? 0) ^ 0xff;
       writeFileSync(artifactPath, corrupted);
 
       expect(compressor.verifyArtifact(artifactPath)).toBe(false);
@@ -523,7 +517,8 @@ describe('GraphCompressor', () => {
         },
       }));
 
-      const { GraphCompressor: MockedCompressor } = await import('../cross-repo/graph-compressor.js');
+      const { GraphCompressor: MockedCompressor } =
+        await import('../cross-repo/graph-compressor.js');
 
       const c = new MockedCompressor();
       const store = new InMemoryGraphStore();

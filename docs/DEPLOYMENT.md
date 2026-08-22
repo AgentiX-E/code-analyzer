@@ -20,15 +20,15 @@ Production deployment guide for the Code Analyzer platform.
 
 ## Prerequisites
 
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| Docker | 24.0+ | 26.0+ |
-| Kubernetes | 1.27+ | 1.30+ |
-| Node.js (manual deploy) | 20.0.0 | 22.x LTS |
-| pnpm (manual deploy) | 8.0.0 | 9.x |
-| Memory | 2 GB | 4-8 GB |
-| Storage (SSD) | 10 GB | 50+ GB |
-| Git | 2.40+ | 2.45+ |
+| Requirement             | Minimum | Recommended |
+| ----------------------- | ------- | ----------- |
+| Docker                  | 24.0+   | 26.0+       |
+| Kubernetes              | 1.27+   | 1.30+       |
+| Node.js (manual deploy) | 20.0.0  | 22.x LTS    |
+| pnpm (manual deploy)    | 8.0.0   | 9.x         |
+| Memory                  | 2 GB    | 4-8 GB      |
+| Storage (SSD)           | 10 GB   | 50+ GB      |
+| Git                     | 2.40+   | 2.45+       |
 
 ---
 
@@ -75,10 +75,10 @@ The canonical compose file is at the repository root: [`docker-compose.yml`](../
 
 It defines two services:
 
-| Service | Port | Description |
-|---------|------|-------------|
-| `code-analyzer-mcp` | 3000 | MCP server (SSE transport) |
-| `code-analyzer-server` | 3001 | HTTP REST API server |
+| Service                | Port | Description                |
+| ---------------------- | ---- | -------------------------- |
+| `code-analyzer-mcp`    | 3000 | MCP server (SSE transport) |
+| `code-analyzer-server` | 3001 | HTTP REST API server       |
 
 ### Quick Start
 
@@ -109,12 +109,12 @@ docker compose down
 
 Production manifests are in the [`k8s/`](../k8s/) directory:
 
-| File | Resource |
-|------|----------|
-| `namespace.yaml` | Namespace `code-analyzer` |
-| `configmap.yaml` | ConfigMap with server settings |
-| `deployment.yaml` | Deployment (1 replica) + PVC |
-| `service.yaml` | ClusterIP service |
+| File              | Resource                       |
+| ----------------- | ------------------------------ |
+| `namespace.yaml`  | Namespace `code-analyzer`      |
+| `configmap.yaml`  | ConfigMap with server settings |
+| `deployment.yaml` | Deployment (1 replica) + PVC   |
+| `service.yaml`    | ClusterIP service              |
 
 ### Deployment
 
@@ -138,18 +138,18 @@ kubectl -n code-analyzer create secret generic code-analyzer-secrets \
 
 ### Resource Allocation (from deployment.yaml)
 
-| Resource | Request | Limit |
-|----------|---------|-------|
-| CPU | 500m | 2000m (2 cores) |
-| Memory | 512 Mi | 2 Gi |
-| Storage (PVC) | 50 Gi | — |
+| Resource      | Request | Limit           |
+| ------------- | ------- | --------------- |
+| CPU           | 500m    | 2000m (2 cores) |
+| Memory        | 512 Mi  | 2 Gi            |
+| Storage (PVC) | 50 Gi   | —               |
 
 ### Probes
 
-| Probe | Path | Initial Delay | Period |
-|-------|------|:---:|:---:|
-| Liveness | `/health:3000` | 15s | 30s |
-| Readiness | `/health:3000` | 5s | 10s |
+| Probe     | Path           | Initial Delay | Period |
+| --------- | -------------- | :-----------: | :----: |
+| Liveness  | `/health:3000` |      15s      |  30s   |
+| Readiness | `/health:3000` |      5s       |  10s   |
 
 ---
 
@@ -157,50 +157,50 @@ kubectl -n code-analyzer create secret generic code-analyzer-secrets \
 
 ### Core Settings
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `NODE_ENV` | `production` | Environment mode |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+| Variable    | Default      | Description                      |
+| ----------- | ------------ | -------------------------------- |
+| `NODE_ENV`  | `production` | Environment mode                 |
+| `LOG_LEVEL` | `info`       | `debug`, `info`, `warn`, `error` |
 
 ### MCP Server
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MCP_TRANSPORT` | `sse` | Transport mode: `sse` or `stdio` |
-| `MCP_API_KEY` | — | API key for client authentication |
-| `TOOL_PROFILE` | `all` | Tool set: `all`, `analysis`, `scout` |
-| `ENABLE_RESOURCES` | `true` | Expose MCP resources |
-| `ENABLE_PROMPTS` | `true` | Expose MCP prompts |
-| `ENABLE_STREAMING` | `false` | Enable SSE streaming |
+| Variable           | Default | Description                          |
+| ------------------ | ------- | ------------------------------------ |
+| `MCP_TRANSPORT`    | `sse`   | Transport mode: `sse` or `stdio`     |
+| `MCP_API_KEY`      | —       | API key for client authentication    |
+| `TOOL_PROFILE`     | `all`   | Tool set: `all`, `analysis`, `scout` |
+| `ENABLE_RESOURCES` | `true`  | Expose MCP resources                 |
+| `ENABLE_PROMPTS`   | `true`  | Expose MCP prompts                   |
+| `ENABLE_STREAMING` | `false` | Enable SSE streaming                 |
 
 ### REST API Server
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3001` | Server port |
-| `SERVER_API_KEY` | — | API key for REST authentication |
+| Variable         | Default | Description                     |
+| ---------------- | ------- | ------------------------------- |
+| `PORT`           | `3001`  | Server port                     |
+| `SERVER_API_KEY` | —       | API key for REST authentication |
 
 ### Rate Limiting
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RATE_LIMIT_WINDOW_MS` | `60000` | Window size in milliseconds |
-| `RATE_LIMIT_MAX_REQUESTS` | `100` | Max requests per window |
+| Variable                  | Default | Description                 |
+| ------------------------- | ------- | --------------------------- |
+| `RATE_LIMIT_WINDOW_MS`    | `60000` | Window size in milliseconds |
+| `RATE_LIMIT_MAX_REQUESTS` | `100`   | Max requests per window     |
 
 ### Analysis Engine
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CODE_ANALYZER_MAX_FILE_SIZE` | `10485760` | Max file size in bytes (10 MB) |
-| `CODE_ANALYZER_CONCURRENCY` | `4` | Parallel parse workers |
-| `CODE_ANALYZER_DATA_DIR` | `/app/data` | Data directory for graph storage |
+| Variable                      | Default     | Description                      |
+| ----------------------------- | ----------- | -------------------------------- |
+| `CODE_ANALYZER_MAX_FILE_SIZE` | `10485760`  | Max file size in bytes (10 MB)   |
+| `CODE_ANALYZER_CONCURRENCY`   | `4`         | Parallel parse workers           |
+| `CODE_ANALYZER_DATA_DIR`      | `/app/data` | Data directory for graph storage |
 
 ### Optional: External Services
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEEPSEEK_API_KEY` | — | DeepSeek API key for optional LLM review features |
-| `GITHUB_WEBHOOK_SECRET` | — | HMAC secret for GitHub webhook verification |
+| Variable                | Default | Description                                       |
+| ----------------------- | ------- | ------------------------------------------------- |
+| `DEEPSEEK_API_KEY`      | —       | DeepSeek API key for optional LLM review features |
+| `GITHUB_WEBHOOK_SECRET` | —       | HMAC secret for GitHub webhook verification       |
 
 ---
 
@@ -226,11 +226,11 @@ GET /health
 
 ### Status Values
 
-| Status | Meaning |
-|--------|---------|
-| `ok` | All systems healthy |
-| `degraded` | Non-critical issue (e.g., high memory) |
-| `unhealthy` | Critical failure |
+| Status      | Meaning                                |
+| ----------- | -------------------------------------- |
+| `ok`        | All systems healthy                    |
+| `degraded`  | Non-critical issue (e.g., high memory) |
+| `unhealthy` | Critical failure                       |
 
 ### Docker Health Check
 
@@ -247,20 +247,20 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 ### Memory
 
-| Codebase Size | Recommended Memory | Notes |
-|:---|---:|------|
-| < 100 files | 512 MB | Suitable for small projects and microservices |
-| 100-1,000 files | 1-2 GB | Default container allocation |
-| 1,000-10,000 files | 4-8 GB | Large monorepos, index in batches |
-| > 10,000 files | 8-16 GB | Consider sharding across multiple instances |
+| Codebase Size      | Recommended Memory | Notes                                         |
+| :----------------- | -----------------: | --------------------------------------------- |
+| < 100 files        |             512 MB | Suitable for small projects and microservices |
+| 100-1,000 files    |             1-2 GB | Default container allocation                  |
+| 1,000-10,000 files |             4-8 GB | Large monorepos, index in batches             |
+| > 10,000 files     |            8-16 GB | Consider sharding across multiple instances   |
 
 ### Storage
 
-| Component | Size Guidance |
-|-----------|---------------|
-| Graph database (SQLite) | ~1-5 MB per 1,000 files |
-| Cache directory | 10-100 MB (content-addressed) |
-| Workspace mounts | Dependent on repository size |
+| Component               | Size Guidance                 |
+| ----------------------- | ----------------------------- |
+| Graph database (SQLite) | ~1-5 MB per 1,000 files       |
+| Cache directory         | 10-100 MB (content-addressed) |
+| Workspace mounts        | Dependent on repository size  |
 
 ### CPU
 
@@ -322,13 +322,13 @@ Structured JSON logs are written to stdout:
 
 ### Key Metrics
 
-| Metric | Description | Alert Threshold |
-|--------|-------------|-----------------|
-| Memory RSS | Resident set size | > 80% of container limit |
-| Heap used | V8 heap utilization | > 90% |
-| Response time P95 | 95th percentile latency | > 1000ms |
-| Error rate | 5xx errors / minute | > 5% |
-| Index queue depth | Pending indexing jobs | > 100 |
+| Metric            | Description             | Alert Threshold          |
+| ----------------- | ----------------------- | ------------------------ |
+| Memory RSS        | Resident set size       | > 80% of container limit |
+| Heap used         | V8 heap utilization     | > 90%                    |
+| Response time P95 | 95th percentile latency | > 1000ms                 |
+| Error rate        | 5xx errors / minute     | > 5%                     |
+| Index queue depth | Pending indexing jobs   | > 100                    |
 
 ### Prometheus
 

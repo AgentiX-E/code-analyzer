@@ -66,18 +66,12 @@ describe('detectEncoding', () => {
   });
 
   it('should detect UTF-8 BOM', () => {
-    const buffer = Buffer.concat([
-      Buffer.from([0xef, 0xbb, 0xbf]),
-      Buffer.from('hello', 'utf-8'),
-    ]);
+    const buffer = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('hello', 'utf-8')]);
     expect(detectEncoding(buffer)).toBe('utf-8');
   });
 
   it('should detect UTF-16 LE via BOM', () => {
-    const buffer = Buffer.concat([
-      Buffer.from([0xff, 0xfe]),
-      Buffer.from('hello', 'utf16le'),
-    ]);
+    const buffer = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('hello', 'utf16le')]);
     expect(detectEncoding(buffer)).toBe('utf-16');
   });
 
@@ -602,7 +596,9 @@ describe('BatchFileReader', () => {
   it('should handle progress callback during error paths', async () => {
     const filePath = await createTestFile('ok.txt', 'ok');
     const reader = new BatchFileReader({
-      onProgress: () => { /* called */ },
+      onProgress: () => {
+        /* called */
+      },
       batchSize: 2,
     });
     // Include a non-existent file to trigger error path with onProgress

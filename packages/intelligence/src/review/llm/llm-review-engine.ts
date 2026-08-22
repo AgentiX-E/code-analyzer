@@ -1,12 +1,7 @@
 // @code-analyzer/intelligence — LLM Review Engine
 // Orchestrates LLM-powered code review across multiple lanes.
 
-import type {
-  ReviewComment,
-  ReviewCategory,
-  Severity,
-  GitDiff,
-} from '@code-analyzer/shared';
+import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import {
   LANE_PROMPTS,
@@ -94,10 +89,7 @@ export class LLMReviewEngine {
    * Review a single git diff using LLM-powered analysis.
    * Runs the specified review lanes and returns aggregated results.
    */
-  async reviewDiff(
-    diff: GitDiff,
-    fileContext?: string,
-  ): Promise<LLMReviewResult[]> {
+  async reviewDiff(diff: GitDiff, fileContext?: string): Promise<LLMReviewResult[]> {
     const diffContent = this.buildDiffContent(diff);
 
     const ctx: PromptContext = {
@@ -119,10 +111,7 @@ export class LLMReviewEngine {
    * Review a git diff and convert LLM findings to ReviewComment format,
    * compatible with the existing heuristic review engine output.
    */
-  async reviewDiffAsComments(
-    diff: GitDiff,
-    fileContext?: string,
-  ): Promise<ReviewComment[]> {
+  async reviewDiffAsComments(diff: GitDiff, fileContext?: string): Promise<ReviewComment[]> {
     const results = await this.reviewDiff(diff, fileContext);
     return this.convertToReviewComments(diff, results);
   }
@@ -151,10 +140,7 @@ export class LLMReviewEngine {
     return results;
   }
 
-  private async executeLane(
-    ctx: PromptContext,
-    lane: ReviewLane,
-  ): Promise<LLMReviewResult> {
+  private async executeLane(ctx: PromptContext, lane: ReviewLane): Promise<LLMReviewResult> {
     const startTime = Date.now();
 
     try {
@@ -240,10 +226,7 @@ export class LLMReviewEngine {
   /**
    * Convert LLM review results to the standard ReviewComment format.
    */
-  convertToReviewComments(
-    diff: GitDiff,
-    results: LLMReviewResult[],
-  ): ReviewComment[] {
+  convertToReviewComments(diff: GitDiff, results: LLMReviewResult[]): ReviewComment[] {
     const comments: ReviewComment[] = [];
     const now = new Date().toISOString();
 
@@ -332,8 +315,15 @@ export class LLMReviewEngine {
   /** Normalize category string to valid ReviewCategory type. */
   private normalizeCategory(raw: string): ReviewCategory {
     const valid: ReviewCategory[] = [
-      'bug', 'security', 'performance', 'maintainability',
-      'test', 'style', 'documentation', 'architecture', 'other',
+      'bug',
+      'security',
+      'performance',
+      'maintainability',
+      'test',
+      'style',
+      'documentation',
+      'architecture',
+      'other',
     ];
     const lower = raw.toLowerCase();
     if (valid.includes(lower as ReviewCategory)) {

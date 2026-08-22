@@ -4,7 +4,13 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
 import { buildImpactResponse } from './smart-response.js';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_MEMBER_OF } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
+  EDGE_MEMBER_OF,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,7 +51,10 @@ export const detectChangesSchema = {
   required: ['projectId'],
 };
 
-export async function detectChanges(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function detectChanges(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as DetectChangesParams;
   const projectId = params.projectId;
   const fromRef = params.fromRef ?? 'HEAD~1';
@@ -59,7 +68,7 @@ export async function detectChanges(args: Record<string, unknown>, store?: unkno
       const stats = ctx.getGraphStats(projectId);
 
       // From the graph, we can list all files and their symbol counts
-      const allNodes = ctx.store.getAllNodes().filter(n => n.projectId === projectId);
+      const allNodes = ctx.store.getAllNodes().filter((n) => n.projectId === projectId);
       const fileMap = new Map<string, { symbols: number; complexity: number }>();
       for (const node of allNodes) {
         if (!node.filePath) continue;
@@ -72,7 +81,11 @@ export async function detectChanges(args: Record<string, unknown>, store?: unkno
       // Find files that are likely to have changed (heuristic: files with high complexity)
       const riskyFiles = Array.from(fileMap.entries())
         .filter(([_, v]) => v.complexity > 10 || v.symbols > 20)
-        .map(([path, v]) => ({ filePath: path, symbols: v.symbols, avgComplexity: v.complexity / Math.max(1, v.symbols) }));
+        .map(([path, v]) => ({
+          filePath: path,
+          symbols: v.symbols,
+          avgComplexity: v.complexity / Math.max(1, v.symbols),
+        }));
 
       // Find symbols with the most dependents (highly referenced = high risk when changed)
       const highImpactSymbols: unknown[] = [];
@@ -93,24 +106,30 @@ export async function detectChanges(args: Record<string, unknown>, store?: unkno
       highImpactSymbols.sort((a: any, b: any) => b.dependencyCount - a.dependencyCount);
 
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            range: { from: fromRef, to: toRef },
-            summary: {
-              totalFiles: fileMap.size,
-              totalSymbols: stats.nodeCount,
-              filesChanged: riskyFiles.length,
-              symbolsChanged: highImpactSymbols.length,
-              risk: riskyFiles.length > 20 ? 'high' : riskyFiles.length > 10 ? 'medium' : 'low',
-            },
-            changedFiles: includeFiles ? riskyFiles : undefined,
-            changedSymbols: highImpactSymbols.slice(0, 30),
-            detectionMethod: 'Graph-based heuristic change detection',
-            note: 'For precise change detection, provide git diff content and use review_pr or impact_analysis.',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                range: { from: fromRef, to: toRef },
+                summary: {
+                  totalFiles: fileMap.size,
+                  totalSymbols: stats.nodeCount,
+                  filesChanged: riskyFiles.length,
+                  symbolsChanged: highImpactSymbols.length,
+                  risk: riskyFiles.length > 20 ? 'high' : riskyFiles.length > 10 ? 'medium' : 'low',
+                },
+                changedFiles: includeFiles ? riskyFiles : undefined,
+                changedSymbols: highImpactSymbols.slice(0, 30),
+                detectionMethod: 'Graph-based heuristic change detection',
+                note: 'For precise change detection, provide git diff content and use review_pr or impact_analysis.',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
@@ -118,36 +137,48 @@ export async function detectChanges(args: Record<string, unknown>, store?: unkno
     if (graphStore) {
       const integrity = graphStore.validateIntegrity(projectId);
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projectId,
-            range: { from: fromRef, to: toRef },
-            summary: {
-              filesChanged: 0,
-              symbolsChanged: 0,
-              risk: 'low',
-            },
-            changedFiles: includeFiles ? [] : undefined,
-            changedSymbols: [],
-            graphIntegrity: integrity,
-            note: 'No diff data available. Index repository first.',
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                projectId,
+                range: { from: fromRef, to: toRef },
+                summary: {
+                  filesChanged: 0,
+                  symbolsChanged: 0,
+                  risk: 'low',
+                },
+                changedFiles: includeFiles ? [] : undefined,
+                changedSymbols: [],
+                graphIntegrity: integrity,
+                note: 'No diff data available. Index repository first.',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          range: { from: fromRef, to: toRef },
-          summary: { filesChanged: 0, symbolsChanged: 0, risk: 'low' },
-          changedFiles: includeFiles ? [] : undefined,
-          changedSymbols: [],
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              range: { from: fromRef, to: toRef },
+              summary: { filesChanged: 0, symbolsChanged: 0, risk: 'low' },
+              changedFiles: includeFiles ? [] : undefined,
+              changedSymbols: [],
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -182,7 +213,10 @@ export const impactAnalysisSchema = {
   required: ['projectId', 'fromRef', 'toRef'],
 };
 
-export async function impactAnalysis(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function impactAnalysis(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as ImpactAnalysisParams;
   const targetSymbol = params.targetSymbol;
   const fromRef = params.fromRef;
@@ -221,13 +255,18 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
       const node = graphStore.getNodeByQualifiedName(targetSymbol);
       if (node) {
         // BFS traversal for impact analysis
-        const bfs = graphStore.bfs(node.id, depth, [EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS, EDGE_MEMBER_OF]);
+        const bfs = graphStore.bfs(node.id, depth, [
+          EDGE_CALLS,
+          EDGE_IMPLEMENTS,
+          EDGE_EXTENDS,
+          EDGE_MEMBER_OF,
+        ]);
 
         // Separate direct vs indirect
         const directNodes: unknown[] = [];
         const indirectNodes: unknown[] = [];
 
-        const nodesByDepth: unknown[] = bfs.nodes.map(n => {
+        const nodesByDepth: unknown[] = bfs.nodes.map((n) => {
           const nodeDepth = bfs.pathLengths.get(n.id) ?? 0;
           const impactNode = {
             symbolQname: n.qualifiedName,
@@ -275,14 +314,14 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
         result.changedSymbols = directNodes.slice(0, 20);
 
         // Find processes and routes involved
-        const processNodes = bfs.nodes.filter(n => n.label === 'Process');
-        const routeNodes = bfs.nodes.filter(n => n.label === 'Route');
+        const processNodes = bfs.nodes.filter((n) => n.label === 'Process');
+        const routeNodes = bfs.nodes.filter((n) => n.label === 'Route');
         result.processesAffected = [
-          ...processNodes.map(p => ({
+          ...processNodes.map((p) => ({
             processName: p.qualifiedName,
             severity: 'degraded',
           })),
-          ...routeNodes.map(r => ({
+          ...routeNodes.map((r) => ({
             routePath: r.properties.routePath ?? r.name,
             routeMethod: r.properties.routeMethod ?? 'GET',
             severity: 'degraded',
@@ -291,32 +330,39 @@ export async function impactAnalysis(args: Record<string, unknown>, store?: unkn
       }
     } else if (graphStore && !targetSymbol) {
       // Global analysis: find all symbols with no incoming edges (roots)
-      const allNodes = graphStore.getAllNodes().filter(n => n.projectId === params.projectId);
-      const roots = allNodes.filter(n => {
+      const allNodes = graphStore.getAllNodes().filter((n) => n.projectId === params.projectId);
+      const roots = allNodes.filter((n) => {
         const incoming = graphStore.getEdgesForNode(n.id, undefined, 'in');
         return incoming.length === 0;
       });
 
-      result.changedFiles = [...new Set(roots.map(r => r.filePath).filter(Boolean) as string[])];
-      result.changedSymbols = roots.slice(0, 20).map(r => ({
+      result.changedFiles = [...new Set(roots.map((r) => r.filePath).filter(Boolean) as string[])];
+      result.changedSymbols = roots.slice(0, 20).map((r) => ({
         symbolQname: r.qualifiedName,
         label: r.label,
         filePath: r.filePath,
         dependencyCount: graphStore.getDegree(r.id),
       }));
 
-      result.note = 'No target symbol specified. Showing root symbols (no dependencies). Use a specific symbol for detailed impact analysis.';
+      result.note =
+        'No target symbol specified. Showing root symbols (no dependencies). Use a specific symbol for detailed impact analysis.';
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          ...result,
-          // Enriched context for AI agents (when graph store is available)
-          enriched: graphStore ? buildImpactResponse(result, graphStore, targetSymbol) : null,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              ...result,
+              // Enriched context for AI agents (when graph store is available)
+              enriched: graphStore ? buildImpactResponse(result, graphStore, targetSymbol) : null,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -345,7 +391,10 @@ export const routeMapSchema = {
   required: ['projectId'],
 };
 
-export async function routeMap(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function routeMap(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as RouteMapParams;
   const projectId = params.projectId;
   const includeHandlers = Boolean(params.includeHandlers);
@@ -361,27 +410,35 @@ export async function routeMap(args: Record<string, unknown>, store?: unknown): 
     const graphStore = getStore(store);
 
     if (graphStore) {
-      const routeNodes = graphStore.getAllNodes().filter(
-        n => n.projectId === projectId && n.label === 'Route',
-      );
+      const routeNodes = graphStore
+        .getAllNodes()
+        .filter((n) => n.projectId === projectId && n.label === 'Route');
 
-      routes.push(...routeNodes.map(n => ({
-        method: n.properties.routeMethod ?? 'GET',
-        path: n.properties.routePath ?? n.qualifiedName,
-        handler: includeHandlers ? n.name : undefined,
-        filePath: includeHandlers ? n.filePath ?? undefined : undefined,
-      })));
+      routes.push(
+        ...routeNodes.map((n) => ({
+          method: n.properties.routeMethod ?? 'GET',
+          path: n.properties.routePath ?? n.qualifiedName,
+          handler: includeHandlers ? n.name : undefined,
+          filePath: includeHandlers ? (n.filePath ?? undefined) : undefined,
+        })),
+      );
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          projectId,
-          routeCount: routes.length,
-          routes,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              projectId,
+              routeCount: routes.length,
+              routes,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -406,13 +463,19 @@ export const checkCyclesSchema = {
   type: 'object',
   properties: {
     projectId: { type: 'string', description: 'Project ID' },
-    module: { type: 'string', description: 'Specific module to check (optional, all if not provided)' },
+    module: {
+      type: 'string',
+      description: 'Specific module to check (optional, all if not provided)',
+    },
     maxDepth: { type: 'number', description: 'Maximum cycle detection depth (default: 10)' },
   },
   required: ['projectId'],
 };
 
-export async function checkCycles(args: Record<string, unknown>, store?: unknown): Promise<ToolResult> {
+export async function checkCycles(
+  args: Record<string, unknown>,
+  store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as CheckCyclesParams;
   const projectId = params.projectId;
   const module = params.module;
@@ -432,8 +495,10 @@ export async function checkCycles(args: Record<string, unknown>, store?: unknown
 
     if (graphStore) {
       const nodes = module
-        ? [graphStore.getNodeByQualifiedName(module)].filter(Boolean) as NonNullable<ReturnType<typeof graphStore.getNodeByQualifiedName>>[]
-        : graphStore.getAllNodes().filter(n => n.projectId === projectId);
+        ? ([graphStore.getNodeByQualifiedName(module)].filter(Boolean) as NonNullable<
+            ReturnType<typeof graphStore.getNodeByQualifiedName>
+          >[])
+        : graphStore.getAllNodes().filter((n) => n.projectId === projectId);
 
       const visited = new Set<number>();
       const recStack = new Set<number>();
@@ -463,7 +528,11 @@ function detectCycle(
   visited: Set<number>,
   recStack: Set<number>,
   path: number[],
-  result: { cyclesFound: number; cycles: Array<{ nodes: string[]; types: string[] }>; warnings: string[] },
+  result: {
+    cyclesFound: number;
+    cycles: Array<{ nodes: string[]; types: string[] }>;
+    warnings: string[];
+  },
 ): void {
   visited.add(nodeId);
   recStack.add(nodeId);
@@ -478,11 +547,10 @@ function detectCycle(
       const cycleStart = path.indexOf(neighborId);
       if (cycleStart >= 0) {
         const cyclePath = path.slice(cycleStart);
-        const cycleNames = cyclePath
-          .map(id => store.getNode(id)?.qualifiedName ?? `node_${id}`);
+        const cycleNames = cyclePath.map((id) => store.getNode(id)?.qualifiedName ?? `node_${id}`);
         result.cycles.push({
           nodes: cycleNames,
-          types: cyclePath.map(id => store.getNode(id)?.label ?? 'Module'),
+          types: cyclePath.map((id) => store.getNode(id)?.label ?? 'Module'),
         });
         result.cyclesFound++;
       }

@@ -171,7 +171,13 @@ describe('Architecture Review Prompt', () => {
 
 describe('Lane Registry', () => {
   it('should have all five review lanes defined', () => {
-    const lanes: ReviewLane[] = ['security', 'performance', 'maintainability', 'testing', 'architecture'];
+    const lanes: ReviewLane[] = [
+      'security',
+      'performance',
+      'maintainability',
+      'testing',
+      'architecture',
+    ];
     for (const lane of lanes) {
       expect(LANE_PROMPTS[lane]).toBeDefined();
       expect(LANE_LABELS[lane]).toBeDefined();
@@ -241,19 +247,22 @@ describe('parseLLMResponse', () => {
   });
 
   it('should handle JSON wrapped in markdown code fences', () => {
-    const json = '```json\n' + JSON.stringify({
-      findings: [
-        {
-          startLine: 5,
-          endLine: 7,
-          severity: 'medium',
-          category: 'performance',
-          title: 'N+1 query',
-          description: 'Query in a loop',
-          suggestion: null,
-        },
-      ],
-    }) + '\n```';
+    const json =
+      '```json\n' +
+      JSON.stringify({
+        findings: [
+          {
+            startLine: 5,
+            endLine: 7,
+            severity: 'medium',
+            category: 'performance',
+            title: 'N+1 query',
+            description: 'Query in a loop',
+            suggestion: null,
+          },
+        ],
+      }) +
+      '\n```';
 
     const results = parseLLMResponse(json);
     expect(results).toHaveLength(1);
@@ -261,19 +270,22 @@ describe('parseLLMResponse', () => {
   });
 
   it('should handle JSON with code fence but no language tag', () => {
-    const json = '```\n' + JSON.stringify({
-      findings: [
-        {
-          startLine: 1,
-          endLine: 1,
-          severity: 'low',
-          category: 'style',
-          title: 'Unused variable',
-          description: 'Variable is unused',
-          suggestion: 'Remove the variable',
-        },
-      ],
-    }) + '\n```';
+    const json =
+      '```\n' +
+      JSON.stringify({
+        findings: [
+          {
+            startLine: 1,
+            endLine: 1,
+            severity: 'low',
+            category: 'style',
+            title: 'Unused variable',
+            description: 'Variable is unused',
+            suggestion: 'Remove the variable',
+          },
+        ],
+      }) +
+      '\n```';
 
     const results = parseLLMResponse(json);
     expect(results).toHaveLength(1);
@@ -299,7 +311,13 @@ describe('parseLLMResponse', () => {
       findings: [
         { invalid: true },
         null,
-        { startLine: 'not a number', endLine: 1, severity: 'high', category: 'bug', title: 'Valid-looking' },
+        {
+          startLine: 'not a number',
+          endLine: 1,
+          severity: 'high',
+          category: 'bug',
+          title: 'Valid-looking',
+        },
         { startLine: 1, endLine: 1, severity: 'high', category: 'bug', title: 'Valid' },
       ],
     });
@@ -317,9 +335,7 @@ describe('parseLLMResponse', () => {
 
   it('should handle findings with missing optional fields', () => {
     const json = JSON.stringify({
-      findings: [
-        { startLine: 1, endLine: 1, severity: 'low', category: 'bug', title: 'Test' },
-      ],
+      findings: [{ startLine: 1, endLine: 1, severity: 'low', category: 'bug', title: 'Test' }],
     });
 
     const results = parseLLMResponse(json);
@@ -341,9 +357,33 @@ describe('parseLLMResponse', () => {
   it('should parse multiple findings', () => {
     const json = JSON.stringify({
       findings: [
-        { startLine: 1, endLine: 1, severity: 'critical', category: 'security', title: 'A', description: 'desc a', suggestion: 'fix a' },
-        { startLine: 5, endLine: 10, severity: 'high', category: 'performance', title: 'B', description: 'desc b', suggestion: 'fix b' },
-        { startLine: 15, endLine: 15, severity: 'low', category: 'documentation', title: 'C', description: 'desc c', suggestion: null },
+        {
+          startLine: 1,
+          endLine: 1,
+          severity: 'critical',
+          category: 'security',
+          title: 'A',
+          description: 'desc a',
+          suggestion: 'fix a',
+        },
+        {
+          startLine: 5,
+          endLine: 10,
+          severity: 'high',
+          category: 'performance',
+          title: 'B',
+          description: 'desc b',
+          suggestion: 'fix b',
+        },
+        {
+          startLine: 15,
+          endLine: 15,
+          severity: 'low',
+          category: 'documentation',
+          title: 'C',
+          description: 'desc c',
+          suggestion: null,
+        },
       ],
     });
 

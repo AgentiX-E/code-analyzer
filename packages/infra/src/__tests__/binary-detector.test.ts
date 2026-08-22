@@ -51,9 +51,7 @@ describe('BinaryFileDetector — Construction', () => {
 
   it('should construct with custom signatures', () => {
     const detector = new BinaryFileDetector({
-      customSignatures: [
-        { offset: 0, bytes: [0xab, 0xcd, 0xef], format: 'Custom format' },
-      ],
+      customSignatures: [{ offset: 0, bytes: [0xab, 0xcd, 0xef], format: 'Custom format' }],
     });
     expect(detector).toBeDefined();
   });
@@ -81,10 +79,39 @@ describe('BinaryFileDetector — Text Extensions', () => {
   });
 
   const textExtensions = [
-    'ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'kt', 'rs', 'rb',
-    'php', 'c', 'cpp', 'h', 'hpp', 'cs', 'swift', 'lua', 'r', 'zig',
-    'html', 'css', 'scss', 'json', 'yaml', 'yml', 'toml', 'md', 'txt',
-    'sh', 'sql', 'xml', 'svg',
+    'ts',
+    'tsx',
+    'js',
+    'jsx',
+    'py',
+    'go',
+    'java',
+    'kt',
+    'rs',
+    'rb',
+    'php',
+    'c',
+    'cpp',
+    'h',
+    'hpp',
+    'cs',
+    'swift',
+    'lua',
+    'r',
+    'zig',
+    'html',
+    'css',
+    'scss',
+    'json',
+    'yaml',
+    'yml',
+    'toml',
+    'md',
+    'txt',
+    'sh',
+    'sql',
+    'xml',
+    'svg',
   ];
 
   for (const ext of textExtensions) {
@@ -415,9 +442,7 @@ describe('BinaryFileDetector — Edge Cases', () => {
 describe('BinaryFileDetector — Custom Signatures', () => {
   it('should use custom signatures for detection', () => {
     const detector = new BinaryFileDetector({
-      customSignatures: [
-        { offset: 0, bytes: [0xde, 0xad, 0xbe, 0xef], format: 'Custom binary' },
-      ],
+      customSignatures: [{ offset: 0, bytes: [0xde, 0xad, 0xbe, 0xef], format: 'Custom binary' }],
     });
     const buf = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
     const filePath = createTempFile(buf, '.custom');
@@ -444,9 +469,7 @@ describe('BinaryFileDetector — Custom Signatures', () => {
 
   it('should not match custom signature at wrong offset', () => {
     const detector = new BinaryFileDetector({
-      customSignatures: [
-        { offset: 4, bytes: [0xde, 0xad], format: 'Offset custom' },
-      ],
+      customSignatures: [{ offset: 4, bytes: [0xde, 0xad], format: 'Offset custom' }],
     });
     const buf = Buffer.from([0x01, 0x02, 0x03, 0x04, 0xde, 0xad]);
     const filePath = createTempFile(buf, '.custom');
@@ -623,8 +646,15 @@ describe('BinaryFileDetector — Non-Printable Boundary Conditions', () => {
     // Buffer with only whitespace chars: tab(9), newline(10), CR(13), space(32)
     // These are all considered printable, so file should be text
     const buf = Buffer.from([
-      0x09, 0x0a, 0x0d, 0x20, // \t \n \r space
-      0x48, 0x65, 0x6c, 0x6c, 0x6f, // Hello
+      0x09,
+      0x0a,
+      0x0d,
+      0x20, // \t \n \r space
+      0x48,
+      0x65,
+      0x6c,
+      0x6c,
+      0x6f, // Hello
     ]);
     // Fill the rest with printable to reach 100+ bytes
     const full = Buffer.alloc(200, 0x41); // fill with 'A'

@@ -18,12 +18,22 @@ beforeAll(() => {
   testDir = mkdtempSync(join(tmpdir(), 'code-analyzer-e2e-'));
   mkdirSync(join(testDir, '.code-analyzer'), { recursive: true });
   writeFileSync(join(testDir, 'hello.ts'), 'export function hello() { return "world"; }');
-  writeFileSync(join(testDir, 'utils.ts'), 'export function add(a: number, b: number) { return a + b; }');
-  writeFileSync(join(testDir, 'user.service.ts'), 'export class UserService { login() { return true; } }');
+  writeFileSync(
+    join(testDir, 'utils.ts'),
+    'export function add(a: number, b: number) { return a + b; }',
+  );
+  writeFileSync(
+    join(testDir, 'user.service.ts'),
+    'export class UserService { login() { return true; } }',
+  );
 }, TIMEOUT);
 
 afterAll(() => {
-  try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+  try {
+    rmSync(testDir, { recursive: true, force: true });
+  } catch {
+    /* */
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -31,56 +41,74 @@ afterAll(() => {
 // ---------------------------------------------------------------------------
 
 describe('Full-Stack E2E — Server Lifecycle', () => {
-  it('should create server and start listening', async () => {
-    const { createServer } = await import('@code-analyzer/server');
-    const { createToolRegistry } = await import('@code-analyzer/mcp');
+  it(
+    'should create server and start listening',
+    async () => {
+      const { createServer } = await import('@code-analyzer/server');
+      const { createToolRegistry } = await import('@code-analyzer/mcp');
 
-    const registry = createToolRegistry();
-    const server = await createServer({
-      registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
-    });
+      const registry = createToolRegistry();
+      const server = await createServer({
+        registry,
+        config: {
+          port: 0,
+          logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+        },
+      });
 
-    await server.start();
-    expect(server.app.server.listening).toBe(true);
+      await server.start();
+      expect(server.app.server.listening).toBe(true);
 
-    await server.stop();
-    expect(server.app.server.listening).toBe(false);
-  }, TIMEOUT);
+      await server.stop();
+      expect(server.app.server.listening).toBe(false);
+    },
+    TIMEOUT,
+  );
 
-  it('should expose health endpoint', async () => {
-    const { createServer } = await import('@code-analyzer/server');
-    const { createToolRegistry } = await import('@code-analyzer/mcp');
+  it(
+    'should expose health endpoint',
+    async () => {
+      const { createServer } = await import('@code-analyzer/server');
+      const { createToolRegistry } = await import('@code-analyzer/mcp');
 
-    const registry = createToolRegistry();
-    const server = await createServer({
-      registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
-    });
+      const registry = createToolRegistry();
+      const server = await createServer({
+        registry,
+        config: {
+          port: 0,
+          logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+        },
+      });
 
-    await server.start();
-    const addr = server.app.server.address()!;
-    const port = typeof addr === 'object' ? addr.port : server.config.port;
+      await server.start();
+      const addr = server.app.server.address()!;
+      const port = typeof addr === 'object' ? addr.port : server.config.port;
 
-    const res = await fetch(`http://127.0.0.1:${port}/health`);
-    expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
-    expect(body.status).toMatch(/healthy|degraded|unhealthy/);
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body.status).toMatch(/healthy|degraded|unhealthy/);
 
-    await server.stop();
-  }, TIMEOUT);
+      await server.stop();
+    },
+    TIMEOUT,
+  );
 
-  it('should have graceful shutdown accessible', async () => {
-    const { createServer } = await import('@code-analyzer/server');
-    const { createToolRegistry } = await import('@code-analyzer/mcp');
+  it(
+    'should have graceful shutdown accessible',
+    async () => {
+      const { createServer } = await import('@code-analyzer/server');
+      const { createToolRegistry } = await import('@code-analyzer/mcp');
 
-    const registry = createToolRegistry();
-    const server = await createServer({ registry, config: { port: 0 } });
+      const registry = createToolRegistry();
+      const server = await createServer({ registry, config: { port: 0 } });
 
-    expect(server.shutdown).toBeDefined();
-    expect(typeof server.shutdown.register).toBe('function');
-    expect(server.health).toBeDefined();
-  }, TIMEOUT);
+      expect(server.shutdown).toBeDefined();
+      expect(typeof server.shutdown.register).toBe('function');
+      expect(server.health).toBeDefined();
+    },
+    TIMEOUT,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -157,7 +185,8 @@ describe('Full-Stack E2E — CLI', () => {
   });
 
   it('should analyze repository via CLI', async () => {
-    const { analyzeRepository, formatAnalyzeResult } = await import('../../packages/cli/src/commands/analyze.ts');
+    const { analyzeRepository, formatAnalyzeResult } =
+      await import('../../packages/cli/src/commands/analyze.ts');
     const result = await analyzeRepository({ path: testDir, format: 'json' });
     expect(result).toBeDefined();
     // May succeed or fail depending on env, but should not crash
@@ -167,7 +196,8 @@ describe('Full-Stack E2E — CLI', () => {
   });
 
   it('should search via CLI command', async () => {
-    const { searchGraph, formatSearchResult } = await import('../../packages/cli/src/commands/search.ts');
+    const { searchGraph, formatSearchResult } =
+      await import('../../packages/cli/src/commands/search.ts');
     const result = await searchGraph({ query: 'hello', format: 'json' });
     expect(result).toBeDefined();
     const output = formatSearchResult(result, 'text');
@@ -243,36 +273,43 @@ describe('Full-Stack E2E — Cross-Repo', () => {
 // ---------------------------------------------------------------------------
 
 describe('Full-Stack E2E — GitHub Webhook', () => {
-  it('should register webhook endpoint on server', async () => {
-    const { createServer } = await import('@code-analyzer/server');
-    const { createToolRegistry } = await import('@code-analyzer/mcp');
+  it(
+    'should register webhook endpoint on server',
+    async () => {
+      const { createServer } = await import('@code-analyzer/server');
+      const { createToolRegistry } = await import('@code-analyzer/mcp');
 
-    const registry = createToolRegistry();
-    const server = await createServer({
-      registry,
-      config: { port: 0, logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } },
-      webhook: {
-        secret: 'test-secret',
-        handler: {
-          async process(_payload: unknown) {
-            // Test handler — no-op
+      const registry = createToolRegistry();
+      const server = await createServer({
+        registry,
+        config: {
+          port: 0,
+          logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+        },
+        webhook: {
+          secret: 'test-secret',
+          handler: {
+            async process(_payload: unknown) {
+              // Test handler — no-op
+            },
           },
         },
-      },
-    });
+      });
 
-    await server.start();
-    const addr = server.app.server.address()!;
-    const port = typeof addr === 'object' ? addr.port : server.config.port;
+      await server.start();
+      const addr = server.app.server.address()!;
+      const port = typeof addr === 'object' ? addr.port : server.config.port;
 
-    // Webhook status endpoint
-    const statusRes = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github/status`);
-    expect(statusRes.status).toBe(200);
-    const statusBody = await statusRes.json() as Record<string, unknown>;
-    expect(statusBody.configured).toBe(true);
+      // Webhook status endpoint
+      const statusRes = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github/status`);
+      expect(statusRes.status).toBe(200);
+      const statusBody = (await statusRes.json()) as Record<string, unknown>;
+      expect(statusBody.configured).toBe(true);
 
-    await server.stop();
-  }, TIMEOUT);
+      await server.stop();
+    },
+    TIMEOUT,
+  );
 
   it('should verify webhook signature', async () => {
     const { verifySignature } = await import('@code-analyzer/server');

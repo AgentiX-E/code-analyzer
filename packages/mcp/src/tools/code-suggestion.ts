@@ -83,9 +83,10 @@ export const codeSuggestionTool: McpToolDefinition = {
 
     let comments: ReviewComment[];
     try {
-      comments = typeof reviewComments === 'string'
-        ? JSON.parse(reviewComments)
-        : (reviewComments as ReviewComment[]);
+      comments =
+        typeof reviewComments === 'string'
+          ? JSON.parse(reviewComments)
+          : (reviewComments as ReviewComment[]);
     } catch {
       return {
         content: [{ type: 'text', text: 'Error: Invalid review comments JSON.' }],
@@ -241,9 +242,10 @@ function createBugFixSuggestion(
     // Add null/undefined checks
     if (comment.existingCode.includes('.')) {
       const variable = comment.existingCode.split('.')[0]!;
-      base.afterCode = language === 'typescript' || language === 'javascript'
-        ? `if (${variable} != null) {\n  ${comment.existingCode}\n} else {\n  // Handle null/undefined case\n  throw new Error('${variable} is required');\n}`
-        : `if ${variable} is not None:\n    ${comment.existingCode}\nelse:\n    raise ValueError("${variable} is required")`;
+      base.afterCode =
+        language === 'typescript' || language === 'javascript'
+          ? `if (${variable} != null) {\n  ${comment.existingCode}\n} else {\n  // Handle null/undefined case\n  throw new Error('${variable} is required');\n}`
+          : `if ${variable} is not None:\n    ${comment.existingCode}\nelse:\n    raise ValueError("${variable} is required")`;
       base.isAutoApplicable = false;
     } else {
       base.afterCode = `// FIX: ${comment.content}\n${comment.existingCode}`;
@@ -363,7 +365,9 @@ function createTestSuggestion(
   base.title = 'Add Test Coverage';
   base.effort = 'medium';
 
-  base.afterCode = comment.suggestionCode ?? `// TODO: Add test for: ${comment.content}\n// describe('...', () => {\n//   it('should handle the edge case', () => {\n//     // Add test implementation\n//   });\n// });`;
+  base.afterCode =
+    comment.suggestionCode ??
+    `// TODO: Add test for: ${comment.content}\n// describe('...', () => {\n//   it('should handle the edge case', () => {\n//     // Add test implementation\n//   });\n// });`;
 
   return base;
 }
@@ -377,7 +381,9 @@ function createDocumentationSuggestion(
   base.effort = 'trivial';
   base.isAutoApplicable = true;
 
-  base.afterCode = comment.suggestionCode ?? `/**\n * ${comment.content}\n * @returns {void}\n */\n${comment.existingCode}`;
+  base.afterCode =
+    comment.suggestionCode ??
+    `/**\n * ${comment.content}\n * @returns {void}\n */\n${comment.existingCode}`;
 
   return base;
 }
@@ -463,11 +469,12 @@ export function validateSuggestionSyntax(
   }
 
   // Only mark invalid if there are structural errors (unmatched braces/parens/brackets)
-  const hasStructuralError = warnings.some((w) =>
-    w.includes('Unmatched braces') ||
-    w.includes('Unmatched parentheses') ||
-    w.includes('Unmatched brackets') ||
-    w.includes('empty code'),
+  const hasStructuralError = warnings.some(
+    (w) =>
+      w.includes('Unmatched braces') ||
+      w.includes('Unmatched parentheses') ||
+      w.includes('Unmatched brackets') ||
+      w.includes('empty code'),
   );
 
   return { valid: !hasStructuralError, warnings };
@@ -534,10 +541,14 @@ export function formatSuggestionReport(report: SuggestionReport): string {
 
   for (const suggestion of report.suggestions) {
     const autoLabel = suggestion.isAutoApplicable ? '[Auto]' : '[Manual]';
-    const effortIcon = suggestion.effort === 'trivial' ? '⚡' :
-      suggestion.effort === 'small' ? '🔧' :
-      suggestion.effort === 'medium' ? '🔨' :
-      '🏗️';
+    const effortIcon =
+      suggestion.effort === 'trivial'
+        ? '⚡'
+        : suggestion.effort === 'small'
+          ? '🔧'
+          : suggestion.effort === 'medium'
+            ? '🔨'
+            : '🏗️';
     const validIcon = suggestion.syntaxValid ? '✅' : '⚠️';
 
     lines.push(`### ${autoLabel} ${suggestion.title} ${effortIcon} ${validIcon}`);

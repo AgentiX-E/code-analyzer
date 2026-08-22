@@ -129,7 +129,11 @@ export class ReviewDashboardAggregator {
 
     // Severity distribution
     const severityDist: Record<Severity, number> = {
-      critical: 0, high: 0, medium: 0, low: 0, info: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
     };
     for (const review of reviews) {
       for (const comment of review.comments) {
@@ -164,9 +168,10 @@ export class ReviewDashboardAggregator {
     const durations = reviews
       .map((r) => r.durationMs)
       .filter((d): d is number => d !== undefined && d > 0);
-    const avgDuration = durations.length > 0
-      ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length)
-      : 0;
+    const avgDuration =
+      durations.length > 0
+        ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length)
+        : 0;
 
     // Reviews over time (monthly aggregation)
     const timeMap = new Map<string, number>();
@@ -181,9 +186,8 @@ export class ReviewDashboardAggregator {
     return {
       totalReviews,
       /* v8 ignore next -- @preserve */
-      avgFindingsPerReview: totalReviews > 0
-        ? Math.round((totalFindings / totalReviews) * 10) / 10
-        : 0,
+      avgFindingsPerReview:
+        totalReviews > 0 ? Math.round((totalFindings / totalReviews) * 10) / 10 : 0,
       mostCommonIssues: mostCommon,
       severityDistribution: severityDist,
       categoryDistribution: categoryDist,
@@ -271,9 +275,7 @@ export class ReviewDashboardAggregator {
       totalWeight += config.weight;
     }
     /* v8 ignore next -- @preserve */
-    const overallScore = totalWeight > 0
-      ? Math.round(weightedScore / totalWeight)
-      : 100;
+    const overallScore = totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 100;
 
     // Determine trend based on critical findings in recent vs older reviews
     const sorted = [...reviews].sort(
@@ -298,9 +300,11 @@ export class ReviewDashboardAggregator {
     const olderRate = older.length > 0 ? olderCriticals / older.length : 0;
 
     const trend: 'improving' | 'stable' | 'degrading' =
-      recentRate < olderRate * 0.8 ? 'improving'
-      : recentRate > olderRate * 1.2 ? 'degrading'
-      : 'stable';
+      recentRate < olderRate * 0.8
+        ? 'improving'
+        : recentRate > olderRate * 1.2
+          ? 'degrading'
+          : 'stable';
 
     if (trend === 'degrading') {
       recommendations.push(
@@ -367,16 +371,19 @@ export class ReviewDashboardAggregator {
     let totalGap = 0;
     let gaps = 0;
     for (let i = 1; i < sortedReviews.length; i++) {
-      const gap = new Date(sortedReviews[i]!.timestamp).getTime() -
+      const gap =
+        new Date(sortedReviews[i]!.timestamp).getTime() -
         new Date(sortedReviews[i - 1]!.timestamp).getTime();
-      if (gap > 0 && gap < 7 * 24 * 60 * 60 * 1000) { // Within 7 days
+      if (gap > 0 && gap < 7 * 24 * 60 * 60 * 1000) {
+        // Within 7 days
         totalGap += gap;
         gaps++;
       }
     }
-    const avgTurnaround = gaps > 0
-      ? Math.round(totalGap / gaps / (60 * 60 * 1000) * 10) / 10 // Hours
-      : 0;
+    const avgTurnaround =
+      gaps > 0
+        ? Math.round((totalGap / gaps / (60 * 60 * 1000)) * 10) / 10 // Hours
+        : 0;
 
     // Common pattern findings (group by category:severity pattern)
     const patternCounts = new Map<string, number>();
@@ -435,10 +442,7 @@ export class ReviewDashboardAggregator {
   /**
    * Generate a complete dashboard report with all metrics, scores, and trends.
    */
-  generateDashboardReport(
-    reviews: ReviewEntry[],
-    options?: DashboardOptions,
-  ): DashboardReport {
+  generateDashboardReport(reviews: ReviewEntry[], options?: DashboardOptions): DashboardReport {
     const metrics = this.aggregateReviews(reviews);
     const healthScore = this.computeCodeHealthScore(reviews);
     const teamInsights = this.computeTeamInsights(reviews);
@@ -449,8 +453,14 @@ export class ReviewDashboardAggregator {
       const reports = reviews.map((r) => this.toAnalysisReport(r));
 
       if (reports.length >= 2) {
-        trendData['totalFindings'] = this.trendAnalyzer.trackMetric(reports, 'summary.totalFindings');
-        trendData['criticalFindings'] = this.trendAnalyzer.trackMetric(reports, 'summary.criticalFindings');
+        trendData['totalFindings'] = this.trendAnalyzer.trackMetric(
+          reports,
+          'summary.totalFindings',
+        );
+        trendData['criticalFindings'] = this.trendAnalyzer.trackMetric(
+          reports,
+          'summary.criticalFindings',
+        );
         trendData['overallScore'] = this.trendAnalyzer.trackMetric(reports, 'summary.overallScore');
       }
     } catch {
@@ -463,18 +473,20 @@ export class ReviewDashboardAggregator {
 
     return {
       generatedAt: new Date().toISOString(),
-      periodStart: reviews.length > 0
-        ? reviews.reduce(
-            (earliest, r) => r.timestamp < earliest ? r.timestamp : earliest,
-            reviews[0]!.timestamp,
-          )
-        : '',
-      periodEnd: reviews.length > 0
-        ? reviews.reduce(
-            (latest, r) => r.timestamp > latest ? r.timestamp : latest,
-            reviews[0]!.timestamp,
-          )
-        : '',
+      periodStart:
+        reviews.length > 0
+          ? reviews.reduce(
+              (earliest, r) => (r.timestamp < earliest ? r.timestamp : earliest),
+              reviews[0]!.timestamp,
+            )
+          : '',
+      periodEnd:
+        reviews.length > 0
+          ? reviews.reduce(
+              (latest, r) => (r.timestamp > latest ? r.timestamp : latest),
+              reviews[0]!.timestamp,
+            )
+          : '',
       metrics: {
         ...metrics,
         mostCommonIssues: metrics.mostCommonIssues.slice(0, maxCommon),
@@ -491,11 +503,7 @@ export class ReviewDashboardAggregator {
   /**
    * Track a rolling-window trend for a specific metric.
    */
-  trackReviewTrend(
-    reviews: ReviewEntry[],
-    metricPath: string,
-    windowSize?: number,
-  ): TrendData {
+  trackReviewTrend(reviews: ReviewEntry[], metricPath: string, windowSize?: number): TrendData {
     const reports = reviews.map((r) => this.toAnalysisReport(r));
 
     if (reports.length < 2) {
@@ -526,8 +534,8 @@ export class ReviewDashboardAggregator {
     // Health score
     lines.push('## Code Health Score');
     lines.push('');
-    const healthEmoji = report.healthScore.score >= 80 ? '🟢' :
-      report.healthScore.score >= 60 ? '🟡' : '🔴';
+    const healthEmoji =
+      report.healthScore.score >= 80 ? '🟢' : report.healthScore.score >= 60 ? '🟡' : '🔴';
     lines.push(`**Overall Score**: ${healthEmoji} ${report.healthScore.score}/100`);
     lines.push(`**Trend**: ${report.healthScore.trend.toUpperCase()}`);
     lines.push('');
@@ -620,14 +628,21 @@ export class ReviewDashboardAggregator {
 
     const summary: ReportSummary = {
       overallScore: Math.max(0, 100 - criticals * 10 - highs * 5),
-      riskLevel: (criticals > 0 ? 'critical' : highs > 3 ? 'high' : mediums > 5 ? 'medium' : 'low') as RiskLevel,
+      riskLevel: (criticals > 0
+        ? 'critical'
+        : highs > 3
+          ? 'high'
+          : mediums > 5
+            ? 'medium'
+            : 'low') as RiskLevel,
       totalFindings: r.comments.length,
       criticalFindings: criticals,
       highFindings: highs,
       mediumFindings: mediums,
       lowFindings: lows,
       keyTakeaways: [],
-      mergeRecommendation: (r.summary?.mergeRecommendation as ReportSummary['mergeRecommendation']) ?? 'approve',
+      mergeRecommendation:
+        (r.summary?.mergeRecommendation as ReportSummary['mergeRecommendation']) ?? 'approve',
       mergeRationale: '',
     };
 
@@ -669,7 +684,10 @@ export class ReviewDashboardAggregator {
       title: c.content?.slice(0, 50) ?? '',
       description: c.content ?? '',
       filePath: c.path ?? '',
-      lineRange: (c.startLine ?? 0) > 0 ? [c.startLine!, c.endLine ?? c.startLine!] as [number, number] : null,
+      lineRange:
+        (c.startLine ?? 0) > 0
+          ? ([c.startLine!, c.endLine ?? c.startLine!] as [number, number])
+          : null,
       evidence: c.existingCode ?? '',
       relatedFindings: [],
     }));

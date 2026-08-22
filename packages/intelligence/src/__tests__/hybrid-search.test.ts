@@ -433,7 +433,9 @@ describe('HybridSearchEngine — filter edge cases', () => {
 
     const results = engine.bm25Search('simple', { maxComplexity: 5 });
     // Nodes with null complexity should pass (null <= 5 → false due to !== null check)
-    expect(results.every((r) => r.node.complexity === null || (r.node.complexity ?? 0) <= 5)).toBe(true);
+    expect(results.every((r) => r.node.complexity === null || (r.node.complexity ?? 0) <= 5)).toBe(
+      true,
+    );
   });
 
   it('should handle minComplexity with null complexity nodes', () => {
@@ -453,14 +455,24 @@ describe('HybridSearchEngine — filter edge cases', () => {
     const store = new InMemoryGraphStore();
     const engine = new HybridSearchEngine(store);
 
-    store.insertNode(createNode(1, {
-      name: 'target', label: 'Function', filePath: '/src/core/target.ts',
-      isExported: true, complexity: 8,
-    }));
-    store.insertNode(createNode(2, {
-      name: 'target', label: 'Class', filePath: '/src/core/target.ts',
-      isExported: true, complexity: 5,
-    }));
+    store.insertNode(
+      createNode(1, {
+        name: 'target',
+        label: 'Function',
+        filePath: '/src/core/target.ts',
+        isExported: true,
+        complexity: 8,
+      }),
+    );
+    store.insertNode(
+      createNode(2, {
+        name: 'target',
+        label: 'Class',
+        filePath: '/src/core/target.ts',
+        isExported: true,
+        complexity: 5,
+      }),
+    );
     engine.initialize();
 
     const results = engine.bm25Search('target', {
@@ -933,8 +945,20 @@ describe('HybridSearchEngine — dataflow search', () => {
 describe('HybridSearchEngine.search — additional paths', () => {
   it('should handle search with filePath filter option', async () => {
     const store = new InMemoryGraphStore();
-    store.insertNode(createNode(1, { name: 'apiHandler', filePath: '/src/api/users.ts', qualifiedName: 'api.users' }));
-    store.insertNode(createNode(2, { name: 'utilFunc', filePath: '/src/utils/helpers.ts', qualifiedName: 'utils.helpers' }));
+    store.insertNode(
+      createNode(1, {
+        name: 'apiHandler',
+        filePath: '/src/api/users.ts',
+        qualifiedName: 'api.users',
+      }),
+    );
+    store.insertNode(
+      createNode(2, {
+        name: 'utilFunc',
+        filePath: '/src/utils/helpers.ts',
+        qualifiedName: 'utils.helpers',
+      }),
+    );
     const engine = new HybridSearchEngine(store);
     engine.initialize();
 
@@ -944,8 +968,12 @@ describe('HybridSearchEngine.search — additional paths', () => {
 
   it('should handle search with labels filter option', async () => {
     const store = new InMemoryGraphStore();
-    store.insertNode(createNode(1, { name: 'myFunc', label: 'Function', qualifiedName: 'pkg.myFunc' }));
-    store.insertNode(createNode(2, { name: 'MyClass', label: 'Class', qualifiedName: 'pkg.MyClass' }));
+    store.insertNode(
+      createNode(1, { name: 'myFunc', label: 'Function', qualifiedName: 'pkg.myFunc' }),
+    );
+    store.insertNode(
+      createNode(2, { name: 'MyClass', label: 'Class', qualifiedName: 'pkg.MyClass' }),
+    );
     const engine = new HybridSearchEngine(store);
     engine.initialize();
 

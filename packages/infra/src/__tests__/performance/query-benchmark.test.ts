@@ -8,12 +8,19 @@ import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 
 function createTestNode(id: number, projectId?: string): GraphNode {
   return {
-    id, label: (id % 10 === 0 ? 'Class' : 'Function') as NodeLabel,
-    name: `node_${id}`, qualifiedName: `pkg::node_${id}`,
-    projectId: projectId ?? 'test/project', filePath: `src/file_${id % 100}.ts`,
-    startLine: id, endLine: id + 5, complexity: id % 20,
-    isExported: id % 3 === 0, createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(), properties: {} as Record<string, unknown>,
+    id,
+    label: (id % 10 === 0 ? 'Class' : 'Function') as NodeLabel,
+    name: `node_${id}`,
+    qualifiedName: `pkg::node_${id}`,
+    projectId: projectId ?? 'test/project',
+    filePath: `src/file_${id % 100}.ts`,
+    startLine: id,
+    endLine: id + 5,
+    complexity: id % 20,
+    isExported: id % 3 === 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    properties: {} as Record<string, unknown>,
   };
 }
 
@@ -95,7 +102,13 @@ describe('Performance — NodeIndex', () => {
 
   it('should maintain after mixed operations', () => {
     const idx = new NodeIndex();
-    idx.bulkAdd([createTestNode(1), createTestNode(2), createTestNode(3), createTestNode(4), createTestNode(5)]);
+    idx.bulkAdd([
+      createTestNode(1),
+      createTestNode(2),
+      createTestNode(3),
+      createTestNode(4),
+      createTestNode(5),
+    ]);
     idx.remove(2);
     idx.remove(4);
     idx.add(createTestNode(6));

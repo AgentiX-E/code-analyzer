@@ -45,7 +45,8 @@ describe('FrameworkRouteDetector', () => {
     });
 
     it('detects @app.post and @app.delete', () => {
-      const code = '@app.post("/items", response_model=Item)\n@app.delete("/items/{id}")\ndef items(): pass';
+      const code =
+        '@app.post("/items", response_model=Item)\n@app.delete("/items/{id}")\ndef items(): pass';
       const result = detector.detectFile('src/api.py', code, 'python');
       expect(result.routes.length).toBeGreaterThanOrEqual(2);
     });
@@ -173,7 +174,8 @@ export class ChatGateway {
     });
 
     it('AC-2: detects FastAPI async routes', () => {
-      const code = '@app.get("/users/{user_id}")\nasync def read_user(user_id: int):\n    return {}';
+      const code =
+        '@app.get("/users/{user_id}")\nasync def read_user(user_id: int):\n    return {}';
       const result = detector.detectFile('src/main.py', code, 'python');
       expect(result.routes.length).toBeGreaterThanOrEqual(1);
     });
@@ -186,7 +188,7 @@ class FullController {
   @SubscribeMessage('event') wsHandler() {}
 }`;
       const result = detector.detectFile('src/full.ts', code, 'typescript');
-      const types = new Set(result.routes.map(r => r.routeType));
+      const types = new Set(result.routes.map((r) => r.routeType));
       expect(types.has('http')).toBe(true);
       expect(types.has('graphql')).toBe(true);
       expect(types.has('websocket')).toBe(true);
@@ -265,7 +267,7 @@ app.use(express.json());
     it('does not detect Express in python files', () => {
       const code = "app.get('/test', handler);";
       const result = detector.detectFile('src/routes.py', code, 'python');
-      expect(result.routes.filter(r => r.framework === 'express').length).toBe(0);
+      expect(result.routes.filter((r) => r.framework === 'express').length).toBe(0);
     });
   });
 
@@ -290,7 +292,7 @@ app.use(express.json());
     it('does not detect FastAPI in non-python files', () => {
       const code = '@app.get("/items")\ndef get_items(): pass';
       const result = detector.detectFile('src/api.ts', code, 'typescript');
-      expect(result.routes.filter(r => r.framework === 'fastapi').length).toBe(0);
+      expect(result.routes.filter((r) => r.framework === 'fastapi').length).toBe(0);
     });
   });
 
@@ -329,7 +331,7 @@ class V1Controller {
   getUsers() {}
 }`;
       const result = detector.detectFile('src/v1.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -350,7 +352,7 @@ class RootController {
   index() {}
 }`;
       const result = detector.detectFile('src/root.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
       expect(httpRoutes[0]!.path).toBe('/');
     });
@@ -384,7 +386,7 @@ test() {}`;
     path('shop/', include('shop.urls')),
 ]`;
       const result = detector.detectFile('src/urls.py', code, 'python');
-      const includes = result.routes.filter(r => r.method === 'INCLUDE');
+      const includes = result.routes.filter((r) => r.method === 'INCLUDE');
       expect(includes.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -395,7 +397,7 @@ urlpatterns = [
 ]`;
       const result = detector.detectFile('src/urls.py', code, 'python');
       // Only 'inside' route should be found
-      expect(result.routes.filter(r => r.path === 'outside/').length).toBe(0);
+      expect(result.routes.filter((r) => r.path === 'outside/').length).toBe(0);
     });
 
     it('handles urlpatterns with no closing bracket', () => {
@@ -477,11 +479,14 @@ urlpatterns = [
       ];
       const graph = {
         nodes: new Map([
-          [99, {
-            id: 99,
-            label: 'Function',
-            properties: { name: 'getUsers' },
-          }],
+          [
+            99,
+            {
+              id: 99,
+              label: 'Function',
+              properties: { name: 'getUsers' },
+            },
+          ],
         ]),
         edges: new Map(),
       } as any;
@@ -495,12 +500,22 @@ urlpatterns = [
     it('handles multiple routes in graph', () => {
       const routes = [
         {
-          method: 'GET', path: '/a', filePath: 'f.ts', line: 1,
-          handlerName: null, framework: 'express' as const, routeType: 'http' as const,
+          method: 'GET',
+          path: '/a',
+          filePath: 'f.ts',
+          line: 1,
+          handlerName: null,
+          framework: 'express' as const,
+          routeType: 'http' as const,
         },
         {
-          method: 'POST', path: '/b', filePath: 'f.ts', line: 2,
-          handlerName: null, framework: 'express' as const, routeType: 'http' as const,
+          method: 'POST',
+          path: '/b',
+          filePath: 'f.ts',
+          line: 2,
+          handlerName: null,
+          framework: 'express' as const,
+          routeType: 'http' as const,
         },
       ];
       const graph = {
@@ -539,7 +554,7 @@ class AdminController {
   dashboard() {}
 }`;
       const result = detector.detectFile('src/mixed.ts', code, 'typescript');
-      const frameworks = new Set(result.routes.map(r => r.framework));
+      const frameworks = new Set(result.routes.map((r) => r.framework));
       expect(frameworks.has('express')).toBe(true);
       expect(frameworks.has('nestjs')).toBe(true);
     });
@@ -581,7 +596,7 @@ class AdminController {
     it('does not detect Express in non-JS languages', () => {
       const code = "app.get('/test', handler);";
       const result = detector.detectFile('src/app.py', code, 'python');
-      expect(result.routes.filter(r => r.framework === 'express').length).toBe(0);
+      expect(result.routes.filter((r) => r.framework === 'express').length).toBe(0);
     });
   });
 
@@ -589,7 +604,7 @@ class AdminController {
     it('detects websocket route type for FastAPI ws', () => {
       const code = '@app.websocket("/ws")\nasync def ws_handler(ws):\n    pass';
       const result = detector.detectFile('src/ws.py', code, 'python');
-      const wsRoute = result.routes.find(r => r.routeType === 'websocket');
+      const wsRoute = result.routes.find((r) => r.routeType === 'websocket');
       expect(wsRoute).toBeDefined();
       // The method can be 'WEBSOCKET' from decoratorRoute or 'WS' from wsRoute
       // Both patterns match @app.websocket — accept either
@@ -616,7 +631,7 @@ class ProxyController {
   handleAll() {}
 }`;
       const result = detector.detectFile('src/proxy.controller.ts', code, 'typescript');
-      expect(result.routes.some(r => r.method === 'ALL')).toBe(true);
+      expect(result.routes.some((r) => r.method === 'ALL')).toBe(true);
     });
   });
 
@@ -627,7 +642,7 @@ class ProxyController {
     path('admin/', include('admin.urls')),
 ]`;
       const result = detector.detectFile('src/urls.py', code, 'python');
-      const includes = result.routes.filter(r => r.method === 'INCLUDE');
+      const includes = result.routes.filter((r) => r.method === 'INCLUDE');
       expect(includes.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -661,7 +676,7 @@ class ProxyController {
 app.post('/items', createItem);`;
       const result = detector.detectFile('src/routes.ts', code, 'typescript');
       // First route should have handler extracted from next line
-      const firstRoute = result.routes.find(r => r.path === '/users');
+      const firstRoute = result.routes.find((r) => r.path === '/users');
       expect(firstRoute).toBeDefined();
       expect(firstRoute!.handlerName).toBe('listUsers');
     });
@@ -692,7 +707,7 @@ app.get('/path',`;
       const code = '@app.get("/health")\nhealth_check = None';
       const result = detector.detectFile('src/health.py', code, 'python');
       expect(result.routes.length).toBeGreaterThanOrEqual(1);
-      const healthRoute = result.routes.find(r => r.path === '/health');
+      const healthRoute = result.routes.find((r) => r.path === '/health');
       expect(healthRoute).toBeDefined();
       // Non-decorator/non-comment line breaks handler extraction → null
       expect(healthRoute!.handlerName).toBeNull();
@@ -705,7 +720,7 @@ app.get('/path',`;
 @app.get("/list")
 def list_items(): pass`;
       const result = detector.detectFile('src/submit.py', code, 'python');
-      const submitRoute = result.routes.find(r => r.path === '/submit');
+      const submitRoute = result.routes.find((r) => r.path === '/submit');
       expect(submitRoute).toBeDefined();
       // After the empty line, break → handlerName is null
       expect(submitRoute!.handlerName).toBeNull();
@@ -733,7 +748,7 @@ class UsersController {
   async findById(@Param('id') id: string) {}
 }`;
       const result = detector.detectFile('src/users.controller.ts', code, 'typescript');
-      const getRoute = result.routes.find(r => r.path === 'users/:id');
+      const getRoute = result.routes.find((r) => r.path === 'users/:id');
       expect(getRoute).toBeDefined();
       // Should extract handler despite comment lines between decorator and method
       expect(getRoute!.handlerName).toBe('findById');
@@ -758,7 +773,7 @@ class ItemsController {
   createItem(dto: CreateItemDto) {}
 }`;
       const result = detector.detectFile('src/items.controller.ts', code, 'typescript');
-      const postRoute = result.routes.find(r => r.method === 'POST');
+      const postRoute = result.routes.find((r) => r.method === 'POST');
       expect(postRoute).toBeDefined();
       // Should detect createItem via funcMatch regex
       expect(postRoute!.handlerName).toBe('createItem');
@@ -777,7 +792,7 @@ class V1Controller {
   getUsers() {}
 }`;
       const result = detector.detectFile('src/v1.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
       // Trailing slash on prefix should be removed: 'api/v1/users' not 'api/v1//users'
       expect(httpRoutes[0]!.path).not.toContain('//');
@@ -790,7 +805,7 @@ class ApiController {
   health() {}
 }`;
       const result = detector.detectFile('src/api.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
       // Leading slash on subPath should be handled: 'api/health' not 'api//health'
       expect(httpRoutes[0]!.path).not.toContain('//');
@@ -887,10 +902,10 @@ class HomeController {
   index() {}
 }`;
       const result = detector.detectFile('src/home.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
       // No prefix, no subPath → defaults to '/'
-      const getRoute = httpRoutes.find(r => r.method === 'GET');
+      const getRoute = httpRoutes.find((r) => r.method === 'GET');
       expect(getRoute).toBeDefined();
     });
   });
@@ -907,10 +922,10 @@ class HomeController {
 def get_data(): pass`;
       const result = fastapiOnly.detectFile('src/mixed.py', code, 'python');
       // Django patterns should not be detected
-      const djangoRoutes = result.routes.filter(r => r.framework === 'django');
+      const djangoRoutes = result.routes.filter((r) => r.framework === 'django');
       expect(djangoRoutes.length).toBe(0);
       // FastAPI patterns should be detected
-      const fastapiRoutes = result.routes.filter(r => r.framework === 'fastapi');
+      const fastapiRoutes = result.routes.filter((r) => r.framework === 'fastapi');
       expect(fastapiRoutes.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -933,7 +948,9 @@ def get_data(): pass`;
   .post('/create', handler2);`;
       const result = detector.detectFile('src/chained.ts', code, 'typescript');
       // The chained methods .get and .post should be detected
-      expect(result.routes.filter(r => r.framework === 'express').length).toBeGreaterThanOrEqual(2);
+      expect(result.routes.filter((r) => r.framework === 'express').length).toBeGreaterThanOrEqual(
+        2,
+      );
     });
 
     it('should detect app.route without subsequent method chains', () => {
@@ -942,7 +959,7 @@ def get_data(): pass`;
 app.get('/other', handler);`;
       const result = detector.detectFile('src/partial.ts', code, 'javascript');
       // app.route is detected, but no chained methods → only the app.get count
-      const expressRoutes = result.routes.filter(r => r.framework === 'express');
+      const expressRoutes = result.routes.filter((r) => r.framework === 'express');
       expect(expressRoutes.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -959,7 +976,7 @@ class UserResolver {
   getUser() {}
 }`;
       const result = detector.detectFile('src/user.resolver.ts', code, 'typescript');
-      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      const gqlRoutes = result.routes.filter((r) => r.routeType === 'graphql');
       expect(gqlRoutes.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -970,7 +987,7 @@ class ProductResolver {
   createProduct() {}
 }`;
       const result = detector.detectFile('src/product.resolver.ts', code, 'typescript');
-      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      const gqlRoutes = result.routes.filter((r) => r.routeType === 'graphql');
       expect(gqlRoutes.length).toBeGreaterThanOrEqual(1);
       // Without explicit name, falls back to operationType.toLowerCase() = 'mutation'
       expect(gqlRoutes[0]!.path).toBe('graphql:mutation');
@@ -983,7 +1000,7 @@ class EventResolver {
   commentAdded() {}
 }`;
       const result = detector.detectFile('src/event.resolver.ts', code, 'typescript');
-      const gqlRoutes = result.routes.filter(r => r.routeType === 'graphql');
+      const gqlRoutes = result.routes.filter((r) => r.routeType === 'graphql');
       expect(gqlRoutes.length).toBeGreaterThanOrEqual(1);
       expect(gqlRoutes[0]!.path).toBe('graphql:commentAdded');
     });
@@ -1002,7 +1019,7 @@ class ItemsController {
   getItem(id: string) {}
 }`;
       const result = detector.detectFile('src/items.controller.ts', code, 'typescript');
-      const getRoute = result.routes.find(r => r.method === 'GET');
+      const getRoute = result.routes.find((r) => r.method === 'GET');
       expect(getRoute).toBeDefined();
       // Handler should be extracted despite empty line between decorator and method
       expect(getRoute!.handlerName).toBe('getItem');
@@ -1022,7 +1039,7 @@ class ApiController {
   index() {}
 }`;
       const result = detector.detectFile('src/api.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -1034,7 +1051,7 @@ class RootController {
   home() {}
 }`;
       const result = detector.detectFile('src/root.controller.ts', code, 'typescript');
-      const httpRoutes = result.routes.filter(r => r.routeType === 'http');
+      const httpRoutes = result.routes.filter((r) => r.routeType === 'http');
       expect(httpRoutes.length).toBeGreaterThanOrEqual(1);
       // joinPaths('', '') should return '/'
       expect(httpRoutes[0]!.path).toBe('/');
@@ -1215,7 +1232,11 @@ export const PATCH = () => new Response('PATCH');`;
       const code = `export async function load({ params }) {
   return { id: params.id };
 }`;
-      const result = detector.detectFile('src/routes/items/[id]/+page.server.ts', code, 'typescript');
+      const result = detector.detectFile(
+        'src/routes/items/[id]/+page.server.ts',
+        code,
+        'typescript',
+      );
       const loadRoute = result.routes.find((r: any) => r.method === 'LOAD');
       expect(loadRoute).toBeDefined();
     });
@@ -1358,7 +1379,9 @@ public class LegacyController {
     public String getLegacy() { return "ok"; }
 }`;
       const result = detector.detectFile('src/LegacyController.java', code, 'java');
-      const legacyRoute = result.routes.find((r: any) => r.method === 'GET' && r.path === '/legacy');
+      const legacyRoute = result.routes.find(
+        (r: any) => r.method === 'GET' && r.path === '/legacy',
+      );
       expect(legacyRoute).toBeDefined();
       expect(legacyRoute!.handlerName).toBe('getLegacy');
     });
@@ -1442,8 +1465,8 @@ class FakeController {
     getUsers() {}
 }`;
       const result = detector.detectFile('src/FakeController.ts', code, 'typescript');
-      const springRoutes = result.routes.filter((r: any) =>
-        r.framework === 'springboot' || r.framework === 'springcloud'
+      const springRoutes = result.routes.filter(
+        (r: any) => r.framework === 'springboot' || r.framework === 'springcloud',
       );
       expect(springRoutes.length).toBe(0);
     });
@@ -1686,4 +1709,3 @@ public class DefaultController {
     });
   });
 });
-

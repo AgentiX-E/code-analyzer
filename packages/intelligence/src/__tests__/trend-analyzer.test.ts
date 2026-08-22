@@ -83,9 +83,18 @@ describe('TrendAnalyzer — trackMetric', () => {
 
   it('should track a metric over multiple reports', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, overallScore: 70 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, overallScore: 75 } }),
-      makeReport({ createdAt: '2025-01-12T00:00:00Z', summary: { ...makeReport().summary, overallScore: 85 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 70 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 75 },
+      }),
+      makeReport({
+        createdAt: '2025-01-12T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 85 },
+      }),
     ];
 
     const trend = analyzer.trackMetric(reports, 'summary.overallScore');
@@ -97,9 +106,18 @@ describe('TrendAnalyzer — trackMetric', () => {
 
   it('should detect degrading trends', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, overallScore: 90 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, overallScore: 80 } }),
-      makeReport({ createdAt: '2025-01-12T00:00:00Z', summary: { ...makeReport().summary, overallScore: 60 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 90 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 80 },
+      }),
+      makeReport({
+        createdAt: '2025-01-12T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 60 },
+      }),
     ];
 
     const trend = analyzer.trackMetric(reports, 'summary.overallScore');
@@ -109,9 +127,18 @@ describe('TrendAnalyzer — trackMetric', () => {
 
   it('should detect stable trends (within 2% change)', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, overallScore: 85 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, overallScore: 85.5 } }),
-      makeReport({ createdAt: '2025-01-12T00:00:00Z', summary: { ...makeReport().summary, overallScore: 85.1 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 85 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 85.5 },
+      }),
+      makeReport({
+        createdAt: '2025-01-12T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 85.1 },
+      }),
     ];
 
     const trend = analyzer.trackMetric(reports, 'summary.overallScore');
@@ -125,10 +152,7 @@ describe('TrendAnalyzer — trackMetric', () => {
   });
 
   it('should handle single report', () => {
-    const trend = analyzer.trackMetric(
-      [makeReport()],
-      'summary.overallScore',
-    );
+    const trend = analyzer.trackMetric([makeReport()], 'summary.overallScore');
     expect(trend.values).toHaveLength(1);
     expect(trend.direction).toBe('stable');
     expect(trend.changeRate).toBe(0);
@@ -136,8 +160,14 @@ describe('TrendAnalyzer — trackMetric', () => {
 
   it('should track nested metric paths', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', metrics: { ...makeReport().metrics, complianceScore: 80 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', metrics: { ...makeReport().metrics, complianceScore: 90 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        metrics: { ...makeReport().metrics, complianceScore: 80 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        metrics: { ...makeReport().metrics, complianceScore: 90 },
+      }),
     ];
 
     const trend = analyzer.trackMetric(reports, 'metrics.complianceScore');
@@ -147,8 +177,14 @@ describe('TrendAnalyzer — trackMetric', () => {
 
   it('should sort reports chronologically', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-12T00:00:00Z', summary: { ...makeReport().summary, totalFindings: 5 } }),
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, totalFindings: 10 } }),
+      makeReport({
+        createdAt: '2025-01-12T00:00:00Z',
+        summary: { ...makeReport().summary, totalFindings: 5 },
+      }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, totalFindings: 10 },
+      }),
     ];
 
     const trend = analyzer.trackMetric(reports, 'summary.totalFindings');
@@ -286,15 +322,25 @@ describe('TrendAnalyzer — edge cases', () => {
 
   it('should handle comparison with different report types', () => {
     const reportA = makeReport({ id: 'a', type: 'pr-review', createdAt: '2025-01-10T00:00:00Z' });
-    const reportB = makeReport({ id: 'b', type: 'codebase-audit', createdAt: '2025-01-12T00:00:00Z' });
+    const reportB = makeReport({
+      id: 'b',
+      type: 'codebase-audit',
+      createdAt: '2025-01-12T00:00:00Z',
+    });
     const comparison = analyzer.compareReports(reportA, reportB);
     expect(comparison.overallChange).toBe('unchanged');
   });
 
   it('should produce stable direction when values are identical', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, overallScore: 90 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, overallScore: 90 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 90 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        summary: { ...makeReport().summary, overallScore: 90 },
+      }),
     ];
     const trend = analyzer.trackMetric(reports, 'summary.overallScore');
     expect(trend.direction).toBe('stable');
@@ -303,8 +349,14 @@ describe('TrendAnalyzer — edge cases', () => {
 
   it('should handle first value being 0 for direction computation', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, totalFindings: 0 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, totalFindings: 5 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, totalFindings: 0 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        summary: { ...makeReport().summary, totalFindings: 5 },
+      }),
     ];
     const trend = analyzer.trackMetric(reports, 'summary.totalFindings');
     // When first value is 0 and last > 0, direction should be improving
@@ -314,8 +366,14 @@ describe('TrendAnalyzer — edge cases', () => {
 
   it('should handle first value being 0 and last value being 0', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', summary: { ...makeReport().summary, criticalFindings: 0 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', summary: { ...makeReport().summary, criticalFindings: 0 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        summary: { ...makeReport().summary, criticalFindings: 0 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        summary: { ...makeReport().summary, criticalFindings: 0 },
+      }),
     ];
     const trend = analyzer.trackMetric(reports, 'summary.criticalFindings');
     expect(trend.direction).toBe('stable');
@@ -323,8 +381,14 @@ describe('TrendAnalyzer — edge cases', () => {
 
   it('should track metrics.complexityDelta', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', metrics: { ...makeReport().metrics, complexityDelta: 5 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', metrics: { ...makeReport().metrics, complexityDelta: 2 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        metrics: { ...makeReport().metrics, complexityDelta: 5 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        metrics: { ...makeReport().metrics, complexityDelta: 2 },
+      }),
     ];
     const trend = analyzer.trackMetric(reports, 'metrics.complexityDelta');
     expect(trend.values).toEqual([5, 2]);
@@ -333,8 +397,14 @@ describe('TrendAnalyzer — edge cases', () => {
 
   it('should track metrics.coverageDelta', () => {
     const reports = [
-      makeReport({ createdAt: '2025-01-10T00:00:00Z', metrics: { ...makeReport().metrics, coverageDelta: 2 } }),
-      makeReport({ createdAt: '2025-01-11T00:00:00Z', metrics: { ...makeReport().metrics, coverageDelta: 5 } }),
+      makeReport({
+        createdAt: '2025-01-10T00:00:00Z',
+        metrics: { ...makeReport().metrics, coverageDelta: 2 },
+      }),
+      makeReport({
+        createdAt: '2025-01-11T00:00:00Z',
+        metrics: { ...makeReport().metrics, coverageDelta: 5 },
+      }),
     ];
     const trend = analyzer.trackMetric(reports, 'metrics.coverageDelta');
     expect(trend.direction).toBe('improving');

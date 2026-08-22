@@ -105,6 +105,8 @@ export function mountGraphQLOnFastify(
   });
 
   if (options.config.logging.enabled && options.config.logging.level !== 'silent') {
-    console.log(`[code-analyzer] GraphQL: http://${options.config.host}:${options.config.port}${endpoint}`);
+    console.log(
+      `[code-analyzer] GraphQL: http://${options.config.host}:${options.config.port}${endpoint}`,
+    );
   }
 }

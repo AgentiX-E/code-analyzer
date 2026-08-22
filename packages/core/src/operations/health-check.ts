@@ -67,11 +67,7 @@ export interface HealthCheckRegistryOptions {
  * Execute a promise with a timeout.
  * Rejects if the promise doesn't settle in time.
  */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  timeoutMessage: string
-): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_resolve, reject) => {
@@ -97,8 +93,7 @@ function createMemoryCheck(thresholdPercent: number): HealthCheck {
     name: 'memory-usage',
     check: async (): Promise<HealthCheckResult> => {
       const stats = v8.getHeapStatistics();
-      const usedPercent =
-        (stats.used_heap_size / stats.heap_size_limit) * 100;
+      const usedPercent = (stats.used_heap_size / stats.heap_size_limit) * 100;
       const heapStats = {
         heapUsed: stats.used_heap_size,
         heapTotal: stats.heap_size_limit,
@@ -127,10 +122,7 @@ function createMemoryCheck(thresholdPercent: number): HealthCheck {
 }
 
 /** Check disk space. Returns warn if below threshold. */
-function createDiskCheck(
-  minSpaceBytes: number,
-  diskCheckFn?: () => Promise<number>
-): HealthCheck {
+function createDiskCheck(minSpaceBytes: number, diskCheckFn?: () => Promise<number>): HealthCheck {
   const diskFn =
     diskCheckFn ??
     (async (): Promise<number> => {
@@ -157,7 +149,11 @@ function createDiskCheck(
           details: { availableBytes: available, minBytes: minSpaceBytes },
         };
       } catch (err) {
-        moduleLogger.error('Disk space check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'health-check.disk-space' });
+        moduleLogger.error(
+          'Disk space check failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: 'health-check.disk-space' },
+        );
         return {
           name: 'disk-space',
           status: 'warn',
@@ -182,7 +178,11 @@ function createStoreCheck(storeCheckFn?: () => Promise<boolean>): HealthCheck {
           message: ok ? 'Store is reachable' : 'Store is unreachable',
         };
       } catch (err) {
-        moduleLogger.error('Store connectivity check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'health-check.store-connectivity' });
+        moduleLogger.error(
+          'Store connectivity check failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: 'health-check.store-connectivity' },
+        );
         return {
           name: 'store-connectivity',
           status: 'fail',
@@ -195,9 +195,7 @@ function createStoreCheck(storeCheckFn?: () => Promise<boolean>): HealthCheck {
 }
 
 /** Check worker pool health via a custom check function. */
-function createWorkerPoolCheck(
-  workerCheckFn?: () => Promise<boolean>
-): HealthCheck {
+function createWorkerPoolCheck(workerCheckFn?: () => Promise<boolean>): HealthCheck {
   return {
     name: 'worker-pool',
     check: async (): Promise<HealthCheckResult> => {
@@ -210,7 +208,11 @@ function createWorkerPoolCheck(
           message: ok ? 'Worker pool is healthy' : 'Worker pool is degraded',
         };
       } catch (err) {
-        moduleLogger.error('Worker pool check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: 'health-check.worker-pool' });
+        moduleLogger.error(
+          'Worker pool check failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: 'health-check.worker-pool' },
+        );
         return {
           name: 'worker-pool',
           status: 'fail',
@@ -243,10 +245,7 @@ export class HealthCheckRegistry {
 
     // Register built-in checks
     const memoryCheck = createMemoryCheck(options.memoryThreshold ?? 90);
-    const diskCheck = createDiskCheck(
-      options.minDiskSpace ?? 100 * 1024 * 1024,
-      options.diskCheck
-    );
+    const diskCheck = createDiskCheck(options.minDiskSpace ?? 100 * 1024 * 1024, options.diskCheck);
     const storeCheck = createStoreCheck(options.storeCheck);
     const workerCheck = createWorkerPoolCheck(options.workerPoolCheck);
 
@@ -292,12 +291,16 @@ export class HealthCheckRegistry {
         const result = await withTimeout(
           hc.check(),
           timeout,
-          `Health check "${hc.name}" timed out after ${timeout}ms`
+          `Health check "${hc.name}" timed out after ${timeout}ms`,
         );
         result.latency = Date.now() - checkStart;
         results.push(result);
       } catch (err) {
-        this.logger.error('Health check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: `health-check.${hc.name}` });
+        this.logger.error(
+          'Health check failed',
+          err instanceof Error ? err : new Error(String(err)),
+          { phaseId: `health-check.${hc.name}` },
+        );
         results.push({
           name: hc.name,
           status: 'fail',
@@ -325,11 +328,7 @@ export class HealthCheckRegistry {
       }
     }
 
-    const status = hasCriticalFailure
-      ? 'unhealthy'
-      : hasDegradation
-        ? 'degraded'
-        : 'healthy';
+    const status = hasCriticalFailure ? 'unhealthy' : hasDegradation ? 'degraded' : 'healthy';
 
     return {
       status,
@@ -359,12 +358,16 @@ export class HealthCheckRegistry {
       const result = await withTimeout(
         hc.check(),
         timeout,
-        `Health check "${name}" timed out after ${timeout}ms`
+        `Health check "${name}" timed out after ${timeout}ms`,
       );
       result.latency = Date.now() - checkStart;
       return result;
     } catch (err) {
-      this.logger.error('Health check failed', err instanceof Error ? err : new Error(String(err)), { phaseId: `health-check.${name}` });
+      this.logger.error(
+        'Health check failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: `health-check.${name}` },
+      );
       return {
         name,
         status: 'fail',

@@ -192,9 +192,7 @@ export class EmbeddingWorkerPool {
       completedTasks: this.completedTasks,
       failedTasks: this.failedTasks,
       avgLatencyMs:
-        this.completedTasks > 0
-          ? Math.round(this.totalLatencyMs / this.completedTasks)
-          : 0,
+        this.completedTasks > 0 ? Math.round(this.totalLatencyMs / this.completedTasks) : 0,
       restartedWorkers: this.restartedWorkers,
       unhealthyWorkers: unhealthyCount,
     };
@@ -299,50 +297,51 @@ export class EmbeddingWorkerPool {
         lastHeartbeat: Date.now(),
       };
 
-      worker.on('message', (msg: {
-        type: string;
-        taskId: string;
-        embedding?: number[];
-        error?: string;
-        durationMs?: number;
-      }) => {
-        state.lastHeartbeat = Date.now();
-        state.taskCount++;
+      worker.on(
+        'message',
+        (msg: {
+          type: string;
+          taskId: string;
+          embedding?: number[];
+          error?: string;
+          durationMs?: number;
+        }) => {
+          state.lastHeartbeat = Date.now();
+          state.taskCount++;
 
-        this.busyWorkers.delete(index);
-        this.processQueue();
+          this.busyWorkers.delete(index);
+          this.processQueue();
 
-        // Find matching task in queue
-        const queueIdx = this.taskQueue.findIndex(
-          (e) => e.task.taskId === msg.taskId,
-        );
-        if (queueIdx < 0) return;
+          // Find matching task in queue
+          const queueIdx = this.taskQueue.findIndex((e) => e.task.taskId === msg.taskId);
+          if (queueIdx < 0) return;
 
-        const queueEntry = this.taskQueue[queueIdx]!;
-        this.taskQueue.splice(queueIdx, 1);
+          const queueEntry = this.taskQueue[queueIdx]!;
+          this.taskQueue.splice(queueIdx, 1);
 
-        if (msg.type === 'result' && msg.embedding) {
-          this.completedTasks++;
-          this.totalLatencyMs += msg.durationMs ?? 0;
-          queueEntry.resolve({
-            taskId: msg.taskId,
-            embedding: new Float32Array(msg.embedding),
-            durationMs: msg.durationMs ?? 0,
-          });
-        } else {
-          this.failedTasks++;
-          state.errorCount++;
-          queueEntry.reject({
-            taskId: msg.taskId,
-            error: msg.error ?? 'Unknown worker error',
-          });
+          if (msg.type === 'result' && msg.embedding) {
+            this.completedTasks++;
+            this.totalLatencyMs += msg.durationMs ?? 0;
+            queueEntry.resolve({
+              taskId: msg.taskId,
+              embedding: new Float32Array(msg.embedding),
+              durationMs: msg.durationMs ?? 0,
+            });
+          } else {
+            this.failedTasks++;
+            state.errorCount++;
+            queueEntry.reject({
+              taskId: msg.taskId,
+              error: msg.error ?? 'Unknown worker error',
+            });
 
-          // Mark unhealthy if too many errors
-          if (state.errorCount >= this.maxErrorsPerWorker) {
-            state.healthy = false;
+            // Mark unhealthy if too many errors
+            if (state.errorCount >= this.maxErrorsPerWorker) {
+              state.healthy = false;
+            }
           }
-        }
-      });
+        },
+      );
 
       worker.on('error', (_err) => {
         state.healthy = false;
@@ -377,9 +376,7 @@ export class EmbeddingWorkerPool {
       if (this.busyWorkers.has(state.index)) continue;
 
       // Find an unassigned task
-      const entry = this.taskQueue.find(
-        (e) => !this.isTaskAssigned(e.task.taskId),
-      );
+      const entry = this.taskQueue.find((e) => !this.isTaskAssigned(e.task.taskId));
       if (!entry) break;
 
       this.busyWorkers.add(state.index);

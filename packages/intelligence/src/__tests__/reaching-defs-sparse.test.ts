@@ -34,7 +34,13 @@ function buildCfg(opts: {
   blockSpecs: BlockSpec[];
   edges: EdgeSpec[];
   bindings: BindingEntry[];
-  defs?: Array<{ block: number; stmt: number; bindingIdx: number; kind: 'must' | 'may'; line?: number }>;
+  defs?: Array<{
+    block: number;
+    stmt: number;
+    bindingIdx: number;
+    kind: 'must' | 'may';
+    line?: number;
+  }>;
   uses?: Array<{ block: number; stmt: number; bindingIdx: number; line?: number }>;
   entryIndex?: number;
   exitIndex?: number;
@@ -54,8 +60,18 @@ function buildCfg(opts: {
     kind: e.kind,
   }));
 
-  const defs = new Map<number, Array<{ point: { blockIndex: number; stmtIndex: number; line: number }; bindingIdx: number; kind: 'must' | 'may' }>>();
-  const uses = new Map<number, Array<{ point: { blockIndex: number; stmtIndex: number; line: number }; bindingIdx: number }>>();
+  const defs = new Map<
+    number,
+    Array<{
+      point: { blockIndex: number; stmtIndex: number; line: number };
+      bindingIdx: number;
+      kind: 'must' | 'may';
+    }>
+  >();
+  const uses = new Map<
+    number,
+    Array<{ point: { blockIndex: number; stmtIndex: number; line: number }; bindingIdx: number }>
+  >();
 
   for (const d of opts.defs ?? []) {
     const key = d.block * STRIDE + d.stmt;
@@ -124,7 +140,13 @@ function buildLargeLoopCfg(blockCount: number): FunctionCfg {
 
   const defs = [
     { block: 0, stmt: 0, bindingIdx: 0, kind: 'must' as const, line: 1 },
-    { block: blockCount - 1, stmt: 0, bindingIdx: 0, kind: 'must' as const, line: blockCount * 10 + 1 },
+    {
+      block: blockCount - 1,
+      stmt: 0,
+      bindingIdx: 0,
+      kind: 'must' as const,
+      line: blockCount * 10 + 1,
+    },
   ];
   const uses = [
     { block: 1, stmt: 0, bindingIdx: 0, line: 11 },
@@ -135,7 +157,9 @@ function buildLargeLoopCfg(blockCount: number): FunctionCfg {
     name: `largeLoop${blockCount}`,
     blockSpecs,
     edges,
-    bindings: [{ index: 0, name: 'x', kind: 'local', declLine: 1, declColumn: 7, synthetic: false }],
+    bindings: [
+      { index: 0, name: 'x', kind: 'local', declLine: 1, declColumn: 7, synthetic: false },
+    ],
     defs,
     uses,
     entryIndex: 0,
@@ -164,9 +188,7 @@ describe('computeReachingDefinitions — SSA-sparse solver', () => {
 
     // The loop-body def (block 15) should reach the loop-header use (block 1)
     // in a later iteration.
-    const loopCarried = facts.filter(
-      (f) => f.def.blockIndex === 15 && f.use.blockIndex === 1,
-    );
+    const loopCarried = facts.filter((f) => f.def.blockIndex === 15 && f.use.blockIndex === 1);
     expect(loopCarried.length).toBeGreaterThan(0);
   });
 
@@ -208,9 +230,7 @@ describe('computeReachingDefinitions — SSA-sparse solver', () => {
         { block: 8, stmt: 0, bindingIdx: 1, kind: 'must' },
         { block: 9, stmt: 0, bindingIdx: 1, kind: 'must' },
       ],
-      uses: [
-        { block: 10, stmt: 0, bindingIdx: 1 },
-      ],
+      uses: [{ block: 10, stmt: 0, bindingIdx: 1 }],
     });
 
     const facts = computeReachingDefinitions(cfg);
@@ -226,7 +246,9 @@ describe('computeReachingDefinitions — SSA-sparse solver', () => {
       name: 'defsOnly',
       blockSpecs: [{ index: 0, statementCount: 1, isEntry: true, isExit: true }],
       edges: [],
-      bindings: [{ index: 0, name: 'x', kind: 'local', declLine: 1, declColumn: 1, synthetic: false }],
+      bindings: [
+        { index: 0, name: 'x', kind: 'local', declLine: 1, declColumn: 1, synthetic: false },
+      ],
       defs: [{ block: 0, stmt: 0, bindingIdx: 0, kind: 'must' }],
     });
     expect(computeReachingDefinitions(cfg)).toEqual([]);
@@ -237,7 +259,9 @@ describe('computeReachingDefinitions — SSA-sparse solver', () => {
       name: 'usesOnly',
       blockSpecs: [{ index: 0, statementCount: 1, isEntry: true, isExit: true }],
       edges: [],
-      bindings: [{ index: 0, name: 'x', kind: 'local', declLine: 1, declColumn: 1, synthetic: false }],
+      bindings: [
+        { index: 0, name: 'x', kind: 'local', declLine: 1, declColumn: 1, synthetic: false },
+      ],
       uses: [{ block: 0, stmt: 0, bindingIdx: 0 }],
     });
     expect(computeReachingDefinitions(cfg)).toEqual([]);
@@ -253,7 +277,9 @@ describe('computeReachingDefinitions — SSA-sparse solver', () => {
       name: 'mayDef',
       blockSpecs,
       edges: [{ from: 0, to: 1, kind: 'seq' }],
-      bindings: [{ index: 0, name: 'y', kind: 'local', declLine: 1, declColumn: 1, synthetic: false }],
+      bindings: [
+        { index: 0, name: 'y', kind: 'local', declLine: 1, declColumn: 1, synthetic: false },
+      ],
       defs: [
         { block: 0, stmt: 0, bindingIdx: 0, kind: 'must', line: 1 },
         { block: 0, stmt: 1, bindingIdx: 0, kind: 'may', line: 2 },

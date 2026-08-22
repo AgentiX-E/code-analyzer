@@ -301,14 +301,13 @@ export class BatchFileReader {
 
         if (encoding === 'utf-16') {
           // Strip BOM if present before decoding
-          const hasBom = buffer.length >= 2 &&
-            buffer[0] === 0xff && buffer[1] === 0xfe;
+          const hasBom = buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe;
           const offset = hasBom ? 2 : 0;
           content = buffer.subarray(offset).toString('utf16le');
         } else {
           // Strip UTF-8 BOM if present
-          const hasBom = buffer.length >= 3 &&
-            buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf;
+          const hasBom =
+            buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf;
           const offset = hasBom ? 3 : 0;
           content = buffer.subarray(offset).toString('utf-8');
         }
@@ -353,9 +352,7 @@ export class BatchFileReader {
    */
   async readGlob(filePaths: string[], globPatterns: string[]): Promise<GlobReadResult> {
     // Filter file paths by glob patterns
-    const matchedPaths = filePaths.filter((fp) =>
-      matchesAnyPattern(fp, globPatterns),
-    );
+    const matchedPaths = filePaths.filter((fp) => matchesAnyPattern(fp, globPatterns));
 
     const files = await this.readAll(matchedPaths);
 

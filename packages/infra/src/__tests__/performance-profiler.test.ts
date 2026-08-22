@@ -16,14 +16,22 @@ function createProfiler(config?: Partial<BenchmarkConfig>): PerformanceProfiler 
 function populateStore(store: InMemoryGraphStore, count: number = 100): void {
   for (let i = 0; i < count; i++) {
     store.insertNode({
-      id: i, projectId: 'bench',
-      name: `fn${i}`, label: 'Function',
+      id: i,
+      projectId: 'bench',
+      name: `fn${i}`,
+      label: 'Function',
       filePath: `src/fn${i}.ts`,
       qualifiedName: `fn${i}`,
-      startLine: i * 10, endLine: i * 10 + 5,
-      language: 'typescript', signature: null, docstring: null,
-      complexity: null, isExported: false, fingerprint: null,
-      properties: {}, createdAt: new Date().toISOString(),
+      startLine: i * 10,
+      endLine: i * 10 + 5,
+      language: 'typescript',
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      properties: {},
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -37,7 +45,10 @@ describe('PerformanceProfiler', () => {
   describe('benchmark', () => {
     it('should return a valid BenchmarkResult', () => {
       const profiler = createProfiler({ warmupRuns: 1, measuredRuns: 5 });
-      const result = profiler.benchmark('test', () => { let x = 0; x++; });
+      const result = profiler.benchmark('test', () => {
+        let x = 0;
+        x++;
+      });
       expect(result.runs).toBe(5);
       expect(result.avgMs).toBeGreaterThanOrEqual(0);
       expect(result.minMs).toBeGreaterThanOrEqual(0);
@@ -46,13 +57,17 @@ describe('PerformanceProfiler', () => {
 
     it('should run warmup iterations', () => {
       const profiler = createProfiler({ warmupRuns: 10, measuredRuns: 3 });
-      const result = profiler.benchmark('warmup-test', () => { /* noop */ });
+      const result = profiler.benchmark('warmup-test', () => {
+        /* noop */
+      });
       expect(result.runs).toBe(3);
     });
 
     it('should track p50/p95/p99', () => {
       const profiler = createProfiler({ warmupRuns: 0, measuredRuns: 50 });
-      const result = profiler.benchmark('p-test', () => { /* noop */ });
+      const result = profiler.benchmark('p-test', () => {
+        /* noop */
+      });
       expect(result.p50Ms).toBeDefined();
       expect(result.p95Ms).toBeDefined();
       expect(result.p99Ms).toBeDefined();
@@ -62,31 +77,41 @@ describe('PerformanceProfiler', () => {
 
     it('should compute ops per second', () => {
       const profiler = createProfiler({ warmupRuns: 0, measuredRuns: 10 });
-      const result = profiler.benchmark('ops-test', () => { /* noop */ });
+      const result = profiler.benchmark('ops-test', () => {
+        /* noop */
+      });
       expect(result.opsPerSec).toBeGreaterThan(0);
     });
 
     it('should meet targets when minOpsPerSec is low', () => {
       const profiler = createProfiler({ warmupRuns: 0, measuredRuns: 5, minOpsPerSec: 1 });
-      const result = profiler.benchmark('target-test', () => { /* noop */ });
+      const result = profiler.benchmark('target-test', () => {
+        /* noop */
+      });
       expect(result.targetsMet).toBe(true);
     });
 
     it('should fail targets when minOpsPerSec is impossibly high', () => {
       const profiler = createProfiler({ warmupRuns: 0, measuredRuns: 5, minOpsPerSec: 1e9 });
-      const result = profiler.benchmark('fail-target', () => { /* noop */ });
+      const result = profiler.benchmark('fail-target', () => {
+        /* noop */
+      });
       expect(result.targetsMet).toBe(false);
     });
 
     it('should include samples array', () => {
       const profiler = createProfiler({ measuredRuns: 5 });
-      const result = profiler.benchmark('samples-test', () => { /* noop */ });
+      const result = profiler.benchmark('samples-test', () => {
+        /* noop */
+      });
       expect(result.samples).toHaveLength(5);
     });
 
     it('should compute stdDev correctly', () => {
       const profiler = createProfiler({ warmupRuns: 0, measuredRuns: 10 });
-      const result = profiler.benchmark('stddev-test', () => { /* noop */ });
+      const result = profiler.benchmark('stddev-test', () => {
+        /* noop */
+      });
       expect(result.stdDevMs).toBeGreaterThanOrEqual(0);
     });
   });
@@ -120,7 +145,9 @@ describe('PerformanceProfiler', () => {
   describe('generateReport', () => {
     it('should generate markdown report', () => {
       const profiler = createProfiler({ warmupRuns: 0, measuredRuns: 3 });
-      const r1 = profiler.benchmark('op1', () => { /* noop */ });
+      const r1 = profiler.benchmark('op1', () => {
+        /* noop */
+      });
       const report = profiler.generateReport([r1]);
       expect(report).toContain('Performance Benchmark Report');
       expect(report).toContain('| op-1 |');
@@ -138,14 +165,18 @@ describe('PerformanceProfiler', () => {
     it('should update configuration', () => {
       const profiler = createProfiler({ measuredRuns: 5 });
       profiler.setConfig({ measuredRuns: 10 });
-      const result = profiler.benchmark('config-test', () => { /* noop */ });
+      const result = profiler.benchmark('config-test', () => {
+        /* noop */
+      });
       expect(result.runs).toBe(10);
     });
 
     it('should preserve existing config when partially updating', () => {
       const profiler = createProfiler({ warmupRuns: 7, measuredRuns: 5 });
       profiler.setConfig({ measuredRuns: 15 });
-      const result = profiler.benchmark('partial-config', () => { /* noop */ });
+      const result = profiler.benchmark('partial-config', () => {
+        /* noop */
+      });
       // Runs should be 15 (updated)
       expect(result.runs).toBe(15);
     });

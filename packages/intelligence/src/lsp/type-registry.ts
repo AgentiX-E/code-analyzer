@@ -82,7 +82,7 @@ function fnv1a(str: string): number {
   let hash = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
     hash ^= str.charCodeAt(i);
-    hash = (Math.imul(hash, 16777619) >>> 0);
+    hash = Math.imul(hash, 16777619) >>> 0;
   }
   return hash >>> 0;
 }
@@ -142,7 +142,10 @@ export class TypeRegistry {
 
     // Short name index
     let bucket = this.typeNameIndex.get(type.shortName);
-    if (!bucket) { bucket = []; this.typeNameIndex.set(type.shortName, bucket); }
+    if (!bucket) {
+      bucket = [];
+      this.typeNameIndex.set(type.shortName, bucket);
+    }
     bucket.push(idx);
 
     // Full QN index
@@ -160,7 +163,10 @@ export class TypeRegistry {
 
     // Short name index
     let bucket = this.funcNameIndex.get(func.shortName);
-    if (!bucket) { bucket = []; this.funcNameIndex.set(func.shortName, bucket); }
+    if (!bucket) {
+      bucket = [];
+      this.funcNameIndex.set(func.shortName, bucket);
+    }
     bucket.push(idx);
 
     // Full QN index
@@ -171,7 +177,10 @@ export class TypeRegistry {
       const receiverShort = extractLastName(func.receiverType);
       const methodKey = fnv1a(`${receiverShort}.${func.shortName}`);
       let mBucket = this.methodIndex.get(methodKey);
-      if (!mBucket) { mBucket = []; this.methodIndex.set(methodKey, mBucket); }
+      if (!mBucket) {
+        mBucket = [];
+        this.methodIndex.set(methodKey, mBucket);
+      }
       mBucket.push(idx);
     }
   }
@@ -289,13 +298,19 @@ export class TypeRegistry {
   // ---------------------------------------------------------------------------
 
   /** Total number of registered types. */
-  get typeCount(): number { return this.types.length; }
+  get typeCount(): number {
+    return this.types.length;
+  }
 
   /** Total number of registered functions. */
-  get functionCount(): number { return this.funcs.length; }
+  get functionCount(): number {
+    return this.funcs.length;
+  }
 
   /** Whether the registry has been finalized. */
-  get finalized(): boolean { return this._finalized; }
+  get finalized(): boolean {
+    return this._finalized;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -371,9 +386,7 @@ export interface CrossFileResult {
 /**
  * Build a project-wide shared type registry from all file definitions.
  */
-export function buildProjectRegistry(
-  allDefs: readonly FileDefinition[],
-): TypeRegistry {
+export function buildProjectRegistry(allDefs: readonly FileDefinition[]): TypeRegistry {
   const registry = new TypeRegistry();
 
   for (const def of allDefs) {

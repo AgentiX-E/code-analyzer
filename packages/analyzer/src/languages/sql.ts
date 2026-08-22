@@ -16,7 +16,14 @@ const SQL_EXTENSIONS = ['.sql', '.psql', '.ddl', '.dml'];
 const SQL_GLOBS = ['**/*.sql', '**/*.psql', '**/*.ddl', '**/*.dml'];
 
 /** Regexes that flag dynamic-SQL construction as a sql_exec taint sink. */
-const SQL_SINK_PATTERNS = [/CONCAT\b/gi, /\|\|/g, /CONCAT_WS\s*\(/gi, /sp_executesql/gi, /EXEC(?:UTE)?\s+/gi, /PREPARE\s+/gi];
+const SQL_SINK_PATTERNS = [
+  /CONCAT\b/gi,
+  /\|\|/g,
+  /CONCAT_WS\s*\(/gi,
+  /sp_executesql/gi,
+  /EXEC(?:UTE)?\s+/gi,
+  /PREPARE\s+/gi,
+];
 
 /** Regexes that flag parameterized queries as a sql_parameterization sanitizer. */
 const SQL_SANITIZER_PATTERNS = [/\$\d+/g, /\?/g, /PREPARE\s+/gi];
@@ -35,10 +42,14 @@ export class SqlProvider implements LanguageProvider {
     let m: RegExpExecArray | null;
 
     // DDL: CREATE [OR REPLACE] [TEMP] {TABLE|VIEW|FUNCTION|PROCEDURE|INDEX|TRIGGER} name
-    const createRx = /CREATE\s+(?:OR\s+REPLACE\s+)?(?:TEMP(?:ORARY)?\s+)?(TABLE|VIEW|FUNCTION|PROCEDURE|INDEX|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?(\w+)["`]?/gi;
+    const createRx =
+      /CREATE\s+(?:OR\s+REPLACE\s+)?(?:TEMP(?:ORARY)?\s+)?(TABLE|VIEW|FUNCTION|PROCEDURE|INDEX|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?(\w+)["`]?/gi;
     while ((m = createRx.exec(sanitized)) !== null) {
       const type = m[1]!.toUpperCase();
-      const tag = type === 'FUNCTION' || type === 'PROCEDURE' ? CAPTURE_TAGS.FUNCTION_DEF : CAPTURE_TAGS.CLASS_DEF;
+      const tag =
+        type === 'FUNCTION' || type === 'PROCEDURE'
+          ? CAPTURE_TAGS.FUNCTION_DEF
+          : CAPTURE_TAGS.CLASS_DEF;
       captures.push({
         tag,
         text: `CREATE ${type} ${m[2]}`,

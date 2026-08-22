@@ -19,8 +19,8 @@ export interface CompressionConfig {
 }
 
 const DEFAULT_COMPRESSION_CONFIG: CompressionConfig = {
-  softThreshold: 0.60,
-  hardThreshold: 0.80,
+  softThreshold: 0.6,
+  hardThreshold: 0.8,
   frozenZoneSize: 2,
   activeTurns: 4,
   maxTokens: 128000,
@@ -68,16 +68,18 @@ function summarizeMessages<T extends CompressibleMessage>(
   parts.push(`[Compressed: ${messages.length} messages]`);
 
   // Extract patterns: code blocks, key terms, structural markers
-  const codeBlockCount = messages.filter(
-    (m) => m.content.includes('```'),
-  ).length;
+  const codeBlockCount = messages.filter((m) => m.content.includes('```')).length;
   const keyIndicators: string[] = [];
 
   for (const msg of messages) {
     const content = msg.content.slice(0, 200);
 
     // Extract key phrases
-    if (content.includes('function') || content.includes('class') || content.includes('interface')) {
+    if (
+      content.includes('function') ||
+      content.includes('class') ||
+      content.includes('interface')
+    ) {
       const funcMatch = content.match(/(?:function|class|interface)\s+(\w+)/);
       if (funcMatch) {
         keyIndicators.push(funcMatch[0]);
@@ -124,14 +126,22 @@ function detectRole(message: CompressibleMessage): 'user' | 'assistant' | 'unkno
   const content = message.content;
 
   // Common patterns to identify roles
-  if (content.startsWith('Human:') || content.startsWith('User:') ||
-      content.startsWith('<user>') || content.startsWith('Q:')) {
+  if (
+    content.startsWith('Human:') ||
+    content.startsWith('User:') ||
+    content.startsWith('<user>') ||
+    content.startsWith('Q:')
+  ) {
     return 'user';
   }
 
-  if (content.startsWith('Assistant:') || content.startsWith('AI:') ||
-      content.startsWith('<assistant>') || content.startsWith('A:') ||
-      content.startsWith('Bot:')) {
+  if (
+    content.startsWith('Assistant:') ||
+    content.startsWith('AI:') ||
+    content.startsWith('<assistant>') ||
+    content.startsWith('A:') ||
+    content.startsWith('Bot:')
+  ) {
     return 'assistant';
   }
 
@@ -188,10 +198,7 @@ export class MemoryCompressor {
    * [frozenZoneSize:compressEnd] — Compressed (summarized)
    * [compressEnd:] — Active (last K turns, verbatim)
    */
-  compress<T extends CompressibleMessage>(
-    messages: T[],
-    _currentTokens: number,
-  ): T[] {
+  compress<T extends CompressibleMessage>(messages: T[], _currentTokens: number): T[] {
     const { frozenZoneSize, activeTurns, maxTokens } = this.config;
 
     if (messages.length <= frozenZoneSize + activeTurns) {
@@ -230,22 +237,15 @@ export class MemoryCompressor {
     const compressibleMessages = messages.slice(frozenEnd, activeStart);
 
     // Estimate available tokens for the summary
-    const frozenTokens = frozenMessages.reduce(
-      (sum, m) => sum + countTokens(m.content), 0,
-    );
-    const activeTokens = activeMessages.reduce(
-      (sum, m) => sum + countTokens(m.content), 0,
-    );
+    const frozenTokens = frozenMessages.reduce((sum, m) => sum + countTokens(m.content), 0);
+    const activeTokens = activeMessages.reduce((sum, m) => sum + countTokens(m.content), 0);
     const availableSummaryTokens = Math.max(
       100,
       maxTokens - frozenTokens - activeTokens - 200, // 200 token buffer
     );
 
     // Summarize compressed zone
-    const summary = summarizeMessages(
-      compressibleMessages,
-      Math.floor(availableSummaryTokens),
-    );
+    const summary = summarizeMessages(compressibleMessages, Math.floor(availableSummaryTokens));
 
     // Build compressed result
     const compressed: T[] = [
@@ -269,10 +269,7 @@ export class MemoryCompressor {
   /**
    * Check if compression is needed based on token usage ratio.
    */
-  needsCompression(
-    currentTokens: number,
-    maxTokens: number,
-  ): { needed: boolean; urgent: boolean } {
+  needsCompression(currentTokens: number, maxTokens: number): { needed: boolean; urgent: boolean } {
     const ratio = currentTokens / maxTokens;
 
     return {

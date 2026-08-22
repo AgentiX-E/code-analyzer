@@ -28,9 +28,11 @@ export interface GaugeMetric {
 
 export interface HistogramMetric {
   observe(value: number, labels?: Record<string, string>): void;
-  get(
-    labels?: Record<string, string>
-  ): { count: number; sum: number; buckets: Record<string, number> };
+  get(labels?: Record<string, string>): {
+    count: number;
+    sum: number;
+    buckets: Record<string, number>;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -101,8 +103,7 @@ class CounterMetricImpl implements CounterMetric {
 
   /** Export a snapshot for serialization. */
   exportEntries(): Array<{ value: number; labels: Record<string, string> }> {
-    const entries: Array<{ value: number; labels: Record<string, string> }> =
-      [];
+    const entries: Array<{ value: number; labels: Record<string, string> }> = [];
     for (const [key, value] of this.values) {
       entries.push({
         value,
@@ -155,8 +156,7 @@ class GaugeMetricImpl implements GaugeMetric {
   }
 
   exportEntries(): Array<{ value: number; labels: Record<string, string> }> {
-    const entries: Array<{ value: number; labels: Record<string, string> }> =
-      [];
+    const entries: Array<{ value: number; labels: Record<string, string> }> = [];
     for (const [key, value] of this.values) {
       entries.push({
         value,
@@ -189,17 +189,10 @@ class HistogramMetricImpl implements HistogramMetric {
   readonly buckets: number[];
   private entries: Map<string, HistogramEntry> = new Map();
 
-  constructor(
-    name: string,
-    help: string,
-    buckets?: number[],
-    labelNames?: string[]
-  ) {
+  constructor(name: string, help: string, buckets?: number[], labelNames?: string[]) {
     this.name = metricBase(name);
     this.help = help;
-    this.buckets = buckets ?? [
-      0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
-    ];
+    this.buckets = buckets ?? [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0];
     this.labelNames = labelNames ?? [];
   }
 
@@ -226,9 +219,11 @@ class HistogramMetricImpl implements HistogramMetric {
     }
   }
 
-  get(
-    labels?: Record<string, string>
-  ): { count: number; sum: number; buckets: Record<string, number> } {
+  get(labels?: Record<string, string>): {
+    count: number;
+    sum: number;
+    buckets: Record<string, number>;
+  } {
     const entry = this.entries.get(labelsKey(labels));
     if (!entry) {
       return { count: 0, sum: 0, buckets: {} };
@@ -247,7 +242,8 @@ class HistogramMetricImpl implements HistogramMetric {
     }
     for (const entry of this.entries.values()) {
       for (let i = 0; i < this.buckets.length; i++) {
-        result[String(this.buckets[i]!)] = (result[String(this.buckets[i]!)] ?? 0) + (entry.bucketCounts[i]! ?? 0);
+        result[String(this.buckets[i]!)] =
+          (result[String(this.buckets[i]!)] ?? 0) + (entry.bucketCounts[i]! ?? 0);
       }
     }
     return result;
@@ -357,12 +353,7 @@ export class MetricsRegistry {
    * @param buckets - Bucket boundaries (default: prometheus defaults).
    * @param labels - Label names.
    */
-  histogram(
-    name: string,
-    help: string,
-    buckets?: number[],
-    labels?: string[]
-  ): HistogramMetric {
+  histogram(name: string, help: string, buckets?: number[], labels?: string[]): HistogramMetric {
     const existing = this.histograms.get(name);
     if (existing) return existing;
     const metric = new HistogramMetricImpl(name, help, buckets, labels);
@@ -424,28 +415,18 @@ export class MetricsRegistry {
           for (let i = 0; i < metric.buckets.length; i++) {
             cumulative += entry.bucketCounts[i]!;
             const le =
-              metric.buckets[i] === Number.POSITIVE_INFINITY
-                ? '+Inf'
-                : String(metric.buckets[i]);
+              metric.buckets[i] === Number.POSITIVE_INFINITY ? '+Inf' : String(metric.buckets[i]);
             const bucketLabels = {
               ...entry.labels,
               le,
             };
-            lines.push(
-              `${metric.name}_bucket${serializeLabels(bucketLabels)} ${cumulative}`
-            );
+            lines.push(`${metric.name}_bucket${serializeLabels(bucketLabels)} ${cumulative}`);
           }
           // +Inf bucket (total count)
           const infLabels = { ...entry.labels, le: '+Inf' };
-          lines.push(
-            `${metric.name}_bucket${serializeLabels(infLabels)} ${entry.count}`
-          );
-          lines.push(
-            `${metric.name}_sum${serializeLabels(entry.labels)} ${entry.sum}`
-          );
-          lines.push(
-            `${metric.name}_count${serializeLabels(entry.labels)} ${entry.count}`
-          );
+          lines.push(`${metric.name}_bucket${serializeLabels(infLabels)} ${entry.count}`);
+          lines.push(`${metric.name}_sum${serializeLabels(entry.labels)} ${entry.sum}`);
+          lines.push(`${metric.name}_count${serializeLabels(entry.labels)} ${entry.count}`);
         }
       }
       lines.push('');
@@ -525,51 +506,28 @@ export class MetricsRegistry {
 export function createStandardMetrics(): MetricsRegistry {
   const registry = new MetricsRegistry();
 
-  registry.counter(
-    'http_requests_total',
-    'Total number of HTTP requests',
-    ['method', 'status']
-  );
+  registry.counter('http_requests_total', 'Total number of HTTP requests', ['method', 'status']);
 
   registry.histogram(
     'http_request_duration_seconds',
     'HTTP request duration in seconds',
     undefined,
-    ['method']
+    ['method'],
   );
 
-  registry.counter(
-    'analysis_files_total',
-    'Total number of files analyzed',
-    ['language']
-  );
+  registry.counter('analysis_files_total', 'Total number of files analyzed', ['language']);
 
-  registry.histogram(
-    'analysis_duration_seconds',
-    'Analysis duration in seconds'
-  );
+  registry.histogram('analysis_duration_seconds', 'Analysis duration in seconds');
 
-  registry.gauge(
-    'store_nodes_total',
-    'Total number of nodes in the graph store'
-  );
+  registry.gauge('store_nodes_total', 'Total number of nodes in the graph store');
 
-  registry.gauge(
-    'store_edges_total',
-    'Total number of edges in the graph store'
-  );
+  registry.gauge('store_edges_total', 'Total number of edges in the graph store');
 
-  registry.counter(
-    'review_comments_total',
-    'Total number of review comments generated',
-    ['severity']
-  );
+  registry.counter('review_comments_total', 'Total number of review comments generated', [
+    'severity',
+  ]);
 
-  registry.counter(
-    'tool_calls_total',
-    'Total number of MCP tool invocations',
-    ['tool']
-  );
+  registry.counter('tool_calls_total', 'Total number of MCP tool invocations', ['tool']);
 
   registry.gauge('memory_usage_bytes', 'Current memory usage in bytes');
 

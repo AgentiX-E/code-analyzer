@@ -2,7 +2,13 @@
 // Executes a query plan against an InMemoryGraphStore and formats results.
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge, NodeLabel, RelationshipType, CypherExpression } from '@code-analyzer/shared';
+import type {
+  GraphNode,
+  GraphEdge,
+  NodeLabel,
+  RelationshipType,
+  CypherExpression,
+} from '@code-analyzer/shared';
 import { NODE_LABELS, RELATIONSHIP_TYPES } from '@code-analyzer/shared';
 import type { QueryPlan, ColumnDef, PlanStep } from './planner.js';
 import { buildFilterPredicate } from './planner.js';
@@ -35,7 +41,11 @@ interface ExecContext {
 // ---------------------------------------------------------------------------
 
 /** Execute a query plan against the store and return formatted results. */
-export function execute(plan: QueryPlan, store: InMemoryGraphStore, projectId?: string): QueryResult {
+export function execute(
+  plan: QueryPlan,
+  store: InMemoryGraphStore,
+  projectId?: string,
+): QueryResult {
   const startTime = Date.now();
 
   const ctx: ExecContext = {
@@ -62,9 +72,7 @@ export function execute(plan: QueryPlan, store: InMemoryGraphStore, projectId?: 
   }
 
   // Apply DISTINCT
-  finalRows = plan.distinct
-    ? deduplicateRows(finalRows)
-    : finalRows;
+  finalRows = plan.distinct ? deduplicateRows(finalRows) : finalRows;
 
   // Apply SKIP
   if (plan.skip && plan.skip > 0) {
@@ -110,19 +118,24 @@ function executeStep(step: PlanStep, ctx: ExecContext): void {
       /* v8 ignore start -- @preserve */
       // Limit/skip handled at output building
       break;
-      /* v8 ignore stop */
+    /* v8 ignore stop */
   }
 }
 
 function executeScan(step: PlanStep, ctx: ExecContext): void {
   const details = step.details;
-  const pattern = details['pattern'] as { variable: string; labels: string[]; properties: Record<string, unknown> };
+  const pattern = details['pattern'] as {
+    variable: string;
+    labels: string[];
+    properties: Record<string, unknown>;
+  };
   const varName = pattern.variable;
 
   // Get all matching nodes from the store
-  const labels = pattern.labels.length > 0
-    ? (pattern.labels.filter((l) => isNodeLabel(l)) as NodeLabel[])
-    : undefined;
+  const labels =
+    pattern.labels.length > 0
+      ? (pattern.labels.filter((l) => isNodeLabel(l)) as NodeLabel[])
+      : undefined;
 
   const result = ctx.store.queryNodes({
     projectId: ctx.projectId,
@@ -172,11 +185,7 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
         // Set up node vars with current node
         const localVars = new Map(nodeVars);
         localVars.set(varName, node);
-        return buildFilterPredicate(
-          predicate,
-          (v) => localVars.get(v) ?? null,
-          localVars,
-        );
+        return buildFilterPredicate(predicate, (v) => localVars.get(v) ?? null, localVars);
       });
 
       ctx.nodes.set(varName, filtered);
@@ -190,9 +199,12 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
     const nodes = ctx.nodes.get(rawLabel);
     if (nodes) {
       const rawValue = details['value'] as string[] | undefined;
-      ctx.nodes.set(rawLabel, nodes.filter((n) =>
-        rawValue ? (Array.isArray(rawValue) && rawValue.includes(n.label)) : true,
-      ));
+      ctx.nodes.set(
+        rawLabel,
+        nodes.filter((n) =>
+          rawValue ? Array.isArray(rawValue) && rawValue.includes(n.label) : true,
+        ),
+      );
     }
   }
 }
@@ -216,9 +228,10 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
   const edgeNodes: GraphEdge[] = [];
 
   for (const sourceNode of sourceNodes) {
-    const edgeTypes = rel.types.length > 0
-      ? (rel.types.filter((t) => isRelationshipType(t)) as RelationshipType[])
-      : undefined;
+    const edgeTypes =
+      rel.types.length > 0
+        ? (rel.types.filter((t) => isRelationshipType(t)) as RelationshipType[])
+        : undefined;
 
     // Get outgoing edges
     if (rel.direction === 'right' || rel.direction === 'both') {
@@ -300,7 +313,7 @@ function applySort(
   sorted.sort((a, b) => {
     for (const col of orderBy) {
       const colName = col.expression.includes('.')
-        ? col.expression.split('.')[1] ?? col.expression
+        ? (col.expression.split('.')[1] ?? col.expression)
         : col.expression;
 
       const aVal = a[colName] ?? a[col.expression];
@@ -374,10 +387,7 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
   if (columns[0] && columns[0].expression === '*') {
     // Return all node data
     /* v8 ignore start -- @preserve */
-    return [
-      ...primaryNodes.map((n) => ({ node: n })),
-      ...primaryEdges.map((e) => ({ edge: e })),
-    ];
+    return [...primaryNodes.map((n) => ({ node: n })), ...primaryEdges.map((e) => ({ edge: e }))];
     /* v8 ignore stop */
   }
 

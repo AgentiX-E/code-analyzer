@@ -4,11 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import {
-  searchGraph,
-  formatSearchResult,
-  type SearchOutput,
-} from '../commands/search.js';
+import { searchGraph, formatSearchResult, type SearchOutput } from '../commands/search.js';
 
 describe('searchGraph', () => {
   it('should return structured output for a query', async () => {
@@ -121,9 +117,11 @@ describe('searchGraph', () => {
 
   it('should accept a store parameter instead of creating one', async () => {
     const mockStore = {
-      searchFts: vi.fn().mockReturnValue([
-        { id: 42, name: 'testFn', type: 'function', file: 'test.ts', line: 1, score: 1.0 },
-      ]),
+      searchFts: vi
+        .fn()
+        .mockReturnValue([
+          { id: 42, name: 'testFn', type: 'function', file: 'test.ts', line: 1, score: 1.0 },
+        ]),
     };
     const result = await searchGraph(
       { query: 'search' },
@@ -135,11 +133,9 @@ describe('searchGraph', () => {
 
   it('should use fallback values when store returns incomplete data', async () => {
     const mockStore = {
-      searchFts: vi.fn().mockReturnValue([
-        {},
-        { name: 'partialFn' },
-        { type: 'class', label: 'interface' },
-      ]),
+      searchFts: vi
+        .fn()
+        .mockReturnValue([{}, { name: 'partialFn' }, { type: 'class', label: 'interface' }]),
     };
     const result = await searchGraph(
       { query: 'incomplete' },
@@ -173,9 +169,11 @@ describe('searchGraph', () => {
 
   it('should handle verbose with missing content gracefully', async () => {
     const mockStore = {
-      searchFts: vi.fn().mockReturnValue([
-        { id: 1, name: 'fn', type: 'function', file: 'a.ts', line: 1, score: 0.9 },
-      ]),
+      searchFts: vi
+        .fn()
+        .mockReturnValue([
+          { id: 1, name: 'fn', type: 'function', file: 'a.ts', line: 1, score: 0.9 },
+        ]),
     };
     const result = await searchGraph(
       { query: 'fn', verbose: true },
@@ -269,15 +267,17 @@ describe('formatSearchResult', () => {
   it('should show snippet in verbose mode', () => {
     const withSnippet: SearchOutput = {
       ...sampleOutput,
-      results: [{
-        id: 1,
-        name: 'UserModel',
-        type: 'class',
-        file: 'src/models/user.ts',
-        line: 10,
-        score: 0.82,
-        snippet: 'export class UserModel {',
-      }],
+      results: [
+        {
+          id: 1,
+          name: 'UserModel',
+          type: 'class',
+          file: 'src/models/user.ts',
+          line: 10,
+          score: 0.82,
+          snippet: 'export class UserModel {',
+        },
+      ],
     };
     const output = formatSearchResult(withSnippet, 'text');
     expect(output).toContain('export class UserModel');
@@ -286,14 +286,16 @@ describe('formatSearchResult', () => {
   it('should handle result without file path', () => {
     const noFile: SearchOutput = {
       ...sampleOutput,
-      results: [{
-        id: 1,
-        name: 'orphanFn',
-        type: 'function',
-        file: '',
-        line: 1,
-        score: 0.5,
-      }],
+      results: [
+        {
+          id: 1,
+          name: 'orphanFn',
+          type: 'function',
+          file: '',
+          line: 1,
+          score: 0.5,
+        },
+      ],
       totalResults: 1,
     };
     const output = formatSearchResult(noFile, 'text');

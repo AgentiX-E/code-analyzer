@@ -20,7 +20,12 @@ export interface ValidationResult {
 
 /** A specific issue found during validation */
 export interface ValidationIssue {
-  type: 'non_existent_file' | 'non_existent_symbol' | 'line_out_of_range' | 'mismatched_content' | 'fabricated_reference';
+  type:
+    | 'non_existent_file'
+    | 'non_existent_symbol'
+    | 'line_out_of_range'
+    | 'mismatched_content'
+    | 'fabricated_reference';
   severity: 'error' | 'warning';
   message: string;
   detail?: string;
@@ -73,9 +78,10 @@ export const hallucinationDetectionTool: McpToolDefinition = {
 
     let comments: ReviewComment[];
     try {
-      comments = typeof reviewComments === 'string'
-        ? JSON.parse(reviewComments)
-        : (reviewComments as ReviewComment[]);
+      comments =
+        typeof reviewComments === 'string'
+          ? JSON.parse(reviewComments)
+          : (reviewComments as ReviewComment[]);
     } catch {
       return {
         content: [{ type: 'text', text: 'Error: Invalid review comments JSON.' }],
@@ -86,9 +92,8 @@ export const hallucinationDetectionTool: McpToolDefinition = {
     let nodes: GraphNode[] = [];
     if (sourceNodes) {
       try {
-        nodes = typeof sourceNodes === 'string'
-          ? JSON.parse(sourceNodes)
-          : (sourceNodes as GraphNode[]);
+        nodes =
+          typeof sourceNodes === 'string' ? JSON.parse(sourceNodes) : (sourceNodes as GraphNode[]);
       } catch {
         // If sourceNodes parsing fails, continue with empty nodes
         // — this means we can't validate against specific symbols
@@ -96,12 +101,7 @@ export const hallucinationDetectionTool: McpToolDefinition = {
     }
 
     const strict = (strictMode as boolean) ?? false;
-    const report = detectHallucinations(
-      projectId as string,
-      comments,
-      nodes,
-      strict,
-    );
+    const report = detectHallucinations(projectId as string, comments, nodes, strict);
 
     return {
       content: [{ type: 'text', text: formatHallucinationReport(report) }],
@@ -168,9 +168,8 @@ export function detectHallucinations(
 
   const validCount = results.filter((r) => r.isValid).length;
   const hallucinatedCount = results.length - validCount;
-  const overallConfidence = results.length > 0
-    ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length
-    : 1.0;
+  const overallConfidence =
+    results.length > 0 ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length : 1.0;
 
   return {
     projectId,
@@ -208,8 +207,8 @@ export function validateComment(
     });
   } else if (knownFiles.size > 0 && !knownFiles.has(comment.path)) {
     // Check for partial path match
-    const partialMatch = [...knownFiles].some((f) =>
-      f.includes(comment.path) || comment.path.includes(f),
+    const partialMatch = [...knownFiles].some(
+      (f) => f.includes(comment.path) || comment.path.includes(f),
     );
     if (!partialMatch) {
       issues.push({
@@ -256,7 +255,10 @@ export function validateComment(
   }
 
   // Check 3: Content and symbol validation
-  if ((comment.content === '' || (comment.content != null && comment.content.trim().length === 0)) && strictMode) {
+  if (
+    (comment.content === '' || (comment.content != null && comment.content.trim().length === 0)) &&
+    strictMode
+  ) {
     issues.push({
       type: 'mismatched_content',
       severity: 'warning',
@@ -271,7 +273,8 @@ export function validateComment(
     while ((match = symbolPattern.exec(comment.content)) !== null) {
       const symbolName = match[1]!;
       // Check if this symbol exists in the codebase
-      const exists = knownSymbols.has(symbolName) ||
+      const exists =
+        knownSymbols.has(symbolName) ||
         [...knownSymbols.keys()].some((k) => k.endsWith(symbolName));
       if (!exists && strictMode) {
         issues.push({
@@ -285,7 +288,11 @@ export function validateComment(
   }
 
   // Check 5: Existing code content validation
-  if ((comment.existingCode === '' || (comment.existingCode != null && comment.existingCode.trim().length === 0)) && strictMode) {
+  if (
+    (comment.existingCode === '' ||
+      (comment.existingCode != null && comment.existingCode.trim().length === 0)) &&
+    strictMode
+  ) {
     issues.push({
       type: 'fabricated_reference',
       severity: 'warning',
@@ -356,7 +363,9 @@ export function generateDetectionSummary(results: ValidationResult[]): string {
     parts.push(`${issueTypeCounts.get('line_out_of_range')} line number(s) out of valid range.`);
   }
   if (issueTypeCounts.has('non_existent_symbol')) {
-    parts.push(`${issueTypeCounts.get('non_existent_symbol')} reference(s) to non-existent symbols.`);
+    parts.push(
+      `${issueTypeCounts.get('non_existent_symbol')} reference(s) to non-existent symbols.`,
+    );
   }
 
   return parts.join(' ');
@@ -376,7 +385,9 @@ export function formatHallucinationReport(report: HallucinationReport): string {
   lines.push('');
   lines.push(`**Project:** ${report.projectId}`);
   lines.push(`**Comments Validated:** ${report.totalComments}`);
-  lines.push(`**Valid:** ${report.validComments} | **Hallucinated:** ${report.hallucinatedComments}`);
+  lines.push(
+    `**Valid:** ${report.validComments} | **Hallucinated:** ${report.hallucinatedComments}`,
+  );
   lines.push(`**Overall Confidence:** ${(report.overallConfidence * 100).toFixed(1)}%`);
   lines.push('');
   lines.push(`### Summary`);
@@ -409,7 +420,9 @@ export function formatHallucinationReport(report: HallucinationReport): string {
     lines.push('### Valid Comments');
     lines.push('');
     for (const result of validResults) {
-      lines.push(`- Comment \`${result.commentId}\`: ${(result.confidence * 100).toFixed(0)}% confidence`);
+      lines.push(
+        `- Comment \`${result.commentId}\`: ${(result.confidence * 100).toFixed(0)}% confidence`,
+      );
     }
     lines.push('');
   }

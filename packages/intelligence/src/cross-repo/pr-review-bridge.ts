@@ -7,7 +7,11 @@ import type { CrossRepoIndexer } from './cross-repo-indexer.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
 import type { CodeReviewEngine } from '../review/review-engine.js';
 import { ContractValidator, type ContractValidationResult } from './contract-validator.js';
-import { ImpactGraphBuilder, type BlastRadiusResult, type DependencyChain } from './impact-graph.js';
+import {
+  ImpactGraphBuilder,
+  type BlastRadiusResult,
+  type DependencyChain,
+} from './impact-graph.js';
 
 // ---------------------------------------------------------------------------
 // Public Interfaces
@@ -163,10 +167,7 @@ export class PRReviewBridge {
   /**
    * Discover related repos in the group that may be affected.
    */
-  async discoverRelatedRepos(
-    groupId: string,
-    sourceRepoId: string,
-  ): Promise<string[]> {
+  async discoverRelatedRepos(groupId: string, sourceRepoId: string): Promise<string[]> {
     try {
       const impact = await this.indexer.analyzeCrossRepoImpact(groupId, sourceRepoId);
       return impact.affectedRepos.filter((r) => r !== sourceRepoId);
@@ -196,14 +197,10 @@ export class PRReviewBridge {
             const sourceNodes = this.indexer.getRepoNodes(sourceRepoId);
             const targetNodes = this.indexer.getRepoNodes(repo.fullName);
             const sourceImports = new Set(
-              sourceNodes
-                .filter((n) => (n.label as string) === 'Import')
-                .map((n) => n.name),
+              sourceNodes.filter((n) => (n.label as string) === 'Import').map((n) => n.name),
             );
             const targetImports = new Set(
-              targetNodes
-                .filter((n) => (n.label as string) === 'Import')
-                .map((n) => n.name),
+              targetNodes.filter((n) => (n.label as string) === 'Import').map((n) => n.name),
             );
             for (const imp of sourceImports) {
               if (targetImports.has(imp) && !sharedDependencies.includes(imp)) {
@@ -282,10 +279,7 @@ export class PRReviewBridge {
       lines.push(``);
     }
 
-    lines.push(
-      `## Recommendations`,
-      ``,
-    );
+    lines.push(`## Recommendations`, ``);
 
     for (const rec of report.recommendations) {
       lines.push(`- ${rec}`);
@@ -303,7 +297,11 @@ export class PRReviewBridge {
   private extractChangedSymbols(diffs: GitDiff[]): string[] {
     const symbols = new Set<string>();
     for (const diff of diffs) {
-      const baseName = diff.filePath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+      const baseName =
+        diff.filePath
+          .split('/')
+          .pop()
+          ?.replace(/\.[^.]+$/, '') ?? '';
       if (baseName) {
         symbols.add(baseName);
         // Add PascalCase variant
@@ -328,10 +326,7 @@ export class PRReviewBridge {
     ) {
       return 'critical';
     }
-    if (
-      contractValidation.breakingCount >= 1 ||
-      blastRadius.totalAffected >= 3
-    ) {
+    if (contractValidation.breakingCount >= 1 || blastRadius.totalAffected >= 3) {
       return 'high';
     }
     if (blastRadius.totalAffected >= 1) {
@@ -408,9 +403,7 @@ export class PRReviewBridge {
     contractValidation: ContractValidationResult,
     blastRadius: BlastRadiusResult,
   ): string {
-    const parts: string[] = [
-      `PR in \`${sourceRepo}\` was analyzed for cross-repo impact.`,
-    ];
+    const parts: string[] = [`PR in \`${sourceRepo}\` was analyzed for cross-repo impact.`];
 
     if (contractValidation.breakingCount > 0) {
       parts.push(

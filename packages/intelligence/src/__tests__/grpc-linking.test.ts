@@ -36,16 +36,34 @@ describe('grpc-linking', () => {
     });
 
     it('uses resolvedQn when it contains "Service"', () => {
-      const result = extractGrpcServiceMethod('client.getCart', 'CartServiceGrpc.CartServiceBlockingStub');
+      const result = extractGrpcServiceMethod(
+        'client.getCart',
+        'CartServiceGrpc.CartServiceBlockingStub',
+      );
       expect(result).toEqual({ service: 'CartService', method: 'CartServiceBlockingStub' });
     });
 
     it('strips Stub/Client/Servicer suffixes', () => {
-      expect(extractGrpcServiceMethod('FooClient.getBar')).toEqual({ service: 'Foo', method: 'getBar' });
-      expect(extractGrpcServiceMethod('FooServicer.getBar')).toEqual({ service: 'Foo', method: 'getBar' });
-      expect(extractGrpcServiceMethod('FooAsyncStub.getBar')).toEqual({ service: 'Foo', method: 'getBar' });
-      expect(extractGrpcServiceMethod('FooFutureStub.getBar')).toEqual({ service: 'Foo', method: 'getBar' });
-      expect(extractGrpcServiceMethod('FooGrpc.getBar')).toEqual({ service: 'Foo', method: 'getBar' });
+      expect(extractGrpcServiceMethod('FooClient.getBar')).toEqual({
+        service: 'Foo',
+        method: 'getBar',
+      });
+      expect(extractGrpcServiceMethod('FooServicer.getBar')).toEqual({
+        service: 'Foo',
+        method: 'getBar',
+      });
+      expect(extractGrpcServiceMethod('FooAsyncStub.getBar')).toEqual({
+        service: 'Foo',
+        method: 'getBar',
+      });
+      expect(extractGrpcServiceMethod('FooFutureStub.getBar')).toEqual({
+        service: 'Foo',
+        method: 'getBar',
+      });
+      expect(extractGrpcServiceMethod('FooGrpc.getBar')).toEqual({
+        service: 'Foo',
+        method: 'getBar',
+      });
     });
 
     it('returns null for names without a dot', () => {

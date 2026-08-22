@@ -62,14 +62,86 @@ function randInt(min: number, max: number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
 }
 
-const VERBS = ['get', 'set', 'fetch', 'load', 'save', 'update', 'delete', 'create', 'build', 'parse',
-  'render', 'mount', 'init', 'destroy', 'handle', 'process', 'validate', 'transform', 'filter', 'compute'];
-const NOUNS = ['User', 'Item', 'Data', 'Config', 'Cache', 'Store', 'View', 'Model', 'Service', 'Manager',
-  'Controller', 'Router', 'Handler', 'Factory', 'Builder', 'Parser', 'Validator', 'Formatter', 'Adapter', 'Proxy'];
-const TYPES = ['string', 'number', 'boolean', 'void', 'any', 'string[]', 'number[]', 'Record<string, unknown>',
-  'Map<string, number>', 'Promise<void>', 'Promise<unknown>', 'Array<unknown>'];
-const MODULES = ['react', 'lodash', 'axios', 'express', 'fs', 'path', 'crypto', 'util', 'events', 'stream',
-  './utils', './helpers', './types', './config', './services', '../common', '../shared', '../core', '../lib', '../api'];
+const VERBS = [
+  'get',
+  'set',
+  'fetch',
+  'load',
+  'save',
+  'update',
+  'delete',
+  'create',
+  'build',
+  'parse',
+  'render',
+  'mount',
+  'init',
+  'destroy',
+  'handle',
+  'process',
+  'validate',
+  'transform',
+  'filter',
+  'compute',
+];
+const NOUNS = [
+  'User',
+  'Item',
+  'Data',
+  'Config',
+  'Cache',
+  'Store',
+  'View',
+  'Model',
+  'Service',
+  'Manager',
+  'Controller',
+  'Router',
+  'Handler',
+  'Factory',
+  'Builder',
+  'Parser',
+  'Validator',
+  'Formatter',
+  'Adapter',
+  'Proxy',
+];
+const TYPES = [
+  'string',
+  'number',
+  'boolean',
+  'void',
+  'any',
+  'string[]',
+  'number[]',
+  'Record<string, unknown>',
+  'Map<string, number>',
+  'Promise<void>',
+  'Promise<unknown>',
+  'Array<unknown>',
+];
+const MODULES = [
+  'react',
+  'lodash',
+  'axios',
+  'express',
+  'fs',
+  'path',
+  'crypto',
+  'util',
+  'events',
+  'stream',
+  './utils',
+  './helpers',
+  './types',
+  './config',
+  './services',
+  '../common',
+  '../shared',
+  '../core',
+  '../lib',
+  '../api',
+];
 
 function generateFunction(name: string, maxParams = 4): string {
   const params = Array.from({ length: randInt(0, maxParams) }, (_, i) => {
@@ -99,7 +171,9 @@ function generateClass(name: string): string {
   lines.push(`export class ${name} {`);
   const fieldCount = randInt(1, 4);
   for (let i = 0; i < fieldCount; i++) {
-    lines.push(`  private ${pick(['_id', '_name', '_data', '_config', '_state'])}: ${pick(TYPES)};`);
+    lines.push(
+      `  private ${pick(['_id', '_name', '_data', '_config', '_state'])}: ${pick(TYPES)};`,
+    );
   }
   const methodCount = randInt(1, 3);
   for (let i = 0; i < methodCount; i++) {
@@ -156,7 +230,10 @@ function generateSyntheticFile(index: number): string {
   return lines.join('\n');
 }
 
-function generateFiles(count: number, baseDir: string): { fileCount: number; totalLines: number; totalSizeBytes: number } {
+function generateFiles(
+  count: number,
+  baseDir: string,
+): { fileCount: number; totalLines: number; totalSizeBytes: number } {
   mkdirSync(baseDir, { recursive: true });
   let totalLines = 0;
   let totalSizeBytes = 0;

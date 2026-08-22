@@ -358,7 +358,10 @@ describe('InMemoryGraphStore', () => {
       const node = createTestNode();
       const id = store.insertNode(node);
       store.updateNode(id, { implementedInterfaces: ['Serializable', 'Comparable'] });
-      expect(store.getNode(id)!.properties.implementedInterfaces).toEqual(['Serializable', 'Comparable']);
+      expect(store.getNode(id)!.properties.implementedInterfaces).toEqual([
+        'Serializable',
+        'Comparable',
+      ]);
     });
   });
 
@@ -621,9 +624,7 @@ describe('InMemoryGraphStore', () => {
         sortDirection: 'asc',
       });
       // Line counts: FunctionA=49, FunctionB=49, ClassA=99
-      const lineCounts = result.items.map(
-        (n) => (n.endLine ?? 0) - (n.startLine ?? 0),
-      );
+      const lineCounts = result.items.map((n) => (n.endLine ?? 0) - (n.startLine ?? 0));
       expect(lineCounts).toEqual([49, 49, 99]);
     });
 
@@ -633,9 +634,7 @@ describe('InMemoryGraphStore', () => {
         sortBy: 'line_count',
         sortDirection: 'desc',
       });
-      const lineCounts = result.items.map(
-        (n) => (n.endLine ?? 0) - (n.startLine ?? 0),
-      );
+      const lineCounts = result.items.map((n) => (n.endLine ?? 0) - (n.startLine ?? 0));
       expect(lineCounts).toEqual([99, 49, 49]);
     });
 
@@ -680,12 +679,14 @@ describe('InMemoryGraphStore', () => {
 
     it('handles minLine filter with null startLine', () => {
       // Insert a node with null startLine
-      store.insertNode(createTestNode({
-        qualifiedName: 'null.lines.node',
-        projectId: 'p1',
-        startLine: null,
-        endLine: null,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'null.lines.node',
+          projectId: 'p1',
+          startLine: null,
+          endLine: null,
+        }),
+      );
       const result = store.queryNodes({ projectId: 'p1', minLine: 1 });
       // Node with null startLine should be excluded
       expect(result.total).toBe(3); // only the 3 with valid lines
@@ -745,9 +746,7 @@ describe('InMemoryGraphStore', () => {
         'IMPORTS',
       ];
       for (const type of types) {
-        store.insertEdge(
-          createTestEdge({ sourceId: node1, targetId: node2, type }),
-        );
+        store.insertEdge(createTestEdge({ sourceId: node1, targetId: node2, type }));
       }
       expect(store.getEdgeCount()).toBe(4);
     });
@@ -775,9 +774,7 @@ describe('InMemoryGraphStore', () => {
     it('deletes an edge by id', () => {
       const node1 = store.insertNode(createTestNode({ qualifiedName: 'd1' }));
       const node2 = store.insertNode(createTestNode({ qualifiedName: 'd2' }));
-      const edgeId = store.insertEdge(
-        createTestEdge({ sourceId: node1, targetId: node2 }),
-      );
+      const edgeId = store.insertEdge(createTestEdge({ sourceId: node1, targetId: node2 }));
       store.deleteEdge(edgeId);
       expect(store.getEdgeCount()).toBe(0);
     });
@@ -1071,12 +1068,14 @@ describe('InMemoryGraphStore', () => {
 
     it('returns empty when searching node with null signature marks', () => {
       // Insert a node with null signature so the null-check branch in searchFts is covered
-      store.insertNode(createTestNode({
-        qualifiedName: 'null.sig.node',
-        name: 'nullSigFunc',
-        label: 'Function' as NodeLabel,
-        signature: null,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'null.sig.node',
+          name: 'nullSigFunc',
+          label: 'Function' as NodeLabel,
+          signature: null,
+        }),
+      );
       // Search for something in the name
       const results = store.searchFts('nullSigFunc');
       expect(results.length).toBe(1);
@@ -1084,25 +1083,29 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('handles search with null signature and null docstring fields', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'null.both.node',
-        name: 'NullBothFunc',
-        label: 'Function' as NodeLabel,
-        signature: null,
-        docstring: null,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'null.both.node',
+          name: 'NullBothFunc',
+          label: 'Function' as NodeLabel,
+          signature: null,
+          docstring: null,
+        }),
+      );
       const results = store.searchFts('NullBothFunc');
       expect(results.length).toBe(1);
       expect(results[0]!.node.name).toBe('NullBothFunc');
     });
 
     it('handles search with no decorators in properties', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'no.decorators.node',
-        name: 'NoDecoratorsFunc',
-        label: 'Function' as NodeLabel,
-        properties: { name: 'NoDecoratorsFunc' },
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'no.decorators.node',
+          name: 'NoDecoratorsFunc',
+          label: 'Function' as NodeLabel,
+          properties: { name: 'NoDecoratorsFunc' },
+        }),
+      );
       const results = store.searchFts('NoDecoratorsFunc');
       expect(results.length).toBe(1);
       expect(results[0]!.node.name).toBe('NoDecoratorsFunc');
@@ -1111,15 +1114,17 @@ describe('InMemoryGraphStore', () => {
     it('matches filePath when it is the best (only) match', () => {
       // Insert a node where the search term appears ONLY in filePath,
       // so filePath rank (2) becomes bestRank.
-      store.insertNode(createTestNode({
-        qualifiedName: 'filepath.only.node',
-        name: 'FilepathOnlyFunc',
-        label: 'Function' as NodeLabel,
-        filePath: 'src/unique-path/filepath-only-match.ts',
-        signature: null,
-        docstring: null,
-        properties: {},
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'filepath.only.node',
+          name: 'FilepathOnlyFunc',
+          label: 'Function' as NodeLabel,
+          filePath: 'src/unique-path/filepath-only-match.ts',
+          signature: null,
+          docstring: null,
+          properties: {},
+        }),
+      );
       const results = store.searchFts('unique-path');
       expect(results.length).toBe(1);
       expect(results[0]!.matchedColumn).toBe('filePath');
@@ -1310,8 +1315,12 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('reports correct counts when projectId differs from edges', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'projA.1', projectId: 'projectA' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'projA.2', projectId: 'projectA' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'projA.1', projectId: 'projectA' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'projA.2', projectId: 'projectA' }),
+      );
       // This edge will use default projectId 'test-project'
       store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2 }));
       const report = store.validateIntegrity('projectA');
@@ -1329,14 +1338,20 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('detects orphan edges when nodes are deleted', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orphan.src', projectId: 'orphan-proj' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orphan.tgt', projectId: 'orphan-proj' }));
-      store.insertEdge(createTestEdge({
-        sourceId: n1,
-        targetId: n2,
-        projectId: 'orphan-proj',
-        type: 'CALLS',
-      }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'orphan.src', projectId: 'orphan-proj' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'orphan.tgt', projectId: 'orphan-proj' }),
+      );
+      store.insertEdge(
+        createTestEdge({
+          sourceId: n1,
+          targetId: n2,
+          projectId: 'orphan-proj',
+          type: 'CALLS',
+        }),
+      );
       // Delete target node — the edge becomes orphan because InMemoryGraphStore
       // cascade-deletes edges when nodes are removed via deleteNode
       store.deleteNode(n2);
@@ -1347,38 +1362,54 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('detects orphan edge when source node is missing', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orphan.src2', projectId: 'orphan-src-proj' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orphan.tgt2', projectId: 'orphan-src-proj' }));
-      const edgeId = store.insertEdge(createTestEdge({
-        sourceId: n1,
-        targetId: n2,
-        projectId: 'orphan-src-proj',
-        type: 'CALLS',
-      }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'orphan.src2', projectId: 'orphan-src-proj' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'orphan.tgt2', projectId: 'orphan-src-proj' }),
+      );
+      const edgeId = store.insertEdge(
+        createTestEdge({
+          sourceId: n1,
+          targetId: n2,
+          projectId: 'orphan-src-proj',
+          type: 'CALLS',
+        }),
+      );
       // Simulate orphan edge: directly remove source node from internal nodes map
       // without going through deleteNode (which would cascade-delete edges)
       (store as any).nodes.delete(n1);
       (store as any).qnameIndex.delete('orphan.src2');
       const report = store.validateIntegrity('orphan-src-proj');
       expect(report.orphanEdges).toBe(1);
-      expect(report.issues.some((i: any) => i.type === 'orphan_edge' && i.edgeId === edgeId)).toBe(true);
+      expect(report.issues.some((i: any) => i.type === 'orphan_edge' && i.edgeId === edgeId)).toBe(
+        true,
+      );
     });
 
     it('detects orphan edge when target node is missing', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orphan.src3', projectId: 'orphan-tgt-proj' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orphan.tgt3', projectId: 'orphan-tgt-proj' }));
-      const edgeId = store.insertEdge(createTestEdge({
-        sourceId: n1,
-        targetId: n2,
-        projectId: 'orphan-tgt-proj',
-        type: 'CALLS',
-      }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'orphan.src3', projectId: 'orphan-tgt-proj' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'orphan.tgt3', projectId: 'orphan-tgt-proj' }),
+      );
+      const edgeId = store.insertEdge(
+        createTestEdge({
+          sourceId: n1,
+          targetId: n2,
+          projectId: 'orphan-tgt-proj',
+          type: 'CALLS',
+        }),
+      );
       // Simulate orphan edge: directly remove target node from internal nodes map
       (store as any).nodes.delete(n2);
       (store as any).qnameIndex.delete('orphan.tgt3');
       const report = store.validateIntegrity('orphan-tgt-proj');
       expect(report.orphanEdges).toBe(1);
-      expect(report.issues.some((i: any) => i.type === 'orphan_edge' && i.edgeId === edgeId)).toBe(true);
+      expect(report.issues.some((i: any) => i.type === 'orphan_edge' && i.edgeId === edgeId)).toBe(
+        true,
+      );
     });
   });
 
@@ -1533,9 +1564,7 @@ describe('InMemoryGraphStore', () => {
     it('handles very large node count', () => {
       const count = 500;
       for (let i = 0; i < count; i++) {
-        store.insertNode(
-          createTestNode({ qualifiedName: `large.node${i}`, projectId: 'large' }),
-        );
+        store.insertNode(createTestNode({ qualifiedName: `large.node${i}`, projectId: 'large' }));
       }
       expect(store.getNodeCount()).toBe(count);
       const results = store.queryNodes({ projectId: 'large', limit: 10 });
@@ -1581,7 +1610,9 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('handles pattern matching with regex special chars in names', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'special.chars.node', name: 'node.with.dots' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'special.chars.node', name: 'node.with.dots' }),
+      );
       const results = store.queryNodes({ projectId: 'test-project', namePattern: 'node.*' });
       expect(results.total).toBeGreaterThanOrEqual(1);
     });
@@ -1730,9 +1761,7 @@ describe('InMemoryGraphStore', () => {
 
     it('rejects batch edges with missing source', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.valid2' }));
-      const edges = [
-        createTestEdge({ sourceId: 99999, targetId: n1, type: 'CALLS' }),
-      ];
+      const edges = [createTestEdge({ sourceId: 99999, targetId: n1, type: 'CALLS' })];
       expect(() => store.insertEdges(edges)).toThrow('source node id=99999 not found');
       expect(store.getEdgeCount()).toBe(0);
     });
@@ -1744,7 +1773,9 @@ describe('InMemoryGraphStore', () => {
 
   describe('pattern cache', () => {
     it('caches regex patterns for repeated queries', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'cache.test', name: 'cachedName' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'cache.test', name: 'cachedName' }),
+      );
 
       // First query — should build and cache regex
       const r1 = store.queryNodes({ projectId: 'test-project', namePattern: 'cached*' });
@@ -1767,8 +1798,12 @@ describe('InMemoryGraphStore', () => {
   describe('integrity check edge cases', () => {
     it('returns empty issues for clean store', () => {
       const store = new InMemoryGraphStore();
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'clean.node', name: 'cleanNode' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'clean.node2', name: 'cleanNode2' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'clean.node', name: 'cleanNode' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'clean.node2', name: 'cleanNode2' }),
+      );
       store.insertEdge({
         id: 0,
         projectId: 'test-project',
@@ -1925,7 +1960,13 @@ describe('InMemoryGraphStore', () => {
       const report = store.validateIntegrity('test-project');
       expect(report.valid).toBe(true);
       // Verify the IntegrityIssue type has all 5 types accessible
-      const types = ['orphan_edge', 'missing_node', 'duplicate_qname', 'invalid_edge', 'missing_qname'];
+      const types = [
+        'orphan_edge',
+        'missing_node',
+        'duplicate_qname',
+        'invalid_edge',
+        'missing_qname',
+      ];
       expect(types.length).toBe(5);
     });
 
@@ -1940,8 +1981,12 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('detects orphan_edge issue type for source', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orph.src', projectId: 'orph-proj' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orph.tgt', projectId: 'orph-proj' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'orph.src', projectId: 'orph-proj' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'orph.tgt', projectId: 'orph-proj' }),
+      );
       store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, projectId: 'orph-proj' }));
       // Directly remove the source node to create an orphan
       (store as any).nodes.delete(n1);
@@ -1951,8 +1996,12 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('detects orphan_edge issue type for target', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'orph.src2', projectId: 'orph-proj2' }));
-      const n2 = store.insertNode(createTestNode({ qualifiedName: 'orph.tgt2', projectId: 'orph-proj2' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'orph.src2', projectId: 'orph-proj2' }),
+      );
+      const n2 = store.insertNode(
+        createTestNode({ qualifiedName: 'orph.tgt2', projectId: 'orph-proj2' }),
+      );
       store.insertEdge(createTestEdge({ sourceId: n1, targetId: n2, projectId: 'orph-proj2' }));
       // Directly remove the target node to create an orphan
       (store as any).nodes.delete(n2);
@@ -1963,9 +2012,16 @@ describe('InMemoryGraphStore', () => {
 
     it('detects duplicate_qname issue type', () => {
       // Insert nodes with same qname by manipulating internal maps
-      store.insertNode(createTestNode({ qualifiedName: 'dupe.qn', projectId: 'dupe-proj', name: 'First' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'dupe.qn', projectId: 'dupe-proj', name: 'First' }),
+      );
       // Directly insert a second node with same qname
-      const secondNode = createTestNode({ qualifiedName: 'dupe.qn', projectId: 'dupe-proj', name: 'Second', id: 99 });
+      const secondNode = createTestNode({
+        qualifiedName: 'dupe.qn',
+        projectId: 'dupe-proj',
+        name: 'Second',
+        id: 99,
+      });
       (store as any).nodes.set(99, { ...secondNode, id: 99 });
       // Don't add to qnameIndex (simulating corruption where qnameIndex wasn't updated)
       const report = store.validateIntegrity('dupe-proj');
@@ -2063,7 +2119,9 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should use fallback scan with label array filter', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'fallback.n1', label: 'Function' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'fallback.n1', label: 'Function' }),
+      );
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'fallback.n2', label: 'Class' }));
 
       // Delete the project index to force fallback path
@@ -2097,26 +2155,30 @@ describe('InMemoryGraphStore', () => {
 
     it('should use fallback scan with all filter types', () => {
       const fbProjectId = 'fallback-full-project';
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.full.func',
-        label: 'Function',
-        name: 'myFunc',
-        filePath: '/src/utils.ts',
-        startLine: 10,
-        endLine: 50,
-        isExported: true,
-        projectId: fbProjectId,
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.full.class',
-        label: 'Class',
-        name: 'MyClass',
-        filePath: '/src/core.ts',
-        startLine: 100,
-        endLine: 200,
-        isExported: false,
-        projectId: fbProjectId,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.full.func',
+          label: 'Function',
+          name: 'myFunc',
+          filePath: '/src/utils.ts',
+          startLine: 10,
+          endLine: 50,
+          isExported: true,
+          projectId: fbProjectId,
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.full.class',
+          label: 'Class',
+          name: 'MyClass',
+          filePath: '/src/core.ts',
+          startLine: 100,
+          endLine: 200,
+          isExported: false,
+          projectId: fbProjectId,
+        }),
+      );
 
       // Delete the project index to force the fallback scan path
       (store as any).projectNodesIndex.delete(fbProjectId);
@@ -2129,28 +2191,32 @@ describe('InMemoryGraphStore', () => {
         filePattern: '*.ts',
       });
       expect(result.items.length).toBe(2);
-      const names = result.items.map(n => n.name).sort();
+      const names = result.items.map((n) => n.name).sort();
       expect(names).toEqual(['MyClass', 'myFunc']);
     });
 
     it('should use fallback scan with minLine and maxLine filters', () => {
       const fbProjectId = 'fallback-line-project';
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.line.a',
-        label: 'Function',
-        name: 'earlyFunc',
-        startLine: 5,
-        endLine: 20,
-        projectId: fbProjectId,
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.line.b',
-        label: 'Function',
-        name: 'lateFunc',
-        startLine: 100,
-        endLine: 150,
-        projectId: fbProjectId,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.line.a',
+          label: 'Function',
+          name: 'earlyFunc',
+          startLine: 5,
+          endLine: 20,
+          projectId: fbProjectId,
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.line.b',
+          label: 'Function',
+          name: 'lateFunc',
+          startLine: 100,
+          endLine: 150,
+          projectId: fbProjectId,
+        }),
+      );
 
       // Delete the project index to force the fallback scan path
       (store as any).projectNodesIndex.delete(fbProjectId);
@@ -2166,20 +2232,24 @@ describe('InMemoryGraphStore', () => {
 
     it('should use fallback scan with isExported filter', () => {
       const fbProjectId = 'fallback-exp-project';
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.exp.yes',
-        label: 'Function',
-        name: 'exportedFunc',
-        isExported: true,
-        projectId: fbProjectId,
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.exp.no',
-        label: 'Function',
-        name: 'internalFunc',
-        isExported: false,
-        projectId: fbProjectId,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.exp.yes',
+          label: 'Function',
+          name: 'exportedFunc',
+          isExported: true,
+          projectId: fbProjectId,
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.exp.no',
+          label: 'Function',
+          name: 'internalFunc',
+          isExported: false,
+          projectId: fbProjectId,
+        }),
+      );
 
       // Delete the project index to force the fallback scan path
       (store as any).projectNodesIndex.delete(fbProjectId);
@@ -2194,18 +2264,22 @@ describe('InMemoryGraphStore', () => {
 
     it('should use fallback scan with qualifiedNamePattern', () => {
       const fbProjectId = 'fallback-qn-project';
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.qn.match',
-        label: 'Function',
-        name: 'matchFunc',
-        projectId: fbProjectId,
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'other.qn.skip',
-        label: 'Function',
-        name: 'skipFunc',
-        projectId: fbProjectId,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.qn.match',
+          label: 'Function',
+          name: 'matchFunc',
+          projectId: fbProjectId,
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'other.qn.skip',
+          label: 'Function',
+          name: 'skipFunc',
+          projectId: fbProjectId,
+        }),
+      );
 
       // Delete the project index to force the fallback scan path
       (store as any).projectNodesIndex.delete(fbProjectId);
@@ -2220,22 +2294,26 @@ describe('InMemoryGraphStore', () => {
 
     it('should use fallback scan with maxLine filter and null endLine', () => {
       const fbProjectId = 'fallback-max-project';
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.max.null',
-        label: 'Function',
-        name: 'noEndFunc',
-        startLine: 10,
-        endLine: null,
-        projectId: fbProjectId,
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fallback.max.valid',
-        label: 'Function',
-        name: 'hasEndFunc',
-        startLine: 1,
-        endLine: 3,
-        projectId: fbProjectId,
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.max.null',
+          label: 'Function',
+          name: 'noEndFunc',
+          startLine: 10,
+          endLine: null,
+          projectId: fbProjectId,
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fallback.max.valid',
+          label: 'Function',
+          name: 'hasEndFunc',
+          startLine: 1,
+          endLine: 3,
+          projectId: fbProjectId,
+        }),
+      );
 
       // Delete the project index to force the fallback scan path
       (store as any).projectNodesIndex.delete(fbProjectId);
@@ -2278,7 +2356,9 @@ describe('InMemoryGraphStore', () => {
 
   describe('queryNodes — empty candidate set', () => {
     it('should return empty when label filter produces empty set', () => {
-      const n1 = store.insertNode(createTestNode({ qualifiedName: 'empty-label.n1', label: 'Function' }));
+      const n1 = store.insertNode(
+        createTestNode({ qualifiedName: 'empty-label.n1', label: 'Function' }),
+      );
 
       const result = store.queryNodes({
         projectId: store.nodes.get(n1)!.projectId,
@@ -2409,18 +2489,22 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should search with projectId filter', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.p1.node',
-        name: 'searchableFunc',
-        projectId: 'fts-proj-1',
-        label: 'Function',
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.p2.node',
-        name: 'searchableFunc',
-        projectId: 'fts-proj-2',
-        label: 'Function',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.p1.node',
+          name: 'searchableFunc',
+          projectId: 'fts-proj-1',
+          label: 'Function',
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.p2.node',
+          name: 'searchableFunc',
+          projectId: 'fts-proj-2',
+          label: 'Function',
+        }),
+      );
 
       const results = store.searchFts('searchableFunc', { projectId: 'fts-proj-1' });
       expect(results.length).toBe(1);
@@ -2428,18 +2512,22 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle search with labels and projectId combined', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.combo.c1',
-        name: 'comboClass',
-        projectId: 'combo-proj',
-        label: 'Class',
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.combo.f1',
-        name: 'comboFunc',
-        projectId: 'combo-proj',
-        label: 'Function',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.combo.c1',
+          name: 'comboClass',
+          projectId: 'combo-proj',
+          label: 'Class',
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.combo.f1',
+          name: 'comboFunc',
+          projectId: 'combo-proj',
+          label: 'Function',
+        }),
+      );
 
       const results = store.searchFts('combo', {
         projectId: 'combo-proj',
@@ -2450,13 +2538,15 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should boost rank for multi-term matches', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'user.service',
-        name: 'UserService',
-        label: 'Class',
-        filePath: 'src/services/user.ts',
-        docstring: 'User service for authentication',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'user.service',
+          name: 'UserService',
+          label: 'Class',
+          filePath: 'src/services/user.ts',
+          docstring: 'User service for authentication',
+        }),
+      );
 
       const results = store.searchFts('user service');
       // Results that match both terms should rank higher
@@ -2467,7 +2557,9 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle search with empty string terms after split', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'fts.extra-spaces', name: 'ExtraSpacesFunc' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'fts.extra-spaces', name: 'ExtraSpacesFunc' }),
+      );
       const results = store.searchFts('   ');
       expect(results.length).toBe(0);
     });
@@ -2477,12 +2569,14 @@ describe('InMemoryGraphStore', () => {
     it('should skip edges from different projectId', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'vi.n1', projectId: 'vi-proj' }));
       const n2 = store.insertNode(createTestNode({ qualifiedName: 'vi.n2', projectId: 'vi-proj' }));
-      store.insertEdge(createTestEdge({
-        sourceId: n1,
-        targetId: n2,
-        projectId: 'different-proj',
-        type: 'CALLS',
-      }));
+      store.insertEdge(
+        createTestEdge({
+          sourceId: n1,
+          targetId: n2,
+          projectId: 'different-proj',
+          type: 'CALLS',
+        }),
+      );
 
       const report = store.validateIntegrity('vi-proj');
       expect(report.edgeCount).toBe(0);
@@ -2490,7 +2584,9 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle project with no edges', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'no-edge.node', projectId: 'no-edge-proj' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'no-edge.node', projectId: 'no-edge-proj' }),
+      );
       const report = store.validateIntegrity('no-edge-proj');
       expect(report.nodeCount).toBe(1);
       expect(report.edgeCount).toBe(0);
@@ -2512,7 +2608,9 @@ describe('InMemoryGraphStore', () => {
 
   describe('transaction — additional branches', () => {
     it('should rollback updateNode within transaction', () => {
-      const id = store.insertNode(createTestNode({ qualifiedName: 'txn.update', name: 'original' }));
+      const id = store.insertNode(
+        createTestNode({ qualifiedName: 'txn.update', name: 'original' }),
+      );
       expect(() => {
         store.transaction(() => {
           store.updateNode(id, { name: 'updated' });
@@ -2575,11 +2673,15 @@ describe('InMemoryGraphStore', () => {
     it('should throw on insertEdge after close', () => {
       const id = store.insertNode(createTestNode({ qualifiedName: 'pre-close' }));
       store.close();
-      expect(() => store.insertEdge(createTestEdge({
-        sourceId: id,
-        targetId: id,
-        type: 'CALLS',
-      }))).toThrow('InMemoryGraphStore is closed');
+      expect(() =>
+        store.insertEdge(
+          createTestEdge({
+            sourceId: id,
+            targetId: id,
+            type: 'CALLS',
+          }),
+        ),
+      ).toThrow('InMemoryGraphStore is closed');
     });
 
     it('should throw on queryNodes after close', () => {
@@ -2632,12 +2734,16 @@ describe('InMemoryGraphStore', () => {
 
     it('should throw on insertNodes after close', () => {
       store.close();
-      expect(() => store.insertNodes([createTestNode({ qualifiedName: 'closed.insert' })])).toThrow('InMemoryGraphStore is closed');
+      expect(() => store.insertNodes([createTestNode({ qualifiedName: 'closed.insert' })])).toThrow(
+        'InMemoryGraphStore is closed',
+      );
     });
 
     it('should throw on insertEdges after close', () => {
       store.close();
-      expect(() => store.insertEdges([createTestEdge({ sourceId: 1, targetId: 1 })])).toThrow('InMemoryGraphStore is closed');
+      expect(() => store.insertEdges([createTestEdge({ sourceId: 1, targetId: 1 })])).toThrow(
+        'InMemoryGraphStore is closed',
+      );
     });
 
     it('should throw on deleteEdge after close', () => {
@@ -2746,15 +2852,17 @@ describe('InMemoryGraphStore', () => {
 
   describe('searchFts — additional search branches', () => {
     it('should handle search with signature as best match', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'sig.best.match',
-        name: 'SigBest',
-        label: 'Function',
-        signature: '(items: Item[]): number',
-        docstring: '',
-        filePath: '',
-        properties: {},
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'sig.best.match',
+          name: 'SigBest',
+          label: 'Function',
+          signature: '(items: Item[]): number',
+          docstring: '',
+          filePath: '',
+          properties: {},
+        }),
+      );
       // Search for something in signature only
       const results = store.searchFts('Item[]');
       expect(results.length).toBe(1);
@@ -2762,30 +2870,34 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle search with docstring as best match', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'doc.best.match',
-        name: 'DocBest',
-        label: 'Function',
-        signature: null,
-        docstring: 'Calculates the total price including tax',
-        filePath: '',
-        properties: {},
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'doc.best.match',
+          name: 'DocBest',
+          label: 'Function',
+          signature: null,
+          docstring: 'Calculates the total price including tax',
+          filePath: '',
+          properties: {},
+        }),
+      );
       const results = store.searchFts('including');
       expect(results.length).toBe(1);
       expect(results[0]!.matchedColumn).toBe('docstring');
     });
 
     it('should handle search with qualifiedName rank higher than filePath', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'search.rank.test',
-        name: 'RankTest',
-        label: 'Function',
-        filePath: 'src/search/rank/test.ts',
-        signature: null,
-        docstring: null,
-        properties: {},
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'search.rank.test',
+          name: 'RankTest',
+          label: 'Function',
+          filePath: 'src/search/rank/test.ts',
+          signature: null,
+          docstring: null,
+          properties: {},
+        }),
+      );
       const results = store.searchFts('search');
       // qualifiedName match (rank 8) beats filePath match (rank 2)
       expect(results.length).toBeGreaterThanOrEqual(1);
@@ -2793,15 +2905,17 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle search where name has highest rank', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'lower.rank.qname',
-        name: 'HighRankName',
-        label: 'Function',
-        filePath: 'src/high/rank/name.ts',
-        signature: 'HighRankName(): void',
-        docstring: 'HighRankName docs',
-        properties: {},
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'lower.rank.qname',
+          name: 'HighRankName',
+          label: 'Function',
+          filePath: 'src/high/rank/name.ts',
+          signature: 'HighRankName(): void',
+          docstring: 'HighRankName docs',
+          properties: {},
+        }),
+      );
       const results = store.searchFts('HighRankName');
       expect(results.length).toBe(1);
       // Name match (rank 10) is highest
@@ -2809,15 +2923,17 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle search with multiple terms boosting rank', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'multi.term.test',
-        name: 'MultiTermFunc',
-        label: 'Function',
-        docstring: 'This is a multi term test function',
-        filePath: 'src/multi/term/test.ts',
-        signature: null,
-        properties: {},
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'multi.term.test',
+          name: 'MultiTermFunc',
+          label: 'Function',
+          docstring: 'This is a multi term test function',
+          filePath: 'src/multi/term/test.ts',
+          signature: null,
+          properties: {},
+        }),
+      );
       const results = store.searchFts('multi term');
       // Results matching multiple terms should rank higher
       expect(results.length).toBeGreaterThan(0);
@@ -2826,15 +2942,17 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should handle search where only decorators match', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'decorator.only.match',
-        name: 'DecOnlyFunc',
-        label: 'Function',
-        signature: null,
-        docstring: null,
-        filePath: null,
-        properties: { decorators: ['@SpecialDecorator', '@AnotherDecorator'] },
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'decorator.only.match',
+          name: 'DecOnlyFunc',
+          label: 'Function',
+          signature: null,
+          docstring: null,
+          filePath: null,
+          properties: { decorators: ['@SpecialDecorator', '@AnotherDecorator'] },
+        }),
+      );
       const results = store.searchFts('SpecialDecorator');
       expect(results.length).toBe(1);
       expect(results[0]!.matchedColumn).toBe('decorators');
@@ -2842,21 +2960,25 @@ describe('InMemoryGraphStore', () => {
 
     it('should return empty for search with no projectId and no label match', () => {
       // Insert node with Class label but search with Function label filter
-      store.insertNode(createTestNode({
-        qualifiedName: 'no.project.search',
-        name: 'NoProjectFunc',
-        label: 'Class',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'no.project.search',
+          name: 'NoProjectFunc',
+          label: 'Class',
+        }),
+      );
       const results = store.searchFts('NoProjectFunc', { labels: ['Function'] });
       expect(results.length).toBe(0);
     });
 
     it('should handle search with offset beyond total results', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'offset.search.1',
-        name: 'OffsetSearch1',
-        label: 'Function',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'offset.search.1',
+          name: 'OffsetSearch1',
+          label: 'Function',
+        }),
+      );
       const results = store.searchFts('OffsetSearch', { offset: 10, limit: 5 });
       expect(results.length).toBe(0);
     });
@@ -2920,8 +3042,12 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should rebuild project and label indexes', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'opt.p1', projectId: 'opt-proj', label: 'Function' }));
-      store.insertNode(createTestNode({ qualifiedName: 'opt.p2', projectId: 'opt-proj', label: 'Class' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'opt.p1', projectId: 'opt-proj', label: 'Function' }),
+      );
+      store.insertNode(
+        createTestNode({ qualifiedName: 'opt.p2', projectId: 'opt-proj', label: 'Class' }),
+      );
 
       store.optimize();
 
@@ -2976,10 +3102,7 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should allow nodes with empty qualified names in batch', () => {
-      const nodes = [
-        createTestNode({ qualifiedName: '' }),
-        createTestNode({ qualifiedName: '' }),
-      ];
+      const nodes = [createTestNode({ qualifiedName: '' }), createTestNode({ qualifiedName: '' })];
       const ids = store.insertNodes(nodes);
       expect(ids).toHaveLength(2);
     });
@@ -2988,17 +3111,13 @@ describe('InMemoryGraphStore', () => {
   describe('insertEdges — batch validation', () => {
     it('should reject batch with missing source node', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.src.ok' }));
-      const edges = [
-        createTestEdge({ sourceId: 99999, targetId: n1, type: 'CALLS' }),
-      ];
+      const edges = [createTestEdge({ sourceId: 99999, targetId: n1, type: 'CALLS' })];
       expect(() => store.insertEdges(edges)).toThrow('source node id=99999 not found');
     });
 
     it('should reject batch with missing target node', () => {
       const n1 = store.insertNode(createTestNode({ qualifiedName: 'be.tgt.ok' }));
-      const edges = [
-        createTestEdge({ sourceId: n1, targetId: 99999, type: 'CALLS' }),
-      ];
+      const edges = [createTestEdge({ sourceId: n1, targetId: 99999, type: 'CALLS' })];
       expect(() => store.insertEdges(edges)).toThrow('target node id=99999 not found');
     });
   });
@@ -3078,21 +3197,56 @@ describe('InMemoryGraphStore', () => {
 
   describe('queryNodes — sorting edge cases', () => {
     it('should handle sort by complexity with null values', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'sort.null.c1', complexity: 10, projectId: 'sort-p' }));
-      store.insertNode(createTestNode({ qualifiedName: 'sort.null.c2', complexity: null, projectId: 'sort-p' }));
-      store.insertNode(createTestNode({ qualifiedName: 'sort.null.c3', complexity: 30, projectId: 'sort-p' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'sort.null.c1', complexity: 10, projectId: 'sort-p' }),
+      );
+      store.insertNode(
+        createTestNode({ qualifiedName: 'sort.null.c2', complexity: null, projectId: 'sort-p' }),
+      );
+      store.insertNode(
+        createTestNode({ qualifiedName: 'sort.null.c3', complexity: 30, projectId: 'sort-p' }),
+      );
 
-      const result = store.queryNodes({ projectId: 'sort-p', sortBy: 'complexity', sortDirection: 'asc' });
+      const result = store.queryNodes({
+        projectId: 'sort-p',
+        sortBy: 'complexity',
+        sortDirection: 'asc',
+      });
       // null values become 0, so they should sort first
       expect(result.items.length).toBe(3);
     });
 
     it('should handle sort by line_count with null values', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'sort.null.l1', startLine: 10, endLine: 20, projectId: 'sort-l' }));
-      store.insertNode(createTestNode({ qualifiedName: 'sort.null.l2', startLine: null, endLine: null, projectId: 'sort-l' }));
-      store.insertNode(createTestNode({ qualifiedName: 'sort.null.l3', startLine: 1, endLine: 100, projectId: 'sort-l' }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'sort.null.l1',
+          startLine: 10,
+          endLine: 20,
+          projectId: 'sort-l',
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'sort.null.l2',
+          startLine: null,
+          endLine: null,
+          projectId: 'sort-l',
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'sort.null.l3',
+          startLine: 1,
+          endLine: 100,
+          projectId: 'sort-l',
+        }),
+      );
 
-      const result = store.queryNodes({ projectId: 'sort-l', sortBy: 'line_count', sortDirection: 'asc' });
+      const result = store.queryNodes({
+        projectId: 'sort-l',
+        sortBy: 'line_count',
+        sortDirection: 'asc',
+      });
       // null values become 0
       expect(result.items.length).toBe(3);
     });
@@ -3124,16 +3278,20 @@ describe('InMemoryGraphStore', () => {
 
   describe('patternToRegex — special characters', () => {
     it('should handle pattern with dots and parentheses', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'special.chars.node',
-        name: 'node.with.dots.and.stuff',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'special.chars.node',
+          name: 'node.with.dots.and.stuff',
+        }),
+      );
       const result = store.queryNodes({ projectId: 'test-project', namePattern: 'node.with.*' });
       expect(result.total).toBeGreaterThanOrEqual(1);
     });
 
     it('should cache regex for repeated use', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'cache.pattern.node', name: 'CachedPattern' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'cache.pattern.node', name: 'CachedPattern' }),
+      );
       // First query caches
       store.queryNodes({ projectId: 'test-project', namePattern: 'Cached*' });
       // Second query should use cache
@@ -3148,16 +3306,24 @@ describe('InMemoryGraphStore', () => {
   describe('intersectSets helper', () => {
     it('should correctly intersect project and label sets', () => {
       // Insert nodes with different labels
-      store.insertNode(createTestNode({ qualifiedName: 'inter.a', projectId: 'inter-p', label: 'Function' }));
-      store.insertNode(createTestNode({ qualifiedName: 'inter.b', projectId: 'inter-p', label: 'Class' }));
-      store.insertNode(createTestNode({ qualifiedName: 'inter.c', projectId: 'inter-p', label: 'Function' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'inter.a', projectId: 'inter-p', label: 'Function' }),
+      );
+      store.insertNode(
+        createTestNode({ qualifiedName: 'inter.b', projectId: 'inter-p', label: 'Class' }),
+      );
+      store.insertNode(
+        createTestNode({ qualifiedName: 'inter.c', projectId: 'inter-p', label: 'Function' }),
+      );
 
       const result = store.queryNodes({ projectId: 'inter-p', label: 'Function' });
       expect(result.total).toBe(2);
     });
 
     it('should return empty when intersection is empty', () => {
-      store.insertNode(createTestNode({ qualifiedName: 'inter.empty', projectId: 'inter-e', label: 'Function' }));
+      store.insertNode(
+        createTestNode({ qualifiedName: 'inter.empty', projectId: 'inter-e', label: 'Function' }),
+      );
 
       const result = store.queryNodes({ projectId: 'inter-e', label: 'Class' });
       expect(result.items).toEqual([]);
@@ -3166,18 +3332,22 @@ describe('InMemoryGraphStore', () => {
 
   describe('searchFts — projectId filtering', () => {
     it('should filter by projectId when project index exists', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.proj1.node',
-        name: 'SearchableNode',
-        projectId: 'fts-proj-a',
-        label: 'Function',
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.proj2.node',
-        name: 'SearchableNode',
-        projectId: 'fts-proj-b',
-        label: 'Function',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.proj1.node',
+          name: 'SearchableNode',
+          projectId: 'fts-proj-a',
+          label: 'Function',
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.proj2.node',
+          name: 'SearchableNode',
+          projectId: 'fts-proj-b',
+          label: 'Function',
+        }),
+      );
 
       const results = store.searchFts('SearchableNode', { projectId: 'fts-proj-a' });
       expect(results.length).toBe(1);
@@ -3185,18 +3355,22 @@ describe('InMemoryGraphStore', () => {
     });
 
     it('should scan all nodes when no projectId filter', () => {
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.all.proj1',
-        name: 'AllProjSearch',
-        projectId: 'all-p1',
-        label: 'Function',
-      }));
-      store.insertNode(createTestNode({
-        qualifiedName: 'fts.all.proj2',
-        name: 'AllProjSearch',
-        projectId: 'all-p2',
-        label: 'Function',
-      }));
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.all.proj1',
+          name: 'AllProjSearch',
+          projectId: 'all-p1',
+          label: 'Function',
+        }),
+      );
+      store.insertNode(
+        createTestNode({
+          qualifiedName: 'fts.all.proj2',
+          name: 'AllProjSearch',
+          projectId: 'all-p2',
+          label: 'Function',
+        }),
+      );
 
       const results = store.searchFts('AllProjSearch');
       expect(results.length).toBe(2);

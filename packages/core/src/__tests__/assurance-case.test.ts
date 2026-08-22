@@ -145,7 +145,7 @@ describe('SecurityAuditor.audit — custom policy', () => {
 
     expect(report.passed).toBe(false);
     // One gap finding for the uncovered pathTraversal threat
-    const gapFindings = report.findings.filter(f => !f.passed);
+    const gapFindings = report.findings.filter((f) => !f.passed);
     expect(gapFindings.length).toBe(1);
     expect(gapFindings[0]!.category).toBe('pathTraversal');
     expect(gapFindings[0]!.severity).toBe('high');
@@ -174,7 +174,7 @@ describe('SecurityAuditor.audit — custom policy', () => {
 
     expect(report.passed).toBe(false);
     expect(report.summary.failed).toBe(1);
-    const failed = report.findings.filter(f => !f.passed);
+    const failed = report.findings.filter((f) => !f.passed);
     expect(failed[0]!.description).toContain('disabled');
     expect(failed[0]!.remediation).toContain('Enable');
   });
@@ -186,7 +186,7 @@ describe('SecurityAuditor.audit — custom policy', () => {
     // First finding should be cm-001
     expect(report.findings[0]!.id).toBe('cm-001');
     // Last countermeasure finding should be cm-011
-    const cmFindings = report.findings.filter(f => f.id.startsWith('cm-'));
+    const cmFindings = report.findings.filter((f) => f.id.startsWith('cm-'));
     expect(cmFindings).toHaveLength(11);
     expect(cmFindings[10]!.id).toBe('cm-011');
   });
@@ -211,7 +211,7 @@ describe('SecurityAuditor.audit — custom policy', () => {
     const auditor = new SecurityAuditor();
     const report = auditor.audit(policy);
 
-    const gapFindings = report.findings.filter(f => f.id.startsWith('gap-'));
+    const gapFindings = report.findings.filter((f) => f.id.startsWith('gap-'));
     expect(gapFindings).toHaveLength(2);
     expect(gapFindings[0]!.id).toBe('gap-002');
     expect(gapFindings[1]!.id).toBe('gap-003');
@@ -461,8 +461,18 @@ describe('risk score computation', () => {
     const countermeasures: Countermeasure[] = [];
     const threats: ThreatCategory[] = [];
     for (let i = 0; i < 8; i++) {
-      const threat = (['credentialLeak', 'injectionAttack', 'pathTraversal', 'dependencyPoisoning',
-        'supplyChainAttack', 'insecureDeserialization', 'brokenAccessControl', 'sensitiveDataExposure'] as ThreatCategory[])[i]!;
+      const threat = (
+        [
+          'credentialLeak',
+          'injectionAttack',
+          'pathTraversal',
+          'dependencyPoisoning',
+          'supplyChainAttack',
+          'insecureDeserialization',
+          'brokenAccessControl',
+          'sensitiveDataExposure',
+        ] as ThreatCategory[]
+      )[i]!;
       threats.push(threat);
       // All disabled — each critical/high finding adds to risk
       countermeasures.push({
@@ -618,7 +628,7 @@ describe('generateReport', () => {
     const report = auditor.audit();
 
     // All pass — check a few findings don't have remediation
-    const passedFindings = report.findings.filter(f => f.passed);
+    const passedFindings = report.findings.filter((f) => f.passed);
     for (const f of passedFindings) {
       expect(f.remediation).toBeUndefined();
     }
@@ -667,7 +677,7 @@ describe('generateReport', () => {
 
     const auditor = new SecurityAuditor();
     const report = auditor.audit(policy);
-    const gapFinding = report.findings.find(f => f.id.startsWith('gap-'));
+    const gapFinding = report.findings.find((f) => f.id.startsWith('gap-'));
 
     expect(gapFinding).toBeDefined();
     expect(gapFinding!.remediation).toContain('Add a countermeasure');
@@ -682,7 +692,7 @@ describe('verification types', () => {
   it('should use correct verification labels for automated-test', () => {
     const auditor = new SecurityAuditor();
     const report = auditor.audit();
-    const automatedTestFinding = report.findings.find(f =>
+    const automatedTestFinding = report.findings.find((f) =>
       f.description.includes('automated test'),
     );
     expect(automatedTestFinding).toBeDefined();
@@ -691,7 +701,7 @@ describe('verification types', () => {
   it('should use correct verification labels for static-analysis', () => {
     const auditor = new SecurityAuditor();
     const report = auditor.audit();
-    const staticAnalysisFinding = report.findings.find(f =>
+    const staticAnalysisFinding = report.findings.find((f) =>
       f.description.includes('static analysis'),
     );
     expect(staticAnalysisFinding).toBeDefined();
@@ -700,7 +710,7 @@ describe('verification types', () => {
   it('should use correct verification labels for manual-review', () => {
     const auditor = new SecurityAuditor();
     const report = auditor.audit();
-    const manualReviewFinding = report.findings.find(f =>
+    const manualReviewFinding = report.findings.find((f) =>
       f.description.includes('manual security review'),
     );
     expect(manualReviewFinding).toBeDefined();
@@ -709,9 +719,7 @@ describe('verification types', () => {
   it('should use correct verification labels for ci-gate', () => {
     const auditor = new SecurityAuditor();
     const report = auditor.audit();
-    const ciGateFinding = report.findings.find(f =>
-      f.description.includes('CI pipeline gate'),
-    );
+    const ciGateFinding = report.findings.find((f) => f.description.includes('CI pipeline gate'));
     expect(ciGateFinding).toBeDefined();
   });
 });
@@ -726,9 +734,7 @@ describe('countermeasure properties', () => {
     const report = auditor.audit();
 
     // The dep-review cm mitigates dependencyPoisoning and supplyChainAttack
-    const depReview = report.findings.find(f =>
-      f.id === 'cm-004',
-    );
+    const depReview = report.findings.find((f) => f.id === 'cm-004');
     expect(depReview).toBeDefined();
     expect(depReview!.description).toContain('dependencyPoisoning');
     expect(depReview!.description).toContain('supplyChainAttack');
@@ -738,7 +744,7 @@ describe('countermeasure properties', () => {
     const auditor = new SecurityAuditor();
     const report = auditor.audit();
 
-    const pathSanitize = report.findings.find(f => f.id === 'cm-001');
+    const pathSanitize = report.findings.find((f) => f.id === 'cm-001');
     expect(pathSanitize).toBeDefined();
     expect(pathSanitize!.description).toContain('Path Sanitization');
     expect(pathSanitize!.description).toContain('cm-path-sanitize');

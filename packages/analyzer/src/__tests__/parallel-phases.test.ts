@@ -27,9 +27,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeCtx(
-  overrides: Partial<PipelineContext> = {},
-): PipelineContext {
+function makeCtx(overrides: Partial<PipelineContext> = {}): PipelineContext {
   return {
     projectId: 'test-project',
     rootPath: '/fake/project',
@@ -48,9 +46,7 @@ function makeCtx(
   };
 }
 
-function makeDiscoveredFile(
-  overrides: Partial<DiscoveredFile> = {},
-): DiscoveredFile {
+function makeDiscoveredFile(overrides: Partial<DiscoveredFile> = {}): DiscoveredFile {
   return {
     filePath: '/fake/project/src/app.ts',
     language: 'typescript',
@@ -177,9 +173,7 @@ describe('ParallelScanPhase', () => {
       expect(fileEntries.length).toBeGreaterThan(0);
 
       // Nodes should include File entries
-      const fileNodes = [...graph.nodes.values()].filter(
-        (n) => n.label === 'File',
-      );
+      const fileNodes = [...graph.nodes.values()].filter((n) => n.label === 'File');
       expect(fileNodes.length).toBeGreaterThan(0);
     });
   });
@@ -413,7 +407,8 @@ describe('ParallelParsePhase', () => {
           makeDiscoveredFile({
             filePath,
             language: 'typescript',
-            content: 'export class Calculator { add(a: number, b: number): number { return a + b; } }',
+            content:
+              'export class Calculator { add(a: number, b: number): number { return a + b; } }',
           }),
         ],
       });
@@ -482,15 +477,27 @@ describe('ParallelBuildPhase', () => {
       };
 
       // Add some nodes and edges
-      const node1 = builder.addNode(graph, 'File', '/test/file.ts', {
-        name: 'file.ts',
-        filePath: '/test/file.ts',
-      }, 'file:/test/file.ts');
+      const node1 = builder.addNode(
+        graph,
+        'File',
+        '/test/file.ts',
+        {
+          name: 'file.ts',
+          filePath: '/test/file.ts',
+        },
+        'file:/test/file.ts',
+      );
 
-      const node2 = builder.addNode(graph, 'Function', 'hello', {
-        name: 'hello',
-        filePath: '/test/file.ts',
-      }, 'project:test:file:/test/file.ts:hello');
+      const node2 = builder.addNode(
+        graph,
+        'Function',
+        'hello',
+        {
+          name: 'hello',
+          filePath: '/test/file.ts',
+        },
+        'project:test:file:/test/file.ts:hello',
+      );
 
       builder.addEdge(graph, node1.id, node2.id, 'DEFINES', 'test');
 

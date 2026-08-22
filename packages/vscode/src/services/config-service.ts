@@ -47,7 +47,8 @@ export interface ProfileDefinition {
 export const PROFILES: Record<CodeAnalyzerConfig['profile'], ProfileDefinition> = {
   strict: {
     label: 'Strict',
-    description: 'Maximum analysis depth, all review lenses, warn on everything. Best for mission-critical codebases.',
+    description:
+      'Maximum analysis depth, all review lenses, warn on everything. Best for mission-critical codebases.',
     overrides: {
       autoIndex: true,
       indexMode: 'full',
@@ -96,10 +97,13 @@ export class ConfigService {
   /** Get a single configuration value with type safety. */
   get<K extends keyof CodeAnalyzerConfig>(key: K): CodeAnalyzerConfig[K] {
     // First check the profile's override
-    const currentProfile = this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
+    const currentProfile =
+      this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
     const profileDef = PROFILES[currentProfile];
     if (profileDef && key in profileDef.overrides) {
-      return profileDef.overrides[key as keyof typeof profileDef.overrides] as CodeAnalyzerConfig[K];
+      return profileDef.overrides[
+        key as keyof typeof profileDef.overrides
+      ] as CodeAnalyzerConfig[K];
     }
 
     return this.vsConfig.get<CodeAnalyzerConfig[K]>(key) ?? this.defaults[key];
@@ -107,7 +111,8 @@ export class ConfigService {
 
   /** Get the current active profile definition. */
   getCurrentProfile(): ProfileDefinition {
-    const profileKey = this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
+    const profileKey =
+      this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
     return PROFILES[profileKey] ?? PROFILES['balanced'];
   }
 
@@ -149,9 +154,7 @@ export class ConfigService {
 
     if (config.maxFileSize !== undefined) {
       if (config.maxFileSize <= 0) {
-        errors.push(
-          `maxFileSize must be positive, got ${config.maxFileSize}`,
-        );
+        errors.push(`maxFileSize must be positive, got ${config.maxFileSize}`);
       }
       if (config.maxFileSize > 1073741824) {
         errors.push(`maxFileSize cannot exceed 1 GB`);
@@ -160,9 +163,7 @@ export class ConfigService {
 
     if (config.maxSearchResults !== undefined) {
       if (config.maxSearchResults <= 0) {
-        errors.push(
-          `maxSearchResults must be positive, got ${config.maxSearchResults}`,
-        );
+        errors.push(`maxSearchResults must be positive, got ${config.maxSearchResults}`);
       }
       if (config.maxSearchResults > 100) {
         errors.push(`maxSearchResults cannot exceed 100`);

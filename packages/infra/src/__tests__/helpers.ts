@@ -1,11 +1,7 @@
 // @code-analyzer/infra — Test Helpers
 // Shared utilities for constructing test data.
 
-import type {
-  GraphNode,
-  GraphEdge,
-  EdgeProperties,
-} from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, EdgeProperties } from '@code-analyzer/shared';
 
 let nodeIdCounter = 0;
 let edgeIdCounter = 0;
@@ -17,7 +13,9 @@ export function createTestNode(overrides: Partial<GraphNode> & { id?: number } =
     projectId: hasKey(overrides, 'projectId') ? overrides.projectId! : 'test-project',
     label: hasKey(overrides, 'label') ? overrides.label! : 'Function',
     name: hasKey(overrides, 'name') ? overrides.name! : `testFunc${id}`,
-    qualifiedName: hasKey(overrides, 'qualifiedName') ? overrides.qualifiedName! : `test.package.testFunc${id}`,
+    qualifiedName: hasKey(overrides, 'qualifiedName')
+      ? overrides.qualifiedName!
+      : `test.package.testFunc${id}`,
     filePath: hasKey(overrides, 'filePath') ? overrides.filePath! : `src/func${id}.ts`,
     startLine: hasKey(overrides, 'startLine') ? overrides.startLine! : 1,
     endLine: hasKey(overrides, 'endLine') ? overrides.endLine! : 10,
@@ -45,7 +43,7 @@ export function createTestEdge(overrides: Partial<GraphEdge> = {}): GraphEdge {
     sourceId: overrides.sourceId ?? 1,
     targetId: overrides.targetId ?? 2,
     type: overrides.type ?? 'CALLS',
-    properties: overrides.properties ?? {} as EdgeProperties,
+    properties: overrides.properties ?? ({} as EdgeProperties),
     weight: overrides.weight ?? 1,
     createdAt: overrides.createdAt ?? new Date().toISOString(),
   };

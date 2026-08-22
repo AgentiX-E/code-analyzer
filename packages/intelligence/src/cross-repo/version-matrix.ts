@@ -95,9 +95,7 @@ export class VersionCompatibilityMatrix {
 
     const conflicts: VersionConflict[] = [];
 
-    for (const [pkgName, repoVersions] of Object.entries(
-      matrix.sharedDependencies,
-    )) {
+    for (const [pkgName, repoVersions] of Object.entries(matrix.sharedDependencies)) {
       const entries = Object.entries(repoVersions ?? {});
       if (entries.length < 2) continue;
 
@@ -129,9 +127,7 @@ export class VersionCompatibilityMatrix {
           repo,
           version,
         }));
-        const recommendedVersion = this.pickHighestVersion(
-          versionEntries.map((e) => e.version),
-        );
+        const recommendedVersion = this.pickHighestVersion(versionEntries.map((e) => e.version));
 
         conflicts.push({
           packageName: pkgName,
@@ -215,18 +211,10 @@ export class VersionCompatibilityMatrix {
 
     // Check for major version bump (breaking changes)
     if (to.major > from.major) {
-      breakingChanges.push(
-        `Major version bump: ${fromVersion} → ${toVersion}`,
-      );
-      recommendations.push(
-        'Review the changelog for breaking changes before upgrading',
-      );
-      recommendations.push(
-        'Run full test suite for all affected repos',
-      );
-      recommendations.push(
-        'Consider a phased rollout: upgrade one repo at a time',
-      );
+      breakingChanges.push(`Major version bump: ${fromVersion} → ${toVersion}`);
+      recommendations.push('Review the changelog for breaking changes before upgrading');
+      recommendations.push('Run full test suite for all affected repos');
+      recommendations.push('Consider a phased rollout: upgrade one repo at a time');
     }
 
     // Minor version bump (possible breaking changes)
@@ -250,9 +238,7 @@ export class VersionCompatibilityMatrix {
     }
 
     // Check for repos that are already on the target version
-    const alreadyOnTarget = affectedRepoNames.filter(
-      (repo) => pkgInfo[repo] === toVersion,
-    );
+    const alreadyOnTarget = affectedRepoNames.filter((repo) => pkgInfo[repo] === toVersion);
     if (alreadyOnTarget.length > 0) {
       recommendations.push(
         `${alreadyOnTarget.length} repo(s) already on ${toVersion}: ${alreadyOnTarget.join(', ')}`,

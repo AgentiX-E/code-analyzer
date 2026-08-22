@@ -21,8 +21,8 @@ export class CppProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-cpp') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -32,7 +32,8 @@ export class CppProvider extends TreeSitterBaseProvider {
     const nodeType = node.type;
 
     if (nodeType === 'function_definition' || nodeType === 'function_declarator') {
-      const nameNode = this.findNamedChild(node, 'identifier') || this.findNamedChild(node, 'field_identifier');
+      const nameNode =
+        this.findNamedChild(node, 'identifier') || this.findNamedChild(node, 'field_identifier');
       if (nameNode && this.isValidFnName(nameNode.text)) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -47,7 +48,8 @@ export class CppProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'class_specifier') {
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-      const nameNode = this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+      const nameNode =
+        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
       if (nameNode) {
         captures.push({
@@ -63,7 +65,8 @@ export class CppProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'struct_specifier') {
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-      const nameNode = this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+      const nameNode =
+        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
       if (nameNode) {
         captures.push({
@@ -79,7 +82,8 @@ export class CppProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'enum_specifier') {
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-      const nameNode = this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+      const nameNode =
+        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
       if (nameNode) {
         captures.push({
@@ -149,8 +153,12 @@ export class CppProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (node.type === 'function_definition' || node.type === 'class_specifier' ||
-        node.type === 'struct_specifier' || node.type === 'enum_specifier') {
+    if (
+      node.type === 'function_definition' ||
+      node.type === 'class_specifier' ||
+      node.type === 'struct_specifier' ||
+      node.type === 'enum_specifier'
+    ) {
       // For functions the name lives inside function_declarator; for
       // class/struct/enum it is a direct type_identifier/identifier child.
       let nameNode: TreeSitterSyntaxNode | null;
@@ -158,11 +166,13 @@ export class CppProvider extends TreeSitterBaseProvider {
         const declarator = this.findNamedChild(node, 'function_declarator');
         /* v8 ignore next -- @preserve -- declarator is always non-null for function definitions */
         nameNode = declarator
-          ? (this.findNamedChild(declarator, 'identifier') || this.findNamedChild(declarator, 'field_identifier'))
+          ? this.findNamedChild(declarator, 'identifier') ||
+            this.findNamedChild(declarator, 'field_identifier')
           : null;
       } else {
         /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-        nameNode = this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+        nameNode =
+          this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
       }
       /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
       if (nameNode && nameNode.text === symbolName) {
@@ -237,7 +247,8 @@ export class CppProvider extends TreeSitterBaseProvider {
     }
 
     // Function definitions (return type + name + parens + {)
-    const funcRegex = /(?:(?:static|inline|virtual|explicit|constexpr|const)\s+)*(?:\w+(?:<[^>]*>)?(?:::|\s+)+)?(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)/g;
+    const funcRegex =
+      /(?:(?:static|inline|virtual|explicit|constexpr|const)\s+)*(?:\w+(?:<[^>]*>)?(?:::|\s+)+)?(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
       const name = m[1]!;
       if (!this.isValidFnName(name)) continue;
@@ -296,10 +307,7 @@ export class CppProvider extends TreeSitterBaseProvider {
     if (staticRegex.test(source)) return false;
 
     // Check if symbol exists as a top-level declaration
-    return new RegExp(
-      `\\b(?:class|struct|enum|\\w+)\\s+${s}\\b`,
-      'g',
-    ).test(source);
+    return new RegExp(`\\b(?:class|struct|enum|\\w+)\\s+${s}\\b`, 'g').test(source);
   }
 
   // Helpers
@@ -312,10 +320,31 @@ export class CppProvider extends TreeSitterBaseProvider {
 
   private isValidFnName(name: string): boolean {
     return ![
-      'if', 'else', 'while', 'for', 'switch', 'case', 'catch', 'try',
-      'return', 'break', 'continue', 'goto', 'throw', 'new', 'delete',
-      'sizeof', 'typedef', 'using', 'namespace', 'template',
-      'auto', 'register', 'volatile', 'typeof', 'const',
+      'if',
+      'else',
+      'while',
+      'for',
+      'switch',
+      'case',
+      'catch',
+      'try',
+      'return',
+      'break',
+      'continue',
+      'goto',
+      'throw',
+      'new',
+      'delete',
+      'sizeof',
+      'typedef',
+      'using',
+      'namespace',
+      'template',
+      'auto',
+      'register',
+      'volatile',
+      'typeof',
+      'const',
     ].includes(name);
   }
 

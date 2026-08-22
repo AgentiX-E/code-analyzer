@@ -34,8 +34,7 @@ export function computeControlDependence(
   const armSenses = buildArmSenses(cfg);
 
   // Build successor list per block
-  const succs: Array<{ block: number; kind: CfgEdgeKind }[]> =
-    Array.from({ length: n }, () => []);
+  const succs: Array<{ block: number; kind: CfgEdgeKind }[]> = Array.from({ length: n }, () => []);
   for (const edge of cfg.edges) {
     succs[edge.from]!.push({ block: edge.to, kind: edge.kind });
   }

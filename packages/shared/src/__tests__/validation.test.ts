@@ -13,7 +13,16 @@ import {
   validateReport,
 } from '../index.js';
 
-import type { CodeAnalyzerConfig, NodeLabel, RelationshipType, ReviewComment, ProjectStandard, AnalysisReport, ReviewCategory, Severity } from '../index.js';
+import type {
+  CodeAnalyzerConfig,
+  NodeLabel,
+  RelationshipType,
+  ReviewComment,
+  ProjectStandard,
+  AnalysisReport,
+  ReviewCategory,
+  Severity,
+} from '../index.js';
 
 // ---------------------------------------------------------------------------
 // validateNodeProperties
@@ -243,11 +252,7 @@ describe('validateEdgeCompatibility', () => {
       ['Function', 'Process', 'STEP_IN_PROCESS'],
     ])('%s --[%s]--> %s is valid', (src, tgt, type) => {
       expect(
-        validateEdgeCompatibility(
-          src as NodeLabel,
-          tgt as NodeLabel,
-          type as RelationshipType
-        )
+        validateEdgeCompatibility(src as NodeLabel, tgt as NodeLabel, type as RelationshipType),
       ).toBe(true);
     });
   });
@@ -276,21 +281,15 @@ describe('validateEdgeCompatibility', () => {
 
   describe('edge cases', () => {
     it('returns false for unknown source label', () => {
-      expect(
-        validateEdgeCompatibility('Bad' as NodeLabel, 'File', 'CONTAINS')
-      ).toBe(false);
+      expect(validateEdgeCompatibility('Bad' as NodeLabel, 'File', 'CONTAINS')).toBe(false);
     });
 
     it('returns false for unknown target label', () => {
-      expect(
-        validateEdgeCompatibility('File', 'Bad' as NodeLabel, 'CONTAINS')
-      ).toBe(false);
+      expect(validateEdgeCompatibility('File', 'Bad' as NodeLabel, 'CONTAINS')).toBe(false);
     });
 
     it('returns false for unknown relationship type', () => {
-      expect(
-        validateEdgeCompatibility('File', 'Class', 'UNKNOWN' as RelationshipType)
-      ).toBe(false);
+      expect(validateEdgeCompatibility('File', 'Class', 'UNKNOWN' as RelationshipType)).toBe(false);
     });
   });
 
@@ -316,13 +315,7 @@ describe('validateEdgeCompatibility', () => {
           for (const tgt of NODE_LABELS) {
             const key = `${relType}:${src}:${tgt}`;
             if (!covered.has(key)) {
-              expect(
-                validateEdgeCompatibility(
-                  src,
-                  tgt,
-                  relType
-                )
-              ).toBe(false);
+              expect(validateEdgeCompatibility(src, tgt, relType)).toBe(false);
             }
           }
         }
@@ -452,7 +445,7 @@ describe('validateConfig', () => {
   describe('invalid arrays', () => {
     it('rejects excludePatterns as non-array', () => {
       const errors = validateConfig(
-        makeValidConfig({ excludePatterns: 'bad' as unknown as string[] })
+        makeValidConfig({ excludePatterns: 'bad' as unknown as string[] }),
       );
       expect(errors).toContain('config.excludePatterns must be an array');
     });
@@ -465,24 +458,20 @@ describe('validateConfig', () => {
 
     it('rejects includePatterns as non-array', () => {
       const errors = validateConfig(
-        makeValidConfig({ includePatterns: null as unknown as string[] })
+        makeValidConfig({ includePatterns: null as unknown as string[] }),
       );
       expect(errors).toContain('config.includePatterns must be an array');
     });
 
     it('rejects ignorePaths as non-array', () => {
-      const errors = validateConfig(
-        makeValidConfig({ ignorePaths: 42 as unknown as string[] })
-      );
+      const errors = validateConfig(makeValidConfig({ ignorePaths: 42 as unknown as string[] }));
       expect(errors).toContain('config.ignorePaths must be an array');
     });
   });
 
   describe('invalid cacheDir', () => {
     it('rejects non-string cacheDir', () => {
-      const errors = validateConfig(
-        makeValidConfig({ cacheDir: 42 as unknown as string })
-      );
+      const errors = validateConfig(makeValidConfig({ cacheDir: 42 as unknown as string }));
       expect(errors).toContain('config.cacheDir must be a string if provided');
     });
   });
@@ -909,9 +898,7 @@ describe('validateReviewComment', () => {
     });
 
     it('rejects endLine < startLine', () => {
-      const errors = validateReviewComment(
-        makeValidComment({ startLine: 10, endLine: 5 })
-      );
+      const errors = validateReviewComment(makeValidComment({ startLine: 10, endLine: 5 }));
       expect(errors.some((e) => e.includes('endLine'))).toBe(true);
     });
 
@@ -923,18 +910,14 @@ describe('validateReviewComment', () => {
 
   describe('invalid category', () => {
     it('rejects unknown category', () => {
-      const errors = validateReviewComment(
-        makeValidComment({ category: 'unknown' as 'bug' })
-      );
+      const errors = validateReviewComment(makeValidComment({ category: 'unknown' as 'bug' }));
       expect(errors.some((e) => e.includes('category'))).toBe(true);
     });
   });
 
   describe('invalid severity', () => {
     it('rejects unknown severity', () => {
-      const errors = validateReviewComment(
-        makeValidComment({ severity: 'extreme' as 'low' })
-      );
+      const errors = validateReviewComment(makeValidComment({ severity: 'extreme' as 'low' }));
       expect(errors.some((e) => e.includes('severity'))).toBe(true);
     });
   });
@@ -949,7 +932,7 @@ describe('validateReviewComment', () => {
   describe('invalid filtered', () => {
     it('rejects non-boolean filtered', () => {
       const errors = validateReviewComment(
-        makeValidComment({ filtered: 'true' as unknown as boolean })
+        makeValidComment({ filtered: 'true' as unknown as boolean }),
       );
       expect(errors).toContain('reviewComment.filtered must be a boolean');
     });
@@ -958,14 +941,14 @@ describe('validateReviewComment', () => {
   describe('optional fields validation', () => {
     it('rejects non-string suggestionCode', () => {
       const errors = validateReviewComment(
-        makeValidComment({ suggestionCode: 42 as unknown as string })
+        makeValidComment({ suggestionCode: 42 as unknown as string }),
       );
       expect(errors.some((e) => e.includes('suggestionCode'))).toBe(true);
     });
 
     it('rejects non-string thinking', () => {
       const errors = validateReviewComment(
-        makeValidComment({ thinking: 123 as unknown as string })
+        makeValidComment({ thinking: 123 as unknown as string }),
       );
       expect(errors.some((e) => e.includes('thinking'))).toBe(true);
     });
@@ -998,20 +981,27 @@ describe('validateReviewComment', () => {
   });
 
   describe('exhaustive — all categories and severities pass', () => {
-    it.each(['bug', 'security', 'performance', 'maintainability', 'test', 'style', 'documentation', 'architecture', 'other'] as const)(
-      'accepts category "%s"',
-      (cat) => {
-        const errors = validateReviewComment(makeValidComment({ category: cat }));
-        expect(errors).toEqual([]);
-      }
-    );
+    it.each([
+      'bug',
+      'security',
+      'performance',
+      'maintainability',
+      'test',
+      'style',
+      'documentation',
+      'architecture',
+      'other',
+    ] as const)('accepts category "%s"', (cat) => {
+      const errors = validateReviewComment(makeValidComment({ category: cat }));
+      expect(errors).toEqual([]);
+    });
 
     it.each(['critical', 'high', 'medium', 'low', 'info'] as const)(
       'accepts severity "%s"',
       (sev) => {
         const errors = validateReviewComment(makeValidComment({ severity: sev }));
         expect(errors).toEqual([]);
-      }
+      },
     );
   });
 });
@@ -1058,8 +1048,22 @@ describe('validateStandard', () => {
     it('passes with multiple rules', () => {
       const standard = makeValidStandard({
         rules: [
-          { id: 'r1', description: 'Rule 1', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: false },
-          { id: 'r2', description: 'Rule 2', checkType: 'graph-query', checkConfig: {}, severity: 'high', autoFixable: true },
+          {
+            id: 'r1',
+            description: 'Rule 1',
+            checkType: 'regex',
+            checkConfig: {},
+            severity: 'low',
+            autoFixable: false,
+          },
+          {
+            id: 'r2',
+            description: 'Rule 2',
+            checkType: 'graph-query',
+            checkConfig: {},
+            severity: 'high',
+            autoFixable: true,
+          },
         ],
       });
       const errors = validateStandard(standard);
@@ -1135,7 +1139,16 @@ describe('validateStandard', () => {
 
     it('rejects rule with empty id', () => {
       const standard = makeValidStandard({
-        rules: [{ id: '', description: 'bad', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: false }],
+        rules: [
+          {
+            id: '',
+            description: 'bad',
+            checkType: 'regex',
+            checkConfig: {},
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
       });
       const errors = validateStandard(standard);
       expect(errors.some((e) => e.includes('.id'))).toBe(true);
@@ -1143,7 +1156,16 @@ describe('validateStandard', () => {
 
     it('rejects rule with empty description', () => {
       const standard = makeValidStandard({
-        rules: [{ id: 'r1', description: '', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: false }],
+        rules: [
+          {
+            id: 'r1',
+            description: '',
+            checkType: 'regex',
+            checkConfig: {},
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
       });
       const errors = validateStandard(standard);
       expect(errors.some((e) => e.includes('.description'))).toBe(true);
@@ -1151,7 +1173,16 @@ describe('validateStandard', () => {
 
     it('rejects rule with invalid checkType', () => {
       const standard = makeValidStandard({
-        rules: [{ id: 'r1', description: 'bad', checkType: 'unknown' as 'regex', checkConfig: {}, severity: 'low', autoFixable: false }],
+        rules: [
+          {
+            id: 'r1',
+            description: 'bad',
+            checkType: 'unknown' as 'regex',
+            checkConfig: {},
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
       });
       const errors = validateStandard(standard);
       expect(errors.some((e) => e.includes('checkType'))).toBe(true);
@@ -1159,7 +1190,16 @@ describe('validateStandard', () => {
 
     it('rejects rule with invalid severity', () => {
       const standard = makeValidStandard({
-        rules: [{ id: 'r1', description: 'bad', checkType: 'regex', checkConfig: {}, severity: 'extreme' as 'low', autoFixable: false }],
+        rules: [
+          {
+            id: 'r1',
+            description: 'bad',
+            checkType: 'regex',
+            checkConfig: {},
+            severity: 'extreme' as 'low',
+            autoFixable: false,
+          },
+        ],
       });
       const errors = validateStandard(standard);
       expect(errors.some((e) => e.includes('severity'))).toBe(true);
@@ -1167,7 +1207,16 @@ describe('validateStandard', () => {
 
     it('rejects rule with non-boolean autoFixable', () => {
       const standard = makeValidStandard({
-        rules: [{ id: 'r1', description: 'bad', checkType: 'regex', checkConfig: {}, severity: 'low', autoFixable: 'yes' as unknown as boolean }],
+        rules: [
+          {
+            id: 'r1',
+            description: 'bad',
+            checkType: 'regex',
+            checkConfig: {},
+            severity: 'low',
+            autoFixable: 'yes' as unknown as boolean,
+          },
+        ],
       });
       const errors = validateStandard(standard);
       expect(errors.some((e) => e.includes('autoFixable'))).toBe(true);
@@ -1234,7 +1283,18 @@ describe('validateStandard', () => {
   });
 
   describe('all categories are valid', () => {
-    const categories = ['code-style', 'architecture', 'security', 'performance', 'testing', 'api-design', 'error-handling', 'documentation', 'dependency', 'custom'] as const;
+    const categories = [
+      'code-style',
+      'architecture',
+      'security',
+      'performance',
+      'testing',
+      'api-design',
+      'error-handling',
+      'documentation',
+      'dependency',
+      'custom',
+    ] as const;
     it.each(categories)('accepts category "%s"', (cat) => {
       const errors = validateStandard(makeValidStandard({ category: cat }));
       expect(errors).toEqual([]);
@@ -1245,7 +1305,16 @@ describe('validateStandard', () => {
     const checkTypes = ['ast-pattern', 'regex', 'graph-query', 'llm-check', 'metric'] as const;
     it.each(checkTypes)('accepts checkType "%s"', (ct) => {
       const standard = makeValidStandard({
-        rules: [{ id: 'r1', description: 'test', checkType: ct, checkConfig: {}, severity: 'low', autoFixable: false }],
+        rules: [
+          {
+            id: 'r1',
+            description: 'test',
+            checkType: ct,
+            checkConfig: {},
+            severity: 'low',
+            autoFixable: false,
+          },
+        ],
       });
       const errors = validateStandard(standard);
       expect(errors).toEqual([]);
@@ -1372,9 +1441,11 @@ describe('validateReport', () => {
     });
 
     it('rejects invalid scope type', () => {
-      const errors = validateReport(makeValidReport({
-        scope: { type: 'unknown' as 'project' },
-      }));
+      const errors = validateReport(
+        makeValidReport({
+          scope: { type: 'unknown' as 'project' },
+        }),
+      );
       expect(errors.some((e) => e.includes('scope.type'))).toBe(true);
     });
 
@@ -1465,7 +1536,19 @@ describe('validateReport', () => {
 
     it('rejects finding with empty id', () => {
       const report = makeValidReport({
-        findings: [{ id: '', category: 'bug', severity: 'high', title: 'test', description: 'd', filePath: 'f.ts', lineRange: [1, 2], evidence: 'e', relatedFindings: [] }],
+        findings: [
+          {
+            id: '',
+            category: 'bug',
+            severity: 'high',
+            title: 'test',
+            description: 'd',
+            filePath: 'f.ts',
+            lineRange: [1, 2],
+            evidence: 'e',
+            relatedFindings: [],
+          },
+        ],
       });
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('.id'))).toBe(true);
@@ -1473,7 +1556,19 @@ describe('validateReport', () => {
 
     it('rejects finding with empty title', () => {
       const report = makeValidReport({
-        findings: [{ id: 'f1', category: 'bug', severity: 'high', title: '', description: 'd', filePath: 'f.ts', lineRange: [1, 2], evidence: 'e', relatedFindings: [] }],
+        findings: [
+          {
+            id: 'f1',
+            category: 'bug',
+            severity: 'high',
+            title: '',
+            description: 'd',
+            filePath: 'f.ts',
+            lineRange: [1, 2],
+            evidence: 'e',
+            relatedFindings: [],
+          },
+        ],
       });
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('.title'))).toBe(true);
@@ -1537,7 +1632,19 @@ describe('validateReport', () => {
 
     it('rejects recommendation with empty id', () => {
       const report = makeValidReport({
-        recommendations: [{ id: '', priority: 1, title: 'test', description: 'd', estimatedEffort: 'small', affectedFiles: [], actionItems: [], risksAddressed: [], references: [] }],
+        recommendations: [
+          {
+            id: '',
+            priority: 1,
+            title: 'test',
+            description: 'd',
+            estimatedEffort: 'small',
+            affectedFiles: [],
+            actionItems: [],
+            risksAddressed: [],
+            references: [],
+          },
+        ],
       });
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('.id'))).toBe(true);
@@ -1545,7 +1652,19 @@ describe('validateReport', () => {
 
     it('rejects recommendation with invalid priority', () => {
       const report = makeValidReport({
-        recommendations: [{ id: 'r1', priority: 5 as 1, title: 'test', description: 'd', estimatedEffort: 'small', affectedFiles: [], actionItems: [], risksAddressed: [], references: [] }],
+        recommendations: [
+          {
+            id: 'r1',
+            priority: 5 as 1,
+            title: 'test',
+            description: 'd',
+            estimatedEffort: 'small',
+            affectedFiles: [],
+            actionItems: [],
+            risksAddressed: [],
+            references: [],
+          },
+        ],
       });
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('priority'))).toBe(true);
@@ -1553,7 +1672,19 @@ describe('validateReport', () => {
 
     it('rejects recommendation with empty title', () => {
       const report = makeValidReport({
-        recommendations: [{ id: 'r1', priority: 1, title: '', description: 'd', estimatedEffort: 'small', affectedFiles: [], actionItems: [], risksAddressed: [], references: [] }],
+        recommendations: [
+          {
+            id: 'r1',
+            priority: 1,
+            title: '',
+            description: 'd',
+            estimatedEffort: 'small',
+            affectedFiles: [],
+            actionItems: [],
+            risksAddressed: [],
+            references: [],
+          },
+        ],
       });
       const errors = validateReport(report);
       expect(errors.some((e) => e.includes('.title'))).toBe(true);
@@ -1574,7 +1705,8 @@ describe('validateReport', () => {
             id: 'rec-2',
             priority: 2 as 1 | 2 | 3,
             title: 'Refactor large function',
-            description: 'The function has high cyclomatic complexity and should be split into smaller functions',
+            description:
+              'The function has high cyclomatic complexity and should be split into smaller functions',
             estimatedEffort: 'medium' as const,
             affectedFiles: ['src/utils.ts'],
             actionItems: [{ description: 'Extract helper function' }],
@@ -1619,7 +1751,13 @@ describe('validateReport', () => {
             estimatedEffort: 'large' as const,
             affectedFiles: ['src/input.ts', 'src/validate.ts'],
             actionItems: [
-              { description: 'Add validation middleware', file: 'src/validate.ts', lineRange: [10, 20], command: 'npm test', verifiedBy: 'CI' },
+              {
+                description: 'Add validation middleware',
+                file: 'src/validate.ts',
+                lineRange: [10, 20],
+                command: 'npm test',
+                verifiedBy: 'CI',
+              },
             ],
             risksAddressed: ['Security', 'Data Integrity'],
             references: [
@@ -1693,7 +1831,13 @@ describe('validateReport', () => {
   });
 
   describe('all report types are valid', () => {
-    const types = ['pr-review', 'codebase-audit', 'impact-analysis', 'architecture-review', 'standards-compliance'] as const;
+    const types = [
+      'pr-review',
+      'codebase-audit',
+      'impact-analysis',
+      'architecture-review',
+      'standards-compliance',
+    ] as const;
     it.each(types)('accepts report type "%s"', (type) => {
       const errors = validateReport(makeValidReport({ type }));
       expect(errors).toEqual([]);

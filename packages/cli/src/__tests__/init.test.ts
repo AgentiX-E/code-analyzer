@@ -12,12 +12,19 @@ describe('initProject', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(tmpdir(), `code-analyzer-init-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = resolve(
+      tmpdir(),
+      `code-analyzer-init-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
   afterEach(() => {
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
   });
 
   it('should create .code-analyzer directory', () => {
@@ -97,7 +104,11 @@ describe('initProject', () => {
     expect(result.success).toBe(true);
     expect(result.configDir).toBe(resolve(process.cwd(), '.code-analyzer'));
     // Clean up
-    try { rmSync(resolve(process.cwd(), '.code-analyzer'), { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(resolve(process.cwd(), '.code-analyzer'), { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should return correct configDir', () => {
@@ -121,5 +132,4 @@ describe('initProject', () => {
     const matches = (gitignore.match(/\.code-analyzer\/data\//g) || []).length;
     expect(matches).toBe(1);
   });
-
 });

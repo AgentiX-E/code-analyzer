@@ -246,12 +246,14 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should skip when repo not in any group', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/other-repo', 'org', 'other-repo')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/other-repo', 'org', 'other-repo'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([
+          makeGroup('group-1', [makeGroupRepo('org/other-repo', 'org', 'other-repo')]),
+        ]);
+      mocks.groupManager.getRepos = vi
+        .fn()
+        .mockReturnValue([makeGroupRepo('org/other-repo', 'org', 'other-repo')]);
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -261,22 +263,34 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should accept opened action and attempt processing', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 123 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 123 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 123 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -289,22 +303,34 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should accept synchronize action', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 456 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'def', synced: true, durationMs: 50 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'def',
+            synced: true,
+            durationMs: 50,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 456 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 456 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'synchronize' });
@@ -314,22 +340,34 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should accept reopened action', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 789 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'ghi', synced: true, durationMs: 75 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'ghi',
+            synced: true,
+            durationMs: 75,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 789 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 789 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'reopened' });
@@ -343,13 +381,20 @@ describe('CrossRepoWebhookBridge', () => {
   describe('process — sync errors', () => {
     it('should return error when sync has errors', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a'), makeGroupRepo('org/service-b', 'org', 'service-b')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-        makeGroupRepo('org/service-b', 'org', 'service-b'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([
+          makeGroup('group-1', [
+            makeGroupRepo('org/service-a'),
+            makeGroupRepo('org/service-b', 'org', 'service-b'),
+          ]),
+        ]);
+      mocks.groupManager.getRepos = vi
+        .fn()
+        .mockReturnValue([
+          makeGroupRepo('org/service-a'),
+          makeGroupRepo('org/service-b', 'org', 'service-b'),
+        ]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 100 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [],
@@ -370,12 +415,10 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should return error when sync has errors without checkRunId', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       // checkRunManager.create throws so checkRunId stays undefined
       mocks.checkRunManager.create = vi.fn().mockRejectedValue(new Error('check run failed'));
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
@@ -397,16 +440,22 @@ describe('CrossRepoWebhookBridge', () => {
   describe('process — diff fetch errors', () => {
     it('should return error when diff fetch fails', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 200 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
@@ -423,16 +472,22 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should return error when diff fetch fails without checkRunId', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockRejectedValue(new Error('create failed'));
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
@@ -447,16 +502,22 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should handle non-Error diff fetch failures', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn().mockReturnValue([
-        makeGroupRepo('org/service-a'),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
+      mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 300 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
@@ -509,23 +570,33 @@ describe('CrossRepoWebhookBridge', () => {
     it('should complete full pipeline with cross-repo review', async () => {
       const mocks = createMocks();
       const groupRepo = makeGroupRepo('org/service-a');
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [groupRepo]),
-      ]);
+      mocks.groupManager.listGroups = vi.fn().mockReturnValue([makeGroup('group-1', [groupRepo])]);
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([groupRepo]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 500 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc123', synced: true, durationMs: 200 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc123',
+            synced: true,
+            durationMs: 200,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue(
-        'diff --git a/src/index.ts b/src/index.ts\n@@ -1,3 +1,3 @@\n-const x = 1;\n+const x = 2;\n const y = 3;',
-      );
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue(
+          'diff --git a/src/index.ts b/src/index.ts\n@@ -1,3 +1,3 @@\n-const x = 1;\n+const x = 2;\n const y = 3;',
+        );
       const reviewResult = makeReviewResult();
       mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(reviewResult);
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 500 }, annotationsCount: 5 });
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 500 }, annotationsCount: 5 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -534,9 +605,7 @@ describe('CrossRepoWebhookBridge', () => {
       expect(result.status).toBe('completed');
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
       expect(result.reviewResult).toBeDefined();
-      expect(mocks.sync.ensureSynced).toHaveBeenCalledWith([
-        { owner: 'org', repo: 'service-a' },
-      ]);
+      expect(mocks.sync.ensureSynced).toHaveBeenCalledWith([{ owner: 'org', repo: 'service-a' }]);
       expect(mocks.indexer.indexGroup).toHaveBeenCalledWith('group-1');
       expect(mocks.client.getPRDiff).toHaveBeenCalledWith('org', 'service-a', 42);
       expect(mocks.reviewEngine.reviewPRWithCrossRepoContext).toHaveBeenCalled();
@@ -544,20 +613,36 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should handle checkRunManager.create throwing gracefully', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
-      mocks.checkRunManager.create = vi.fn().mockRejectedValue(new Error('check run creation failed'));
+      mocks.checkRunManager.create = vi
+        .fn()
+        .mockRejectedValue(new Error('check run creation failed'));
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 0 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 0 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -572,11 +657,14 @@ describe('CrossRepoWebhookBridge', () => {
   describe('findGroupForRepo', () => {
     it('should find matching group by repo full name', () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-        makeGroup('group-2', [makeGroupRepo('org/service-b', 'org', 'service-b')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn()
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([
+          makeGroup('group-1', [makeGroupRepo('org/service-a')]),
+          makeGroup('group-2', [makeGroupRepo('org/service-b', 'org', 'service-b')]),
+        ]);
+      mocks.groupManager.getRepos = vi
+        .fn()
         .mockReturnValueOnce([makeGroupRepo('org/service-a')])
         .mockReturnValueOnce([makeGroupRepo('org/service-b', 'org', 'service-b')]);
       const bridge = createBridge(mocks);
@@ -588,9 +676,9 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should return null when no group matches', () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       const bridge = createBridge(mocks);
 
@@ -609,12 +697,15 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should match repo in second group', () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('alpha', [makeGroupRepo('org/repo-a', 'org', 'repo-a')]),
-        makeGroup('beta', [makeGroupRepo('org/repo-b', 'org', 'repo-b')]),
-        makeGroup('gamma', [makeGroupRepo('org/repo-c', 'org', 'repo-c')]),
-      ]);
-      mocks.groupManager.getRepos = vi.fn()
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([
+          makeGroup('alpha', [makeGroupRepo('org/repo-a', 'org', 'repo-a')]),
+          makeGroup('beta', [makeGroupRepo('org/repo-b', 'org', 'repo-b')]),
+          makeGroup('gamma', [makeGroupRepo('org/repo-c', 'org', 'repo-c')]),
+        ]);
+      mocks.groupManager.getRepos = vi
+        .fn()
         .mockReturnValueOnce([makeGroupRepo('org/repo-a', 'org', 'repo-a')])
         .mockReturnValueOnce([makeGroupRepo('org/repo-b', 'org', 'repo-b')])
         .mockReturnValueOnce([makeGroupRepo('org/repo-c', 'org', 'repo-c')]);
@@ -645,20 +736,34 @@ describe('CrossRepoWebhookBridge', () => {
   describe('BridgeResult structure', () => {
     it('should have correct shape for completed status', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 999 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 999 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 999 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -707,18 +812,22 @@ describe('CrossRepoWebhookBridge', () => {
     it('should handle empty repos from getRepos gracefully', async () => {
       const mocks = createMocks();
       const groupRepo = makeGroupRepo('org/service-a');
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [groupRepo]),
-      ]);
+      mocks.groupManager.listGroups = vi.fn().mockReturnValue([makeGroup('group-1', [groupRepo])]);
       // listGroups returns group with repos, but getRepos is called separately
       // and might return empty (simulating edge case where getRepos returns different data)
       // However, findGroupForRepo uses getRepos, so we need the repo to be found
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([groupRepo]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 1 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({ results: [], errors: [] });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -743,15 +852,45 @@ describe('CrossRepoWebhookBridge', () => {
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 1 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'a', synced: true, durationMs: 100 },
-          { owner: 'org', repo: 'service-b', localPath: '/tmp/service-b', branch: 'main', commitSha: 'b', synced: true, durationMs: 150 },
-          { owner: 'org', repo: 'shared-lib', localPath: '/tmp/shared-lib', branch: 'main', commitSha: 'c', synced: true, durationMs: 200 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'a',
+            synced: true,
+            durationMs: 100,
+          },
+          {
+            owner: 'org',
+            repo: 'service-b',
+            localPath: '/tmp/service-b',
+            branch: 'main',
+            commitSha: 'b',
+            synced: true,
+            durationMs: 150,
+          },
+          {
+            owner: 'org',
+            repo: 'shared-lib',
+            localPath: '/tmp/shared-lib',
+            branch: 'main',
+            commitSha: 'c',
+            synced: true,
+            durationMs: 200,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue('diff --git a/file.ts b/file.ts\n@@ -1,1 +1,1 @@\n-old\n+new');
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -770,20 +909,32 @@ describe('CrossRepoWebhookBridge', () => {
   describe('process — diff content variations', () => {
     it('should handle empty diff string', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 1 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
       mocks.client.getPRDiff = vi.fn().mockResolvedValue('');
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });
@@ -793,24 +944,38 @@ describe('CrossRepoWebhookBridge', () => {
 
     it('should handle multi-file diff', async () => {
       const mocks = createMocks();
-      mocks.groupManager.listGroups = vi.fn().mockReturnValue([
-        makeGroup('group-1', [makeGroupRepo('org/service-a')]),
-      ]);
+      mocks.groupManager.listGroups = vi
+        .fn()
+        .mockReturnValue([makeGroup('group-1', [makeGroupRepo('org/service-a')])]);
       mocks.groupManager.getRepos = vi.fn().mockReturnValue([makeGroupRepo('org/service-a')]);
       mocks.checkRunManager.create = vi.fn().mockResolvedValue({ id: 1 });
       mocks.sync.ensureSynced = vi.fn().mockResolvedValue({
         results: [
-          { owner: 'org', repo: 'service-a', localPath: '/tmp/service-a', branch: 'main', commitSha: 'abc', synced: true, durationMs: 100 },
+          {
+            owner: 'org',
+            repo: 'service-a',
+            localPath: '/tmp/service-a',
+            branch: 'main',
+            commitSha: 'abc',
+            synced: true,
+            durationMs: 100,
+          },
         ],
         errors: [],
       });
-      mocks.client.getPRDiff = vi.fn().mockResolvedValue(
-        'diff --git a/src/a.ts b/src/a.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n' +
-        'diff --git a/src/b.ts b/src/b.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n' +
-        'diff --git a/src/c.ts b/src/c.ts\n@@ -1,1 +1,1 @@\n-old\n+new',
-      );
-      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi.fn().mockResolvedValue(makeReviewResult());
-      mocks.checkRunManager.complete = vi.fn().mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
+      mocks.client.getPRDiff = vi
+        .fn()
+        .mockResolvedValue(
+          'diff --git a/src/a.ts b/src/a.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n' +
+            'diff --git a/src/b.ts b/src/b.ts\n@@ -1,1 +1,1 @@\n-old\n+new\n' +
+            'diff --git a/src/c.ts b/src/c.ts\n@@ -1,1 +1,1 @@\n-old\n+new',
+        );
+      mocks.reviewEngine.reviewPRWithCrossRepoContext = vi
+        .fn()
+        .mockResolvedValue(makeReviewResult());
+      mocks.checkRunManager.complete = vi
+        .fn()
+        .mockResolvedValue({ checkRun: { id: 1 }, annotationsCount: 0 });
       const bridge = createBridge(mocks);
 
       const payload = makePayload({ action: 'opened' });

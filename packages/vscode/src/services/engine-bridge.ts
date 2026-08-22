@@ -109,10 +109,9 @@ export class EngineBridge {
 
   constructor(context?: { globalStorageUri?: { fsPath: string }; workspaceRoot?: string }) {
     this.workspaceRoot = context?.workspaceRoot ?? null;
-    const dbPath =
-      context?.globalStorageUri?.fsPath
-        ? `${context.globalStorageUri.fsPath}/graph.db`
-        : ':memory:';
+    const dbPath = context?.globalStorageUri?.fsPath
+      ? `${context.globalStorageUri.fsPath}/graph.db`
+      : ':memory:';
     this.store = new InMemoryGraphStore(dbPath);
     this.searchEngine = new HybridSearchEngine(this.store);
     this.reviewEngine = new CodeReviewEngine(this.store);
@@ -173,7 +172,11 @@ export class EngineBridge {
     for (const fn of this.indexingListeners) {
       fn();
     }
-    this.notifyProgress({ status: 'ready', symbolCount: this.store.getAllNodes().length, progress: 100 });
+    this.notifyProgress({
+      status: 'ready',
+      symbolCount: this.store.getAllNodes().length,
+      progress: 100,
+    });
   }
 
   private notifyProgress(state: IndexingState): void {
@@ -255,10 +258,7 @@ export class EngineBridge {
     if (!workspaceRoot) return [];
     const git = createGitOperations(workspaceRoot);
     const diffs = await git.getWorkspaceDiff();
-    const changes = await this.changeDetector.detectChanges(
-      this.projectId,
-      diffs,
-    );
+    const changes = await this.changeDetector.detectChanges(this.projectId, diffs);
     return changes.changedSymbols.map((s) => ({
       name: s.name,
       riskLevel: s.riskLevel,
@@ -283,10 +283,7 @@ export class EngineBridge {
       riskLevel: c.riskLevel as 'low' | 'medium' | 'high' | 'critical',
       reason: '',
     }));
-    const impact = await this.impactAnalyzer.analyze(
-      this.projectId,
-      changedSymbols,
-    );
+    const impact = await this.impactAnalyzer.analyze(this.projectId, changedSymbols);
     return {
       riskLevel: impact.riskLevel,
       affectedSymbols: impact.impactTree.length,
@@ -344,11 +341,8 @@ export class EngineBridge {
     const diffs = await git.getWorkspaceDiff();
     return diffs.map((d) => ({
       path: d.filePath,
-      status: d.changeType === 'added'
-        ? 'added'
-        : d.changeType === 'deleted'
-          ? 'deleted'
-          : 'modified',
+      status:
+        d.changeType === 'added' ? 'added' : d.changeType === 'deleted' ? 'deleted' : 'modified',
     }));
   }
 
@@ -356,9 +350,7 @@ export class EngineBridge {
   // Standards
   // -------------------------------------------------------------------------
 
-  async checkStandards(
-    filePath: string,
-  ): Promise<StandardsResultItem[]> {
+  async checkStandards(filePath: string): Promise<StandardsResultItem[]> {
     const std = this.standards.loadStandard('typescript-coding');
     if (!std) return [];
     const results = this.standards.checkSource('', filePath, std);
@@ -451,15 +443,14 @@ export class EngineBridge {
       return { cyclomaticComplexity: 0, linesOfCode: 0, parameterCount: 0, nestingDepth: 0 };
     }
 
-    const lineCount = node.endLine !== null && node.startLine !== null
-      ? node.endLine - node.startLine + 1
-      : 0;
+    const lineCount =
+      node.endLine !== null && node.startLine !== null ? node.endLine - node.startLine + 1 : 0;
 
     return {
       cyclomaticComplexity: node.complexity ?? 0,
       linesOfCode: lineCount,
       parameterCount: 0, // Would require AST parsing
-      nestingDepth: 0,   // Would require AST parsing
+      nestingDepth: 0, // Would require AST parsing
     };
   }
 

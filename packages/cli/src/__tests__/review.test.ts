@@ -7,22 +7,25 @@ import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import {
-  reviewCode,
-  formatReviewResult,
-  type ReviewOutput,
-} from '../commands/review.js';
+import { reviewCode, formatReviewResult, type ReviewOutput } from '../commands/review.js';
 
 describe('reviewCode — file mode', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = resolve(tmpdir(), `code-analyzer-review-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = resolve(
+      tmpdir(),
+      `code-analyzer-review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
   afterEach(() => {
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should detect console.log', async () => {
@@ -98,8 +101,8 @@ describe('reviewCode — file mode', () => {
     writeFileSync(filePath, 'const x = 1;\nconst y = 2;\nconst sum = x + y;\n');
     const result = await reviewCode({ target: filePath, mode: 'file', severity: 'warning' });
     // Only info-level issues (like TODO) would appear at warning severity
-    const warnings = result.issues.filter((i) =>
-      i.severity === 'warning' || i.severity === 'error' || i.severity === 'critical',
+    const warnings = result.issues.filter(
+      (i) => i.severity === 'warning' || i.severity === 'error' || i.severity === 'critical',
     );
     expect(warnings.length).toBe(0);
   });
@@ -159,7 +162,10 @@ describe('reviewCode — other modes', () => {
       execSync('git commit -m "initial"', { cwd: repoDir, stdio: 'pipe' });
 
       // Modify the file with violations and stage the change
-      writeFileSync(join(repoDir, 'index.ts'), 'console.log("debug");\neval("code");\nconst x = 1;\n');
+      writeFileSync(
+        join(repoDir, 'index.ts'),
+        'console.log("debug");\neval("code");\nconst x = 1;\n',
+      );
       execSync('git add index.ts', { cwd: repoDir, stdio: 'pipe' });
 
       // Switch to the repo dir so that git diff works
@@ -176,7 +182,11 @@ describe('reviewCode — other modes', () => {
       if (process.cwd() !== prevCwd) {
         process.chdir(prevCwd);
       }
-      try { rmSync(repoDir, { recursive: true, force: true }); } catch { /* */ }
+      try {
+        rmSync(repoDir, { recursive: true, force: true });
+      } catch {
+        /* */
+      }
     }
   });
 
@@ -189,7 +199,11 @@ describe('reviewCode — other modes', () => {
     const result = await reviewCode({ target: testDir, mode: 'dir' });
     expect(result.success).toBe(true);
 
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should handle dir mode with subdirectories', async () => {
@@ -206,7 +220,11 @@ describe('reviewCode — other modes', () => {
     });
     expect(result.success).toBe(true);
 
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 
   it('should respect maxIssues limit', async () => {
@@ -221,7 +239,11 @@ describe('reviewCode — other modes', () => {
     });
     expect(result.issues.length).toBeLessThanOrEqual(5);
 
-    try { rmSync(filePath); } catch { /* */ }
+    try {
+      rmSync(filePath);
+    } catch {
+      /* */
+    }
   });
 
   it('should skip excluded directories in dir mode', async () => {
@@ -246,7 +268,11 @@ describe('reviewCode — other modes', () => {
     // Only main.ts should be reviewed; excluded dirs should be skipped
     expect(result.totalIssues).toBe(0);
 
-    try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* */
+    }
   });
 });
 
@@ -322,14 +348,16 @@ describe('formatReviewResult', () => {
   it('should format markdown with info severity', () => {
     const infoOutput: ReviewOutput = {
       ...sampleOutput,
-      issues: [{
-        ruleId: 'todo-fixme',
-        category: 'maintainability',
-        severity: 'info',
-        file: 'src/utils.ts',
-        line: 1,
-        message: 'TODO found.',
-      }],
+      issues: [
+        {
+          ruleId: 'todo-fixme',
+          category: 'maintainability',
+          severity: 'info',
+          file: 'src/utils.ts',
+          line: 1,
+          message: 'TODO found.',
+        },
+      ],
       totalIssues: 1,
       summary: { critical: 0, error: 0, warning: 0, info: 1 },
     };
@@ -340,14 +368,16 @@ describe('formatReviewResult', () => {
   it('should handle issues without suggestion', () => {
     const noSuggestion: ReviewOutput = {
       ...sampleOutput,
-      issues: [{
-        ruleId: 'no-debugger',
-        category: 'quality',
-        severity: 'error',
-        file: 'src/utils.ts',
-        line: 5,
-        message: 'Remove debugger statements.',
-      }],
+      issues: [
+        {
+          ruleId: 'no-debugger',
+          category: 'quality',
+          severity: 'error',
+          file: 'src/utils.ts',
+          line: 5,
+          message: 'Remove debugger statements.',
+        },
+      ],
       totalIssues: 1,
       summary: { critical: 0, error: 1, warning: 0, info: 0 },
     };
@@ -391,15 +421,19 @@ describe('reviewCode — error handling', () => {
       writeFileSync(filePath, 'console.log("hello");\neval("code");\n// TODO: fix\n');
       const result = await reviewCode({ target: filePath, mode: 'file', severity: 'critical' });
       // Only critical issues should appear
-      const evalIssues = result.issues.filter(i => i.ruleId === 'no-eval');
-      const consoleIssues = result.issues.filter(i => i.ruleId === 'no-console-log');
-      const todoIssues = result.issues.filter(i => i.ruleId === 'todo-fixme');
+      const evalIssues = result.issues.filter((i) => i.ruleId === 'no-eval');
+      const consoleIssues = result.issues.filter((i) => i.ruleId === 'no-console-log');
+      const todoIssues = result.issues.filter((i) => i.ruleId === 'todo-fixme');
       expect(evalIssues.length).toBeGreaterThan(0);
       expect(consoleIssues.length).toBe(0);
       expect(todoIssues.length).toBe(0);
       expect(result.success).toBe(true);
     } finally {
-      try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+      try {
+        rmSync(testDir, { recursive: true, force: true });
+      } catch {
+        /* */
+      }
     }
   });
 
@@ -408,13 +442,20 @@ describe('reviewCode — error handling', () => {
     mkdirSync(testDir, { recursive: true });
     try {
       const filePath = join(testDir, 'all.ts');
-      writeFileSync(filePath, 'console.log("test");\neval("code");\ndebugger;\n// TODO: fix\nconst x: any = 1;\n');
+      writeFileSync(
+        filePath,
+        'console.log("test");\neval("code");\ndebugger;\n// TODO: fix\nconst x: any = 1;\n',
+      );
       const result = await reviewCode({ target: filePath, mode: 'file', severity: 'info' });
       expect(result.success).toBe(true);
       // With info threshold, many issues should appear
       expect(result.issues.length).toBeGreaterThan(0);
     } finally {
-      try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+      try {
+        rmSync(testDir, { recursive: true, force: true });
+      } catch {
+        /* */
+      }
     }
   });
 
@@ -428,7 +469,11 @@ describe('reviewCode — error handling', () => {
       expect(result.issues.length).toBeLessThanOrEqual(3);
       expect(result.success).toBe(true);
     } finally {
-      try { rmSync(filePath); } catch { /* */ }
+      try {
+        rmSync(filePath);
+      } catch {
+        /* */
+      }
     }
   });
 
@@ -437,11 +482,18 @@ describe('reviewCode — error handling', () => {
     mkdirSync(testDir, { recursive: true });
     try {
       const filePath = join(testDir, 'summary.ts');
-      writeFileSync(filePath, "const password = 'mySecret123';\neval('danger');\nconsole.log('hello');\n// TODO: something\n");
+      writeFileSync(
+        filePath,
+        "const password = 'mySecret123';\neval('danger');\nconsole.log('hello');\n// TODO: something\n",
+      );
       const result = await reviewCode({ target: filePath, mode: 'file', severity: 'info' });
       expect(result.summary.critical).toBeGreaterThanOrEqual(0);
     } finally {
-      try { rmSync(testDir, { recursive: true, force: true }); } catch { /* */ }
+      try {
+        rmSync(testDir, { recursive: true, force: true });
+      } catch {
+        /* */
+      }
     }
   });
 

@@ -1,5 +1,5 @@
 ---
-title: "@code-analyzer/server"
+title: '@code-analyzer/server'
 ---
 
 # @code-analyzer/server
@@ -9,4 +9,3 @@ See the [package README](https://github.com/AgentiX-E/code-analyzer/blob/master/
 :::
 
 This package is part of the Code Analyzer monorepo.
-

@@ -5,7 +5,7 @@ metadata:
   namespace: code-analyzer
   labels:
     app.kubernetes.io/name: code-analyzer
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: '0.1.0'
 spec:
   replicas: 1
   selector:
@@ -15,7 +15,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: code-analyzer
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: '0.1.0'
     spec:
       containers:
         - name: code-analyzer
@@ -40,11 +40,11 @@ spec:
                   optional: true
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: '512Mi'
+              cpu: '500m'
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              memory: '2Gi'
+              cpu: '2000m'
           livenessProbe:
             httpGet:
               path: /health

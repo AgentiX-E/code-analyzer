@@ -84,9 +84,7 @@ export class IncrementalIndexer {
     const currentPaths = new Set(allFiles.map((f) => f.filePath));
 
     // Pre-compute git-diff set if provided
-    const gitDiffSet = options?.gitDiffFiles
-      ? new Set(options.gitDiffFiles)
-      : null;
+    const gitDiffSet = options?.gitDiffFiles ? new Set(options.gitDiffFiles) : null;
 
     // Process each file
     for (const file of allFiles) {

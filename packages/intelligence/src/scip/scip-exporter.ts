@@ -7,7 +7,14 @@
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_DEFINES, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, EDGE_METHOD_OVERRIDES } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_DEFINES,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
+  EDGE_METHOD_OVERRIDES,
+} from '@code-analyzer/shared';
 
 // ===========================================================================
 // SCIP Data Types — TypeScript mirrors of the SCIP Protobuf schema
@@ -15,27 +22,27 @@ import { EDGE_CALLS, EDGE_DEFINES, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS, 
 
 /** Enumeration of symbol roles in occurrence context. */
 export enum SymbolRole {
-  Definition     = 1,
-  Import         = 2,
-  WriteAccess    = 4,
-  ReadAccess     = 8,
-  Generated      = 16,
-  Test           = 32,
+  Definition = 1,
+  Import = 2,
+  WriteAccess = 4,
+  ReadAccess = 8,
+  Generated = 16,
+  Test = 32,
   ForwardDefinition = 64,
 }
 
 /** Syntax kind for occurrence classification. */
 export enum SyntaxKind {
-  Unspecified     = 0,
-  Comment         = 1,
-  Punctuation     = 2,
-  StringLiteral   = 3,
-  RegexpLiteral   = 4,
-  Identifier      = 5,
+  Unspecified = 0,
+  Comment = 1,
+  Punctuation = 2,
+  StringLiteral = 3,
+  RegexpLiteral = 4,
+  Identifier = 5,
   IdentifierKeyword = 6,
   IdentifierOperator = 7,
   IdentifierBuiltin = 8,
-  IdentifierNull  = 9,
+  IdentifierNull = 9,
   IdentifierConstant = 10,
   IdentifierMutableGlobal = 11,
   IdentifierParameter = 12,
@@ -137,11 +144,7 @@ type ScipDescriptor =
  *           `py . pkg/mod.py/MyClass.mymethod().`  (Python method)
  *           `go . pkg/types.go/Struct.`  (Go struct)
  */
-function formatScipSymbol(
-  node: GraphNode,
-  _language: string,
-  scheme: string,
-): string {
+function formatScipSymbol(node: GraphNode, _language: string, scheme: string): string {
   const filePath = node.filePath ?? '';
   const name = sanitizeSymbolName(node.name);
   const pkg = extractPackage(filePath);
@@ -200,13 +203,32 @@ function classifyDescriptor(label: string): ScipDescriptor {
 // ===========================================================================
 
 const SCHEME_MAP: Record<string, string> = {
-  typescript: 'ts', tsx: 'tsx', javascript: 'ts', jsx: 'tsx',
-  python: 'py', go: 'go', java: 'java', kotlin: 'kotlin',
-  rust: 'rust', c: 'c', cpp: 'cpp', csharp: 'csharp',
-  php: 'php', ruby: 'ruby', swift: 'swift', scala: 'scala',
-  dart: 'dart', elixir: 'elixir', groovy: 'groovy',
-  json: 'json', yaml: 'yaml', toml: 'toml', sql: 'sql',
-  bash: 'bash', html: 'html', css: 'css',
+  typescript: 'ts',
+  tsx: 'tsx',
+  javascript: 'ts',
+  jsx: 'tsx',
+  python: 'py',
+  go: 'go',
+  java: 'java',
+  kotlin: 'kotlin',
+  rust: 'rust',
+  c: 'c',
+  cpp: 'cpp',
+  csharp: 'csharp',
+  php: 'php',
+  ruby: 'ruby',
+  swift: 'swift',
+  scala: 'scala',
+  dart: 'dart',
+  elixir: 'elixir',
+  groovy: 'groovy',
+  json: 'json',
+  yaml: 'yaml',
+  toml: 'toml',
+  sql: 'sql',
+  bash: 'bash',
+  html: 'html',
+  css: 'css',
 };
 
 function getScheme(language: string | null): string {
@@ -214,7 +236,12 @@ function getScheme(language: string | null): string {
 }
 
 /** Map graph relationship type to SCIP role bits. */
-function mapEdgeToRoles(edge: GraphEdge): { role: number; isDef: boolean; isRef: boolean; isImpl: boolean } {
+function mapEdgeToRoles(edge: GraphEdge): {
+  role: number;
+  isDef: boolean;
+  isRef: boolean;
+  isImpl: boolean;
+} {
   switch (edge.type) {
     case EDGE_CALLS:
       return { role: SymbolRole.ReadAccess, isDef: false, isRef: true, isImpl: false };
@@ -236,15 +263,23 @@ function mapEdgeToRoles(edge: GraphEdge): { role: number; isDef: boolean; isRef:
 /** Map node label to SCIP SyntaxKind. */
 function labelToSyntaxKind(label: string): SyntaxKind {
   switch (label) {
-    case 'Function': case 'Method': case 'Constructor':
+    case 'Function':
+    case 'Method':
+    case 'Constructor':
       return SyntaxKind.IdentifierFunctionDefinition;
-    case 'Class': case 'Interface': case 'Trait': case 'Struct':
+    case 'Class':
+    case 'Interface':
+    case 'Trait':
+    case 'Struct':
       return SyntaxKind.IdentifierNamespace;
     case 'Module':
       return SyntaxKind.IdentifierModule;
-    case 'Variable': case 'Parameter': case 'Property':
+    case 'Variable':
+    case 'Parameter':
+    case 'Property':
       return SyntaxKind.IdentifierLocal;
-    case 'Constant': case 'Enum':
+    case 'Constant':
+    case 'Enum':
       return SyntaxKind.IdentifierConstant;
     default:
       return SyntaxKind.Identifier;
@@ -262,9 +297,9 @@ function exportDocument(
   language: string,
   projectId: string,
 ): ScipDocument {
-  const nodes = store.getAllNodes().filter(
-    (n) => n.projectId === projectId && n.filePath === filePath,
-  );
+  const nodes = store
+    .getAllNodes()
+    .filter((n) => n.projectId === projectId && n.filePath === filePath);
 
   const scheme = getScheme(language);
   const occurrences: ScipOccurrence[] = [];
@@ -285,7 +320,11 @@ function exportDocument(
 
       // For targets not in the graph, create a synthetic external symbol
       const targetSym = targetNode
-        ? formatScipSymbol(targetNode, targetNode.language ?? language, getScheme(targetNode.language))
+        ? formatScipSymbol(
+            targetNode,
+            targetNode.language ?? language,
+            getScheme(targetNode.language),
+          )
         : formatExternalSymbol(edge.targetId, language, scheme);
 
       relationships.push({
@@ -304,15 +343,13 @@ function exportDocument(
     });
 
     // Create occurrence
-    const roles = edges.length > 0
-      ? edges.reduce((acc, e) => acc | mapEdgeToRoles(e).role, SymbolRole.Definition)
-      : SymbolRole.Definition;
+    const roles =
+      edges.length > 0
+        ? edges.reduce((acc, e) => acc | mapEdgeToRoles(e).role, SymbolRole.Definition)
+        : SymbolRole.Definition;
 
     occurrences.push({
-      range: [
-        (node.startLine ?? 0) - 1, 0,
-        (node.endLine ?? node.startLine ?? 1) - 1, 0,
-      ],
+      range: [(node.startLine ?? 0) - 1, 0, (node.endLine ?? node.startLine ?? 1) - 1, 0],
       symbol: scipSym,
       symbolRoles: roles,
       syntaxKind: labelToSyntaxKind(node.label),
@@ -397,14 +434,35 @@ export function exportScipIndex(
 function detectLanguage(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase();
   const extMap: Record<string, string> = {
-    ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
-    py: 'python', go: 'go', java: 'java', kt: 'kotlin',
-    rs: 'rust', c: 'c', cpp: 'cpp', cs: 'csharp',
-    php: 'php', rb: 'ruby', swift: 'swift', scala: 'scala',
-    dart: 'dart', ex: 'elixir', groovy: 'groovy',
-    json: 'json', yaml: 'yaml', toml: 'toml', sql: 'sql',
-    sh: 'bash', bash: 'bash', html: 'html', css: 'css',
-    svelte: 'svelte', vue: 'vue',
+    ts: 'typescript',
+    tsx: 'tsx',
+    js: 'javascript',
+    jsx: 'jsx',
+    py: 'python',
+    go: 'go',
+    java: 'java',
+    kt: 'kotlin',
+    rs: 'rust',
+    c: 'c',
+    cpp: 'cpp',
+    cs: 'csharp',
+    php: 'php',
+    rb: 'ruby',
+    swift: 'swift',
+    scala: 'scala',
+    dart: 'dart',
+    ex: 'elixir',
+    groovy: 'groovy',
+    json: 'json',
+    yaml: 'yaml',
+    toml: 'toml',
+    sql: 'sql',
+    sh: 'bash',
+    bash: 'bash',
+    html: 'html',
+    css: 'css',
+    svelte: 'svelte',
+    vue: 'vue',
   };
   return ext ? (extMap[ext] ?? ext) : 'unknown';
 }

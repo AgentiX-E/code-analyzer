@@ -2,11 +2,7 @@
 // Comprehensive tests for post-dominators, control dependence, and reaching definitions.
 
 import { describe, it, expect } from 'vitest';
-import {
-  computePostDominators,
-  postDominates,
-  NO_IPDOM,
-} from '../cfg/post-dominators.js';
+import { computePostDominators, postDominates, NO_IPDOM } from '../cfg/post-dominators.js';
 import { computeControlDependence } from '../cfg/control-dependence.js';
 import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
 import type {
@@ -48,7 +44,13 @@ function buildLinearCfg(blocks: number): FunctionCfg {
     blocks: cfgBlocks,
     edges: cfgEdges,
     bindings: [],
-    stmtFacts: { defs: new Map(), uses: new Map(), sourceSites: new Map(), sinkSites: new Map(), sanitizerSites: new Map() },
+    stmtFacts: {
+      defs: new Map(),
+      uses: new Map(),
+      sourceSites: new Map(),
+      sinkSites: new Map(),
+      sanitizerSites: new Map(),
+    },
     entryIndex: 0,
     exitIndex: blocks - 1,
   };
@@ -77,15 +79,22 @@ function buildIfElseCfg(): FunctionCfg {
   const uses = new Map();
 
   // B0: def param 'x', use param 'x' for comparison
-  defs.set(0 * 1024 + 0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }]);
+  defs.set(0 * 1024 + 0, [
+    { point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' },
+  ]);
   uses.set(0 * 1024 + 1, [{ point: { blockIndex: 0, stmtIndex: 1, line: 2 }, bindingIdx: 0 }]);
   // B1: def temp 'y'
-  defs.set(1 * 1024 + 0, [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }]);
+  defs.set(1 * 1024 + 0, [
+    { point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' },
+  ]);
   // B2: def temp 'z'
-  defs.set(2 * 1024 + 0, [{ point: { blockIndex: 2, stmtIndex: 0, line: 9 }, bindingIdx: 2, kind: 'must' }]);
+  defs.set(2 * 1024 + 0, [
+    { point: { blockIndex: 2, stmtIndex: 0, line: 9 }, bindingIdx: 2, kind: 'must' },
+  ]);
 
   const stmtFacts: StatementFacts = {
-    defs, uses,
+    defs,
+    uses,
     sourceSites: new Map(),
     sinkSites: new Map(),
     sanitizerSites: new Map(),
@@ -131,14 +140,19 @@ function buildLoopCfg(): FunctionCfg {
   const defs = new Map();
   const uses = new Map();
   // B0: def 'i' = 0
-  defs.set(0 * 1024 + 0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }]);
+  defs.set(0 * 1024 + 0, [
+    { point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' },
+  ]);
   // B1: use 'i' in condition
   uses.set(1 * 1024 + 0, [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 0 }]);
   // B2: def 'i' = i + 1 (MUST-def, killing)
-  defs.set(2 * 1024 + 0, [{ point: { blockIndex: 2, stmtIndex: 0, line: 9 }, bindingIdx: 0, kind: 'must' }]);
+  defs.set(2 * 1024 + 0, [
+    { point: { blockIndex: 2, stmtIndex: 0, line: 9 }, bindingIdx: 0, kind: 'must' },
+  ]);
 
   const stmtFacts: StatementFacts = {
-    defs, uses,
+    defs,
+    uses,
     sourceSites: new Map(),
     sinkSites: new Map(),
     sanitizerSites: new Map(),
@@ -174,7 +188,13 @@ describe('computePostDominators', () => {
       blocks: [],
       edges: [],
       bindings: [],
-      stmtFacts: { defs: new Map(), uses: new Map(), sourceSites: new Map(), sinkSites: new Map(), sanitizerSites: new Map() },
+      stmtFacts: {
+        defs: new Map(),
+        uses: new Map(),
+        sourceSites: new Map(),
+        sinkSites: new Map(),
+        sanitizerSites: new Map(),
+      },
       entryIndex: 0,
       exitIndex: -1,
     };
@@ -244,7 +264,13 @@ describe('computeControlDependence', () => {
       blocks: [],
       edges: [],
       bindings: [],
-      stmtFacts: { defs: new Map(), uses: new Map(), sourceSites: new Map(), sinkSites: new Map(), sanitizerSites: new Map() },
+      stmtFacts: {
+        defs: new Map(),
+        uses: new Map(),
+        sourceSites: new Map(),
+        sinkSites: new Map(),
+        sanitizerSites: new Map(),
+      },
       entryIndex: 0,
       exitIndex: -1,
     };
@@ -334,7 +360,13 @@ describe('computeReachingDefinitions', () => {
       blocks: [],
       edges: [],
       bindings: [],
-      stmtFacts: { defs: new Map(), uses: new Map(), sourceSites: new Map(), sinkSites: new Map(), sanitizerSites: new Map() },
+      stmtFacts: {
+        defs: new Map(),
+        uses: new Map(),
+        sourceSites: new Map(),
+        sinkSites: new Map(),
+        sanitizerSites: new Map(),
+      },
       entryIndex: 0,
       exitIndex: -1,
     };

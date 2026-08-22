@@ -3,10 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
-import {
-  registerWebhookRoutes,
-  verifySignature,
-} from '../routes/webhook.js';
+import { registerWebhookRoutes, verifySignature } from '../routes/webhook.js';
 import type { WebhookHandler, WebhookConfig } from '../routes/webhook.js';
 import { resolveConfig } from '../server-config.js';
 import { createHmac } from 'node:crypto';
@@ -288,7 +285,9 @@ describe('registerWebhookRoutes', () => {
     app = Fastify({ logger: false });
 
     // logging.enabled is false
-    const customConfig = resolveConfig({ logging: { enabled: false, level: 'silent', includeBody: false, pretty: false } });
+    const customConfig = resolveConfig({
+      logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+    });
     registerWebhookRoutes(app, customConfig, { handler });
 
     await app.ready();
@@ -318,7 +317,9 @@ describe('registerWebhookRoutes', () => {
     app = Fastify({ logger: false });
 
     // logging.enabled is true
-    const customConfig = resolveConfig({ logging: { enabled: true, level: 'info', includeBody: false, pretty: false } });
+    const customConfig = resolveConfig({
+      logging: { enabled: true, level: 'info', includeBody: false, pretty: false },
+    });
     registerWebhookRoutes(app, customConfig, { handler });
 
     await app.ready();

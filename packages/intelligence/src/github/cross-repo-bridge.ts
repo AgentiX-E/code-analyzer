@@ -23,7 +23,11 @@ export interface WebhookPayload {
     number: number;
     title: string;
     body: string | null;
-    head: { sha: string; ref: string; repo: { full_name: string; name: string; owner: { login: string } } };
+    head: {
+      sha: string;
+      ref: string;
+      repo: { full_name: string; name: string; owner: { login: string } };
+    };
     base: { sha: string; ref: string; repo: { full_name: string } };
     html_url: string;
   };
@@ -117,15 +121,10 @@ export class CrossRepoWebhookBridge {
       // 3. Create check run (in_progress)
       let checkRunId: number | undefined;
       try {
-        const checkRun = await this.checkRunManager.create(
-          owner,
-          repo,
-          headSha,
-          {
-            title: 'Cross-Repo Code Review',
-            summary: `Analyzing cross-repository impact for PR #${prNumber} in group "${groupId}"...`,
-          },
-        );
+        const checkRun = await this.checkRunManager.create(owner, repo, headSha, {
+          title: 'Cross-Repo Code Review',
+          summary: `Analyzing cross-repository impact for PR #${prNumber} in group "${groupId}"...`,
+        });
         /* v8 ignore start — requires real GitHub API for check run creation */
         checkRunId = checkRun.id;
         /* v8 ignore stop */
@@ -148,7 +147,12 @@ export class CrossRepoWebhookBridge {
       if (synced.errors.length > 0) {
         const errMsg = synced.errors.map((e) => `${e.owner}/${e.repo}: ${e.error}`).join('; ');
         if (checkRunId) {
-          await this.checkRunManager.fail(checkRunId, owner, repo, `Failed to sync repos: ${errMsg}`);
+          await this.checkRunManager.fail(
+            checkRunId,
+            owner,
+            repo,
+            `Failed to sync repos: ${errMsg}`,
+          );
         }
         /* v8 ignore stop */
         return {
@@ -180,7 +184,12 @@ export class CrossRepoWebhookBridge {
         diffs = this.diffParser.parseUnifiedDiff(diffText);
       } catch (err) {
         if (checkRunId) {
-          await this.checkRunManager.fail(checkRunId, owner, repo, `Failed to fetch PR diff: ${err instanceof Error ? err.message : String(err)}`);
+          await this.checkRunManager.fail(
+            checkRunId,
+            owner,
+            repo,
+            `Failed to fetch PR diff: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
         return {
           status: 'error',
@@ -196,8 +205,28 @@ export class CrossRepoWebhookBridge {
         title: payload.pull_request.title,
         body: payload.pull_request.body,
         state: 'open',
-        base: { ref: payload.pull_request.base.ref, sha: payload.pull_request.base.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as unknown as GitHubRepo },
-        head: { ref: payload.pull_request.head.ref, sha: payload.pull_request.head.sha, repo: { id: 0, owner: owner, name: repo, fullName: fullName, defaultBranch: 'main' } as unknown as GitHubRepo },
+        base: {
+          ref: payload.pull_request.base.ref,
+          sha: payload.pull_request.base.sha,
+          repo: {
+            id: 0,
+            owner: owner,
+            name: repo,
+            fullName: fullName,
+            defaultBranch: 'main',
+          } as unknown as GitHubRepo,
+        },
+        head: {
+          ref: payload.pull_request.head.ref,
+          sha: payload.pull_request.head.sha,
+          repo: {
+            id: 0,
+            owner: owner,
+            name: repo,
+            fullName: fullName,
+            defaultBranch: 'main',
+          } as unknown as GitHubRepo,
+        },
         user: { login: '' },
         labels: [],
         createdAt: new Date().toISOString(),

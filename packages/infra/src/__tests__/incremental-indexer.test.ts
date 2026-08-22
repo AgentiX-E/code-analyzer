@@ -9,10 +9,7 @@ import type { DiscoveredFile, KnowledgeGraph } from '@code-analyzer/shared';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createDiscoveredFile(
-  filePath: string,
-  content: string,
-): DiscoveredFile {
+function createDiscoveredFile(filePath: string, content: string): DiscoveredFile {
   return {
     filePath,
     language: 'typescript',
@@ -22,9 +19,7 @@ function createDiscoveredFile(
   };
 }
 
-function createMockKnowledgeGraph(
-  filePaths: string[],
-): KnowledgeGraph {
+function createMockKnowledgeGraph(filePaths: string[]): KnowledgeGraph {
   const fileIndex = new Map<string, number>();
   filePaths.forEach((fp, i) => fileIndex.set(fp, i + 1));
 
@@ -148,9 +143,9 @@ describe('IncrementalIndexer', () => {
       cache.set('modified.ts', 'old content');
 
       const files = [
-        createDiscoveredFile('unchanged.ts', 'same'),       // unchanged
-        createDiscoveredFile('modified.ts', 'new content'),   // modified!
-        createDiscoveredFile('new.ts', 'fresh'),              // new!
+        createDiscoveredFile('unchanged.ts', 'same'), // unchanged
+        createDiscoveredFile('modified.ts', 'new content'), // modified!
+        createDiscoveredFile('new.ts', 'fresh'), // new!
       ];
 
       const result = indexer.detectChanges(files);
@@ -159,10 +154,7 @@ describe('IncrementalIndexer', () => {
       expect(result.unchanged[0]!.filePath).toBe('unchanged.ts');
 
       expect(result.changed).toHaveLength(2);
-      expect(result.changed.map((f) => f.filePath).sort()).toEqual([
-        'modified.ts',
-        'new.ts',
-      ]);
+      expect(result.changed.map((f) => f.filePath).sort()).toEqual(['modified.ts', 'new.ts']);
 
       expect(result.removed).toHaveLength(1);
       expect(result.removed).toContain('removed.ts');
@@ -200,7 +192,7 @@ describe('IncrementalIndexer', () => {
       // Artificially generate hits and misses via has() calls
       cache.has('src/a.ts', 'const a = 1;'); // hit
       cache.has('src/a.ts', 'const a = 1;'); // hit
-      cache.has('nonexistent.ts', 'blah');    // miss
+      cache.has('nonexistent.ts', 'blah'); // miss
       cache.has('src/a.ts', 'wrong content'); // miss
 
       const files = [createDiscoveredFile('src/a.ts', 'const a = 1;')];
@@ -388,9 +380,7 @@ describe('IncrementalIndexer empty input', () => {
     const graph = createMockKnowledgeGraph([]);
     const indexer = new IncrementalIndexer(cache, graph);
 
-    const files = [
-      createDiscoveredFile('src/new.ts', 'code'),
-    ];
+    const files = [createDiscoveredFile('src/new.ts', 'code')];
 
     const result = indexer.detectChanges(files);
 
@@ -438,7 +428,7 @@ describe('IncrementalIndexer large batch', () => {
     const result = indexer.detectChanges(files);
 
     expect(result.unchanged).toHaveLength(2_500); // first half
-    expect(result.changed).toHaveLength(2_500);   // second half (not cached)
+    expect(result.changed).toHaveLength(2_500); // second half (not cached)
     expect(result.removed).toHaveLength(0);
   });
 
@@ -496,9 +486,9 @@ describe('IncrementalIndexer workflow', () => {
 
     // === Modify b.ts, add d.ts, delete c.ts ===
     const modifiedFiles = [
-      createDiscoveredFile('a.ts', 'function a() {}'),       // unchanged
+      createDiscoveredFile('a.ts', 'function a() {}'), // unchanged
       createDiscoveredFile('b.ts', 'function b() { x++; }'), // modified
-      createDiscoveredFile('d.ts', 'function d() {}'),       // new
+      createDiscoveredFile('d.ts', 'function d() {}'), // new
       // c.ts removed
     ];
 
@@ -529,9 +519,7 @@ describe('IncrementalIndexer workflow', () => {
 
     cache.set('main.ts', 'import { foo } from "./bar";\nfoo();');
 
-    const files = [
-      createDiscoveredFile('main.ts', 'import { foo } from "./baz";\nfoo();'),
-    ];
+    const files = [createDiscoveredFile('main.ts', 'import { foo } from "./baz";\nfoo();')];
 
     const result = indexer.detectChanges(files);
 

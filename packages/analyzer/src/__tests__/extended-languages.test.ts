@@ -39,7 +39,8 @@ describe('YamlProvider', () => {
     it('should report correct language', () => expect(provider.language).toBe('yaml'));
     it('should have correct display name', () => expect(provider.displayName).toBe('YAML'));
     it('should have .yaml and .yml extensions', () => {
-      expect(provider.extensions).toContain('.yaml'); expect(provider.extensions).toContain('.yml');
+      expect(provider.extensions).toContain('.yaml');
+      expect(provider.extensions).toContain('.yml');
     });
     it('should have none import semantics', () => expect(provider.importSemantics).toBe('none'));
   });
@@ -47,15 +48,19 @@ describe('YamlProvider', () => {
   describe('parse', () => {
     it('detects simple key-value pairs', () => {
       const caps = provider.parse('name: App\nversion: "1.0"', 'test.yaml');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'name').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'name').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects nested mappings', () => {
       const caps = provider.parse('server:\n  host: localhost\n  port: 8080', 'test.yaml');
-      expect(caps.filter(c => c.name === 'host').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'host').length).toBeGreaterThanOrEqual(1);
     });
     it('detects sequence items', () => {
       const caps = provider.parse('items:\n  - a\n  - b\n  - c', 'test.yaml');
-      expect(caps.filter(c => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(3);
+      expect(caps.filter((c) => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(
+        3,
+      );
     });
     it('detects anchors', () => {
       const caps = provider.parse('defaults: &defaults\n  x: 1', 'test.yaml');
@@ -82,12 +87,12 @@ describe('YamlProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects quoted scalars', () => {
-      const caps = provider.parse("single: 'hello'\ndouble: \"world\"", 'test.yaml');
-      expect(caps.filter(c => c.name === 'single').length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse('single: \'hello\'\ndouble: "world"', 'test.yaml');
+      expect(caps.filter((c) => c.name === 'single').length).toBeGreaterThanOrEqual(1);
     });
     it('handles comments', () => {
       const caps = provider.parse('# comment\nkey: value', 'test.yaml');
-      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'key').length).toBeGreaterThanOrEqual(1);
     });
     it('handles document separators', () => {
       const caps = provider.parse('---\nkey: value\n...', 'test.yaml');
@@ -95,7 +100,8 @@ describe('YamlProvider', () => {
     });
     it('handles empty files', () => {
       const caps = provider.parse('', 'empty.yaml');
-      expect(Array.isArray(caps)).toBe(true); expect(caps.length).toBe(0);
+      expect(Array.isArray(caps)).toBe(true);
+      expect(caps.length).toBe(0);
     });
     it('handles flow mappings', () => {
       const caps = provider.parse('point: { x: 1, y: 2 }', 'test.yaml');
@@ -113,7 +119,7 @@ describe('YamlProvider', () => {
     });
     it('handles deeply nested YAML', () => {
       const caps = provider.parse('a:\n  b:\n    c:\n      d: deep', 'test.yaml');
-      expect(caps.filter(c => c.name === 'd').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'd').length).toBeGreaterThanOrEqual(1);
     });
     it('handles invalid YAML gracefully', () => {
       const caps = provider.parse('this is not valid: yaml:::', 'bad.yaml');
@@ -125,23 +131,23 @@ describe('YamlProvider', () => {
     });
     it('includes filePath in properties', () => {
       const caps = provider.parse('key: value', 'myfile.yaml');
-      expect(caps.find(c => c.name === 'key')?.properties?.filePath).toBe('myfile.yaml');
+      expect(caps.find((c) => c.name === 'key')?.properties?.filePath).toBe('myfile.yaml');
     });
     it('handles block scalar markers', () => {
       const caps = provider.parse('|\n  indented text\nkey: value', 'test.yaml');
-      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'key').length).toBeGreaterThanOrEqual(1);
     });
     it('handles folded block scalar markers', () => {
       const caps = provider.parse('>\n  folded text\nkey: value', 'test.yaml');
-      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'key').length).toBeGreaterThanOrEqual(1);
     });
     it('handles strip and keep block scalar markers', () => {
       const caps = provider.parse('|-\n  text\nkey: value\n>-\n  text2\nkey2: value2', 'test.yaml');
-      expect(caps.filter(c => c.name === 'key2').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'key2').length).toBeGreaterThanOrEqual(1);
     });
     it('handles tab-indented block scalar content', () => {
       const caps = provider.parse('|\n\tindented\nkey: value', 'test.yaml');
-      expect(caps.filter(c => c.name === 'key').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'key').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -188,19 +194,25 @@ describe('TomlProvider', () => {
   describe('parse', () => {
     it('detects tables', () => {
       const caps = provider.parse('[package]\nname = "app"', 'test.toml');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'package').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'package').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects array of tables', () => {
       const caps = provider.parse('[[products]]\nname = "hammer"', 'test.toml');
-      expect(caps.filter(c => c.properties?.isArrayTable === 'true').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.isArrayTable === 'true').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects key-value pairs', () => {
       const caps = provider.parse('name = "app"\nversion = "1.0"', 'test.toml');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(2);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(
+        2,
+      );
     });
     it('detects integer values', () => {
       const caps = provider.parse('count = 42', 'test.toml');
-      expect(caps.filter(c => c.name === 'count').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'count').length).toBeGreaterThanOrEqual(1);
     });
     it('detects float values', () => {
       const caps = provider.parse('ratio = 3.14', 'test.toml');
@@ -250,7 +262,7 @@ describe('TomlProvider', () => {
     });
     it('includes filePath in properties', () => {
       const caps = provider.parse('name = "app"', 'my.toml');
-      const v = caps.find(c => c.name === 'name');
+      const v = caps.find((c) => c.name === 'name');
       expect(v?.properties?.filePath).toBe('my.toml');
     });
     it('detects multiline strings', () => {
@@ -259,7 +271,7 @@ describe('TomlProvider', () => {
     });
     it('detects nested tables', () => {
       const caps = provider.parse('[server]\n[server.db]\nhost = "localhost"', 'test.toml');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(2);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(2);
     });
     it('handles BOM', () => {
       const caps = provider.parse('\uFEFFname = "app"', 'test.toml');
@@ -299,20 +311,36 @@ describe('SqlProvider', () => {
 
   describe('parse', () => {
     it('detects CREATE TABLE', () => {
-      const caps = provider.parse('CREATE TABLE users (id INT PRIMARY KEY, name TEXT);', 'test.sql');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'users').length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse(
+        'CREATE TABLE users (id INT PRIMARY KEY, name TEXT);',
+        'test.sql',
+      );
+      expect(
+        caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'users').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects CREATE VIEW', () => {
-      const caps = provider.parse('CREATE VIEW active_users AS SELECT * FROM users WHERE active=1;', 'test.sql');
-      expect(caps.filter(c => c.name === 'active_users').length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse(
+        'CREATE VIEW active_users AS SELECT * FROM users WHERE active=1;',
+        'test.sql',
+      );
+      expect(caps.filter((c) => c.name === 'active_users').length).toBeGreaterThanOrEqual(1);
     });
     it('detects CREATE FUNCTION', () => {
-      const caps = provider.parse('CREATE FUNCTION add(a INT, b INT) RETURNS INT BEGIN RETURN a + b; END;', 'test.sql');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF).length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse(
+        'CREATE FUNCTION add(a INT, b INT) RETURNS INT BEGIN RETURN a + b; END;',
+        'test.sql',
+      );
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF).length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('detects CREATE PROCEDURE', () => {
-      const caps = provider.parse('CREATE PROCEDURE sp_cleanup() BEGIN DELETE FROM logs; END;', 'test.sql');
-      expect(caps.filter(c => c.name === 'sp_cleanup').length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse(
+        'CREATE PROCEDURE sp_cleanup() BEGIN DELETE FROM logs; END;',
+        'test.sql',
+      );
+      expect(caps.filter((c) => c.name === 'sp_cleanup').length).toBeGreaterThanOrEqual(1);
     });
     it('detects SELECT statements', () => {
       const caps = provider.parse('SELECT * FROM users WHERE id = 1;', 'test.sql');
@@ -343,11 +371,15 @@ describe('SqlProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects JOIN', () => {
-      const caps = provider.parse('SELECT * FROM users JOIN orders ON users.id = orders.user_id;', 'test.sql');
+      const caps = provider.parse(
+        'SELECT * FROM users JOIN orders ON users.id = orders.user_id;',
+        'test.sql',
+      );
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.sql'); expect(Array.isArray(caps)).toBe(true);
+      const caps = provider.parse('', 'empty.sql');
+      expect(Array.isArray(caps)).toBe(true);
     });
     it('handles comments', () => {
       const caps = provider.parse('-- comment\nSELECT 1;', 'test.sql');
@@ -369,7 +401,7 @@ describe('SqlProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('CREATE TABLE t (a INT);', 'db.sql');
-      expect(caps.some(c => c.properties?.filePath === 'db.sql')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'db.sql')).toBe(true);
     });
     it('handles stored procedure with parameters', () => {
       const caps = provider.parse('CREATE PROCEDURE sp_get_user(IN user_id INT)', 'test.sql');
@@ -383,7 +415,9 @@ describe('SqlProvider', () => {
 
   describe('taint analysis', () => {
     it('detects dynamic SQL as taint sink', () => {
-      const sinks = provider.extractTaintSinks("SELECT * FROM users WHERE name = '" + "foo' CONCAT ' bar';");
+      const sinks = provider.extractTaintSinks(
+        "SELECT * FROM users WHERE name = '" + "foo' CONCAT ' bar';",
+      );
       expect(sinks.length).toBeGreaterThanOrEqual(0); // regex fallback may find CONCAT
     });
     it('detects parameterized queries as sanitizers', () => {
@@ -391,7 +425,9 @@ describe('SqlProvider', () => {
       expect(Array.isArray(sanitizers)).toBe(true);
     });
     it('detects stored procedures with params as taint sources', () => {
-      const sources = provider.extractTaintSources('CREATE FUNCTION get_user(user_id INT) RETURNS TABLE');
+      const sources = provider.extractTaintSources(
+        'CREATE FUNCTION get_user(user_id INT) RETURNS TABLE',
+      );
       expect(Array.isArray(sources)).toBe(true);
     });
   });
@@ -407,26 +443,31 @@ describe('BashProvider', () => {
   describe('metadata', () => {
     it('reports correct language', () => expect(provider.language).toBe('bash'));
     it('has sh/bash extensions', () => {
-      expect(provider.extensions).toContain('.sh'); expect(provider.extensions).toContain('.bash');
+      expect(provider.extensions).toContain('.sh');
+      expect(provider.extensions).toContain('.bash');
     });
   });
 
   describe('parse', () => {
     it('detects function definitions', () => {
       const caps = provider.parse('myfunc() { echo "hello"; }', 'test.sh');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF).length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('detects variable assignments', () => {
       const caps = provider.parse('NAME="World"', 'test.sh');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('detects source imports', () => {
       const caps = provider.parse('source lib.sh', 'test.sh');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
     });
     it('detects dot imports', () => {
       const caps = provider.parse('. ./utils.sh', 'test.sh');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
     });
     it('detects command calls', () => {
       const caps = provider.parse('ls -la', 'test.sh');
@@ -453,11 +494,12 @@ describe('BashProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.sh'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.sh');
+      expect(caps.length).toBe(0);
     });
     it('handles comments', () => {
       const caps = provider.parse('# comment\nNAME=test', 'test.sh');
-      expect(caps.some(c => c.name === 'NAME')).toBe(true);
+      expect(caps.some((c) => c.name === 'NAME')).toBe(true);
     });
     it('handles invalid syntax', () => {
       const caps = provider.parse('{{{{', 'bad.sh');
@@ -465,7 +507,9 @@ describe('BashProvider', () => {
     });
     it('handles export variables', () => {
       const caps = provider.parse('export PATH=/usr/bin', 'test.sh');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('detects pipelines', () => {
       const caps = provider.parse('cat file | grep pattern', 'test.sh');
@@ -473,7 +517,7 @@ describe('BashProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('NAME=test', 'my.sh');
-      expect(caps.some(c => c.properties?.filePath === 'my.sh')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'my.sh')).toBe(true);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('a=1\nb=2\nc=3', 'test.sh');
@@ -540,15 +584,17 @@ describe('MarkdownProvider', () => {
   describe('parse', () => {
     it('detects headings', () => {
       const caps = provider.parse('# Title\n## Subtitle', 'test.md');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(2);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(2);
     });
     it('detects links', () => {
       const caps = provider.parse('[text](https://example.com)', 'test.md');
-      expect(caps.filter(c => c.properties?.url === 'https://example.com').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.url === 'https://example.com').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects images', () => {
       const caps = provider.parse('![alt](img.png)', 'test.md');
-      expect(caps.filter(c => c.properties?.isImage === 'true').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.properties?.isImage === 'true').length).toBeGreaterThanOrEqual(1);
     });
     it('detects fenced code blocks', () => {
       const caps = provider.parse('```js\nconsole.log("hi")\n```', 'test.md');
@@ -557,19 +603,27 @@ describe('MarkdownProvider', () => {
     });
     it('detects list items', () => {
       const caps = provider.parse('- item1\n- item2', 'test.md');
-      expect(caps.filter(c => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(2);
+      expect(caps.filter((c) => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(
+        2,
+      );
     });
     it('detects ordered list items', () => {
       const caps = provider.parse('1. first\n2. second', 'test.md');
-      expect(caps.filter(c => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(2);
+      expect(caps.filter((c) => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(
+        2,
+      );
     });
     it('detects blockquotes', () => {
       const caps = provider.parse('> quoted text', 'test.md');
-      expect(caps.filter(c => c.properties?.isBlockquote === 'true').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.isBlockquote === 'true').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects YAML frontmatter', () => {
       const caps = provider.parse('---\ntitle: Test\n---\n\ncontent', 'test.md');
-      expect(caps.filter(c => c.properties?.isFrontmatter === 'true').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.isFrontmatter === 'true').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects inline code', () => {
       const caps = provider.parse('use `code` here', 'test.md');
@@ -584,7 +638,8 @@ describe('MarkdownProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.md'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.md');
+      expect(caps.length).toBe(0);
     });
     it('handles .mdx extension', () => {
       const caps = provider.parse('# MDX File', 'test.mdx');
@@ -596,7 +651,7 @@ describe('MarkdownProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('# Title', 'doc.md');
-      expect(caps.some(c => c.properties?.filePath === 'doc.md')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'doc.md')).toBe(true);
     });
     it('detects setext headings', () => {
       const caps = provider.parse('Title\n=====', 'test.md');
@@ -612,7 +667,9 @@ describe('MarkdownProvider', () => {
     });
     it('handles highlighted syntax', () => {
       const caps = provider.parse('```python\nprint("hello")\n```', 'test.md');
-      expect(caps.filter(c => c.properties?.language === 'python').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.properties?.language === 'python').length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('# A\n# B\n# C', 'test.md');
@@ -626,7 +683,9 @@ describe('MarkdownProvider', () => {
     });
     it('handles frontmatter', () => {
       const caps = provider.parse('---\ntitle: Doc\n---\n# Heading', 'test.md');
-      expect(caps.filter(c => c.properties?.isFrontmatter === 'true').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.isFrontmatter === 'true').length,
+      ).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -653,7 +712,7 @@ describe('HtmlProvider', () => {
   describe('parse', () => {
     it('detects elements', () => {
       const caps = provider.parse('<div></div>', 'test.html');
-      expect(caps.filter(c => c.name === 'div').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'div').length).toBeGreaterThanOrEqual(1);
     });
     it('detects elements with id', () => {
       const caps = provider.parse('<div id="main"></div>', 'test.html');
@@ -666,11 +725,11 @@ describe('HtmlProvider', () => {
     });
     it('detects script src imports', () => {
       const caps = provider.parse('<script src="app.js"></script>', 'test.html');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
     });
     it('detects link href imports', () => {
       const caps = provider.parse('<link href="style.css" rel="stylesheet">', 'test.html');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
     });
     it('detects img src references', () => {
       const caps = provider.parse('<img src="photo.jpg" alt="photo">', 'test.html');
@@ -688,14 +747,15 @@ describe('HtmlProvider', () => {
     });
     it('detects nested elements', () => {
       const caps = provider.parse('<div><p>hello</p></div>', 'test.html');
-      expect(caps.filter(c => c.name === 'p').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === 'p').length).toBeGreaterThanOrEqual(1);
     });
     it('detects style elements', () => {
       const caps = provider.parse('<style>body { color: red; }</style>', 'test.html');
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.html'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.html');
+      expect(caps.length).toBe(0);
     });
     it('handles malformed HTML', () => {
       const caps = provider.parse('<div<p>broken', 'bad.html');
@@ -715,7 +775,7 @@ describe('HtmlProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('<div></div>', 'page.html');
-      expect(caps.some(c => c.properties?.filePath === 'page.html')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'page.html')).toBe(true);
     });
     it('handles .htm extension', () => {
       const caps = provider.parse('<p>test</p>', 'test.htm');
@@ -739,7 +799,9 @@ describe('HtmlProvider', () => {
 
   describe('taint analysis', () => {
     it('detects form as taint source', () => {
-      const sources = provider.extractTaintSources('<form method="post"><input name="user"></form>');
+      const sources = provider.extractTaintSources(
+        '<form method="post"><input name="user"></form>',
+      );
       expect(sources.length).toBeGreaterThanOrEqual(1);
     });
     it('detects script/style as XSS sink', () => {
@@ -764,26 +826,39 @@ describe('CssProvider', () => {
   describe('parse', () => {
     it('detects rule sets', () => {
       const caps = provider.parse('.button { color: red; }', 'test.css');
-      expect(caps.filter(c => c.name === '.button').length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.name === '.button').length).toBeGreaterThanOrEqual(1);
     });
     it('detects declarations', () => {
       const caps = provider.parse('body { font-size: 16px; }', 'test.css');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'font-size').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'font-size').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects import statements', () => {
       const caps = provider.parse("@import 'base.css';", 'test.css');
-      const hasImport = caps.some(c => c.tag === CAPTURE_TAGS.IMPORT) ||
-        caps.some(c => c.name?.includes('base.css') || c.text?.includes('base.css'));
+      const hasImport =
+        caps.some((c) => c.tag === CAPTURE_TAGS.IMPORT) ||
+        caps.some((c) => c.name?.includes('base.css') || c.text?.includes('base.css'));
       expect(caps.length).toBeGreaterThanOrEqual(0);
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects at-rules', () => {
-      const caps = provider.parse('@media screen and (max-width: 600px) { .class { display: none; } }', 'test.css');
-      expect(caps.filter(c => c.properties?.atRuleType === 'media').length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse(
+        '@media screen and (max-width: 600px) { .class { display: none; } }',
+        'test.css',
+      );
+      expect(
+        caps.filter((c) => c.properties?.atRuleType === 'media').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects keyframes', () => {
-      const caps = provider.parse('@keyframes slide { from { left: 0; } to { left: 100%; } }', 'test.css');
-      expect(caps.filter(c => c.properties?.atRuleType === 'keyframes').length).toBeGreaterThanOrEqual(1);
+      const caps = provider.parse(
+        '@keyframes slide { from { left: 0; } to { left: 100%; } }',
+        'test.css',
+      );
+      expect(
+        caps.filter((c) => c.properties?.atRuleType === 'keyframes').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects class selectors', () => {
       const caps = provider.parse('.container { padding: 10px; }', 'test.css');
@@ -794,11 +869,15 @@ describe('CssProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects font-face', () => {
-      const caps = provider.parse('@font-face { font-family: MyFont; src: url(font.woff); }', 'test.css');
+      const caps = provider.parse(
+        '@font-face { font-family: MyFont; src: url(font.woff); }',
+        'test.css',
+      );
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.css'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.css');
+      expect(caps.length).toBe(0);
     });
     it('handles comments', () => {
       const caps = provider.parse('/* comment */ .class { color: red; }', 'test.css');
@@ -818,11 +897,11 @@ describe('CssProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('.class { color: red; }', 'style.css');
-      expect(caps.some(c => c.properties?.filePath === 'style.css')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'style.css')).toBe(true);
     });
     it('detects multiple declarations', () => {
       const caps = provider.parse('body { color: red; font-size: 14px; margin: 0; }', 'test.css');
-      const decls = caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      const decls = caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       expect(decls.length).toBeGreaterThanOrEqual(3);
     });
     it('returns sorted captures', () => {
@@ -836,7 +915,10 @@ describe('CssProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects supports at-rule', () => {
-      const caps = provider.parse('@supports (display: grid) { .grid { display: grid; } }', 'test.css');
+      const caps = provider.parse(
+        '@supports (display: grid) { .grid { display: grid; } }',
+        'test.css',
+      );
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles BOM', () => {
@@ -851,7 +933,9 @@ describe('CssProvider', () => {
 
   describe('taint analysis', () => {
     it('detects external url as taint source', () => {
-      const sources = provider.extractTaintSources('.bg { background: url(https://evil.com/bg.png); }');
+      const sources = provider.extractTaintSources(
+        '.bg { background: url(https://evil.com/bg.png); }',
+      );
       expect(Array.isArray(sources)).toBe(true);
     });
     it('detects expression() as sink', () => {
@@ -876,23 +960,27 @@ describe('RProvider', () => {
   describe('parse', () => {
     it('detects function definitions', () => {
       const caps = provider.parse('add <- function(a, b) { a + b }', 'test.r');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.FUNCTION_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF).length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('detects variable assignments', () => {
       const caps = provider.parse('x <- 42', 'test.r');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF).length).toBeGreaterThanOrEqual(
+        1,
+      );
     });
     it('detects library calls', () => {
       const caps = provider.parse('library(ggplot2)', 'test.r');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
     });
     it('detects require calls', () => {
       const caps = provider.parse('require(dplyr)', 'test.r');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(1);
     });
     it('detects S4 class definitions', () => {
       const caps = provider.parse("setClass('Person', slots = c(name = 'character'))", 'test.r');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(1);
     });
     it('detects pipe operators', () => {
       const caps = provider.parse('data %>% filter(x > 0) %>% summarize(mean = mean(x))', 'test.r');
@@ -912,11 +1000,12 @@ describe('RProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.r'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.r');
+      expect(caps.length).toBe(0);
     });
     it('handles comments', () => {
       const caps = provider.parse('# comment\nx <- 1', 'test.r');
-      expect(caps.some(c => c.name === 'x')).toBe(true);
+      expect(caps.some((c) => c.name === 'x')).toBe(true);
     });
     it('handles invalid R', () => {
       const caps = provider.parse('%%% invalid', 'bad.r');
@@ -936,7 +1025,7 @@ describe('RProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('x <- 1', 'script.r');
-      expect(caps.some(c => c.properties?.filePath === 'script.r')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'script.r')).toBe(true);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('a <- 1\nb <- 2\nc <- 3', 'test.r');
@@ -996,7 +1085,7 @@ describe('GroovyProvider', () => {
   describe('parse', () => {
     it('detects class definitions', () => {
       const caps = provider.parse('class User { String name }', 'test.groovy');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(1);
     });
     it('detects method definitions', () => {
       const caps = provider.parse('class Calc { def add(x, y) { x + y } }', 'test.groovy');
@@ -1005,19 +1094,22 @@ describe('GroovyProvider', () => {
     });
     it('detects trait definitions', () => {
       const caps = provider.parse('trait Logger { void log(String msg) { } }', 'test.groovy');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.TRAIT_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.TRAIT_DEF).length).toBeGreaterThanOrEqual(1);
     });
     it('detects enum definitions', () => {
       const caps = provider.parse('enum Color { RED, GREEN, BLUE }', 'test.groovy');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.ENUM_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF).length).toBeGreaterThanOrEqual(1);
     });
     it('detects field declarations', () => {
       const caps = provider.parse('class Config { String host = "localhost" }', 'test.groovy');
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects imports', () => {
-      const caps = provider.parse('import java.util.Date\nimport groovy.json.JsonSlurper', 'test.groovy');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(2);
+      const caps = provider.parse(
+        'import java.util.Date\nimport groovy.json.JsonSlurper',
+        'test.groovy',
+      );
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT).length).toBeGreaterThanOrEqual(2);
     });
     it('detects method calls', () => {
       const caps = provider.parse('println "hello"', 'test.groovy');
@@ -1036,7 +1128,8 @@ describe('GroovyProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.groovy'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.groovy');
+      expect(caps.length).toBe(0);
     });
     it('handles comments', () => {
       const caps = provider.parse('// comment\nclass App {}', 'test.groovy');
@@ -1047,7 +1140,10 @@ describe('GroovyProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects constructor methods', () => {
-      const caps = provider.parse('class Person { Person(String name) { this.name = name } }', 'test.groovy');
+      const caps = provider.parse(
+        'class Person { Person(String name) { this.name = name } }',
+        'test.groovy',
+      );
       expect(Array.isArray(caps)).toBe(true);
     });
     it('detects extends clause', () => {
@@ -1056,7 +1152,7 @@ describe('GroovyProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('class App {}', 'app.groovy');
-      expect(caps.some(c => c.properties?.filePath === 'app.groovy')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'app.groovy')).toBe(true);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('class A {}\nclass B {}\nclass C {}', 'test.groovy');
@@ -1080,7 +1176,9 @@ describe('GroovyProvider', () => {
 
   describe('extractImports', () => {
     it('extracts groovy imports', () => {
-      const imports = provider.extractImports('import groovy.json.*\nimport static java.lang.Math.PI');
+      const imports = provider.extractImports(
+        'import groovy.json.*\nimport static java.lang.Math.PI',
+      );
       expect(imports.length).toBeGreaterThanOrEqual(2);
     });
   });
@@ -1116,23 +1214,31 @@ describe('JsonProvider', () => {
   describe('parse', () => {
     it('detects objects', () => {
       const caps = provider.parse('{"name": "app", "version": "1.0"}', 'test.json');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(1);
+      expect(caps.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).length).toBeGreaterThanOrEqual(1);
     });
     it('detects key-value pairs', () => {
       const caps = provider.parse('{"name": "app"}', 'test.json');
-      expect(caps.filter(c => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'name').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'name').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects string values', () => {
       const caps = provider.parse('{"key": "value"}', 'test.json');
-      expect(caps.filter(c => c.properties?.valueType === 'string').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.valueType === 'string').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects number values', () => {
       const caps = provider.parse('{"count": 42}', 'test.json');
-      expect(caps.filter(c => c.properties?.valueType === 'number').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.valueType === 'number').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects boolean values', () => {
       const caps = provider.parse('{"enabled": true}', 'test.json');
-      expect(caps.filter(c => c.properties?.valueType === 'boolean').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.valueType === 'boolean').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects null values', () => {
       const caps = provider.parse('{"key": null}', 'test.json');
@@ -1148,7 +1254,8 @@ describe('JsonProvider', () => {
       expect(Array.isArray(caps)).toBe(true);
     });
     it('handles empty files', () => {
-      const caps = provider.parse('', 'empty.json'); expect(caps.length).toBe(0);
+      const caps = provider.parse('', 'empty.json');
+      expect(caps.length).toBe(0);
     });
     it('handles empty objects', () => {
       const caps = provider.parse('{}', 'test.json');
@@ -1172,7 +1279,7 @@ describe('JsonProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('{"key": "value"}', 'cfg.json');
-      expect(caps.some(c => c.properties?.filePath === 'cfg.json')).toBe(true);
+      expect(caps.some((c) => c.properties?.filePath === 'cfg.json')).toBe(true);
     });
     it('detects negative numbers', () => {
       const caps = provider.parse('{"temp": -5}', 'test.json');

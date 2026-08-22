@@ -86,7 +86,10 @@ export interface PluginMCPTool {
   name: string;
   description: string;
   schema: Record<string, unknown>;
-  handler(args: Record<string, unknown>, store?: unknown): Promise<{
+  handler(
+    args: Record<string, unknown>,
+    store?: unknown,
+  ): Promise<{
     content: Array<{ type: 'text'; text: string }>;
     isError?: boolean;
   }>;
@@ -132,8 +135,8 @@ const REQUIRED_PLUGIN_FIELDS = ['name', 'version', 'description'] as const;
 export function isValidPlugin(obj: unknown): obj is CodeAnalyzerPlugin {
   if (!obj || typeof obj !== 'object') return false;
   const plugin = obj as Record<string, unknown>;
-  return REQUIRED_PLUGIN_FIELDS.every((field) =>
-    typeof plugin[field] === 'string' && (plugin[field] as string).length > 0,
+  return REQUIRED_PLUGIN_FIELDS.every(
+    (field) => typeof plugin[field] === 'string' && (plugin[field] as string).length > 0,
   );
 }
 

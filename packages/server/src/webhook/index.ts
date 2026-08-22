@@ -8,11 +8,7 @@ export type {
   EventHandler,
   WebhookProcessResult,
 } from './webhook-handler.js';
-export type {
-  PRDetails,
-  PRReviewResult,
-  PRReviewConfig,
-} from './pr-review-handler.js';
+export type { PRDetails, PRReviewResult, PRReviewConfig } from './pr-review-handler.js';
 export type {
   CheckRunConfig,
   CheckRun,

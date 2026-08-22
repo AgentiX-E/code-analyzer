@@ -134,11 +134,7 @@ export class RateLimiter {
   /**
    * Check with a specific rate limit config for this key.
    */
-  checkWithConfig(
-    key: string,
-    config: RateLimitConfig,
-    cost: number = 1,
-  ): RateLimitResult {
+  checkWithConfig(key: string, config: RateLimitConfig, cost: number = 1): RateLimitResult {
     // Create or get a bucket with the specific config
     let bucket = this.buckets.get(key);
     if (!bucket || bucket.config.rate !== config.rate || bucket.config.burst !== config.burst) {

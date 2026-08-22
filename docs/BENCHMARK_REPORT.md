@@ -32,13 +32,13 @@ The benchmark is **internal only**:
 
 We recognize the limitations of internal-only validation. The following improvements are planned:
 
-| Target | Plan |
-|--------|------|
-| **Dataset size** | 200+ real-world PRs from open-source repositories |
-| **Ground truth** | 1,500+ annotated issues with 3+ reviewer cross-validation |
-| **Inter-reviewer agreement** | Cohen's kappa >= 0.7 target |
-| **External benchmarks** | Inclusion of standard datasets (Defects4J, Juliet Test Suite) |
-| **Continuous benchmarking** | Automated runs on every release with regression detection |
+| Target                       | Plan                                                          |
+| ---------------------------- | ------------------------------------------------------------- |
+| **Dataset size**             | 200+ real-world PRs from open-source repositories             |
+| **Ground truth**             | 1,500+ annotated issues with 3+ reviewer cross-validation     |
+| **Inter-reviewer agreement** | Cohen's kappa >= 0.7 target                                   |
+| **External benchmarks**      | Inclusion of standard datasets (Defects4J, Juliet Test Suite) |
+| **Continuous benchmarking**  | Automated runs on every release with regression detection     |
 
 ---
 
@@ -46,23 +46,23 @@ We recognize the limitations of internal-only validation. The following improvem
 
 ### Overall
 
-| Metric | Code Analyzer v0.1.0 |
-|--------|:---:|
-| **Precision** | 79.4% |
-| **Recall** | 73.0% |
-| **F1 Score** | 0.761 |
+| Metric         |            Code Analyzer v0.1.0             |
+| -------------- | :-----------------------------------------: |
+| **Precision**  |                    79.4%                    |
+| **Recall**     |                    73.0%                    |
+| **F1 Score**   |                    0.761                    |
 | **Noise Rate** | 0.3x (0.3 false positives per true finding) |
-| **Token Cost** | $0.00 (fully local heuristic engine) |
+| **Token Cost** |    $0.00 (fully local heuristic engine)     |
 
 ### Per-Category Breakdown
 
-| Category | TP | FP | FN | Precision | Recall | F1 |
-|----------|:--:|:--:|:--:|:---:|:---:|:---:|
-| Security | 8 | 2 | 4 | 80% | 67% | 0.727 |
-| Correctness | 11 | 3 | 5 | 79% | 69% | 0.733 |
-| Performance | 3 | 1 | 1 | 75% | 75% | 0.750 |
-| Maintainability | 3 | 0 | 0 | 100% | 100% | 1.000 |
-| Style | 2 | 1 | 0 | 67% | 100% | 0.800 |
+| Category        | TP  | FP  | FN  | Precision | Recall |  F1   |
+| --------------- | :-: | :-: | :-: | :-------: | :----: | :---: |
+| Security        |  8  |  2  |  4  |    80%    |  67%   | 0.727 |
+| Correctness     | 11  |  3  |  5  |    79%    |  69%   | 0.733 |
+| Performance     |  3  |  1  |  1  |    75%    |  75%   | 0.750 |
+| Maintainability |  3  |  0  |  0  |   100%    |  100%  | 1.000 |
+| Style           |  2  |  1  |  0  |    67%    |  100%  | 0.800 |
 
 ---
 
@@ -70,15 +70,15 @@ We recognize the limitations of internal-only validation. The following improvem
 
 Code Analyzer is competitive in specific dimensions on the internal test suite. Results below combine Code Analyzer's scores with competitor data sourced from published documentation and independent studies (aitoollab.cn, May 2026).
 
-| Metric | Code Analyzer | SonarQube | Semgrep | CodeRabbit |
-|--------|:---:|:---:|:---:|:---:|
-| **Precision** | 79.4% | 72% | — | 58% |
-| **Recall** | 73.0% | 48% | — | 52% |
-| **F1 Score** | 0.761 | 0.576 | — | 0.549 |
-| **Noise Rate** | 0.3x | 0.8x | — | 2.1x |
-| **Cost per Review** | $0 | API cost | Free OSS | API cost |
-| **Languages** | 20 | 30+ | 30+ | All (LLM) |
-| **Security Rules** | 12 | 200+ | 100+ | Prompt-based |
+| Metric              | Code Analyzer | SonarQube | Semgrep  |  CodeRabbit  |
+| ------------------- | :-----------: | :-------: | :------: | :----------: |
+| **Precision**       |     79.4%     |    72%    |    —     |     58%      |
+| **Recall**          |     73.0%     |    48%    |    —     |     52%      |
+| **F1 Score**        |     0.761     |   0.576   |    —     |    0.549     |
+| **Noise Rate**      |     0.3x      |   0.8x    |    —     |     2.1x     |
+| **Cost per Review** |      $0       | API cost  | Free OSS |   API cost   |
+| **Languages**       |      20       |    30+    |   30+    |  All (LLM)   |
+| **Security Rules**  |      12       |   200+    |   100+   | Prompt-based |
 
 > **Note on Semgrep:** Semgrep's strength is pattern-based static analysis, not general-purpose code review. It reports zero false positives on known patterns but does not surface the same class of issues as heuristic or LLM-based reviewers. A direct precision/recall comparison is not meaningful without a controlled experiment on identical datasets.
 
@@ -97,11 +97,11 @@ The current results reflect performance on a **curated internal test suite**, no
 
 ### What These Numbers Mean
 
-| If you see... | It means... |
-|---------------|-------------|
+| If you see...     | It means...                                               |
+| ----------------- | --------------------------------------------------------- |
 | Precision = 79.4% | ~8 out of 10 comments Code Analyzer posts are real issues |
-| Recall = 73.0% | It finds ~3 out of every 4 known issues in the test suite |
-| Noise Rate = 0.3x | For every 3 true issues found, expect ~1 false positive |
+| Recall = 73.0%    | It finds ~3 out of every 4 known issues in the test suite |
+| Noise Rate = 0.3x | For every 3 true issues found, expect ~1 false positive   |
 
 ### Areas for Improvement
 

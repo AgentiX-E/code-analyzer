@@ -21,8 +21,8 @@ export class ScalaProvider extends TreeSitterBaseProvider {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-scala') as TreeSitterLanguage;
-    } /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
     /* v8 ignore stop */
@@ -134,8 +134,12 @@ export class ScalaProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (node.type === 'class_definition' || node.type === 'trait_definition' ||
-        node.type === 'object_definition' || node.type === 'function_definition') {
+    if (
+      node.type === 'class_definition' ||
+      node.type === 'trait_definition' ||
+      node.type === 'object_definition' ||
+      node.type === 'function_definition'
+    ) {
       const nameNode = this.findNamedChild(node, 'identifier');
       if (nameNode && nameNode.text === symbolName) {
         // Check for private/protected access modifiers in modifiers child
@@ -270,8 +274,10 @@ export class ScalaProvider extends TreeSitterBaseProvider {
   /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (new RegExp(`private\\s+(?:class|object|trait|def|val|var)\\s+${s}\\b`).test(source)) return false;
-    if (new RegExp(`protected\\s+(?:class|object|trait|def|val|var)\\s+${s}\\b`).test(source)) return false;
+    if (new RegExp(`private\\s+(?:class|object|trait|def|val|var)\\s+${s}\\b`).test(source))
+      return false;
+    if (new RegExp(`protected\\s+(?:class|object|trait|def|val|var)\\s+${s}\\b`).test(source))
+      return false;
     return new RegExp(`\\b(?:class|object|trait|def)\\s+${s}\\b`).test(source);
   }
 

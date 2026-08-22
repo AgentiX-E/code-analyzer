@@ -67,7 +67,7 @@ describe('LuaProvider', () => {
       expect(imports.some((c) => c.name === 'http')).toBe(true);
     });
 
-    it('should parse require \'module\' (single quotes)', () => {
+    it("should parse require 'module' (single quotes)", () => {
       const captures = provider.parse("local x = require('socket')", 'test.lua');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'socket')).toBe(true);

@@ -19,10 +19,26 @@ function makeStmtFactsWithTaint(
   sources: Array<[number, TaintSourceOccurrence]>,
   sinks: Array<[number, TaintSinkOccurrence]>,
   sanitizers: Array<[number, SanitizerOccurrence]>,
-  defs?: Array<[number, Array<{ point: { blockIndex: number; stmtIndex: number; line: number }; bindingIdx: number; kind: 'must' | 'may' }>]>,
+  defs?: Array<
+    [
+      number,
+      Array<{
+        point: { blockIndex: number; stmtIndex: number; line: number };
+        bindingIdx: number;
+        kind: 'must' | 'may';
+      }>,
+    ]
+  >,
 ): StatementFacts {
   return {
-    defs: defs ? new Map(defs.map(([k, v]) => [k, v.map((d) => ({ point: d.point, bindingIdx: d.bindingIdx, kind: d.kind }))])) : new Map(),
+    defs: defs
+      ? new Map(
+          defs.map(([k, v]) => [
+            k,
+            v.map((d) => ({ point: d.point, bindingIdx: d.bindingIdx, kind: d.kind })),
+          ]),
+        )
+      : new Map(),
     uses: new Map(),
     sourceSites: new Map(sources),
     sinkSites: new Map(sinks),
@@ -38,27 +54,48 @@ function buildTestCfg(sources: number, sinks: number): FunctionCfg {
   ];
 
   const stmtFacts = makeStmtFactsWithTaint(
-    sources > 0 ? [[0 * 1024 + 0, {
-      point: { blockIndex: 0, stmtIndex: 0, line: 1 },
-      bindingIdx: 0,
-      category: 'remote-input',
-      description: 'User input from HTTP request',
-      line: 1,
-    }] as [number, TaintSourceOccurrence]] : [],
-    sinks > 0 ? [
-      [2 * 1024 + 0, {
-        point: { blockIndex: 2, stmtIndex: 0, line: 10 },
-        kind: 'sql-injection',
-        cweId: 'CWE-89',
-        description: 'SQL query execution',
-        line: 10,
-      }],
-    ] as [number, TaintSinkOccurrence][] : [],
+    sources > 0
+      ? [
+          [
+            0 * 1024 + 0,
+            {
+              point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+              bindingIdx: 0,
+              category: 'remote-input',
+              description: 'User input from HTTP request',
+              line: 1,
+            },
+          ] as [number, TaintSourceOccurrence],
+        ]
+      : [],
+    sinks > 0
+      ? ([
+          [
+            2 * 1024 + 0,
+            {
+              point: { blockIndex: 2, stmtIndex: 0, line: 10 },
+              kind: 'sql-injection',
+              cweId: 'CWE-89',
+              description: 'SQL query execution',
+              line: 10,
+            },
+          ],
+        ] as [number, TaintSinkOccurrence][])
+      : [],
     [],
     [
-      [0 * 1024 + 0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }]],
-      [1 * 1024 + 0, [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }]],
-      [2 * 1024 + 0, [{ point: { blockIndex: 2, stmtIndex: 0, line: 10 }, bindingIdx: 2, kind: 'must' }]],
+      [
+        0 * 1024 + 0,
+        [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }],
+      ],
+      [
+        1 * 1024 + 0,
+        [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }],
+      ],
+      [
+        2 * 1024 + 0,
+        [{ point: { blockIndex: 2, stmtIndex: 0, line: 10 }, bindingIdx: 2, kind: 'must' }],
+      ],
     ],
   );
 
@@ -154,19 +191,29 @@ describe('TaintPropagator', () => {
 
       const localKey = 0 * 1024 + 0;
       const stmtFacts = makeStmtFactsWithTaint(
-        [[localKey, {
-          point: { blockIndex: 0, stmtIndex: 0, line: 1 },
-          bindingIdx: 0,
-          category: 'command-injection',
-          description: 'User input feeds command',
-          line: 1,
-        }]],
-        [[localKey, {
-          point: { blockIndex: 0, stmtIndex: 0, line: 1 },
-          kind: 'command-injection',
-          description: 'Shell command execution',
-          line: 1,
-        }]],
+        [
+          [
+            localKey,
+            {
+              point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+              bindingIdx: 0,
+              category: 'command-injection',
+              description: 'User input feeds command',
+              line: 1,
+            },
+          ],
+        ],
+        [
+          [
+            localKey,
+            {
+              point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+              kind: 'command-injection',
+              description: 'Shell command execution',
+              line: 1,
+            },
+          ],
+        ],
         [],
       );
 
@@ -177,7 +224,9 @@ describe('TaintPropagator', () => {
         startColumn: 1,
         blocks,
         edges: [],
-        bindings: [{ index: 0, name: 'input', kind: 'param', declLine: 1, declColumn: 10, synthetic: false }],
+        bindings: [
+          { index: 0, name: 'input', kind: 'param', declLine: 1, declColumn: 10, synthetic: false },
+        ],
         stmtFacts,
         entryIndex: 0,
         exitIndex: 0,
@@ -203,34 +252,56 @@ describe('TaintPropagator', () => {
       ];
 
       const stmtFacts = makeStmtFactsWithTaint(
-        [[0 * 1024 + 0, {
-          point: { blockIndex: 0, stmtIndex: 0, line: 1 },
-          bindingIdx: 0,
-          category: 'xss',
-          description: 'User input',
-          line: 1,
-        }]],
-        [[2 * 1024 + 0, {
-          point: { blockIndex: 2, stmtIndex: 0, line: 9 },
-          kind: 'xss',
-          description: 'HTML output',
-          line: 9,
-        }]],
-        [[1 * 1024 + 0, {
-          point: { blockIndex: 1, stmtIndex: 0, line: 5 },
-          neutralizedKinds: new Set(['xss']),
-          description: 'HTML escape',
-        }]],
         [
-          [0 * 1024 + 0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }]],
-          [1 * 1024 + 0, [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }]],
+          [
+            0 * 1024 + 0,
+            {
+              point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+              bindingIdx: 0,
+              category: 'xss',
+              description: 'User input',
+              line: 1,
+            },
+          ],
+        ],
+        [
+          [
+            2 * 1024 + 0,
+            {
+              point: { blockIndex: 2, stmtIndex: 0, line: 9 },
+              kind: 'xss',
+              description: 'HTML output',
+              line: 9,
+            },
+          ],
+        ],
+        [
+          [
+            1 * 1024 + 0,
+            {
+              point: { blockIndex: 1, stmtIndex: 0, line: 5 },
+              neutralizedKinds: new Set(['xss']),
+              description: 'HTML escape',
+            },
+          ],
+        ],
+        [
+          [
+            0 * 1024 + 0,
+            [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }],
+          ],
+          [
+            1 * 1024 + 0,
+            [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }],
+          ],
         ],
       );
 
       const cfg: FunctionCfg = {
         functionName: 'sanitizerFn',
         filePath: 'test.ts',
-        startLine: 1, startColumn: 1,
+        startLine: 1,
+        startColumn: 1,
         blocks,
         edges: [
           { from: 0, to: 1, kind: 'seq' },
@@ -247,12 +318,14 @@ describe('TaintPropagator', () => {
 
       const facts: DefUseFact[] = [
         {
-          bindingIdx: 0, bindingName: 'input',
+          bindingIdx: 0,
+          bindingName: 'input',
           def: { blockIndex: 0, stmtIndex: 0, line: 1 },
           use: { blockIndex: 1, stmtIndex: 0, line: 5 },
         },
         {
-          bindingIdx: 1, bindingName: 'safe',
+          bindingIdx: 1,
+          bindingName: 'safe',
           def: { blockIndex: 1, stmtIndex: 0, line: 5 },
           use: { blockIndex: 2, stmtIndex: 0, line: 9 },
         },
@@ -274,7 +347,8 @@ describe('TaintPropagator', () => {
       const cfg = buildTestCfg(1, 1);
       const facts: DefUseFact[] = [
         {
-          bindingIdx: 0, bindingName: 'a',
+          bindingIdx: 0,
+          bindingName: 'a',
           def: { blockIndex: 0, stmtIndex: 0, line: 1 },
           use: { blockIndex: 2, stmtIndex: 0, line: 10 },
         },
@@ -291,7 +365,8 @@ describe('TaintPropagator', () => {
       const facts: DefUseFact[] = [];
       for (let i = 0; i < 100; i++) {
         facts.push({
-          bindingIdx: 0, bindingName: 'x',
+          bindingIdx: 0,
+          bindingName: 'x',
           def: { blockIndex: 0, stmtIndex: 0, line: 1 },
           use: { blockIndex: 1, stmtIndex: 0, line: 5 },
         });
@@ -310,7 +385,8 @@ describe('TaintPropagator', () => {
       const cfg = buildTestCfg(1, 1);
       const facts: DefUseFact[] = [
         {
-          bindingIdx: 0, bindingName: 'req',
+          bindingIdx: 0,
+          bindingName: 'req',
           def: { blockIndex: 0, stmtIndex: 0, line: 1 },
           use: { blockIndex: 2, stmtIndex: 0, line: 10 },
         },
@@ -361,38 +437,71 @@ describe('Kind-set exclusion model', () => {
 
     // Multiple sink kinds at the target
     const sinks: [number, TaintSinkOccurrence][] = [
-      [1 * 1024 + 0, {
-        point: { blockIndex: 1, stmtIndex: 0, line: 5 },
-        kind: 'sql-injection', description: 'SQL', line: 5,
-      }],
-      [1 * 1024 + 0, {
-        point: { blockIndex: 1, stmtIndex: 0, line: 5 },
-        kind: 'xss', description: 'XSS', line: 5,
-      }],
+      [
+        1 * 1024 + 0,
+        {
+          point: { blockIndex: 1, stmtIndex: 0, line: 5 },
+          kind: 'sql-injection',
+          description: 'SQL',
+          line: 5,
+        },
+      ],
+      [
+        1 * 1024 + 0,
+        {
+          point: { blockIndex: 1, stmtIndex: 0, line: 5 },
+          kind: 'xss',
+          description: 'XSS',
+          line: 5,
+        },
+      ],
     ];
 
     const stmtFacts = makeStmtFactsWithTaint(
-      [[0 * 1024 + 0, {
-        point: { blockIndex: 0, stmtIndex: 0, line: 1 },
-        bindingIdx: 0, category: 'remote-input',
-        description: 'User input', line: 1,
-      }]],
+      [
+        [
+          0 * 1024 + 0,
+          {
+            point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+            bindingIdx: 0,
+            category: 'remote-input',
+            description: 'User input',
+            line: 1,
+          },
+        ],
+      ],
       sinks,
       [],
       [
-        [0 * 1024 + 0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }]],
+        [
+          0 * 1024 + 0,
+          [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }],
+        ],
       ],
     );
 
     const cfg: FunctionCfg = {
-      functionName: 'multiSinkFn', filePath: 't.ts', startLine: 1, startColumn: 1,
-      blocks, edges: [{ from: 0, to: 1, kind: 'seq' }],
-      bindings: [{ index: 0, name: 'data', kind: 'param', declLine: 1, declColumn: 10, synthetic: false }],
-      stmtFacts, entryIndex: 0, exitIndex: 1,
+      functionName: 'multiSinkFn',
+      filePath: 't.ts',
+      startLine: 1,
+      startColumn: 1,
+      blocks,
+      edges: [{ from: 0, to: 1, kind: 'seq' }],
+      bindings: [
+        { index: 0, name: 'data', kind: 'param', declLine: 1, declColumn: 10, synthetic: false },
+      ],
+      stmtFacts,
+      entryIndex: 0,
+      exitIndex: 1,
     };
 
     const facts: DefUseFact[] = [
-      { bindingIdx: 0, bindingName: 'data', def: { blockIndex: 0, stmtIndex: 0, line: 1 }, use: { blockIndex: 1, stmtIndex: 0, line: 5 } },
+      {
+        bindingIdx: 0,
+        bindingName: 'data',
+        def: { blockIndex: 0, stmtIndex: 0, line: 1 },
+        use: { blockIndex: 1, stmtIndex: 0, line: 5 },
+      },
     ];
 
     const propagator = new TaintPropagator();
@@ -414,30 +523,83 @@ describe('Kind-set exclusion model', () => {
     ];
 
     const stmtFacts = makeStmtFactsWithTaint(
-      [[0 * 1024 + 0, { point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, category: 'remote-input', description: 'Input', line: 1 }]],
       [
-        [2 * 1024 + 0, { point: { blockIndex: 2, stmtIndex: 0, line: 9 }, kind: 'xss', description: 'XSS output', line: 9 }],
+        [
+          0 * 1024 + 0,
+          {
+            point: { blockIndex: 0, stmtIndex: 0, line: 1 },
+            bindingIdx: 0,
+            category: 'remote-input',
+            description: 'Input',
+            line: 1,
+          },
+        ],
       ],
-      [[1 * 1024 + 0, { point: { blockIndex: 1, stmtIndex: 0, line: 5 }, neutralizedKinds: new Set(['xss']), description: 'HTML escape' }]],
       [
-        [0 * 1024 + 0, [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }]],
-        [1 * 1024 + 0, [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }]],
+        [
+          2 * 1024 + 0,
+          {
+            point: { blockIndex: 2, stmtIndex: 0, line: 9 },
+            kind: 'xss',
+            description: 'XSS output',
+            line: 9,
+          },
+        ],
+      ],
+      [
+        [
+          1 * 1024 + 0,
+          {
+            point: { blockIndex: 1, stmtIndex: 0, line: 5 },
+            neutralizedKinds: new Set(['xss']),
+            description: 'HTML escape',
+          },
+        ],
+      ],
+      [
+        [
+          0 * 1024 + 0,
+          [{ point: { blockIndex: 0, stmtIndex: 0, line: 1 }, bindingIdx: 0, kind: 'must' }],
+        ],
+        [
+          1 * 1024 + 0,
+          [{ point: { blockIndex: 1, stmtIndex: 0, line: 5 }, bindingIdx: 1, kind: 'must' }],
+        ],
       ],
     );
 
     const cfg: FunctionCfg = {
-      functionName: 'specificSanitizerFn', filePath: 't.ts', startLine: 1, startColumn: 1,
-      blocks, edges: [{ from: 0, to: 1, kind: 'seq' }, { from: 1, to: 2, kind: 'seq' }],
+      functionName: 'specificSanitizerFn',
+      filePath: 't.ts',
+      startLine: 1,
+      startColumn: 1,
+      blocks,
+      edges: [
+        { from: 0, to: 1, kind: 'seq' },
+        { from: 1, to: 2, kind: 'seq' },
+      ],
       bindings: [
         { index: 0, name: 'input', kind: 'param', declLine: 1, declColumn: 10, synthetic: false },
         { index: 1, name: 'escaped', kind: 'local', declLine: 5, declColumn: 7, synthetic: false },
       ],
-      stmtFacts, entryIndex: 0, exitIndex: 2,
+      stmtFacts,
+      entryIndex: 0,
+      exitIndex: 2,
     };
 
     const facts: DefUseFact[] = [
-      { bindingIdx: 0, bindingName: 'input', def: { blockIndex: 0, stmtIndex: 0, line: 1 }, use: { blockIndex: 1, stmtIndex: 0, line: 5 } },
-      { bindingIdx: 1, bindingName: 'escaped', def: { blockIndex: 1, stmtIndex: 0, line: 5 }, use: { blockIndex: 2, stmtIndex: 0, line: 9 } },
+      {
+        bindingIdx: 0,
+        bindingName: 'input',
+        def: { blockIndex: 0, stmtIndex: 0, line: 1 },
+        use: { blockIndex: 1, stmtIndex: 0, line: 5 },
+      },
+      {
+        bindingIdx: 1,
+        bindingName: 'escaped',
+        def: { blockIndex: 1, stmtIndex: 0, line: 5 },
+        use: { blockIndex: 2, stmtIndex: 0, line: 9 },
+      },
     ];
 
     const propagator = new TaintPropagator();

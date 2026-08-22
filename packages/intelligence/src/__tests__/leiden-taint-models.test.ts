@@ -2,18 +2,25 @@
 
 import { describe, it, expect } from 'vitest';
 import { LeidenCommunityDetector } from '../community/leiden-detector.js';
-import { TYPESCRIPT_TAINT_MODEL, PYTHON_TAINT_MODEL, GO_TAINT_MODEL, TAINT_MODELS } from '../security/taint-models.js';
-import type { TaintModel, TaintSinkDef, TaintSourceDef, SanitizerDef } from '../security/taint-models.js';
+import {
+  TYPESCRIPT_TAINT_MODEL,
+  PYTHON_TAINT_MODEL,
+  GO_TAINT_MODEL,
+  TAINT_MODELS,
+} from '../security/taint-models.js';
+import type {
+  TaintModel,
+  TaintSinkDef,
+  TaintSourceDef,
+  SanitizerDef,
+} from '../security/taint-models.js';
 
 // =========================================================================
 // Leiden Tests
 // =========================================================================
 
 describe('LeidenCommunityDetector', () => {
-  function makeGraph(
-    n: number,
-    edges: Array<[number, number, number?]> = [],
-  ) {
+  function makeGraph(n: number, edges: Array<[number, number, number?]> = []) {
     const nodes = new Map<number, any>();
     const graphEdges = new Map<number, any>();
     for (let i = 0; i < n; i++) {
@@ -21,7 +28,15 @@ describe('LeidenCommunityDetector', () => {
     }
     for (let i = 0; i < edges.length; i++) {
       const [s, t, w] = edges[i]!;
-      graphEdges.set(i, { id: i, sourceId: s, targetId: t, weight: w ?? 1, projectId: 'test', type: 'CALLS', createdAt: '' });
+      graphEdges.set(i, {
+        id: i,
+        sourceId: s,
+        targetId: t,
+        weight: w ?? 1,
+        projectId: 'test',
+        type: 'CALLS',
+        createdAt: '',
+      });
     }
     return { nodes, edges: graphEdges, projectId: 'test' } as any;
   }
@@ -45,7 +60,11 @@ describe('LeidenCommunityDetector', () => {
     });
 
     it('connected nodes cluster together', () => {
-      const g = makeGraph(4, [[0, 1], [1, 2], [2, 3]]);
+      const g = makeGraph(4, [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+      ]);
       const d = new LeidenCommunityDetector();
       const r = d.detect(g);
       expect(r.communityCount).toBeGreaterThanOrEqual(1);
@@ -54,9 +73,13 @@ describe('LeidenCommunityDetector', () => {
 
     it('two-cluster graph produces two communities', () => {
       const g = makeGraph(6, [
-        [0, 1, 3], [0, 2, 2], [1, 2, 3],  // Cluster 1
-        [3, 4, 3], [3, 5, 2], [4, 5, 3],  // Cluster 2
-        [2, 3, 1],  // Bridge
+        [0, 1, 3],
+        [0, 2, 2],
+        [1, 2, 3], // Cluster 1
+        [3, 4, 3],
+        [3, 5, 2],
+        [4, 5, 3], // Cluster 2
+        [2, 3, 1], // Bridge
       ]);
       const d = new LeidenCommunityDetector({ resolution: 0.5 });
       const r = d.detect(g);
@@ -67,9 +90,13 @@ describe('LeidenCommunityDetector', () => {
   describe('Refinement phase', () => {
     it('communities are well-connected (no disconnected subgraphs)', () => {
       const g = makeGraph(8, [
-        [0, 1, 5], [0, 2, 3], [1, 2, 5],
+        [0, 1, 5],
+        [0, 2, 3],
+        [1, 2, 5],
         [3, 4, 1],
-        [5, 6, 3], [5, 7, 2], [6, 7, 3],
+        [5, 6, 3],
+        [5, 7, 2],
+        [6, 7, 3],
       ]);
       const d = new LeidenCommunityDetector({ resolution: 0.3 });
       const r = d.detect(g);
@@ -79,7 +106,13 @@ describe('LeidenCommunityDetector', () => {
     });
 
     it('higher resolution produces more communities', () => {
-      const g = makeGraph(6, [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]]);
+      const g = makeGraph(6, [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [4, 5],
+      ]);
       const d1 = new LeidenCommunityDetector({ resolution: 0.3 });
       const d2 = new LeidenCommunityDetector({ resolution: 2.0 });
       const r1 = d1.detect(g);
@@ -91,7 +124,11 @@ describe('LeidenCommunityDetector', () => {
 
   describe('describeCommunities', () => {
     it('produces metadata for each community', () => {
-      const g = makeGraph(4, [[0, 1], [1, 2], [0, 3]]);
+      const g = makeGraph(4, [
+        [0, 1],
+        [1, 2],
+        [0, 3],
+      ]);
       const d = new LeidenCommunityDetector();
       const r = d.detect(g);
       const infos = d.describeCommunities(g, r);
@@ -128,7 +165,9 @@ function validateModel(model: TaintModel, lang: string) {
       for (const s of model.sinks) {
         expect(typeof s.kind).toBe('string');
         expect(typeof s.severity).toBe('string');
-        expect(['moduleFunction', 'globalFunction', 'anyReceiver', 'receiverConvention']).toContain(s.matchType);
+        expect(['moduleFunction', 'globalFunction', 'anyReceiver', 'receiverConvention']).toContain(
+          s.matchType,
+        );
         expect(s.taintArg).toBeDefined();
       }
     });
@@ -142,7 +181,7 @@ function validateModel(model: TaintModel, lang: string) {
     });
 
     it('contains critical security sinks', () => {
-      const kinds = new Set(model.sinks.map(s => s.kind));
+      const kinds = new Set(model.sinks.map((s) => s.kind));
       const critical: string[] = [];
       if (kinds.has('sql-injection')) critical.push('sql-injection');
       if (kinds.has('command-injection')) critical.push('command-injection');

@@ -1,9 +1,6 @@
 // @code-analyzer/analyzer — Pipeline Phase: PruneLocalSymbols
 
-import type {
-  PipelinePhaseId,
-  PipelineContext,
-} from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -71,10 +68,18 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
       }
 
       ctx.phaseData.set('pruneLocalSymbols', { symbolsPruned: nodesToPrune.length });
-      return { phaseId: this.id, status: 'success', output: { symbolsPruned: nodesToPrune.length } };
+      return {
+        phaseId: this.id,
+        status: 'success',
+        output: { symbolsPruned: nodesToPrune.length },
+      };
     } catch (err) {
       /* v8 ignore next -- @preserve -- thrown values are always Error instances in this codebase */
-      this.logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), { phaseId: this.id, filePath: ctx?.rootPath });
+      this.logger.error(
+        'Phase execution failed',
+        err instanceof Error ? err : new Error(String(err)),
+        { phaseId: this.id, filePath: ctx?.rootPath },
+      );
       /* v8 ignore next -- @preserve -- thrown values are always Error instances in this codebase */
       const message = err instanceof Error ? err.message : String(err);
       return { phaseId: this.id, status: 'failed', error: message };

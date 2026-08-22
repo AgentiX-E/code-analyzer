@@ -99,9 +99,7 @@ export function createWorkerPool(concurrency: number = 4): WorkerPool {
       }
 
       // Execute all tasks with concurrency limit
-      const results = await Promise.all(
-        tasks.map((task) => this.execute(task)),
-      );
+      const results = await Promise.all(tasks.map((task) => this.execute(task)));
       return results;
     },
 

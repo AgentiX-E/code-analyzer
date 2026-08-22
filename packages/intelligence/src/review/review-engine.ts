@@ -12,11 +12,7 @@
 // will report this as a configuration error rather than producing
 // fabricated results.
 
-import type {
-  ReviewComment,
-  ReviewSession,
-  GitDiff,
-} from '@code-analyzer/shared';
+import type { ReviewComment, ReviewSession, GitDiff } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { analyzeFileHeuristics, toReviewComment, type GraphAnalysisData } from './heuristics.js';
 import { SessionStore, computeFileFingerprint } from './session-store.js';
@@ -255,7 +251,12 @@ export class CodeReviewEngine {
       try {
         const comments = await this.reviewFileItem(ctx, diff);
         totalComments += comments.length;
-        const content = await this.getDiffContent(diff, effectiveGitOps ?? undefined, options?.baseSha, options?.targetSha);
+        const content = await this.getDiffContent(
+          diff,
+          effectiveGitOps ?? undefined,
+          options?.baseSha,
+          options?.targetSha,
+        );
         const fingerprint = computeFileFingerprint('diff', diff.filePath, content);
         const duration = Date.now() - fileStartTime;
 
@@ -355,10 +356,7 @@ export class CodeReviewEngine {
   // Pipeline: Per-File Review
   // -------------------------------------------------------------------------
 
-  private async reviewFileItem(
-    ctx: ReviewContext,
-    diff: GitDiff,
-  ): Promise<ReviewComment[]> {
+  private async reviewFileItem(ctx: ReviewContext, diff: GitDiff): Promise<ReviewComment[]> {
     // Phase 1: Plan — determine what to focus on
     const plan = await this.planPhase(ctx, diff);
 
@@ -397,16 +395,8 @@ export class CodeReviewEngine {
   // Plan Phase
   // -------------------------------------------------------------------------
 
-  private async planPhase(
-    ctx: ReviewContext,
-    diff: GitDiff,
-  ): Promise<ReviewPlan> {
-    const content = await this.getDiffContent(
-      diff,
-      ctx.gitOps,
-      ctx.baseSha,
-      ctx.targetSha,
-    );
+  private async planPhase(ctx: ReviewContext, diff: GitDiff): Promise<ReviewPlan> {
+    const content = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
     const lines = content.split('\n');
     const lineCount = lines.length;
 
@@ -490,12 +480,7 @@ export class CodeReviewEngine {
     _plan: ReviewPlan,
   ): Promise<ReviewComment[]> {
     // Get the actual file content for analysis
-    const content = await this.getDiffContent(
-      diff,
-      ctx.gitOps,
-      ctx.baseSha,
-      ctx.targetSha,
-    );
+    const content = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
     const lines = content.split('\n');
 
     // Build graph analysis data from the knowledge store
@@ -516,10 +501,7 @@ export class CodeReviewEngine {
   // Filter Phase
   // -------------------------------------------------------------------------
 
-  private async filterPhase(
-    comments: ReviewComment[],
-    _diff: GitDiff,
-  ): Promise<ReviewComment[]> {
+  private async filterPhase(comments: ReviewComment[], _diff: GitDiff): Promise<ReviewComment[]> {
     return comments
       .filter((comment) => {
         for (const rule of FILTER_RULES) {
@@ -546,10 +528,7 @@ export class CodeReviewEngine {
    * Each comment is mapped through the specific hunk that contains its line
    * range, avoiding the linear offset accumulation bug.
    */
-  private async relocatePhase(
-    comments: ReviewComment[],
-    diff: GitDiff,
-  ): Promise<ReviewComment[]> {
+  private async relocatePhase(comments: ReviewComment[], diff: GitDiff): Promise<ReviewComment[]> {
     // If no diff ranges are available, return comments unchanged
     if (!diff.ranges || diff.ranges.length === 0) {
       return comments;
@@ -559,14 +538,8 @@ export class CodeReviewEngine {
     const hunks = (diff as GitDiffWithHunks).hunks;
     if (hunks && hunks.length > 0) {
       return comments.map((comment) => {
-        const newStartLine = this.mapLineThroughHunks(
-          comment.startLine,
-          hunks,
-        );
-        const newEndLine = this.mapLineThroughHunks(
-          comment.endLine,
-          hunks,
-        );
+        const newStartLine = this.mapLineThroughHunks(comment.startLine, hunks);
+        const newEndLine = this.mapLineThroughHunks(comment.endLine, hunks);
         const clampedStart = Math.max(1, newStartLine);
         const clampedEnd = Math.max(clampedStart, newEndLine);
 
@@ -606,9 +579,11 @@ export class CodeReviewEngine {
         let oldLineCounter = hunk.oldStart;
 
         for (const rawLine of hunk.lines) {
-          const lineType = rawLine.startsWith('+') ? 'addition' as const
-            : rawLine.startsWith('-') ? 'removal' as const
-            : 'context' as const;
+          const lineType = rawLine.startsWith('+')
+            ? ('addition' as const)
+            : rawLine.startsWith('-')
+              ? ('removal' as const)
+              : ('context' as const);
           if (oldLineCounter >= oldLine || lineType === 'context') {
             // For context lines after the target, we've gone past it
             if (oldLineCounter > oldLine && lineType !== 'addition') {
@@ -652,7 +627,7 @@ export class CodeReviewEngine {
     for (const hunk of hunks) {
       const oldEnd = hunk.oldStart + hunk.oldCount;
       if (oldLine > oldEnd) {
-        offset += (hunk.newCount - hunk.oldCount);
+        offset += hunk.newCount - hunk.oldCount;
       }
     }
     return oldLine + offset;
@@ -674,7 +649,7 @@ export class CodeReviewEngine {
     let endMapped = false;
 
     for (const range of sortedRanges) {
-      const delta = (range.newEnd - range.newStart) - (range.oldEnd - range.oldStart);
+      const delta = range.newEnd - range.newStart - (range.oldEnd - range.oldStart);
 
       if (!startMapped && comment.startLine > range.oldEnd) {
         startOffset += delta;
@@ -706,10 +681,7 @@ export class CodeReviewEngine {
    * A comment is considered a duplicate if it matches in category and
    * has overlapping line ranges within a configurable threshold.
    */
-  private mergeAndDeduplicate(
-    heuristic: ReviewComment[],
-    llm: ReviewComment[],
-  ): ReviewComment[] {
+  private mergeAndDeduplicate(heuristic: ReviewComment[], llm: ReviewComment[]): ReviewComment[] {
     if (llm.length === 0) return heuristic;
     if (heuristic.length === 0) return llm;
 
@@ -860,7 +832,9 @@ export class CodeReviewEngine {
 
     parts.push(`## Review Context`);
     parts.push(`- Total files changed: ${diffs.length}`);
-    parts.push(`- Added: ${added} | Modified: ${modified} | Deleted: ${deleted} | Renamed: ${renamed}`);
+    parts.push(
+      `- Added: ${added} | Modified: ${modified} | Deleted: ${deleted} | Renamed: ${renamed}`,
+    );
 
     // Per-file details grouped by directory
     const byDir = new Map<string, GitDiff[]>();
@@ -875,9 +849,13 @@ export class CodeReviewEngine {
       parts.push(`\n### ${dir}`);
       for (const file of files) {
         const icon =
-          file.changeType === 'added' ? '➕' :
-          file.changeType === 'deleted' ? '➖' :
-          file.changeType === 'renamed' ? '🔄' : '✏️';
+          file.changeType === 'added'
+            ? '➕'
+            : file.changeType === 'deleted'
+              ? '➖'
+              : file.changeType === 'renamed'
+                ? '🔄'
+                : '✏️';
         parts.push(`- ${icon} \`${file.filePath}\``);
         if (file.oldPath) {
           parts.push(`  (renamed from \`${file.oldPath}\`)`);
@@ -902,10 +880,7 @@ export class CodeReviewEngine {
    * Calculates coupling metrics, dead code indicators, and circular
    * dependency detection.
    */
-  private buildGraphData(
-    _projectId: string,
-    filePath: string,
-  ): Partial<GraphAnalysisData> {
+  private buildGraphData(_projectId: string, filePath: string): Partial<GraphAnalysisData> {
     const allNodes = this.store.getAllNodes();
     const allEdges = this.store.getAllEdges();
 
@@ -933,7 +908,7 @@ export class CodeReviewEngine {
 
     // Detect circular dependencies using DFS with cycle tracking
     const cyclicPaths = this.detectCycles(
-      allNodes.map(n => ({ id: n.id, filePath: n.filePath ?? undefined })),
+      allNodes.map((n) => ({ id: n.id, filePath: n.filePath ?? undefined })),
       allEdges,
       filePath,
     );

@@ -70,9 +70,27 @@ describe('ContractValidator', () => {
   describe('extractContracts', () => {
     it('should extract contracts from indexed nodes', () => {
       const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
-        createGraphNode({ id: 1, name: 'getUser', label: 'Function', qualifiedName: 'getUser(id: string): User', filePath: 'src/api.ts' }),
-        createGraphNode({ id: 2, name: 'UserService', label: 'Class', qualifiedName: 'UserService', filePath: 'src/services.ts' }),
-        createGraphNode({ id: 3, name: 'IAuthProvider', label: 'Interface', qualifiedName: 'IAuthProvider', filePath: 'src/auth.ts' }),
+        createGraphNode({
+          id: 1,
+          name: 'getUser',
+          label: 'Function',
+          qualifiedName: 'getUser(id: string): User',
+          filePath: 'src/api.ts',
+        }),
+        createGraphNode({
+          id: 2,
+          name: 'UserService',
+          label: 'Class',
+          qualifiedName: 'UserService',
+          filePath: 'src/services.ts',
+        }),
+        createGraphNode({
+          id: 3,
+          name: 'IAuthProvider',
+          label: 'Interface',
+          qualifiedName: 'IAuthProvider',
+          filePath: 'src/auth.ts',
+        }),
       ]);
 
       const v = new ContractValidator(idx);
@@ -100,9 +118,24 @@ describe('ContractValidator', () => {
 
     it('should infer visibility from node properties', () => {
       const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
-        createGraphNode({ id: 1, name: 'publicFn', label: 'Function', properties: { name: 'publicFn' } }),
-        createGraphNode({ id: 2, name: 'privateFn', label: 'Function', properties: { name: 'privateFn', visibility: 'private' } }),
-        createGraphNode({ id: 3, name: 'protectedFn', label: 'Function', properties: { name: 'protectedFn', visibility: 'protected' } }),
+        createGraphNode({
+          id: 1,
+          name: 'publicFn',
+          label: 'Function',
+          properties: { name: 'publicFn' },
+        }),
+        createGraphNode({
+          id: 2,
+          name: 'privateFn',
+          label: 'Function',
+          properties: { name: 'privateFn', visibility: 'private' },
+        }),
+        createGraphNode({
+          id: 3,
+          name: 'protectedFn',
+          label: 'Function',
+          properties: { name: 'protectedFn', visibility: 'protected' },
+        }),
       ]);
 
       const v = new ContractValidator(idx);
@@ -136,7 +169,12 @@ describe('ContractValidator', () => {
 
     it('should skip nodes without names', () => {
       const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
-        createGraphNode({ id: 1, name: '', label: 'File', qualifiedName: 'file:org/repo-a:src/empty.ts' }),
+        createGraphNode({
+          id: 1,
+          name: '',
+          label: 'File',
+          qualifiedName: 'file:org/repo-a:src/empty.ts',
+        }),
         createGraphNode({ id: 2, name: 'validFn', label: 'Function', qualifiedName: 'validFn()' }),
       ]);
 
@@ -153,14 +191,32 @@ describe('ContractValidator', () => {
       const before = {
         repo: 'test',
         symbols: [
-          { name: 'oldFn', kind: 'function' as const, signature: 'oldFn()', visibility: 'public' as const, filePath: 'a.ts' },
-          { name: 'keepFn', kind: 'function' as const, signature: 'keepFn()', visibility: 'public' as const, filePath: 'b.ts' },
+          {
+            name: 'oldFn',
+            kind: 'function' as const,
+            signature: 'oldFn()',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
+          {
+            name: 'keepFn',
+            kind: 'function' as const,
+            signature: 'keepFn()',
+            visibility: 'public' as const,
+            filePath: 'b.ts',
+          },
         ],
       };
       const after = {
         repo: 'test',
         symbols: [
-          { name: 'keepFn', kind: 'function' as const, signature: 'keepFn()', visibility: 'public' as const, filePath: 'b.ts' },
+          {
+            name: 'keepFn',
+            kind: 'function' as const,
+            signature: 'keepFn()',
+            visibility: 'public' as const,
+            filePath: 'b.ts',
+          },
         ],
       };
 
@@ -175,14 +231,32 @@ describe('ContractValidator', () => {
       const before = {
         repo: 'test',
         symbols: [
-          { name: 'existingFn', kind: 'function' as const, signature: 'existingFn()', visibility: 'public' as const, filePath: 'a.ts' },
+          {
+            name: 'existingFn',
+            kind: 'function' as const,
+            signature: 'existingFn()',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
         ],
       };
       const after = {
         repo: 'test',
         symbols: [
-          { name: 'existingFn', kind: 'function' as const, signature: 'existingFn()', visibility: 'public' as const, filePath: 'a.ts' },
-          { name: 'newFn', kind: 'function' as const, signature: 'newFn()', visibility: 'public' as const, filePath: 'b.ts' },
+          {
+            name: 'existingFn',
+            kind: 'function' as const,
+            signature: 'existingFn()',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
+          {
+            name: 'newFn',
+            kind: 'function' as const,
+            signature: 'newFn()',
+            visibility: 'public' as const,
+            filePath: 'b.ts',
+          },
         ],
       };
 
@@ -197,13 +271,25 @@ describe('ContractValidator', () => {
       const before = {
         repo: 'test',
         symbols: [
-          { name: 'updateFn', kind: 'function' as const, signature: 'updateFn(a: string)', visibility: 'public' as const, filePath: 'a.ts' },
+          {
+            name: 'updateFn',
+            kind: 'function' as const,
+            signature: 'updateFn(a: string)',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
         ],
       };
       const after = {
         repo: 'test',
         symbols: [
-          { name: 'updateFn', kind: 'function' as const, signature: 'updateFn(a: string, b: number)', visibility: 'public' as const, filePath: 'a.ts' },
+          {
+            name: 'updateFn',
+            kind: 'function' as const,
+            signature: 'updateFn(a: string, b: number)',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
         ],
       };
 
@@ -217,13 +303,25 @@ describe('ContractValidator', () => {
       const before = {
         repo: 'test',
         symbols: [
-          { name: 'helperFn', kind: 'function' as const, signature: 'helperFn()', visibility: 'public' as const, filePath: 'a.ts' },
+          {
+            name: 'helperFn',
+            kind: 'function' as const,
+            signature: 'helperFn()',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
         ],
       };
       const after = {
         repo: 'test',
         symbols: [
-          { name: 'helperFn', kind: 'function' as const, signature: 'helperFn()', visibility: 'private' as const, filePath: 'a.ts' },
+          {
+            name: 'helperFn',
+            kind: 'function' as const,
+            signature: 'helperFn()',
+            visibility: 'private' as const,
+            filePath: 'a.ts',
+          },
         ],
       };
 
@@ -237,7 +335,13 @@ describe('ContractValidator', () => {
       const contracts = {
         repo: 'test',
         symbols: [
-          { name: 'fn', kind: 'function' as const, signature: 'fn()', visibility: 'public' as const, filePath: 'a.ts' },
+          {
+            name: 'fn',
+            kind: 'function' as const,
+            signature: 'fn()',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
         ],
       };
 
@@ -303,13 +407,20 @@ describe('ContractValidator', () => {
         targetRepos: ['org/repo-b', 'org/repo-c'],
         changes: [
           {
-            type: 'removed' as const, symbol: 'oldApi', severity: 'critical' as const,
-            description: 'Removed old API', affectedRepos: ['org/repo-b'],
+            type: 'removed' as const,
+            symbol: 'oldApi',
+            severity: 'critical' as const,
+            description: 'Removed old API',
+            affectedRepos: ['org/repo-b'],
           },
           {
-            type: 'signature_changed' as const, symbol: 'newApi', 
-            oldSignature: 'newApi(a)', newSignature: 'newApi(a, b)',
-            severity: 'high' as const, description: 'Signature changed', affectedRepos: ['org/repo-b', 'org/repo-c'],
+            type: 'signature_changed' as const,
+            symbol: 'newApi',
+            oldSignature: 'newApi(a)',
+            newSignature: 'newApi(a, b)',
+            severity: 'high' as const,
+            description: 'Signature changed',
+            affectedRepos: ['org/repo-b', 'org/repo-c'],
           },
         ],
         breakingCount: 2,
@@ -329,10 +440,15 @@ describe('ContractValidator', () => {
       const result = {
         sourceRepo: 'org/repo-a',
         targetRepos: [],
-        changes: [{
-          type: 'added' as const, symbol: 'newFeature', severity: 'low' as const,
-          description: 'New feature added', affectedRepos: [],
-        }],
+        changes: [
+          {
+            type: 'added' as const,
+            symbol: 'newFeature',
+            severity: 'low' as const,
+            description: 'New feature added',
+            affectedRepos: [],
+          },
+        ],
         breakingCount: 0,
         compatible: true,
         recommendations: [],
@@ -346,7 +462,13 @@ describe('ContractValidator', () => {
   describe('validateCrossRepo', () => {
     it('should validate with empty changed symbols', async () => {
       const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
-        createGraphNode({ id: 1, name: 'exportedFn', label: 'Function', qualifiedName: 'exportedFn()', isExported: true }),
+        createGraphNode({
+          id: 1,
+          name: 'exportedFn',
+          label: 'Function',
+          qualifiedName: 'exportedFn()',
+          isExported: true,
+        }),
       ]);
 
       const v = new ContractValidator(idx);
@@ -359,8 +481,20 @@ describe('ContractValidator', () => {
 
     it('should detect removed symbols affecting other repos', async () => {
       const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
-        createGraphNode({ id: 1, name: 'PubApi', label: 'Function', qualifiedName: 'PubApi()', isExported: true }),
-        createGraphNode({ id: 2, name: 'keepFn', label: 'Function', qualifiedName: 'keepFn()', isExported: true }),
+        createGraphNode({
+          id: 1,
+          name: 'PubApi',
+          label: 'Function',
+          qualifiedName: 'PubApi()',
+          isExported: true,
+        }),
+        createGraphNode({
+          id: 2,
+          name: 'keepFn',
+          label: 'Function',
+          qualifiedName: 'keepFn()',
+          isExported: true,
+        }),
       ]);
 
       const v = new ContractValidator(idx);
@@ -369,7 +503,7 @@ describe('ContractValidator', () => {
       expect(result.sourceRepo).toBe('org/repo-a');
 
       // 'removedFn' does not exist in source contracts, should be flagged as removed
-      const removedChange = result.changes.find(c => c.type === 'removed');
+      const removedChange = result.changes.find((c) => c.type === 'removed');
       expect(removedChange).toBeDefined();
       expect(removedChange?.symbol).toBe('removedFn');
       expect(removedChange?.severity).toBe('critical');
@@ -400,7 +534,13 @@ describe('ContractValidator', () => {
 
       // repo-a has an exported function
       store.insertNode({
-        ...createGraphNode({ id: 1, name: 'isolatedFunc', label: 'Function', qualifiedName: 'isolatedFunc()', isExported: true }),
+        ...createGraphNode({
+          id: 1,
+          name: 'isolatedFunc',
+          label: 'Function',
+          qualifiedName: 'isolatedFunc()',
+          isExported: true,
+        }),
         projectId: 'org/repo-a',
       });
       const idx = new CrossRepoIndexer(store, groupManager);
@@ -421,7 +561,14 @@ describe('ContractValidator', () => {
       groupManager.addRepo('private-group', 'org', 'repo-a', '', '/tmp/a');
 
       store.insertNode({
-        ...createGraphNode({ id: 1, name: 'wasPublic', label: 'Function', qualifiedName: 'wasPublic()', isExported: true, properties: { visibility: 'private' } as any }),
+        ...createGraphNode({
+          id: 1,
+          name: 'wasPublic',
+          label: 'Function',
+          qualifiedName: 'wasPublic()',
+          isExported: true,
+          properties: { visibility: 'private' } as any,
+        }),
         projectId: 'org/repo-a',
       });
       const idx = new CrossRepoIndexer(store, groupManager);
@@ -430,7 +577,7 @@ describe('ContractValidator', () => {
       const result = await v.validateCrossRepo('private-group', 'org/repo-a', ['wasPublic']);
 
       // wasPublic exists in source but has private visibility
-      const visChange = result.changes.find(c => c.type === 'visibility_changed');
+      const visChange = result.changes.find((c) => c.type === 'visibility_changed');
       if (visChange) {
         expect(visChange.symbol).toBe('wasPublic');
         expect(visChange.severity).toBe('high');
@@ -446,7 +593,13 @@ describe('ContractValidator', () => {
       groupManager.addRepo('pub-group', 'org', 'repo-a', '', '/tmp/a');
 
       store.insertNode({
-        ...createGraphNode({ id: 1, name: 'publicApi', label: 'Function', qualifiedName: 'publicApi()', isExported: true }),
+        ...createGraphNode({
+          id: 1,
+          name: 'publicApi',
+          label: 'Function',
+          qualifiedName: 'publicApi()',
+          isExported: true,
+        }),
         projectId: 'org/repo-a',
       });
       const idx = new CrossRepoIndexer(store, groupManager);
@@ -454,7 +607,7 @@ describe('ContractValidator', () => {
       const v = new ContractValidator(idx);
       const result = await v.validateCrossRepo('pub-group', 'org/repo-a', ['publicApi']);
 
-      const visChange = result.changes.find(c => c.type === 'visibility_changed');
+      const visChange = result.changes.find((c) => c.type === 'visibility_changed');
       expect(visChange).toBeFalsy();
 
       store.close();

@@ -91,7 +91,12 @@ describe('ScalaProvider', () => {
     it('should extract import with the last segment as the name', () => {
       const code = 'import scala.collection.mutable.ListBuffer';
       const imports = provider.extractImports(code, 't.scala');
-      expect(imports.some((i) => i.source === 'scala.collection.mutable.ListBuffer' && i.names.includes('ListBuffer'))).toBe(true);
+      expect(
+        imports.some(
+          (i) =>
+            i.source === 'scala.collection.mutable.ListBuffer' && i.names.includes('ListBuffer'),
+        ),
+      ).toBe(true);
     });
 
     it('should return empty for code without imports', () => {

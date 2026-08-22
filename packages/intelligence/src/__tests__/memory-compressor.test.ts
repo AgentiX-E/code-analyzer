@@ -65,8 +65,8 @@ describe('Memory Compressor', () => {
   describe('Configuration', () => {
     it('should use default configuration', () => {
       const config = compressor.getConfig();
-      expect(config.softThreshold).toBe(0.60);
-      expect(config.hardThreshold).toBe(0.80);
+      expect(config.softThreshold).toBe(0.6);
+      expect(config.hardThreshold).toBe(0.8);
       expect(config.frozenZoneSize).toBe(2);
       expect(config.activeTurns).toBe(4);
       expect(config.maxTokens).toBe(128000);
@@ -80,7 +80,7 @@ describe('Memory Compressor', () => {
       const config = custom.getConfig();
       expect(config.frozenZoneSize).toBe(4);
       expect(config.activeTurns).toBe(6);
-      expect(config.softThreshold).toBe(0.60); // Default
+      expect(config.softThreshold).toBe(0.6); // Default
     });
 
     it('should accept full configuration', () => {
@@ -193,10 +193,7 @@ describe('Memory Compressor', () => {
 
   describe('Token Counting on Messages', () => {
     it('should count tokens across all messages', () => {
-      const messages = [
-        { content: 'hello' },
-        { content: 'world' },
-      ];
+      const messages = [{ content: 'hello' }, { content: 'world' }];
 
       const tokens = compressor.countMessageTokens(messages);
       expect(tokens).toBeGreaterThan(0);
@@ -285,9 +282,7 @@ describe('Memory Compressor', () => {
 
       const compressed = compressor.compress(messages, tokens);
 
-      const summary = compressed.find(
-        (m) => m.content.includes('[Summarized context:'),
-      );
+      const summary = compressed.find((m) => m.content.includes('[Summarized context:'));
       expect(summary).toBeDefined();
       // Summary should mention code blocks
       expect(summary?.content).toMatch(/Compressed/);
@@ -299,9 +294,7 @@ describe('Memory Compressor', () => {
     });
 
     it('should handle single message', () => {
-      const messages: TestMessage[] = [
-        { content: 'User: Only message.' },
-      ];
+      const messages: TestMessage[] = [{ content: 'User: Only message.' }];
       const compressed = compressor.compress(messages, 100);
       expect(compressed.length).toBe(1);
       expect(compressed[0]!.content).toBe('User: Only message.');
@@ -635,9 +628,7 @@ describe('Memory Compressor', () => {
 
       // Should still compress and include summary
       expect(compressed.length).toBeLessThan(messages.length);
-      const hasSummary = compressed.some(
-        (m) => m.content.includes('[Summarized context:'),
-      );
+      const hasSummary = compressed.some((m) => m.content.includes('[Summarized context:'));
       expect(hasSummary).toBe(true);
     });
 
@@ -684,7 +675,7 @@ describe('Memory Compressor', () => {
 
     it('should return readonly config copy', () => {
       const config = compressor.getConfig();
-      expect(config.softThreshold).toBe(0.60);
+      expect(config.softThreshold).toBe(0.6);
       expect(config.frozenZoneSize).toBe(2);
     });
 
@@ -723,7 +714,8 @@ describe('Memory Compressor', () => {
         activeTurns: 1,
         maxTokens: 100,
       });
-      const longName = 'VeryLongFunctionNameThatExceedsNormalLength' +
+      const longName =
+        'VeryLongFunctionNameThatExceedsNormalLength' +
         'AndTakesUpManyCharactersInTheSummaryString';
       const messages: TestMessage[] = [];
       for (let i = 0; i < 30; i++) {
@@ -738,9 +730,7 @@ describe('Memory Compressor', () => {
       expect(compressed.length).toBeLessThan(messages.length);
 
       // The summary should be present
-      const summaryMsg = compressed.find(
-        (m) => m.content.includes('[Summarized context:'),
-      );
+      const summaryMsg = compressed.find((m) => m.content.includes('[Summarized context:'));
       expect(summaryMsg).toBeDefined();
       expect(summaryMsg!.content.length).toBeGreaterThan(0);
     });

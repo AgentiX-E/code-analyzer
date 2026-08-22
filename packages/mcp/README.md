@@ -127,7 +127,7 @@ const queryPlan = plan(ast);
 const result = execute(queryPlan, store);
 
 console.log(result.columns); // ['f.name', 'c.name']
-console.log(result.rows);    // [{ 'f.name': 'main', 'c.name': 'parseArgs' }, ...]
+console.log(result.rows); // [{ 'f.name': 'main', 'c.name': 'parseArgs' }, ...]
 console.log(result.executionTimeMs); // 4
 ```
 
@@ -140,11 +140,11 @@ const installer = new SkillInstaller();
 
 // Detect available agents
 const agents = installer.detectAgents();
-console.log(agents.map(a => a.name)); // ['claude-code', 'cursor', 'codex', ...]
+console.log(agents.map((a) => a.name)); // ['claude-code', 'cursor', 'codex', ...]
 
 // Generate repository-specific skills
 const skills = installer.generateRepoSKills('my-project-id');
-console.log(skills.map(s => s.name));
+console.log(skills.map((s) => s.name));
 // ['code-analyzer-exploration', 'code-analyzer-debugging', ...]
 
 // Get skill content
@@ -157,130 +157,130 @@ const content = installer.getSkillContent('exploration', 'my-project-id');
 
 #### Indexing & Lifecycle (4 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `analyze_repository` | Analyze and index a code repository | `path` |
-| `list_projects` | List all indexed projects | (none) |
-| `delete_project` | Delete an indexed project and its data | `projectId` |
-| `index_status` | Get indexing status for a project | `projectId` |
+| Tool                 | Description                            | Required Parameters |
+| -------------------- | -------------------------------------- | ------------------- |
+| `analyze_repository` | Analyze and index a code repository    | `path`              |
+| `list_projects`      | List all indexed projects              | (none)              |
+| `delete_project`     | Delete an indexed project and its data | `projectId`         |
+| `index_status`       | Get indexing status for a project      | `projectId`         |
 
 #### Querying & Exploration (10 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `search_graph` | Search the knowledge graph by keyword (FTS5) | `query` |
-| `search_code` | Search source code using full-text search | `query` |
-| `semantic_search` | Semantic search using embeddings | `query` |
-| `trace_call_path` | Trace call paths between symbols (BFS) | `sourceSymbol`, `projectId` |
-| `query_graph` | Execute a Cypher query against the graph | `cypher` |
-| `get_code_snippet` | Retrieve a code snippet by file and line range | `filePath`, `projectId` |
-| `get_architecture` | Get architectural overview of a project | `projectId` |
-| `get_graph_schema` | Get graph schema information (labels, edges) | `projectId` |
-| `explore_symbol` | Explore a symbol and its relationships | `symbolName`, `projectId` |
-| `find_implementations` | Find implementations of an interface | `interfaceName`, `projectId` |
+| Tool                   | Description                                    | Required Parameters          |
+| ---------------------- | ---------------------------------------------- | ---------------------------- |
+| `search_graph`         | Search the knowledge graph by keyword (FTS5)   | `query`                      |
+| `search_code`          | Search source code using full-text search      | `query`                      |
+| `semantic_search`      | Semantic search using embeddings               | `query`                      |
+| `trace_call_path`      | Trace call paths between symbols (BFS)         | `sourceSymbol`, `projectId`  |
+| `query_graph`          | Execute a Cypher query against the graph       | `cypher`                     |
+| `get_code_snippet`     | Retrieve a code snippet by file and line range | `filePath`, `projectId`      |
+| `get_architecture`     | Get architectural overview of a project        | `projectId`                  |
+| `get_graph_schema`     | Get graph schema information (labels, edges)   | `projectId`                  |
+| `explore_symbol`       | Explore a symbol and its relationships         | `symbolName`, `projectId`    |
+| `find_implementations` | Find implementations of an interface           | `interfaceName`, `projectId` |
 
 #### Change & Impact (4 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `detect_changes` | Detect code changes between references | `projectId` |
+| Tool              | Description                                    | Required Parameters             |
+| ----------------- | ---------------------------------------------- | ------------------------------- |
+| `detect_changes`  | Detect code changes between references         | `projectId`                     |
 | `impact_analysis` | Analyze impact of code changes (BFS traversal) | `projectId`, `fromRef`, `toRef` |
-| `route_map` | Get route map for a project | `projectId` |
-| `check_cycles` | Check for circular dependencies (DFS) | `projectId` |
+| `route_map`       | Get route map for a project                    | `projectId`                     |
+| `check_cycles`    | Check for circular dependencies (DFS)          | `projectId`                     |
 
 #### Code Review (2 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `review_diff` | Review a git diff for issues | `projectId` |
+| Tool          | Description                     | Required Parameters     |
+| ------------- | ------------------------------- | ----------------------- |
+| `review_diff` | Review a git diff for issues    | `projectId`             |
 | `review_file` | Review a single file for issues | `projectId`, `filePath` |
 
 #### PR Review (2 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `review_pr` | Review a pull request with risk scoring | `projectId` |
-| `check_standards` | Check code against project standards | `projectId` |
+| Tool              | Description                             | Required Parameters |
+| ----------------- | --------------------------------------- | ------------------- |
+| `review_pr`       | Review a pull request with risk scoring | `projectId`         |
+| `check_standards` | Check code against project standards    | `projectId`         |
 
 #### Reports (3 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `generate_report` | Generate an analysis report (pr-review, codebase-audit, impact-analysis, architecture-review, standards-compliance) | `projectId`, `type` |
-| `export_report` | Export a report in markdown, json, html, or pdf | `reportId`, `format` |
-| `get_recommendations` | Get code improvement recommendations | `projectId` |
+| Tool                  | Description                                                                                                         | Required Parameters  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `generate_report`     | Generate an analysis report (pr-review, codebase-audit, impact-analysis, architecture-review, standards-compliance) | `projectId`, `type`  |
+| `export_report`       | Export a report in markdown, json, html, or pdf                                                                     | `reportId`, `format` |
+| `get_recommendations` | Get code improvement recommendations                                                                                | `projectId`          |
 
 #### Cross-Repo (6 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `cross_repo_search` | Search across multiple repositories | `query` |
-| `cross_repo_trace` | Trace call paths across repositories | `sourceSymbol`, `groupId` |
-| `cross_repo_impact` | Analyze cross-repo impact of changes | `symbol`, `groupId` |
-| `manage_repo_group` | Manage repository groups (create, update, delete, list) | `action` |
-| `sync_contracts` | Synchronize contracts across repos | `groupId` |
-| `discover_related_repos` | Discover related repositories | `projectId` |
+| Tool                     | Description                                             | Required Parameters       |
+| ------------------------ | ------------------------------------------------------- | ------------------------- |
+| `cross_repo_search`      | Search across multiple repositories                     | `query`                   |
+| `cross_repo_trace`       | Trace call paths across repositories                    | `sourceSymbol`, `groupId` |
+| `cross_repo_impact`      | Analyze cross-repo impact of changes                    | `symbol`, `groupId`       |
+| `manage_repo_group`      | Manage repository groups (create, update, delete, list) | `action`                  |
+| `sync_contracts`         | Synchronize contracts across repos                      | `groupId`                 |
+| `discover_related_repos` | Discover related repositories                           | `projectId`               |
 
 #### PDG - Program Dependence Graph (3 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `pdg_query` | Query the program dependence graph (CFG, DATA_FLOWS, REACHING_DEF, TAINTED, SANITIZES) | `functionId`, `projectId` |
-| `taint_analysis` | Perform taint analysis for security vulnerabilities | `projectId` |
-| `explain_taint` | Explain a taint analysis path | `taintPathId`, `projectId` |
+| Tool             | Description                                                                            | Required Parameters        |
+| ---------------- | -------------------------------------------------------------------------------------- | -------------------------- |
+| `pdg_query`      | Query the program dependence graph (CFG, DATA_FLOWS, REACHING_DEF, TAINTED, SANITIZES) | `functionId`, `projectId`  |
+| `taint_analysis` | Perform taint analysis for security vulnerabilities                                    | `projectId`                |
+| `explain_taint`  | Explain a taint analysis path                                                          | `taintPathId`, `projectId` |
 
 #### Standards (2 tools)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `list_standards` | List project standards (10 categories) | `projectId` |
+| Tool              | Description                              | Required Parameters             |
+| ----------------- | ---------------------------------------- | ------------------------------- |
+| `list_standards`  | List project standards (10 categories)   | `projectId`                     |
 | `create_standard` | Create a new project standard with rules | `projectId`, `name`, `category` |
 
 #### ADR (1 tool)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
+| Tool         | Description                                                              | Required Parameters   |
+| ------------ | ------------------------------------------------------------------------ | --------------------- |
 | `manage_adr` | Manage Architecture Decision Records (create, list, get, update, search) | `projectId`, `action` |
 
 #### Agent (1 tool)
 
-| Tool | Description | Required Parameters |
-|------|-------------|-------------------|
-| `install_skills` | Install agent skills for the project (8 agent targets) | `agents` |
+| Tool             | Description                                            | Required Parameters |
+| ---------------- | ------------------------------------------------------ | ------------------- |
+| `install_skills` | Install agent skills for the project (8 agent targets) | `agents`            |
 
 ### Resources (15)
 
 Resources provide structured data access for AI agents:
 
-| URI | Description |
-|-----|-------------|
-| `code-analyzer://resources/projects` | List of all indexed projects |
-| `code-analyzer://resources/project-schema` | Schema definition for project data |
-| `code-analyzer://resources/clusters` | Community clusters detected in the codebase |
-| `code-analyzer://resources/processes` | Business processes modeled in the codebase |
-| `code-analyzer://resources/routes` | HTTP routes and API endpoints |
-| `code-analyzer://resources/entrypoints` | Application entry points |
-| `code-analyzer://resources/hotspots` | Code hotspots with high complexity or churn |
-| `code-analyzer://resources/adrs` | Architecture Decision Records |
-| `code-analyzer://resources/stats` | Project statistics and metrics |
-| `code-analyzer://resources/graph` | Complete knowledge graph for a project |
-| `code-analyzer://resources/groups` | Repository groups |
-| `code-analyzer://resources/contracts` | Cross-repo contracts |
-| `code-analyzer://resources/config` | Server configuration |
-| `code-analyzer://resources/health` | Server health and status |
-| `code-analyzer://resources/reports` | Generated analysis reports |
+| URI                                        | Description                                 |
+| ------------------------------------------ | ------------------------------------------- |
+| `code-analyzer://resources/projects`       | List of all indexed projects                |
+| `code-analyzer://resources/project-schema` | Schema definition for project data          |
+| `code-analyzer://resources/clusters`       | Community clusters detected in the codebase |
+| `code-analyzer://resources/processes`      | Business processes modeled in the codebase  |
+| `code-analyzer://resources/routes`         | HTTP routes and API endpoints               |
+| `code-analyzer://resources/entrypoints`    | Application entry points                    |
+| `code-analyzer://resources/hotspots`       | Code hotspots with high complexity or churn |
+| `code-analyzer://resources/adrs`           | Architecture Decision Records               |
+| `code-analyzer://resources/stats`          | Project statistics and metrics              |
+| `code-analyzer://resources/graph`          | Complete knowledge graph for a project      |
+| `code-analyzer://resources/groups`         | Repository groups                           |
+| `code-analyzer://resources/contracts`      | Cross-repo contracts                        |
+| `code-analyzer://resources/config`         | Server configuration                        |
+| `code-analyzer://resources/health`         | Server health and status                    |
+| `code-analyzer://resources/reports`        | Generated analysis reports                  |
 
 ### Prompts (5)
 
 Reusable prompt templates with argument schemas:
 
-| Prompt | Description | Arguments |
-|--------|-------------|-----------|
-| `explore-codebase` | Explore and understand an unknown codebase | `projectId` (required), `focus`, `depth` |
-| `review-changes` | Review code changes for quality, security, and best practices | `projectId` (required), `fromRef` (required), `toRef`, `focus` |
-| `debug-issue` | Debug a code issue by tracing execution paths | `projectId` (required), `entryPoint` (required), `symptom` (required) |
-| `refactor-plan` | Plan a code refactoring with impact analysis | `projectId` (required), `target` (required), `goal` (required) |
-| `architecture-review` | Review project architecture for patterns and improvements | `projectId` (required), `aspect`, `generateADR` |
+| Prompt                | Description                                                   | Arguments                                                             |
+| --------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `explore-codebase`    | Explore and understand an unknown codebase                    | `projectId` (required), `focus`, `depth`                              |
+| `review-changes`      | Review code changes for quality, security, and best practices | `projectId` (required), `fromRef` (required), `toRef`, `focus`        |
+| `debug-issue`         | Debug a code issue by tracing execution paths                 | `projectId` (required), `entryPoint` (required), `symptom` (required) |
+| `refactor-plan`       | Plan a code refactoring with impact analysis                  | `projectId` (required), `target` (required), `goal` (required)        |
+| `architecture-review` | Review project architecture for patterns and improvements     | `projectId` (required), `aspect`, `generateADR`                       |
 
 ### Cypher Query Engine
 
@@ -361,12 +361,12 @@ Every tool invocation passes through the middleware chain in order:
 Request → AuthMiddleware → RateLimiter → ToolPolicy → Tool Execution → RequestLogger → Response
 ```
 
-| Middleware | Class | Description |
-|------------|-------|-------------|
-| **Auth** | `AuthMiddleware` | Validates `x-api-key` or `Authorization: Bearer` headers. Allows all requests when no keys are configured. |
-| **Rate Limiting** | `RateLimiter` | Token bucket algorithm. Default: 100 tokens capacity, 0.5 tokens/ms refill (~30 tokens/min). Per-tool buckets. |
-| **Tool Policy** | `ToolPolicy` | Filters tools by profile (`all`, `analysis`, `scout`). Restricts which tools are visible to agents. |
-| **Request Logging** | `RequestLogger` | Records tool name, arguments, duration, errors, and timestamps. Keeps last 1000 entries by default. |
+| Middleware          | Class            | Description                                                                                                    |
+| ------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Auth**            | `AuthMiddleware` | Validates `x-api-key` or `Authorization: Bearer` headers. Allows all requests when no keys are configured.     |
+| **Rate Limiting**   | `RateLimiter`    | Token bucket algorithm. Default: 100 tokens capacity, 0.5 tokens/ms refill (~30 tokens/min). Per-tool buckets. |
+| **Tool Policy**     | `ToolPolicy`     | Filters tools by profile (`all`, `analysis`, `scout`). Restricts which tools are visible to agents.            |
+| **Request Logging** | `RequestLogger`  | Records tool name, arguments, duration, errors, and timestamps. Keeps last 1000 entries by default.            |
 
 ### Tool Profiles
 
@@ -384,85 +384,85 @@ const server = new CodeAnalyzerMCPServer({ toolProfile: 'analysis' });
 
 The `SkillInstaller` generates agent-specific skill files with workflow guidance and tool references. Supported agent targets:
 
-| Agent | Format | Install Path |
-|-------|--------|-------------|
-| `claude-code` | Markdown | `.claude/skills/` |
-| `cursor` | Markdown | `.cursor/skills/` |
-| `codex` | Markdown | `.openai/skills/` |
-| `windsurf` | Markdown | `.windsurf/skills/` |
-| `codebuddy` | Markdown | `.codebuddy/skills/` |
-| `aider` | Markdown | `.aider/skills/` |
-| `continue` | YAML | `.continue/rules/` |
-| `custom` | Markdown | `.ai/skills/` |
+| Agent         | Format   | Install Path         |
+| ------------- | -------- | -------------------- |
+| `claude-code` | Markdown | `.claude/skills/`    |
+| `cursor`      | Markdown | `.cursor/skills/`    |
+| `codex`       | Markdown | `.openai/skills/`    |
+| `windsurf`    | Markdown | `.windsurf/skills/`  |
+| `codebuddy`   | Markdown | `.codebuddy/skills/` |
+| `aider`       | Markdown | `.aider/skills/`     |
+| `continue`    | YAML     | `.continue/rules/`   |
+| `custom`      | Markdown | `.ai/skills/`        |
 
 Available skill templates (10):
 
-| Skill | Category | Key Tools |
-|-------|----------|-----------|
-| `exploration` | exploration | `get_architecture`, `explore_symbol`, `search_graph`, `trace_call_path` |
-| `debugging` | debugging | `trace_call_path`, `explore_symbol`, `query_graph`, `search_code` |
-| `impact` | impact | `impact_analysis`, `detect_changes`, `check_cycles` |
-| `refactoring` | refactoring | `impact_analysis`, `find_implementations`, `check_cycles`, `review_file` |
-| `review` | review | `review_diff`, `review_file`, `check_standards` |
-| `pr-review` | review | `review_pr`, `review_diff`, `check_standards`, `generate_report` |
-| `architecture` | architecture | `get_architecture`, `route_map`, `check_cycles`, `manage_adr` |
-| `cross-repo` | architecture | `cross_repo_search`, `cross_repo_trace`, `cross_repo_impact` |
-| `security` | security | `taint_analysis`, `pdg_query`, `review_file`, `check_standards` |
-| `tool-reference` | reference | Full catalog of all 38 tools |
+| Skill            | Category     | Key Tools                                                                |
+| ---------------- | ------------ | ------------------------------------------------------------------------ |
+| `exploration`    | exploration  | `get_architecture`, `explore_symbol`, `search_graph`, `trace_call_path`  |
+| `debugging`      | debugging    | `trace_call_path`, `explore_symbol`, `query_graph`, `search_code`        |
+| `impact`         | impact       | `impact_analysis`, `detect_changes`, `check_cycles`                      |
+| `refactoring`    | refactoring  | `impact_analysis`, `find_implementations`, `check_cycles`, `review_file` |
+| `review`         | review       | `review_diff`, `review_file`, `check_standards`                          |
+| `pr-review`      | review       | `review_pr`, `review_diff`, `check_standards`, `generate_report`         |
+| `architecture`   | architecture | `get_architecture`, `route_map`, `check_cycles`, `manage_adr`            |
+| `cross-repo`     | architecture | `cross_repo_search`, `cross_repo_trace`, `cross_repo_impact`             |
+| `security`       | security     | `taint_analysis`, `pdg_query`, `review_file`, `check_standards`          |
+| `tool-reference` | reference    | Full catalog of all 38 tools                                             |
 
 ## Configuration
 
 ### `MCPServerConfig`
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `name` | `string` | `'code-analyzer'` | Server name reported to MCP clients |
-| `version` | `string` | `'0.1.0'` | Server version |
-| `toolProfile` | `ToolProfile` | `'all'` | Tool profile filter (`all`, `analysis`, `scout`) |
-| `maxResults` | `number` | `100` | Maximum results per tool invocation |
-| `enableStreaming` | `boolean` | `false` | Enable streaming responses |
-| `enableResources` | `boolean` | `true` | Enable resource listing and reading |
-| `enablePrompts` | `boolean` | `true` | Enable prompt listing and retrieval |
+| Property          | Type          | Default           | Description                                      |
+| ----------------- | ------------- | ----------------- | ------------------------------------------------ |
+| `name`            | `string`      | `'code-analyzer'` | Server name reported to MCP clients              |
+| `version`         | `string`      | `'0.1.0'`         | Server version                                   |
+| `toolProfile`     | `ToolProfile` | `'all'`           | Tool profile filter (`all`, `analysis`, `scout`) |
+| `maxResults`      | `number`      | `100`             | Maximum results per tool invocation              |
+| `enableStreaming` | `boolean`     | `false`           | Enable streaming responses                       |
+| `enableResources` | `boolean`     | `true`            | Enable resource listing and reading              |
+| `enablePrompts`   | `boolean`     | `true`            | Enable prompt listing and retrieval              |
 
 ### `RateLimiter` Configuration
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `capacity` | `number` | `100` | Maximum tokens in bucket |
-| `refillRate` | `number` | `0.5` | Tokens per millisecond (~30/min) |
+| Property     | Type     | Default | Description                      |
+| ------------ | -------- | ------- | -------------------------------- |
+| `capacity`   | `number` | `100`   | Maximum tokens in bucket         |
+| `refillRate` | `number` | `0.5`   | Tokens per millisecond (~30/min) |
 
 ### `RequestLogger` Configuration
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `maxLogs` | `number` | `1000` | Maximum log entries to retain |
+| Property  | Type     | Default | Description                   |
+| --------- | -------- | ------- | ----------------------------- |
+| `maxLogs` | `number` | `1000`  | Maximum log entries to retain |
 
 ### `GraphSchema` (Cypher Engine)
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `nodeLabels` | `string[]` | 38 labels | Valid node labels |
-| `relationshipTypes` | `string[]` | 38 types | Valid relationship types |
-| `nodeProperties` | `string[]` | 12 props | Queryable node properties |
-| `edgeProperties` | `string[]` | 2 props | Queryable edge properties |
+| Property            | Type       | Default   | Description               |
+| ------------------- | ---------- | --------- | ------------------------- |
+| `nodeLabels`        | `string[]` | 38 labels | Valid node labels         |
+| `relationshipTypes` | `string[]` | 38 types  | Valid relationship types  |
+| `nodeProperties`    | `string[]` | 12 props  | Queryable node properties |
+| `edgeProperties`    | `string[]` | 2 props   | Queryable edge properties |
 
 ## Package Dependencies
 
-| Dependency | Description |
-|------------|-------------|
-| `@code-analyzer/shared` | Shared types (`ToolDefinition`, `MCPServerConfig`, graph types) |
-| `@code-analyzer/core` | Core analysis engine interfaces |
-| `@code-analyzer/infra` | `InMemoryGraphStore` — in-memory graph storage with FTS5 |
-| `@code-analyzer/analyzer` | Static analysis and AST parsing |
-| `@code-analyzer/intelligence` | AI/LLM-powered code intelligence |
-| `@modelcontextprotocol/sdk` | Official MCP TypeScript SDK (^1.0.0) |
+| Dependency                    | Description                                                     |
+| ----------------------------- | --------------------------------------------------------------- |
+| `@code-analyzer/shared`       | Shared types (`ToolDefinition`, `MCPServerConfig`, graph types) |
+| `@code-analyzer/core`         | Core analysis engine interfaces                                 |
+| `@code-analyzer/infra`        | `InMemoryGraphStore` — in-memory graph storage with FTS5        |
+| `@code-analyzer/analyzer`     | Static analysis and AST parsing                                 |
+| `@code-analyzer/intelligence` | AI/LLM-powered code intelligence                                |
+| `@modelcontextprotocol/sdk`   | Official MCP TypeScript SDK (^1.0.0)                            |
 
 ### Dev Dependencies
 
-| Dependency | Description |
-|------------|-------------|
+| Dependency   | Description                  |
+| ------------ | ---------------------------- |
 | `typescript` | TypeScript compiler (^5.6.0) |
-| `vitest` | Unit test runner (^2.1.0) |
+| `vitest`     | Unit test runner (^2.1.0)    |
 
 ## Architecture
 

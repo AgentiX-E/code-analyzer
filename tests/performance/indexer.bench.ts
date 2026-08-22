@@ -10,7 +10,12 @@ import { tmpdir } from 'node:os';
 
 import { InMemoryGraphStore } from '../../packages/infra/src/storage/in-memory-graph-store.js';
 import { ParallelIndexer } from '../../packages/infra/src/workers/parallel-indexer.js';
-import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '../../packages/shared/src/types/graph.js';
+import type {
+  GraphNode,
+  GraphEdge,
+  NodeLabel,
+  RelationshipType,
+} from '../../packages/shared/src/types/graph.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,11 +30,7 @@ function createTempDir(): string {
   return dir;
 }
 
-function generateProjectFiles(
-  rootPath: string,
-  fileCount: number,
-  symbolsPerFile = 5,
-): void {
+function generateProjectFiles(rootPath: string, fileCount: number, symbolsPerFile = 5): void {
   const extensions = ['.ts', '.js', '.py', '.go', '.java'];
   for (let i = 0; i < fileCount; i++) {
     const ext = extensions[i % extensions.length]!;
@@ -41,11 +42,7 @@ function generateProjectFiles(
   }
 }
 
-function generateFileContent(
-  seed: number,
-  symbolCount: number,
-  ext: string,
-): string {
+function generateFileContent(seed: number, symbolCount: number, ext: string): string {
   const lines: string[] = [];
 
   if (ext === '.ts' || ext === '.js') {
@@ -138,7 +135,11 @@ function generateNodes(count: number, projectId = 'perf-test'): GraphNode[] {
   return nodes;
 }
 
-function generateEdges(nodeIds: number[], edgesPerNode: number, projectId = 'perf-test'): GraphEdge[] {
+function generateEdges(
+  nodeIds: number[],
+  edgesPerNode: number,
+  projectId = 'perf-test',
+): GraphEdge[] {
   const edges: GraphEdge[] = [];
   const types: RelationshipType[] = ['CALLS', 'DEFINES', 'IMPORTS', 'REFERENCES'];
   for (let i = 0; i < nodeIds.length; i++) {

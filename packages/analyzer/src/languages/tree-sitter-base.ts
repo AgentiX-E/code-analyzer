@@ -134,11 +134,13 @@ function getTreeSitter(): TreeSitterParserClass | null {
   if (treeSitterParserClass) return treeSitterParserClass;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Parser = require('tree-sitter') as TreeSitterParserClass & { Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery };
+    const Parser = require('tree-sitter') as TreeSitterParserClass & {
+      Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery;
+    };
     treeSitterParserClass = Parser;
     return Parser;
-  } /* v8 ignore start -- @preserve -- require never throws in the bundled runtime */
-  catch {
+  } catch {
+    /* v8 ignore start -- @preserve -- require never throws in the bundled runtime */
     return null;
   }
   /* v8 ignore stop */
@@ -185,7 +187,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         this.languageGrammar = grammar;
         try {
           this.parser.setLanguage(grammar);
-        /* v8 ignore start -- @preserve -- bundled grammar never fails setLanguage */
+          /* v8 ignore start -- @preserve -- bundled grammar never fails setLanguage */
         } catch {
           // Grammar failed to load — fall back to regex
           this.parser = null;
@@ -240,8 +242,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkAndCapture(rootNode, captures);
 
       return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
-    } /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
       return this.fallbackParse(sanitized, filePath);
     }
     /* v8 ignore stop */
@@ -256,11 +258,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    */
   protected sanitizeSource(source: string): string {
     return source
-      .replace(/^\uFEFF/, '')                    // BOM at start
-      .replace(/[\u200B\u200C\u200D]/g, '')      // zero-width spaces/joiners
-      .replace(/\uFEFF/g, '')                     // BOM anywhere
-      .replace(/\r\n/g, '\n')                     // CRLF → LF
-      .replace(/\r/g, '\n');                       // CR → LF
+      .replace(/^\uFEFF/, '') // BOM at start
+      .replace(/[\u200B\u200C\u200D]/g, '') // zero-width spaces/joiners
+      .replace(/\uFEFF/g, '') // BOM anywhere
+      .replace(/\r\n/g, '\n') // CRLF → LF
+      .replace(/\r/g, '\n'); // CR → LF
   }
 
   // -----------------------------------------------------------------------
@@ -283,8 +285,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkForImports(rootNode, imports);
 
       return imports;
-    } /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
       return this.fallbackExtractImports(source);
     }
     /* v8 ignore stop */
@@ -306,8 +308,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const tree = this.parser.parse(source);
       const rootNode = tree.rootNode;
       return this.checkExported(rootNode, symbolName);
-    } /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
       return this.fallbackIsExported(source, symbolName);
     }
     /* v8 ignore stop */
@@ -382,10 +384,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     }
 
     // Extract base classes for class-like nodes (extends/implements)
-    if (
-      node.type === 'class_declaration' ||
-      node.type === 'class_definition'
-    ) {
+    if (node.type === 'class_declaration' || node.type === 'class_definition') {
       const baseClasses = this.extractBaseClasses(node);
       if (baseClasses) {
         properties.baseClasses = baseClasses;
@@ -438,9 +437,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
     // Check for export modifiers or statements
     const nodeType = node.type;
-    const isExportRelated =
-      nodeType.includes('export') ||
-      this.isExportStatement(node);
+    const isExportRelated = nodeType.includes('export') || this.isExportStatement(node);
 
     /* v8 ignore start -- @preserve -- only html/json inherit this, and neither has export nodes */
     if (isExportRelated) {
@@ -450,7 +447,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       // Check children for the symbol name
       for (let i = 0; i < node.childCount; i++) {
         const child = node.child(i);
-        if (child.type === 'identifier' || child.type === 'type_identifier' || child.type === 'property_identifier') {
+        if (
+          child.type === 'identifier' ||
+          child.type === 'type_identifier' ||
+          child.type === 'property_identifier'
+        ) {
           if (child.text === symbolName) return true;
         }
       }
@@ -653,21 +654,28 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Check if a node type represents a call expression */
   protected isCallNodeType(nodeType: string): boolean {
     return [
-      'call_expression', 'method_invocation', 'new_expression',
-      'function_call', 'member_call', 'call',
-      'invocation_expression', 'member_access_expression',
-      'postfix_unary_expression', 'binary_expression',
-      'method_call', 'explicit_constructor_invocation',
-      'prefix_expression', 'selector_expression',
-      'send', 'fcall', 'command',
+      'call_expression',
+      'method_invocation',
+      'new_expression',
+      'function_call',
+      'member_call',
+      'call',
+      'invocation_expression',
+      'member_access_expression',
+      'postfix_unary_expression',
+      'binary_expression',
+      'method_call',
+      'explicit_constructor_invocation',
+      'prefix_expression',
+      'selector_expression',
+      'send',
+      'fcall',
+      'command',
     ].includes(nodeType);
   }
 
   /** Emit a UnifiedCapture for a call site node */
-  protected emitCallCapture(
-    node: TreeSitterSyntaxNode,
-    captures: UnifiedCapture[],
-  ): void {
+  protected emitCallCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const name = this.extractCallName(node) ?? this.extractNewExpressionName(node);
     if (!name) return;
 
@@ -702,9 +710,13 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   /** Determine the capture tag for a call node type */
   protected getCallTagForNodeType(nodeType: string): CaptureTag {
     /* v8 ignore next -- @preserve -- emitCallCapture callers (js/ts) only emit call_expression/new_expression */
-    if (nodeType === 'method_invocation' || nodeType === 'member_call' || 
-        nodeType === 'member_access_expression' || nodeType === 'send' ||
-        nodeType === 'method_call') {
+    if (
+      nodeType === 'method_invocation' ||
+      nodeType === 'member_call' ||
+      nodeType === 'member_access_expression' ||
+      nodeType === 'send' ||
+      nodeType === 'method_call'
+    ) {
       return CAPTURE_TAGS.METHOD_CALL;
     }
     if (nodeType === 'new_expression' || nodeType === 'explicit_constructor_invocation') {
@@ -735,7 +747,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // Try function child (function name in call_expression)
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
-      if (child.type === 'function' || child.type === 'identifier' || child.type === 'type_identifier') {
+      if (
+        child.type === 'function' ||
+        child.type === 'identifier' ||
+        child.type === 'type_identifier'
+      ) {
         return child.text;
       }
     }
@@ -798,8 +814,10 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const child = node.child(i);
       /* v8 ignore next -- @preserve -- extractCallName resolves the identifier before this runs */
       if (
-        child.type === 'identifier' || child.type === 'type_identifier' ||
-        child.type === 'new' || child.type === 'object'
+        child.type === 'identifier' ||
+        child.type === 'type_identifier' ||
+        child.type === 'new' ||
+        child.type === 'object'
       ) {
         // For 'new' keyword, find the type after it
         if (child.type === 'new') {
@@ -833,8 +851,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const sources: TaintSource[] = [];
       this.walkForTaintSources(tree.rootNode, sources);
       return sources;
-    } /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
       return this.fallbackExtractTaintSources(source);
     }
     /* v8 ignore stop */
@@ -880,8 +898,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const sinks: TaintSink[] = [];
       this.walkForTaintSinks(tree.rootNode, sinks);
       return sinks;
-    } /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
       return this.fallbackExtractTaintSinks(source);
     }
     /* v8 ignore stop */
@@ -927,8 +945,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const sanitizers: TaintSanitizer[] = [];
       this.walkForSanitizers(tree.rootNode, sanitizers);
       return sanitizers;
-    } /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
-    catch {
+    } catch {
+      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
       return this.fallbackExtractSanitizers(source);
     }
     /* v8 ignore stop */

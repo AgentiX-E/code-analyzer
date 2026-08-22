@@ -136,18 +136,32 @@ export function buildPdg(
 // Graph Construction
 // ---------------------------------------------------------------------------
 
-function makeEmptyGraph(
-  functionName: string,
-  filePath: string,
-): PdgGraph {
+function makeEmptyGraph(functionName: string, filePath: string): PdgGraph {
   // Include synthetic entry/exit sentinel nodes even for empty CFGs
-  const nodes: InternalNode[] = [{
-    nodeId: 0, blockIndex: -1, stmtIndex: -1, kind: 'entry', line: 0,
-    controlDependents: new Set(), controllers: new Set(), dataTargets: new Set(), dataSources: new Set(),
-  }, {
-    nodeId: 1, blockIndex: -2, stmtIndex: -2, kind: 'exit', line: 0,
-    controlDependents: new Set(), controllers: new Set(), dataTargets: new Set(), dataSources: new Set(),
-  }];
+  const nodes: InternalNode[] = [
+    {
+      nodeId: 0,
+      blockIndex: -1,
+      stmtIndex: -1,
+      kind: 'entry',
+      line: 0,
+      controlDependents: new Set(),
+      controllers: new Set(),
+      dataTargets: new Set(),
+      dataSources: new Set(),
+    },
+    {
+      nodeId: 1,
+      blockIndex: -2,
+      stmtIndex: -2,
+      kind: 'exit',
+      line: 0,
+      controlDependents: new Set(),
+      controllers: new Set(),
+      dataTargets: new Set(),
+      dataSources: new Set(),
+    },
+  ];
 
   return {
     functionName,
@@ -156,8 +170,12 @@ function makeEmptyGraph(
     edges: [],
     controlEdges: [],
     dataFacts: [],
-    get nodeCount() { return nodes.length; },
-    get edgeCount() { return 0; },
+    get nodeCount() {
+      return nodes.length;
+    },
+    get edgeCount() {
+      return 0;
+    },
 
     queryControl(_query: PdgControlQuery): PdgQueryResult {
       return { controlEdges: [], dataFacts: [], truncated: false };
@@ -227,7 +245,7 @@ function buildGraph(
     }
 
     const label = cdgEdge.label ?? 'ctrl';
-    const isLoop = label.includes('loop') || (srcId === tgtId);
+    const isLoop = label.includes('loop') || srcId === tgtId;
     edges.push({
       sourceId: srcId,
       targetId: tgtId,
@@ -335,13 +353,18 @@ function makeGraph(
     edges,
     controlEdges,
     dataFacts,
-    get nodeCount() { return nodes.length; },
-    get edgeCount() { return edges.length; },
+    get nodeCount() {
+      return nodes.length;
+    },
+    get edgeCount() {
+      return edges.length;
+    },
 
     queryControl(query: PdgControlQuery): PdgQueryResult {
-      const matching = query.direction === 'dependents'
-        ? controlEdges.filter((e) => e.controllerBlock === query.controllerBlock)
-        : controlEdges.filter((e) => e.dependentBlock === query.controllerBlock);
+      const matching =
+        query.direction === 'dependents'
+          ? controlEdges.filter((e) => e.controllerBlock === query.controllerBlock)
+          : controlEdges.filter((e) => e.dependentBlock === query.controllerBlock);
 
       return {
         controlEdges: matching.slice(0, 100),
@@ -351,19 +374,20 @@ function makeGraph(
     },
 
     queryData(query: PdgDataQuery): PdgQueryResult {
-      const matching = query.direction === 'defs'
-        ? dataFacts.filter(
-            (f) =>
-              f.def.blockIndex === query.blockIndex &&
-              f.def.stmtIndex === query.stmtIndex &&
-              f.bindingIdx === query.bindingIdx,
-          )
-        : dataFacts.filter(
-            (f) =>
-              f.use.blockIndex === query.blockIndex &&
-              f.use.stmtIndex === query.stmtIndex &&
-              f.bindingIdx === query.bindingIdx,
-          );
+      const matching =
+        query.direction === 'defs'
+          ? dataFacts.filter(
+              (f) =>
+                f.def.blockIndex === query.blockIndex &&
+                f.def.stmtIndex === query.stmtIndex &&
+                f.bindingIdx === query.bindingIdx,
+            )
+          : dataFacts.filter(
+              (f) =>
+                f.use.blockIndex === query.blockIndex &&
+                f.use.stmtIndex === query.stmtIndex &&
+                f.bindingIdx === query.bindingIdx,
+            );
 
       return {
         controlEdges: [],

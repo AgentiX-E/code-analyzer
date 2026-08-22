@@ -1,9 +1,4 @@
-import type {
-  Finding,
-  Recommendation,
-  ReviewCategory,
-  Severity,
-} from '@code-analyzer/shared';
+import type { Finding, Recommendation, ReviewCategory, Severity } from '@code-analyzer/shared';
 
 export interface RecommendationOptions {
   maxRecommendations?: number;
@@ -47,10 +42,7 @@ export class RecommendationEngine {
    * Generate recommendations from findings.
    * Groups related findings, scores them, and returns prioritized list.
    */
-  generateRecommendations(
-    findings: Finding[],
-    options?: RecommendationOptions,
-  ): Recommendation[] {
+  generateRecommendations(findings: Finding[], options?: RecommendationOptions): Recommendation[] {
     if (findings.length === 0) return [];
 
     // Group related findings
@@ -71,7 +63,9 @@ export class RecommendationEngine {
    * Estimate implementation effort for a recommendation.
    * Considers number of affected files, findings, and complexity.
    */
-  estimateEffort(recommendation: Recommendation): 'trivial' | 'small' | 'medium' | 'large' | 'xlarge' {
+  estimateEffort(
+    recommendation: Recommendation,
+  ): 'trivial' | 'small' | 'medium' | 'large' | 'xlarge' {
     const fileCount = recommendation.affectedFiles.length;
     const actionCount = recommendation.actionItems.length;
 

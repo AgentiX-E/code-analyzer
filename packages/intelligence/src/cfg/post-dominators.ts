@@ -56,7 +56,12 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
 
   // Intersect operation: walk up the dominator chain
   // Find the deepest common ancestor in the ipdom tree
-  const intersect = (finger1: number, finger2: number, ipdom: number[], postNum: number[]): number => {
+  const intersect = (
+    finger1: number,
+    finger2: number,
+    ipdom: number[],
+    postNum: number[],
+  ): number => {
     while (finger1 !== finger2) {
       let moved = false;
       // Climb the finger that is further from root (higher postnum = processed later)
@@ -174,11 +179,7 @@ export function postDominates(tree: PostDomTree, p: number, b: number): boolean 
  * starting from EXIT block. Uses iterative DFS with explicit stack
  * to avoid recursion stack overflow on large CFGs.
  */
-function computeReversePostOrder(
-  revSuccs: number[][],
-  exitIndex: number,
-  n: number,
-): number[] {
+function computeReversePostOrder(revSuccs: number[][], exitIndex: number, n: number): number[] {
   const postOrder: number[] = [];
   if (exitIndex < 0 || exitIndex >= n) return postOrder;
 

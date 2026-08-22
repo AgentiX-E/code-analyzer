@@ -98,7 +98,10 @@ export class ReportGenerator {
         headRef: options.headRef,
       },
       summary: {
-        overallScore: this.computeOverallScore(severityCounts, options.metrics.complianceScore ?? 0),
+        overallScore: this.computeOverallScore(
+          severityCounts,
+          options.metrics.complianceScore ?? 0,
+        ),
         riskLevel: this.deriveRiskLevel(severityCounts),
         ...severityCounts,
         totalFindings: findings.length,
@@ -134,7 +137,10 @@ export class ReportGenerator {
       createdAt: new Date().toISOString(),
       scope: { type: 'project', projectId: options.projectId },
       summary: {
-        overallScore: this.computeOverallScore(severityCounts, options.metrics.complianceScore ?? 0),
+        overallScore: this.computeOverallScore(
+          severityCounts,
+          options.metrics.complianceScore ?? 0,
+        ),
         riskLevel: this.deriveRiskLevel(severityCounts),
         ...severityCounts,
         totalFindings: options.findings.length,
@@ -259,7 +265,10 @@ export class ReportGenerator {
     }));
   }
 
-  private violationsToFindings(violations: import('@code-analyzer/shared').Violation[], projectId: string): Finding[] {
+  private violationsToFindings(
+    violations: import('@code-analyzer/shared').Violation[],
+    projectId: string,
+  ): Finding[] {
     return violations.map((v, idx) => ({
       id: `${projectId}-violation-${idx}`,
       category: 'maintainability',
@@ -305,9 +314,10 @@ export class ReportGenerator {
     severityCounts: ReturnType<ReportGenerator['countSeverities']>,
     standardsResults: StandardsCheckResult[],
   ): 'approve' | 'approve-with-comments' | 'request-changes' | 'block' {
-    const minCompliance = standardsResults.length > 0
-      ? Math.min(...standardsResults.map((s) => s.complianceScore))
-      : 100;
+    const minCompliance =
+      standardsResults.length > 0
+        ? Math.min(...standardsResults.map((s) => s.complianceScore))
+        : 100;
 
     if (severityCounts.criticalFindings > 0 || minCompliance < 50) return 'block';
     if (severityCounts.highFindings > 3 || minCompliance < 70) return 'request-changes';
@@ -347,7 +357,10 @@ export class ReportGenerator {
     const penalty = criticalPenalty + highPenalty + mediumPenalty + lowPenalty;
 
     if (complianceScore > 0) {
-      return Math.max(0, Math.round(((complianceScore * 0.6) + (Math.max(0, maxScore - penalty) * 0.4)) * 100) / 100);
+      return Math.max(
+        0,
+        Math.round((complianceScore * 0.6 + Math.max(0, maxScore - penalty) * 0.4) * 100) / 100,
+      );
     }
 
     return Math.max(0, Math.round((maxScore - penalty) * 100) / 100);
@@ -384,7 +397,9 @@ export class ReportGenerator {
     const topCategory = [...categories.entries()].sort((a, b) => b[1] - a[1])[0];
     /* v8 ignore start */
     if (topCategory) {
-      takeways.push(`Most findings are in the "${topCategory[0]}" category (${topCategory[1]} issues).`);
+      takeways.push(
+        `Most findings are in the "${topCategory[0]}" category (${topCategory[1]} issues).`,
+      );
     }
     /* v8 ignore stop */
 
@@ -443,15 +458,22 @@ export class ReportGenerator {
     return [...groups.entries()].map(([key, group], idx) => {
       const [severity, category] = key.split(':');
       const resolvedCategory = /* v8 ignore next */ category ?? 'other';
-      const severityOrder: Record<Severity, number> = { critical: 1, high: 1, medium: 2, low: 3, info: 3 };
-      const priority = (/* v8 ignore next */ severityOrder[severity as Severity] ?? 3) as 1 | 2 | 3;
+      const severityOrder: Record<Severity, number> = {
+        critical: 1,
+        high: 1,
+        medium: 2,
+        low: 3,
+        info: 3,
+      };
+      const priority = /* v8 ignore next */ (severityOrder[severity as Severity] ?? 3) as 1 | 2 | 3;
 
       return {
         id: `rec-${idx}`,
         priority,
         title: `Address ${group.length} ${severity} ${resolvedCategory} issue(s)`,
         description: `${group.length} finding(s) in the "${resolvedCategory}" category with ${severity} severity.`,
-        estimatedEffort: this.estimateEffortFromFindings(group) as 'trivial' | 'small' | 'medium' | 'large' | 'xlarge',
+        estimatedEffort: this.estimateEffortFromFindings(group) as
+          'trivial' | 'small' | 'medium' | 'large' | 'xlarge',
         affectedFiles: [...new Set(group.map((f) => f.filePath))],
         actionItems: group.map((f) => ({
           description: f.title,

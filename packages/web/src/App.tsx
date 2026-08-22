@@ -9,9 +9,9 @@ import RepoGroupManager from './components/RepoGroupManager';
 type Tab = 'graph' | 'search' | 'dashboard' | 'cross-repo' | 'pr-review' | 'repo-groups';
 
 const TAB_LABELS: Record<Tab, string> = {
-  'graph': 'Graph',
-  'search': 'Search',
-  'dashboard': 'Dashboard',
+  graph: 'Graph',
+  search: 'Search',
+  dashboard: 'Dashboard',
   'cross-repo': 'Cross-Repo',
   'pr-review': 'PR Review',
   'repo-groups': 'Repo Groups',

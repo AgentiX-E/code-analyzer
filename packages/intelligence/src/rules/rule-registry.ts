@@ -85,9 +85,7 @@ export class RuleRegistry {
    * List templates filtered by tags.
    */
   listByTags(tags: string[]): RegistryTemplate[] {
-    return this.list().filter((t) =>
-      tags.some((tag) => t.tags.includes(tag)),
-    );
+    return this.list().filter((t) => tags.some((tag) => t.tags.includes(tag)));
   }
 
   /**
@@ -95,10 +93,11 @@ export class RuleRegistry {
    */
   search(query: string): RegistryTemplate[] {
     const lower = query.toLowerCase();
-    return this.list().filter((t) =>
-      t.name.toLowerCase().includes(lower) ||
-      t.description.toLowerCase().includes(lower) ||
-      t.tags.some((tag) => tag.toLowerCase().includes(lower)),
+    return this.list().filter(
+      (t) =>
+        t.name.toLowerCase().includes(lower) ||
+        t.description.toLowerCase().includes(lower) ||
+        t.tags.some((tag) => tag.toLowerCase().includes(lower)),
     );
   }
 
@@ -171,7 +170,7 @@ export class RuleRegistry {
 
         this.register(item as unknown as RegistryTemplate);
         result.imported++;
-      /* v8 ignore next 2 */ // register() validation errors are tested via unit tests on register directly
+        /* v8 ignore next 2 */ // register() validation errors are tested via unit tests on register directly
       } catch (err) {
         result.errors.push(`Item ${i}: ${err instanceof Error ? err.message : String(err)}`);
       }

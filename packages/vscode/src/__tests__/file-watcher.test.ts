@@ -1,15 +1,8 @@
 // @code-analyzer/vscode — File Watcher Tests
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import {
-  FileWatcherService,
-  DEFAULT_WATCHER_CONFIG,
-} from '../services/file-watcher.js';
-import type {
-  WatcherConfig,
-  FileSystemWatcher,
-  WatcherFactory,
-} from '../services/file-watcher.js';
+import { FileWatcherService, DEFAULT_WATCHER_CONFIG } from '../services/file-watcher.js';
+import type { WatcherConfig, FileSystemWatcher, WatcherFactory } from '../services/file-watcher.js';
 import { EngineBridge } from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------
@@ -47,7 +40,9 @@ function createFakeWatcher(): FileSystemWatcher & { _fake: FakeWatcher } {
   };
 }
 
-function makeWatcherFactory(): WatcherFactory & { watchers: Array<FileSystemWatcher & { _fake: FakeWatcher }> } {
+function makeWatcherFactory(): WatcherFactory & {
+  watchers: Array<FileSystemWatcher & { _fake: FakeWatcher }>;
+} {
   const watchers: Array<FileSystemWatcher & { _fake: FakeWatcher }> = [];
 
   return {

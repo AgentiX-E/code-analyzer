@@ -60,9 +60,9 @@ export async function runEmbeddingQuality(): Promise<SuiteResult> {
   let highCorrect = 0;
   let mediumCorrect = 0;
   let lowCorrect = 0;
-  const highPairs = ALL_SEMANTIC_PAIRS.filter(p => p.expectedSimilarity === 'high');
-  const mediumPairs = ALL_SEMANTIC_PAIRS.filter(p => p.expectedSimilarity === 'medium');
-  const lowPairs = ALL_SEMANTIC_PAIRS.filter(p => p.expectedSimilarity === 'low');
+  const highPairs = ALL_SEMANTIC_PAIRS.filter((p) => p.expectedSimilarity === 'high');
+  const mediumPairs = ALL_SEMANTIC_PAIRS.filter((p) => p.expectedSimilarity === 'medium');
+  const lowPairs = ALL_SEMANTIC_PAIRS.filter((p) => p.expectedSimilarity === 'low');
 
   // Measure embedding throughput
   const embedStart = Date.now();
@@ -112,15 +112,28 @@ export async function runEmbeddingQuality(): Promise<SuiteResult> {
   const highAccuracy = highPairs.length > 0 ? highCorrect / highPairs.length : 0;
   const mediumAccuracy = mediumPairs.length > 0 ? mediumCorrect / mediumPairs.length : 0;
   const lowAccuracy = lowPairs.length > 0 ? lowCorrect / lowPairs.length : 0;
-  const overallAccuracy = ALL_SEMANTIC_PAIRS.length > 0
-    ? (highCorrect + mediumCorrect + lowCorrect) / ALL_SEMANTIC_PAIRS.length
-    : 0;
+  const overallAccuracy =
+    ALL_SEMANTIC_PAIRS.length > 0
+      ? (highCorrect + mediumCorrect + lowCorrect) / ALL_SEMANTIC_PAIRS.length
+      : 0;
 
   measurements.push(
     { name: 'total_pairs', value: ALL_SEMANTIC_PAIRS.length, unit: 'count' },
-    { name: 'high_similarity_accuracy', value: Math.round(highAccuracy * 10000) / 100, unit: 'percent' },
-    { name: 'medium_similarity_accuracy', value: Math.round(mediumAccuracy * 10000) / 100, unit: 'percent' },
-    { name: 'low_similarity_accuracy', value: Math.round(lowAccuracy * 10000) / 100, unit: 'percent' },
+    {
+      name: 'high_similarity_accuracy',
+      value: Math.round(highAccuracy * 10000) / 100,
+      unit: 'percent',
+    },
+    {
+      name: 'medium_similarity_accuracy',
+      value: Math.round(mediumAccuracy * 10000) / 100,
+      unit: 'percent',
+    },
+    {
+      name: 'low_similarity_accuracy',
+      value: Math.round(lowAccuracy * 10000) / 100,
+      unit: 'percent',
+    },
     { name: 'overall_accuracy', value: Math.round(overallAccuracy * 10000) / 100, unit: 'percent' },
     { name: 'embedding_throughput', value: Math.round(charsPerMs * 1000), unit: 'chars/sec' },
     { name: 'embedding_dimension', value: 768, unit: 'dims' },

@@ -60,7 +60,12 @@ export const refactorSuggestionTool: McpToolDefinition = {
 
     if (nodes.length === 0) {
       return {
-        content: [{ type: 'text', text: `No symbols found for project "${projectIdStr}". Index the project first.` }],
+        content: [
+          {
+            type: 'text',
+            text: `No symbols found for project "${projectIdStr}". Index the project first.`,
+          },
+        ],
         metadata: { projectId: projectIdStr },
       };
     }
@@ -176,9 +181,11 @@ function isFunctionNode(label: string): boolean {
 
 function formatSuggestions(suggestions: RefactorSuggestion[], projectId: string): string {
   if (suggestions.length === 0) {
-    return `## Refactor Suggestions — ${projectId}\n\n` +
+    return (
+      `## Refactor Suggestions — ${projectId}\n\n` +
       'No refactoring opportunities detected. The codebase appears to be well-structured based on graph metrics.\n\n' +
-      '> Note: Suggestions are based on knowledge graph edge analysis. Run a full analysis pipeline for more data.\n';
+      '> Note: Suggestions are based on knowledge graph edge analysis. Run a full analysis pipeline for more data.\n'
+    );
   }
 
   const highCount = suggestions.filter((s) => s.severity === 'high').length;

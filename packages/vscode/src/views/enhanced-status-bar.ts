@@ -35,10 +35,7 @@ export class CodeAnalyzerStatusBar {
 
   constructor(
     private engine: EngineBridge,
-    private createStatusBarItem: (
-      alignment: number,
-      priority: number,
-    ) => StatusBarItem,
+    private createStatusBarItem: (alignment: number, priority: number) => StatusBarItem,
     private alignment: StatusBarAlignment,
   ) {}
 
@@ -66,9 +63,7 @@ export class CodeAnalyzerStatusBar {
     if (!this.item) return;
 
     const reviewIcon = this.reviewCount > 0 ? '$(warning)' : '$(check)';
-    const reviewText = this.reviewCount > 0
-      ? ` ${this.reviewCount} findings`
-      : ' clean';
+    const reviewText = this.reviewCount > 0 ? ` ${this.reviewCount} findings` : ' clean';
 
     this.item.text = `${reviewIcon} Code Analyzer${reviewText}`;
     this.item.tooltip = this.buildTooltip();

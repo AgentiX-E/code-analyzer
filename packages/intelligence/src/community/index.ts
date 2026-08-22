@@ -10,9 +10,5 @@ export type { LeidenCommunityResult, LeidenInput, LeidenConfig } from './leiden.
 export { LeidenCommunityDetector } from './leiden-detector.js';
 export type { LeidenResult, LeidenCommunityInfo } from './leiden-detector.js';
 
-export {
-  buildReducedGraph,
-  mapToOriginalNodes,
-  louvainWithAggregation,
-} from './aggregation.js';
+export { buildReducedGraph, mapToOriginalNodes, louvainWithAggregation } from './aggregation.js';
 export type { ReducedGraph } from './aggregation.js';

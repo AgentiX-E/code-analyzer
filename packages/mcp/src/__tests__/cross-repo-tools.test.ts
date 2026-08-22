@@ -22,105 +22,243 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
   const nodes: GraphNode[] = [
     // Repo Alpha nodes
     {
-      id: 0, projectId: projectA, label: 'Function', name: 'alphaFn', qualifiedName: 'alpha.alphaFn',
-      filePath: '/alpha/src/fn.ts', startLine: 1, endLine: 20, language: 'typescript',
-      properties: {}, signature: 'alphaFn(): void', docstring: 'Alpha function',
-      complexity: 5, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectA,
+      label: 'Function',
+      name: 'alphaFn',
+      qualifiedName: 'alpha.alphaFn',
+      filePath: '/alpha/src/fn.ts',
+      startLine: 1,
+      endLine: 20,
+      language: 'typescript',
+      properties: {},
+      signature: 'alphaFn(): void',
+      docstring: 'Alpha function',
+      complexity: 5,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId: projectA, label: 'Class', name: 'AlphaService', qualifiedName: 'alpha.AlphaService',
-      filePath: '/alpha/src/service.ts', startLine: 1, endLine: 40, language: 'typescript',
-      properties: {}, signature: null, docstring: 'Alpha service',
-      complexity: 10, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectA,
+      label: 'Class',
+      name: 'AlphaService',
+      qualifiedName: 'alpha.AlphaService',
+      filePath: '/alpha/src/service.ts',
+      startLine: 1,
+      endLine: 40,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: 'Alpha service',
+      complexity: 10,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId: projectA, label: 'Route', name: 'getAlphaItems', qualifiedName: 'alpha.routes.getAlphaItems',
-      filePath: '/alpha/src/routes/items.ts', startLine: 5, endLine: 15, language: 'typescript',
-      properties: { routePath: '/api/alpha/items', routeMethod: 'GET' }, signature: null,
-      docstring: null, complexity: null, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectA,
+      label: 'Route',
+      name: 'getAlphaItems',
+      qualifiedName: 'alpha.routes.getAlphaItems',
+      filePath: '/alpha/src/routes/items.ts',
+      startLine: 5,
+      endLine: 15,
+      language: 'typescript',
+      properties: { routePath: '/api/alpha/items', routeMethod: 'GET' },
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Repo Beta nodes
     {
-      id: 0, projectId: projectB, label: 'Function', name: 'betaFn', qualifiedName: 'beta.betaFn',
-      filePath: '/beta/src/fn.ts', startLine: 1, endLine: 15, language: 'typescript',
-      properties: {}, signature: 'betaFn(): void', docstring: 'Beta function',
-      complexity: 3, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectB,
+      label: 'Function',
+      name: 'betaFn',
+      qualifiedName: 'beta.betaFn',
+      filePath: '/beta/src/fn.ts',
+      startLine: 1,
+      endLine: 15,
+      language: 'typescript',
+      properties: {},
+      signature: 'betaFn(): void',
+      docstring: 'Beta function',
+      complexity: 3,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId: projectB, label: 'Class', name: 'BetaConsumer', qualifiedName: 'beta.BetaConsumer',
-      filePath: '/beta/src/consumer.ts', startLine: 1, endLine: 30, language: 'typescript',
-      properties: {}, signature: null, docstring: 'Consumes alpha data',
-      complexity: 7, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectB,
+      label: 'Class',
+      name: 'BetaConsumer',
+      qualifiedName: 'beta.BetaConsumer',
+      filePath: '/beta/src/consumer.ts',
+      startLine: 1,
+      endLine: 30,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: 'Consumes alpha data',
+      complexity: 7,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId: projectB, label: 'Route', name: 'getBetaItems', qualifiedName: 'beta.routes.getBetaItems',
-      filePath: '/beta/src/routes/items.ts', startLine: 5, endLine: 15, language: 'typescript',
-      properties: { routePath: '/api/beta/items', routeMethod: 'GET' }, signature: null,
-      docstring: null, complexity: null, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectB,
+      label: 'Route',
+      name: 'getBetaItems',
+      qualifiedName: 'beta.routes.getBetaItems',
+      filePath: '/beta/src/routes/items.ts',
+      startLine: 5,
+      endLine: 15,
+      language: 'typescript',
+      properties: { routePath: '/api/beta/items', routeMethod: 'GET' },
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // Repo Gamma nodes
     {
-      id: 0, projectId: projectC, label: 'Function', name: 'gammaFn', qualifiedName: 'gamma.gammaFn',
-      filePath: '/gamma/src/fn.ts', startLine: 1, endLine: 10, language: 'typescript',
-      properties: {}, signature: 'gammaFn(): void', docstring: 'Gamma function',
-      complexity: 2, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectC,
+      label: 'Function',
+      name: 'gammaFn',
+      qualifiedName: 'gamma.gammaFn',
+      filePath: '/gamma/src/fn.ts',
+      startLine: 1,
+      endLine: 10,
+      language: 'typescript',
+      properties: {},
+      signature: 'gammaFn(): void',
+      docstring: 'Gamma function',
+      complexity: 2,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId: projectC, label: 'Route', name: 'getGammaItems', qualifiedName: 'gamma.routes.getGammaItems',
-      filePath: '/gamma/src/routes/items.ts', startLine: 5, endLine: 15, language: 'typescript',
-      properties: { routePath: '/api/gamma/items', routeMethod: 'GET' }, signature: null,
-      docstring: null, complexity: null, isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectC,
+      label: 'Route',
+      name: 'getGammaItems',
+      qualifiedName: 'gamma.routes.getGammaItems',
+      filePath: '/gamma/src/routes/items.ts',
+      startLine: 5,
+      endLine: 15,
+      language: 'typescript',
+      properties: { routePath: '/api/gamma/items', routeMethod: 'GET' },
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     // A shared symbol name across repos
     {
-      id: 0, projectId: projectA, label: 'Function', name: 'sharedHelper', qualifiedName: 'alpha.sharedHelper',
-      filePath: '/alpha/src/helper.ts', startLine: 1, endLine: 8, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: 1,
-      isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectA,
+      label: 'Function',
+      name: 'sharedHelper',
+      qualifiedName: 'alpha.sharedHelper',
+      filePath: '/alpha/src/helper.ts',
+      startLine: 1,
+      endLine: 8,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: 1,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 0, projectId: projectB, label: 'Function', name: 'sharedHelper', qualifiedName: 'beta.sharedHelper',
-      filePath: '/beta/src/helper.ts', startLine: 1, endLine: 8, language: 'typescript',
-      properties: {}, signature: null, docstring: null, complexity: 1,
-      isExported: true, fingerprint: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectB,
+      label: 'Function',
+      name: 'sharedHelper',
+      qualifiedName: 'beta.sharedHelper',
+      filePath: '/beta/src/helper.ts',
+      startLine: 1,
+      endLine: 8,
+      language: 'typescript',
+      properties: {},
+      signature: null,
+      docstring: null,
+      complexity: 1,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   ];
 
   store.insertNodes(nodes);
   const allNodes = store.getAllNodes();
 
-  const alphaFn = allNodes.find(n => n.qualifiedName === 'alpha.alphaFn');
-  const betaFn = allNodes.find(n => n.qualifiedName === 'beta.betaFn');
-  const betaConsumer = allNodes.find(n => n.qualifiedName === 'beta.BetaConsumer');
-  const gammaFn = allNodes.find(n => n.qualifiedName === 'gamma.gammaFn');
+  const alphaFn = allNodes.find((n) => n.qualifiedName === 'alpha.alphaFn');
+  const betaFn = allNodes.find((n) => n.qualifiedName === 'beta.betaFn');
+  const betaConsumer = allNodes.find((n) => n.qualifiedName === 'beta.BetaConsumer');
+  const gammaFn = allNodes.find((n) => n.qualifiedName === 'gamma.gammaFn');
 
   // Create cross-repo edges
   if (alphaFn && betaFn) {
     store.insertEdge({
-      id: 0, projectId: projectA, sourceId: alphaFn.id, targetId: betaFn.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectA,
+      sourceId: alphaFn.id,
+      targetId: betaFn.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
   if (betaConsumer && alphaFn) {
     store.insertEdge({
-      id: 0, projectId: projectB, sourceId: betaConsumer.id, targetId: alphaFn.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectB,
+      sourceId: betaConsumer.id,
+      targetId: alphaFn.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
   if (betaFn && gammaFn) {
     store.insertEdge({
-      id: 0, projectId: projectB, sourceId: betaFn.id, targetId: gammaFn.id,
-      type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+      id: 0,
+      projectId: projectB,
+      sourceId: betaFn.id,
+      targetId: gammaFn.id,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
     });
   }
 }
@@ -145,9 +283,13 @@ describe('crossRepoSearch', () => {
   });
 
   it('should search across all repos with store data', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'alpha',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'alpha',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.query).toBe('alpha');
@@ -167,10 +309,14 @@ describe('crossRepoSearch', () => {
   });
 
   it('should filter by specific repos', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'alpha',
-      repos: ['repo-alpha'],
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'alpha',
+        repos: ['repo-alpha'],
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     // All results should be from repo-alpha
@@ -179,10 +325,14 @@ describe('crossRepoSearch', () => {
   });
 
   it('should search with multiple repos filter', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'Fn',
-      repos: ['repo-alpha', 'repo-beta'],
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'Fn',
+        repos: ['repo-alpha', 'repo-beta'],
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.repoBreakdown).toBeDefined();
@@ -193,19 +343,27 @@ describe('crossRepoSearch', () => {
   });
 
   it('should respect limit parameter', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'Fn',
-      limit: 2,
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'Fn',
+        limit: 2,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.items.length).toBeLessThanOrEqual(2);
   });
 
   it('should include relevance scores in results', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'Fn',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'Fn',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     if (data.items.length > 0) {
@@ -215,9 +373,13 @@ describe('crossRepoSearch', () => {
   });
 
   it('should include snippets in results', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'alpha',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'alpha',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     if (data.items.length > 0) {
@@ -226,9 +388,13 @@ describe('crossRepoSearch', () => {
   });
 
   it('should handle empty query results gracefully', async () => {
-    const result = await registry.execute('cross_repo_search', {
-      query: 'zzzz_nonexistent_search_term_xyz',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_search',
+      {
+        query: 'zzzz_nonexistent_search_term_xyz',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.totalResults).toBe(0);
@@ -264,10 +430,14 @@ describe('crossRepoTrace', () => {
       repos: ['repo-alpha', 'repo-beta', 'repo-gamma'],
     });
 
-    const result = await registry.execute('cross_repo_trace', {
-      sourceSymbol: 'alpha.alphaFn',
-      groupId: 'group-trace',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_trace',
+      {
+        sourceSymbol: 'alpha.alphaFn',
+        groupId: 'group-trace',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.sourceSymbol).toBe('alpha.alphaFn');
@@ -296,11 +466,15 @@ describe('crossRepoTrace', () => {
       repos: ['repo-alpha', 'repo-beta', 'repo-gamma'],
     });
 
-    const result = await registry.execute('cross_repo_trace', {
-      sourceSymbol: 'alpha.alphaFn',
-      groupId: 'group-depth',
-      depth: 1,
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_trace',
+      {
+        sourceSymbol: 'alpha.alphaFn',
+        groupId: 'group-depth',
+        depth: 1,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.maxDepth).toBe(1);
@@ -316,11 +490,15 @@ describe('crossRepoTrace', () => {
       repos: ['repo-alpha', 'repo-beta', 'repo-gamma'],
     });
 
-    const result = await registry.execute('cross_repo_trace', {
-      sourceSymbol: 'alpha.alphaFn',
-      groupId: 'group-cross',
-      depth: 5,
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_trace',
+      {
+        sourceSymbol: 'alpha.alphaFn',
+        groupId: 'group-cross',
+        depth: 5,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.crossRepoConnections).toBeDefined();
@@ -337,10 +515,14 @@ describe('crossRepoTrace', () => {
       repos: ['repo-alpha'],
     });
 
-    const result = await registry.execute('cross_repo_trace', {
-      sourceSymbol: 'ghost.nonexistent',
-      groupId: 'group-ghost',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_trace',
+      {
+        sourceSymbol: 'ghost.nonexistent',
+        groupId: 'group-ghost',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.path).toEqual([]);
@@ -375,10 +557,14 @@ describe('crossRepoImpact', () => {
     });
 
     // alphaFn has a caller in repo-beta (betaConsumer -> alphaFn via CALLS)
-    const result = await registry.execute('cross_repo_impact', {
-      symbol: 'alpha.alphaFn',
-      groupId: 'group-impact',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_impact',
+      {
+        symbol: 'alpha.alphaFn',
+        groupId: 'group-impact',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.symbol).toBe('alpha.alphaFn');
@@ -408,10 +594,14 @@ describe('crossRepoImpact', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('cross_repo_impact', {
-      symbol: 'alpha.alphaFn',
-      groupId: 'group-med',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_impact',
+      {
+        symbol: 'alpha.alphaFn',
+        groupId: 'group-med',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.riskLevel).toBeDefined();
@@ -429,11 +619,15 @@ describe('crossRepoImpact', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('cross_repo_impact', {
-      symbol: 'alpha.alphaFn',
-      groupId: 'group-callers',
-      includeConsumers: true,
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_impact',
+      {
+        symbol: 'alpha.alphaFn',
+        groupId: 'group-callers',
+        includeConsumers: true,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.totalCallers).toBeDefined();
@@ -449,11 +643,15 @@ describe('crossRepoImpact', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('cross_repo_impact', {
-      symbol: 'alpha.alphaFn',
-      groupId: 'group-consumers',
-      includeConsumers: false,
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_impact',
+      {
+        symbol: 'alpha.alphaFn',
+        groupId: 'group-consumers',
+        includeConsumers: false,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.includeConsumers).toBe(false);
@@ -751,9 +949,13 @@ describe('syncContracts', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('sync_contracts', {
-      groupId: 'contract-sync',
-    }, ctx);
+    const result = await registry.execute(
+      'sync_contracts',
+      {
+        groupId: 'contract-sync',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.groupId).toBe('contract-sync');
@@ -764,9 +966,13 @@ describe('syncContracts', () => {
   });
 
   it('should return no-changes without group', async () => {
-    const result = await registry.execute('sync_contracts', {
-      groupId: 'nonexistent-group',
-    }, ctx);
+    const result = await registry.execute(
+      'sync_contracts',
+      {
+        groupId: 'nonexistent-group',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.status).toBe('no-changes');
@@ -798,10 +1004,14 @@ describe('syncContracts', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('sync_contracts', {
-      groupId: 'bi-group',
-      direction: 'bidirectional',
-    }, ctx);
+    const result = await registry.execute(
+      'sync_contracts',
+      {
+        groupId: 'bi-group',
+        direction: 'bidirectional',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.direction).toBe('bidirectional');
@@ -845,9 +1055,13 @@ describe('discoverRelatedRepos', () => {
   });
 
   it('should discover repos by symbol overlap', async () => {
-    const result = await registry.execute('discover_related_repos', {
-      projectId: 'repo-alpha',
-    }, ctx);
+    const result = await registry.execute(
+      'discover_related_repos',
+      {
+        projectId: 'repo-alpha',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('repo-alpha');
@@ -864,9 +1078,13 @@ describe('discoverRelatedRepos', () => {
       repos: ['repo-alpha', 'repo-beta', 'repo-gamma'],
     });
 
-    const result = await registry.execute('discover_related_repos', {
-      projectId: 'repo-alpha',
-    }, ctx);
+    const result = await registry.execute(
+      'discover_related_repos',
+      {
+        projectId: 'repo-alpha',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.relatedRepos.length).toBeGreaterThan(0);
@@ -876,9 +1094,13 @@ describe('discoverRelatedRepos', () => {
   });
 
   it('should return empty results for unknown project', async () => {
-    const result = await registry.execute('discover_related_repos', {
-      projectId: 'completely-unknown-repo',
-    }, ctx);
+    const result = await registry.execute(
+      'discover_related_repos',
+      {
+        projectId: 'completely-unknown-repo',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.total).toBe(0);
@@ -894,10 +1116,14 @@ describe('discoverRelatedRepos', () => {
       repos: ['repo-alpha', 'repo-beta', 'repo-gamma'],
     });
 
-    const result = await registry.execute('discover_related_repos', {
-      projectId: 'repo-alpha',
-      maxResults: 1,
-    }, ctx);
+    const result = await registry.execute(
+      'discover_related_repos',
+      {
+        projectId: 'repo-alpha',
+        maxResults: 1,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.relatedRepos.length).toBeLessThanOrEqual(1);
@@ -905,14 +1131,18 @@ describe('discoverRelatedRepos', () => {
 
   it('should detect symbol overlap between repos', async () => {
     // Both repo-alpha and repo-beta have a symbol named 'sharedHelper'
-    const result = await registry.execute('discover_related_repos', {
-      projectId: 'repo-alpha',
-    }, ctx);
+    const result = await registry.execute(
+      'discover_related_repos',
+      {
+        projectId: 'repo-alpha',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     // If symbol overlap detection works, we should find repo-beta
     const hasOverlapResult = data.relatedRepos.some(
-      (r: any) => r.repo === 'repo-beta' && r.sharedSymbols.length > 0
+      (r: any) => r.repo === 'repo-beta' && r.sharedSymbols.length > 0,
     );
     // Not asserting this must be true since the data depends on how
     // discoverRelatedRepos traverses, but we verify the structure
@@ -960,12 +1190,17 @@ describe('cross_repo_review_pr', () => {
   });
 
   it('should return error for non-existent group', async () => {
-    const result = await registry.execute('cross_repo_review_pr', {
-      groupId: 'no-group',
-      sourceRepoId: 'repo-alpha',
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_review_pr',
+      {
+        groupId: 'no-group',
+        sourceRepoId: 'repo-alpha',
+      },
+      ctx,
+    );
     // The tool should report an error either via isError or in the content
-    const hasError = result.isError === true || 
+    const hasError =
+      result.isError === true ||
       (typeof result.content?.[0]?.text === 'string' && result.content[0].text.includes('error'));
     expect(hasError).toBe(true);
   });
@@ -979,11 +1214,15 @@ describe('cross_repo_review_pr', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('cross_repo_review_pr', {
-      groupId: 'review-group',
-      sourceRepoId: 'repo-alpha',
-      diffs: [],
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_review_pr',
+      {
+        groupId: 'review-group',
+        sourceRepoId: 'repo-alpha',
+        diffs: [],
+      },
+      ctx,
+    );
     const data = JSON.parse(result.content[0].text);
     expect(data.sourceRepo).toBe('repo-alpha');
     expect(data.crossRepoRisk).toBe('low');
@@ -998,15 +1237,21 @@ describe('cross_repo_review_pr', () => {
       repos: ['repo-alpha', 'repo-beta'],
     });
 
-    const result = await registry.execute('cross_repo_review_pr', {
-      groupId: 'breaking-group',
-      sourceRepoId: 'repo-alpha',
-      diffs: [{
-        filePath: 'src/api/users.ts',
-        changeType: 'deleted',
-        ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
-      }],
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_review_pr',
+      {
+        groupId: 'breaking-group',
+        sourceRepoId: 'repo-alpha',
+        diffs: [
+          {
+            filePath: 'src/api/users.ts',
+            changeType: 'deleted',
+            ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
+          },
+        ],
+      },
+      ctx,
+    );
     const data = JSON.parse(result.content[0].text);
     expect(data.sourceRepo).toBe('repo-alpha');
     expect(data.breakingChanges).toBeGreaterThanOrEqual(1);
@@ -1020,15 +1265,23 @@ describe('cross_repo_review_pr', () => {
       repos: ['repo-alpha'],
     });
 
-    const result = await registry.execute('cross_repo_review_pr', {
-      groupId: 'mod-group',
-      sourceRepoId: 'repo-alpha',
-      diffs: [{
-        filePath: 'src/api/newFeature.ts',
-        changeType: 'modified',
-        ranges: [{ oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' }],
-      }],
-    }, ctx);
+    const result = await registry.execute(
+      'cross_repo_review_pr',
+      {
+        groupId: 'mod-group',
+        sourceRepoId: 'repo-alpha',
+        diffs: [
+          {
+            filePath: 'src/api/newFeature.ts',
+            changeType: 'modified',
+            ranges: [
+              { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' },
+            ],
+          },
+        ],
+      },
+      ctx,
+    );
     const data = JSON.parse(result.content[0].text);
     expect(data.sourceRepo).toBe('repo-alpha');
     expect(data.mergeRecommendation).toBeDefined();

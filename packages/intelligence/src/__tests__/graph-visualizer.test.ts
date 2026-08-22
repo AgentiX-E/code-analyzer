@@ -36,7 +36,14 @@ function makeNode(overrides: Partial<GraphNode> & { id: number; projectId: strin
 }
 
 /** Create a minimal GraphEdge for testing. */
-function makeEdge(overrides: Partial<GraphEdge> & { id: number; projectId: string; sourceId: number; targetId: number }): GraphEdge {
+function makeEdge(
+  overrides: Partial<GraphEdge> & {
+    id: number;
+    projectId: string;
+    sourceId: number;
+    targetId: number;
+  },
+): GraphEdge {
   return {
     type: 'IMPORTS' as any,
     properties: {} as any,
@@ -122,7 +129,11 @@ describe('CrossRepoGraphVisualizer', () => {
       const edges: CrossRepoEdgeRecord[] = [
         makeCrossRepoEdge({ sourceRepo: 'repo-a', targetRepo: 'repo-b' }),
         makeCrossRepoEdge({ sourceRepo: 'repo-b', targetRepo: 'repo-c' }),
-        makeCrossRepoEdge({ sourceRepo: 'repo-a', targetRepo: 'repo-c', edgeType: 'CROSS_REPO_CALLS' }),
+        makeCrossRepoEdge({
+          sourceRepo: 'repo-a',
+          targetRepo: 'repo-c',
+          edgeType: 'CROSS_REPO_CALLS',
+        }),
       ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
@@ -160,16 +171,26 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('generates correct DOT style for CROSS_REPO_IMPORTS (default blue)', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
-      const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_IMPORTS' })];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
+      const edges = [
+        makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_IMPORTS' }),
+      ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
       expect(dot).toContain('color = "#4A90D9"');
     });
 
     it('generates dashed red style for CROSS_REPO_CALLS', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
-      const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_CALLS' })];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
+      const edges = [
+        makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_CALLS' }),
+      ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
       expect(dot).toContain('style = "dashed"');
@@ -177,8 +198,13 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('generates dotted purple style for CROSS_REPO_DEPENDS', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
-      const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_DEPENDS' })];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
+      const edges = [
+        makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_DEPENDS' }),
+      ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
       expect(dot).toContain('style = "dotted"');
@@ -186,8 +212,13 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('generates bold green style for CROSS_REPO_IMPLEMENTS', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
-      const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_IMPLEMENTS' })];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
+      const edges = [
+        makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_IMPLEMENTS' }),
+      ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
       expect(dot).toContain('style = "bold"');
@@ -195,7 +226,10 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('aggregates duplicate edges by repo pair and edge type', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges: CrossRepoEdgeRecord[] = [
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 1 }),
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 3 }),
@@ -207,12 +241,17 @@ describe('CrossRepoGraphVisualizer', () => {
       expect(dot).toContain('imports (3)');
       expect(dot).toContain('weight = 5');
       // Only one occurrence of the arrow
-      const arrows = dot.split('\n').filter((l) => l.includes('->') && !l.includes('legend')).length;
+      const arrows = dot
+        .split('\n')
+        .filter((l) => l.includes('->') && !l.includes('legend')).length;
       expect(arrows).toBe(1);
     });
 
     it('excludes edges for repos not in the repo list', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges = [
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'unknown' }),
         makeCrossRepoEdge({ sourceRepo: 'unknown', targetRepo: 'a' }),
@@ -220,7 +259,9 @@ describe('CrossRepoGraphVisualizer', () => {
       ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
-      const arrows = dot.split('\n').filter((l) => l.includes('->') && !l.includes('legend')).length;
+      const arrows = dot
+        .split('\n')
+        .filter((l) => l.includes('->') && !l.includes('legend')).length;
       expect(arrows).toBe(1);
     });
 
@@ -280,14 +321,20 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('rounds weight values in DOT edges', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 3.7 })];
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
       expect(dot).toContain('weight = 4');
     });
 
     it('generates short edge type label with count', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges = [
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_CALLS' }),
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_CALLS' }),
@@ -339,11 +386,14 @@ describe('CrossRepoGraphVisualizer', () => {
     it('populates node stats from nodesByRepo', () => {
       const repos = [{ fullName: 'r1', label: 'R1' }];
       const nodesByRepo = new Map<string, GraphNode[]>([
-        ['r1', [
-          makeNode({ id: 1, projectId: 'r1', isExported: false }),
-          makeNode({ id: 2, projectId: 'r1', isExported: true }),
-          makeNode({ id: 3, projectId: 'r1', isExported: true }),
-        ]],
+        [
+          'r1',
+          [
+            makeNode({ id: 1, projectId: 'r1', isExported: false }),
+            makeNode({ id: 2, projectId: 'r1', isExported: true }),
+            makeNode({ id: 3, projectId: 'r1', isExported: true }),
+          ],
+        ],
       ]);
 
       const result = visualizer.generateJsonGraph('g', repos, [], nodesByRepo);
@@ -364,7 +414,14 @@ describe('CrossRepoGraphVisualizer', () => {
         { fullName: 'a', label: 'A' },
         { fullName: 'b', label: 'B' },
       ];
-      const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_CALLS', weight: 5 })];
+      const edges = [
+        makeCrossRepoEdge({
+          sourceRepo: 'a',
+          targetRepo: 'b',
+          edgeType: 'CROSS_REPO_CALLS',
+          weight: 5,
+        }),
+      ];
       const result = visualizer.generateJsonGraph('g', repos, edges);
 
       expect(result.edges).toHaveLength(1);
@@ -383,7 +440,12 @@ describe('CrossRepoGraphVisualizer', () => {
       const edges: CrossRepoEdgeRecord[] = [
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 2 }),
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 3 }),
-        makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', edgeType: 'CROSS_REPO_CALLS', weight: 1 }),
+        makeCrossRepoEdge({
+          sourceRepo: 'a',
+          targetRepo: 'b',
+          edgeType: 'CROSS_REPO_CALLS',
+          weight: 1,
+        }),
       ];
 
       const result = visualizer.generateJsonGraph('g', repos, edges);
@@ -484,7 +546,10 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('filters out edges referencing repos outside the repo list', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges = [
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'x' }),
         makeCrossRepoEdge({ sourceRepo: 'x', targetRepo: 'a' }),
@@ -498,7 +563,10 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('rounds weight to integer in JSON edges', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges = [makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 3.2 })];
       const result = visualizer.generateJsonGraph('g', repos, edges);
       expect(result.edges[0]!.weight).toBe(3);
@@ -530,15 +598,51 @@ describe('CrossRepoGraphVisualizer', () => {
 
     beforeEach(() => {
       nodes = [
-        makeNode({ id: 1, projectId: repoId, isExported: true, name: 'AuthService', label: 'CLASS' as any }),
-        makeNode({ id: 2, projectId: repoId, isExported: true, name: 'TokenHelper', label: 'CLASS' as any }),
-        makeNode({ id: 3, projectId: repoId, isExported: false, name: 'CrossRepo_facade', label: 'CrossRepo_facade' as any }),
-        makeNode({ id: 4, projectId: repoId, isExported: true, name: 'CrossRepo_bridge', label: 'CrossRepo_bridge' as any }),
+        makeNode({
+          id: 1,
+          projectId: repoId,
+          isExported: true,
+          name: 'AuthService',
+          label: 'CLASS' as any,
+        }),
+        makeNode({
+          id: 2,
+          projectId: repoId,
+          isExported: true,
+          name: 'TokenHelper',
+          label: 'CLASS' as any,
+        }),
+        makeNode({
+          id: 3,
+          projectId: repoId,
+          isExported: false,
+          name: 'CrossRepo_facade',
+          label: 'CrossRepo_facade' as any,
+        }),
+        makeNode({
+          id: 4,
+          projectId: repoId,
+          isExported: true,
+          name: 'CrossRepo_bridge',
+          label: 'CrossRepo_bridge' as any,
+        }),
       ];
       edges = [
-        makeEdge({ id: 1, projectId: repoId, sourceId: 1, targetId: 2, type: 'CROSS_REPO_IMPORTS' as any }),
+        makeEdge({
+          id: 1,
+          projectId: repoId,
+          sourceId: 1,
+          targetId: 2,
+          type: 'CROSS_REPO_IMPORTS' as any,
+        }),
         makeEdge({ id: 2, projectId: repoId, sourceId: 2, targetId: 3, type: 'IMPORTS' as any }),
-        makeEdge({ id: 3, projectId: repoId, sourceId: 3, targetId: 4, type: 'CROSS_REPO_CALLS' as any }),
+        makeEdge({
+          id: 3,
+          projectId: repoId,
+          sourceId: 3,
+          targetId: 4,
+          type: 'CROSS_REPO_CALLS' as any,
+        }),
       ];
     });
 
@@ -553,7 +657,7 @@ describe('CrossRepoGraphVisualizer', () => {
 
       expect(metrics.repoId).toBe(repoId);
       expect(metrics.fanOut).toBe(2); // auth -> core, auth -> utils
-      expect(metrics.fanIn).toBe(1);  // core -> auth
+      expect(metrics.fanIn).toBe(1); // core -> auth
     });
 
     it('computes couplingScore for a moderate coupling scenario', () => {
@@ -729,9 +833,12 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('handles empty nodes array', () => {
-      const metrics = visualizer.computeRepoMetrics(repoId, [], [], [
-        makeCrossRepoEdge({ sourceRepo: repoId, targetRepo: 'dep' }),
-      ]);
+      const metrics = visualizer.computeRepoMetrics(
+        repoId,
+        [],
+        [],
+        [makeCrossRepoEdge({ sourceRepo: repoId, targetRepo: 'dep' })],
+      );
       expect(metrics.internalSymbolCount).toBe(0);
       expect(metrics.crossRepoSymbolCount).toBe(0);
     });
@@ -772,7 +879,13 @@ describe('CrossRepoGraphVisualizer', () => {
       ]);
 
       const edges: GraphEdge[] = [
-        makeEdge({ id: 1, projectId: 'auth', sourceId: 1, targetId: 2, type: 'CROSS_REPO_IMPORTS' as any }),
+        makeEdge({
+          id: 1,
+          projectId: 'auth',
+          sourceId: 1,
+          targetId: 2,
+          type: 'CROSS_REPO_IMPORTS' as any,
+        }),
       ];
 
       const crossRepoEdges: CrossRepoEdgeRecord[] = [
@@ -844,10 +957,12 @@ describe('CrossRepoGraphVisualizer', () => {
         { fullName: '@scope/pkg.name', label: 'Scoped Pkg' },
         { fullName: 'packages.my-org.com/core', label: 'Core' },
       ];
-      const edges = [makeCrossRepoEdge({
-        sourceRepo: '@scope/pkg.name',
-        targetRepo: 'packages.my-org.com/core',
-      })];
+      const edges = [
+        makeCrossRepoEdge({
+          sourceRepo: '@scope/pkg.name',
+          targetRepo: 'packages.my-org.com/core',
+        }),
+      ];
 
       const dot = visualizer.generateDotGraph(edges, repos, 'G');
       expect(dot).toContain('"_scope_pkg_name"');
@@ -856,7 +971,10 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('handles large edge counts without performance issues', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges: CrossRepoEdgeRecord[] = [];
       for (let i = 0; i < 500; i++) {
         edges.push(makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 1 }));
@@ -886,7 +1004,10 @@ describe('CrossRepoGraphVisualizer', () => {
     });
 
     it('rounds weight correctly for fractional JSON edge weights', () => {
-      const repos = [{ fullName: 'a', label: 'A' }, { fullName: 'b', label: 'B' }];
+      const repos = [
+        { fullName: 'a', label: 'A' },
+        { fullName: 'b', label: 'B' },
+      ];
       const edges = [
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 1.1 }),
         makeCrossRepoEdge({ sourceRepo: 'a', targetRepo: 'b', weight: 2.6 }),
@@ -906,26 +1027,50 @@ describe('CrossRepoGraphVisualizer', () => {
       ];
 
       const nodesByRepo = new Map<string, GraphNode[]>([
-        ['frontend', [
-          makeNode({ id: 1, projectId: 'frontend', isExported: true }),
-          makeNode({ id: 2, projectId: 'frontend', isExported: false }),
-        ]],
-        ['backend', [
-          makeNode({ id: 3, projectId: 'backend', isExported: true }),
-        ]],
-        ['shared-lib', [
-          makeNode({ id: 4, projectId: 'shared-lib', isExported: true }),
-          makeNode({ id: 5, projectId: 'shared-lib', isExported: true }),
-          makeNode({ id: 6, projectId: 'shared-lib', isExported: false }),
-        ]],
+        [
+          'frontend',
+          [
+            makeNode({ id: 1, projectId: 'frontend', isExported: true }),
+            makeNode({ id: 2, projectId: 'frontend', isExported: false }),
+          ],
+        ],
+        ['backend', [makeNode({ id: 3, projectId: 'backend', isExported: true })]],
+        [
+          'shared-lib',
+          [
+            makeNode({ id: 4, projectId: 'shared-lib', isExported: true }),
+            makeNode({ id: 5, projectId: 'shared-lib', isExported: true }),
+            makeNode({ id: 6, projectId: 'shared-lib', isExported: false }),
+          ],
+        ],
         ['database', []],
       ]);
 
       const crossRepoEdges: CrossRepoEdgeRecord[] = [
-        makeCrossRepoEdge({ sourceRepo: 'frontend', targetRepo: 'backend', edgeType: 'CROSS_REPO_CALLS', weight: 3 }),
-        makeCrossRepoEdge({ sourceRepo: 'frontend', targetRepo: 'shared-lib', edgeType: 'CROSS_REPO_IMPORTS', weight: 2 }),
-        makeCrossRepoEdge({ sourceRepo: 'backend', targetRepo: 'shared-lib', edgeType: 'CROSS_REPO_IMPORTS', weight: 2 }),
-        makeCrossRepoEdge({ sourceRepo: 'backend', targetRepo: 'database', edgeType: 'CROSS_REPO_DEPENDS', weight: 5 }),
+        makeCrossRepoEdge({
+          sourceRepo: 'frontend',
+          targetRepo: 'backend',
+          edgeType: 'CROSS_REPO_CALLS',
+          weight: 3,
+        }),
+        makeCrossRepoEdge({
+          sourceRepo: 'frontend',
+          targetRepo: 'shared-lib',
+          edgeType: 'CROSS_REPO_IMPORTS',
+          weight: 2,
+        }),
+        makeCrossRepoEdge({
+          sourceRepo: 'backend',
+          targetRepo: 'shared-lib',
+          edgeType: 'CROSS_REPO_IMPORTS',
+          weight: 2,
+        }),
+        makeCrossRepoEdge({
+          sourceRepo: 'backend',
+          targetRepo: 'database',
+          edgeType: 'CROSS_REPO_DEPENDS',
+          weight: 5,
+        }),
       ];
 
       const result = visualizer.generateJsonGraph('complex', repos, crossRepoEdges, nodesByRepo);

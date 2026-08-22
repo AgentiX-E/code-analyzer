@@ -53,17 +53,13 @@ function generateSyntheticSource(lang: string, lines: number, seed: number): str
         );
       }
     } else if (lang === 'go') {
-      lines_.push(
-        `func Fn${seed}_${j}(a int, b string) bool { return a > 0 && len(b) > 0 }`,
-      );
+      lines_.push(`func Fn${seed}_${j}(a int, b string) bool { return a > 0 && len(b) > 0 }`);
     } else if (lang === 'java') {
       lines_.push(
         `public class Util${seed}_${j} { public boolean check${seed}_${j}(int a, String b) { return a > 0 && b.length() > 0; } }`,
       );
     } else if (lang === 'rs') {
-      lines_.push(
-        `fn fn_${seed}_${j}(a: i32, b: &str) -> bool { a > 0 && !b.is_empty() }`,
-      );
+      lines_.push(`fn fn_${seed}_${j}(a: i32, b: &str) -> bool { a > 0 && !b.is_empty() }`);
     }
   }
   return lines_.join('\n');
@@ -155,7 +151,9 @@ describe('Throughput Optimization Benchmarks', () => {
         expect(results[0]!.size).toBeGreaterThan(1024 * 1024);
       }
 
-      try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {}
     });
   });
 
@@ -196,7 +194,14 @@ describe('Throughput Optimization Benchmarks', () => {
           language: 'typescript',
           symbols: [],
           references: [],
-          scopeTree: { name: `file_${i}.ts`, kind: 'File' as const, startLine: 1, endLine: 1, children: [], symbols: [] },
+          scopeTree: {
+            name: `file_${i}.ts`,
+            kind: 'File' as const,
+            startLine: 1,
+            endLine: 1,
+            children: [],
+            symbols: [],
+          },
           ast: [],
         };
         cache.set(hash, placeholder as Parameters<typeof cache.set>[1]);
@@ -215,7 +220,14 @@ describe('Throughput Optimization Benchmarks', () => {
         language: 'typescript' as const,
         symbols: [],
         references: [],
-        scopeTree: { name: 'target.ts', kind: 'File' as const, startLine: 1, endLine: 1, children: [], symbols: [] },
+        scopeTree: {
+          name: 'target.ts',
+          kind: 'File' as const,
+          startLine: 1,
+          endLine: 1,
+          children: [],
+          symbols: [],
+        },
         ast: [],
       };
 

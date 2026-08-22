@@ -75,10 +75,7 @@ export class DelegationManager {
    * @param filePath — the file to resolve rules for
    * @param standards — project standards containing rule definitions
    */
-  resolveRules(
-    filePath: string,
-    standards: ProjectStandard[],
-  ): ResolvedRule[] {
+  resolveRules(filePath: string, standards: ProjectStandard[]): ResolvedRule[] {
     const resolved: ResolvedRule[] = [];
     const ext = this.getFileExtension(filePath);
 
@@ -113,23 +110,16 @@ export class DelegationManager {
    * @param preview — the delegate preview from `preview()`
    * @param rules — resolved rules to include in the prompt
    */
-  buildDelegationPrompt(
-    preview: DelegatePreview,
-    rules: ResolvedRule[],
-  ): string {
+  buildDelegationPrompt(preview: DelegatePreview, rules: ResolvedRule[]): string {
     const sections: string[] = [];
 
     // Header
     sections.push('# Code Review Delegation Prompt');
     sections.push('');
-    sections.push(
-      `Review mode: **${preview.mode}**`,
-    );
+    sections.push(`Review mode: **${preview.mode}**`);
 
     if (preview.ref) {
-      sections.push(
-        `Git range: \`${preview.ref.from}\` → \`${preview.ref.to}\``,
-      );
+      sections.push(`Git range: \`${preview.ref.from}\` → \`${preview.ref.to}\``);
     }
 
     sections.push(`Total files: ${preview.totalFiles}`);
@@ -181,9 +171,7 @@ export class DelegationManager {
       '2. For each violation found, note the file path, line range, and rule violated.',
     );
     sections.push('3. Categorize findings by severity and category.');
-    sections.push(
-      '4. Provide actionable suggestions for each finding.',
-    );
+    sections.push('4. Provide actionable suggestions for each finding.');
     sections.push('5. Return results in a structured format.');
 
     return sections.join('\n');
@@ -208,10 +196,7 @@ export class DelegationManager {
    * Determine which file patterns a rule applies to based on extension and
    * standard configuration.
    */
-  private getAppliesTo(
-    ext: string,
-    standard: ProjectStandard,
-  ): string[] {
+  private getAppliesTo(ext: string, standard: ProjectStandard): string[] {
     const patterns: string[] = [];
 
     // If the standard has explicit include paths, check them
@@ -232,15 +217,15 @@ export class DelegationManager {
     // Otherwise, map standard category to common file extensions
     const categoryToExtensions: Record<string, string[]> = {
       'code-style': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs', 'rb'],
-      'security': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
-      'performance': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs', 'cpp'],
-      'testing': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
+      security: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
+      performance: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs', 'cpp'],
+      testing: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
       'api-design': ['ts', 'tsx', 'py', 'go', 'java'],
       'error-handling': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
-      'documentation': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs', 'rb'],
-      'dependency': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
-      'architecture': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
-      'custom': ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
+      documentation: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs', 'rb'],
+      dependency: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
+      architecture: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
+      custom: ['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'java', 'rs'],
     };
 
     const compatibleExtensions = categoryToExtensions[standard.category] ?? [];

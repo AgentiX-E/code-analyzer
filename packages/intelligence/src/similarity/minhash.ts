@@ -21,10 +21,9 @@ export class MinHashSimilarity {
     const seeds: number[] = [];
     // Use known prime seeds for reproducibility
     const primes = [
-      0x9e3779b9, 0x7f4a7c13, 0x3c6ef372, 0xa1bfc7d5,
-      0x5b0f9e3a, 0xd2e8c461, 0x1a6b3f88, 0x8c7d5e2f,
-      0x4f1a6b3c, 0xb9d8e7f6, 0x2c5a3b4d, 0x7e8f9a0b,
-      0x1c2d3e4f, 0x5a6b7c8d, 0x9e0f1a2b, 0x3c4d5e6f,
+      0x9e3779b9, 0x7f4a7c13, 0x3c6ef372, 0xa1bfc7d5, 0x5b0f9e3a, 0xd2e8c461, 0x1a6b3f88,
+      0x8c7d5e2f, 0x4f1a6b3c, 0xb9d8e7f6, 0x2c5a3b4d, 0x7e8f9a0b, 0x1c2d3e4f, 0x5a6b7c8d,
+      0x9e0f1a2b, 0x3c4d5e6f,
     ];
 
     for (let i = 0; i < count; i++) {
@@ -49,7 +48,7 @@ export class MinHashSimilarity {
       const charCode = token.charCodeAt(i);
       hashValue = ((hashValue * 31 + charCode) & 0x7fffffff) >>> 0;
       // Mix with the seed using different offsets per hash function
-      hashValue = ((hashValue ^ (seed * (hashIndex + 3))) >>> 0);
+      hashValue = (hashValue ^ (seed * (hashIndex + 3))) >>> 0;
     }
 
     return Math.abs(hashValue % p);
@@ -87,9 +86,7 @@ export class MinHashSimilarity {
    */
   estimateSimilarity(fp1: number[], fp2: number[]): number {
     if (fp1.length !== fp2.length) {
-      throw new Error(
-        `Fingerprint length mismatch: ${fp1.length} vs ${fp2.length}`,
-      );
+      throw new Error(`Fingerprint length mismatch: ${fp1.length} vs ${fp2.length}`);
     }
 
     if (fp1.length === 0) return 0;
@@ -107,11 +104,7 @@ export class MinHashSimilarity {
   /**
    * Check if two fingerprints are similar above a threshold.
    */
-  isSimilar(
-    fp1: number[],
-    fp2: number[],
-    threshold: number = 0.8,
-  ): boolean {
+  isSimilar(fp1: number[], fp2: number[], threshold: number = 0.8): boolean {
     return this.estimateSimilarity(fp1, fp2) >= threshold;
   }
 

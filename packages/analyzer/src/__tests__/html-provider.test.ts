@@ -30,7 +30,12 @@ describe('HtmlProvider', () => {
       const code = '<div id="main" class="container">Hello</div>';
       const captures = provider.parse(code, 't.html');
       const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(els.some((c) => c.name === 'div' && c.properties?.id === 'main' && c.properties?.class === 'container')).toBe(true);
+      expect(
+        els.some(
+          (c) =>
+            c.name === 'div' && c.properties?.id === 'main' && c.properties?.class === 'container',
+        ),
+      ).toBe(true);
     });
 
     it('should extract a script src as an import', () => {
@@ -76,7 +81,9 @@ describe('HtmlProvider', () => {
     });
 
     it('should detect input/textarea/select as user_input', () => {
-      const sources = provider.extractTaintSources('<input type="text"><textarea></textarea><select></select>');
+      const sources = provider.extractTaintSources(
+        '<input type="text"><textarea></textarea><select></select>',
+      );
       expect(sources.some((s) => s.name === 'input')).toBe(true);
       expect(sources.some((s) => s.name === 'textarea')).toBe(true);
       expect(sources.some((s) => s.name === 'select')).toBe(true);
@@ -96,7 +103,9 @@ describe('HtmlProvider', () => {
 
     it('should detect event handlers as xss_event_handler', () => {
       const sinks = provider.extractTaintSinks('<div onload="x()"></div>');
-      expect(sinks.some((s) => s.name === 'onload' && s.sinkType === 'xss_event_handler')).toBe(true);
+      expect(sinks.some((s) => s.name === 'onload' && s.sinkType === 'xss_event_handler')).toBe(
+        true,
+      );
     });
 
     it('should detect innerHTML as xss sink', () => {
@@ -107,8 +116,12 @@ describe('HtmlProvider', () => {
 
   describe('sanitizers', () => {
     it('should detect CSP meta tag as sanitizer', () => {
-      const sanitizers = provider.extractSanitizers('<meta http-equiv="Content-Security-Policy" content="default-src self">');
-      expect(sanitizers.some((s) => s.name === 'csp' && s.sanitizerType === 'csp_policy')).toBe(true);
+      const sanitizers = provider.extractSanitizers(
+        '<meta http-equiv="Content-Security-Policy" content="default-src self">',
+      );
+      expect(sanitizers.some((s) => s.name === 'csp' && s.sanitizerType === 'csp_policy')).toBe(
+        true,
+      );
     });
   });
 });

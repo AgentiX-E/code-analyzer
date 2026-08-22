@@ -322,7 +322,14 @@ describe('SearchView', () => {
   it('should show search results', async () => {
     vi.mocked(useSearch).mockReturnValue({
       results: [
-        { name: 'testFunc', type: 'function', file: 'test.ts', line: 42, score: 0.9, snippet: 'function test() {}' },
+        {
+          name: 'testFunc',
+          type: 'function',
+          file: 'test.ts',
+          line: 42,
+          score: 0.9,
+          snippet: 'function test() {}',
+        },
         { name: 'TestClass', type: 'class', file: 'test.ts', line: 10, score: 0.8 },
       ],
       total: 2,
@@ -341,14 +348,23 @@ describe('SearchView', () => {
       expect(screen.getByText('testFunc')).toBeInTheDocument();
       expect(screen.getByText('TestClass')).toBeInTheDocument();
       // "2 results found" has 2 inside <strong>, use function matcher
-      expect(screen.getByText((content) => content.includes('result') && content.includes('found'))).toBeInTheDocument();
+      expect(
+        screen.getByText((content) => content.includes('result') && content.includes('found')),
+      ).toBeInTheDocument();
     });
   });
 
   it('should show detail panel on result click', async () => {
     vi.mocked(useSearch).mockReturnValue({
       results: [
-        { name: 'testFunc', type: 'function', file: 'test.ts', line: 42, score: 0.9, snippet: 'code here' },
+        {
+          name: 'testFunc',
+          type: 'function',
+          file: 'test.ts',
+          line: 42,
+          score: 0.9,
+          snippet: 'code here',
+        },
       ],
       total: 1,
       loading: false,

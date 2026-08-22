@@ -3,10 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { TaintPipeline } from '../security/taint-pipeline.js';
 import { buildCallGraph } from '../security/taint-pipeline.js';
-import {
-  buildReducedGraph,
-  mapToOriginalNodes,
-} from '../community/aggregation.js';
+import { buildReducedGraph, mapToOriginalNodes } from '../community/aggregation.js';
 import { createAstContext } from '../rules/ast-rule-checker.js';
 import type { FunctionCfg } from '../cfg/types.js';
 import type { CallGraphEdge } from '../security/interproc-solver.js';
@@ -17,10 +14,24 @@ import type { CallGraphEdge } from '../security/interproc-solver.js';
 
 function cfg(name: string): FunctionCfg {
   return {
-    functionName: name, filePath: 'test.ts', startLine: 1, startColumn: 0,
-    blocks: [{ index: 0, startLine: 1, endLine: 1, statementCount: 1, isEntry: true, isExit: true }],
-    edges: [], bindings: [], entryIndex: 0, exitIndex: 0,
-    stmtFacts: { defs: new Map(), uses: new Map(), sourceSites: new Map(), sinkSites: new Map(), sanitizerSites: new Map() },
+    functionName: name,
+    filePath: 'test.ts',
+    startLine: 1,
+    startColumn: 0,
+    blocks: [
+      { index: 0, startLine: 1, endLine: 1, statementCount: 1, isEntry: true, isExit: true },
+    ],
+    edges: [],
+    bindings: [],
+    entryIndex: 0,
+    exitIndex: 0,
+    stmtFacts: {
+      defs: new Map(),
+      uses: new Map(),
+      sourceSites: new Map(),
+      sinkSites: new Map(),
+      sanitizerSites: new Map(),
+    },
   };
 }
 
@@ -43,8 +54,14 @@ describe('Sprint A Integration', () => {
     const adj = new Map<number, Map<number, number>>();
     adj.set(1, new Map([[2, 1]]));
     adj.set(2, new Map([[1, 1]]));
-    const deg = new Map([[1, 1], [2, 1]]);
-    const partition = new Map([[1, 0], [2, 0]]);
+    const deg = new Map([
+      [1, 1],
+      [2, 1],
+    ]);
+    const partition = new Map([
+      [1, 0],
+      [2, 0],
+    ]);
 
     // Aggregation should produce a reduced graph
     const reduced = buildReducedGraph(adj, partition, deg);

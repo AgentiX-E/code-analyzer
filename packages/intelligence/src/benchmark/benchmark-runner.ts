@@ -3,10 +3,7 @@
 // results against ground-truth annotations to compute quality metrics.
 
 import type { ReviewCategory, Severity, GitDiff, DiffRange } from '@code-analyzer/shared';
-import {
-  analyzeFileHeuristics,
-  type HeuristicRuleResult,
-} from '../review/heuristics.js';
+import { analyzeFileHeuristics, type HeuristicRuleResult } from '../review/heuristics.js';
 import type { BenchmarkCase, GroundTruthIssue } from './benchmark-data.js';
 
 // ---------------------------------------------------------------------------
@@ -47,7 +44,11 @@ export interface BenchmarkResult {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createDiff(filePath: string, changeType: GitDiff['changeType'] = 'modified', content: string): GitDiff {
+function createDiff(
+  filePath: string,
+  changeType: GitDiff['changeType'] = 'modified',
+  content: string,
+): GitDiff {
   const lineCount = content.split('\n').length;
   const ranges: DiffRange[] = [
     {
@@ -71,7 +72,13 @@ function createDiff(filePath: string, changeType: GitDiff['changeType'] = 'modif
  * Check if two line ranges overlap.
  * A tolerance of 3 lines is used for fuzzy matching.
  */
-function linesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number, tolerance = 3): boolean {
+function linesOverlap(
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number,
+  tolerance = 3,
+): boolean {
   const aStartMin = Math.max(1, aStart - tolerance);
   const aEndMax = aEnd + tolerance;
   const bStartMin = Math.max(1, bStart - tolerance);
@@ -163,11 +170,8 @@ export class BenchmarkRunner {
 
       const lines = content.split('\n');
       // Determine changeType based on before/after content
-      const changeType: GitDiff['changeType'] = file.beforeContent === ''
-        ? 'added'
-        : file.afterContent === ''
-          ? 'deleted'
-          : 'modified';
+      const changeType: GitDiff['changeType'] =
+        file.beforeContent === '' ? 'added' : file.afterContent === '' ? 'deleted' : 'modified';
 
       const diff = createDiff(file.filePath, changeType, content);
 
@@ -204,15 +208,11 @@ export class BenchmarkRunner {
     const falseNegatives = bc.groundTruth.length - matchedGT.size;
 
     // Compute metrics
-    const precision = (truePositives + falsePositives) > 0
-      ? truePositives / (truePositives + falsePositives)
-      : 1;
-    const recall = (truePositives + falseNegatives) > 0
-      ? truePositives / (truePositives + falseNegatives)
-      : 1;
-    const f1Score = (precision + recall) > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+    const precision =
+      truePositives + falsePositives > 0 ? truePositives / (truePositives + falsePositives) : 1;
+    const recall =
+      truePositives + falseNegatives > 0 ? truePositives / (truePositives + falseNegatives) : 1;
+    const f1Score = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
     return {
       caseId: bc.id,
@@ -233,15 +233,12 @@ export class BenchmarkRunner {
     const totalFP = results.reduce((sum, r) => sum + r.falsePositives, 0);
     const totalFN = results.reduce((sum, r) => sum + r.falseNegatives, 0);
 
-    const overallPrecision = (totalTP + totalFP) > 0
-      ? totalTP / (totalTP + totalFP)
-      : 1;
-    const overallRecall = (totalTP + totalFN) > 0
-      ? totalTP / (totalTP + totalFN)
-      : 1;
-    const overallF1 = (overallPrecision + overallRecall) > 0
-      ? (2 * overallPrecision * overallRecall) / (overallPrecision + overallRecall)
-      : 0;
+    const overallPrecision = totalTP + totalFP > 0 ? totalTP / (totalTP + totalFP) : 1;
+    const overallRecall = totalTP + totalFN > 0 ? totalTP / (totalTP + totalFN) : 1;
+    const overallF1 =
+      overallPrecision + overallRecall > 0
+        ? (2 * overallPrecision * overallRecall) / (overallPrecision + overallRecall)
+        : 0;
 
     // Per-severity and per-category metrics computed from detailed results
     // For this version, we compute from the aggregated totals
@@ -260,8 +257,15 @@ export class BenchmarkRunner {
     }
 
     const categories: ReviewCategory[] = [
-      'bug', 'security', 'performance', 'maintainability',
-      'test', 'style', 'documentation', 'architecture', 'other',
+      'bug',
+      'security',
+      'performance',
+      'maintainability',
+      'test',
+      'style',
+      'documentation',
+      'architecture',
+      'other',
     ];
     for (const cat of categories) {
       byCategory[cat] = {
@@ -311,7 +315,9 @@ export class BenchmarkRunner {
     lines.push('| Severity | Precision | Recall | F1 Score |');
     lines.push('|----------|-----------|--------|----------|');
     for (const [severity, m] of Object.entries(metrics.bySeverity)) {
-      lines.push(`| ${severity} | ${(m.precision * 100).toFixed(2)}% | ${(m.recall * 100).toFixed(2)}% | ${(m.f1 * 100).toFixed(2)}% |`);
+      lines.push(
+        `| ${severity} | ${(m.precision * 100).toFixed(2)}% | ${(m.recall * 100).toFixed(2)}% | ${(m.f1 * 100).toFixed(2)}% |`,
+      );
     }
     lines.push('');
 
@@ -321,7 +327,9 @@ export class BenchmarkRunner {
     lines.push('|----------|-----------|--------|----------|');
     for (const [category, m] of Object.entries(metrics.byCategory)) {
       if (m.precision > 0 || m.recall > 0 || m.f1 > 0) {
-        lines.push(`| ${category} | ${(m.precision * 100).toFixed(2)}% | ${(m.recall * 100).toFixed(2)}% | ${(m.f1 * 100).toFixed(2)}% |`);
+        lines.push(
+          `| ${category} | ${(m.precision * 100).toFixed(2)}% | ${(m.recall * 100).toFixed(2)}% | ${(m.f1 * 100).toFixed(2)}% |`,
+        );
       }
     }
     lines.push('');

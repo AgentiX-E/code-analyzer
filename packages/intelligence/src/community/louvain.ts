@@ -98,7 +98,11 @@ export class LouvainDetector {
       for (const nodeId of shuffled) {
         const currentCommunity = nodeToCommunity.get(nodeId)!;
         const neighborCommunities = this.getNeighborCommunityGains(
-          nodeId, adjacency, degrees, nodeToCommunity, totalWeight,
+          nodeId,
+          adjacency,
+          degrees,
+          nodeToCommunity,
+          totalWeight,
         );
 
         let bestCommunity = currentCommunity;
@@ -129,9 +133,7 @@ export class LouvainDetector {
    * Build an adjacency map from CALLS edges in the graph.
    * Returns Map<nodeId, Map<neighborId, weight>>
    */
-  private buildCallAdjacency(
-    graph: KnowledgeGraph,
-  ): Map<number, Map<number, number>> {
+  private buildCallAdjacency(graph: KnowledgeGraph): Map<number, Map<number, number>> {
     const adjacency = new Map<number, Map<number, number>>();
 
     for (const [, edge] of graph.edges) {
@@ -188,11 +190,11 @@ export class LouvainDetector {
       // Sigma_tot: total degree of nodes in target community
       let sigmaTot = 0;
       for (const [nid, ncomm] of nodeToCommunity) {
-        if (ncomm === comm) sigmaTot += (degrees.get(nid) ?? 0);
+        if (ncomm === comm) sigmaTot += degrees.get(nid) ?? 0;
       }
 
       // Simplified modularity gain
-      const gain = (k_i_in / totalWeight) - (sigmaTot * nodeDegree) / (2 * totalWeight * totalWeight);
+      const gain = k_i_in / totalWeight - (sigmaTot * nodeDegree) / (2 * totalWeight * totalWeight);
       gains.set(comm, gain);
     }
 

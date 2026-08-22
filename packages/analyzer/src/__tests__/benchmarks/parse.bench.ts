@@ -20,9 +20,7 @@ function createParser(): UnifiedParser {
   return new UnifiedParser([new TypeScriptProvider()]);
 }
 
-function createDiscoveredFiles(
-  filePaths: string[],
-): DiscoveredFile[] {
+function createDiscoveredFiles(filePaths: string[]): DiscoveredFile[] {
   return filePaths.map((fp) => ({
     filePath: fp,
     absolutePath: fp,
@@ -106,106 +104,98 @@ describe('Parse Benchmarks', () => {
     },
   );
 
-  it(
-    'should parse large projects within linear time',
-    { timeout: LONG_TIMEOUT },
-    async () => {
-      const tmpDir = mkdtempSync(join(tmpdir(), 'bench-parse-large-'));
-      try {
-        generateFixture({
-          outputDir: tmpDir,
-          fileCount: 500,
-          filesPerDir: 25,
-          seed: 42,
-        });
+  it('should parse large projects within linear time', { timeout: LONG_TIMEOUT }, async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'bench-parse-large-'));
+    try {
+      generateFixture({
+        outputDir: tmpDir,
+        fileCount: 500,
+        filesPerDir: 25,
+        seed: 42,
+      });
 
-        const files = collectTsFiles(tmpDir);
-        const parser = createParser();
-        const discoveredFiles = createDiscoveredFiles(files);
+      const files = collectTsFiles(tmpDir);
+      const parser = createParser();
+      const discoveredFiles = createDiscoveredFiles(files);
 
-        let parsedCount = 0;
-        const runner = new BenchmarkRunner({ verbose: false });
-        const benchCase: BenchmarkCase = {
-          name: 'parse-500-files',
-          category: 'parse',
-          warmupIterations: 2,
-          iterations: 10,
-          fn: async () => {
-            let count = 0;
-            for (const file of discoveredFiles) {
-              parser.parseFile(file);
-              count++;
-            }
-            parsedCount = count;
-          },
-        };
-
-        const stats = await runner.runCase(benchCase);
-
-        expect(parsedCount).toBe(discoveredFiles.length);
-        console.log(
-          `Parse 500 files: mean=${stats.duration.mean.toFixed(2)}ms, ` +
-          `p95=${stats.duration.p95.toFixed(2)}ms`,
-        );
-      } finally {
-        if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true });
-      }
-    },
-  );
-
-  it(
-    'should parse single large file efficiently',
-    { timeout: LONG_TIMEOUT },
-    async () => {
-      const tmpDir = mkdtempSync(join(tmpdir(), 'bench-parse-large-file-'));
-      try {
-        // Generate a synthetic large file
-        const largeFilePath = join(tmpDir, 'large.ts');
-        let content = '// Auto-generated large benchmark file\n';
-        for (let i = 0; i < 300; i++) {
-          content += `\nexport class Service${i} {\n`;
-          for (let j = 0; j < 8; j++) {
-            content += `  method${j}(param${j}: string): number {\n`;
-            content += `    const result = param${j}.length + ${i} * ${j};\n`;
-            content += `    return result;\n`;
-            content += `  }\n\n`;
-          }
-          content += `}\n`;
-        }
-        writeFileSync(largeFilePath, content);
-
-        const parser = createParser();
-        const file: DiscoveredFile = {
-          filePath: 'large.ts',
-          absolutePath: largeFilePath,
-          content,
-          language: 'typescript',
-          size: Buffer.byteLength(content),
-          modifiedAt: new Date().toISOString(),
-        };
-
-        const runner = new BenchmarkRunner({ verbose: false });
-        const benchCase: BenchmarkCase = {
-          name: 'parse-large-file',
-          category: 'parse',
-          warmupIterations: 3,
-          iterations: 30,
-          fn: async () => {
+      let parsedCount = 0;
+      const runner = new BenchmarkRunner({ verbose: false });
+      const benchCase: BenchmarkCase = {
+        name: 'parse-500-files',
+        category: 'parse',
+        warmupIterations: 2,
+        iterations: 10,
+        fn: async () => {
+          let count = 0;
+          for (const file of discoveredFiles) {
             parser.parseFile(file);
-          },
-        };
+            count++;
+          }
+          parsedCount = count;
+        },
+      };
 
-        const stats = await runner.runCase(benchCase);
-        const locPerSec = content.split('\n').length / (stats.duration.mean / 1000);
-        console.log(
-          `Parse large file (${content.split('\n').length} LOC): ` +
+      const stats = await runner.runCase(benchCase);
+
+      expect(parsedCount).toBe(discoveredFiles.length);
+      console.log(
+        `Parse 500 files: mean=${stats.duration.mean.toFixed(2)}ms, ` +
+          `p95=${stats.duration.p95.toFixed(2)}ms`,
+      );
+    } finally {
+      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it('should parse single large file efficiently', { timeout: LONG_TIMEOUT }, async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'bench-parse-large-file-'));
+    try {
+      // Generate a synthetic large file
+      const largeFilePath = join(tmpDir, 'large.ts');
+      let content = '// Auto-generated large benchmark file\n';
+      for (let i = 0; i < 300; i++) {
+        content += `\nexport class Service${i} {\n`;
+        for (let j = 0; j < 8; j++) {
+          content += `  method${j}(param${j}: string): number {\n`;
+          content += `    const result = param${j}.length + ${i} * ${j};\n`;
+          content += `    return result;\n`;
+          content += `  }\n\n`;
+        }
+        content += `}\n`;
+      }
+      writeFileSync(largeFilePath, content);
+
+      const parser = createParser();
+      const file: DiscoveredFile = {
+        filePath: 'large.ts',
+        absolutePath: largeFilePath,
+        content,
+        language: 'typescript',
+        size: Buffer.byteLength(content),
+        modifiedAt: new Date().toISOString(),
+      };
+
+      const runner = new BenchmarkRunner({ verbose: false });
+      const benchCase: BenchmarkCase = {
+        name: 'parse-large-file',
+        category: 'parse',
+        warmupIterations: 3,
+        iterations: 30,
+        fn: async () => {
+          parser.parseFile(file);
+        },
+      };
+
+      const stats = await runner.runCase(benchCase);
+      const locPerSec = content.split('\n').length / (stats.duration.mean / 1000);
+      console.log(
+        `Parse large file (${content.split('\n').length} LOC): ` +
           `mean=${stats.duration.mean.toFixed(2)}ms, ` +
           `p95=${stats.duration.p95.toFixed(2)}ms, ` +
           `${locPerSec.toFixed(0)} LOC/sec`,
-        );
-      } finally {
-        if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true });
-      }
-    },
-  );
+      );
+    } finally {
+      if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true });
+    }
+  });
 });

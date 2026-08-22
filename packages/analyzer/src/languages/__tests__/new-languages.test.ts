@@ -42,7 +42,8 @@ describe('YAML Provider', () => {
   });
 
   it('should handle nested YAML with indent tracking', () => {
-    const src = 'server:\n  host: localhost\n  port: 3000\ndatabase:\n  url: postgresql://localhost';
+    const src =
+      'server:\n  host: localhost\n  port: 3000\ndatabase:\n  url: postgresql://localhost';
     const captures = p.parse(src, '/test/nested.yaml');
     expect(captures.length).toBeGreaterThanOrEqual(4);
   });
@@ -105,13 +106,15 @@ describe('SQL Provider', () => {
   });
 
   it('should detect CREATE FUNCTION statements', () => {
-    const src = 'CREATE FUNCTION calculate_tax(amount DECIMAL) RETURNS DECIMAL BEGIN RETURN amount * 0.1; END;';
+    const src =
+      'CREATE FUNCTION calculate_tax(amount DECIMAL) RETURNS DECIMAL BEGIN RETURN amount * 0.1; END;';
     const captures = p.parse(src, '/test/func.sql');
     expect(captures.some((c) => c.name === 'calculate_tax')).toBe(true);
   });
 
   it('should detect SELECT/INSERT/UPDATE/DELETE', () => {
-    const src = 'SELECT * FROM users;\nINSERT INTO users (name) VALUES ("Alice");\nUPDATE users SET name="Bob" WHERE id=1;\nDELETE FROM users WHERE id=2;';
+    const src =
+      'SELECT * FROM users;\nINSERT INTO users (name) VALUES ("Alice");\nUPDATE users SET name="Bob" WHERE id=1;\nDELETE FROM users WHERE id=2;';
     const captures = p.parse(src, '/test/dml.sql');
     expect(captures.length).toBeGreaterThanOrEqual(2);
     const tables = captures.map((c) => c.name);
@@ -175,7 +178,8 @@ describe('TOML Provider', () => {
   const p = new TomlProvider();
 
   it('should detect table sections', () => {
-    const src = '[server]\nhost = "localhost"\nport = 3000\n\n[database]\nurl = "postgresql://localhost"';
+    const src =
+      '[server]\nhost = "localhost"\nport = 3000\n\n[database]\nurl = "postgresql://localhost"';
     const captures = p.parse(src, '/test/config.toml');
     expect(captures.some((c) => c.name === 'server')).toBe(true);
     expect(captures.some((c) => c.name === 'database')).toBe(true);
@@ -188,7 +192,8 @@ describe('TOML Provider', () => {
   });
 
   it('should detect array of tables', () => {
-    const src = '[[products]]\nname = "Widget"\nprice = 9.99\n\n[[products]]\nname = "Gadget"\nprice = 19.99';
+    const src =
+      '[[products]]\nname = "Widget"\nprice = 9.99\n\n[[products]]\nname = "Gadget"\nprice = 19.99';
     const captures = p.parse(src, '/test/array.toml');
     expect(captures.some((c) => c.name === 'products')).toBe(true);
   });
@@ -214,7 +219,8 @@ describe('Markdown Provider', () => {
   });
 
   it('should detect links', () => {
-    const src = 'See [the docs](https://example.com/docs) for more info.\n[GitHub](https://github.com)\n';
+    const src =
+      'See [the docs](https://example.com/docs) for more info.\n[GitHub](https://github.com)\n';
     const captures = p.parse(src, '/test/links.md');
     expect(captures.some((c) => c.properties?.linkType === 'markdown')).toBe(true);
   });
@@ -240,7 +246,8 @@ describe('HTML Provider', () => {
   const p = new HtmlProvider();
 
   it('should detect HTML tags', () => {
-    const src = '<html><head><title>Test</title></head><body><h1>Hello</h1><p>World</p></body></html>';
+    const src =
+      '<html><head><title>Test</title></head><body><h1>Hello</h1><p>World</p></body></html>';
     const captures = p.parse(src, '/test/page.html');
     const tags = new Set(captures.map((c) => c.name));
     expect(tags.has('html')).toBe(true);
@@ -288,7 +295,8 @@ describe('CSS Provider', () => {
   });
 
   it('should detect @keyframes and @media rules', () => {
-    const src = '@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }\n@media screen and (max-width: 768px) { .container { padding: 10px; } }';
+    const src =
+      '@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }\n@media screen and (max-width: 768px) { .container { padding: 10px; } }';
     const captures = p.parse(src, '/test/atrules.css');
     expect(captures.some((c) => c.name === 'keyframes')).toBe(true);
     expect(captures.some((c) => c.name === 'media')).toBe(true);
@@ -386,9 +394,16 @@ describe('Groovy Provider', () => {
 describe('New Language Provider — Cross-Cutting', () => {
   it('all 10 providers should have unique language IDs', () => {
     const providers = [
-      new YamlProvider(), new JsonProvider(), new SqlProvider(),
-      new BashProvider(), new TomlProvider(), new MarkdownProvider(),
-      new HtmlProvider(), new CssProvider(), new RProvider(), new GroovyProvider(),
+      new YamlProvider(),
+      new JsonProvider(),
+      new SqlProvider(),
+      new BashProvider(),
+      new TomlProvider(),
+      new MarkdownProvider(),
+      new HtmlProvider(),
+      new CssProvider(),
+      new RProvider(),
+      new GroovyProvider(),
     ];
     const ids = new Set(providers.map((p) => p.language));
     expect(ids.size).toBe(10);
@@ -396,9 +411,16 @@ describe('New Language Provider — Cross-Cutting', () => {
 
   it('all 10 providers should have displayName', () => {
     const providers = [
-      new YamlProvider(), new JsonProvider(), new SqlProvider(),
-      new BashProvider(), new TomlProvider(), new MarkdownProvider(),
-      new HtmlProvider(), new CssProvider(), new RProvider(), new GroovyProvider(),
+      new YamlProvider(),
+      new JsonProvider(),
+      new SqlProvider(),
+      new BashProvider(),
+      new TomlProvider(),
+      new MarkdownProvider(),
+      new HtmlProvider(),
+      new CssProvider(),
+      new RProvider(),
+      new GroovyProvider(),
     ];
     for (const p of providers) {
       expect(p.displayName).toBeTruthy();
@@ -408,9 +430,16 @@ describe('New Language Provider — Cross-Cutting', () => {
 
   it('all 10 providers should have non-empty extensions', () => {
     const providers = [
-      new YamlProvider(), new JsonProvider(), new SqlProvider(),
-      new BashProvider(), new TomlProvider(), new MarkdownProvider(),
-      new HtmlProvider(), new CssProvider(), new RProvider(), new GroovyProvider(),
+      new YamlProvider(),
+      new JsonProvider(),
+      new SqlProvider(),
+      new BashProvider(),
+      new TomlProvider(),
+      new MarkdownProvider(),
+      new HtmlProvider(),
+      new CssProvider(),
+      new RProvider(),
+      new GroovyProvider(),
     ];
     for (const p of providers) {
       expect(p.extensions.length).toBeGreaterThan(0);
@@ -419,9 +448,16 @@ describe('New Language Provider — Cross-Cutting', () => {
 
   it('fallbackParse should handle moderately complex source', () => {
     const providers = [
-      new YamlProvider(), new JsonProvider(), new SqlProvider(),
-      new BashProvider(), new TomlProvider(), new MarkdownProvider(),
-      new HtmlProvider(), new CssProvider(), new RProvider(), new GroovyProvider(),
+      new YamlProvider(),
+      new JsonProvider(),
+      new SqlProvider(),
+      new BashProvider(),
+      new TomlProvider(),
+      new MarkdownProvider(),
+      new HtmlProvider(),
+      new CssProvider(),
+      new RProvider(),
+      new GroovyProvider(),
     ];
 
     const samples: Record<string, string> = {

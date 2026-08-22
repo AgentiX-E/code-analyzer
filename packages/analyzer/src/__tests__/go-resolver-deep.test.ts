@@ -90,14 +90,28 @@ describe('GoResolver — interface satisfaction', () => {
     const satisfied = anyResolver.checkInterfaceSatisfaction(
       'User',
       new Map([
-        ['Read', { name: 'Read', params: [{ name: 'p', type: '[]byte' }], results: [{ name: 'n', type: 'int' }] }],
+        [
+          'Read',
+          {
+            name: 'Read',
+            params: [{ name: 'p', type: '[]byte' }],
+            results: [{ name: 'n', type: 'int' }],
+          },
+        ],
       ]),
       'Reader',
       {
         name: 'Reader',
         package: '',
         methods: new Map([
-          ['Read', { name: 'Read', params: [{ name: 'p', type: '[]byte' }], results: [{ name: 'n', type: 'int' }] }],
+          [
+            'Read',
+            {
+              name: 'Read',
+              params: [{ name: 'p', type: '[]byte' }],
+              results: [{ name: 'n', type: 'int' }],
+            },
+          ],
         ]),
         embeddedInterfaces: [],
       },
@@ -108,19 +122,12 @@ describe('GoResolver — interface satisfaction', () => {
   it('returns false when struct is missing a method', () => {
     const r = makeResolver();
     const anyResolver = r as any;
-    const satisfied = anyResolver.checkInterfaceSatisfaction(
-      'User',
-      new Map(),
-      'Reader',
-      {
-        name: 'Reader',
-        package: '',
-        methods: new Map([
-          ['Read', { name: 'Read', params: [], results: [] }],
-        ]),
-        embeddedInterfaces: [],
-      },
-    );
+    const satisfied = anyResolver.checkInterfaceSatisfaction('User', new Map(), 'Reader', {
+      name: 'Reader',
+      package: '',
+      methods: new Map([['Read', { name: 'Read', params: [], results: [] }]]),
+      embeddedInterfaces: [],
+    });
     expect(satisfied).toBe(false);
   });
 
@@ -129,15 +136,23 @@ describe('GoResolver — interface satisfaction', () => {
     const anyResolver = r as any;
     const satisfied = anyResolver.checkInterfaceSatisfaction(
       'User',
-      new Map([
-        ['M', { name: 'M', params: [{ name: 'a', type: 'int' }], results: [] }],
-      ]),
+      new Map([['M', { name: 'M', params: [{ name: 'a', type: 'int' }], results: [] }]]),
       'Iface',
       {
         name: 'Iface',
         package: '',
         methods: new Map([
-          ['M', { name: 'M', params: [{ name: 'a', type: 'int' }, { name: 'b', type: 'int' }], results: [] }],
+          [
+            'M',
+            {
+              name: 'M',
+              params: [
+                { name: 'a', type: 'int' },
+                { name: 'b', type: 'int' },
+              ],
+              results: [],
+            },
+          ],
         ]),
         embeddedInterfaces: [],
       },
@@ -150,9 +165,7 @@ describe('GoResolver — interface satisfaction', () => {
     const anyResolver = r as any;
     const satisfied = anyResolver.checkInterfaceSatisfaction(
       'User',
-      new Map([
-        ['M', { name: 'M', params: [{ name: 'a', type: 'any' }], results: [] }],
-      ]),
+      new Map([['M', { name: 'M', params: [{ name: 'a', type: 'any' }], results: [] }]]),
       'Iface',
       {
         name: 'Iface',
@@ -175,9 +188,7 @@ describe('GoResolver — findSatisfiedInterfaces', () => {
     r.extractTypes('package main\n\ntype Reader interface {\n\tRead() int\n}', '/test.go');
     // The interface cache now has "Reader".
     const satisfied = anyResolver.findSatisfiedInterfaces(
-      new Map([
-        ['Read', { name: 'Read', params: [], results: [{ name: '', type: 'int' }] }],
-      ]),
+      new Map([['Read', { name: 'Read', params: [], results: [{ name: '', type: 'int' }] }]]),
     );
     expect(Array.isArray(satisfied)).toBe(true);
   });

@@ -272,11 +272,14 @@ describe('IndexSupervisor', () => {
   it('progressCallback option is accepted and does not crash', async () => {
     const supervisor = new IndexSupervisor({ timeout: 500, maxRetries: 0 });
 
-    const result = await supervisor.supervise(async () => {
-      // success
-    }, {
-      progressCallback: () => {},
-    });
+    const result = await supervisor.supervise(
+      async () => {
+        // success
+      },
+      {
+        progressCallback: () => {},
+      },
+    );
 
     expect(result.status).toBe('complete');
   });

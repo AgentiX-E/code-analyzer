@@ -16,9 +16,27 @@ function createIndexerWithRepos() {
   const groupManager = new RepoGroupManager();
   groupManager.createGroup('test-group', 'Test Group', 'Test description');
   groupManager.addRepo('test-group', 'org', 'core', 'https://github.com/org/core', '/tmp/core');
-  groupManager.addRepo('test-group', 'org', 'service-a', 'https://github.com/org/service-a', '/tmp/a');
-  groupManager.addRepo('test-group', 'org', 'service-b', 'https://github.com/org/service-b', '/tmp/b');
-  groupManager.addRepo('test-group', 'org', 'lib-util', 'https://github.com/org/lib-util', '/tmp/util');
+  groupManager.addRepo(
+    'test-group',
+    'org',
+    'service-a',
+    'https://github.com/org/service-a',
+    '/tmp/a',
+  );
+  groupManager.addRepo(
+    'test-group',
+    'org',
+    'service-b',
+    'https://github.com/org/service-b',
+    '/tmp/b',
+  );
+  groupManager.addRepo(
+    'test-group',
+    'org',
+    'lib-util',
+    'https://github.com/org/lib-util',
+    '/tmp/util',
+  );
 
   // Add nodes to each repo
   const repos = ['org/core', 'org/service-a', 'org/service-b', 'org/lib-util'];
@@ -85,7 +103,12 @@ describe('ImpactGraphBuilder', () => {
     it('should return empty result for repos with no dependents', async () => {
       // Build graph with no edges
       const graph = {
-        nodes: new Map([['org/isolated', { repo: 'org/isolated', symbols: [], directDependents: [], transitiveDependents: [] }]]),
+        nodes: new Map([
+          [
+            'org/isolated',
+            { repo: 'org/isolated', symbols: [], directDependents: [], transitiveDependents: [] },
+          ],
+        ]),
         edges: [],
       };
 
@@ -168,9 +191,28 @@ describe('ImpactGraphBuilder', () => {
     it('should compute transitive dependents for all nodes', () => {
       const graph = {
         nodes: new Map([
-          ['org/core', { repo: 'org/core', symbols: [], directDependents: ['org/service-a'], transitiveDependents: [] }],
-          ['org/service-a', { repo: 'org/service-a', symbols: [], directDependents: ['org/service-b'], transitiveDependents: [] }],
-          ['org/service-b', { repo: 'org/service-b', symbols: [], directDependents: [], transitiveDependents: [] }],
+          [
+            'org/core',
+            {
+              repo: 'org/core',
+              symbols: [],
+              directDependents: ['org/service-a'],
+              transitiveDependents: [],
+            },
+          ],
+          [
+            'org/service-a',
+            {
+              repo: 'org/service-a',
+              symbols: [],
+              directDependents: ['org/service-b'],
+              transitiveDependents: [],
+            },
+          ],
+          [
+            'org/service-b',
+            { repo: 'org/service-b', symbols: [], directDependents: [], transitiveDependents: [] },
+          ],
         ]),
         edges: [],
       };

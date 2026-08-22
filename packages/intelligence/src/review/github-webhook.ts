@@ -108,10 +108,7 @@ export class GitHubPRWebhook {
       .digest('hex')}`;
 
     try {
-      return timingSafeEqual(
-        Buffer.from(expectedSignature),
-        Buffer.from(signature),
-      );
+      return timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature));
     } /* v8 ignore start */ catch {
       return false;
     } /* v8 ignore stop */
@@ -126,10 +123,7 @@ export class GitHubPRWebhook {
    * Processes opened, synchronize, and reopened events.
    * Skips closed events.
    */
-  async handlePullRequestEvent(
-    event: string,
-    payload: GitHubPREvent,
-  ): Promise<WebhookResult> {
+  async handlePullRequestEvent(event: string, payload: GitHubPREvent): Promise<WebhookResult> {
     if (event !== 'pull_request') {
       return { status: 'skipped', message: `Unsupported event: ${event}` };
     }
@@ -201,11 +195,7 @@ export class GitHubPRWebhook {
       };
 
       // Run the review
-      const result = await this.reviewEngine.reviewPR(
-        payload.repository.full_name,
-        pr,
-        diffs,
-      );
+      const result = await this.reviewEngine.reviewPR(payload.repository.full_name, pr, diffs);
 
       // Post inline comments to GitHub
       const inlineComments: InlineComment[] = result.comments.map((c) => ({
@@ -254,11 +244,7 @@ export class GitHubPRWebhook {
    * Uses the media type application/vnd.github.v3.diff for raw diff format.
    */
   /* v8 ignore start */
-  async fetchPRDiff(
-    owner: string,
-    repo: string,
-    prNumber: number,
-  ): Promise<string> {
+  async fetchPRDiff(owner: string, repo: string, prNumber: number): Promise<string> {
     const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}`;
     return this.githubRequest(url, {
       headers: { Accept: 'application/vnd.github.v3.diff' },
@@ -269,11 +255,7 @@ export class GitHubPRWebhook {
   /**
    * Fetch the list of files changed in a pull request.
    */
-  async fetchPRFiles(
-    owner: string,
-    repo: string,
-    prNumber: number,
-  ): Promise<PRFile[]> {
+  async fetchPRFiles(owner: string, repo: string, prNumber: number): Promise<PRFile[]> {
     const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}/files`;
     const response = await this.githubRequest(url, {
       headers: { Accept: 'application/vnd.github.v3+json' },
@@ -370,10 +352,7 @@ export class GitHubPRWebhook {
   /**
    * Make a GitHub API request with retry logic and rate limit awareness.
    */
-  private async githubRequest(
-    url: string,
-    options: RequestInit,
-  ): Promise<string> {
+  private async githubRequest(url: string, options: RequestInit): Promise<string> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.githubToken}`,
       'User-Agent': 'code-analyzer',
@@ -404,9 +383,7 @@ export class GitHubPRWebhook {
             continue;
           }
 
-          throw new Error(
-            `GitHub API rate limit exceeded. Resets at ${resetDate.toISOString()}`,
-          );
+          throw new Error(`GitHub API rate limit exceeded. Resets at ${resetDate.toISOString()}`);
         }
 
         if (response.status === 429) {
@@ -421,10 +398,15 @@ export class GitHubPRWebhook {
         }
 
         if (!response.ok) {
-          const body = await response.text().catch(err => { this.logger.error('Failed to read GitHub API error response body', err instanceof Error ? err : new Error(String(err)), { phaseId: 'github-webhook.request' }); return ''; });
-          throw new Error(
-            `GitHub API error (${response.status}): ${body.slice(0, 200)}`,
-          );
+          const body = await response.text().catch((err) => {
+            this.logger.error(
+              'Failed to read GitHub API error response body',
+              err instanceof Error ? err : new Error(String(err)),
+              { phaseId: 'github-webhook.request' },
+            );
+            return '';
+          });
+          throw new Error(`GitHub API error (${response.status}): ${body.slice(0, 200)}`);
         }
 
         return await response.text();
@@ -443,9 +425,7 @@ export class GitHubPRWebhook {
   /* v8 ignore stop */
 
   /* v8 ignore start */
-  private buildReviewSummaryBody(
-    summary: import('./pr-review.js').PRReviewSummary,
-  ): string {
+  private buildReviewSummaryBody(summary: import('./pr-review.js').PRReviewSummary): string {
     const lines: string[] = [
       '## Code Analyzer Review Summary',
       '',

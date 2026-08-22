@@ -26,10 +26,7 @@ export class UnifiedParser {
   private readonly providers: Map<string, LanguageProvider>;
   private readonly cache: ParseCache | null;
 
-  constructor(
-    providers: LanguageProvider[],
-    options: UnifiedParserOptions = {},
-  ) {
+  constructor(providers: LanguageProvider[], options: UnifiedParserOptions = {}) {
     const { cache: enableCache = true, cacheCapacity = 10000 } = options;
 
     this.providers = new Map();
@@ -64,7 +61,10 @@ export class UnifiedParser {
   }
 
   /** Parse files in parallel using worker pool. Uses cache when enabled. */
-  async parseFiles(files: DiscoveredFile[], pool: WorkerPool): Promise<Map<string, UnifiedCapture[]>> {
+  async parseFiles(
+    files: DiscoveredFile[],
+    pool: WorkerPool,
+  ): Promise<Map<string, UnifiedCapture[]>> {
     const results = new Map<string, UnifiedCapture[]>();
     const cachedPaths: string[] = [];
 

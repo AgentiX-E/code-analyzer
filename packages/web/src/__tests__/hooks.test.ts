@@ -22,7 +22,9 @@ describe('useApiHealth', () => {
   it('should start with loading=true and data=null', async () => {
     // Don't resolve immediately — keep loading state
     let resolveFetch: (v: unknown) => void = () => {};
-    const promise = new Promise((resolve) => { resolveFetch = resolve; });
+    const promise = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
     mockFetch.mockReturnValueOnce(promise);
 
     const { useApiHealth } = await import('../hooks/useApiHealth');
@@ -35,15 +37,23 @@ describe('useApiHealth', () => {
     // Resolve to clean up
     resolveFetch({
       ok: true,
-      json: () => Promise.resolve({
-        status: 'ok', timestamp: '', uptime: 0, version: '', name: '', environment: '',
-        checks: {
-          server: { status: 'ok', uptime: 0 },
-          memory: { status: 'ok', heapUsedMB: 0, heapTotalMB: 0, rssMB: 0 },
-        },
-      }),
+      json: () =>
+        Promise.resolve({
+          status: 'ok',
+          timestamp: '',
+          uptime: 0,
+          version: '',
+          name: '',
+          environment: '',
+          checks: {
+            server: { status: 'ok', uptime: 0 },
+            memory: { status: 'ok', heapUsedMB: 0, heapTotalMB: 0, rssMB: 0 },
+          },
+        }),
     });
-    await act(async () => { /* flush */ });
+    await act(async () => {
+      /* flush */
+    });
     unmount();
   });
 
@@ -235,10 +245,9 @@ describe('useSearch', () => {
     });
 
     const { useSearch } = await import('../hooks/useSearch');
-    const { result, rerender } = renderHook(
-      ({ q }) => useSearch(q, { debounceMs: 10 }),
-      { initialProps: { q: '' } },
-    );
+    const { result, rerender } = renderHook(({ q }) => useSearch(q, { debounceMs: 10 }), {
+      initialProps: { q: '' },
+    });
 
     // Start with empty
     expect(result.current.loading).toBe(false);
@@ -247,9 +256,12 @@ describe('useSearch', () => {
     rerender({ q: 'test' });
     expect(result.current.loading).toBe(true);
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 5000 },
+    );
 
     expect(result.current.results).toHaveLength(1);
     expect(result.current.results[0]!.name).toBe('testFn');
@@ -261,16 +273,18 @@ describe('useSearch', () => {
     mockFetch.mockRejectedValueOnce(new Error('Search failed'));
 
     const { useSearch } = await import('../hooks/useSearch');
-    const { result, rerender } = renderHook(
-      ({ q }) => useSearch(q, { debounceMs: 10 }),
-      { initialProps: { q: '' } },
-    );
+    const { result, rerender } = renderHook(({ q }) => useSearch(q, { debounceMs: 10 }), {
+      initialProps: { q: '' },
+    });
 
     rerender({ q: 'bad' });
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(result.current.loading).toBe(false);
+      },
+      { timeout: 5000 },
+    );
 
     expect(result.current.error).toBe('Search failed');
     expect(result.current.results).toEqual([]);
@@ -288,16 +302,18 @@ describe('useSearch', () => {
     });
 
     const { useSearch } = await import('../hooks/useSearch');
-    const { rerender } = renderHook(
-      ({ q, o }) => useSearch(q, o),
-      { initialProps: { q: '', o: { debounceMs: 10, limit: 10, projectId: 'p1' } } },
-    );
+    const { rerender } = renderHook(({ q, o }) => useSearch(q, o), {
+      initialProps: { q: '', o: { debounceMs: 10, limit: 10, projectId: 'p1' } },
+    });
 
     rerender({ q: 'x', o: { debounceMs: 10, limit: 10, projectId: 'p1' } });
 
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalled();
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(mockFetch).toHaveBeenCalled();
+      },
+      { timeout: 5000 },
+    );
 
     const body = JSON.parse(mockFetch.mock.calls[0]![1]!.body as string);
     expect(body.args.query).toBe('x');
@@ -435,7 +451,18 @@ describe('useAnalyze', () => {
         Promise.resolve({
           tool: 'analyze_repository',
           success: true,
-          content: [{ type: 'text', text: JSON.stringify({ projectId: 'p1', status: 'completed', nodes: 10, edges: 20, files: 3 }) }],
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                projectId: 'p1',
+                status: 'completed',
+                nodes: 10,
+                edges: 20,
+                files: 3,
+              }),
+            },
+          ],
         }),
     });
 

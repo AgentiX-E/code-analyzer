@@ -6,7 +6,12 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createToolRegistry } from '../tools/index.js';
-import { reviewDiff, reviewDiffSchema, reviewFile, reviewFileSchema } from '../tools/code-review.js';
+import {
+  reviewDiff,
+  reviewDiffSchema,
+  reviewFile,
+  reviewFileSchema,
+} from '../tools/code-review.js';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -42,30 +47,70 @@ function createTestContext(projectId: string = 'test-project'): ToolContextImpl 
   // Add nodes for graph-based analysis
   const nodes: GraphNode[] = [
     makeNode({ name: 'simpleFn', qualifiedName: 'pkg.simpleFn', complexity: 3, projectId }),
-    makeNode({ name: 'complexFn', qualifiedName: 'pkg.complexFn', complexity: 35, projectId, filePath: '/src/complex.ts' }),
-    makeNode({ name: 'MyClass', qualifiedName: 'pkg.MyClass', label: 'Class', complexity: 8, projectId, filePath: '/src/my-class.ts' }),
-    makeNode({ name: 'doWork', qualifiedName: 'pkg.MyClass.doWork', label: 'Method', complexity: 12, projectId, filePath: '/src/my-class.ts' }),
-    makeNode({ name: 'validate', qualifiedName: 'pkg.MyClass.validate', label: 'Method', complexity: 4, projectId, filePath: '/src/my-class.ts' }),
+    makeNode({
+      name: 'complexFn',
+      qualifiedName: 'pkg.complexFn',
+      complexity: 35,
+      projectId,
+      filePath: '/src/complex.ts',
+    }),
+    makeNode({
+      name: 'MyClass',
+      qualifiedName: 'pkg.MyClass',
+      label: 'Class',
+      complexity: 8,
+      projectId,
+      filePath: '/src/my-class.ts',
+    }),
+    makeNode({
+      name: 'doWork',
+      qualifiedName: 'pkg.MyClass.doWork',
+      label: 'Method',
+      complexity: 12,
+      projectId,
+      filePath: '/src/my-class.ts',
+    }),
+    makeNode({
+      name: 'validate',
+      qualifiedName: 'pkg.MyClass.validate',
+      label: 'Method',
+      complexity: 4,
+      projectId,
+      filePath: '/src/my-class.ts',
+    }),
   ];
 
   store.insertNodes(nodes);
 
   // Add edges to create coupling
-  const allNodes = store.getAllNodes().filter(n => n.projectId === projectId);
-  const simpleFn = allNodes.find(n => n.name === 'simpleFn');
+  const allNodes = store.getAllNodes().filter((n) => n.projectId === projectId);
+  const simpleFn = allNodes.find((n) => n.name === 'simpleFn');
 
   if (simpleFn) {
     // Create many incoming edges to simulate high coupling
     for (let i = 0; i < 20; i++) {
-      const caller = makeNode({ name: `caller${i}`, qualifiedName: `pkg.caller${i}`, complexity: 1, projectId });
+      const caller = makeNode({
+        name: `caller${i}`,
+        qualifiedName: `pkg.caller${i}`,
+        complexity: 1,
+        projectId,
+      });
       store.insertNode(caller);
     }
-    const callers = store.getAllNodes().filter(n => n.projectId === projectId && n.name.startsWith('caller'));
+    const callers = store
+      .getAllNodes()
+      .filter((n) => n.projectId === projectId && n.name.startsWith('caller'));
     for (const caller of callers) {
       if (simpleFn) {
         store.insertEdge({
-          id: 0, projectId, sourceId: caller.id, targetId: simpleFn.id,
-          type: 'CALLS', properties: {}, weight: 1.0, createdAt: new Date().toISOString(),
+          id: 0,
+          projectId,
+          sourceId: caller.id,
+          targetId: simpleFn.id,
+          type: 'CALLS',
+          properties: {},
+          weight: 1.0,
+          createdAt: new Date().toISOString(),
         });
       }
     }
@@ -122,22 +167,28 @@ describe('reviewDiff — Input validation', () => {
   });
 
   it('should accept all optional parameters', async () => {
-    const result = await reviewDiff({
-      projectId: 'test',
-      diff: 'diff content',
-      fromRef: 'main',
-      toRef: 'feature',
-      severity: 'high',
-      categories: ['bug', 'security'],
-    }, undefined);
+    const result = await reviewDiff(
+      {
+        projectId: 'test',
+        diff: 'diff content',
+        fromRef: 'main',
+        toRef: 'feature',
+        severity: 'high',
+        categories: ['bug', 'security'],
+      },
+      undefined,
+    );
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
   });
 
   it('should use default values for optional params', async () => {
-    const result = await reviewDiff({
-      projectId: 'test',
-    }, undefined);
+    const result = await reviewDiff(
+      {
+        projectId: 'test',
+      },
+      undefined,
+    );
     const data = JSON.parse(result.content[0].text);
     expect(data.range.from).toBe('HEAD~1');
     expect(data.range.to).toBe('HEAD');
@@ -156,21 +207,27 @@ describe('reviewFile — Input validation', () => {
   });
 
   it('should accept optional content and severity', async () => {
-    const result = await reviewFile({
-      projectId: 'test',
-      filePath: '/src/test.ts',
-      content: 'const x = 1;',
-      severity: 'high',
-    }, undefined);
+    const result = await reviewFile(
+      {
+        projectId: 'test',
+        filePath: '/src/test.ts',
+        content: 'const x = 1;',
+        severity: 'high',
+      },
+      undefined,
+    );
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
   });
 
   it('should use default severity when not provided', async () => {
-    const result = await reviewFile({
-      projectId: 'test',
-      filePath: '/src/test.ts',
-    }, undefined);
+    const result = await reviewFile(
+      {
+        projectId: 'test',
+        filePath: '/src/test.ts',
+      },
+      undefined,
+    );
     const data = JSON.parse(result.content[0].text);
     expect(data.severity).toBe('medium');
   });
@@ -182,9 +239,12 @@ describe('reviewFile — Input validation', () => {
 
 describe('reviewDiff — Basic execution', () => {
   it('should return basic analysis without store or context', async () => {
-    const result = await reviewDiff({
-      projectId: 'test-project',
-    }, undefined);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+      },
+      undefined,
+    );
 
     expect(result.content).toBeDefined();
     expect(result.content.length).toBeGreaterThan(0);
@@ -199,9 +259,12 @@ describe('reviewDiff — Basic execution', () => {
 
   it('should return graph integrity when passed a raw store', async () => {
     const store = new InMemoryGraphStore();
-    const result = await reviewDiff({
-      projectId: 'test-project',
-    }, store);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+      },
+      store,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.graphIntegrity).toBeDefined();
@@ -210,9 +273,12 @@ describe('reviewDiff — Basic execution', () => {
 
   it('should return heuristics results when passed a ToolContext', async () => {
     const ctx = createTestContext();
-    const result = await reviewDiff({
-      projectId: 'test-project',
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasDiff).toBe(false);
@@ -242,10 +308,13 @@ index abc123..def456 100644
 +  console.log(result);
  }`;
 
-    const result = await reviewDiff({
-      projectId: 'test-project',
-      diff: diffContent,
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+        diff: diffContent,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasDiff).toBe(true);
@@ -256,10 +325,13 @@ index abc123..def456 100644
   it('should filter by severity', async () => {
     const ctx = createTestContext();
 
-    const result = await reviewDiff({
-      projectId: 'test-project',
-      severity: 'critical',
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+        severity: 'critical',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.severity).toBe('critical');
@@ -272,10 +344,13 @@ index abc123..def456 100644
 
 describe('reviewFile — Basic execution', () => {
   it('should return note about missing store without context', async () => {
-    const result = await reviewFile({
-      projectId: 'test-project',
-      filePath: '/src/test.ts',
-    }, undefined);
+    const result = await reviewFile(
+      {
+        projectId: 'test-project',
+        filePath: '/src/test.ts',
+      },
+      undefined,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.projectId).toBe('test-project');
@@ -285,10 +360,13 @@ describe('reviewFile — Basic execution', () => {
 
   it('should analyze file from graph data when passed a ToolContext', async () => {
     const ctx = createTestContext();
-    const result = await reviewFile({
-      projectId: 'test-project',
-      filePath: '/src/my-class.ts',
-    }, ctx);
+    const result = await reviewFile(
+      {
+        projectId: 'test-project',
+        filePath: '/src/my-class.ts',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.filePath).toBe('/src/my-class.ts');
@@ -299,11 +377,14 @@ describe('reviewFile — Basic execution', () => {
 
   it('should detect empty file (no symbols) with low severity', async () => {
     const ctx = createTestContext();
-    const result = await reviewFile({
-      projectId: 'test-project',
-      filePath: '/src/empty.ts',
-      severity: 'low',
-    }, ctx);
+    const result = await reviewFile(
+      {
+        projectId: 'test-project',
+        filePath: '/src/empty.ts',
+        severity: 'low',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.symbolsInFile).toBe(0);
@@ -320,11 +401,14 @@ describe('reviewFile — Basic execution', () => {
     const ctx = createTestContext();
     const code = `export function myFunc(): void { console.log('test'); }`;
 
-    const result = await reviewFile({
-      projectId: 'test-project',
-      filePath: '/src/test.ts',
-      content: code,
-    }, ctx);
+    const result = await reviewFile(
+      {
+        projectId: 'test-project',
+        filePath: '/src/test.ts',
+        content: code,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasContent).toBe(true);
@@ -375,13 +459,18 @@ describe('Code Review Tools — Error handling', () => {
     };
     // Also patch getPRReviewEngine since it internally calls getReviewEngine
     if ((ctx as any).getPRReviewEngine) {
-      (ctx as any).getPRReviewEngine = () => { throw 'string error'; };
+      (ctx as any).getPRReviewEngine = () => {
+        throw 'string error';
+      };
     }
 
-    const result = await reviewDiff({
-      projectId: 'test',
-      diff: 'diff --git a/test.ts b/test.ts\n--- a/test.ts\n+++ b/test.ts\n@@ -1,1 +1,1 @@\n-old\n+new',
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test',
+        diff: 'diff --git a/test.ts b/test.ts\n--- a/test.ts\n+++ b/test.ts\n@@ -1,1 +1,1 @@\n-old\n+new',
+      },
+      ctx,
+    );
 
     // With a diff, the code tries PRReviewEngine then falls back to CodeReviewEngine
     // Both throw, so the outer catch should capture it
@@ -402,11 +491,14 @@ describe('Code Review Tools — Error handling', () => {
       throw 'string error';
     };
 
-    const result = await reviewFile({
-      projectId: 'test',
-      filePath: '/test.ts',
-      content: 'code',
-    }, ctx);
+    const result = await reviewFile(
+      {
+        projectId: 'test',
+        filePath: '/test.ts',
+        content: 'code',
+      },
+      ctx,
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Review error');
@@ -422,10 +514,13 @@ describe('Code Review Tools — Error handling', () => {
 describe('Code Review Tools — Edge cases', () => {
   it('reviewDiff should handle empty diff string', async () => {
     const ctx = createTestContext();
-    const result = await reviewDiff({
-      projectId: 'test-project',
-      diff: '',
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+        diff: '',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasDiff).toBe(false);
@@ -433,10 +528,13 @@ describe('Code Review Tools — Edge cases', () => {
 
   it('reviewDiff should handle diff with only whitespace', async () => {
     const ctx = createTestContext();
-    const result = await reviewDiff({
-      projectId: 'test-project',
-      diff: '   \n  ',
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+        diff: '   \n  ',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     // Whitespace is still truthy so it enters the diff parsing branch
@@ -447,9 +545,12 @@ describe('Code Review Tools — Edge cases', () => {
   it('reviewDiff should detect high-coupling in graph analysis', async () => {
     const ctx = createTestContext();
 
-    const result = await reviewDiff({
-      projectId: 'test-project',
-    }, ctx);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     const hasCouplingComment = data.comments.some(
@@ -465,20 +566,25 @@ describe('Code Review Tools — Edge cases', () => {
     // Insert 60 symbols in the same file
     const nodes: GraphNode[] = [];
     for (let i = 0; i < 60; i++) {
-      nodes.push(makeNode({
-        name: `sym${i}`,
-        qualifiedName: `pkg.sym${i}`,
-        filePath: '/src/large-file.ts',
-        projectId,
-      }));
+      nodes.push(
+        makeNode({
+          name: `sym${i}`,
+          qualifiedName: `pkg.sym${i}`,
+          filePath: '/src/large-file.ts',
+          projectId,
+        }),
+      );
     }
     store.insertNodes(nodes);
 
     const ctx = new ToolContextImpl(store);
-    const result = await reviewFile({
-      projectId,
-      filePath: '/src/large-file.ts',
-    }, ctx);
+    const result = await reviewFile(
+      {
+        projectId,
+        filePath: '/src/large-file.ts',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     const hasLargeComment = data.comments.some(
@@ -491,19 +597,24 @@ describe('Code Review Tools — Edge cases', () => {
     const store = new InMemoryGraphStore();
     const projectId = 'test-complex';
 
-    store.insertNode(makeNode({
-      name: 'nestedFn',
-      qualifiedName: 'pkg.nestedFn',
-      complexity: 30,
-      filePath: '/src/nested.ts',
-      projectId,
-    }));
+    store.insertNode(
+      makeNode({
+        name: 'nestedFn',
+        qualifiedName: 'pkg.nestedFn',
+        complexity: 30,
+        filePath: '/src/nested.ts',
+        projectId,
+      }),
+    );
 
     const ctx = new ToolContextImpl(store);
-    const result = await reviewFile({
-      projectId,
-      filePath: '/src/nested.ts',
-    }, ctx);
+    const result = await reviewFile(
+      {
+        projectId,
+        filePath: '/src/nested.ts',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     const hasComplexComment = data.comments.some(
@@ -513,11 +624,14 @@ describe('Code Review Tools — Edge cases', () => {
   });
 
   it('reviewDiff should handle custom fromRef and toRef', async () => {
-    const result = await reviewDiff({
-      projectId: 'test-project',
-      fromRef: 'v1.0',
-      toRef: 'v2.0',
-    }, undefined);
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+        fromRef: 'v1.0',
+        toRef: 'v2.0',
+      },
+      undefined,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.range.from).toBe('v1.0');
@@ -539,9 +653,13 @@ describe('Code Review Tools — Registry integration', () => {
   });
 
   it('should execute review_diff through registry', async () => {
-    const result = await registry.execute('review_diff', {
-      projectId: 'test-project',
-    }, ctx);
+    const result = await registry.execute(
+      'review_diff',
+      {
+        projectId: 'test-project',
+      },
+      ctx,
+    );
 
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
@@ -550,10 +668,14 @@ describe('Code Review Tools — Registry integration', () => {
   });
 
   it('should execute review_file through registry', async () => {
-    const result = await registry.execute('review_file', {
-      projectId: 'test-project',
-      filePath: '/src/my-class.ts',
-    }, ctx);
+    const result = await registry.execute(
+      'review_file',
+      {
+        projectId: 'test-project',
+        filePath: '/src/my-class.ts',
+      },
+      ctx,
+    );
 
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
@@ -569,21 +691,29 @@ describe('Code Review Tools — Registry integration', () => {
 -old
 +new`;
 
-    const result = await registry.execute('review_diff', {
-      projectId: 'test-project',
-      diff: diffContent,
-    }, ctx);
+    const result = await registry.execute(
+      'review_diff',
+      {
+        projectId: 'test-project',
+        diff: diffContent,
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasDiff).toBe(true);
   });
 
   it('should execute review_file with content through registry', async () => {
-    const result = await registry.execute('review_file', {
-      projectId: 'test-project',
-      filePath: '/src/test.ts',
-      content: 'function test() {}',
-    }, ctx);
+    const result = await registry.execute(
+      'review_file',
+      {
+        projectId: 'test-project',
+        filePath: '/src/test.ts',
+        content: 'function test() {}',
+      },
+      ctx,
+    );
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasContent).toBe(true);

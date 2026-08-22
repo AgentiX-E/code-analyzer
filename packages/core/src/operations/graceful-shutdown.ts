@@ -47,11 +47,7 @@ export interface GracefulShutdownOptions {
 /**
  * Execute a promise with a timeout. Rejects if not settled in time.
  */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  timeoutMessage: string
-): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const timeout = new Promise<never>((_resolve, reject) => {
@@ -104,9 +100,12 @@ export class GracefulShutdown {
    */
   listen(): void {
     for (const sig of this.signals) {
-      process.on(sig, /* v8 ignore next 3 */ () => {
-        void this.shutdown(sig);
-      });
+      process.on(
+        sig,
+        /* v8 ignore next 3 */ () => {
+          void this.shutdown(sig);
+        },
+      );
     }
   }
 
@@ -175,7 +174,7 @@ export class GracefulShutdown {
         await withTimeout(
           handler.shutdown(),
           handler.timeout,
-          `Shutdown handler "${handler.name}" timed out after ${handler.timeout}ms`
+          `Shutdown handler "${handler.name}" timed out after ${handler.timeout}ms`,
         );
         handlerResults.push({
           name: handler.name,

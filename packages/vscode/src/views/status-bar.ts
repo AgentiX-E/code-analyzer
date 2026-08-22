@@ -174,9 +174,7 @@ export class StatusBarManager {
 
     switch (this.state) {
       case 'indexing': {
-        const progressText = this.progress > 0
-          ? `${this.progress}%`
-          : '';
+        const progressText = this.progress > 0 ? `${this.progress}%` : '';
         return {
           text: `$(sync~spin) Analyzing... ${progressText}`.trim(),
           tooltip: `Code Analyzer — indexing codebase${this.progress > 0 ? ` (${this.progress}%)` : ''}`,
@@ -184,9 +182,7 @@ export class StatusBarManager {
         };
       }
       case 'ready': {
-        const symbolText = this.symbolCount > 0
-          ? `${this.symbolCount} symbols`
-          : 'Code Analyzer';
+        const symbolText = this.symbolCount > 0 ? `${this.symbolCount} symbols` : 'Code Analyzer';
         return {
           text: `$(check) ${symbolText}`,
           tooltip: this.buildReadyTooltip(),
@@ -250,10 +246,7 @@ export class StatusBarManager {
 // ---------------------------------------------------------------------------
 
 export interface StatusBarItemFactory {
-  createStatusBarItem(
-    alignment: number,
-    priority: number,
-  ): StatusBarItem;
+  createStatusBarItem(alignment: number, priority: number): StatusBarItem;
 }
 
 export function createStatusBarManager(
@@ -261,10 +254,7 @@ export function createStatusBarManager(
   engine: EngineBridge,
 ): StatusBarManager {
   const manager = new StatusBarManager();
-  const item = factory.createStatusBarItem(
-    StatusBarAlignment.Right,
-    100,
-  );
+  const item = factory.createStatusBarItem(StatusBarAlignment.Right, 100);
   manager.setItem(item);
 
   // Listen for indexing progress updates

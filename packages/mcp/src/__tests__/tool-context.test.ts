@@ -30,10 +30,12 @@ describe('ToolContextImpl', () => {
     });
 
     it('should return false when getSearchEngine is not a function', () => {
-      expect(ToolContextImpl.isToolContext({
-        store: {},
-        getSearchEngine: 'not-a-function',
-      })).toBe(false);
+      expect(
+        ToolContextImpl.isToolContext({
+          store: {},
+          getSearchEngine: 'not-a-function',
+        }),
+      ).toBe(false);
     });
   });
 

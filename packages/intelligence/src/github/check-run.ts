@@ -2,8 +2,18 @@
 // Creates, updates, and annotates GitHub Check Runs for cross-repo PR reviews.
 // Converts CrossRepoReviewResult into structured annotations visible on GitHub PRs.
 
-import type { GitHubApiClient, GitHubAnnotation, GitHubCheckRun, CreateCheckRunParams } from './client.js';
-import type { CrossRepoReviewResult, APIBreakingChange, CrossRepoImpactEntry, TestImpactPrediction } from '../cross-repo/cross-repo-pr-review.js';
+import type {
+  GitHubApiClient,
+  GitHubAnnotation,
+  GitHubCheckRun,
+  CreateCheckRunParams,
+} from './client.js';
+import type {
+  CrossRepoReviewResult,
+  APIBreakingChange,
+  CrossRepoImpactEntry,
+  TestImpactPrediction,
+} from '../cross-repo/cross-repo-pr-review.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -65,32 +75,37 @@ export class GitHubCheckRunManager {
     const annotations = this.formatAnnotations(result);
     const conclusion = this.determineConclusion(result);
 
-    const checkRun = await this.client.updateCheckRun(
-      owner, repo, checkRunId,
-      {
-        status: 'completed',
-        conclusion,
-        completed_at: new Date().toISOString(),
-        output: {
-          title: `Cross-Repo Review — ${result.summary.crossRepoRisk.toUpperCase()} Risk`,
-          summary: this.formatSummary(result),
-          text: this.formatDetailedText(result),
-          annotations: annotations.slice(0, 50),
-        },
+    const checkRun = await this.client.updateCheckRun(owner, repo, checkRunId, {
+      status: 'completed',
+      conclusion,
+      completed_at: new Date().toISOString(),
+      output: {
+        title: `Cross-Repo Review — ${result.summary.crossRepoRisk.toUpperCase()} Risk`,
+        summary: this.formatSummary(result),
+        text: this.formatDetailedText(result),
+        annotations: annotations.slice(0, 50),
       },
-    );
+    });
 
     return { checkRun, annotationsCount: annotations.length };
   }
   /* v8 ignore stop */
 
   /* v8 ignore start -- @preserve I/O-bound: calls GitHub API via client, tested in integration */
-  async fail(checkRunId: number, owner: string, repo: string, error: string): Promise<GitHubCheckRun> {
+  async fail(
+    checkRunId: number,
+    owner: string,
+    repo: string,
+    error: string,
+  ): Promise<GitHubCheckRun> {
     return this.client.updateCheckRun(owner, repo, checkRunId, {
       status: 'completed',
       conclusion: 'failure',
       completed_at: new Date().toISOString(),
-      output: { title: 'Cross-Repo Review Failed', summary: `## Error\n\n\`\`\`\n${error}\n\`\`\`` },
+      output: {
+        title: 'Cross-Repo Review Failed',
+        summary: `## Error\n\n\`\`\`\n${error}\n\`\`\``,
+      },
     });
   }
   /* v8 ignore stop */
@@ -106,7 +121,8 @@ export class GitHubCheckRunManager {
     for (const bc of result.apiBreakingChanges) {
       annotations.push({
         path: bc.symbol,
-        start_line: 1, end_line: 1,
+        start_line: 1,
+        end_line: 1,
         annotation_level: 'failure',
         message: `[BREAKING] ${bc.changeType}: ${bc.description}`,
         title: `API Breaking: ${bc.changeType}`,
@@ -119,7 +135,8 @@ export class GitHubCheckRunManager {
         impact.impactLevel === 'critical' ? 'failure' : 'warning';
       annotations.push({
         path: impact.affectedRepo,
-        start_line: 1, end_line: 1,
+        start_line: 1,
+        end_line: 1,
         annotation_level: level,
         message: `Cross-repo impact on \`${impact.affectedRepo}\`: ${impact.description}`,
         title: `Cross-Repo Impact: ${impact.affectedRepo}`,
@@ -129,11 +146,15 @@ export class GitHubCheckRunManager {
     // PR review comments -> warning/notice annotations
     for (const comment of result.prComments) {
       const level: GitHubAnnotation['annotation_level'] =
-        comment.severity === 'critical' || comment.severity === 'high' ? 'failure' :
-        comment.severity === 'medium' ? 'warning' : 'notice';
+        comment.severity === 'critical' || comment.severity === 'high'
+          ? 'failure'
+          : comment.severity === 'medium'
+            ? 'warning'
+            : 'notice';
       annotations.push({
         path: comment.path,
-        start_line: comment.startLine, end_line: comment.endLine,
+        start_line: comment.startLine,
+        end_line: comment.endLine,
         annotation_level: level,
         message: comment.content,
         title: `[${comment.severity}] ${comment.category}`,
@@ -145,7 +166,8 @@ export class GitHubCheckRunManager {
       for (const testFile of test.testFiles.slice(0, 3)) {
         annotations.push({
           path: testFile,
-          start_line: 1, end_line: 1,
+          start_line: 1,
+          end_line: 1,
           annotation_level: 'notice',
           message: `Test may be affected: ${test.reason}`,
           title: `Test Impact: ${test.repo}`,
@@ -159,11 +181,16 @@ export class GitHubCheckRunManager {
   determineConclusion(result: CrossRepoReviewResult): GitHubCheckRun['conclusion'] {
     const rec = result.summary.mergeRecommendation;
     switch (rec) {
-      case 'approve': return 'success';
-      case 'approve-with-caution': return 'neutral';
-      case 'request-changes': return 'failure';
-      case 'block': return 'action_required';
-      default: return 'neutral';
+      case 'approve':
+        return 'success';
+      case 'approve-with-caution':
+        return 'neutral';
+      case 'request-changes':
+        return 'failure';
+      case 'block':
+        return 'action_required';
+      default:
+        return 'neutral';
     }
   }
 

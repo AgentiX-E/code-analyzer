@@ -5,7 +5,12 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '../../packages/infra/src/storage/in-memory-graph-store.js';
-import { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '../../packages/shared/src/types/graph.js';
+import {
+  GraphNode,
+  GraphEdge,
+  NodeLabel,
+  RelationshipType,
+} from '../../packages/shared/src/types/graph.js';
 
 function generateNodes(count: number, projectId = 'perf-test'): GraphNode[] {
   const nodes: GraphNode[] = [];
@@ -13,7 +18,7 @@ function generateNodes(count: number, projectId = 'perf-test'): GraphNode[] {
     nodes.push({
       id: 0,
       projectId,
-      label: i % 10 === 0 ? 'Class' as NodeLabel : 'Function' as NodeLabel,
+      label: i % 10 === 0 ? ('Class' as NodeLabel) : ('Function' as NodeLabel),
       name: `node_${i}`,
       qualifiedName: `${projectId}::node_${i}`,
       filePath: `src/module_${i % 50}/file_${i}.ts`,
@@ -38,9 +43,20 @@ function generateNodes(count: number, projectId = 'perf-test'): GraphNode[] {
   return nodes;
 }
 
-function generateEdges(nodeIds: number[], edgesPerNode: number, projectId = 'perf-test'): GraphEdge[] {
+function generateEdges(
+  nodeIds: number[],
+  edgesPerNode: number,
+  projectId = 'perf-test',
+): GraphEdge[] {
   const edges: GraphEdge[] = [];
-  const types: RelationshipType[] = ['CALLS', 'DEFINES', 'IMPORTS', 'EXTENDS', 'IMPLEMENTS', 'REFERENCES'];
+  const types: RelationshipType[] = [
+    'CALLS',
+    'DEFINES',
+    'IMPORTS',
+    'EXTENDS',
+    'IMPLEMENTS',
+    'REFERENCES',
+  ];
   for (let i = 0; i < nodeIds.length; i++) {
     for (let j = 0; j < edgesPerNode; j++) {
       const targetIdx = (i + j + 1) % nodeIds.length;

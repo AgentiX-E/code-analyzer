@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import {
-  MetricsRegistry,
-  createStandardMetrics,
-} from '../operations/metrics-exporter.js';
+import { MetricsRegistry, createStandardMetrics } from '../operations/metrics-exporter.js';
 
-import type { CounterMetric, GaugeMetric, HistogramMetric } from '../operations/metrics-exporter.js';
+import type {
+  CounterMetric,
+  GaugeMetric,
+  HistogramMetric,
+} from '../operations/metrics-exporter.js';
 
 describe('MetricsRegistry', () => {
   let registry: MetricsRegistry;
@@ -309,7 +310,12 @@ describe('MetricsRegistry', () => {
       const json = registry.exportJSON();
       const histograms = json.histograms as Record<string, unknown>;
       expect(histograms).toBeDefined();
-      const entries = histograms.test_hist as Array<{ count: number; sum: number; bucketCounts: number[]; buckets: number[] }>;
+      const entries = histograms.test_hist as Array<{
+        count: number;
+        sum: number;
+        bucketCounts: number[];
+        buckets: number[];
+      }>;
       expect(entries[0].count).toBe(1);
       expect(entries[0].sum).toBe(0.3);
     });
@@ -395,7 +401,10 @@ describe('MetricsRegistry', () => {
       c.inc(2, { key: 'val2' });
 
       const json = registry.exportJSON();
-      const counters = json.counters as Record<string, Array<{ value: number; labels: Record<string, string> }>>;
+      const counters = json.counters as Record<
+        string,
+        Array<{ value: number; labels: Record<string, string> }>
+      >;
       expect(counters.json_counter).toHaveLength(2);
     });
 
@@ -405,7 +414,10 @@ describe('MetricsRegistry', () => {
       h.observe(3.0);
 
       const json = registry.exportJSON();
-      const histograms = json.histograms as Record<string, Array<{ count: number; sum: number; bucketCounts: number[]; buckets: number[] }>>;
+      const histograms = json.histograms as Record<
+        string,
+        Array<{ count: number; sum: number; bucketCounts: number[]; buckets: number[] }>
+      >;
       const entries = histograms.json_hist;
       expect(entries).toHaveLength(1);
       expect(entries[0].count).toBe(2);

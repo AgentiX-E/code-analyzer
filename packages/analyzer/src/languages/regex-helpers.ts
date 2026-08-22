@@ -16,11 +16,11 @@ import type { TaintSource } from './tree-sitter-base.js';
  */
 export function sanitizeSource(source: string): string {
   return source
-    .replace(/^\uFEFF/, '')       // BOM at start
+    .replace(/^\uFEFF/, '') // BOM at start
     .replace(/[\u200B\u200C\u200D]/g, '') // zero-width spaces/joiners
-    .replace(/\uFEFF/g, '')        // BOM anywhere
-    .replace(/\r\n/g, '\n')        // CRLF -> LF
-    .replace(/\r/g, '\n');         // CR -> LF
+    .replace(/\uFEFF/g, '') // BOM anywhere
+    .replace(/\r\n/g, '\n') // CRLF -> LF
+    .replace(/\r/g, '\n'); // CR -> LF
 }
 
 /** 1-based line number for a byte offset within `source`. */

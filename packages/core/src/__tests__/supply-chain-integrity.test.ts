@@ -195,17 +195,26 @@ describe('isRestrictedLicense', () => {
 
 describe('scanForSecrets', () => {
   it('should detect GitHub PAT', () => {
-    const violations = scanForSecrets('const token = "ghp_abcdefghijklmnopqrstuvwxyz1234567890AB";', 'test.ts');
+    const violations = scanForSecrets(
+      'const token = "ghp_abcdefghijklmnopqrstuvwxyz1234567890AB";',
+      'test.ts',
+    );
     expect(violations.some((v) => v.message.includes('GitHub Token'))).toBe(true);
   });
 
   it('should detect OpenAI API key', () => {
-    const violations = scanForSecrets('const key = "sk-abcdefghijklmnopqrstuvwxyz123456";', 'test.ts');
+    const violations = scanForSecrets(
+      'const key = "sk-abcdefghijklmnopqrstuvwxyz123456";',
+      'test.ts',
+    );
     expect(violations.some((v) => v.message.includes('OpenAI'))).toBe(true);
   });
 
   it('should detect private key headers', () => {
-    const violations = scanForSecrets('-----BEGIN RSA PRIVATE KEY-----\nMIIEpA...\n-----END RSA PRIVATE KEY-----', 'key.pem');
+    const violations = scanForSecrets(
+      '-----BEGIN RSA PRIVATE KEY-----\nMIIEpA...\n-----END RSA PRIVATE KEY-----',
+      'key.pem',
+    );
     expect(violations.some((v) => v.message.includes('Private Key'))).toBe(true);
   });
 

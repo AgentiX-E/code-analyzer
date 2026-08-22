@@ -63,14 +63,14 @@ export default defineConfig({
       exclude: [
         '**/*.test.ts',
         '**/*.spec.ts',
-        '**/index.ts',          // Barrel files — re-export only, exercised via consumer tests
-        '**/provider.ts',       // Pure interface definitions (no executable code)
-        '**/fixtures/**',       // Test fixtures (no executable code)
-        '**/types.ts',          // Pure type definitions (no executable code)
-        '**/start.ts',          // Process entry points — exercised via integration/e2e
+        '**/index.ts', // Barrel files — re-export only, exercised via consumer tests
+        '**/provider.ts', // Pure interface definitions (no executable code)
+        '**/fixtures/**', // Test fixtures (no executable code)
+        '**/types.ts', // Pure type definitions (no executable code)
+        '**/start.ts', // Process entry points — exercised via integration/e2e
         '**/benchmark-data.ts', // Static benchmark datasets (no executable code)
-        '**/benchmarks/**',     // Benchmark harnesses, not production logic
-        'packages/*/dist/**',   // Built output
+        '**/benchmarks/**', // Benchmark harnesses, not production logic
+        'packages/*/dist/**', // Built output
       ],
       thresholds: {
         // Honest baseline after de-gamification (2026-08-17). These reflect the

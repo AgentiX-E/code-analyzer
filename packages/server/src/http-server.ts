@@ -142,11 +142,15 @@ export async function createServer(options: ServerOptions): Promise<ServerInstan
   if (options.graphql && options.graphStore) {
     const { mountGraphQLOnFastify } = await import('./graphql/server.js');
     const startTime = Date.now();
-    mountGraphQLOnFastify(app, {
-      store: options.graphStore,
-      config,
-      startTime,
-    }, config.apiPrefix);
+    mountGraphQLOnFastify(
+      app,
+      {
+        store: options.graphStore,
+        config,
+        startTime,
+      },
+      config.apiPrefix,
+    );
   }
   /* v8 ignore stop */
 

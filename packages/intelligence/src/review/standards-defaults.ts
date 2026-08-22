@@ -124,14 +124,14 @@ export const DEFAULT_STANDARDS: ProjectStandard[] = [
           'No SQL injection patterns — detect string concatenation in SQL queries and raw queries without parameterization.',
         checkType: 'regex',
         checkConfig: {
-          pattern: '(?:execute|query|run)\\s*\\(\\s*[`\'"][^`\'"]*\\$\\{|(?:SELECT|INSERT|UPDATE|DELETE|DROP)\\s+.*?\\+.*?["\'`]',
+          pattern:
+            '(?:execute|query|run)\\s*\\(\\s*[`\'"][^`\'"]*\\$\\{|(?:SELECT|INSERT|UPDATE|DELETE|DROP)\\s+.*?\\+.*?["\'`]',
           flags: 'gi',
           forbidden: true,
         },
         severity: 'critical',
         autoFixable: false,
-        fixSuggestion:
-          'Use parameterized queries or an ORM with built-in escaping.',
+        fixSuggestion: 'Use parameterized queries or an ORM with built-in escaping.',
       },
       {
         id: 'sec-hardcoded-secrets',
@@ -146,8 +146,7 @@ export const DEFAULT_STANDARDS: ProjectStandard[] = [
         },
         severity: 'critical',
         autoFixable: false,
-        fixSuggestion:
-          'Store secrets in environment variables or a secrets manager.',
+        fixSuggestion: 'Store secrets in environment variables or a secrets manager.',
       },
       {
         id: 'sec-no-password-plaintext',

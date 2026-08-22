@@ -63,11 +63,7 @@ function readCacheFile(cacheDir: string, repoId: string): Record<string, unknown
  * Create a source file in a repo directory. Source files must have an extension
  * recognized by scanFiles (.ts, .js, .py, etc.).
  */
-function createSourceFile(
-  repoDir: string,
-  relativePath: string,
-  content: string,
-): void {
+function createSourceFile(repoDir: string, relativePath: string, content: string): void {
   const fullPath = join(repoDir, relativePath);
   const dir = join(fullPath, '..');
   mkdirSync(dir, { recursive: true });
@@ -77,11 +73,7 @@ function createSourceFile(
 /**
  * Create a repo directory with source files.
  */
-function setupRepo(
-  baseDir: string,
-  repoName: string,
-  files: Record<string, string>,
-): string {
+function setupRepo(baseDir: string, repoName: string, files: Record<string, string>): string {
   const repoDir = join(baseDir, repoName);
   mkdirSync(repoDir, { recursive: true });
   for (const [filePath, content] of Object.entries(files)) {
@@ -147,8 +139,16 @@ describe('IncrementalCrossRepoIndexer', () => {
   });
 
   afterEach(() => {
-    try { rmSync(cacheDir, { recursive: true, force: true }); } catch { /* cleanup */ }
-    try { rmSync(workspaceDir, { recursive: true, force: true }); } catch { /* cleanup */ }
+    try {
+      rmSync(cacheDir, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
+    try {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
   });
 
   // =========================================================================
@@ -421,18 +421,28 @@ describe('IncrementalCrossRepoIndexer', () => {
 
     it('should return the last index time from a valid cache', () => {
       const lastTime = '2025-01-15T10:30:00.000Z';
-      writeManualCache(cacheDir, 'test/timed-repo', {
-        'src/main.ts': sha256('code'),
-      }, lastTime);
+      writeManualCache(
+        cacheDir,
+        'test/timed-repo',
+        {
+          'src/main.ts': sha256('code'),
+        },
+        lastTime,
+      );
 
       const result = indexer.getLastIndexTime('test/timed-repo');
       expect(result).toBe(lastTime);
     });
 
     it('should return null when cache exists but has empty lastIndexTime', () => {
-      writeManualCache(cacheDir, 'test/empty-time-repo', {
-        'src/main.ts': sha256('code'),
-      }, '');
+      writeManualCache(
+        cacheDir,
+        'test/empty-time-repo',
+        {
+          'src/main.ts': sha256('code'),
+        },
+        '',
+      );
 
       const result = indexer.getLastIndexTime('test/empty-time-repo');
       expect(result).toBeNull();
@@ -555,11 +565,7 @@ describe('IncrementalCrossRepoIndexer', () => {
     it('should handle non-existent cache directory gracefully', () => {
       // Use a fresh indexer pointing at a non-existent path
       const freshCacheDir = join(workspaceDir, 'does-not-exist');
-      const freshIndexer = new IncrementalCrossRepoIndexer(
-        crossRepoIndexer,
-        store,
-        freshCacheDir,
-      );
+      const freshIndexer = new IncrementalCrossRepoIndexer(crossRepoIndexer, store, freshCacheDir);
 
       expect(() => {
         freshIndexer.invalidateAllCaches();
@@ -898,9 +904,9 @@ describe('IncrementalCrossRepoIndexer', () => {
     });
 
     it('should throw when group is not found', async () => {
-      await expect(
-        indexer.incrementalIndex('nonexistent-group'),
-      ).rejects.toThrow('Group "nonexistent-group" not found');
+      await expect(indexer.incrementalIndex('nonexistent-group')).rejects.toThrow(
+        'Group "nonexistent-group" not found',
+      );
     });
 
     it('should skip repos with autoIndex set to false', async () => {

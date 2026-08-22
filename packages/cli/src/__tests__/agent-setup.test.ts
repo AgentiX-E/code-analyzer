@@ -25,10 +25,7 @@ function createAgentDir(tempHome: string, agentConfig: AgentConfig): void {
 }
 
 function createFakeAgentInstall(agentConfig: AgentConfig, detectionPath: string): void {
-  const fullPath = path.join(
-    agentConfig.configPath.startsWith('/') ? '' : '',
-    detectionPath,
-  );
+  const fullPath = path.join(agentConfig.configPath.startsWith('/') ? '' : '', detectionPath);
   // We handle this via the manager's homeDir
 }
 
@@ -79,11 +76,7 @@ describe('AgentSetupManager — Detection', () => {
   });
 
   it('should detect Aider when ~/.aider.conf.yml exists', () => {
-    fs.writeFileSync(
-      path.join(tempHome, '.aider.conf.yml'),
-      '# aider config',
-      'utf-8',
-    );
+    fs.writeFileSync(path.join(tempHome, '.aider.conf.yml'), '# aider config', 'utf-8');
     const installed = manager.detectInstalled();
     expect(installed).toContain('aider');
   });
@@ -211,20 +204,13 @@ describe('AgentSetupManager — Configuration', () => {
     const result = manager.configure('cursor');
     expect(result.configured).toBe(true);
 
-    const content = fs.readFileSync(
-      path.join(tempHome, '.cursor', 'mcp.json'),
-      'utf-8',
-    );
+    const content = fs.readFileSync(path.join(tempHome, '.cursor', 'mcp.json'), 'utf-8');
     const parsed = JSON.parse(content);
 
-    const mcpServer =
-      parsed.mcpServers['code-analyzer'];
+    const mcpServer = parsed.mcpServers['code-analyzer'];
     expect(mcpServer).toBeDefined();
     expect(mcpServer.command).toBe('npx');
-    expect(mcpServer.args).toEqual([
-      '@agentix-e/code-analyzer',
-      'mcp',
-    ]);
+    expect(mcpServer.args).toEqual(['@agentix-e/code-analyzer', 'mcp']);
     expect(mcpServer.env).toEqual({
       CODE_ANALYZER_ROOT: '${workspaceFolder}',
     });
@@ -236,14 +222,10 @@ describe('AgentSetupManager — Configuration', () => {
     const result = manager.configure('copilot-chat');
     expect(result.configured).toBe(true);
 
-    const content = fs.readFileSync(
-      path.join(tempHome, '.vscode', 'settings.json'),
-      'utf-8',
-    );
+    const content = fs.readFileSync(path.join(tempHome, '.vscode', 'settings.json'), 'utf-8');
     const parsed = JSON.parse(content);
 
-    const mcpServers =
-      parsed['github.copilot.chat.mcpServers'];
+    const mcpServers = parsed['github.copilot.chat.mcpServers'];
     expect(mcpServers).toBeDefined();
 
     const mcpServer = mcpServers['code-analyzer'];
@@ -252,19 +234,12 @@ describe('AgentSetupManager — Configuration', () => {
   });
 
   it('should generate YAML config for Aider', () => {
-    fs.writeFileSync(
-      path.join(tempHome, '.aider.conf.yml'),
-      '',
-      'utf-8',
-    );
+    fs.writeFileSync(path.join(tempHome, '.aider.conf.yml'), '', 'utf-8');
 
     const result = manager.configure('aider');
     expect(result.configured).toBe(true);
 
-    const content = fs.readFileSync(
-      path.join(tempHome, '.aider.conf.yml'),
-      'utf-8',
-    );
+    const content = fs.readFileSync(path.join(tempHome, '.aider.conf.yml'), 'utf-8');
     expect(content).toContain('mcp_servers:');
     expect(content).toContain('name: code-analyzer');
     expect(content).toContain('command: npx');
@@ -276,10 +251,7 @@ describe('AgentSetupManager — Configuration', () => {
     const result = manager.configure('codex');
     expect(result.configured).toBe(true);
 
-    const content = fs.readFileSync(
-      path.join(tempHome, '.codex', 'config.yml'),
-      'utf-8',
-    );
+    const content = fs.readFileSync(path.join(tempHome, '.codex', 'config.yml'), 'utf-8');
     expect(content).toContain('mcp_servers:');
     expect(content).toContain('name: code-analyzer');
   });
@@ -294,11 +266,7 @@ describe('AgentSetupManager — Configuration', () => {
     const backupPath = configPath + '.code-analyzer-backup';
 
     fs.mkdirSync(configDir, { recursive: true });
-    const originalContent = JSON.stringify(
-      { existingKey: 'value' },
-      null,
-      2,
-    );
+    const originalContent = JSON.stringify({ existingKey: 'value' }, null, 2);
     fs.writeFileSync(configPath, originalContent, 'utf-8');
 
     const result = manager.configure('cursor');
@@ -383,9 +351,7 @@ describe('AgentSetupManager — Configuration', () => {
   });
 
   it('should throw for unknown agent', () => {
-    expect(() =>
-      manager.getConfig('unknown' as SupportedAgent),
-    ).toThrow('Unknown agent');
+    expect(() => manager.getConfig('unknown' as SupportedAgent)).toThrow('Unknown agent');
   });
 
   // -----------------------------------------------------------------------
@@ -550,9 +516,7 @@ describe('AgentSetupManager — Edge Cases', () => {
 
     expect(parsed['editor.fontSize']).toBe(14);
     expect(parsed['editor.tabSize']).toBe(2);
-    expect(
-      parsed['github.copilot.chat.mcpServers']['code-analyzer'],
-    ).toBeDefined();
+    expect(parsed['github.copilot.chat.mcpServers']['code-analyzer']).toBeDefined();
   });
 
   it('should handle Aider config with existing non-MCP settings', () => {
@@ -632,9 +596,7 @@ describe('AgentSetupManager — Edge Cases', () => {
     fs.mkdirSync(continueDir, { recursive: true });
     const existing = JSON.stringify(
       {
-        models: [
-          { model: 'gpt-4', provider: 'openai' },
-        ],
+        models: [{ model: 'gpt-4', provider: 'openai' }],
         tabAutocompleteModel: { model: 'starcoder', provider: 'ollama' },
       },
       null,
@@ -678,11 +640,7 @@ describe('AgentSetupManager — Edge Cases', () => {
     const configPath = path.join(configDir, 'mcp.json');
 
     fs.mkdirSync(configDir, { recursive: true });
-    fs.writeFileSync(
-      configPath,
-      JSON.stringify({ custom: 'original' }, null, 2),
-      'utf-8',
-    );
+    fs.writeFileSync(configPath, JSON.stringify({ custom: 'original' }, null, 2), 'utf-8');
 
     manager.configure('cursor');
 
@@ -745,31 +703,25 @@ describe('AgentSetupManager — All 11 Agent Configs', () => {
     }
   });
 
-  it.each(allAgents)(
-    'should produce non-empty configuration for %s',
-    (agent: SupportedAgent) => {
-      const config = manager.getConfig(agent);
-      const dir = path.dirname(path.join(tempHome, config.configPath));
-      fs.mkdirSync(dir, { recursive: true });
+  it.each(allAgents)('should produce non-empty configuration for %s', (agent: SupportedAgent) => {
+    const config = manager.getConfig(agent);
+    const dir = path.dirname(path.join(tempHome, config.configPath));
+    fs.mkdirSync(dir, { recursive: true });
 
-      const result = manager.configure(agent);
-      expect(result.configured).toBe(true);
-      expect(result.message.length).toBeGreaterThan(0);
+    const result = manager.configure(agent);
+    expect(result.configured).toBe(true);
+    expect(result.message.length).toBeGreaterThan(0);
 
-      const configPath = path.join(tempHome, config.configPath);
-      const content = fs.readFileSync(configPath, 'utf-8');
-      expect(content.length).toBeGreaterThan(20);
-    },
-  );
+    const configPath = path.join(tempHome, config.configPath);
+    const content = fs.readFileSync(configPath, 'utf-8');
+    expect(content.length).toBeGreaterThan(20);
+  });
 
   it.each(allAgents)(
     'should be detectable after directory creation for %s',
     (agent: SupportedAgent) => {
       const config = manager.getConfig(agent);
-      const detectionDir = path.join(
-        tempHome,
-        config.detectionPaths[0],
-      );
+      const detectionDir = path.join(tempHome, config.detectionPaths[0]);
 
       // Create either a directory or file depending on the detection path
       if (config.detectionPaths[0].endsWith('.yml')) {

@@ -122,7 +122,7 @@ export class AutoIndexer {
       try {
         const ids = this.store.insertNodes(graphNodes);
         nodesIndexed = ids.length;
-      /* v8 ignore start -- @preserve */
+        /* v8 ignore start -- @preserve */
       } catch {
         // Some nodes may already exist; insert one by one for resilience
         for (const node of graphNodes) {
@@ -195,9 +195,10 @@ export class AutoIndexer {
     let indexedAt: string | null = null;
     /* v8 ignore next 4 -- @preserve */
     if (projectNodes.length > 0) {
-      indexedAt = projectNodes.reduce((latest, n) =>
-        n.updatedAt > latest ? n.updatedAt : latest,
-      projectNodes[0]!.updatedAt);
+      indexedAt = projectNodes.reduce(
+        (latest, n) => (n.updatedAt > latest ? n.updatedAt : latest),
+        projectNodes[0]!.updatedAt,
+      );
     }
 
     return {

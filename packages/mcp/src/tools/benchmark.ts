@@ -23,7 +23,8 @@ export const runBenchmarkSchema = {
   properties: {
     category: {
       type: 'string',
-      description: 'Filter benchmark cases by review category (bug, security, performance, maintainability, style, documentation, architecture)',
+      description:
+        'Filter benchmark cases by review category (bug, security, performance, maintainability, style, documentation, architecture)',
     },
     severity: {
       type: 'string',
@@ -31,8 +32,16 @@ export const runBenchmarkSchema = {
     },
     suite: {
       type: 'string',
-      description: 'Run a specific CA-Bench suite: parse-accuracy, search-quality, review-quality, embedding-quality, cross-repo, throughput (default: all)',
-      enum: ['parse-accuracy', 'search-quality', 'review-quality', 'embedding-quality', 'cross-repo', 'throughput'],
+      description:
+        'Run a specific CA-Bench suite: parse-accuracy, search-quality, review-quality, embedding-quality, cross-repo, throughput (default: all)',
+      enum: [
+        'parse-accuracy',
+        'search-quality',
+        'review-quality',
+        'embedding-quality',
+        'cross-repo',
+        'throughput',
+      ],
     },
     format: {
       type: 'string',
@@ -42,7 +51,10 @@ export const runBenchmarkSchema = {
   },
 };
 
-export async function runBenchmark(args: Record<string, unknown>, _store?: unknown): Promise<ToolResult> {
+export async function runBenchmark(
+  args: Record<string, unknown>,
+  _store?: unknown,
+): Promise<ToolResult> {
   const params = args as unknown as RunBenchmarkParams;
   const category = params.category as ReviewCategory | undefined;
   const severity = params.severity as Severity | undefined;
@@ -80,9 +92,14 @@ async function runCaBenchAll(format: string): Promise<ToolResult> {
 
     let text: string;
     switch (format) {
-      case 'json': text = runner.generateJsonReport(result); break;
-      case 'html': text = runner.generateHtmlReport(result); break;
-      default: text = runner.generateMarkdownReport(result);
+      case 'json':
+        text = runner.generateJsonReport(result);
+        break;
+      case 'html':
+        text = runner.generateHtmlReport(result);
+        break;
+      default:
+        text = runner.generateMarkdownReport(result);
     }
 
     return { content: [{ type: 'text', text }] };
@@ -100,13 +117,26 @@ async function runCaBenchSuite(suite: string, format: string): Promise<ToolResul
     // @ts-expect-error - dynamic import for optional benchmark runner
     const { CaBenchRunner } = await import('../../../../../tests/benchmarks/ca-bench/runner.js');
     const runner = new CaBenchRunner();
-    const suiteResult = await runner.runSuite(suite as 'parse-accuracy' | 'search-quality' | 'review-quality' | 'embedding-quality' | 'cross-repo' | 'throughput');
+    const suiteResult = await runner.runSuite(
+      suite as
+        | 'parse-accuracy'
+        | 'search-quality'
+        | 'review-quality'
+        | 'embedding-quality'
+        | 'cross-repo'
+        | 'throughput',
+    );
 
     let text: string;
     if (format === 'json') {
       text = JSON.stringify(suiteResult, null, 2);
     } else {
-      const measurements = suiteResult.measurements.map((m: { name: string; value: number; unit: string }) => `| ${m.name} | ${m.value} | ${m.unit} |`).join('\n');
+      const measurements = suiteResult.measurements
+        .map(
+          (m: { name: string; value: number; unit: string }) =>
+            `| ${m.name} | ${m.value} | ${m.unit} |`,
+        )
+        .join('\n');
       const status = suiteResult.passed ? '✅ PASSED' : '❌ FAILED';
       text = [
         `# CA-Bench: ${suiteResult.suiteName} ${status}`,
@@ -131,7 +161,10 @@ async function runCaBenchSuite(suite: string, format: string): Promise<ToolResul
 // Legacy Benchmark (Review Quality via Heuristic Engine)
 // ---------------------------------------------------------------------------
 
-async function runLegacyBenchmark(category?: ReviewCategory, severity?: Severity): Promise<ToolResult> {
+async function runLegacyBenchmark(
+  category?: ReviewCategory,
+  severity?: Severity,
+): Promise<ToolResult> {
   try {
     const runner = new BenchmarkRunner();
     let result;
@@ -146,8 +179,9 @@ async function runLegacyBenchmark(category?: ReviewCategory, severity?: Severity
     }
 
     const header = result.summary;
-    const caseLines = result.cases.map(c =>
-      `| ${c.caseId} | TP=${c.truePositives} | FP=${c.falsePositives} | FN=${c.falseNegatives} | P=${(c.precision * 100).toFixed(1)}% | R=${(c.recall * 100).toFixed(1)}% | F1=${(c.f1Score * 100).toFixed(1)}% |`,
+    const caseLines = result.cases.map(
+      (c) =>
+        `| ${c.caseId} | TP=${c.truePositives} | FP=${c.falsePositives} | FN=${c.falseNegatives} | P=${(c.precision * 100).toFixed(1)}% | R=${(c.recall * 100).toFixed(1)}% | F1=${(c.f1Score * 100).toFixed(1)}% |`,
     );
 
     const report = [

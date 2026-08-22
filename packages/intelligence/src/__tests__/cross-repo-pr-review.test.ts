@@ -92,11 +92,7 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
   };
 }
 
-function createNode(
-  id: number,
-  projectId: string,
-  overrides: Partial<GraphNode> = {},
-): GraphNode {
+function createNode(id: number, projectId: string, overrides: Partial<GraphNode> = {}): GraphNode {
   return {
     id,
     projectId,
@@ -136,28 +132,55 @@ function setupGroup(groupManager: RepoGroupManager): void {
   fs.mkdirSync(repoCDir, { recursive: true });
 
   // Create package.json files
-  fs.writeFileSync(path.join(repoADir, 'package.json'), JSON.stringify({
-    name: 'service-a',
-    version: '1.0.0',
-    dependencies: { lodash: '^4.17.0', axios: '^1.6.0' },
-  }));
+  fs.writeFileSync(
+    path.join(repoADir, 'package.json'),
+    JSON.stringify({
+      name: 'service-a',
+      version: '1.0.0',
+      dependencies: { lodash: '^4.17.0', axios: '^1.6.0' },
+    }),
+  );
 
-  fs.writeFileSync(path.join(repoBDir, 'package.json'), JSON.stringify({
-    name: 'service-b',
-    version: '2.0.0',
-    dependencies: { lodash: '^3.10.0', express: '^4.18.0' },
-  }));
+  fs.writeFileSync(
+    path.join(repoBDir, 'package.json'),
+    JSON.stringify({
+      name: 'service-b',
+      version: '2.0.0',
+      dependencies: { lodash: '^3.10.0', express: '^4.18.0' },
+    }),
+  );
 
-  fs.writeFileSync(path.join(repoCDir, 'package.json'), JSON.stringify({
-    name: 'service-c',
-    version: '1.5.0',
-    dependencies: { lodash: '^4.17.0', axios: '^0.27.0' },
-  }));
+  fs.writeFileSync(
+    path.join(repoCDir, 'package.json'),
+    JSON.stringify({
+      name: 'service-c',
+      version: '1.5.0',
+      dependencies: { lodash: '^4.17.0', axios: '^0.27.0' },
+    }),
+  );
 
   groupManager.createGroup('test-group', 'Test Group', 'Test group for cross-repo analysis');
-  groupManager.addRepo('test-group', 'myorg', 'service-a', 'https://github.com/myorg/service-a', repoADir);
-  groupManager.addRepo('test-group', 'myorg', 'service-b', 'https://github.com/myorg/service-b', repoBDir);
-  groupManager.addRepo('test-group', 'myorg', 'service-c', 'https://github.com/myorg/service-c', repoCDir);
+  groupManager.addRepo(
+    'test-group',
+    'myorg',
+    'service-a',
+    'https://github.com/myorg/service-a',
+    repoADir,
+  );
+  groupManager.addRepo(
+    'test-group',
+    'myorg',
+    'service-b',
+    'https://github.com/myorg/service-b',
+    repoBDir,
+  );
+  groupManager.addRepo(
+    'test-group',
+    'myorg',
+    'service-c',
+    'https://github.com/myorg/service-c',
+    repoCDir,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +210,9 @@ describe('CrossRepoPRReviewEngine', () => {
   describe('reviewPRWithCrossRepoContext', () => {
     it('should validate required parameters', async () => {
       const pr = createPR();
-      await expect(engine.reviewPRWithCrossRepoContext(null as never, 'test-group', 'myorg/service-a', [])).rejects.toThrow('required');
+      await expect(
+        engine.reviewPRWithCrossRepoContext(null as never, 'test-group', 'myorg/service-a', []),
+      ).rejects.toThrow('required');
     });
 
     it('should throw for non-existent group', async () => {
@@ -244,9 +269,9 @@ describe('CrossRepoPRReviewEngine', () => {
   describe('detectAPIBreakingChanges', () => {
     it('should validate groupId and sourceRepoId', async () => {
       const pr = createPR();
-      await expect(
-        engine.detectAPIBreakingChanges(pr, '', 'myorg/service-a', []),
-      ).rejects.toThrow('required');
+      await expect(engine.detectAPIBreakingChanges(pr, '', 'myorg/service-a', [])).rejects.toThrow(
+        'required',
+      );
     });
 
     it('should detect no breaking changes for new files', async () => {
@@ -257,12 +282,9 @@ describe('CrossRepoPRReviewEngine', () => {
         ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 10, changeType: 'added' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(result.sourceRepo).toBe('myorg/service-a');
       expect(result.totalBreakingChanges).toBe(0);
@@ -277,12 +299,9 @@ describe('CrossRepoPRReviewEngine', () => {
         ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(result.totalBreakingChanges).toBeGreaterThan(0);
       expect(result.breakingChanges.some((b) => b.changeType === 'removed')).toBe(true);
@@ -297,12 +316,9 @@ describe('CrossRepoPRReviewEngine', () => {
         oldPath: 'src/old-name.ts',
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(result.breakingChanges.some((b) => b.changeType === 'renamed')).toBe(true);
     });
@@ -312,17 +328,12 @@ describe('CrossRepoPRReviewEngine', () => {
       const diff = createDiff({
         filePath: 'src/api/UserService.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' },
-        ],
+        ranges: [{ oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       // Signature changes are detected via heuristics
       expect(result.sourceRepo).toBe('myorg/service-a');
@@ -339,12 +350,9 @@ describe('CrossRepoPRReviewEngine', () => {
         ],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(result.sourceRepo).toBe('myorg/service-a');
     });
@@ -354,17 +362,12 @@ describe('CrossRepoPRReviewEngine', () => {
       const diff = createDiff({
         filePath: 'src/api/UserService.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 10, oldEnd: 10, newStart: 10, newEnd: 12, changeType: 'added' },
-        ],
+        ranges: [{ oldStart: 10, oldEnd: 10, newStart: 10, newEnd: 12, changeType: 'added' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
       expect(result.sourceRepo).toBe('myorg/service-a');
     });
 
@@ -373,17 +376,12 @@ describe('CrossRepoPRReviewEngine', () => {
       const diff = createDiff({
         filePath: 'src/api/UserService.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 10, oldEnd: 14, newStart: 10, newEnd: 10, changeType: 'removed' },
-        ],
+        ranges: [{ oldStart: 10, oldEnd: 14, newStart: 10, newEnd: 10, changeType: 'removed' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
       expect(result.sourceRepo).toBe('myorg/service-a');
     });
 
@@ -394,17 +392,12 @@ describe('CrossRepoPRReviewEngine', () => {
       const diff = createDiff({
         filePath: 'src/api/UserService.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 14, changeType: 'modified' },
-        ],
+        ranges: [{ oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 14, changeType: 'modified' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
       expect(result.severity).toBeDefined();
     });
 
@@ -416,12 +409,9 @@ describe('CrossRepoPRReviewEngine', () => {
         ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }],
       });
 
-      const result = await engine.detectAPIBreakingChanges(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       // Even if there are no cross-repo dependencies indexed, we get a breaking change
       expect(result.totalBreakingChanges).toBeGreaterThanOrEqual(0);
@@ -477,12 +467,9 @@ describe('CrossRepoPRReviewEngine', () => {
       const pr = createPR();
       const diff = createDiff({ filePath: 'src/api/users.ts' });
 
-      const result = await engine.predictCrossRepoTestImpact(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(result.sourceRepo).toBe('myorg/service-a');
       expect(Array.isArray(result.reposWithAffectedTests)).toBe(true);
@@ -510,12 +497,9 @@ describe('CrossRepoPRReviewEngine', () => {
       const pr = createPR();
       const diff = createDiff({ filePath: 'src/index.ts' });
 
-      const result = await engine.predictCrossRepoTestImpact(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       // Should have predictions for service-b and service-c
       const otherRepos = result.affectedTests.filter((t) => t.repo !== 'myorg/service-a');
@@ -530,9 +514,9 @@ describe('CrossRepoPRReviewEngine', () => {
   describe('generateCrossRepoSummary', () => {
     it('should validate required parameters', async () => {
       const pr = createPR();
-      await expect(
-        engine.generateCrossRepoSummary(pr, '', 'myorg/service-a', []),
-      ).rejects.toThrow('required');
+      await expect(engine.generateCrossRepoSummary(pr, '', 'myorg/service-a', [])).rejects.toThrow(
+        'required',
+      );
     });
 
     it('should return summary with no diffs', async () => {
@@ -559,12 +543,9 @@ describe('CrossRepoPRReviewEngine', () => {
         ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
       });
 
-      const summary = await engine.generateCrossRepoSummary(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(summary.mergeRecommendation).toBe('block');
     });
@@ -586,17 +567,12 @@ describe('CrossRepoPRReviewEngine', () => {
       const diff = createDiff({
         filePath: 'src/api/PublicInterface.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' },
-        ],
+        ranges: [{ oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' }],
       });
 
-      const summary = await engine.generateCrossRepoSummary(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
 
       expect(Array.isArray(summary.recommendations)).toBe(true);
     });
@@ -606,17 +582,12 @@ describe('CrossRepoPRReviewEngine', () => {
       const diff = createDiff({
         filePath: 'src/api/config.ts',
         changeType: 'modified',
-        ranges: [
-          { oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 4, changeType: 'modified' },
-        ],
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 4, changeType: 'modified' }],
       });
 
-      const summary = await engine.generateCrossRepoSummary(
-        pr,
-        'test-group',
-        'myorg/service-a',
-        [diff],
-      );
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
       expect(summary.mergeRecommendation).toBeDefined();
     });
   });
@@ -627,15 +598,11 @@ describe('CrossRepoPRReviewEngine', () => {
 
   describe('checkVersionCompatibility', () => {
     it('should validate groupId', async () => {
-      await expect(
-        engine.checkVersionCompatibility(''),
-      ).rejects.toThrow('required');
+      await expect(engine.checkVersionCompatibility('')).rejects.toThrow('required');
     });
 
     it('should throw for non-existent group', async () => {
-      await expect(
-        engine.checkVersionCompatibility('non-existent'),
-      ).rejects.toThrow('not found');
+      await expect(engine.checkVersionCompatibility('non-existent')).rejects.toThrow('not found');
     });
 
     it('should return version compatibility report', async () => {
@@ -688,10 +655,13 @@ describe('CrossRepoPRReviewEngine', () => {
       const path2 = require('node:path');
       const tmpDir2 = fs2.mkdtempSync(path2.join(os2.tmpdir(), 'single-'));
       fs2.mkdirSync(path2.join(tmpDir2, 'only-repo'), { recursive: true });
-      fs2.writeFileSync(path2.join(tmpDir2, 'only-repo', 'package.json'), JSON.stringify({
-        name: 'only-repo',
-        version: '1.0.0',
-      }));
+      fs2.writeFileSync(
+        path2.join(tmpDir2, 'only-repo', 'package.json'),
+        JSON.stringify({
+          name: 'only-repo',
+          version: '1.0.0',
+        }),
+      );
 
       singleManager.createGroup('single', 'Single Group', '');
       singleManager.addRepo('single', 'myorg', 'only-repo', '', path2.join(tmpDir2, 'only-repo'));
@@ -699,7 +669,11 @@ describe('CrossRepoPRReviewEngine', () => {
       const singleStore = new InMemoryGraphStore();
       const singleIndexer = new CrossRepoIndexer(singleStore, singleManager);
       const singleRevEngine = new CodeReviewEngine(singleStore, { allowMetadataFallback: true });
-      const singleEngine = new CrossRepoPRReviewEngine(singleIndexer, singleManager, singleRevEngine);
+      const singleEngine = new CrossRepoPRReviewEngine(
+        singleIndexer,
+        singleManager,
+        singleRevEngine,
+      );
 
       const pr = createPR();
       const result = await singleEngine.reviewPRWithCrossRepoContext(
@@ -796,13 +770,34 @@ describe('CrossRepoPRReviewEngine', () => {
     it('should detect multiple breaking changes for medium severity', async () => {
       const pr = createPR();
       const diffs = [
-        createDiff({ filePath: 'src/api/one.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
-        createDiff({ filePath: 'src/api/two.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
-        createDiff({ filePath: 'src/api/three.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
-        createDiff({ filePath: 'src/api/four.ts', changeType: 'deleted', ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }] }),
+        createDiff({
+          filePath: 'src/api/one.ts',
+          changeType: 'deleted',
+          ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }],
+        }),
+        createDiff({
+          filePath: 'src/api/two.ts',
+          changeType: 'deleted',
+          ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }],
+        }),
+        createDiff({
+          filePath: 'src/api/three.ts',
+          changeType: 'deleted',
+          ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }],
+        }),
+        createDiff({
+          filePath: 'src/api/four.ts',
+          changeType: 'deleted',
+          ranges: [{ oldStart: 1, oldEnd: 10, newStart: 0, newEnd: 0, changeType: 'removed' }],
+        }),
       ];
 
-      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', diffs);
+      const result = await engine.detectAPIBreakingChanges(
+        pr,
+        'test-group',
+        'myorg/service-a',
+        diffs,
+      );
       expect(result.totalBreakingChanges).toBeGreaterThanOrEqual(0);
     });
 
@@ -814,7 +809,9 @@ describe('CrossRepoPRReviewEngine', () => {
         ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
       });
 
-      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [diff]);
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
       expect(Array.isArray(summary.recommendations)).toBe(true);
       expect(summary.breakingChanges).toBeGreaterThanOrEqual(1);
     });
@@ -840,7 +837,9 @@ describe('CrossRepoPRReviewEngine', () => {
       const pr = createPR();
       const diff = createDiff({ filePath: 'src/api/users.ts' });
 
-      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [diff]);
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
       expect(result.sourceRepo).toBe('myorg/service-a');
       expect(result.totalTestsAffected).toBeDefined();
     });
@@ -1042,7 +1041,12 @@ describe('VersionCompatibilityMatrix', () => {
 
     it('should validate matrix parameter', () => {
       expect(() =>
-        matrix.checkUpgradeSafety('lodash', '1.0.0', '2.0.0', null as unknown as CompatibilityMatrix),
+        matrix.checkUpgradeSafety(
+          'lodash',
+          '1.0.0',
+          '2.0.0',
+          null as unknown as CompatibilityMatrix,
+        ),
       ).toThrow('required');
     });
 

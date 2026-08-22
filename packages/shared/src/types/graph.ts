@@ -366,7 +366,8 @@ export interface ResolvedImport {
 // ---------------------------------------------------------------------------
 
 /** Import resolution strategies per language */
-export type ImportSemantics = 'named' | 'wildcard-leaf' | 'wildcard-transitive' | 'namespace' | 'none';
+export type ImportSemantics =
+  'named' | 'wildcard-leaf' | 'wildcard-transitive' | 'namespace' | 'none';
 
 /** Method resolution order strategy */
 export type MroStrategy = 'c3-linearization' | 'ruby-mixin' | 'first-wins';
@@ -879,7 +880,12 @@ export interface Violation {
 
 export interface AnalysisReport {
   id: string;
-  type: 'pr-review' | 'codebase-audit' | 'impact-analysis' | 'architecture-review' | 'standards-compliance';
+  type:
+    | 'pr-review'
+    | 'codebase-audit'
+    | 'impact-analysis'
+    | 'architecture-review'
+    | 'standards-compliance';
   title: string;
   createdAt: string;
   scope: ReportScope;
@@ -1152,14 +1158,7 @@ export interface AgentSkill {
 export interface DetectedAgent {
   name: string;
   type:
-    | 'claude-code'
-    | 'cursor'
-    | 'codex'
-    | 'windsurf'
-    | 'codebuddy'
-    | 'aider'
-    | 'continue'
-    | 'custom';
+    'claude-code' | 'cursor' | 'codex' | 'windsurf' | 'codebuddy' | 'aider' | 'continue' | 'custom';
   installPath: string;
   skillFormat: 'markdown' | 'yaml';
 }

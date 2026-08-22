@@ -112,11 +112,7 @@ import { CodeReviewEngine, PRReviewEngine, MemoryCompressor } from '@code-analyz
 const reviewEngine = new CodeReviewEngine(store);
 const prEngine = new PRReviewEngine(reviewEngine, store);
 
-const result = await prEngine.reviewPR(
-  'my-project',
-  pullRequest,
-  gitDiffs,
-);
+const result = await prEngine.reviewPR('my-project', pullRequest, gitDiffs);
 
 console.log(`Risk: ${result.summary.riskLevel}`);
 console.log(`Merge: ${result.summary.mergeRecommendation}`);
@@ -192,10 +188,7 @@ await engine.initialize();
 const vec = await engine.embedCode('function hello() { return "world"; }');
 
 // Batch embedding
-const vecs = await engine.embedBatch([
-  'function a() {}',
-  'class Foo {}',
-]);
+const vecs = await engine.embedBatch(['function a() {}', 'class Foo {}']);
 
 // Store/retrieve per-node embeddings
 engine.storeEmbedding(nodeId, vec);
@@ -209,7 +202,7 @@ const sim = engine.cosineSimilarity(vec, otherVec);
 
 // Dimensions and readiness
 console.log(engine.dimensions); // 768
-console.log(engine.isReady);    // true
+console.log(engine.isReady); // true
 
 engine.dispose();
 ```
@@ -241,12 +234,12 @@ const resumed = await engine.resumeSession(sessionId);
 
 **Pipeline phases:**
 
-| Phase | Description |
-|-------|-------------|
-| **Plan** | File type analysis, size assessment, risk identification, checklist generation |
-| **Analyze** | Heuristic rules: long functions, deep nesting, missing error handling, circular deps |
-| **Filter** | Remove empty context, invalid line ranges, style-on-comment noise |
-| **Relocate** | Adjust line numbers for diff offsets (handles added/removed lines) |
+| Phase        | Description                                                                          |
+| ------------ | ------------------------------------------------------------------------------------ |
+| **Plan**     | File type analysis, size assessment, risk identification, checklist generation       |
+| **Analyze**  | Heuristic rules: long functions, deep nesting, missing error handling, circular deps |
+| **Filter**   | Remove empty context, invalid line ranges, style-on-comment noise                    |
+| **Relocate** | Adjust line numbers for diff offsets (handles added/removed lines)                   |
 
 ### PRReviewEngine
 
@@ -260,11 +253,11 @@ const prEngine = new PRReviewEngine(reviewEngine, store);
 const result = await prEngine.reviewPR(projectId, pullRequest, gitDiffs);
 
 // Result structure
-console.log(result.summary.totalComments);       // number
-console.log(result.summary.byCategory);           // Record<ReviewCategory, number>
-console.log(result.summary.bySeverity);           // Record<Severity, number>
-console.log(result.summary.riskLevel);            // 'critical' | 'high' | 'medium' | 'low'
-console.log(result.summary.mergeRecommendation);  // 'approve' | 'approve-with-comments' | 'request-changes' | 'block'
+console.log(result.summary.totalComments); // number
+console.log(result.summary.byCategory); // Record<ReviewCategory, number>
+console.log(result.summary.bySeverity); // Record<Severity, number>
+console.log(result.summary.riskLevel); // 'critical' | 'high' | 'medium' | 'low'
+console.log(result.summary.mergeRecommendation); // 'approve' | 'approve-with-comments' | 'request-changes' | 'block'
 console.log(result.comments.length);
 console.log(result.standardsResults.length);
 ```
@@ -302,28 +295,28 @@ engine.registerStandard(customStandard);
 
 **10 Built-in Templates:**
 
-| ID | Name | Category |
-|----|------|----------|
-| `typescript-coding` | TypeScript Coding Standards | `code-style` |
-| `python-pep8` | Python PEP8 Standards | `code-style` |
-| `go-idiomatic` | Go Idiomatic Standards | `code-style` |
-| `security-baseline` | Security Baseline | `security` |
-| `api-design` | API Design Standards | `api-design` |
-| `testing-standards` | Testing Standards | `testing` |
-| `error-handling` | Error Handling Standards | `error-handling` |
-| `documentation` | Documentation Standards | `documentation` |
-| `architecture-layered` | Architecture Layered Standards | `architecture` |
-| `dependency-management` | Dependency Management Standards | `dependency` |
+| ID                      | Name                            | Category         |
+| ----------------------- | ------------------------------- | ---------------- |
+| `typescript-coding`     | TypeScript Coding Standards     | `code-style`     |
+| `python-pep8`           | Python PEP8 Standards           | `code-style`     |
+| `go-idiomatic`          | Go Idiomatic Standards          | `code-style`     |
+| `security-baseline`     | Security Baseline               | `security`       |
+| `api-design`            | API Design Standards            | `api-design`     |
+| `testing-standards`     | Testing Standards               | `testing`        |
+| `error-handling`        | Error Handling Standards        | `error-handling` |
+| `documentation`         | Documentation Standards         | `documentation`  |
+| `architecture-layered`  | Architecture Layered Standards  | `architecture`   |
+| `dependency-management` | Dependency Management Standards | `dependency`     |
 
 **5 Check Types:**
 
-| Type | Description |
-|------|-------------|
-| `regex` | Pattern matching with `forbidden`/required mode |
-| `metric` | Threshold checks: `function-lines`, `nesting-depth` |
-| `ast-pattern` | Simplified AST pattern matching (deferred) |
-| `graph-query` | Knowledge graph structure queries (deferred) |
-| `llm-check` | LLM-powered semantic checks (deferred) |
+| Type          | Description                                         |
+| ------------- | --------------------------------------------------- |
+| `regex`       | Pattern matching with `forbidden`/required mode     |
+| `metric`      | Threshold checks: `function-lines`, `nesting-depth` |
+| `ast-pattern` | Simplified AST pattern matching (deferred)          |
+| `graph-query` | Knowledge graph structure queries (deferred)        |
+| `llm-check`   | LLM-powered semantic checks (deferred)              |
 
 ### MemoryCompressor
 
@@ -333,10 +326,10 @@ Three-zone message compression for context window management.
 import { MemoryCompressor, countTokens } from '@code-analyzer/intelligence';
 
 const compressor = new MemoryCompressor({
-  softThreshold: 0.60,    // Begin compression at 60% usage
-  hardThreshold: 0.80,    // Urgent at 80%
-  frozenZoneSize: 2,      // First 2 messages always preserved
-  activeTurns: 4,         // Last 4 turns kept verbatim
+  softThreshold: 0.6, // Begin compression at 60% usage
+  hardThreshold: 0.8, // Urgent at 80%
+  frozenZoneSize: 2, // First 2 messages always preserved
+  activeTurns: 4, // Last 4 turns kept verbatim
   maxTokens: 128000,
 });
 
@@ -374,9 +367,9 @@ const impact = await analyzer.analyze(projectId, changes.changedSymbols, {
   includeProcesses: true,
 });
 
-console.log(impact.impactTree.length);     // Number of affected nodes
-console.log(impact.riskLevel);             // Overall risk level
-console.log(impact.estimatedEffort);       // 'low' | 'medium' | 'high'
+console.log(impact.impactTree.length); // Number of affected nodes
+console.log(impact.riskLevel); // Overall risk level
+console.log(impact.estimatedEffort); // 'low' | 'medium' | 'high'
 
 // Compute risk score (0-100)
 const score = analyzer.computeRiskScore(impact);
@@ -410,9 +403,7 @@ lsh.insert(nodeId, fingerprint);
 const candidates = lsh.query(queryFingerprint);
 
 // Build all similarity edges across nodes
-const edges = lsh.buildSimilarityEdges(
-  store, nodeIds, getFingerprint, 0.8,
-);
+const edges = lsh.buildSimilarityEdges(store, nodeIds, getFingerprint, 0.8);
 for (const edge of edges) {
   console.log(`Node ${edge.sourceId} similar to ${edge.targetId}: ${edge.similarity}`);
 }
@@ -486,18 +477,22 @@ const comparison = trends.compareReports(reportA, reportB);
 
 **Formatters:**
 
-| Formatter | MIME Type | Extension | Output |
-|-----------|-----------|-----------|--------|
-| `MarkdownFormatter` | `text/markdown` | `.md` | Rich markdown with tables, code blocks, severity icons |
-| `JsonFormatter` | `application/json` | `.json` | Full structured JSON dump |
-| `HtmlFormatter` | `text/html` | `.html` | Styled HTML page with CSS |
+| Formatter           | MIME Type          | Extension | Output                                                 |
+| ------------------- | ------------------ | --------- | ------------------------------------------------------ |
+| `MarkdownFormatter` | `text/markdown`    | `.md`     | Rich markdown with tables, code blocks, severity icons |
+| `JsonFormatter`     | `application/json` | `.json`   | Full structured JSON dump                              |
+| `HtmlFormatter`     | `text/html`        | `.html`   | Styled HTML page with CSS                              |
 
 ### SessionStore
 
 JSONL-based review session persistence with SHA-256 content fingerprinting.
 
 ```typescript
-import { SessionStore, generateSessionId, computeFileFingerprint } from '@code-analyzer/intelligence';
+import {
+  SessionStore,
+  generateSessionId,
+  computeFileFingerprint,
+} from '@code-analyzer/intelligence';
 
 const store = new SessionStore('/path/to/sessions');
 
@@ -532,45 +527,45 @@ store.completeSession(session.id);
 
 ### CodeReviewEngine
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `maxTokens` | `number` | `8000` | Maximum token budget per review |
-| `maxToolCalls` | `number` | `10` | Max external tool invocations |
-| `planLineThreshold` | `number` | `200` | Lines above which a file is "large" |
-| `timeout` | `number` | `30000` | Per-phase timeout in ms |
-| `concurrency` | `number` | `4` | Concurrent file reviews |
+| Option              | Type     | Default | Description                         |
+| ------------------- | -------- | ------- | ----------------------------------- |
+| `maxTokens`         | `number` | `8000`  | Maximum token budget per review     |
+| `maxToolCalls`      | `number` | `10`    | Max external tool invocations       |
+| `planLineThreshold` | `number` | `200`   | Lines above which a file is "large" |
+| `timeout`           | `number` | `30000` | Per-phase timeout in ms             |
+| `concurrency`       | `number` | `4`     | Concurrent file reviews             |
 
 ### MemoryCompressor
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `softThreshold` | `number` | `0.60` | Ratio to begin compression |
-| `hardThreshold` | `number` | `0.80` | Ratio for urgent compression |
-| `frozenZoneSize` | `number` | `2` | Messages always preserved at start |
-| `activeTurns` | `number` | `4` | Complete turns kept verbatim |
-| `maxTokens` | `number` | `128000` | Model context window size |
+| Option           | Type     | Default  | Description                        |
+| ---------------- | -------- | -------- | ---------------------------------- |
+| `softThreshold`  | `number` | `0.60`   | Ratio to begin compression         |
+| `hardThreshold`  | `number` | `0.80`   | Ratio for urgent compression       |
+| `frozenZoneSize` | `number` | `2`      | Messages always preserved at start |
+| `activeTurns`    | `number` | `4`      | Complete turns kept verbatim       |
+| `maxTokens`      | `number` | `128000` | Model context window size          |
 
 ### EmbeddingEngine
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `dimensions` | `number` | `768` | Vector dimensions |
-| `normalize` | `boolean` | `true` | Unit-normalize output vectors |
+| Option       | Type      | Default | Description                   |
+| ------------ | --------- | ------- | ----------------------------- |
+| `dimensions` | `number`  | `768`   | Vector dimensions             |
+| `normalize`  | `boolean` | `true`  | Unit-normalize output vectors |
 
 ### ImpactAnalyzer
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `maxDepth` | `number` | `3` | BFS traversal depth |
-| `includeTests` | `boolean` | `true` | Find affected tests |
-| `includeRoutes` | `boolean` | `true` | Find affected API routes |
-| `includeProcesses` | `boolean` | `true` | Find affected processes |
+| Option             | Type      | Default | Description              |
+| ------------------ | --------- | ------- | ------------------------ |
+| `maxDepth`         | `number`  | `3`     | BFS traversal depth      |
+| `includeTests`     | `boolean` | `true`  | Find affected tests      |
+| `includeRoutes`    | `boolean` | `true`  | Find affected API routes |
+| `includeProcesses` | `boolean` | `true`  | Find affected processes  |
 
 ### IoUOverlapDetector
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `threshold` | `number` | `0.5` | IoU threshold for overlap |
+| Parameter   | Type     | Default | Description               |
+| ----------- | -------- | ------- | ------------------------- |
+| `threshold` | `number` | `0.5`   | IoU threshold for overlap |
 
 ## Package Dependency Tree
 

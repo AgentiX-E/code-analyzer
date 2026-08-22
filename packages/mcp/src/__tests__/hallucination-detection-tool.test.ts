@@ -370,16 +370,12 @@ describe('computeValidationConfidence', () => {
   });
 
   it('should reduce by 0.25 per error', () => {
-    const issues = [
-      { type: 'non_existent_file', severity: 'error', message: 'test' },
-    ];
+    const issues = [{ type: 'non_existent_file', severity: 'error', message: 'test' }];
     expect(computeValidationConfidence(issues)).toBe(0.75);
   });
 
   it('should reduce by 0.1 per warning', () => {
-    const issues = [
-      { type: 'line_out_of_range', severity: 'warning', message: 'test' },
-    ];
+    const issues = [{ type: 'line_out_of_range', severity: 'warning', message: 'test' }];
     expect(computeValidationConfidence(issues)).toBe(0.9);
   });
 
@@ -427,9 +423,7 @@ describe('detectHallucinations', () => {
   });
 
   it('should mark comment as invalid when it has errors', () => {
-    const comments = [
-      makeComment({ path: '/src/fake.ts', startLine: 100 }),
-    ];
+    const comments = [makeComment({ path: '/src/fake.ts', startLine: 100 })];
     const nodes = [makeGraphNode({ filePath: '/src/real.ts' })];
     const report = detectHallucinations('test', comments, nodes, true);
     // In strict mode, non-existent file is an error
@@ -443,19 +437,13 @@ describe('detectHallucinations', () => {
   });
 
   it('should compute overall confidence', () => {
-    const comments = [
-      makeComment({ id: 'c1' }),
-      makeComment({ id: 'c2' }),
-    ];
+    const comments = [makeComment({ id: 'c1' }), makeComment({ id: 'c2' })];
     const report = detectHallucinations('test', comments, []);
     expect(report.overallConfidence).toBe(1.0);
   });
 
   it('should handle strict mode detection', () => {
-    const comments = [
-      makeComment({ path: '/src/fake.ts' }),
-      makeComment({ path: '/src/real.ts' }),
-    ];
+    const comments = [makeComment({ path: '/src/fake.ts' }), makeComment({ path: '/src/real.ts' })];
     const nodes = [makeGraphNode({ filePath: '/src/real.ts' })];
     const report = detectHallucinations('test', comments, nodes, true);
     expect(report.totalComments).toBe(2);
@@ -472,9 +460,7 @@ describe('generateDetectionSummary', () => {
   });
 
   it('should report all valid', () => {
-    const results = [
-      { commentId: 'c1', isValid: true, issues: [], confidence: 1.0 },
-    ];
+    const results = [{ commentId: 'c1', isValid: true, issues: [], confidence: 1.0 }];
     expect(generateDetectionSummary(results)).toContain('no hallucinated content');
   });
 
@@ -483,9 +469,7 @@ describe('generateDetectionSummary', () => {
       {
         commentId: 'c1',
         isValid: false,
-        issues: [
-          { type: 'non_existent_file', severity: 'error', message: 'File not found' },
-        ],
+        issues: [{ type: 'non_existent_file', severity: 'error', message: 'File not found' }],
         confidence: 0.75,
       },
     ];
@@ -499,9 +483,7 @@ describe('generateDetectionSummary', () => {
       {
         commentId: 'c1',
         isValid: false,
-        issues: [
-          { type: 'line_out_of_range', severity: 'error', message: 'Line out of range' },
-        ],
+        issues: [{ type: 'line_out_of_range', severity: 'error', message: 'Line out of range' }],
         confidence: 0.75,
       },
     ];
@@ -513,9 +495,7 @@ describe('generateDetectionSummary', () => {
       {
         commentId: 'c1',
         isValid: false,
-        issues: [
-          { type: 'non_existent_symbol', severity: 'error', message: 'Symbol not found' },
-        ],
+        issues: [{ type: 'non_existent_symbol', severity: 'error', message: 'Symbol not found' }],
         confidence: 0.75,
       },
     ];
@@ -597,7 +577,7 @@ describe('edge cases', () => {
   it('should compute correct metadata counts', () => {
     const comments = [
       makeComment({ id: 'c1', path: '/src/a.ts' }),
-      makeComment({ id: 'c2', path: '' }),  // has error
+      makeComment({ id: 'c2', path: '' }), // has error
       makeComment({ id: 'c3', path: '/src/b.ts' }),
     ];
     const nodes = [makeGraphNode({ filePath: '/src/a.ts' })];
@@ -660,12 +640,19 @@ describe('edge cases', () => {
     const { knownFiles, knownSymbols, fileLineRanges } = buildKnownData(nodes);
     const issues = validateComment(comment, knownFiles, knownSymbols, fileLineRanges);
     expect(issues.some((i) => i.type === 'line_out_of_range')).toBe(true);
-    const endIssue = issues.find((i) => i.type === 'line_out_of_range' && i.message.includes('End line'));
+    const endIssue = issues.find(
+      (i) => i.type === 'line_out_of_range' && i.message.includes('End line'),
+    );
     expect(endIssue).toBeDefined();
   });
 
   it('should format report detail line when issue has detail', () => {
-    const report = detectHallucinations('test', [makeComment({ path: '/src/nonexistent.ts' })], [makeGraphNode({ filePath: '/src/real.ts' })], true);
+    const report = detectHallucinations(
+      'test',
+      [makeComment({ path: '/src/nonexistent.ts' })],
+      [makeGraphNode({ filePath: '/src/real.ts' })],
+      true,
+    );
     const formatted = formatHallucinationReport(report);
     expect(formatted).toContain('> The referenced file does not match');
   });

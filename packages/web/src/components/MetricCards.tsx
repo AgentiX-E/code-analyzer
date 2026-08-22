@@ -49,8 +49,8 @@ export interface MetricCardsProps {
 /* ------------------------------------------------------------------ */
 
 const TREND_ICONS: Record<string, string> = {
-  up: '\u25B2',    // ▲
-  down: '\u25BC',  // ▼
+  up: '\u25B2', // ▲
+  down: '\u25BC', // ▼
   neutral: '\u25C6', // ◆
 };
 
@@ -89,7 +89,9 @@ const MetricCards: React.FC<MetricCardsProps> = ({
     return (
       <div className="metric-cards metric-cards--error">
         <div className="error-state">
-          <span className="error-state__icon" role="img" aria-label="Error">&#x26A0;</span>
+          <span className="error-state__icon" role="img" aria-label="Error">
+            &#x26A0;
+          </span>
           <p className="error-state__message">{error}</p>
           {onRetry && (
             <button className="btn btn-secondary" onClick={onRetry} type="button">
