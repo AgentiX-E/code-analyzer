@@ -510,7 +510,7 @@ jobs:
 
       - name: Post Standards Summary
         if: success()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: code-analyzer-standards
           path: standards-report.md
