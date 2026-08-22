@@ -51,7 +51,7 @@
     "@code-analyzer/shared": "workspace:*"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
