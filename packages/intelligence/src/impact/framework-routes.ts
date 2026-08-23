@@ -131,11 +131,9 @@ const SVELTEKIT_PATTERNS = {
   actionsExport: /export\s+const\s+actions\b/,
   // HTTP method exports in +server.ts/+server.js
   httpMethodExport:
-    /export\s+(?:const|function|async\s+function)\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/,
+    /export\s+(?:const|function|async\s+function)\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\b/g,
   // Error pages
   errorPage: /\+error\.svelte$/,
-  // Route parameter: [param] directories (indicated by path structure)
-  routeParam: /\[.*?\]/,
 };
 
 const SPRING_PATTERNS = {
@@ -969,8 +967,13 @@ export class FrameworkRouteDetector {
       routeSegment = afterRoutes.slice(0, lastSlash);
     }
 
-    // Remove group parentheses: (group) → group, ((nested)) → nested
-    routeSegment = routeSegment.replace(/\(/g, '').replace(/\)/g, '');
+    // Remove SvelteKit route groups. A `(group)` segment is a layout grouping
+    // and does not contribute to the URL path, so strip each group entirely
+    // (parens, contents, and its trailing slash). Repeatedly strip innermost
+    // groups to handle nesting.
+    while (/\([^()]*\)/.test(routeSegment)) {
+      routeSegment = routeSegment.replace(/\([^()]*\)\/?/g, '');
+    }
 
     return '/' + routeSegment;
   }
