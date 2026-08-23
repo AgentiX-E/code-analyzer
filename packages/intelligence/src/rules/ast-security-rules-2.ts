@@ -61,12 +61,10 @@ export function checkXxeAst(ctx: AstRuleContext): RuleCheckResult[] {
 /** SSTI: Server-Side Template Injection (CWE-94) */
 export function checkSstiAst(ctx: AstRuleContext): RuleCheckResult[] {
   const r: RuleCheckResult[] = [];
-  const templateCalls = [
-    /\.render\s*\(/,
-    /\.renderTemplate\s*\(/,
-    /nunjucks\s*\.\s*render\s*\(/,
-    /jinja2\s*\.\s*Template\s*\(/,
-  ];
+  // These patterns match the fully-qualified call *name* (e.g. "res.render"),
+  // not the call text, so they must not carry a trailing `(`. A trailing
+  // `\s*\(` never matched and silently disabled SSTI detection entirely.
+  const templateCalls = [/\.render$/, /\.renderTemplate$/, /jinja2\.Template$/];
 
   for (const call of ctx.calls) {
     const fullName = call.object ? `${call.object}.${call.name}` : call.name;
@@ -275,7 +273,10 @@ export function checkPredictableSeedAst(ctx: AstRuleContext): RuleCheckResult[] 
 /** Insecure hash for password storage (CWE-256) */
 export function checkInsecurePasswordHashAst(ctx: AstRuleContext): RuleCheckResult[] {
   const r: RuleCheckResult[] = [];
-  const fastHashCalls = findCalls(ctx, /(?:md5|sha1|sha256|sha512|hash)\s*\(/);
+  // findCalls matches the call *name* ("crypto.createHash", "md5") with no
+  // trailing "(", so the previous `/hash\s*\(/` never matched and disabled
+  // this rule. Match the name and ignore case to also catch createHash.
+  const fastHashCalls = findCalls(ctx, /(?:md5|sha1|sha256|sha512|createHash|hash)$/i);
 
   for (const call of fastHashCalls) {
     // Context: is this used in a password-related context?

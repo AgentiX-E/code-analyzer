@@ -40,21 +40,10 @@ export function checkNoEvalAst(ctx: AstRuleContext): RuleCheckResult[] {
     }
   }
 
-  // new Function() detection via string literals
-  for (const s of ctx.strings) {
-    if (/new\s+Function/.test(s.text)) {
-      r.push(
-        mk(
-          'no-eval',
-          s.line,
-          'CWE-95: Avoid using new Function() — dynamic code execution is a security risk.',
-          'Use a proper function declaration.',
-        ),
-      );
-    }
-  }
-
-  // Also check raw lines for new Function
+  // new Function() detection. Note: `new Function(...)` is a NewExpression,
+  // not a string literal, so it is caught by the raw-line scan below — not by
+  // scanning string literals (which would only false-positive on prose like
+  // 'Never use new Function').
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i]!;
     if (isComment(line)) continue;

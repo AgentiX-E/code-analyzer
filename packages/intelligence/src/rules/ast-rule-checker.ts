@@ -290,14 +290,17 @@ const CALL_TYPES = new Set([
   'function_application',
   'member_call_expression',
 ]);
+// Top-level string literal node types only. Child nodes that live *inside* a
+// string (tree-sitter's `string_fragment`) and template-literal interpolation
+// nodes (`template_substitution`, `interpolation`) must NOT be listed here, or
+// every literal is extracted twice — once as the parent `string` node and again
+// as its `string_fragment` child — producing duplicate findings from rules that
+// scan `ctx.strings` (e.g. no-hardcoded-secrets high-entropy check).
 const STR_TYPES = new Set([
   'string',
-  'string_fragment',
   'template_string',
   'template_literal',
   'string_literal',
-  'template_substitution',
-  'interpolation',
   'raw_string',
   'triple_string',
 ]);
@@ -438,19 +441,6 @@ function findChild(node: TsNode, types: string[]): TsNode | null {
   for (let i = 0; i < node.namedChildCount; i++) {
     const c = node.namedChild(i);
     if (types.includes(c.type)) return c;
-  }
-  return null;
-}
-
-function findPrevSibling(node: TsNode, after: TsNode, types: string[]): TsNode | null {
-  let found = false;
-  for (let i = node.namedChildCount - 1; i >= 0; i--) {
-    const c = node.namedChild(i);
-    if (c === after) {
-      found = true;
-      continue;
-    }
-    if (found && types.includes(c.type)) return c;
   }
   return null;
 }
