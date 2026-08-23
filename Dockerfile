@@ -24,7 +24,7 @@ WORKDIR /app
 FROM base AS builder
 
 # Copy workspace root configs first for optimal layer caching
-COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs ./
 COPY package.json tsconfig.base.json turbo.json ./
 
 # Copy ALL package manifests in a single layer (consolidated)
@@ -85,7 +85,7 @@ RUN addgroup -g 1001 code-analyzer && \
 WORKDIR /app
 
 # Copy workspace root
-COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/.pnpmfile.cjs ./
 COPY --from=builder /app/package.json /app/turbo.json ./
 
 # Copy built packages — consolidated into fewer layers using glob-like patterns
@@ -157,7 +157,7 @@ RUN addgroup -g 1001 cli && \
 
 WORKDIR /app
 
-COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/.pnpmfile.cjs ./
 COPY --from=builder /app/package.json /app/turbo.json ./
 
 # CLI only needs core + shared + infra + analyzer + intelligence + CLI
@@ -188,7 +188,7 @@ CMD ["--help"]
 FROM base AS vscode-builder
 
 # Copy workspace root
-COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs ./
 COPY package.json tsconfig.base.json turbo.json ./
 COPY packages/ /app/packages/
 
