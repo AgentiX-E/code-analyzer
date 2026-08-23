@@ -143,15 +143,17 @@ async function main(): Promise<void> {
   let failed = 0;
   const reportErrors: string[] = [];
 
+  // Build the workspace once up front (the suites import package sources via
+  // tsconfig paths, but a single build guarantees cross-package entry points
+  // and generated artifacts are fresh for every suite).
+  console.log('Building workspace...');
+  execSync('pnpm build', { cwd: rootDir, stdio: 'pipe', timeout: 180_000 });
+
   for (const suite of suites) {
     const suiteName = suite.pattern.split('/').pop()?.replace('.bench.ts', '') ?? 'unknown';
     console.log(`\n▶ Running benchmark suite: ${suiteName}`);
 
     try {
-      // Build the project first
-      console.log('  Building...');
-      execSync('pnpm build', { cwd: rootDir, stdio: 'pipe', timeout: 120_000 });
-
       // Run the benchmark test from root with the dedicated bench config
       const testCmd = `npx vitest run ${suite.pattern} --config vitest.bench.config.ts --reporter=verbose`;
       console.log(`  Executing: ${testCmd}`);

@@ -20,19 +20,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // Fork pool with singleFork — all tests in one worker avoids native
-    // addon inter-process crashes. After all tests pass, vitest pool
-    // teardown may emit a cosmetic EPIPE error.
+    // Multi-process fork pool. Each test file runs in its own worker, so
+    // memory is released between files. A single shared worker (singleFork)
+    // was tried to dodge a vitest 3-era native-addon fork-safety crash, but
+    // it OOMs at ~6GB once the 12k-test suite + tree-sitter/better-sqlite3
+    // addons accumulate in one process. tree-sitter's C bindings are
+    // fork-safe on vitest 4 + Node 22, so the default pool is correct.
     pool: 'forks',
-    singleFork: true,
     testTimeout: 90_000,
     hookTimeout: 60_000,
-    // vitest 4 removed the `json` reporter for `bench` mode. Instead, the
-    // default benchmark reporter writes a machine-readable report to
-    // `benchmark.outputJson` at the end of the run (see check-benchmarks.ts).
-    benchmark: {
-      outputJson: 'bench-results.json',
-    },
     include: [
       'packages/*/src/**/*.test.ts',
       'tests/unit/**/*.test.ts',
@@ -41,7 +37,7 @@ export default defineConfig({
       'tests/property/**/*.test.ts',
       'tests/benchmarks/ca-bench/__tests__/*.test.ts',
       'tests/benchmarks/real-world/__tests__/*.test.ts',
-      'tests/benchmarks/performance/*.bench.ts',
+      'tests/benchmarks/performance/*.test.ts',
     ],
     exclude: [
       'packages/web/**',
