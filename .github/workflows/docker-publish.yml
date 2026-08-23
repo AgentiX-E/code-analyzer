@@ -134,7 +134,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NODE_VERSION=22
-            PNPM_VERSION=9
+            PNPM_VERSION=9.15.0
 
       - name: Build and push
         if: github.event_name != 'pull_request'
@@ -153,7 +153,7 @@ jobs:
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache${{ matrix.target.tag-suffix }},mode=max
           build-args: |
             NODE_VERSION=22
-            PNPM_VERSION=9
+            PNPM_VERSION=9.15.0
           provenance: true
           sbom: true
 

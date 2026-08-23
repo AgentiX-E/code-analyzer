@@ -8,7 +8,7 @@
 
 # ── Global build args for cross-platform support ──────────────────────────────
 ARG NODE_VERSION=22
-ARG PNPM_VERSION=9
+ARG PNPM_VERSION=9.15.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 0: Base — shared build foundation
