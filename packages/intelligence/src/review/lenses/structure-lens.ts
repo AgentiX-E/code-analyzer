@@ -195,7 +195,7 @@ function detectLayerViolations(
             ruleId: 'struct-layer-violation',
           },
         );
-        if (f) findings.push(f);
+        findings.push(f);
       }
     }
   }
@@ -270,7 +270,7 @@ function detectCircularImports(
             ruleId: 'struct-circular-import',
           },
         );
-        if (f) findings.push(f);
+        findings.push(f);
         break; // One notification per import target is enough
       }
     }
@@ -336,7 +336,7 @@ function detectBarrelExports(lines: string[], filePath: string): LensFinding[] {
         ruleId: 'struct-barrel-export',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -401,7 +401,7 @@ function detectOrphanCode(
           ruleId: 'struct-orphan-code',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -478,7 +478,7 @@ export function analyzeStructure(
         ruleId: 'struct-complexity',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 2. Import/coupling count
@@ -504,7 +504,7 @@ export function analyzeStructure(
         ruleId: 'struct-high-coupling',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 3. God class detection — classes with >20 methods or >500 lines
@@ -531,7 +531,7 @@ export function analyzeStructure(
           ruleId: 'struct-god-class-lines',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
 
     const methodCount = countMethods(lines.slice(block.startLine - 1, block.endLine));
@@ -556,7 +556,7 @@ export function analyzeStructure(
           ruleId: 'struct-god-class-methods',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -584,7 +584,7 @@ export function analyzeStructure(
           ruleId: 'struct-long-method',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -611,7 +611,7 @@ export function analyzeStructure(
         ruleId: 'struct-deep-nesting',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 6. Module cohesion — internal vs external references
@@ -637,7 +637,7 @@ export function analyzeStructure(
         ruleId: 'struct-low-cohesion',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 7. NEW: Layer violation detection

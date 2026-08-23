@@ -222,7 +222,7 @@ function detectAggregatedMagicNumbers(lines: string[], filePath: string): LensFi
         ruleId: 'style-magic-number-aggregated',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -303,7 +303,7 @@ function detectDuplicateCode(
           ruleId: 'style-duplicate-code',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
       break; // One finding per file pair is enough
     }
   }
@@ -378,7 +378,7 @@ function detectInconsistentNaming(lines: string[], filePath: string): LensFindin
         ruleId: 'style-inconsistent-naming',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   const funcConvs = conventions.get('function');
@@ -408,7 +408,7 @@ function detectInconsistentNaming(lines: string[], filePath: string): LensFindin
         ruleId: 'style-inconsistent-function-naming',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -480,7 +480,7 @@ function detectCommentQuality(lines: string[], filePath: string): LensFinding[] 
         ruleId: 'style-missing-comment',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
 
     i = funcEnd - 1; // Skip past this function
   }
@@ -567,7 +567,7 @@ export function analyzeStyle(
         ruleId: 'style-comment-ratio',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 6. NEW: Aggregated magic numbers per file
@@ -622,7 +622,7 @@ function detectConsoleLog(lines: string[], filePath: string): LensFinding[] {
         evidence,
         { ruleId: 'style-console-log' },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
   return findings;
@@ -686,7 +686,7 @@ function detectFunctionMetrics(lines: string[], filePath: string): LensFinding[]
           evidence,
           { ruleId: 'style-func-length' },
         );
-        if (f) findings.push(f);
+        findings.push(f);
       }
 
       // Check nesting depth
@@ -708,7 +708,7 @@ function detectFunctionMetrics(lines: string[], filePath: string): LensFinding[]
           evidence,
           { ruleId: 'style-nesting-depth' },
         );
-        if (f) findings.push(f);
+        findings.push(f);
       }
     }
   }

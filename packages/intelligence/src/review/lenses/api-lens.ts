@@ -143,7 +143,7 @@ function analyzeRoute(route: DetectedRoute, lines: string[]): LensFinding[] {
           ruleId: 'api-missing-validation',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -173,7 +173,7 @@ function analyzeRoute(route: DetectedRoute, lines: string[]): LensFinding[] {
           ruleId: 'api-missing-error-handling',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -202,7 +202,7 @@ function analyzeRoute(route: DetectedRoute, lines: string[]): LensFinding[] {
         ruleId: 'api-missing-rate-limit',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -296,7 +296,7 @@ function detectResponseFormatInconsistencies(
           ruleId: 'api-inconsistent-response',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -355,7 +355,7 @@ function detectGlobalRateLimit(lines: string[], filePath: string): LensFinding[]
           ruleId: 'api-no-global-rate-limit',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -406,7 +406,7 @@ function detectCORSConfiguration(lines: string[], filePath: string): LensFinding
           ruleId: 'api-cors-wildcard',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
 
     // Check for cors() with wildcard (e.g., cors({ origin: '*' }))
@@ -431,7 +431,7 @@ function detectCORSConfiguration(lines: string[], filePath: string): LensFinding
           ruleId: 'api-cors-wildcard-js',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
 
     // Check for credentials: true with wildcard origin (dangerous)
@@ -458,7 +458,7 @@ function detectCORSConfiguration(lines: string[], filePath: string): LensFinding
             ruleId: 'api-cors-credentials',
           },
         );
-        if (f) findings.push(f);
+        findings.push(f);
       }
     }
   }
@@ -519,7 +519,7 @@ function detectGraphQLSchemaBreakingChanges(
           ruleId: 'api-gql-removed-type',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -550,7 +550,7 @@ function detectGraphQLSchemaBreakingChanges(
             ruleId: 'api-gql-removed-field',
           },
         );
-        if (f) findings.push(f);
+        findings.push(f);
       }
     }
   }

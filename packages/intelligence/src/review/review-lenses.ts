@@ -624,7 +624,7 @@ export function reviewDependencyHealth(
             suggestion: `Replace "${version}" with a specific version number.`,
           },
         );
-        if (finding) findings.push(finding);
+        findings.push(finding);
       }
     }
   }
@@ -858,7 +858,7 @@ export function reviewApiContract(
             suggestion: `Re-add export for "${prevExp.name}" or document removal in CHANGELOG as breaking change.`,
           },
         );
-        if (finding) findings.push(finding);
+        findings.push(finding);
       }
     }
   }
@@ -903,7 +903,7 @@ export function reviewApiContract(
                 suggestion: `Add JSDoc: /** @deprecated Use newFunction instead */`,
               },
             );
-            if (finding) findings.push(finding);
+            findings.push(finding);
           }
         }
       }
@@ -960,8 +960,13 @@ function extractFunctionSignature(lines: string[], funcName: string): string | n
 
 /**
  * Build a lens finding with evidence anchor.
- * If evidence is missing (no filePath or codeSnippet), returns null.
- * This ensures the synthesis HARD GATE can reject unanchored findings.
+ *
+ * Throws if the evidence anchor is invalid (empty filePath or codeSnippet,
+ * or a non-positive 1-based startLine). Invalid anchors are a programmer bug:
+ * silently dropping the finding would mask the defect in the calling lens.
+ * The authoritative HARD GATE — evidence validation across heterogeneous
+ * finding sources (including LLM output) — lives in
+ * `ReviewSwarm.synthesize()` step 2.
  */
 export function createLensFinding(
   lens: LensId,
@@ -976,13 +981,15 @@ export function createLensFinding(
     ruleId?: string;
     graphRef?: string;
   },
-): LensFinding | null {
-  // HARD GATE check: every finding must have evidence
+): LensFinding {
+  // Every finding must have a valid evidence anchor to be placed as a PR
+  // comment. Fail fast so an invalid anchor is never silently swallowed.
   if (!evidence.filePath || !evidence.codeSnippet || evidence.startLine <= 0) {
-    return null;
+    throw new Error(
+      `createLensFinding: evidence is missing a required anchor (filePath="${evidence.filePath}", startLine=${evidence.startLine}, codeSnippet length=${evidence.codeSnippet?.length ?? 0})`,
+    );
   }
 
-  const profile = LENS_PROFILES[lens];
   return {
     id: `${lens.slice(0, 3)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     lens,

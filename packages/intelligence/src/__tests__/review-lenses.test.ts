@@ -680,36 +680,40 @@ describe('createLensFinding', () => {
     expect(finding!.autoFixable).toBe(false);
   });
 
-  it('should return null when filePath is empty (HARD GATE)', () => {
-    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
-      ...validEvidence,
-      filePath: '',
-    });
-    expect(finding).toBeNull();
+  it('should throw when filePath is empty (invalid anchor)', () => {
+    expect(() =>
+      createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+        ...validEvidence,
+        filePath: '',
+      }),
+    ).toThrow(/filePath/);
   });
 
-  it('should return null when codeSnippet is empty (HARD GATE)', () => {
-    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
-      ...validEvidence,
-      codeSnippet: '',
-    });
-    expect(finding).toBeNull();
+  it('should throw when codeSnippet is empty (invalid anchor)', () => {
+    expect(() =>
+      createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+        ...validEvidence,
+        codeSnippet: '',
+      }),
+    ).toThrow(/anchor/);
   });
 
-  it('should return null when startLine <= 0 (HARD GATE)', () => {
-    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
-      ...validEvidence,
-      startLine: 0,
-    });
-    expect(finding).toBeNull();
+  it('should throw when startLine <= 0 (invalid anchor)', () => {
+    expect(() =>
+      createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+        ...validEvidence,
+        startLine: 0,
+      }),
+    ).toThrow(/startLine/);
   });
 
-  it('should return null for negative startLine', () => {
-    const finding = createLensFinding('security', 'security', 'high', 'Test', 'desc', {
-      ...validEvidence,
-      startLine: -1,
-    });
-    expect(finding).toBeNull();
+  it('should throw for negative startLine', () => {
+    expect(() =>
+      createLensFinding('security', 'security', 'high', 'Test', 'desc', {
+        ...validEvidence,
+        startLine: -1,
+      }),
+    ).toThrow(/startLine/);
   });
 
   // --- Confidence levels ---

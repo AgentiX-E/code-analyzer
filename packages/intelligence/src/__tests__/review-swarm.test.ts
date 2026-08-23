@@ -117,7 +117,7 @@ describe('createLensFinding', () => {
     expect(finding!.evidence.filePath).toBe('/src/test.ts');
   });
 
-  it('should reject finding without filePath', () => {
+  it('should throw on finding without filePath', () => {
     const evidence: EvidenceAnchor = {
       filePath: '',
       startLine: 10,
@@ -126,11 +126,12 @@ describe('createLensFinding', () => {
       lens: 'security',
     };
 
-    const finding = createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence);
-    expect(finding).toBeNull();
+    expect(() =>
+      createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence),
+    ).toThrow(/filePath/);
   });
 
-  it('should reject finding without codeSnippet', () => {
+  it('should throw on finding without codeSnippet', () => {
     const evidence: EvidenceAnchor = {
       filePath: '/src/test.ts',
       startLine: 10,
@@ -139,11 +140,12 @@ describe('createLensFinding', () => {
       lens: 'security',
     };
 
-    const finding = createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence);
-    expect(finding).toBeNull();
+    expect(() =>
+      createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence),
+    ).toThrow(/anchor/);
   });
 
-  it('should reject finding with invalid startLine', () => {
+  it('should throw on finding with invalid startLine', () => {
     const evidence: EvidenceAnchor = {
       filePath: '/src/test.ts',
       startLine: 0,
@@ -152,8 +154,9 @@ describe('createLensFinding', () => {
       lens: 'security',
     };
 
-    const finding = createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence);
-    expect(finding).toBeNull();
+    expect(() =>
+      createLensFinding('security', 'security', 'critical', 'Test', 'Desc', evidence),
+    ).toThrow(/startLine/);
   });
 
   it('should include optional suggestion and graphRef', () => {

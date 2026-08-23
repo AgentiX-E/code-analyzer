@@ -520,7 +520,7 @@ export function generateSynthesisReport(reports: LensReport[], totalLines: numbe
   return {
     lens: 'synthesis',
     name: 'Synthesis Lens',
-    findings: finding ? [finding] : [],
+    findings: [finding],
     filesScanned: reports.reduce((sum, r) => sum + r.filesScanned, 0),
     linesAnalyzed: totalLines,
     durationMs: Date.now() - start,

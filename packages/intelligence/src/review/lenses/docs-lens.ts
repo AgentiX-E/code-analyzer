@@ -96,7 +96,7 @@ function checkFunctionDocs(info: DocCheckResult, filePath: string): LensFinding[
         ruleId: 'docs-missing-jsdoc',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 2. Missing parameter documentation
@@ -118,7 +118,7 @@ function checkFunctionDocs(info: DocCheckResult, filePath: string): LensFinding[
       evidence,
       { suggestion: `Add @param tags for each parameter.`, ruleId: 'docs-missing-params' },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 3. Under-documented parameters
@@ -140,7 +140,7 @@ function checkFunctionDocs(info: DocCheckResult, filePath: string): LensFinding[
       evidence,
       { suggestion: 'Document all parameters with @param tags.', ruleId: 'docs-incomplete-params' },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // 4. Missing @returns
@@ -165,7 +165,7 @@ function checkFunctionDocs(info: DocCheckResult, filePath: string): LensFinding[
         ruleId: 'docs-missing-returns',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -216,7 +216,7 @@ function detectReadmeStaleness(lines: string[], filePath: string): LensFinding[]
         ruleId: 'docs-stale-readme',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -274,7 +274,7 @@ function detectMissingChangelog(
           ruleId: 'docs-missing-changelog',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -337,7 +337,7 @@ function detectApiDocCoverage(lines: string[], filePath: string): LensFinding[] 
           ruleId: 'docs-low-coverage',
         },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 
@@ -398,7 +398,7 @@ function detectOpenApiIssues(lines: string[], filePath: string): LensFinding[] {
         ruleId: 'docs-openapi-missing-operationid',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // Check for responses without schema
@@ -428,7 +428,7 @@ function detectOpenApiIssues(lines: string[], filePath: string): LensFinding[] {
         ruleId: 'docs-openapi-missing-schema',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   // Check for empty description fields
@@ -454,7 +454,7 @@ function detectOpenApiIssues(lines: string[], filePath: string): LensFinding[] {
         ruleId: 'docs-openapi-empty-description',
       },
     );
-    if (f) findings.push(f);
+    findings.push(f);
   }
 
   return findings;
@@ -509,7 +509,7 @@ export function analyzeDocs(
         evidence,
         { suggestion: 'Add "readme": "README.md" to package.json', ruleId: 'docs-missing-readme' },
       );
-      if (f) findings.push(f);
+      findings.push(f);
     }
   }
 

@@ -517,7 +517,7 @@ Reason: ${result.decision.reason}`;
             evidence,
             { ruleId: pattern.id },
           );
-          if (finding) findings.push(finding);
+          findings.push(finding);
         }
       }
     }
@@ -560,7 +560,7 @@ Reason: ${result.decision.reason}`;
           evidence,
           { ruleId: pattern.id },
         );
-        if (finding) findings.push(finding);
+        findings.push(finding);
       }
     }
 
@@ -604,7 +604,7 @@ Reason: ${result.decision.reason}`;
               evidence,
               { ruleId: pattern.id },
             );
-            if (finding) findings.push(finding);
+            findings.push(finding);
           }
         }
       }
