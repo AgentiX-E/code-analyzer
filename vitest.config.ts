@@ -46,6 +46,12 @@ export default defineConfig({
       '**/benchmarks/ca-bench/fixtures/**',
       '**/benchmarks/search-benchmark.test.ts',
       'packages/intelligence/src/__tests__/cross-service-linking.test.ts',
+      // Scale stress generates and parses ~9.3K synthetic files across four
+      // tiers to probe O(n²) cliffs and superlinear memory growth. It is a
+      // dedicated stress benchmark (run standalone via its file path), not a
+      // unit test — under the default unit-test pool it OOMs a single worker
+      // and its heap-delta assertions are GC-timing sensitive.
+      'tests/benchmarks/real-world/__tests__/scale-stress.test.ts',
     ],
     coverage: {
       provider: 'v8',

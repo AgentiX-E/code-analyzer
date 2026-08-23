@@ -97,10 +97,6 @@ jobs:
         run: pnpm test:unit
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          # singleFork runs all tests in one worker alongside native addons
-          # (tree-sitter, better-sqlite3, onnxruntime); the default Node heap
-          # OOMs on ubuntu-latest. Raise the old-space limit to fit the 7GB runner.
-          NODE_OPTIONS: '--max-old-space-size=6144'
       - name: Upload test results (Node 22 only)
         if: matrix.node-version == '22' && always()
         uses: actions/upload-artifact@v4
