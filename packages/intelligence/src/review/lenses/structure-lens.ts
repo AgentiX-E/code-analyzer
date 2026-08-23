@@ -416,8 +416,12 @@ function detectOrphanCode(
 function loadLayerConfig(configContent?: string): LayerRule[] {
   if (!configContent) return [];
   try {
-    // Look for layers: section
-    const layerMatch = configContent.match(/^layers:\s*\n([\s\S]*?)(?=\n\S|\n*$)/m);
+    // Look for layers: section. The body is the indented block under
+    // `layers:`; it ends at the next top-level key (a line with no leading
+    // whitespace) or at the end of the string. The previous lookahead used
+    // `\n*$` whose `$` matches every line end under the /m flag, so it only
+    // captured the first layer's `- name:` line and dropped paths/forbidden.
+    const layerMatch = configContent.match(/^layers:\s*\n([\s\S]*?)(?=\n\S|(?![\s\S]))/m);
     if (layerMatch) {
       return parseLayerRules(layerMatch[1]!);
     }
