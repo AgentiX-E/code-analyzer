@@ -184,6 +184,70 @@ describe('ContractValidator', () => {
       expect(contracts.symbols.length).toBe(1);
       expect(contracts.symbols[0]!.name).toBe('validFn');
     });
+
+    it('should skip module-level nodes', () => {
+      const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
+        createGraphNode({ id: 1, name: 'src', label: 'Module', qualifiedName: 'module:src' }),
+        createGraphNode({ id: 2, name: 'fn', label: 'Function', qualifiedName: 'fn()' }),
+      ]);
+
+      const v = new ContractValidator(idx);
+      const contracts = v.extractContracts('org/repo-a');
+
+      expect(contracts.symbols.length).toBe(1);
+      expect(contracts.symbols[0]!.name).toBe('fn');
+    });
+
+    it('should fall back to an empty filePath for null filePath', () => {
+      const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
+        createGraphNode({
+          id: 1,
+          name: 'noFile',
+          label: 'Function',
+          qualifiedName: 'noFile()',
+          filePath: null,
+        }),
+      ]);
+
+      const v = new ContractValidator(idx);
+      const contracts = v.extractContracts('org/repo-a');
+
+      expect(contracts.symbols[0]!.filePath).toBe('');
+    });
+
+    it('should infer visibility from the access property', () => {
+      const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
+        createGraphNode({
+          id: 1,
+          name: 'privAccess',
+          label: 'Function',
+          properties: { name: 'privAccess', access: 'private' },
+        }),
+        createGraphNode({
+          id: 2,
+          name: 'protAccess',
+          label: 'Function',
+          properties: { name: 'protAccess', access: 'protected' },
+        }),
+      ]);
+
+      const v = new ContractValidator(idx);
+      const contracts = v.extractContracts('org/repo-a');
+
+      expect(contracts.symbols.find((s) => s.name === 'privAccess')!.visibility).toBe('private');
+      expect(contracts.symbols.find((s) => s.name === 'protAccess')!.visibility).toBe('protected');
+    });
+
+    it('should default unknown labels to function kind', () => {
+      const { indexer: idx } = createIndexerWithNodes('org/repo-a', [
+        createGraphNode({ id: 1, name: 'mystery', label: 'UnknownLabel' as any }),
+      ]);
+
+      const v = new ContractValidator(idx);
+      const contracts = v.extractContracts('org/repo-a');
+
+      expect(contracts.symbols[0]!.kind).toBe('function');
+    });
   });
 
   describe('compareContracts', () => {
@@ -329,6 +393,37 @@ describe('ContractValidator', () => {
       expect(changes.length).toBe(1);
       expect(changes[0]!.type).toBe('visibility_changed');
       expect(changes[0]!.severity).toBe('high');
+    });
+
+    it('assigns medium severity for a reduction to protected', () => {
+      const before = {
+        repo: 'test',
+        symbols: [
+          {
+            name: 'helperFn',
+            kind: 'function' as const,
+            signature: 'helperFn()',
+            visibility: 'public' as const,
+            filePath: 'a.ts',
+          },
+        ],
+      };
+      const after = {
+        repo: 'test',
+        symbols: [
+          {
+            name: 'helperFn',
+            kind: 'function' as const,
+            signature: 'helperFn()',
+            visibility: 'protected' as const,
+            filePath: 'a.ts',
+          },
+        ],
+      };
+
+      const changes = validator.compareContracts(before, after);
+      expect(changes[0]!.type).toBe('visibility_changed');
+      expect(changes[0]!.severity).toBe('medium');
     });
 
     it('should return empty array for identical contracts', () => {

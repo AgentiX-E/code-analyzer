@@ -127,4 +127,30 @@ describe('NearCloneDetector', () => {
       expect(pair.signatureLength).toBe(64);
     }
   });
+
+  it('tolerates null filePath on candidate nodes', () => {
+    const detector = new NearCloneDetector();
+    const sig = 'function cloneTarget(n: number): number { return n * n; }';
+    const graph = makeGraph([
+      makeNode(1, { name: 'cloneTarget', signature: sig, filePath: null }),
+      makeNode(2, { name: 'cloneTarget', signature: sig, filePath: null }),
+    ]);
+    const result = detector.detect(graph);
+    for (const pair of result.pairs) {
+      expect(pair.filePath1).toBe('');
+      expect(pair.filePath2).toBe('');
+    }
+  });
+
+  it('handles single-token signatures that produce empty shingles', () => {
+    const detector = new NearCloneDetector();
+    // A 20-char single token (< ngramSize 5) yields an empty shingle set, so
+    // the MinHash signature degenerates to all-zero without throwing.
+    const graph = makeGraph([
+      makeNode(1, { name: 'aa', signature: 'aaaaaaaaaaaaaaaaaaaa' }),
+      makeNode(2, { name: 'aa', signature: 'aaaaaaaaaaaaaaaaaaaa' }),
+    ]);
+    const result = detector.detect(graph);
+    expect(result.totalComparisons).toBeGreaterThanOrEqual(0);
+  });
 });
