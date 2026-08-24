@@ -138,6 +138,113 @@ describe('HybridSearchEngine', () => {
       expect(engine.getStats().cachedEmbeddings).toBe(2);
     });
   });
+
+  describe('weighted-sum fusion (useRRF: false)', () => {
+    it('combines bm25 and semantic scores by weighted sum', async () => {
+      const engine = new HybridSearchEngine(
+        new EmbeddingEngine() as unknown as EmbeddingEngineType,
+        { minScore: 0, useRRF: false, bm25Weight: 0.7, semanticWeight: 0.3, topK: 50 },
+      );
+      engine.indexDocument('user1', 'function getUserById returns user record');
+      const results = await engine.search('getUser');
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]!.combinedScore).toBeGreaterThanOrEqual(0);
+    });
+
+    it('returns results ordered by combined score', async () => {
+      const engine = new HybridSearchEngine(
+        new EmbeddingEngine() as unknown as EmbeddingEngineType,
+        { minScore: 0, useRRF: false, topK: 50 },
+      );
+      engine.indexDocument('a', 'function alpha beta gamma');
+      engine.indexDocument('b', 'function alpha');
+      const results = await engine.search('alpha');
+      expect(results.length).toBeGreaterThan(0);
+      for (let i = 1; i < results.length; i++) {
+        expect(results[i - 1]!.combinedScore).toBeGreaterThanOrEqual(results[i]!.combinedScore);
+      }
+    });
+  });
+
+  describe('semantic-only results (no lexical overlap)', () => {
+    it('includes documents matched only by semantic similarity', async () => {
+      const engine = makeEngine();
+      engine.indexDocument('semanticDoc', 'function zzzalpha zzzbeta');
+      await engine.cacheDocumentEmbeddings([
+        { id: 'semanticDoc', text: 'function zzzalpha zzzbeta' },
+      ]);
+      // Query shares no token with the indexed document, so BM25 yields nothing;
+      // only the cached semantic vector contributes.
+      const results = await engine.search('qqqunrelated');
+      const matched = results.find((r) => r.id === 'semanticDoc');
+      expect(matched).toBeDefined();
+      expect(matched!.bm25Score).toBe(0);
+    });
+  });
+
+  describe('removeDocument inverted-index cleanup', () => {
+    it('deletes a token from the inverted index when its last document is removed', () => {
+      const engine = makeEngine();
+      engine.indexDocument('only', 'exclusivetoken');
+      expect(engine.getStats().uniqueTokens).toBeGreaterThan(0);
+      engine.removeDocument('only');
+      expect(engine.getStats().uniqueTokens).toBe(0);
+      expect(engine.getStats().documentCount).toBe(0);
+      expect(engine.getStats().avgDocLength).toBe(0);
+    });
+
+    it('keeps a token when another document still uses it', () => {
+      const engine = makeEngine();
+      engine.indexDocument('a', 'sharedtoken');
+      engine.indexDocument('b', 'sharedtoken');
+      engine.removeDocument('a');
+      expect(engine.getStats().uniqueTokens).toBe(1);
+    });
+  });
+
+  describe('minHash signal edge cases', () => {
+    it('skips minHash when the query signature is missing', async () => {
+      const engine = makeEngine();
+      engine.indexDocument('docA', 'function computeTotal value');
+      const minHash = new Map<string, number[]>([['docA', [1, 2, 3, 4]]]); // no '__query__'
+      const results = await engine.searchMultiSignal('computeTotal', undefined, minHash);
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]!.scoreComponents['minHash']).toBeUndefined();
+    });
+
+    it('skips minHash when the document signature is missing', async () => {
+      const engine = makeEngine();
+      engine.indexDocument('docA', 'function computeTotal value');
+      const minHash = new Map<string, number[]>([['__query__', [1, 2, 3, 4]]]);
+      const results = await engine.searchMultiSignal('computeTotal', undefined, minHash);
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]!.scoreComponents['minHash']).toBeUndefined();
+    });
+
+    it('computes partial Jaccard for mismatched signatures', async () => {
+      const engine = makeEngine();
+      engine.indexDocument('docA', 'function computeTotal value');
+      const minHash = new Map<string, number[]>([
+        ['__query__', [1, 2, 3, 4]],
+        ['docA', [1, 2, 0, 0]],
+      ]);
+      const results = await engine.searchMultiSignal('computeTotal', undefined, minHash);
+      const r = results.find((x) => x.id === 'docA')!;
+      expect(r.scoreComponents['minHash']).toBeCloseTo(0.5);
+    });
+
+    it('yields 0 Jaccard for empty signatures', async () => {
+      const engine = makeEngine();
+      engine.indexDocument('docA', 'function computeTotal value');
+      const minHash = new Map<string, number[]>([
+        ['__query__', []],
+        ['docA', []],
+      ]);
+      const results = await engine.searchMultiSignal('computeTotal', undefined, minHash);
+      const r = results.find((x) => x.id === 'docA')!;
+      expect(r.scoreComponents['minHash']).toBe(0);
+    });
+  });
 });
 
 describe('MockEmbeddingBackend', () => {

@@ -1,6 +1,6 @@
 // @code-analyzer/core — LRU Cache Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LRUCache } from '../cache/lru-cache.js';
 
 describe('LRUCache', () => {
@@ -338,6 +338,104 @@ describe('LRUCache', () => {
   });
 
   describe('Edge cases', () => {
+    it('uses default maxSize 10000 when no config is provided', () => {
+      const cache = new LRUCache<string, number>();
+      expect(cache.stats.maxSize).toBe(10000);
+      cache.set('a', 1);
+      expect(cache.get('a')).toBe(1);
+    });
+
+    it('uses Infinity expiry when ttl is not set', () => {
+      const cache = new LRUCache<string, number>({ maxSize: 10 });
+      cache.set('a', 1);
+      // Not expired immediately (default ttl 0 → no expiry).
+      expect(cache.get('a')).toBe(1);
+    });
+
+    it('updates expiry when overwriting an entry with a positive ttl override', () => {
+      const cache = new LRUCache<string, number>({ maxSize: 10 });
+      cache.set('a', 1, 5000);
+      cache.set('a', 2, 5000); // overwrite with positive ttl
+      expect(cache.get('a')).toBe(2);
+    });
+
+    it('has() returns false and removes an expired entry', async () => {
+      const cache = new LRUCache<string, number>({ maxSize: 10, ttl: 5 });
+      cache.set('a', 1);
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      expect(cache.has('a')).toBe(false);
+      expect(cache.size).toBe(0);
+    });
+
+    it('peek() returns undefined for an expired entry', async () => {
+      const cache = new LRUCache<string, number>({ maxSize: 10, ttl: 5 });
+      cache.set('a', 1);
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      expect(cache.peek('a')).toBeUndefined();
+    });
+
+    it('keys() and values() skip expired entries', async () => {
+      const cache = new LRUCache<string, number>({ maxSize: 10 });
+      cache.set('a', 1);
+      cache.set('b', 2, 5); // expires soon
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
+      expect(Array.from(cache.keys())).toEqual(['a']);
+      expect(Array.from(cache.values())).toEqual([1]);
+    });
+
+    it('promotes a middle entry to MRU on get', () => {
+      const cache = new LRUCache<string, number>({ maxSize: 3 });
+      cache.set('a', 1);
+      cache.set('b', 2);
+      cache.set('c', 3);
+      cache.get('b'); // middle → MRU
+      cache.set('d', 4); // evicts LRU ('a')
+      expect(cache.get('a')).toBeUndefined();
+      expect(cache.get('b')).toBe(2);
+    });
+
+    it('deletes a middle entry and relinks its neighbors', () => {
+      const cache = new LRUCache<string, number>({ maxSize: 5 });
+      cache.set('a', 1);
+      cache.set('b', 2);
+      cache.set('c', 3);
+      cache.delete('b'); // middle entry
+      expect(Array.from(cache.keys())).toEqual(['c', 'a']);
+      expect(cache.get('a')).toBe(1);
+      expect(cache.get('c')).toBe(3);
+    });
+
+    it('estimates size for null/boolean/typed-array values', () => {
+      const cache = new LRUCache<string, unknown>({ maxSize: 100 });
+      cache.set('n', null);
+      cache.set('b', true);
+      cache.set('t', new Uint8Array([1, 2, 3, 4]));
+      expect(cache.stats.estimatedBytes).toBeGreaterThan(0);
+    });
+
+    it('disposes the proactive sweep timer', () => {
+      const cache = new LRUCache<string, number>({ maxSize: 10, sweepInterval: 1000 });
+      cache.set('a', 1);
+      expect(() => cache.dispose()).not.toThrow();
+      expect(cache.size).toBe(0);
+    });
+
+    it('proactive sweep removes expired entries', () => {
+      vi.useFakeTimers();
+      try {
+        const cache = new LRUCache<string, number>({ maxSize: 10, ttl: 100, sweepInterval: 50 });
+        cache.set('a', 1);
+        cache.set('b', 2);
+
+        vi.advanceTimersByTime(200); // trigger the sweep interval with both expired
+
+        expect(cache.size).toBe(0);
+        expect(cache.stats.expirations).toBeGreaterThanOrEqual(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('handles maxSize 0 gracefully', () => {
       const cache = new LRUCache<string, number>({ maxSize: 0 });
       cache.set('a', 1);

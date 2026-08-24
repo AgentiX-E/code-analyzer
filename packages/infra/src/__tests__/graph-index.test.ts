@@ -1,8 +1,8 @@
 // @code-analyzer/infra — Graph Index Tests
 
 import { describe, it, expect } from 'vitest';
-import { NodeIndex } from '../storage/graph-index.js';
-import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
+import { NodeIndex, EdgeIndex } from '../storage/graph-index.js';
+import type { GraphNode, NodeLabel, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 
 function node(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
   return {
@@ -165,6 +165,31 @@ describe('NodeIndex', () => {
     });
   });
 
+  describe('bulkAdd', () => {
+    it('adds a batch of nodes', () => {
+      const idx = new NodeIndex();
+      idx.bulkAdd([node(1), node(2)]);
+      expect(idx.getStats().totalNodes).toBe(2);
+    });
+  });
+
+  describe('allIds', () => {
+    it('returns all known node IDs', () => {
+      const idx = new NodeIndex();
+      idx.bulkAdd([node(7), node(9)]);
+      expect(idx.allIds.sort((a, b) => a - b)).toEqual([7, 9]);
+    });
+  });
+
+  describe('size getter', () => {
+    it('reflects the current indexed node count', () => {
+      const idx = new NodeIndex();
+      expect(idx.size).toBe(0);
+      idx.add(node(1));
+      expect(idx.size).toBe(1);
+    });
+  });
+
   describe('Edge Cases', () => {
     it('should handle node without name', () => {
       const idx = new NodeIndex();
@@ -199,6 +224,166 @@ describe('NodeIndex', () => {
       expect(idx.has(4)).toBe(false);
       expect(idx.has(5)).toBe(true);
       expect(idx.has(6)).toBe(true);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EdgeIndex
+// ---------------------------------------------------------------------------
+
+function edge(id: number, overrides: Partial<GraphEdge> = {}): GraphEdge {
+  return {
+    id,
+    projectId: 'test/proj',
+    sourceId: id * 10,
+    targetId: id * 10 + 1,
+    type: 'CALLS' as RelationshipType,
+    properties: {},
+    weight: 1,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('EdgeIndex', () => {
+  describe('add', () => {
+    it('adds a single edge to all indexes', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1));
+      expect(idx.size).toBe(1);
+      expect(idx.getById(1)?.sourceId).toBe(10);
+    });
+
+    it('accumulates edges sharing the same source/target/type', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 5, targetId: 9, type: 'CALLS' as RelationshipType }));
+      idx.add(edge(2, { sourceId: 5, targetId: 9, type: 'CALLS' as RelationshipType }));
+      expect(idx.findBySource(5)).toHaveLength(2);
+      expect(idx.findByTarget(9)).toHaveLength(2);
+      expect(idx.findByType('CALLS')).toHaveLength(2);
+    });
+  });
+
+  describe('findBySource', () => {
+    it('returns edges by source node', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 10 }));
+      idx.add(edge(2, { sourceId: 20 }));
+      expect(idx.findBySource(10)).toHaveLength(1);
+      expect(idx.findBySource(10)[0]!.id).toBe(1);
+    });
+
+    it('returns empty for unknown source', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1));
+      expect(idx.findBySource(999)).toEqual([]);
+    });
+  });
+
+  describe('findByTarget', () => {
+    it('returns edges by target node', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { targetId: 11 }));
+      idx.add(edge(2, { targetId: 21 }));
+      expect(idx.findByTarget(11)).toHaveLength(1);
+      expect(idx.findByTarget(21)[0]!.id).toBe(2);
+    });
+
+    it('returns empty for unknown target', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1));
+      expect(idx.findByTarget(999)).toEqual([]);
+    });
+  });
+
+  describe('findByType', () => {
+    it('returns edges by relationship type', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { type: 'CALLS' as RelationshipType }));
+      idx.add(edge(2, { type: 'IMPORTS' as RelationshipType }));
+      expect(idx.findByType('CALLS')).toHaveLength(1);
+      expect(idx.findByType('IMPORTS')[0]!.id).toBe(2);
+    });
+
+    it('returns empty for unknown type', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1));
+      expect(idx.findByType('NOPE')).toEqual([]);
+    });
+  });
+
+  describe('findBySourceAndType', () => {
+    it('filters edges by source AND type', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 5, type: 'CALLS' as RelationshipType }));
+      idx.add(edge(2, { sourceId: 5, type: 'IMPORTS' as RelationshipType }));
+      idx.add(edge(3, { sourceId: 6, type: 'CALLS' as RelationshipType }));
+      expect(idx.findBySourceAndType(5, 'CALLS')).toHaveLength(1);
+      expect(idx.findBySourceAndType(5, 'CALLS')[0]!.id).toBe(1);
+    });
+
+    it('returns empty when no edge matches source+type', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 5, type: 'CALLS' as RelationshipType }));
+      expect(idx.findBySourceAndType(5, 'IMPORTS')).toEqual([]);
+    });
+  });
+
+  describe('getById', () => {
+    it('returns edge by ID', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(3));
+      expect(idx.getById(3)?.id).toBe(3);
+      expect(idx.getById(4)).toBeUndefined();
+    });
+  });
+
+  describe('remove', () => {
+    it('removes an edge from all indexes', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 5, targetId: 9, type: 'CALLS' as RelationshipType }));
+      expect(idx.remove(1)).toBe(true);
+      expect(idx.size).toBe(0);
+      expect(idx.findBySource(5)).toEqual([]);
+      expect(idx.findByTarget(9)).toEqual([]);
+      expect(idx.findByType('CALLS')).toEqual([]);
+      expect(idx.getById(1)).toBeUndefined();
+    });
+
+    it('returns false for unknown edge ID', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1));
+      expect(idx.remove(999)).toBe(false);
+      expect(idx.size).toBe(1);
+    });
+
+    it('removes a single edge while leaving shared-list siblings intact', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 5, targetId: 9 }));
+      idx.add(edge(2, { sourceId: 5, targetId: 8 }));
+      idx.remove(1);
+      expect(idx.findBySource(5)).toHaveLength(1);
+      expect(idx.findBySource(5)[0]!.id).toBe(2);
+    });
+  });
+
+  describe('clear', () => {
+    it('clears all indexes', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1));
+      idx.add(edge(2));
+      idx.clear();
+      expect(idx.size).toBe(0);
+      expect(idx.findBySource(10)).toEqual([]);
+    });
+  });
+
+  describe('bulkAdd', () => {
+    it('adds a batch of edges', () => {
+      const idx = new EdgeIndex();
+      idx.bulkAdd([edge(1), edge(2), edge(3)]);
+      expect(idx.size).toBe(3);
     });
   });
 });

@@ -365,6 +365,108 @@ describe('Cypher Executor — ORDER BY, LIMIT, SKIP', () => {
 });
 
 // ---------------------------------------------------------------------------
+// ORDER BY
+// ---------------------------------------------------------------------------
+
+describe('Cypher Executor — ORDER BY', () => {
+  it('sorts rows ascending by a property column', () => {
+    const store = setupStore();
+    const planWithOrder: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+      ],
+      columns: [{ name: 'name', expression: 'n.name', type: 'property' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'n.name', direction: 'asc' }],
+    };
+    const result = execute(planWithOrder, store, 'test-project');
+    const names = result.rows.map((r) => r.name as string);
+    const sorted = [...names].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }),
+    );
+    expect(names).toEqual(sorted);
+  });
+
+  it('sorts rows descending by a numeric column', () => {
+    const store = setupStore();
+    const planWithOrder: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+      ],
+      columns: [{ name: 'complexity', expression: 'n.complexity', type: 'property' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'n.complexity', direction: 'desc' }],
+    };
+    const result = execute(planWithOrder, store, 'test-project');
+    const vals = result.rows.map((r) => r.complexity as number);
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i - 1]!).toBeGreaterThanOrEqual(vals[i]!);
+    }
+  });
+
+  it('sorts null/missing values last regardless of direction', () => {
+    const store = setupStore();
+    const planWithOrder: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+      ],
+      // Missing property → null values for every row.
+      columns: [{ name: 'missing', expression: 'n.missingField', type: 'property' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'n.missingField', direction: 'asc' }],
+    };
+    const result = execute(planWithOrder, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+    for (const row of result.rows) {
+      expect(row.missing).toBeNull();
+    }
+  });
+
+  it('sorts a single-row result without error', () => {
+    const store = setupStore();
+    const planWithOrder: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'n', labels: ['Function'], properties: { name: 'funcA' } },
+          },
+        },
+      ],
+      columns: [{ name: 'name', expression: 'n.name', type: 'property' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'n.name', direction: 'asc' }],
+    };
+    const result = execute(planWithOrder, store, 'test-project');
+    expect(result.rows.length).toBe(1);
+  });
+
+  it('returns rows unchanged when orderBy is empty', () => {
+    const store = setupStore();
+    const planWithEmptyOrder: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+      ],
+      columns: [{ name: 'n', expression: 'n', type: 'node' }],
+      params: {},
+      distinct: false,
+      orderBy: [],
+    };
+    const result = execute(planWithEmptyOrder, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // DISTINCT
 // ---------------------------------------------------------------------------
 

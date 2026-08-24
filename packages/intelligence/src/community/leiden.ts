@@ -331,7 +331,11 @@ function computeTotalWeight(adj: Map<number, Map<number, number>>): number {
     }
   }
 
-  return total || 1;
+  // Return the true sum (0 for an edge-less graph) so the caller's explicit
+  // `totalWeight === 0` early-return can fire and short-circuit the
+  // division-by-zero guards. The previous `total || 1` masked the zero case,
+  // silently forcing edge-less graphs through the general path.
+  return total;
 }
 
 // ---------------------------------------------------------------------------
