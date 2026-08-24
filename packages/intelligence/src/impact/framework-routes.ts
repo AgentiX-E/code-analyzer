@@ -65,7 +65,8 @@ export interface RouteDetectorOptions {
 
 const EXPRESS_PATTERNS = {
   // app.get("/path", handler)
-  methodRoute: /\b(app|router)\s*\.\s*(get|post|put|delete|patch|all|use)\s*\(\s*['"]([^'"]+)['"]/g,
+  methodRoute:
+    /\b(app|router)\s*\.\s*(get|post|put|delete|patch|all|use|ws)\s*\(\s*['"]([^'"]+)['"]/g,
   // app.route("/path").get(handler)
   chainedRoute: /\b(app|router)\s*\.\s*route\s*\(\s*['"]([^'"]+)['"]/g,
   // express.Router()
