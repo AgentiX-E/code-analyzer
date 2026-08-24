@@ -150,4 +150,88 @@ describe('SCIP Exporter', () => {
       SyntaxKind.IdentifierLocal,
     );
   });
+
+  it('falls back to default SyntaxKind for unknown labels', () => {
+    const s = new InMemoryGraphStore();
+    ins(s, { ...D, label: 'File', name: 'f.txt', qn: 'f.txt' });
+    expect(exportScipIndex(s, 'p').documents[0]!.occurrences[0]!.syntaxKind).toBe(
+      SyntaxKind.Identifier,
+    );
+  });
+
+  it('formats a symbol without a descriptor suffix for unclassified labels', () => {
+    const s = new InMemoryGraphStore();
+    ins(s, { ...D, label: 'Module', name: 'util', qn: 'util', filePath: 'src/util.ts' });
+    const sym = exportScipIndex(s, 'p').documents[0]!.symbols[0]!;
+    // Module labels map to the empty descriptor suffix → no `#...()`.
+    expect(sym.symbol).not.toContain('()');
+  });
+
+  it('formats a symbol for a file path with src in the middle', () => {
+    const s = new InMemoryGraphStore();
+    ins(s, { ...D, name: 'f', qn: 'f', filePath: 'apps/web/src/index.ts' });
+    const sym = exportScipIndex(s, 'p').documents[0]!.symbols[0]!;
+    expect(sym.symbol).toContain('.');
+  });
+
+  it('maps unknown edge types to a default reference role', () => {
+    const s = new InMemoryGraphStore();
+    const a = ins(s, { ...D, name: 'a', qn: 'a', filePath: 'src/a.ts' });
+    const b = ins(s, { ...D, name: 'b', qn: 'b', filePath: 'src/b.ts' });
+    ine(s, { sourceId: a, targetId: b, type: 'CONTAINS' });
+    const doc = exportScipIndex(s, 'p').documents.find((d) => d.relativePath === 'src/a.ts')!;
+    const rel = doc.symbols[0]!.relationships[0]!;
+    expect(rel.isReference).toBe(true);
+    expect(rel.isImplementation).toBe(false);
+  });
+
+  it('collects cross-project edge targets as external symbols', () => {
+    const s = new InMemoryGraphStore();
+    const a = ins(s, { ...D, name: 'a', qn: 'a', filePath: 'src/a.ts', projectId: 'p' });
+    const b = ins(s, {
+      ...D,
+      name: 'b',
+      qn: 'b',
+      filePath: 'lib/b.ts',
+      projectId: 'other', // external project
+    });
+    ine(s, { sourceId: a, targetId: b, type: 'CALLS' });
+    const idx = exportScipIndex(s, 'p');
+    // b is in the graph but not defined in project 'p' → external symbol.
+    expect(idx.externalSymbols.length).toBeGreaterThan(0);
+    expect(idx.externalSymbols.some((e) => e.symbol.includes('b'))).toBe(true);
+  });
+
+  it('uses the external symbol scheme when the target language is unknown', () => {
+    const s = new InMemoryGraphStore();
+    const a = ins(s, { ...D, name: 'a', qn: 'a', filePath: 'src/a.ts' });
+    const b = ins(s, { ...D, name: 'b', qn: 'b', filePath: 'src/b.ts', language: null });
+    ine(s, { sourceId: a, targetId: b, type: 'CALLS' });
+    const doc = exportScipIndex(s, 'p').documents.find((d) => d.relativePath === 'src/a.ts')!;
+    const rel = doc.symbols[0]!.relationships[0]!;
+    // Target node has null language → getScheme falls back to 'unknown'.
+    expect(rel.symbol).toContain('unknown');
+  });
+
+  it('falls back to file-extension detection for null-language nodes', () => {
+    const s = new InMemoryGraphStore();
+    ins(s, { ...D, name: 'f', qn: 'f', filePath: 'src/main.py', language: null });
+    const doc = exportScipIndex(s, 'p').documents[0]!;
+    expect(doc.language).toBe('python');
+  });
+
+  it('defaults language to unknown for unrecognized extensions', () => {
+    const s = new InMemoryGraphStore();
+    ins(s, { ...D, name: 'f', qn: 'f', filePath: 'data.xyz', language: null });
+    const doc = exportScipIndex(s, 'p').documents[0]!;
+    expect(doc.language).toBe('xyz');
+  });
+
+  it('computes a zero-based occurrence range from null lines', () => {
+    const s = new InMemoryGraphStore();
+    ins(s, { ...D, name: 'f', qn: 'f', filePath: 'src/f.ts', startLine: null, endLine: null });
+    const occ = exportScipIndex(s, 'p').documents[0]!.occurrences[0]!;
+    expect(occ.range[0]).toBe(-1);
+    expect(occ.range[2]).toBe(0);
+  });
 });

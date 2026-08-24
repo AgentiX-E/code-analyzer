@@ -175,6 +175,119 @@ describe('classifyCall', () => {
   it('returns null for unmatched call', () => {
     expect(classifyCall(makeCall({ calleeName: 'doStuff', resolvedQn: 'unknown.fn' }))).toBeNull();
   });
+
+  it('classifies gRPC call with no extractable service/method', () => {
+    const c = classifyCall(makeCall({ calleeName: 'plainCall', resolvedQn: 'io.grpc.Client' }));
+    expect(c?.edgeType).toBe('GRPC_CALLS');
+    expect(c?.via).toBe('library_pattern');
+    expect(c?.grpcService).toBeUndefined();
+  });
+
+  it('classifies HTTP client call without a method suffix', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'request',
+        resolvedQn: 'requests.api.request',
+        args: [{ expr: '/api/users', value: '/api/users', index: 0 }],
+      }),
+    );
+    expect(c?.edgeType).toBe('HTTP_CALLS');
+    expect(c?.httpMethod).toBeUndefined();
+  });
+
+  it('classifies route registration without a method (ANY)', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'route',
+        resolvedQn: 'express.router.route',
+        firstStringArg: '/users',
+      }),
+    );
+    expect(c?.edgeType).toBe('ROUTE_REG');
+    expect(c?.httpMethod).toBe('ANY');
+  });
+
+  it('extracts URL from firstStringArg when args are absent', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'requests.get',
+        resolvedQn: 'requests.api.get',
+        firstStringArg: '/api/items',
+      }),
+    );
+    expect(c?.edgeType).toBe('HTTP_CALLS');
+    expect(c?.urlPath).toBe('/api/items');
+  });
+
+  it('uses arg.expr when arg.value is missing', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'requests.get',
+        resolvedQn: 'requests.api.get',
+        args: [{ expr: '/api/from-expr', index: 0 }],
+      }),
+    );
+    expect(c?.urlPath).toBe('/api/from-expr');
+  });
+
+  it('rejects filesystem-root paths as URL candidates', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [{ expr: '/etc/passwd', value: '/etc/passwd', index: 0 }],
+      }),
+    );
+    expect(c).toBeNull();
+  });
+
+  it('rejects config-file paths as URL candidates', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [{ expr: '/app/nginx.conf', value: '/app/nginx.conf', index: 0 }],
+      }),
+    );
+    expect(c).toBeNull();
+  });
+
+  it('rejects hidden-directory paths as URL candidates', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [
+          { expr: '/home/user/.aws/credentials', value: '/home/user/.aws/credentials', index: 0 },
+        ],
+      }),
+    );
+    expect(c).toBeNull();
+  });
+
+  it('normalizes quoted firstStringArg by stripping quotes', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'requests.get',
+        resolvedQn: 'requests.api.get',
+        firstStringArg: "'/api/quoted'",
+      }),
+    );
+    expect(c?.urlPath).toBe('/api/quoted');
+  });
+
+  it('rejects template-literal URLs containing $ (not URL candidates)', () => {
+    // `${...}` interpolation is rejected by the URL-candidate guard, so the
+    // template normalizer never sees it. This locks in the current behavior.
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [{ expr: '/api/${userId}/posts', value: '/api/${userId}/posts', index: 0 }],
+      }),
+    );
+    expect(c).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -239,6 +352,60 @@ describe('parseRouteDecorator', () => {
 
   it('returns null when path is not absolute', () => {
     expect(parseRouteDecorator('@app.route("relative")')).toBeNull();
+  });
+
+  it('parses a JAX-RS uppercase verb annotation', () => {
+    const r = parseRouteDecorator('@GET("/api/users")');
+    expect(r?.method).toBe('GET');
+    expect(r?.path).toBe('/api/users');
+  });
+
+  it('detects Flask framework', () => {
+    expect(parseRouteDecorator('flask_app.get("/a")')?.framework).toBe('Flask');
+  });
+
+  it('detects FastAPI framework', () => {
+    expect(parseRouteDecorator('fastapi_app.get("/a")')?.framework).toBe('FastAPI');
+  });
+
+  it('detects Django framework', () => {
+    expect(parseRouteDecorator('django_views.get("/a")')?.framework).toBe('Django');
+  });
+
+  it('detects Echo framework', () => {
+    expect(parseRouteDecorator('echo_group.Get("/a")')?.framework).toBe('Echo');
+  });
+
+  it('detects Chi framework', () => {
+    expect(parseRouteDecorator('chi_mux.Get("/a")')?.framework).toBe('Chi');
+  });
+
+  it('detects Fiber framework', () => {
+    expect(parseRouteDecorator('fiber_app.Get("/a")')?.framework).toBe('Fiber');
+  });
+
+  it('detects ASP.NET framework via keyword', () => {
+    expect(parseRouteDecorator('MapGet.get("/a")')?.framework).toBe('ASP.NET');
+  });
+
+  it('detects JAX-RS framework', () => {
+    expect(parseRouteDecorator('jakarta_ws.get("/a")')?.framework).toBe('JAX-RS');
+  });
+
+  it('detects Rust framework', () => {
+    expect(parseRouteDecorator('actix_web.get("/a")')?.framework).toBe('Rust');
+  });
+
+  it('detects Phoenix framework', () => {
+    expect(parseRouteDecorator('PhoenixRouter.get("/a")')?.framework).toBe('Phoenix');
+  });
+
+  it('returns null for an annotation without a path', () => {
+    expect(parseRouteDecorator('@GetMapping()')).toBeNull();
+  });
+
+  it('returns null for a call-match without a function name', () => {
+    expect(parseRouteDecorator('("/x")')).toBeNull();
   });
 });
 
@@ -318,6 +485,28 @@ describe('synthesizeRouteNode', () => {
       synthesizeRouteNode({ edgeType: 'THROWS' as any, via: 'library_pattern' }),
     ).toThrow(/Cannot synthesize route/);
   });
+
+  it('synthesizes HTTP route node with ANY method and default path', () => {
+    const node = synthesizeRouteNode({ edgeType: 'HTTP_CALLS', via: 'arg_url' });
+    expect(node.method).toBe('ANY');
+    expect(node.properties['url_path']).toBe(''); // '/' canonicalizes to '' (trailing slash stripped)
+  });
+
+  it('synthesizes async route node with unknown broker fallback', () => {
+    const node = synthesizeRouteNode({ edgeType: 'ASYNC_CALLS', via: 'library_pattern' });
+    expect(node.broker).toBe('unknown');
+    expect(node.qn).toContain('unknown');
+  });
+
+  it('synthesizes gRPC route node with unknown service/method fallback', () => {
+    const node = synthesizeRouteNode({ edgeType: 'GRPC_CALLS', via: 'library_pattern' });
+    expect(node.name).toBe('Unknown/Unknown');
+  });
+
+  it('synthesizes tRPC route node with unknown fallback', () => {
+    const node = synthesizeRouteNode({ edgeType: 'TRPC_CALLS', via: 'library_pattern' });
+    expect(node.qn).toContain('unknown');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -358,6 +547,16 @@ describe('buildServiceEdge', () => {
     expect(edge?.properties['service']).toBe('S');
     expect(edge?.properties['rpc_method']).toBe('M');
     expect(edge?.properties['callee']).toBe('S/M');
+  });
+
+  it('includes broker property for async edges', () => {
+    const edge = buildServiceEdge('p.main', {
+      edgeType: 'ASYNC_CALLS',
+      broker: 'kafka',
+      urlPath: '/orders',
+      via: 'library_pattern',
+    });
+    expect(edge?.properties['broker']).toBe('kafka');
   });
 });
 

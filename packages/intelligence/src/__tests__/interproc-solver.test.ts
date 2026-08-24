@@ -383,6 +383,216 @@ describe('InterprocSolver', () => {
       expect(result.findings.length).toBe(0);
     });
 
+    it('ignores sourceToCallArg resolved but missing callee summary', () => {
+      const solver = new InterprocSolver();
+
+      solver.loadSummaries([
+        makeSummary('A.fn', 'fn', 1, {
+          sourceToCallArgs: [
+            {
+              source: source(1),
+              callLine: 2,
+              calleeName: 'Missing.fn',
+              argIndex: 0,
+              resolved: true, // resolved but no such summary loaded
+            },
+          ],
+        }),
+      ]);
+      solver.loadCallGraph([]);
+
+      const result = solver.solve();
+      expect(result.findings.length).toBe(0);
+    });
+
+    it('deduplicates duplicate call-graph edges from the same caller', () => {
+      const solver = new InterprocSolver();
+
+      const summaries: FunctionSummary[] = [
+        makeSummary('A.fn', 'fn', 1, {
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.sink', argIndex: 0, resolved: true },
+          ],
+        }),
+        makeSummary('B.sink', 'sink', 1, {
+          paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('xss', 1), hops: 1 }],
+        }),
+      ];
+
+      // Same caller→callee edge listed twice (e.g. two call sites).
+      const edges: CallGraphEdge[] = [makeEdge('A.fn', 'B.sink', 1), makeEdge('A.fn', 'B.sink', 2)];
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph(edges);
+
+      const result = solver.solve();
+      // The reverse index must not double-register the caller.
+      expect(result.findings.length).toBeGreaterThan(0);
+    });
+
+    it('does not fire a sink for a non-tainted parameter', () => {
+      const solver = new InterprocSolver();
+
+      // A taints param 0 of B, but B's sink is on param 1 — no finding.
+      const summaries: FunctionSummary[] = [
+        makeSummary('A.fn', 'fn', 1, {
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.fn', argIndex: 0, resolved: true },
+          ],
+        }),
+        makeSummary('B.fn', 'fn', 2, {
+          paramToSinks: [{ param: 1, sinkLine: 3, sink: sink('sql-injection', 3), hops: 1 }],
+        }),
+      ];
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph([makeEdge('A.fn', 'B.fn')]);
+
+      const result = solver.solve();
+      expect(result.findings.length).toBe(0);
+    });
+
+    it('does not propagate TITO for a non-tainted parameter', () => {
+      const solver = new InterprocSolver();
+
+      // A taints param 0 of B, but B only passes param 1 onward.
+      const summaries: FunctionSummary[] = [
+        makeSummary('A.fn', 'fn', 1, {
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.fn', argIndex: 0, resolved: true },
+          ],
+        }),
+        makeSummary('B.fn', 'fn', 2, {
+          paramToCallArgs: [{ param: 1, callLine: 4, calleeName: 'C.sink', argIndex: 0 }],
+        }),
+        makeSummary('C.sink', 'sink', 1, {
+          paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('xss', 1), hops: 1 }],
+        }),
+      ];
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph([makeEdge('A.fn', 'B.fn'), makeEdge('B.fn', 'C.sink')]);
+
+      const result = solver.solve();
+      expect(result.findings.length).toBe(0);
+    });
+
+    it('does not propagate TITO to an unresolved callee', () => {
+      const solver = new InterprocSolver();
+
+      const summaries: FunctionSummary[] = [
+        makeSummary('A.fn', 'fn', 1, {
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.fn', argIndex: 0, resolved: true },
+          ],
+        }),
+        makeSummary('B.fn', 'fn', 1, {
+          paramToCallArgs: [{ param: 0, callLine: 4, calleeName: 'Missing.fn', argIndex: 0 }],
+        }),
+      ];
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph([makeEdge('A.fn', 'B.fn')]);
+
+      const result = solver.solve();
+      expect(result.findings.length).toBe(0);
+    });
+
+    it('neutralizes a sink via the sink-flow neutralized set', () => {
+      const solver = new InterprocSolver();
+
+      const summaries: FunctionSummary[] = [
+        makeSummary('A.fn', 'fn', 1, {
+          sourceToCallArgs: [
+            { source: source(1), callLine: 2, calleeName: 'B.fn', argIndex: 0, resolved: true },
+          ],
+        }),
+        makeSummary('B.fn', 'fn', 1, {
+          paramToSinks: [
+            { param: 0, sinkLine: 3, sink: sink('xss', 3), hops: 1, neutralized: ['xss'] },
+          ],
+        }),
+      ];
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph([makeEdge('A.fn', 'B.fn')]);
+
+      const result = solver.solve();
+      // The xss sink is neutralized on its own flow → no xss finding.
+      expect(result.findings.filter((f) => f.sink.kind === 'xss')).toHaveLength(0);
+    });
+
+    it('propagates taint across a three-level generative chain', () => {
+      const solver = new InterprocSolver();
+
+      // gen.fn returns tainted data; mid.fn calls gen and returns it; top.fn
+      // calls mid and passes the result to a sink.
+      const summaries: FunctionSummary[] = [
+        makeSummary('gen.fn', 'gen', 0, {
+          sourceToReturns: [{ source: source(1), returnIndices: [0] }],
+        }),
+        makeSummary('mid.fn', 'mid', 0, {
+          callResults: [{ calleeName: 'gen.fn', callLine: 2, returnIndex: 0 }],
+          paramToReturns: [{ param: -1, returnIndices: [0] }],
+        }),
+        makeSummary('top.fn', 'top', 0, {
+          callResults: [{ calleeName: 'mid.fn', callLine: 3, returnIndex: 0 }],
+          paramToSinks: [{ param: -1, sinkLine: 4, sink: sink('sql-injection', 4), hops: 1 }],
+        }),
+      ];
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph([makeEdge('mid.fn', 'gen.fn'), makeEdge('top.fn', 'mid.fn')]);
+
+      const result = solver.solve();
+      expect(result.summariesAnalyzed).toBe(3);
+      expect(result.iterations).toBeGreaterThanOrEqual(0);
+    });
+
+    it('reduces confidence for very deep call chains (>10 hops)', () => {
+      const solver = new InterprocSolver({ maxIterations: 100 });
+
+      // Build an 11-function chain to exceed the 10-hop confidence threshold.
+      const names = Array.from({ length: 12 }, (_, i) => `F${i}.fn`);
+      const summaries: FunctionSummary[] = names.map((qn, i) => {
+        if (i === 0) {
+          return makeSummary(qn, 'fn', 1, {
+            sourceToCallArgs: [
+              {
+                source: source(1),
+                callLine: 2,
+                calleeName: names[1]!,
+                argIndex: 0,
+                resolved: true,
+              },
+            ],
+          });
+        }
+        if (i === names.length - 1) {
+          return makeSummary(qn, 'fn', 1, {
+            paramToSinks: [{ param: 0, sinkLine: 1, sink: sink('sql-injection', 1), hops: 1 }],
+          });
+        }
+        return makeSummary(qn, 'fn', 1, {
+          paramToCallArgs: [{ param: 0, callLine: 1, calleeName: names[i + 1]!, argIndex: 0 }],
+        });
+      });
+
+      const edges: CallGraphEdge[] = names
+        .slice(0, -1)
+        .map((caller, i) => makeEdge(caller, names[i + 1]!));
+
+      solver.loadSummaries(summaries);
+      solver.loadCallGraph(edges);
+
+      const result = solver.solve();
+      expect(result.findings.length).toBeGreaterThan(0);
+      // 11+ hops should push confidence well below the default 0.8.
+      for (const f of result.findings) {
+        expect(f.confidence).toBeLessThan(0.4);
+      }
+    });
+
     it('handles empty summaries', () => {
       const solver = new InterprocSolver();
       solver.loadSummaries([]);
