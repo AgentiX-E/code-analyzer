@@ -206,22 +206,19 @@ function loadGrammar(lang: string): unknown | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const g = require(pkg) as Record<string, unknown>;
-    // Handle compound exports: tree-sitter-typescript → .typescript / .tsx
+    // tree-sitter-typescript is the only compound grammar package: it exports
+    // a `.typescript` and a `.tsx` Language alongside the module default.
+    // Every other grammar package exposes its Language directly on the module
+    // (tree-sitter v0.25), so no per-language `.python`/`.cpp` lookup exists.
     if (key === 'typescript' || key === 'javascript' || key === 'jsx') {
-      grammarCache.set(key, g['typescript'] ?? g);
-      return g['typescript'] ?? g;
+      const grammar = g['typescript'];
+      grammarCache.set(key, grammar);
+      return grammar;
     }
-    if (key === 'tsx' && g['tsx']) {
-      grammarCache.set(key, g['tsx']);
-      return g['tsx'];
-    }
-    if (key === 'python' && g['python']) {
-      grammarCache.set(key, g['python']);
-      return g['python'];
-    }
-    if (key === 'cpp' && g['cpp']) {
-      grammarCache.set(key, g['cpp']);
-      return g['cpp'];
+    if (key === 'tsx') {
+      const grammar = g['tsx'];
+      grammarCache.set(key, grammar);
+      return grammar;
     }
     grammarCache.set(key, g);
     return g;
@@ -247,6 +244,7 @@ function tryParseWithTreeSitter(
       setLanguage(g: unknown): void;
       parse(src: string): { rootNode: TsNode };
     };
+    /* v8 ignore next */ // require('tree-sitter') always resolves to the Parser class
     if (!Parser) return null;
     const grammar = loadGrammar(language);
     if (!grammar) return null;
