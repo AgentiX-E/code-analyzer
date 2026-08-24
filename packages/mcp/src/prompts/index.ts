@@ -12,7 +12,9 @@ import type { InMemoryGraphStore } from '@code-analyzer/infra';
 // ---------------------------------------------------------------------------
 
 export interface PromptMessage {
-  role: 'user' | 'assistant' | 'system';
+  // The MCP RoleSchema only permits "user" | "assistant"; there is no
+  // "system" role, so system-prompt content is emitted as "assistant".
+  role: 'user' | 'assistant';
   content: {
     type: 'text';
     text: string;
@@ -197,7 +199,7 @@ Please provide:
 
     return {
       messages: [
-        { role: 'system', content: { type: 'text', text: systemPrompt } },
+        { role: 'assistant', content: { type: 'text', text: systemPrompt } },
         { role: 'user', content: { type: 'text', text: userMessage } },
       ],
       description: `Codebase exploration prompt for project "${projectId}"`,
@@ -252,7 +254,7 @@ Please review the changes and provide:
 
     return {
       messages: [
-        { role: 'system', content: { type: 'text', text: systemPrompt } },
+        { role: 'assistant', content: { type: 'text', text: systemPrompt } },
         { role: 'user', content: { type: 'text', text: userMessage } },
       ],
       description: `Code review prompt for project "${projectId}" (${fromRef} → ${toRef})`,
@@ -301,7 +303,7 @@ Please provide:
 
     return {
       messages: [
-        { role: 'system', content: { type: 'text', text: systemPrompt } },
+        { role: 'assistant', content: { type: 'text', text: systemPrompt } },
         { role: 'user', content: { type: 'text', text: userMessage } },
       ],
       description: `Debug prompt for project "${projectId}" — entry point: ${entryPoint}`,
@@ -346,7 +348,7 @@ Please provide:
 
     return {
       messages: [
-        { role: 'system', content: { type: 'text', text: systemPrompt } },
+        { role: 'assistant', content: { type: 'text', text: systemPrompt } },
         { role: 'user', content: { type: 'text', text: userMessage } },
       ],
       description: `Refactoring plan prompt for target "${target}" (goal: ${goal})`,
@@ -401,7 +403,7 @@ ${adrInstruction}`;
 
     return {
       messages: [
-        { role: 'system', content: { type: 'text', text: systemPrompt } },
+        { role: 'assistant', content: { type: 'text', text: systemPrompt } },
         { role: 'user', content: { type: 'text', text: userMessage } },
       ],
       description: `Architecture review prompt for project "${projectId}" (aspect: ${aspect})`,

@@ -152,8 +152,8 @@ describe('PromptProvider', () => {
     it('should return structured messages with graph context', async () => {
       const result = await provider.getPrompt('explore-codebase', { projectId: 'my-app' });
       expect(result.messages).toBeDefined();
-      expect(result.messages.length).toBe(2); // system + user
-      expect(result.messages[0].role).toBe('system');
+      expect(result.messages.length).toBe(2); // assistant (system prompt) + user
+      expect(result.messages[0].role).toBe('assistant');
       expect(result.messages[1].role).toBe('user');
       expect(result.messages[1].content.text).toContain('my-app');
       expect(result.messages[1].content.text).toContain('Total Nodes');
