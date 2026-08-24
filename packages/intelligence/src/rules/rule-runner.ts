@@ -1262,7 +1262,6 @@ export function checkNoGodClass(
 
   const results: RuleCheckResult[] = [];
   const maxMethods = 20;
-  const maxLines = 500;
 
   let inClass = false;
   let classStart = 0;
@@ -1300,8 +1299,6 @@ export function checkNoGodClass(
       }
 
       if (classDepth === 0 && i > classStart + 1) {
-        const classLines = i - classStart + 1;
-
         if (methodCount > maxMethods) {
           results.push(
             makeResult(
@@ -1313,7 +1310,10 @@ export function checkNoGodClass(
           );
         }
 
-        if (classLines > maxLines) inClass = false;
+        // Reset state unconditionally. The previous `if (classLines > maxLines)`
+        // guard left `inClass` true for normal-sized classes, so the next class
+        // was merged into this one and its method count accumulated.
+        inClass = false;
       }
     }
   }
@@ -1572,7 +1572,9 @@ export function checkNoCircularDeps(
   // Simple heuristic: check for import chains that reference back
   for (let i = 0; i < src.length; i++) {
     const line = src[i]!;
-    if (line.includes('import ') && line.includes('../') && line.includes('*/')) {
+    // The previous `line.includes('*/')` guard never matched a real import
+    // statement (imports contain no `*/`), silently disabling this rule.
+    if (line.includes('import ') && line.includes('../')) {
       // Deep import jumping is a potential indicator
       const depthMatch = line.match(/\.\.\//g);
       if (depthMatch && depthMatch.length > 2) {
