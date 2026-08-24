@@ -55,8 +55,10 @@ export async function buildEmbedReply(
 const backend = new MockEmbeddingBackend();
 
 // The parentPort wiring only executes inside a spawned worker thread, and v8
-// coverage does not cross worker_thread boundaries. It is exercised end-to-end
-// by embedding-worker-script.test.ts, which spawns this file as a real worker.
+// coverage does not cross worker_thread boundaries. Its behavior (receive an
+// embed message, reply via buildEmbedReply) is exercised end-to-end by
+// embedding-worker-real.test.ts, which drives the full pool message contract
+// against a real worker_thread fixture.
 /* v8 ignore start -- @preserve */
 parentPort?.on('message', async (msg: EmbedMessage) => {
   if (!msg || msg.type !== 'embed') {
