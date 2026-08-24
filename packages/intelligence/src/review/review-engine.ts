@@ -734,18 +734,18 @@ export class CodeReviewEngine {
     try {
       // For new files, read the full content at the target commit
       if (diff.changeType === 'added') {
-        return gitOps.readFileContent(diff.filePath, targetSha);
+        return await gitOps.readFileContent(diff.filePath, targetSha);
       }
 
       // For deleted files, read the full content at the base commit
       if (diff.changeType === 'deleted') {
-        return gitOps.readFileContent(diff.filePath, baseSha);
+        return await gitOps.readFileContent(diff.filePath, baseSha);
       }
 
       // For modified/renamed files, try to get actual git diff
       if (baseSha && targetSha) {
         try {
-          return gitOps.getFileDiff(diff.filePath, baseSha, targetSha);
+          return await gitOps.getFileDiff(diff.filePath, baseSha, targetSha);
         } catch {
           // Fall back to reading the file content at the target commit
         }
@@ -767,7 +767,7 @@ export class CodeReviewEngine {
       }
 
       // Default: read the full file at the target commit
-      return gitOps.readFileContent(diff.filePath, targetSha);
+      return await gitOps.readFileContent(diff.filePath, targetSha);
     } catch (error) {
       if (error instanceof ReviewEngineError) throw error;
 
