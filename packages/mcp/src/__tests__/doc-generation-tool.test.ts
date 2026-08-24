@@ -92,4 +92,96 @@ describe('docGenerationTool', () => {
     );
     expect(r.metadata.docCount).toBeLessThanOrEqual(1);
   });
+
+  it('should generate docstring for Python files', async () => {
+    const store = new InMemoryGraphStore();
+    insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'parse',
+      qualifiedName: 'parse',
+      filePath: 'src/parse.py',
+    });
+    const r = await docGenerationTool.handler({ projectId: 'p' }, store);
+    expect(r.content[0].text).toContain('python');
+    expect(r.content[0].text).toContain('Args:');
+  });
+
+  it('should generate godoc for Go files', async () => {
+    const store = new InMemoryGraphStore();
+    insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'Run',
+      qualifiedName: 'Run',
+      filePath: 'main.go',
+    });
+    const r = await docGenerationTool.handler({ projectId: 'p' }, store);
+    expect(r.content[0].text).toContain('// Run is a function');
+  });
+
+  it('should detect Java language for .java files', async () => {
+    const store = new InMemoryGraphStore();
+    insertNode(store, {
+      projectId: 'p',
+      label: 'Class',
+      name: 'Service',
+      qualifiedName: 'Service',
+      filePath: 'src/Service.java',
+    });
+    const r = await docGenerationTool.handler({ projectId: 'p' }, store);
+    expect(r.content[0].text).toContain('java');
+  });
+
+  it('should include @example for Class symbols', async () => {
+    const store = new InMemoryGraphStore();
+    insertNode(store, {
+      projectId: 'p',
+      label: 'Class',
+      name: 'Widget',
+      qualifiedName: 'Widget',
+      filePath: 'src/widget.ts',
+    });
+    const r = await docGenerationTool.handler({ projectId: 'p' }, store);
+    expect(r.content[0].text).toContain('@example');
+    expect(r.content[0].text).toContain('new Widget');
+  });
+
+  it('should filter by symbolName and filePath', async () => {
+    const store = createStoreWithData();
+    const byName = await docGenerationTool.handler(
+      { projectId: 'test-project', symbolName: 'fetchData' },
+      store,
+    );
+    expect(byName.metadata.docCount).toBe(1);
+
+    const byFile = await docGenerationTool.handler(
+      { projectId: 'test-project', filePath: 'src/http.ts' },
+      store,
+    );
+    expect(byFile.metadata.docCount).toBe(1);
+    expect(byFile.content[0].text).toContain('makeRequest');
+  });
+
+  it('should handle a node without filePath', async () => {
+    const store = new InMemoryGraphStore();
+    insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'orphan',
+      qualifiedName: 'orphan',
+      filePath: null,
+    });
+    const r = await docGenerationTool.handler({ projectId: 'p' }, store);
+    expect(r.metadata.docCount).toBe(1);
+    expect(r.content[0].text).toContain('<unknown>');
+  });
+
+  it('should render empty docs for maxResults 0', async () => {
+    const r = await docGenerationTool.handler(
+      { projectId: 'test-project', maxResults: 0 },
+      createStoreWithData(),
+    );
+    expect(r.content[0].text).toContain('No documentable symbols');
+  });
 });

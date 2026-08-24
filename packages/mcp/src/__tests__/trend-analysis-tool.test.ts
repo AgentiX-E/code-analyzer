@@ -121,4 +121,93 @@ describe('trendAnalysisTool', () => {
     );
     expect(r.metadata.metric).toBe('health');
   });
+
+  it('should report an unknown metric', async () => {
+    const r = await trendAnalysisTool.handler(
+      { projectId: 'test-project', metric: 'bogus' },
+      createStoreWithData(),
+    );
+    expect(r.content[0].text).toContain('Unknown metric: bogus');
+  });
+
+  it('should bucket complexity across multiple ranges', async () => {
+    const store = new InMemoryGraphStore();
+    // Node with 1 CALLS edge → score 1 (1–5 bucket).
+    const lowId = insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'low',
+      qualifiedName: 'low',
+      filePath: 'a.ts',
+    });
+    const t0 = insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 't0',
+      qualifiedName: 't0',
+      filePath: 't.ts',
+    });
+    insertEdge(store, { projectId: 'p', type: 'CALLS', sourceId: lowId, targetId: t0 });
+
+    // Node with 2 EXTENDS edges → score 6 (6–10 bucket).
+    const midId = insertNode(store, {
+      projectId: 'p',
+      label: 'Class',
+      name: 'mid',
+      qualifiedName: 'mid',
+      filePath: 'b.ts',
+    });
+    for (let i = 0; i < 2; i++) {
+      const t = insertNode(store, {
+        projectId: 'p',
+        label: 'Class',
+        name: `m${i}`,
+        qualifiedName: `m${i}`,
+        filePath: `m${i}.ts`,
+      });
+      insertEdge(store, { projectId: 'p', type: 'EXTENDS', sourceId: midId, targetId: t });
+    }
+
+    // Node with 4 EXTENDS edges → score 12 (11–20 bucket).
+    const highId = insertNode(store, {
+      projectId: 'p',
+      label: 'Class',
+      name: 'high',
+      qualifiedName: 'high',
+      filePath: 'c.ts',
+    });
+    for (let i = 0; i < 4; i++) {
+      const t = insertNode(store, {
+        projectId: 'p',
+        label: 'Class',
+        name: `h${i}`,
+        qualifiedName: `h${i}`,
+        filePath: `h${i}.ts`,
+      });
+      insertEdge(store, { projectId: 'p', type: 'EXTENDS', sourceId: highId, targetId: t });
+    }
+
+    const r = await trendAnalysisTool.handler({ projectId: 'p', metric: 'complexity' }, store);
+    const text = r.content[0].text;
+    expect(text).toContain('Complexity Analysis');
+    expect(text).toContain('1–5');
+    expect(text).toContain('6–10');
+    expect(text).toContain('11–20');
+  });
+
+  it('should flag isolated nodes in the health report', async () => {
+    const store = new InMemoryGraphStore();
+    insertNode(store, { projectId: 'p', label: 'Project', name: 'P', qualifiedName: 'P' });
+    insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'orphan',
+      qualifiedName: 'orphan',
+      filePath: 'o.ts',
+    });
+    const r = await trendAnalysisTool.handler({ projectId: 'p', metric: 'health' }, store);
+    const text = r.content[0].text;
+    expect(text).toContain('Orphaned Symbols');
+    expect(text).toContain('orphan');
+  });
 });
