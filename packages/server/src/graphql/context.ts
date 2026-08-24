@@ -2,7 +2,7 @@
 // Per-request context factory for GraphQL resolvers.
 // Provides access to the graph store, analysis engine, and server configuration.
 
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { ServerConfig } from '../server-config.js';
 
 /**
@@ -36,10 +36,6 @@ export function createGraphQLContext(
  * Tests should create their own InMemoryGraphStore and pass it here.
  */
 export function createTestContext(store?: InMemoryGraphStore): GraphQLContext {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { InMemoryGraphStore } = require('@code-analyzer/infra') as {
-    InMemoryGraphStore: new () => InMemoryGraphStore;
-  };
   const storeInstance = store ?? new InMemoryGraphStore();
   return {
     store: storeInstance,
