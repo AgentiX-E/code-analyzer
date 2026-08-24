@@ -69,6 +69,8 @@ export class EmbeddingWorkerPool {
     reject: (error: EmbeddingError) => void;
   }> = [];
   private busyWorkers = new Set<number>();
+  /** Task IDs currently dispatched to (or awaiting a reply from) a worker. */
+  private dispatchedTasks = new Set<string>();
   private completedTasks = 0;
   private failedTasks = 0;
   private restartedWorkers = 0;
@@ -128,9 +130,11 @@ export class EmbeddingWorkerPool {
       if (s.status === 'fulfilled') {
         results.push(s.value);
       } else {
+        // The queue rejects with an EmbeddingError ({ taskId, error }), not an
+        // Error instance, so read `.error` before falling back to `.message`.
         errors.push({
           taskId: tasks[i]?.taskId ?? 'unknown',
-          error: s.reason?.message ?? String(s.reason),
+          error: s.reason?.error ?? s.reason?.message ?? String(s.reason),
         });
       }
     }
@@ -318,6 +322,7 @@ export class EmbeddingWorkerPool {
 
           const queueEntry = this.taskQueue[queueIdx]!;
           this.taskQueue.splice(queueIdx, 1);
+          this.dispatchedTasks.delete(msg.taskId);
 
           if (msg.type === 'result' && msg.embedding) {
             this.completedTasks++;
@@ -375,11 +380,12 @@ export class EmbeddingWorkerPool {
       if (!state.healthy) continue;
       if (this.busyWorkers.has(state.index)) continue;
 
-      // Find an unassigned task
+      // Find a task not yet dispatched to any worker
       const entry = this.taskQueue.find((e) => !this.isTaskAssigned(e.task.taskId));
       if (!entry) break;
 
       this.busyWorkers.add(state.index);
+      this.dispatchedTasks.add(entry.task.taskId);
       state.worker.postMessage({
         type: 'embed',
         taskId: entry.task.taskId,
@@ -388,8 +394,8 @@ export class EmbeddingWorkerPool {
     }
   }
 
-  private isTaskAssigned(_taskId: string): boolean {
-    return false; // Tasks are processed once — no dedup in queue
+  private isTaskAssigned(taskId: string): boolean {
+    return this.dispatchedTasks.has(taskId);
   }
 
   private async fallbackEmbed(
