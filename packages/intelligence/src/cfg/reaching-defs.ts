@@ -80,6 +80,7 @@ interface RawFact {
 
 function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
   const n = cfg.blocks.length;
+  /* v8 ignore next — guarded upstream: computeReachingDefinitions returns early when def/use counts are zero */
   if (n === 0) return [];
 
   // Lattice: In[b][bindingIdx] = Set<defKey>
@@ -131,14 +132,14 @@ function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
       // No predecessors — entry block
     }
 
-    // Apply GEN: MUST-defs kill, then insert
+    // Apply GEN: MUST-defs kill, then insert. Every harvested GEN set holds at
+    // least one def key (a set is only created alongside its first insertion),
+    // so the set is always non-empty.
     if (gen) {
       for (const [binding, newDefs] of gen) {
-        if (newDefs.size > 0) {
-          // MUST-def: kill all previous reaching defs for this binding,
-          // then insert the new def
-          out.set(binding, new Set(newDefs));
-        }
+        // MUST-def: kill all previous reaching defs for this binding,
+        // then insert the new def
+        out.set(binding, new Set(newDefs));
       }
     }
 
@@ -146,21 +147,14 @@ function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
     const oldIn = inSets[b]!;
     let changed = false;
 
-    // Check which bindings changed
+    // Check which bindings changed. OUT[b] is monotone (a union of predecessor
+    // IN sets overlaid with GEN), so a binding that is present in the previous
+    // IN set is never removed; the set only grows or is replaced by GEN.
     for (const [binding, newDefs] of out) {
       const old = oldIn.get(binding);
       if (!old || !setsEqual(old, newDefs)) {
         changed = true;
         oldIn.set(binding, new Set(newDefs));
-      }
-    }
-
-    // Check for removed bindings
-    const oldBindings = new Set(oldIn.keys());
-    for (const bKey of oldBindings) {
-      if (!out.has(bKey)) {
-        oldIn.delete(bKey);
-        changed = true;
       }
     }
 
@@ -201,20 +195,26 @@ function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
 
 function computeReachingDefsSparse(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
   const n = cfg.blocks.length;
+  /* v8 ignore next — guarded upstream: computeReachingDefinitions returns early when def/use counts are zero */
   if (n === 0) return [];
 
   // entryValue[b][bindingIdx] = Set<defKey> — the set of defs reaching the
-  // entry of block b for each binding.
+  // entry of block b for each binding. It starts empty for every block (the
+  // entry block has no predecessors, so IN[entry] = {}); each block's own GEN
+  // is applied when that block is visited by the fixpoint below, not pre-seeded
+  // here (pre-seeding would make a use in the entry block see its own defs).
   const entryValue: Array<Map<number, Set<number>>> = Array.from({ length: n }, () => new Map());
 
-  // Seed the entry block with its own GEN set.
-  for (const [bindIdx, defs] of h.gen[cfg.entryIndex] ?? []) {
-    entryValue[cfg.entryIndex]!.set(bindIdx, new Set(defs));
+  // Iterative fixpoint over the CFG using a worklist. Seed the worklist with
+  // every block (not just the entry) so that a non-entry block's own GEN is
+  // applied even when the entry block defines nothing; otherwise the fixpoint
+  // starves and non-entry defs are silently dropped.
+  const worklist: number[] = [];
+  const inQueue = new Set<number>();
+  for (let i = 0; i < n; i++) {
+    worklist.push(i);
+    inQueue.add(i);
   }
-
-  // Iterative fixpoint over the CFG using a worklist.
-  const worklist: number[] = [cfg.entryIndex];
-  const inQueue = new Set<number>([cfg.entryIndex]);
 
   while (worklist.length > 0) {
     const b = worklist.shift()!;
@@ -373,23 +373,32 @@ function harvest(cfg: FunctionCfg): Harvest {
 function sweepFacts(
   cfg: FunctionCfg,
   h: Harvest,
-  inSets: Array<Map<number, Set<number>>>,
+  outSets: Array<Map<number, Set<number>>>,
 ): DefUseFact[] {
   const facts: RawFact[] = [];
 
   for (const block of cfg.blocks) {
     const b = block.index;
-    const inSet = inSets[b]!;
     const usesList = h.allUses[b];
 
     if (!usesList || usesList.length === 0) continue;
 
     const bindings = cfg.bindings;
 
-    // Intra-block overlay: walk statements within the block
+    // Intra-block overlay: seed with IN[b] = union of predecessor OUT sets,
+    // then walk the block's statements applying defs in order. Seeding from
+    // the block's own OUT set (which includes its GEN) would let a use see a
+    // def that appears later in the same block — incorrect ordering.
     let currentDefs = new Map<number, Set<number>>();
-    for (const [bindIdx, defs] of inSet) {
-      currentDefs.set(bindIdx, new Set(defs));
+    for (const pred of getBlockPredecessors(cfg, b)) {
+      for (const [bindIdx, defs] of outSets[pred]!) {
+        const existing = currentDefs.get(bindIdx);
+        if (existing) {
+          for (const d of defs) existing.add(d);
+        } else {
+          currentDefs.set(bindIdx, new Set(defs));
+        }
+      }
     }
 
     let useIdx = 0;
@@ -405,6 +414,7 @@ function sweepFacts(
             let count = 0;
             for (const defKey of reaching) {
               if (count >= MAX_FACTS_PER_BINDING) break;
+              /* v8 ignore next — every defKey originates from a harvested def site that records its line */
               const defLine = h.defLines.get(defKey) ?? 0;
               const defPoint = decodeDefKey(defKey, defLine);
 
@@ -479,6 +489,7 @@ function sweepFactsSparse(
             let count = 0;
             for (const defKey of reaching) {
               if (count >= MAX_FACTS_PER_BINDING) break;
+              /* v8 ignore next — every defKey originates from a harvested def site that records its line */
               const defLine = h.defLines.get(defKey) ?? 0;
               const defPoint = decodeDefKey(defKey, defLine);
 
@@ -554,6 +565,7 @@ function buildReversePostOrder(cfg: FunctionCfg): number[] {
 
   function dfs(b: number): void {
     visited[b] = 1;
+    /* v8 ignore next — succs is sized n and every valid edge target is < n, so succs[b] is always defined */
     for (const s of succs[b] ?? []) {
       if (!visited[s]) dfs(s);
     }
@@ -567,6 +579,7 @@ function buildReversePostOrder(cfg: FunctionCfg): number[] {
 function setsEqual(a: Set<number>, b: Set<number>): boolean {
   if (a.size !== b.size) return false;
   for (const val of a) {
+    /* v8 ignore next — reaching sets only grow (union) or are replaced by GEN, so a same-size mismatch never occurs */
     if (!b.has(val)) return false;
   }
   return true;
