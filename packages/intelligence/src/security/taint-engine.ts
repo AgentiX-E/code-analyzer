@@ -404,7 +404,7 @@ export class TaintAnalysisEngine {
       const text = (node.signature ?? '') + ' ' + (node.name ?? '');
 
       for (const source of this.sources) {
-        if (!source.languages.includes(node.language ?? '')) continue;
+        // A source with `languages: ['*']` applies to every language.
         if (!source.languages.includes('*') && !source.languages.includes(node.language ?? ''))
           continue;
 
@@ -428,7 +428,8 @@ export class TaintAnalysisEngine {
       const text = (node.signature ?? '') + ' ' + (node.name ?? '');
 
       for (const sink of this.sinks) {
-        if (!sink.languages.includes(node.language ?? '')) continue;
+        if (!sink.languages.includes('*') && !sink.languages.includes(node.language ?? ''))
+          continue;
 
         for (const pattern of sink.patterns) {
           if (pattern.test(text)) {
@@ -449,7 +450,11 @@ export class TaintAnalysisEngine {
       const text = (node.signature ?? '') + ' ' + (node.name ?? '');
 
       for (const sanitizer of this.sanitizers) {
-        if (!sanitizer.languages.includes(node.language ?? '')) continue;
+        if (
+          !sanitizer.languages.includes('*') &&
+          !sanitizer.languages.includes(node.language ?? '')
+        )
+          continue;
 
         for (const pattern of sanitizer.patterns) {
           if (pattern.test(text)) {
