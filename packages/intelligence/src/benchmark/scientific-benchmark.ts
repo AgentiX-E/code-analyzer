@@ -254,7 +254,10 @@ export function computeBootstrapConfidenceIntervals(
     const values = bootstrapped[metric].sort((a, b) => a - b);
     const lowerIdx = Math.floor(values.length * 0.025);
     const upperIdx = Math.floor(values.length * 0.975);
-    const estimate = values.reduce((s, v) => s + v, 0) / values.length;
+    // With zero bootstrap samples (e.g. numSamples <= 0), the mean of an empty
+    // array is NaN. Fall back to the direct metric estimate of the full results.
+    const estimate =
+      values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : metrics[metric];
 
     intervals.push({
       metric,

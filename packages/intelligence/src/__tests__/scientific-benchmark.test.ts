@@ -301,6 +301,34 @@ describe('computeBootstrapConfidenceIntervals', () => {
     expect(intervals).toEqual([]);
   });
 
+  it('falls back to the point estimate when numSamples is zero', () => {
+    const results: CaseResult[] = [
+      {
+        caseId: 'case-1',
+        repository: 'test/repo',
+        languages: ['typescript'],
+        loc: 100,
+        truePositives: 3,
+        falsePositives: 1,
+        falseNegatives: 1,
+        precision: 0.75,
+        recall: 0.75,
+        f1: 0.75,
+        durationMs: 10,
+        detections: [],
+      },
+    ];
+
+    // With zero bootstrap samples the mean of an empty array is NaN; the
+    // interval must fall back to the direct estimate instead of producing NaN.
+    const intervals = computeBootstrapConfidenceIntervals(results, 0);
+    expect(intervals).toHaveLength(3);
+    for (const interval of intervals) {
+      expect(Number.isFinite(interval.estimate)).toBe(true);
+      expect(interval.estimate).toBeCloseTo(0.75, 4);
+    }
+  });
+
   it('converges for large sample sizes', () => {
     const results: CaseResult[] = Array.from({ length: 200 }, (_, i) => ({
       caseId: `case-${i}`,
