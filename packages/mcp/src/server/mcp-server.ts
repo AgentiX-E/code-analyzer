@@ -259,9 +259,12 @@ export class CodeAnalyzerMCPServer {
         errorMessage: msg,
       });
 
-      // Send notification to MCP client so the user is aware
+      // Send notification to MCP client so the user is aware. `notification` is
+      // async and returns a Promise, so it must be awaited for the try/catch to
+      // actually catch a delivery failure (otherwise the rejection is unhandled
+      // and the non-critical fallback below never runs).
       try {
-        this.server.notification({
+        await this.server.notification({
           method: 'notifications/message',
           params: {
             level: 'warning',
