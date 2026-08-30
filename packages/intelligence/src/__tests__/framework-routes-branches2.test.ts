@@ -48,3 +48,15 @@ describe('FrameworkRouteDetector — SvelteKit layout-server load fallback', () 
     expect(loadRoute!.handlerName).toBe('load');
   });
 });
+
+describe('FrameworkRouteDetector — SvelteKit +server.ts form actions', () => {
+  it('extracts named actions from a +server.ts actions block', () => {
+    const code = `export const actions = {
+  default: async ({ request }) => { return {}; },
+  removeItem: async ({ request }) => { return {}; },
+};`;
+    const result = detector.detectFile('src/routes/api/items/+server.ts', code, 'typescript');
+    const postRoutes = result.routes.filter((r: any) => r.method === 'POST');
+    expect(postRoutes.some((r: any) => r.handlerName === 'removeItem')).toBe(true);
+  });
+});
