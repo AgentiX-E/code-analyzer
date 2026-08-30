@@ -13,7 +13,6 @@ import type {
   PdgDataQuery,
   PdgQueryResult,
 } from './types.js';
-import { computePostDominators } from './post-dominators.js';
 import { computeControlDependence } from './control-dependence.js';
 import { computeReachingDefinitions } from './reaching-defs.js';
 
@@ -109,14 +108,9 @@ export function buildPdg(
     return makeEmptyGraph(funcName, filePath);
   }
 
-  // Phase 1: Post-dominators
-  const postDom = computePostDominators(cfg);
-
-  // Phase 2: Control dependence (may be empty for simple CFGs)
-  let cdgEdges: ControlDepEdge[] = [];
-  if (postDom.ipdom.length > 0) {
-    cdgEdges = computeControlDependence(cfg, maxEdges);
-  }
+  // Phase 2: Control dependence (may be empty for simple CFGs). The post-dominator
+  // tree is computed inside computeControlDependence, so no separate phase is needed.
+  const cdgEdges: ControlDepEdge[] = computeControlDependence(cfg, maxEdges);
 
   // Phase 3: Reaching definitions (may fail for incomplete/minimal CFGs)
   let dataFacts: DefUseFact[] = [];
@@ -233,18 +227,18 @@ function buildGraph(
     let srcId = findBlockNode(srcBlock, 'def');
     if (srcId === undefined) {
       // Create a synthetic branch node for this block
-      const branchLine = cfg.blocks[srcBlock]?.startLine ?? 0;
+      const branchLine = cfg.blocks[srcBlock]!.startLine;
       srcId = addNode(srcBlock, -1, 'branch', branchLine);
     }
 
     let tgtId = findBlockNode(tgtBlock, undefined);
     if (tgtId === undefined) {
       // Create a synthetic entry node for the target block
-      const tgtLine = cfg.blocks[tgtBlock]?.startLine ?? 0;
+      const tgtLine = cfg.blocks[tgtBlock]!.startLine;
       tgtId = addNode(tgtBlock, -1, 'use', tgtLine);
     }
 
-    const label = cdgEdge.label ?? 'ctrl';
+    const label = cdgEdge.label;
     const isLoop = label.includes('loop') || srcId === tgtId;
     edges.push({
       sourceId: srcId,
@@ -281,10 +275,10 @@ function buildGraph(
   return makeGraph(funcName, filePath, nodes, edges, cdgEdges, dataFacts, siteMap);
 
   // --- Helpers ---
+  // addNode assumes the caller has already checked siteMap (see getNode); it is
+  // only invoked with a fresh key, so it inserts unconditionally.
   function addNode(block: number, stmt: number, kind: PdgNode['kind'], line: number): number {
     const key = `${block}:${stmt}`;
-    const existing = siteMap.get(key);
-    if (existing !== undefined) return existing;
 
     const node: InternalNode = {
       nodeId: nextId,

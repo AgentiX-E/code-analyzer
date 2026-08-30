@@ -239,8 +239,9 @@ export function computeBootstrapConfidenceIntervals(
   };
 
   for (let b = 0; b < numSamples; b++) {
+    // bootstrapSample returns exactly results.length elements, so the sample is
+    // never empty for the non-empty `results` guaranteed by the early return above.
     const sample = bootstrapSample(results);
-    if (sample.length === 0) continue;
     const sampleMetrics = extractMetrics(sample);
 
     bootstrapped.precision.push(sampleMetrics.precision);
@@ -460,14 +461,14 @@ export function computeCategoryMetrics(
     categories.set(d.category, entry);
   }
 
-  // Count FN per category
+  // Count FN per category. Every ground-truth category was seeded above, so the
+  // lookup is guaranteed to hit.
   for (const c of cases) {
     for (const gt of c.groundTruth) {
       const found = matchedDetections.some((d) => d.matchedGroundTruthId === gt.id);
       if (!found) {
-        const entry = categories.get(gt.category) ?? { tp: 0, fp: 0, fn: 0 };
+        const entry = categories.get(gt.category)!;
         entry.fn++;
-        categories.set(gt.category, entry);
       }
     }
   }
@@ -747,14 +748,13 @@ function computeLanguageMetrics(
     }
   }
 
+  // Every case-result language was seeded from `cases` above, so the lookup always hits.
   for (const result of caseResults) {
     for (const lang of result.languages) {
-      const entry = languageData.get(lang);
-      if (entry) {
-        entry.tp += result.truePositives;
-        entry.fp += result.falsePositives;
-        entry.fn += result.falseNegatives;
-      }
+      const entry = languageData.get(lang)!;
+      entry.tp += result.truePositives;
+      entry.fp += result.falsePositives;
+      entry.fn += result.falseNegatives;
     }
   }
 
