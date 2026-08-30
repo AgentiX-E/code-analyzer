@@ -64,14 +64,17 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
   ): number => {
     while (finger1 !== finger2) {
       let moved = false;
-      // Climb the finger that is further from root (higher postnum = processed later)
-      while (postNum[finger1]! < postNum[finger2]!) {
+      // Climb the finger that is further from root. In reverse post-order the
+      // root carries the smallest number and a node's idom always has a smaller
+      // number than the node itself, so the deeper finger is the one with the
+      // HIGHER postNum and must be the one climbed upward.
+      while (postNum[finger1]! > postNum[finger2]!) {
         const next = ipdom[finger1]!;
         if (next === finger1 || next === NO_IPDOM) break; // reached root
         finger1 = next;
         moved = true;
       }
-      while (postNum[finger2]! < postNum[finger1]!) {
+      while (postNum[finger2]! > postNum[finger1]!) {
         const next = ipdom[finger2]!;
         if (next === finger2 || next === NO_IPDOM) break;
         finger2 = next;
