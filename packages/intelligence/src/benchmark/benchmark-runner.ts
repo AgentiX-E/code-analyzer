@@ -136,12 +136,16 @@ export class BenchmarkRunner {
    * to ground-truth annotations.
    */
   runBenchmark(dataset: BenchmarkCase[]): BenchmarkResult {
+    const startTime = performance.now();
+
     const cases: SingleCaseResult[] = [];
 
     for (const benchmarkCase of dataset) {
       const result = this.runSingleCase(benchmarkCase);
       cases.push(result);
     }
+
+    const totalDurationMs = Math.round((performance.now() - startTime) * 100) / 100;
 
     const aggregate = this.computeMetrics(cases);
     const summary = this.generateReport(aggregate);
@@ -152,8 +156,9 @@ export class BenchmarkRunner {
       summary,
       fixturesProcessed: dataset.length,
       languagesTested: new Set(dataset.map((bc) => bc.language)).size,
-      totalDurationMs: 0,
-      avgTimePerFixtureMs: dataset.length > 0 ? 0 : 0,
+      totalDurationMs,
+      avgTimePerFixtureMs:
+        dataset.length > 0 ? Math.round((totalDurationMs / dataset.length) * 100) / 100 : 0,
     };
   }
 

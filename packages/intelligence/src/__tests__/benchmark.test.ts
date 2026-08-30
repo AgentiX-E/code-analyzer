@@ -674,6 +674,39 @@ describe('Benchmark Result Structure', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Timing Measurement
+// ---------------------------------------------------------------------------
+
+describe('Timing Measurement', () => {
+  it('reports finite non-negative total and per-fixture durations', () => {
+    const runner = createRunner();
+    const result = runner.runBenchmark(ALL_BENCHMARK_CASES);
+    expect(Number.isFinite(result.totalDurationMs)).toBe(true);
+    expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(result.avgTimePerFixtureMs)).toBe(true);
+    expect(result.avgTimePerFixtureMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('keeps avgTimePerFixtureMs consistent with totalDurationMs and fixture count', () => {
+    const runner = createRunner();
+    const result = runner.runBenchmark(ALL_BENCHMARK_CASES);
+    const expectedAvg =
+      result.fixturesProcessed > 0
+        ? Math.round((result.totalDurationMs / result.fixturesProcessed) * 100) / 100
+        : 0;
+    expect(result.avgTimePerFixtureMs).toBe(expectedAvg);
+  });
+
+  it('reports zero per-fixture duration for an empty dataset', () => {
+    const runner = createRunner();
+    const result = runner.runBenchmark([]);
+    expect(result.fixturesProcessed).toBe(0);
+    expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
+    expect(result.avgTimePerFixtureMs).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Benchmark Repeatability
 // ---------------------------------------------------------------------------
 
