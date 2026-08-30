@@ -100,6 +100,26 @@ export class LeidenCommunityDetector {
     const adjacency = this.buildWeightedAdjacency(graph);
     const totalWeight = this.computeTotalWeight(adjacency);
 
+    if (totalWeight === 0) {
+      // No (positive-weight) edges — each node is its own community.
+      const nodeToCommunity = new Map<number, number>();
+      const communities = new Map<number, number[]>();
+      let cid = 0;
+      for (const [nodeId] of graph.nodes) {
+        nodeToCommunity.set(nodeId, cid);
+        communities.set(cid, [nodeId]);
+        cid++;
+      }
+      return {
+        nodeToCommunity,
+        communities,
+        modularity: 0,
+        communityCount: communities.size,
+        iterations: 0,
+        resolution: this.resolution,
+      };
+    }
+
     // Initialize singleton communities
     const nodeToCommunity = new Map<number, number>();
     const communityToNodes = new Map<number, number[]>();
@@ -463,7 +483,11 @@ export class LeidenCommunityDetector {
         }
       }
     }
-    return total || 1;
+    // Return the true sum (0 for an edge-less graph) so detect()'s explicit
+    // `totalWeight === 0` early-return can fire. The previous `total || 1`
+    // masked the zero case, forcing edge-less graphs through the general path
+    // with a fabricated total weight of 1.
+    return total;
   }
 
   private computeModularity(
