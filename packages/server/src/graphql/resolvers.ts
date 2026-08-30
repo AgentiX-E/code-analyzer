@@ -494,7 +494,7 @@ export const resolvers = {
       const nodes = Array.from(store.nodes.values()).filter(
         (n) =>
           n.projectId === args.projectId &&
-          (n.name === args.symbolName || n.qualifiedName.includes(args.symbolName)),
+          (n.name === args.symbolName || (n.qualifiedName ?? '').includes(args.symbolName)),
       );
 
       for (const node of nodes.slice(0, limit)) {
