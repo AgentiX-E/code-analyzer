@@ -11,13 +11,20 @@ const mockStore = class {
 };
 const mockProvider = class {};
 
-vi.mock('../review/llm/provider.js', () => {
+// Mutable mock state so individual tests can force the LLM engine to throw or
+// to omit token usage (exercising the fallback/robustness branches).
+const mockState = vi.hoisted(() => ({ llmMode: 'normal' as 'normal' | 'throw' | 'no-token' }));
+
+vi.mock('../../review/llm/provider.js', () => {
   class MockDeepSeekProvider {}
   return { DeepSeekProvider: MockDeepSeekProvider };
 });
-vi.mock('../review/llm/llm-review-engine.js', () => {
+vi.mock('../../review/llm/llm-review-engine.js', () => {
   class MockLLMReviewEngine {
     reviewDiff() {
+      if (mockState.llmMode === 'throw') {
+        return Promise.reject(new Error('llm failure'));
+      }
       return Promise.resolve([
         {
           filePath: 'test.ts',
@@ -36,14 +43,17 @@ vi.mock('../review/llm/llm-review-engine.js', () => {
             },
           ],
           success: true,
-          tokenUsage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+          tokenUsage:
+            mockState.llmMode === 'no-token'
+              ? undefined
+              : { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
         },
       ]);
     }
   }
   return { LLMReviewEngine: MockLLMReviewEngine };
 });
-vi.mock('../review/review-engine.js', () => {
+vi.mock('../../review/review-engine.js', () => {
   class MockCodeReviewEngine {
     reviewFile() {
       return Promise.resolve([
@@ -473,5 +483,36 @@ describe('runLLMBenchmark', () => {
     expect(result.heuristic.fixturesProcessed).toBeGreaterThanOrEqual(0);
     expect(result.combined.fixturesProcessed).toBeGreaterThanOrEqual(0);
     expect(result.llmOnly.fixturesProcessed).toBeGreaterThanOrEqual(0);
+  });
+
+  it('falls back to heuristic-only results when the LLM engine throws', async () => {
+    mockState.llmMode = 'throw';
+    try {
+      const store = new (mockStore as any)() as any;
+      const provider = new (mockProvider as any)() as any;
+
+      const result = await runLLMBenchmark(provider, store, gitOps);
+
+      expect(result.fixturesWithLLM).toBe(0);
+      expect(result.tokenUsage.totalTokens).toBe(0);
+      expect(result.tokenUsage.avgTokensPerFixture).toBe(0);
+    } finally {
+      mockState.llmMode = 'normal';
+    }
+  });
+
+  it('treats missing token usage as zero', async () => {
+    mockState.llmMode = 'no-token';
+    try {
+      const store = new (mockStore as any)() as any;
+      const provider = new (mockProvider as any)() as any;
+
+      const result = await runLLMBenchmark(provider, store, gitOps);
+
+      expect(result.fixturesWithLLM).toBeGreaterThan(0);
+      expect(result.tokenUsage.totalTokens).toBe(0);
+    } finally {
+      mockState.llmMode = 'normal';
+    }
   });
 });

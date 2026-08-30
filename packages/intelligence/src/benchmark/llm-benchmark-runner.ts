@@ -121,11 +121,9 @@ export async function runLLMBenchmark(
       const allFindings = llmResults.flatMap((r) => r.findings);
       const llmComments = toReviewComments(allFindings, fixture.filePath);
 
-      // Merge with heuristic detections
-      const merged = deduplicateComments(
-        heuristicDetections.get(fixture.filePath) ?? [],
-        llmComments,
-      );
+      // Merge with heuristic detections. Phase 1 populates heuristicDetections
+      // for every fixture, so the entry always exists.
+      const merged = deduplicateComments(heuristicDetections.get(fixture.filePath)!, llmComments);
       llmDetections.set(fixture.filePath, merged);
       fixturesWithLLM++;
 
@@ -145,7 +143,8 @@ export async function runLLMBenchmark(
       totalTokens += totalUsage.totalTokens;
     } catch (err) {
       // LLM review failed for this fixture — use heuristic-only results
-      llmDetections.set(fixture.filePath, heuristicDetections.get(fixture.filePath) ?? []);
+      // (always present: Phase 1 seeded every fixture).
+      llmDetections.set(fixture.filePath, heuristicDetections.get(fixture.filePath)!);
     }
   }
 
@@ -161,8 +160,9 @@ export async function runLLMBenchmark(
   // Phase 4: LLM-only benchmark (without heuristic)
   const llmOnlyDetections = new Map<string, ReviewComment[]>();
   for (const fixture of ALL_BENCHMARK_FIXTURES) {
-    const combined = llmDetections.get(fixture.filePath) ?? [];
-    const heuristic = heuristicDetections.get(fixture.filePath) ?? [];
+    // Both maps are fully populated by Phases 1 and 2 above.
+    const combined = llmDetections.get(fixture.filePath)!;
+    const heuristic = heuristicDetections.get(fixture.filePath)!;
     const llmOnly = combined.filter((c) => !heuristic.some((h) => h.id === c.id));
     llmOnlyDetections.set(fixture.filePath, llmOnly);
   }
@@ -270,7 +270,7 @@ function deltaStr(a: number, b: number): string {
   return `${sign}${pct}%`;
 }
 
-function toReviewComments(
+export function toReviewComments(
   findings: Array<{
     id?: string;
     lane?: string;
@@ -300,7 +300,10 @@ function toReviewComments(
   }));
 }
 
-function deduplicateComments(heuristic: ReviewComment[], llm: ReviewComment[]): ReviewComment[] {
+export function deduplicateComments(
+  heuristic: ReviewComment[],
+  llm: ReviewComment[],
+): ReviewComment[] {
   const result = [...heuristic];
   const overlapThreshold = 3;
 
@@ -322,7 +325,7 @@ function deduplicateComments(heuristic: ReviewComment[], llm: ReviewComment[]): 
   return result;
 }
 
-function mapCategory(cat: string): ReviewComment['category'] {
+export function mapCategory(cat: string): ReviewComment['category'] {
   const m: Record<string, ReviewComment['category']> = {
     security: 'security',
     correctness: 'bug',
@@ -332,16 +335,20 @@ function mapCategory(cat: string): ReviewComment['category'] {
     style: 'style',
     documentation: 'documentation',
     architecture: 'architecture',
+    test: 'test',
+    api: 'api',
+    other: 'other',
   };
   return m[cat.toLowerCase()] ?? 'style';
 }
 
-function mapSeverity(sev: string): ReviewComment['severity'] {
+export function mapSeverity(sev: string): ReviewComment['severity'] {
   const m: Record<string, ReviewComment['severity']> = {
     critical: 'critical',
     high: 'high',
     medium: 'medium',
     low: 'low',
+    info: 'info',
   };
   return m[sev.toLowerCase()] ?? 'medium';
 }
