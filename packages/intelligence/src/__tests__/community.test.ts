@@ -537,14 +537,16 @@ describe('Community Detection Performance', () => {
         addEdge(g, i, i, (i + 1) % n, 'CALLS');
       }
 
-      const start = Date.now();
+      const start = performance.now();
       leiden({ nodes: g.nodes.values(), edges: g.edges.values() }, { maxIterations: 10 });
-      times.push(Date.now() - start);
+      times.push(performance.now() - start);
     }
 
     // Time should not grow superlinearly
     if (times.length >= 2) {
-      const ratio = times[times.length - 1]! / times[times.length - 2]!;
+      // Guard against a sub-millisecond baseline collapsing the ratio to NaN/Infinity.
+      const denom = times[times.length - 2]!;
+      const ratio = times[times.length - 1]! / (denom > 0 ? denom : Number.EPSILON);
       // Size ratio is 200/100 = 2. The Leiden algorithm is O(N log N) in practice.
       // Under load (full test suite), allow up to 50x time ratio for 2x size increase.
       expect(ratio).toBeLessThan(50);

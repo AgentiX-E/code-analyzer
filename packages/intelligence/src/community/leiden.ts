@@ -186,11 +186,16 @@ export function leiden(input: LeidenInput, config: LeidenConfig = {}): LeidenCom
         if (targetComm === currentNodeCommunity) continue;
         const targetCommWeight = communityWeights.get(targetComm)!;
 
-        // Modularity gain for moving node to target community
+        // Modularity gain for moving node to target community (Blondel et al. 2008;
+        // matches NetworkX's `_one_level`): the first term nets the edge weight the
+        // node gains/loses by leaving its current community, the second subtracts the
+        // expected edges of the target community, and the third adds back the expected
+        // edges of the source community excluding the node itself.
         const deltaQ =
-          weightToTarget / (2 * totalWeight) -
+          (weightToTarget - weightToCurrent) / totalWeight -
           (resolution * targetCommWeight * nodeWeight) / (2 * totalWeight * totalWeight) +
-          (resolution * currentCommWeight * nodeWeight) / (2 * totalWeight * totalWeight);
+          (resolution * (currentCommWeight - nodeWeight) * nodeWeight) /
+            (2 * totalWeight * totalWeight);
 
         if (deltaQ > bestDeltaQ) {
           bestDeltaQ = deltaQ;
@@ -349,24 +354,36 @@ function computeModularity(
   communityWeights: Map<number, number>,
   resolution: number,
 ): number {
-  let q = 0;
-  const counted = new Set<string>();
+  // Modularity (Blondel et al. 2008 / Newman 2006), community-level form:
+  //   Q = Σ_c [ e_c/m - γ (d_c/(2m))² ] = (Σ_c e_c)/m - γ (Σ_c d_c²)/(4m²)
+  // where e_c is the internal edge weight of community c, d_c its total node
+  // degree, m the total edge weight, and γ the resolution parameter.
 
+  // Sum of internal edge weights, each undirected edge counted once.
+  let internalWeight = 0;
+  const counted = new Set<string>();
   for (const [sourceId, targets] of adjacency) {
     for (const [targetId, weight] of targets) {
       const key = sourceId < targetId ? `${sourceId}-${targetId}` : `${targetId}-${sourceId}`;
       if (counted.has(key)) continue;
       counted.add(key);
-
       if (nodeToCommunity.get(sourceId) === nodeToCommunity.get(targetId)) {
-        const ki = communityWeights.get(sourceId) ?? 1;
-        const kj = communityWeights.get(targetId) ?? 1;
-        q += weight - (resolution * ki * kj) / (2 * totalWeight);
+        internalWeight += weight;
       }
     }
   }
 
-  return q / (2 * totalWeight);
+  // Sum of squared total degrees over the CURRENT communities only.
+  const currentCommunities = new Set(nodeToCommunity.values());
+  let sumDegreeSq = 0;
+  for (const communityId of currentCommunities) {
+    const degree = communityWeights.get(communityId) ?? 0;
+    sumDegreeSq += degree * degree;
+  }
+
+  return (
+    internalWeight / totalWeight - (resolution * sumDegreeSq) / (4 * totalWeight * totalWeight)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -465,15 +482,16 @@ function refineCommunities(
         let bestDelta = 0;
 
         const currentSubWeight = refinedW.get(currentNodeSubComm)!;
+        const weightToCurrent = neighborSubComms.get(currentNodeSubComm) ?? 0;
 
         for (const [targetSubComm, weightToTarget] of neighborSubComms) {
           if (targetSubComm === currentNodeSubComm) continue;
           const targetSW = refinedW.get(targetSubComm)!;
 
           const deltaQ =
-            weightToTarget / (2 * totalWeight) -
+            (weightToTarget - weightToCurrent) / totalWeight -
             (resolution * targetSW * nWeight) / (2 * totalWeight * totalWeight) +
-            (resolution * currentSubWeight * nWeight) / (2 * totalWeight * totalWeight);
+            (resolution * (currentSubWeight - nWeight) * nWeight) / (2 * totalWeight * totalWeight);
 
           if (deltaQ > bestDelta) {
             bestDelta = deltaQ;
