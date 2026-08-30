@@ -251,13 +251,15 @@ export class PerformanceProfiler {
     const sorted = [...samples].sort((a, b) => a - b);
     const n = sorted.length;
     const sum = sorted.reduce((a, b) => a + b, 0);
-    const avg = sum / n;
+    // Guard the empty-sample case: with no measured runs, sum / n is 0 / 0 = NaN,
+    // which would poison avgMs, variance, and stdDevMs with NaN.
+    const avg = n > 0 ? sum / n : 0;
     const p50 = sorted[Math.floor(n * 0.5)] ?? sorted[n - 1] ?? 0;
     const p95 = sorted[Math.floor(n * 0.95)] ?? sorted[n - 1] ?? 0;
     const p99 = sorted[Math.floor(n * 0.99)] ?? sorted[n - 1] ?? 0;
     const min = sorted[0] ?? 0;
     const max = sorted[n - 1] ?? 0;
-    const variance = sorted.reduce((acc, s) => acc + (s - avg) ** 2, 0) / n;
+    const variance = n > 0 ? sorted.reduce((acc, s) => acc + (s - avg) ** 2, 0) / n : 0;
     const stdDev = Math.sqrt(variance);
     const totalMs = sum;
     const opsPerSec = n > 0 ? (n / totalMs) * 1000 : 0;
