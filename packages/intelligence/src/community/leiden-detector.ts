@@ -360,7 +360,7 @@ export class LeidenCommunityDetector {
         const entries = [...subCommGroups.entries()];
         // First group stays in commId, rest get new IDs
         for (let i = 1; i < entries.length; i++) {
-          const [oldSubId, groupNodes] = entries[i]!;
+          const [, groupNodes] = entries[i]!;
           const newCommId = this.generateNewCommId(nodeToCommunity, communityWeights);
           for (const nId of groupNodes) {
             const oldComm = nodeToCommunity.get(nId);
@@ -377,6 +377,11 @@ export class LeidenCommunityDetector {
           // Add to communityToNodes
           communityToNodes.set(newCommId, [...groupNodes]);
         }
+
+        // Reset the original community's member list to exactly the first group so
+        // `communityToNodes` stays consistent with `nodeToCommunity` (previously it
+        // retained every pre-split member).
+        communityToNodes.set(commId, [...entries[0]![1]]);
       }
     }
   }

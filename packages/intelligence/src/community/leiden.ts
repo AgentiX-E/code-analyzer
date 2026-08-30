@@ -539,6 +539,12 @@ function refineCommunities(
 
         communityToNodes.set(newCommId, [...groupNodes]);
       }
+
+      // The first sub-community keeps the original community id; the remaining
+      // groups were assigned new ids above. Reset the original community's member
+      // list to exactly the first group so `communityToNodes` stays consistent with
+      // `nodeToCommunity` (previously it retained every pre-split member).
+      communityToNodes.set(commId, [...entries[0]![1]]);
     }
   }
 }
