@@ -84,38 +84,36 @@ export async function runBenchmark(
 // ---------------------------------------------------------------------------
 
 async function runCaBenchAll(format: string): Promise<ToolResult> {
-  try {
-    // @ts-expect-error - dynamic import for optional benchmark runner
-    const { CaBenchRunner } = await import('../../../../../tests/benchmarks/ca-bench/runner.js');
-    const runner = new CaBenchRunner();
-    const result = await runner.runAll();
+  // Propagates failures to the caller so `runBenchmark` can fall back to the
+  // legacy heuristic benchmark when the CA-Bench runner is unavailable.
+  // The runner lives outside this package's rootDir, so its lazy import is
+  // intentionally untyped (resolved at runtime only).
+  // @ts-ignore - optional cross-package dynamic import
+  const { CaBenchRunner } = await import('../../../../tests/benchmarks/ca-bench/runner.js');
+  const runner = new CaBenchRunner();
+  const result = await runner.runAll();
 
-    let text: string;
-    switch (format) {
-      case 'json':
-        text = runner.generateJsonReport(result);
-        break;
-      case 'html':
-        text = runner.generateHtmlReport(result);
-        break;
-      default:
-        text = runner.generateMarkdownReport(result);
-    }
-
-    return { content: [{ type: 'text', text }] };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      content: [{ type: 'text', text: `CA-Bench execution error: ${message}` }],
-      isError: true,
-    };
+  let text: string;
+  switch (format) {
+    case 'json':
+      text = runner.generateJsonReport(result);
+      break;
+    case 'html':
+      text = runner.generateHtmlReport(result);
+      break;
+    default:
+      text = runner.generateMarkdownReport(result);
   }
+
+  return { content: [{ type: 'text', text }] };
 }
 
 async function runCaBenchSuite(suite: string, format: string): Promise<ToolResult> {
   try {
-    // @ts-expect-error - dynamic import for optional benchmark runner
-    const { CaBenchRunner } = await import('../../../../../tests/benchmarks/ca-bench/runner.js');
+    // The CA-Bench runner lives under tests/ and is loaded lazily so the
+    // optional dependency never blocks normal tool startup.
+    // @ts-ignore - optional cross-package dynamic import
+    const { CaBenchRunner } = await import('../../../../tests/benchmarks/ca-bench/runner.js');
     const runner = new CaBenchRunner();
     const suiteResult = await runner.runSuite(
       suite as
