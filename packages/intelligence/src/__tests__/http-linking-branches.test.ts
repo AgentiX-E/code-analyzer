@@ -88,4 +88,54 @@ describe('classifyCall — URL extraction guards', () => {
     );
     expect(c).toBeNull();
   });
+
+  it('preserves an absolute https URL from a global fetch', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'fetch',
+        resolvedQn: '',
+        args: [{ expr: 'https://example.com/x', value: 'https://example.com/x', index: 0 }],
+      }),
+    );
+    expect(c?.edgeType).toBe('HTTP_CALLS');
+    expect(c?.via).toBe('arg_url');
+    expect(c?.urlPath).toBe('https://example.com/x');
+  });
+
+  it('preserves an absolute http URL in the arg_url fallback', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [
+          { expr: 'http://api.example.com/users', value: 'http://api.example.com/users', index: 0 },
+        ],
+      }),
+    );
+    expect(c?.edgeType).toBe('HTTP_CALLS');
+    expect(c?.via).toBe('arg_url');
+    expect(c?.urlPath).toBe('http://api.example.com/users');
+  });
+
+  it('still rejects a protocol-relative URL', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [{ expr: '//cdn.example.com/lib.js', value: '//cdn.example.com/lib.js', index: 0 }],
+      }),
+    );
+    expect(c).toBeNull();
+  });
+
+  it('still rejects a non-http absolute URL scheme', () => {
+    const c = classifyCall(
+      makeCall({
+        calleeName: 'something',
+        resolvedQn: 'unknown.lib.call',
+        args: [{ expr: 'ftp://example.com/file', value: 'ftp://example.com/file', index: 0 }],
+      }),
+    );
+    expect(c).toBeNull();
+  });
 });

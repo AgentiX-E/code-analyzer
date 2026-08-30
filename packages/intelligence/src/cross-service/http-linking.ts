@@ -273,7 +273,10 @@ function extractUrlFromArgs(call: ResolvedCall): string | undefined {
 
 function isUrlCandidate(s: string): boolean {
   if (/[\\^$*+()|[\] ]/.test(s)) return false;
-  if (s.includes('//')) return false;
+  // Absolute http(s) URLs carry `//` as part of the scheme and are valid
+  // cross-service link targets. Reject protocol-relative (`//host/path`) and
+  // malformed (`a//b`) forms, but keep `http://` and `https://` intact.
+  if (s.includes('//') && !/^https?:\/\//i.test(s)) return false;
   const fsRoots = [
     'etc',
     'root',
