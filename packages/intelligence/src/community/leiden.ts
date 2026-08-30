@@ -161,7 +161,7 @@ export function leiden(input: LeidenInput, config: LeidenConfig = {}): LeidenCom
     for (const nodeId of nodeIds) {
       const currentNodeCommunity = nodeToCommunity.get(nodeId)!;
       const nodeAdj = adjacency.get(nodeId) ?? new Map();
-      const nodeWeight = nodeWeights.get(nodeId) ?? 0;
+      const nodeWeight = nodeWeights.get(nodeId)!;
 
       // Compute weights to neighboring communities
       const neighborCommunities = new Map<number, number>();
@@ -177,14 +177,14 @@ export function leiden(input: LeidenInput, config: LeidenConfig = {}): LeidenCom
 
       // Remove node from current community for gain calculation
       const weightToCurrent = neighborCommunities.get(currentNodeCommunity) ?? 0;
-      const currentCommWeight = communityWeights.get(currentNodeCommunity) ?? 0;
+      const currentCommWeight = communityWeights.get(currentNodeCommunity)!;
 
       let bestCommunity = currentNodeCommunity;
       let bestDeltaQ = 0;
 
       for (const [targetComm, weightToTarget] of neighborCommunities) {
         if (targetComm === currentNodeCommunity) continue;
-        const targetCommWeight = communityWeights.get(targetComm) ?? 0;
+        const targetCommWeight = communityWeights.get(targetComm)!;
 
         // Modularity gain for moving node to target community
         const deltaQ =
@@ -393,7 +393,7 @@ function moveNode(
   }
 
   // Update old community weight
-  communityWeights.set(fromCommunity, (communityWeights.get(fromCommunity) ?? 0) - nodeWeight);
+  communityWeights.set(fromCommunity, communityWeights.get(fromCommunity)! - nodeWeight);
 
   // Add to target community
   let targetNodes = communityToNodes.get(toCommunity);
@@ -404,7 +404,7 @@ function moveNode(
   targetNodes.push(nodeId);
 
   // Update target community weight
-  communityWeights.set(toCommunity, (communityWeights.get(toCommunity) ?? 0) + nodeWeight);
+  communityWeights.set(toCommunity, communityWeights.get(toCommunity)! + nodeWeight);
 }
 
 // ---------------------------------------------------------------------------
@@ -436,7 +436,7 @@ function refineCommunities(
 
     const refinedW = new Map<number, number>();
     for (const nodeId of members) {
-      refinedW.set(nodeId, nodeWeights.get(nodeId) ?? 0);
+      refinedW.set(nodeId, nodeWeights.get(nodeId)!);
     }
 
     let changed = true;
@@ -449,7 +449,7 @@ function refineCommunities(
       for (const nodeId of members) {
         const currentNodeSubComm = refinedComm.get(nodeId)!;
         const nodeAdj = adjacency.get(nodeId) ?? new Map();
-        const nWeight = nodeWeights.get(nodeId) ?? 0;
+        const nWeight = nodeWeights.get(nodeId)!;
 
         // Compute weights to neighboring sub-communities WITHIN this community
         const neighborSubComms = new Map<number, number>();
@@ -464,11 +464,11 @@ function refineCommunities(
         let bestSubComm = currentNodeSubComm;
         let bestDelta = 0;
 
-        const currentSubWeight = refinedW.get(currentNodeSubComm) ?? 0;
+        const currentSubWeight = refinedW.get(currentNodeSubComm)!;
 
         for (const [targetSubComm, weightToTarget] of neighborSubComms) {
           if (targetSubComm === currentNodeSubComm) continue;
-          const targetSW = refinedW.get(targetSubComm) ?? 0;
+          const targetSW = refinedW.get(targetSubComm)!;
 
           const deltaQ =
             weightToTarget / (2 * totalWeight) -
@@ -483,8 +483,8 @@ function refineCommunities(
 
         if (bestSubComm !== currentNodeSubComm && bestDelta > minImprovement) {
           refinedComm.set(nodeId, bestSubComm);
-          refinedW.set(currentNodeSubComm, (refinedW.get(currentNodeSubComm) ?? 0) - nWeight);
-          refinedW.set(bestSubComm, (refinedW.get(bestSubComm) ?? 0) + nWeight);
+          refinedW.set(currentNodeSubComm, refinedW.get(currentNodeSubComm)! - nWeight);
+          refinedW.set(bestSubComm, refinedW.get(bestSubComm)! + nWeight);
           changed = true;
         }
       }
@@ -512,9 +512,9 @@ function refineCommunities(
           const oldComm = nodeToCommunity.get(nId);
           nodeToCommunity.set(nId, newCommId);
 
-          const nW = nodeWeights.get(nId) ?? 0;
+          const nW = nodeWeights.get(nId)!;
           if (oldComm !== undefined) {
-            communityWeights.set(oldComm, (communityWeights.get(oldComm) ?? 0) - nW);
+            communityWeights.set(oldComm, communityWeights.get(oldComm)! - nW);
           }
           communityWeights.set(newCommId, (communityWeights.get(newCommId) ?? 0) + nW);
         }
