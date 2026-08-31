@@ -615,7 +615,7 @@ export class FrameworkRouteDetector {
 
         routes.push({
           method: method.toUpperCase(),
-          path: controllerPrefix || '/',
+          path: this.joinPaths(controllerPrefix, ''),
           filePath,
           line: i + 1,
           handlerName,
@@ -1336,7 +1336,7 @@ export class FrameworkRouteDetector {
           while (re.exec(trimmed) !== null) {
             routes.push({
               method,
-              path: controllerPrefix || '/',
+              path: this.joinPaths(controllerPrefix, ''),
               filePath,
               line: i + 1,
               handlerName: this.extractJavaHandler(lines, i),
@@ -1374,7 +1374,7 @@ export class FrameworkRouteDetector {
 
           routes.push({
             method,
-            path: controllerPrefix || '/',
+            path: this.joinPaths(controllerPrefix, ''),
             filePath,
             line: i + 1,
             handlerName: this.extractJavaHandler(lines, i),
@@ -1444,10 +1444,13 @@ export class FrameworkRouteDetector {
   }
 
   private joinPaths(prefix: string, subPath: string): string {
-    if (!prefix) return subPath || '/';
-    if (!subPath) return prefix || '/';
-    const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
-    const normalizedSub = subPath.startsWith('/') ? subPath : `/${subPath}`;
-    return `${normalizedPrefix}${normalizedSub}`;
+    // Normalize each segment (strip leading/trailing slashes) and rejoin with a
+    // single leading slash, so `@Controller("health")` and `@Controller("/health")`
+    // both yield `/health`-style paths regardless of source formatting.
+    const segments = [prefix, subPath]
+      .map((p) => p.replace(/^\/+/, '').replace(/\/+$/, ''))
+      .filter(Boolean);
+    if (segments.length === 0) return '/';
+    return `/${segments.join('/')}`;
   }
 }

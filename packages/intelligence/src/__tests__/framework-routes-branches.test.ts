@@ -19,6 +19,36 @@ describe('FrameworkRouteDetector — branch edge cases', () => {
     expect(ws!.method).toBe('WS');
   });
 
+  it('normalizes a slash-less NestJS controller prefix to a leading slash', () => {
+    const code = [
+      '@Controller("health")',
+      'export class HealthController {',
+      '  @Get("status")',
+      '  status() {}',
+      '  @Get()',
+      '  index() {}',
+      '}',
+    ].join('\n');
+    const result = detector.detectFile('src/health.controller.ts', code, 'typescript');
+    const paths = result.routes.map((r) => r.path);
+    expect(paths).toContain('/health/status');
+    expect(paths).toContain('/health');
+  });
+
+  it('normalizes a slash-less Spring prefix to a leading slash', () => {
+    const code = [
+      '@RestController("api")',
+      'class UserController {',
+      '  @GetMapping("users")',
+      '  list() {}',
+      '}',
+    ].join('\n');
+    const result = detector.detectFile('src/UserController.java', code, 'java');
+    const paths = result.routes.map((r) => r.path);
+    expect(paths).toContain('/api/users');
+    expect(paths).toContain('/api');
+  });
+
   it('handles a NestJS controller and method with no explicit path', () => {
     const code = [
       '@Controller()',

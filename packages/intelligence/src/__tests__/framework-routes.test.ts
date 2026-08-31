@@ -748,7 +748,7 @@ class UsersController {
   async findById(@Param('id') id: string) {}
 }`;
       const result = detector.detectFile('src/users.controller.ts', code, 'typescript');
-      const getRoute = result.routes.find((r) => r.path === 'users/:id');
+      const getRoute = result.routes.find((r) => r.path === '/users/:id');
       expect(getRoute).toBeDefined();
       // Should extract handler despite comment lines between decorator and method
       expect(getRoute!.handlerName).toBe('findById');
