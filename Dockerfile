@@ -16,6 +16,9 @@ ARG PNPM_VERSION=9.15.0
 FROM node:${NODE_VERSION}-alpine AS base
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Native toolchain for node-gyp: `tree-sitter-toml` (prod dep of @code-analyzer/analyzer)
+# ships a NAN binding with no prebuilt binaries, so it must compile C++ on install.
+RUN apk add --no-cache build-base python3
 WORKDIR /app
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,6 +80,9 @@ LABEL org.opencontainers.image.documentation="https://github.com/Lambertyan/code
 ENV NODE_ENV=production
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Same native toolchain as `base`: the production `pnpm install` below recompiles
+# `tree-sitter-toml`'s NAN binding, which needs a C++ toolchain on alpine.
+RUN apk add --no-cache build-base python3
 
 # Create non-root user (fixed UID/GID for host volume compatibility)
 RUN addgroup -g 1001 code-analyzer && \
@@ -151,6 +157,9 @@ LABEL org.opencontainers.image.licenses="MIT"
 ENV NODE_ENV=production
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Native toolchain for node-gyp (see `base`): the production install recompiles
+# `tree-sitter-toml`'s NAN binding.
+RUN apk add --no-cache build-base python3
 
 RUN addgroup -g 1001 cli && \
     adduser -u 1001 -G cli -s /bin/sh -D cli
