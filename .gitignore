@@ -15,6 +15,7 @@ dist/
 
 # Test & coverage
 coverage/
+coverage-*/
 benchmark-results/
 reports/
 bench-results.json
