@@ -5,6 +5,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
 import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 import { ImpactGraphBuilder } from '../../cross-repo/impact-graph.js';
+import { EDGE_CROSS_REPO_DEPENDS } from '@code-analyzer/shared';
 import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,30 @@ function createIndexerWithRepos() {
   return { indexer, store, groupManager };
 }
 
+/** A graph node with an explicit `projectId` (unlike the loose helper above). */
+function makeNode(projectId: string, name: string): GraphNode {
+  const now = new Date().toISOString();
+  return {
+    id: 0,
+    projectId,
+    label: 'Function',
+    name,
+    qualifiedName: `project:${projectId}:${name}`,
+    filePath: `${name}.ts`,
+    startLine: 1,
+    endLine: 5,
+    language: 'typescript',
+    properties: { name, isExported: true },
+    signature: null,
+    docstring: null,
+    complexity: 1,
+    isExported: true,
+    fingerprint: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // ImpactGraphBuilder Tests
 // ---------------------------------------------------------------------------
@@ -86,6 +111,36 @@ describe('ImpactGraphBuilder', () => {
       expect(graph.nodes.has('org/core')).toBe(true);
       const sourceNode = graph.nodes.get('org/core')!;
       expect(Array.isArray(sourceNode.directDependents)).toBe(true);
+    });
+
+    it('should link the source repo to affected repos via CROSS_REPO edges', async () => {
+      const store = new InMemoryGraphStore();
+      const groupManager = new RepoGroupManager();
+      groupManager.createGroup('g', 'G', '');
+      groupManager.addRepo('g', 'org', 'core', 'https://github.com/org/core', '/tmp/core');
+      groupManager.addRepo('g', 'org', 'svc', 'https://github.com/org/svc', '/tmp/svc');
+
+      const coreFnId = store.insertNode(makeNode('org/core', 'coreFn'));
+      const svcFnId = store.insertNode(makeNode('org/svc', 'svcFn'));
+      store.insertEdge({
+        id: 0,
+        projectId: 'org/core',
+        sourceId: coreFnId,
+        targetId: svcFnId,
+        type: EDGE_CROSS_REPO_DEPENDS,
+        properties: {},
+        weight: 1,
+        createdAt: new Date().toISOString(),
+      });
+
+      const idx = new CrossRepoIndexer(store, groupManager);
+      const b = new ImpactGraphBuilder(idx);
+      const graph = await b.build('g', 'org/core');
+
+      expect(graph.nodes.has('org/core')).toBe(true);
+      expect(graph.nodes.has('org/svc')).toBe(true);
+      expect(graph.edges.some((e) => e.from === 'org/core' && e.to === 'org/svc')).toBe(true);
+      expect(graph.nodes.get('org/core')!.directDependents).toContain('org/svc');
     });
 
     it('should handle unknown groups gracefully', async () => {
