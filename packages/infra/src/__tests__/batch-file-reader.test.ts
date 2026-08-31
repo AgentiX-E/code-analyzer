@@ -6,7 +6,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { writeFile, mkdir, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomBytes } from 'node:crypto';
 import {
   BatchFileReader,
   detectEncoding,
@@ -104,10 +103,15 @@ describe('detectEncoding', () => {
   });
 
   it('should return latin1 for random binary data', () => {
-    const buf = randomBytes(256);
-    // Override some bytes to ensure they're invalid UTF-8
-    for (let i = 0; i < buf.length; i += 4) {
-      buf[i] = 0xff;
+    // Deterministic binary payload: UTF-8 continuation bytes (0x80-0xBF) are
+    // invalid as leading bytes, so the buffer is never valid UTF-8 and must
+    // fall through to latin1. The prior crypto.randomBytes() approach was
+    // non-deterministic — the forced 0xFF at byte 0 could pair with a random
+    // 0xFE at byte 1 to form a UTF-16 LE BOM (FF FE), intermittently returning
+    // 'utf-16' and failing CI on some runs.
+    const buf = Buffer.alloc(256);
+    for (let i = 0; i < buf.length; i++) {
+      buf[i] = 0x80 | (i & 0x3f);
     }
     expect(detectEncoding(buf)).toBe('latin1');
   });

@@ -208,6 +208,15 @@ describe('loadConfig', () => {
 
   beforeEach(async () => {
     await fs.mkdir(testDir, { recursive: true });
+    // Ensure a clean global-config slate. A previous run may have been
+    // interrupted before its `finally` cleanup executed, leaving
+    // ~/.code-analyzer/config.json behind — which would then pollute the
+    // "no config files exist" assertion below with a stale maxFileSize.
+    try {
+      await fs.unlink(path.join(globalConfigDir, 'config.json'));
+    } catch {
+      /* ignore — file may not exist */
+    }
   });
 
   afterEach(async () => {
