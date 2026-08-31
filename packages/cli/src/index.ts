@@ -86,7 +86,7 @@ program
 program
   .command('analyze')
   .description('Analyze and index a repository into the knowledge graph')
-  .argument('<path>', 'Path to the repository', '.')
+  .argument('[path]', 'Path to the repository', '.')
   .option('-f, --format <format>', 'Output format: text, json, or summary', 'text')
   .option('-p, --project-id <id>', 'Project identifier')
   .option('-t, --timeout <ms>', 'Timeout in milliseconds', '300000')
