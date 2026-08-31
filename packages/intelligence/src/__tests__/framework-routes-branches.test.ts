@@ -31,6 +31,20 @@ describe('FrameworkRouteDetector — branch edge cases', () => {
     expect(result.routes.length).toBeGreaterThan(0);
   });
 
+  it('extracts the controller name for a prefix-less @Controller()', () => {
+    const code = [
+      '@Controller()',
+      'export class HealthController {',
+      '  @Get()',
+      '  check() { return "ok"; }',
+      '}',
+    ].join('\n');
+    const result = detector.detectFile('src/health.controller.ts', code, 'typescript');
+    const route = result.routes.find((r) => r.method === 'GET');
+    expect(route).toBeDefined();
+    expect(route!.controllerName).toBe('HealthController');
+  });
+
   it('extracts inline SvelteKit form actions from a single line', () => {
     const code = 'export const actions = { default: handler, delete: removeItem };\n';
     const result = detector.detectFile('src/routes/items/+page.server.ts', code, 'typescript');

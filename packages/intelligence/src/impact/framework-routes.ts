@@ -87,6 +87,8 @@ const FASTAPI_PATTERNS = {
 const NESTJS_PATTERNS = {
   // @Controller("prefix")
   controllerDecorator: /@Controller\s*\(\s*['"]([^'"]*)['"]/g,
+  // @Controller() — root controller with no path prefix
+  controllerNoPrefix: /@Controller\s*\(\s*\)/g,
   // @Get("path"), @Post("path"), etc.
   methodDecorator: /@(Get|Post|Put|Delete|Patch|All)\s*\(\s*['"]([^'"]*)['"]/g,
   // Method decorator without explicit path
@@ -568,8 +570,10 @@ export class FrameworkRouteDetector {
 
       NESTJS_PATTERNS.controllerDecorator.lastIndex = 0;
       const ctrlMatch = NESTJS_PATTERNS.controllerDecorator.exec(trimmed);
-      if (ctrlMatch) {
-        controllerPrefix = ctrlMatch[1] ?? '';
+      NESTJS_PATTERNS.controllerNoPrefix.lastIndex = 0;
+      const isPrefixlessController = NESTJS_PATTERNS.controllerNoPrefix.test(trimmed);
+      if (ctrlMatch || isPrefixlessController) {
+        controllerPrefix = ctrlMatch ? ctrlMatch[1]! : '';
 
         // Find the class name on the next line
         for (let j = i + 1; j < Math.min(i + 3, lines.length); j++) {
