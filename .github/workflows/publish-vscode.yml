@@ -27,7 +27,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm turbo build --filter=@code-analyzer/vscode
+      - run: pnpm turbo build --filter=code-analyzer
 
       - name: Package VS Code extension
         run: |

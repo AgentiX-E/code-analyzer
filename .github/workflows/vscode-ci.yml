@@ -65,13 +65,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build all dependencies
-        run: pnpm build --filter=...@code-analyzer/vscode
+        run: pnpm build --filter=...code-analyzer
 
       - name: Build VS Code extension
-        run: pnpm --filter @code-analyzer/vscode build
+        run: pnpm --filter code-analyzer build
 
       - name: Type-check extension
-        run: pnpm --filter @code-analyzer/vscode typecheck
+        run: pnpm --filter code-analyzer typecheck
         continue-on-error: true
 
   test:
@@ -98,10 +98,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build all dependencies
-        run: pnpm build --filter=...@code-analyzer/vscode
+        run: pnpm build --filter=...code-analyzer
 
       - name: Run extension tests
-        run: pnpm --filter @code-analyzer/vscode test
+        run: pnpm --filter code-analyzer test
         continue-on-error: true
 
   package:
@@ -129,7 +129,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build all dependencies
-        run: pnpm build --filter=...@code-analyzer/vscode
+        run: pnpm build --filter=...code-analyzer
 
       - name: Install vsce
         run: pnpm add -g @vscode/vsce

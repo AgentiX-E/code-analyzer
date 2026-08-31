@@ -207,7 +207,7 @@ COPY packages/ /app/packages/
 
 # Install deps and build
 RUN pnpm install --frozen-lockfile
-RUN pnpm turbo build --filter=@code-analyzer/vscode
+RUN pnpm turbo build --filter=code-analyzer
 
 # Install vsce for packaging
 RUN pnpm add -g @vscode/vsce

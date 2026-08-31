@@ -1,5 +1,5 @@
 {
-  "name": "@code-analyzer/vscode",
+  "name": "code-analyzer",
   "displayName": "Code Analyzer",
   "version": "0.1.0",
   "description": "World-class code intelligence for VS Code \u2014 AI-powered code exploration, review, and analysis",
@@ -29,9 +29,6 @@
     "color": "#1e1e2e",
     "theme": "dark"
   },
-  "files": [
-    "dist"
-  ],
   "sideEffects": false,
   "publisher": "agentix",
   "engines": {

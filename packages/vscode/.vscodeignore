@@ -1,0 +1,18 @@
+# VS Code extension packaging — files excluded from the .vsix.
+# Only the compiled output (dist/), the manifest, README, LICENSE, and the
+# icon are shipped; TypeScript source and build tooling stay in the repo.
+
+# TypeScript source (already compiled to dist/)
+src/**
+**/*.map
+
+# Build tooling and caches
+node_modules/**
+.turbo/**
+tsconfig.json
+tsconfig.tsbuildinfo
+vitest.config.ts
+
+# VCS and editor noise
+.gitignore
+.git/**
