@@ -4,7 +4,7 @@
 # (ghcr.io) on push to master and version tags.
 #
 # Features:
-#   - Multi-arch: linux/amd64 + linux/arm64
+#   - linux/amd64 by default; arm64 on demand via workflow_dispatch
 #   - docker buildx bake for parallel multi-target builds
 #   - OCI-compliant labels with version, commit SHA, build date
 #   - Registry cache for fast incremental builds
@@ -46,7 +46,7 @@ on:
         description: 'Platforms to build (comma-separated)'
         required: false
         type: string
-        default: 'linux/amd64,linux/arm64'
+        default: 'linux/amd64'
 
 env:
   REGISTRY: ghcr.io
@@ -143,7 +143,11 @@ jobs:
         with:
           context: .
           target: ${{ matrix.target.bake-target == 'code-analyzer' && 'runner' || 'cli' }}
-          platforms: ${{ github.event_name == 'workflow_dispatch' && inputs.platforms || 'linux/amd64,linux/arm64' }}
+          # amd64 only by default: arm64 has no tree-sitter prebuilt binaries for the
+          # NAN grammars (toml/kotlin/lua/sql/yaml/zig/dart), so it must compile them
+          # under QEMU — tens of minutes and the main cause of "stuck" Docker builds.
+          # arm64 can still be produced on demand via workflow_dispatch (inputs.platforms).
+          platforms: ${{ github.event_name == 'workflow_dispatch' && inputs.platforms || 'linux/amd64' }}
           push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}${{ matrix.target.tag-suffix }}
