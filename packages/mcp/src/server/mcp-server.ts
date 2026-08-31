@@ -349,6 +349,16 @@ export class CodeAnalyzerMCPServer {
       const httpModule = await import('http');
       const server: http.Server = httpModule.createServer();
 
+      // Health-check endpoint for Docker HEALTHCHECK and CI smoke tests.
+      // The SSE transport only serves its configured path (`/sse`), so `/health`
+      // must be answered here — otherwise probes hang and report an empty status.
+      server.on('request', (req: http.IncomingMessage, res: http.ServerResponse) => {
+        const url = req.url ?? '/';
+        if (url !== '/health' && url !== '/healthz') return;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', transport: 'sse', version: this.config.version }));
+      });
+
       this.httpServer = server;
       this.sseTransport = new SSETransport({
         httpServer: server,
