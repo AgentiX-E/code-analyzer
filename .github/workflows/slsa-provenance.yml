@@ -19,6 +19,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Generate provenance
-        uses: slsa-framework/slsa-github-generator/.github/actions/generate-provenance@v2
+        uses: slsa-framework/slsa-github-generator/.github/actions/generate-provenance@v2.1.0
         with:
           base64-subjects: '${{ needs.build.outputs.hashes }}'

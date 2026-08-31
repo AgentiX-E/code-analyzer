@@ -49,8 +49,8 @@ RUN pnpm install --frozen-lockfile
 # Copy full source tree
 COPY . .
 
-# Build all packages
-RUN pnpm turbo build --filter=...^...
+# Build all packages (no filter: turbo builds every workspace with a `build` task)
+RUN pnpm turbo build
 
 # ── Security scanning stage marker (integrate in CI) ─────────────────────────
 # Tools to consider adding to CI pipeline:

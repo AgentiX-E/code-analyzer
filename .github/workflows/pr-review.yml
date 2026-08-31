@@ -101,7 +101,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
-          pnpm turbo build --filter=...^...
+          pnpm turbo build
 
       - name: Run Code Analyzer
         id: analyzer
@@ -409,7 +409,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
-          pnpm turbo build --filter=...^...
+          pnpm turbo build
 
       - name: Run Standards Check
         id: standards
@@ -510,7 +510,7 @@ jobs:
 
       - name: Post Standards Summary
         if: success()
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: code-analyzer-standards
           path: standards-report.md
