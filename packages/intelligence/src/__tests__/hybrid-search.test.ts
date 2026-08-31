@@ -230,6 +230,26 @@ describe('HybridSearchEngine.fuseResults', () => {
     // Node 1 appears in both lists, should have highest combined score
     expect(fused.length).toBe(3);
     expect(fused[0]!.node.id).toBe(1); // Appears in both
+    // Overlapped node keeps both per-source scores and sums both RRF ranks.
+    const overlapped = fused.find((r) => r.node.id === 1)!;
+    expect(overlapped.bm25Score).toBe(10);
+    expect(overlapped.vectorScore).toBe(0.8);
+    expect(overlapped.combinedScore).toBeCloseTo(1 / 61 + 1 / 62, 10);
+  });
+
+  it('merges duplicate ids within the BM25 list instead of overwriting', () => {
+    const node = createNode(1);
+    const bm25Results: RankedResult[] = [
+      { node, score: 10 },
+      { node, score: 5 },
+    ];
+
+    const fused = engine.fuseResults(bm25Results, [], 60);
+
+    expect(fused.length).toBe(1);
+    expect(fused[0]!.bm25Score).toBe(5);
+    // Both duplicate entries contribute RRF (rank 1 + rank 2).
+    expect(fused[0]!.combinedScore).toBeCloseTo(1 / 61 + 1 / 62, 10);
   });
 
   it('should handle empty results', () => {

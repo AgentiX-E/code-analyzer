@@ -172,9 +172,9 @@ class InvertedIndex {
       const postings = this.index.get(term);
       if (!postings) continue;
 
+      // postings is always non-empty: `removeDocument` deletes a term from the
+      // index once its postings list is drained, so `df >= 1` here.
       const df = postings.length;
-      // Ensure df > 0 before computing IDF
-      if (df === 0) continue;
 
       const tf = doc.docTerms.get(term) ?? 0;
       if (tf === 0) continue;
@@ -453,7 +453,8 @@ export class HybridSearchEngine {
       const rrfScore = 1 / (k + i + 1); // rank starts at 1
       const existing = combined.get(r.node.id);
       if (existing) {
-        /* v8 ignore next 2 */ // overlapping BM25+vector result merge: edge case in sparse index
+        // Duplicate node id within the BM25 list (only possible via a direct
+        // `fuseResults` call) — accumulate RRF score rather than overwriting.
         existing.bm25Score = r.score;
         existing.combinedScore += rrfScore;
       } else {
@@ -472,7 +473,9 @@ export class HybridSearchEngine {
       const rrfScore = 1 / (k + i + 1);
       const existing = combined.get(r.node.id);
       if (existing) {
-        /* v8 ignore next 2 */ // overlapping vector+BM25 result merge: edge case in sparse index
+        // Node already present from BM25 — merge its vector score into the
+        // combined entry (the normal case when vector search is restricted to
+        // BM25 candidates).
         existing.vectorScore = r.score;
         existing.combinedScore += rrfScore;
       } else {
