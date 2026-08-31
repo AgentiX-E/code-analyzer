@@ -1124,7 +1124,6 @@ export class CrossRepoIndexer {
         }
 
         const edgesOut = this.store.getEdgesForNode(node.id);
-        /* v8 ignore start */
         for (const edge of edgesOut) {
           if (!edge.type.startsWith('CROSS_REPO_')) continue;
           const targetNode = this.store.getNode(edge.targetId);
@@ -1143,7 +1142,6 @@ export class CrossRepoIndexer {
           visited.add(targetRepo);
           queue.push({ repo: targetRepo, depth: current.depth + 1 });
         }
-        /* v8 ignore stop */
       }
     }
 
