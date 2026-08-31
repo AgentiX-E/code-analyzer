@@ -34,8 +34,13 @@ describe('FrameworkRouteDetector — branch edge cases', () => {
   it('extracts inline SvelteKit form actions from a single line', () => {
     const code = 'export const actions = { default: handler, delete: removeItem };\n';
     const result = detector.detectFile('src/routes/items/+page.server.ts', code, 'typescript');
-    const actions = result.routes.filter((r) => r.handlerName && r.handlerName !== 'load');
-    expect(actions.length).toBeGreaterThan(0);
+    const actions = result.routes.filter((r) => r.method === 'POST' && r.handlerName);
+    const names = actions.map((r) => r.handlerName);
+    // Action names are the object KEYS (`delete`), never the handler values
+    // (`handler`/`removeItem`). `default` maps to the catch-all route instead.
+    expect(names).toContain('delete');
+    expect(names).not.toContain('handler');
+    expect(names).not.toContain('removeItem');
   });
 
   it('strips SvelteKit route groups from the derived path', () => {

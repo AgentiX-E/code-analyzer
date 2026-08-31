@@ -1030,22 +1030,26 @@ export class FrameworkRouteDetector {
 
   /**
    * Extract action names from a single line (inline actions).
+   *
+   * An inline actions object has the shape `{ default: handler, delete: fn }`.
+   * The action name is always the object KEY (the token before `:`), never the
+   * handler value. Shorthand entries (`{ create }`) contribute their own token.
    */
   private extractActionNamesFromLine(line: string): string[] {
     const names: string[] = [];
-    // Match patterns like: actionName: handler
-    // in: { default: ..., delete: ..., create }
-    const regex = /(\w+)\s*(?::\s*(?:async\s*)?(?:function\s*)?\w*\s*\(|,|$)/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(line)) !== null) {
-      const name = match[1]!;
-      if (
-        name !== 'export' &&
-        name !== 'const' &&
-        name !== 'actions' &&
-        name !== 'function' &&
-        name !== 'async'
-      ) {
+    const open = line.indexOf('{');
+    const close = line.lastIndexOf('}');
+    if (open === -1 || close === -1 || close <= open) return names;
+
+    const body = line.slice(open + 1, close);
+    for (const segment of body.split(',')) {
+      const trimmed = segment.trim();
+      if (!trimmed) continue;
+      // `name: handler` → name is the key; shorthand `name` → whole segment.
+      const colonIdx = trimmed.indexOf(':');
+      const name = (colonIdx === -1 ? trimmed : trimmed.slice(0, colonIdx)).trim();
+      // `default` maps to the catch-all route, not a named `?/name` action.
+      if (name && name !== 'default' && name !== 'actions' && !names.includes(name)) {
         names.push(name);
       }
     }
