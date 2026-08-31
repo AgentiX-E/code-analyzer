@@ -451,10 +451,19 @@ export class TSResolverContext {
       const paramsStr = funcMatch[1]!;
       const params = paramsStr
         ? paramsStr.split(',').map((p, i) => {
-            const parts = p.trim().split(':');
-            const pName = parts[0]?.trim() ?? `arg${i}`;
-            const pType = parts[1] ? this.parseTypeAnnotation(parts[1].trim()) : BUILTINS.any;
-            return t.param(pName, pType);
+            const trimmedParam = p.trim();
+            // Split on the FIRST colon only: the parameter type may itself
+            // contain colons (e.g. `x: { a: number }`), which a naive
+            // `split(':')` would truncate.
+            const colonIdx = trimmedParam.indexOf(':');
+            const pName = colonIdx === -1 ? trimmedParam : trimmedParam.slice(0, colonIdx).trim();
+            const pType =
+              colonIdx === -1
+                ? BUILTINS.any
+                : this.parseTypeAnnotation(trimmedParam.slice(colonIdx + 1).trim());
+            // Unnamed parameters (e.g. `(: number) => void`) get a positional
+            // fallback name rather than an empty string.
+            return t.param(pName || `arg${i}`, pType);
           })
         : [];
       return t.func(params, this.parseTypeAnnotation(funcMatch[2]!.trim()));

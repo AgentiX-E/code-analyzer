@@ -142,6 +142,24 @@ describe('parseTypeAnnotation — edge cases', () => {
     if (f.kind === 'func') expect(typeToString(f.params[0]!.type)).toBe('any');
   });
 
+  it('parses a function type with an object-typed parameter (nested colon)', () => {
+    const f = ctx.parseTypeAnnotation('(x: { a: number }) => void');
+    expect(f.kind).toBe('func');
+    if (f.kind === 'func') {
+      expect(f.params[0]!.name).toBe('x');
+      expect(f.params[0]!.type.kind).toBe('objectLiteral');
+    }
+  });
+
+  it('falls back to a positional name for an unnamed typed parameter', () => {
+    const f = ctx.parseTypeAnnotation('(: number) => void');
+    expect(f.kind).toBe('func');
+    if (f.kind === 'func') {
+      expect(f.params[0]!.name).toBe('arg0');
+      expect(typeToString(f.params[0]!.type)).toBe('number');
+    }
+  });
+
   it('parses an empty object literal', () => {
     const o = ctx.parseTypeAnnotation('{}');
     expect(o.kind).toBe('objectLiteral');
