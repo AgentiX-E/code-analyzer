@@ -56,14 +56,20 @@ export class ImpactGraphBuilder {
   constructor(private indexer: CrossRepoIndexer) {}
 
   /**
-   * Build the cross-repo impact graph for a group.
+   * Build the cross-repo impact graph for a group, rooted at a changed repo.
+   *
+   * @param groupId — the group to analyze
+   * @param changedRepoId — the source repo whose change propagates outward
    */
-  async build(groupId: string): Promise<ImpactGraph> {
+  async build(groupId: string, changedRepoId: string): Promise<ImpactGraph> {
     this.graph = { nodes: new Map(), edges: [] };
 
     try {
-      const impact = await this.indexer.analyzeCrossRepoImpact(groupId, '');
+      const impact = await this.indexer.analyzeCrossRepoImpact(groupId, changedRepoId);
+      // `affectedRepos` excludes the changed (source) repo, so add it explicitly:
+      // the source must also be a node in the graph.
       const allRepos = new Set(impact.affectedRepos);
+      allRepos.add(impact.changedRepo);
 
       // Add nodes
       for (const repo of allRepos) {
@@ -86,9 +92,9 @@ export class ImpactGraphBuilder {
           weight: this.impactLevelToWeight(entry.impactLevel),
         });
 
-        // Update node dependents
-        const sourceNode = this.graph.nodes.get(impact.changedRepo);
-        if (sourceNode && !sourceNode.directDependents.includes(entry.repo)) {
+        // Update node dependents — the source node is guaranteed to exist now.
+        const sourceNode = this.graph.nodes.get(impact.changedRepo)!;
+        if (!sourceNode.directDependents.includes(entry.repo)) {
           sourceNode.directDependents.push(entry.repo);
         }
       }

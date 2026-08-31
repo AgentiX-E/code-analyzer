@@ -75,14 +75,21 @@ describe('ImpactGraphBuilder', () => {
 
   describe('build', () => {
     it('should build an impact graph', async () => {
-      const graph = await builder.build('test-group');
+      const graph = await builder.build('test-group', 'org/core');
       expect(graph).toBeDefined();
       expect(graph.nodes).toBeDefined();
       expect(graph.edges).toBeDefined();
     });
 
+    it('should include the changed (source) repo as a node', async () => {
+      const graph = await builder.build('test-group', 'org/core');
+      expect(graph.nodes.has('org/core')).toBe(true);
+      const sourceNode = graph.nodes.get('org/core')!;
+      expect(Array.isArray(sourceNode.directDependents)).toBe(true);
+    });
+
     it('should handle unknown groups gracefully', async () => {
-      const graph = await builder.build('non-existent-group');
+      const graph = await builder.build('non-existent-group', 'org/core');
       expect(graph.nodes.size).toBe(0);
       expect(graph.edges.length).toBe(0);
     });
@@ -90,7 +97,7 @@ describe('ImpactGraphBuilder', () => {
 
   describe('calculateBlastRadius', () => {
     it('should calculate blast radius from source repo', async () => {
-      const graph = await builder.build('test-group');
+      const graph = await builder.build('test-group', 'org/core');
       const result = builder.calculateBlastRadius('org/core', graph);
 
       expect(result.sourceRepo).toBe('org/core');

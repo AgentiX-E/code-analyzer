@@ -98,7 +98,7 @@ export class PRReviewBridge {
     );
 
     // 4. Build impact graph and calculate blast radius
-    const impactGraph = await this.impactGraph.build(groupId);
+    const impactGraph = await this.impactGraph.build(groupId, sourceRepoId);
     const blastRadius = this.impactGraph.calculateBlastRadius(sourceRepoId, impactGraph);
     const dependencyChains = this.impactGraph.findDependencyChains(sourceRepoId, impactGraph);
 
