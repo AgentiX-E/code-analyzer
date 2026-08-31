@@ -13,12 +13,16 @@ ARG PNPM_VERSION=9.15.0
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 0: Base — shared build foundation
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-alpine AS base
+# glibc base (debian-slim) rather than alpine: the official tree-sitter grammars
+# (javascript, typescript, python, …) ship glibc prebuilt binaries, so they install
+# without compiling. On musl/alpine they have no prebuilds and every grammar must be
+# compiled from source — tens of minutes, and even worse under arm64 QEMU.
+FROM node:${NODE_VERSION}-bookworm-slim AS base
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # Native toolchain for node-gyp: `tree-sitter-toml` (prod dep of @code-analyzer/analyzer)
 # ships a NAN binding with no prebuilt binaries, so it must compile C++ on install.
-RUN apk add --no-cache build-base python3
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -64,7 +68,7 @@ RUN pnpm turbo build
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Runner (MCP Server) — minimal production image
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-alpine AS runner
+FROM node:${NODE_VERSION}-bookworm-slim AS runner
 
 # ── OCI labels (image.created set via --label in CI) ─────────────────────────
 LABEL org.opencontainers.image.title="Code Analyzer"
@@ -81,12 +85,12 @@ ENV NODE_ENV=production
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # Same native toolchain as `base`: the production `pnpm install` below recompiles
-# `tree-sitter-toml`'s NAN binding, which needs a C++ toolchain on alpine.
-RUN apk add --no-cache build-base python3
+# `tree-sitter-toml`'s NAN binding, which needs a C++ toolchain.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user (fixed UID/GID for host volume compatibility)
-RUN addgroup -g 1001 code-analyzer && \
-    adduser -u 1001 -G code-analyzer -s /bin/sh -D code-analyzer
+RUN groupadd -g 1001 code-analyzer && \
+    useradd -u 1001 -g code-analyzer -m -s /bin/sh code-analyzer
 
 WORKDIR /app
 
@@ -138,7 +142,7 @@ EXPOSE 3000
 
 # Health check — verify the MCP server is alive
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q --spider http://localhost:3000/health || exit 1
+    CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Default: run the MCP server
 CMD ["node", "packages/mcp/dist/start.js"]
@@ -146,7 +150,7 @@ CMD ["node", "packages/mcp/dist/start.js"]
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3: CLI — standalone CLI binary image
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-alpine AS cli
+FROM node:${NODE_VERSION}-bookworm-slim AS cli
 
 LABEL org.opencontainers.image.title="Code Analyzer CLI"
 LABEL org.opencontainers.image.description="Code Analyzer command-line interface"
@@ -159,10 +163,10 @@ ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # Native toolchain for node-gyp (see `base`): the production install recompiles
 # `tree-sitter-toml`'s NAN binding.
-RUN apk add --no-cache build-base python3
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -g 1001 cli && \
-    adduser -u 1001 -G cli -s /bin/sh -D cli
+RUN groupadd -g 1001 cli && \
+    useradd -u 1001 -g cli -m -s /bin/sh cli
 
 WORKDIR /app
 
