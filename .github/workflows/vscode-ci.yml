@@ -155,7 +155,9 @@ jobs:
 
       - name: Package extension
         working-directory: packages/vscode
-        run: vsce package --out ../../dist/code-analyzer.vsix
+        run: |
+          mkdir -p ../../dist
+          vsce package --out ../../dist/code-analyzer.vsix
 
       - name: Upload .vsix artifact
         uses: actions/upload-artifact@v4
