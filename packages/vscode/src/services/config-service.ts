@@ -94,9 +94,24 @@ export class ConfigService {
     private defaults: CodeAnalyzerConfig = DEFAULT_CONFIG,
   ) {}
 
-  /** Get a single configuration value with type safety. */
+  /**
+   * Get a single configuration value with type safety.
+   *
+   * Resolution order (highest priority first):
+   *   1. Explicit user configuration — a value the user set directly always
+   *      wins over any profile preset.
+   *   2. Active profile override — applied only when the key was NOT
+   *      explicitly configured.
+   *   3. Built-in defaults — lowest priority.
+   */
   get<K extends keyof CodeAnalyzerConfig>(key: K): CodeAnalyzerConfig[K] {
-    // First check the profile's override
+    // 1. Explicit user configuration always wins
+    const explicit = this.vsConfig.get<CodeAnalyzerConfig[K]>(key);
+    if (explicit !== undefined) {
+      return explicit;
+    }
+
+    // 2. Fall back to the active profile's override (key not explicitly set)
     const currentProfile =
       this.vsConfig.get<CodeAnalyzerConfig['profile']>('profile') ?? this.defaults.profile;
     const profileDef = PROFILES[currentProfile];
@@ -106,7 +121,8 @@ export class ConfigService {
       ] as CodeAnalyzerConfig[K];
     }
 
-    return this.vsConfig.get<CodeAnalyzerConfig[K]>(key) ?? this.defaults[key];
+    // 3. Fall back to built-in defaults
+    return this.defaults[key];
   }
 
   /** Get the current active profile definition. */

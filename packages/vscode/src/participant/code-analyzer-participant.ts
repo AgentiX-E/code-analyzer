@@ -1,7 +1,7 @@
 // @code-analyzer/vscode — Code Analyzer Chat Participant
 // The @code-analyzer Copilot Chat participant. Classifies user intent,
 // invokes analyzer tools to gather context, and enriches the chat stream.
-// Supports 10 slash commands for structured analysis workflows.
+// Supports 15 slash commands for structured analysis workflows.
 
 import type { EngineBridge } from '../services/engine-bridge.js';
 import { EDGE_CALLS } from '@code-analyzer/shared';

@@ -11,6 +11,7 @@ import { createStatusBarManager } from '../views/status-bar.js';
 import { registerCommands } from './commands.js';
 import {
   CodeAnalyzerChatParticipant,
+  SLASH_COMMANDS,
   type ChatRequest,
   type ChatContext,
   type ChatResponseStream,
@@ -62,7 +63,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // 3. Create VS Code API adapter wrapping real vscode module
   const api = createVSCodeAPIAdapter();
 
-  // 4. Register Copilot Chat Participant with all 10 slash commands
+  // 4. Register Copilot Chat Participant with all 15 slash commands
   registerChatParticipantWithCommands(context, engine);
 
   // 5. Register sidebar webview
@@ -212,7 +213,7 @@ function startFileWatcher(context: vscode.ExtensionContext, eng: EngineBridge): 
 }
 
 // ---------------------------------------------------------------------------
-// Chat Participant Registration with 10 Slash Commands
+// Chat Participant Registration with 15 Slash Commands
 // ---------------------------------------------------------------------------
 
 function registerChatParticipantWithCommands(
@@ -234,56 +235,15 @@ function registerChatParticipantWithCommands(
 
   chatParticipant = participant;
 
-  // Register all 10 slash commands
-  participant.command('review', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('review', request.prompt, stream, token);
-  });
-
-  participant.command('explain', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('explain', request.prompt, stream, token);
-  });
-
-  participant.command('impact', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('impact', request.prompt, stream, token);
-  });
-
-  participant.command('find', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('find', request.prompt, stream, token);
-  });
-
-  participant.command('deps', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('deps', request.prompt, stream, token);
-  });
-
-  participant.command('refactor', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('refactor', request.prompt, stream, token);
-  });
-
-  participant.command('test', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('test', request.prompt, stream, token);
-  });
-
-  participant.command('analyze', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('analyze', request.prompt, stream, token);
-  });
-
-  participant.command('coverage', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('coverage', request.prompt, stream, token);
-  });
-
-  participant.command('standards', async (request: any, _ctx: any, stream: any, token: any) => {
-    const handler = new CodeAnalyzerChatParticipant(eng);
-    return handler.handleSlashCommand('standards', request.prompt, stream, token);
-  });
+  // Register every slash command in a single loop. The registration is driven
+  // by the SLASH_COMMANDS source of truth so the set of registered commands can
+  // never drift from what the participant actually handles.
+  for (const command of SLASH_COMMANDS) {
+    participant.command(command, async (request: any, _ctx: any, stream: any, token: any) => {
+      const handler = new CodeAnalyzerChatParticipant(eng);
+      return handler.handleSlashCommand(command, request.prompt, stream, token);
+    });
+  }
 
   context.subscriptions.push(participant);
 }

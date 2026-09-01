@@ -164,8 +164,8 @@ export function generateConfigHtml(config: CodeAnalyzerConfig): string {
       <div class="field">
         <label for="maxFileSize">Max File Size (bytes)</label>
         <div class="description">Files larger than this will be skipped during analysis.</div>
-        <input type="number" id="maxFileSize" value="${config.maxFileSize}" min="1" />
-        <div class="current-value">Current: ${formatted}</div>
+        <input type="number" id="maxFileSize" value="${config.maxFileSize}" min="1" oninput="updateMaxFileSizeDisplay()" />
+        <div class="current-value" id="maxFileSizeDisplay">Current: ${formatted}</div>
       </div>
     </div>
 
@@ -226,6 +226,20 @@ export function generateConfigHtml(config: CodeAnalyzerConfig): string {
           profile: document.getElementById('profile').value
         });
       };
+
+      window.updateMaxFileSizeDisplay = function() {
+        var v = parseInt(document.getElementById('maxFileSize').value, 10);
+        var display = document.getElementById('maxFileSizeDisplay');
+        if (display) display.textContent = 'Current: ' + formatBytes(v);
+      };
+
+      function formatBytes(bytes) {
+        if (!bytes || bytes <= 0) return '0 Bytes';
+        var k = 1024;
+        var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        var i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      }
 
       window.addEventListener('message', function(e) {
         var data = e.data;

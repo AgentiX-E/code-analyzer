@@ -217,7 +217,7 @@ describe('Extension Activation', () => {
 // Chat Participant Slash Commands Tests
 // ---------------------------------------------------------------------------
 
-describe('Chat Participant — All 10 Slash Commands', () => {
+describe('Chat Participant — All 15 Slash Commands', () => {
   let participant: CodeAnalyzerChatParticipant;
   let engine: EngineBridge;
 
@@ -231,8 +231,8 @@ describe('Chat Participant — All 10 Slash Commands', () => {
     engine.dispose();
   });
 
-  it('has exactly 10 slash commands registered', () => {
-    expect(SLASH_COMMANDS).toHaveLength(10);
+  it('has exactly 15 slash commands registered', () => {
+    expect(SLASH_COMMANDS).toHaveLength(15);
   });
 
   it('contains all required slash command names', () => {
@@ -247,6 +247,11 @@ describe('Chat Participant — All 10 Slash Commands', () => {
     expect(names).toContain('analyze');
     expect(names).toContain('coverage');
     expect(names).toContain('standards');
+    expect(names).toContain('review-deps');
+    expect(names).toContain('check-contract');
+    expect(names).toContain('trace-dataflow');
+    expect(names).toContain('find-hotspots');
+    expect(names).toContain('audit-security');
   });
 
   // -------------------------------------------------------------------------
