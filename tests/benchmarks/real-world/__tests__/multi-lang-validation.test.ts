@@ -16,19 +16,15 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join, extname, relative, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, extname } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { execSync } from 'node:child_process';
 import { PythonProvider } from '../../../../packages/analyzer/src/languages/python.js';
 import { GoProvider } from '../../../../packages/analyzer/src/languages/go.js';
 import { JavaProvider } from '../../../../packages/analyzer/src/languages/java.js';
-import type {
-  LanguageProvider,
-  ParsedImport,
-} from '../../../../packages/analyzer/src/languages/provider.js';
-import type { UnifiedCapture } from '../../../../packages/shared/src/types/capture-tags.js';
+import type { LanguageProvider } from '../../../../packages/analyzer/src/languages/provider.js';
 import { CAPTURE_TAGS } from '../../../../packages/shared/src/types/capture-tags.js';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -38,9 +34,6 @@ const REPO_PATHS = {
   k8sClientGo: '/tmp/k8s-client-go',
   springBoot: '/tmp/spring-boot-src',
 };
-
-const REPORT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
-const REPORT_PATH = join(REPORT_DIR, 'multi-lang-validation-report.json');
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -406,7 +399,8 @@ describe('Multi-Language Real-world Validation', () => {
 
   it('should generate a multi-language validation report', () => {
     if (report.results.length === 0) {
-      // All repos unavailable — write empty report
+      // All repos unavailable — record an empty placeholder result so the
+      // report stays structurally valid.
       report.results.push({
         language: 'N/A',
         repoUrl: 'N/A',
@@ -428,9 +422,22 @@ describe('Multi-Language Real-world Validation', () => {
       });
     }
 
-    mkdirSync(REPORT_DIR, { recursive: true });
-    writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2), 'utf-8');
-    expect(existsSync(REPORT_PATH)).toBe(true);
+    // Write the report to an OS temp directory — never to the committed
+    // `tests/benchmarks/real-world/multi-lang-validation-report.json` file —
+    // so that running the benchmark does not pollute the working tree.
+    const reportDir = mkdtempSync(join(tmpdir(), 'multi-lang-validation-'));
+    try {
+      const reportPath = join(reportDir, 'multi-lang-validation-report.json');
+      writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf-8');
+      expect(existsSync(reportPath)).toBe(true);
+
+      // Verify the report round-trips with its timestamp and result count.
+      const parsed = JSON.parse(readFileSync(reportPath, 'utf-8'));
+      expect(parsed.timestamp).toBe(report.timestamp);
+      expect(parsed.results).toHaveLength(report.results.length);
+    } finally {
+      rmSync(reportDir, { recursive: true, force: true });
+    }
   });
 
   // ── Aggregate ─────────────────────────────────────────────────────────────

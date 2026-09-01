@@ -3,7 +3,8 @@
 // SonarQube, CodeQL, Semgrep, and Sourcegraph.
 
 import { describe, it, expect } from 'vitest';
-import { writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // ---------------------------------------------------------------------------
@@ -616,26 +617,35 @@ describe('Industry Comparison Benchmark', () => {
       expect(md.length).toBeGreaterThan(2000);
     });
 
-    it('should save report and data to disk', () => {
-      const reportsDir = join(process.cwd(), 'tests', 'benchmarks', 'ca-bench');
+    it('should save report and data to disk (temp dir, no tracked-file pollution)', () => {
+      // Write to an OS temp directory rather than the committed report files,
+      // so that running the benchmark never rewrites tracked files or bumps
+      // their mtime/`generatedAt` timestamp (which would pollute the worktree).
+      const reportsDir = mkdtempSync(join(tmpdir(), 'ca-bench-comparison-'));
+      try {
+        // Save JSON data
+        const dataPath = join(reportsDir, 'industry-comparison-data.json');
+        writeFileSync(dataPath, JSON.stringify(report, null, 2), 'utf-8');
 
-      // Save JSON data
-      const dataPath = join(reportsDir, 'industry-comparison-data.json');
-      writeFileSync(dataPath, JSON.stringify(report, null, 2), 'utf-8');
+        // Save Markdown report
+        const mdPath = join(reportsDir, 'INDUSTRY_COMPARISON.md');
+        writeFileSync(mdPath, generateMarkdownReport(report), 'utf-8');
 
-      // Save Markdown report
-      const mdPath = join(process.cwd(), 'docs', 'INDUSTRY_COMPARISON.md');
-      const md = generateMarkdownReport(report);
-      writeFileSync(mdPath, md, 'utf-8');
+        // Verify files exist
+        expect(existsSync(dataPath)).toBe(true);
+        expect(existsSync(mdPath)).toBe(true);
 
-      // Verify files exist
-      const { existsSync, readFileSync } = require('node:fs');
-      expect(existsSync(dataPath)).toBe(true);
-      expect(existsSync(mdPath)).toBe(true);
+        // Verify JSON is valid and round-trips
+        const parsed = JSON.parse(readFileSync(dataPath, 'utf-8'));
+        expect(parsed.schema).toBe('industry-comparison-v1');
 
-      // Verify JSON is valid
-      const parsed = JSON.parse(readFileSync(dataPath, 'utf-8'));
-      expect(parsed.schema).toBe('industry-comparison-v1');
+        // Verify Markdown matches the generated report
+        const md = readFileSync(mdPath, 'utf-8');
+        expect(md).toContain('# Code Analyzer vs Industry');
+        expect(md).toContain('Executive Summary');
+      } finally {
+        rmSync(reportsDir, { recursive: true, force: true });
+      }
     });
   });
 
