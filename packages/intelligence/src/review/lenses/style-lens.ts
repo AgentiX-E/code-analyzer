@@ -647,11 +647,22 @@ function detectFunctionMetrics(lines: string[], filePath: string): LensFinding[]
       /(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(\w+)\s*\([^)]*\)\s*\{)/,
     );
     if (funcMatch) {
-      inFunction = true;
-      funcStart = i + 1;
-      funcName = funcMatch[1] ?? funcMatch[2] ?? funcMatch[3] ?? 'anonymous';
-      braceDepth = 0;
-      maxNestingDepth = 0;
+      // The pattern's three alternatives each capture a name, so at least one
+      // capture group is always populated when the regex matches.
+      const name = funcMatch[1] ?? funcMatch[2] ?? funcMatch[3]!;
+      // Control-flow keywords (`if (...) {`, `for (...) {`, ...) are not
+      // function declarations. Without this guard the third alternative would
+      // mistake them for a method signature and reset the enclosing function's
+      // brace/nesting tracking, silently dropping the deepest nesting and
+      // under-counting the function length from the report.
+      const isControlKeyword = ['if', 'for', 'while', 'switch', 'catch', 'with'].includes(name);
+      if (!isControlKeyword) {
+        inFunction = true;
+        funcStart = i + 1;
+        funcName = name;
+        braceDepth = 0;
+        maxNestingDepth = 0;
+      }
     }
 
     // Track depth

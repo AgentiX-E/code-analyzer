@@ -149,4 +149,30 @@ describe('Synthesis Lens', () => {
     expect(synthReport.findings.length).toBe(1);
     expect(synthReport.durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('should downgrade a critical finding from a high-FP lens (mlCalibration)', () => {
+    // style/style has a historical FP rate of 0.35 (> 0.3), so a non-rule
+    // critical finding is downgraded one level to `high`.
+    const finding: LensFinding = {
+      ...makeFinding('ml1', 'style', 'critical', 'Style Critical', '/src/a.ts', 1, 1),
+      category: 'style',
+      confidence: 'heuristic',
+    };
+    const report = makeReport('style', 'Style', [finding]);
+    const result = synthesizeFindings([report], 100);
+    expect(result.findings[0]!.severity).toBe('high');
+  });
+
+  it('should leave a non-critical/non-high finding unchanged (mlCalibration)', () => {
+    // style/style has FP rate 0.35 (> 0.3), but a `medium` finding is already
+    // below the downgrade threshold, so it passes through unchanged.
+    const finding: LensFinding = {
+      ...makeFinding('ml2', 'style', 'medium', 'Style Medium', '/src/a.ts', 1, 1),
+      category: 'style',
+      confidence: 'heuristic',
+    };
+    const report = makeReport('style', 'Style', [finding]);
+    const result = synthesizeFindings([report], 100);
+    expect(result.findings[0]!.severity).toBe('medium');
+  });
 });

@@ -146,7 +146,9 @@ export class RuleRegistry {
     try {
       parsed = JSON.parse(jsonString);
     } catch (err) {
-      result.errors.push(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
+      // JSON.parse always throws a SyntaxError (an Error) for malformed input,
+      // so the rejection is always an Error carrying a `message` property.
+      result.errors.push(`Invalid JSON: ${(err as Error).message}`);
       return result;
     }
 
@@ -154,26 +156,25 @@ export class RuleRegistry {
 
     for (let i = 0; i < templates.length; i++) {
       const item = templates[i] as Record<string, unknown>;
-      try {
-        if (!item['id'] || !item['name'] || !item['version']) {
-          result.errors.push(`Item ${i}: missing required fields (id, name, version)`);
-          continue;
-        }
 
-        const checksum = this.computeChecksum(item as unknown as RegistryTemplate);
-        const existing = this.templates.get(item['id'] as string);
-
-        if (existing && existing.checksum === checksum) {
-          result.skipped++;
-          continue;
-        }
-
-        this.register(item as unknown as RegistryTemplate);
-        result.imported++;
-        /* v8 ignore next 2 */ // register() validation errors are tested via unit tests on register directly
-      } catch (err) {
-        result.errors.push(`Item ${i}: ${err instanceof Error ? err.message : String(err)}`);
+      if (!item['id'] || !item['name'] || !item['version']) {
+        result.errors.push(`Item ${i}: missing required fields (id, name, version)`);
+        continue;
       }
+
+      const checksum = this.computeChecksum(item as unknown as RegistryTemplate);
+      const existing = this.templates.get(item['id'] as string);
+
+      if (existing && existing.checksum === checksum) {
+        result.skipped++;
+        continue;
+      }
+
+      // register() only assigns fields and stores the template in a Map; it
+      // never throws for JSON-parsed input (no circular references, no BigInt),
+      // so there is no per-item error path to catch here.
+      this.register(item as unknown as RegistryTemplate);
+      result.imported++;
     }
 
     return result;

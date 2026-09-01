@@ -25,6 +25,26 @@ describe('CommentRelocator', () => {
   const relocator = new CommentRelocator(3);
 
   // ---------------------------------------------------------------------------
+  // Default context window
+  // ---------------------------------------------------------------------------
+
+  it('defaults to a 3-line context window when constructed without arguments', () => {
+    const defaultRelocator = new CommentRelocator();
+    const original = new Map<string, string>([
+      ['src/a.ts', ['', 'const a = 1;', 'const b = 2;', 'const c = 3;', ''].join('\n')],
+    ]);
+    const modified = new Map<string, string>([
+      ['src/a.ts', ['', 'const a = 1;', 'const b = 2;', 'const c = 3;', ''].join('\n')],
+    ]);
+    const result = defaultRelocator.relocate(
+      [makeComment({ path: 'src/a.ts', startLine: 2, endLine: 2 })],
+      original,
+      modified,
+    );
+    expect(result.relocated.size).toBe(1);
+  });
+
+  // ---------------------------------------------------------------------------
   // Exact Match
   // ---------------------------------------------------------------------------
 

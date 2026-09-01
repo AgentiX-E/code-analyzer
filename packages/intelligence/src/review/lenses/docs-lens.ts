@@ -181,7 +181,7 @@ function checkFunctionDocs(info: DocCheckResult, filePath: string): LensFinding[
  */
 function detectReadmeStaleness(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
-  const fileName = filePath.split('/').pop()?.toLowerCase() ?? '';
+  const fileName = filePath.slice(filePath.lastIndexOf('/') + 1).toLowerCase();
 
   // Only check markdown documentation files
   if (!fileName.match(/readme\.md/i)) return findings;
@@ -237,7 +237,7 @@ function detectMissingChangelog(
   prFiles?: string[],
 ): LensFinding[] {
   const findings: LensFinding[] = [];
-  const fileName = filePath.split('/').pop()?.toLowerCase() ?? '';
+  const fileName = filePath.slice(filePath.lastIndexOf('/') + 1).toLowerCase();
 
   // Only check CHANGELOG files
   if (!fileName.includes('changelog')) return findings;
@@ -245,7 +245,7 @@ function detectMissingChangelog(
   // If we have PR file context, check for non-trivial changes
   if (prFiles && prFiles.length > 0) {
     const nontrivialChanges = prFiles.filter((f) => {
-      const ext = f.split('.').pop()?.toLowerCase() ?? '';
+      const ext = f.slice(f.lastIndexOf('.') + 1).toLowerCase();
       return ['ts', 'js', 'tsx', 'jsx', 'py', 'go', 'rs', 'java', 'rb'].includes(ext);
     });
 
@@ -355,7 +355,7 @@ function detectApiDocCoverage(lines: string[], filePath: string): LensFinding[] 
  */
 function detectOpenApiIssues(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
-  const fileName = filePath.split('/').pop()?.toLowerCase() ?? '';
+  const fileName = filePath.slice(filePath.lastIndexOf('/') + 1).toLowerCase();
   const isOpenApiFile =
     fileName.includes('openapi') ||
     fileName.includes('swagger') ||

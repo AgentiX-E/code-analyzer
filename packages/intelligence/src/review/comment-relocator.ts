@@ -117,9 +117,10 @@ export class CommentRelocator {
 
   private findBestMatch(newContent: string, fingerprint: Fingerprint): RelocatedPosition | null {
     const newLines = newContent.split('\n');
+    // `fingerprint.context` is always a string (buildFingerprint trims the slice
+    // but never produces anything other than a string), and ''.split('\n') yields
+    // [''] — a one-element array. So fpLines is never empty and needs no guard.
     const fpLines = fingerprint.context.split('\n');
-
-    if (fpLines.length === 0) return null;
 
     // Strategy 1: Exact context match (high confidence)
     const exactIdx = newContent.indexOf(fingerprint.context);
@@ -180,8 +181,8 @@ export class CommentRelocator {
    * Uses normalized Levenshtein-like comparison at the line level.
    */
   private fuzzyMatch(original: string[], candidate: string[]): number {
-    if (original.length === 0) return 0;
-
+    // `original` is always the non-empty `fpLines` array from findBestMatch
+    // (see the invariant documented there), so an empty-guard is unreachable.
     let matches = 0;
     for (let i = 0; i < original.length && i < candidate.length; i++) {
       const oLine = original[i]!.trim();

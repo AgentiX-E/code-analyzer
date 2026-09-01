@@ -112,4 +112,58 @@ describe('Docs Lens', () => {
     expect(Array.isArray(report.findings)).toBe(true);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('should skip a multi-line function signature with no closing paren on the first line', () => {
+    const content = ['function foo(', '  a: number', ') {', '  return a;', '}'].join('\n');
+    const findings = analyzeDocs(content, '/src/multiline.ts');
+    // The signature spans lines, so extractFunctionInfo returns null and the
+    // declaration is skipped rather than mis-parsed as a single-line function.
+    expect(findings).toHaveLength(0);
+  });
+
+  it('should flag a long README missing key sections', () => {
+    const lines = [];
+    for (let i = 0; i < 20; i++) {
+      lines.push(`This is line ${i} of a README with no section headings.`);
+    }
+    const findings = analyzeDocs(lines.join('\n'), '/project/README.md');
+    const readmeFinding = findings.find((f) => f.title.includes('Incomplete README'));
+    expect(readmeFinding).toBeDefined();
+  });
+
+  it('should flag a missing CHANGELOG entry when source files changed', () => {
+    const content = '# Changelog\n\nAll notable changes.\n';
+    const findings = analyzeDocs(content, '/project/CHANGELOG.md', {
+      prFiles: ['src/a.ts', 'src/b.ts'],
+    });
+    const changelogFinding = findings.find((f) => f.title.includes('Missing CHANGELOG'));
+    expect(changelogFinding).toBeDefined();
+  });
+
+  it('should skip CHANGELOG analysis when no PR file context is provided', () => {
+    const content = '# Changelog\n\nAll notable changes.\n';
+    const findings = analyzeDocs(content, '/project/CHANGELOG.md');
+    const changelogFinding = findings.find((f) => f.title.includes('Missing CHANGELOG'));
+    expect(changelogFinding).toBeUndefined();
+  });
+
+  it('should not flag an OpenAPI spec with no operations or responses', () => {
+    const content = 'openapi: 3.0.0\ninfo:\n  title: Minimal\n  version: 1.0.0\n';
+    const findings = analyzeDocs(content, '/api/openapi.yaml');
+    expect(findings).toHaveLength(0);
+  });
+
+  it('should flag an OpenAPI spec with empty description fields', () => {
+    const content = [
+      'openapi: 3.0.0',
+      'info:',
+      '  title: API',
+      '  version: 1.0.0',
+      '  description:',
+      'paths: {}',
+    ].join('\n');
+    const findings = analyzeDocs(content, '/api/openapi.yaml');
+    const descFinding = findings.find((f) => f.title.includes('Empty Descriptions'));
+    expect(descFinding).toBeDefined();
+  });
 });

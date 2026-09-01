@@ -94,4 +94,98 @@ describe('Style Lens', () => {
     expect(Array.isArray(report.findings)).toBe(true);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('should skip valid PascalCase const names', () => {
+    const content = 'const MyClass = 1;';
+    const findings = analyzeStyle(content, '/src/pascal-const.ts');
+    const namingFinding = findings.find((f) => f.title.includes('Non-Standard Naming'));
+    expect(namingFinding).toBeUndefined();
+  });
+
+  it('should skip case statements when aggregating magic numbers', () => {
+    const content = [
+      'switch (value) {',
+      '  case 4: result = 1;',
+      '}',
+      'a = 41; b = 42; c = 43; d = 44; e = 45; f = 46;',
+    ].join('\n');
+    const findings = analyzeStyle(content, '/src/case.ts');
+    expect(findings.some((f) => f.title.includes('Excessive Magic Numbers'))).toBe(true);
+  });
+
+  it('should skip duplicate detection when the current file has too few tokens', () => {
+    const content = 'const x = 1;';
+    const repoFiles = new Map<string, string>([
+      ['/src/other.ts', 'alpha beta gamma delta epsilon zeta eta theta iota kappa'],
+    ]);
+    const findings = analyzeStyle(content, '/src/self.ts', { repoFiles });
+    expect(findings.find((f) => f.title.includes('Duplicate Code'))).toBeUndefined();
+  });
+
+  it('should skip self, tiny, and dissimilar repo files during duplicate detection', () => {
+    const content = [
+      'function compute(a, b) { return a + b; }',
+      'function compute2(a, b) { return a + b; }',
+      'function compute3(a, b) { return a + b; }',
+      'function compute4(a, b) { return a + b; }',
+    ].join('\n');
+    const repoFiles = new Map<string, string>([
+      ['/src/self.ts', content], // same path as the analyzed file
+      ['/src/tiny.ts', 'short'], // fewer than 10 tokens
+      // Dissimilar, with a leading comment-only line that strips to empty.
+      [
+        '/src/different.ts',
+        '// a comment that is stripped away\nconst alpha = 1; const beta = 2; const gamma = 3; const delta = 4; const epsilon = 5; const zeta = 6;',
+      ],
+    ]);
+    const findings = analyzeStyle(content, '/src/self.ts', { repoFiles });
+    expect(findings.find((f) => f.title.includes('Duplicate Code'))).toBeUndefined();
+  });
+
+  it('should skip a long function that already has JSDoc', () => {
+    const lines = ['/**', ' * Documented function', ' */'];
+    lines.push('function documented() {');
+    for (let i = 0; i < 25; i++) {
+      lines.push(`  const line${i} = ${i};`);
+    }
+    lines.push('}');
+    const findings = analyzeStyle(lines.join('\n'), '/src/doc.ts');
+    expect(findings.find((f) => f.title.includes('Missing Documentation'))).toBeUndefined();
+  });
+
+  it('should skip console.log detection for test files', () => {
+    const content = 'console.log("debug");';
+    const findings = analyzeStyle(content, '/src/foo.test.ts');
+    expect(findings.find((f) => f.title.includes('Debug console.log'))).toBeUndefined();
+  });
+
+  it('should flag a function longer than 50 lines', () => {
+    const lines = ['function longFunc() {'];
+    for (let i = 0; i < 55; i++) {
+      lines.push(`  const v${i} = ${i};`);
+    }
+    lines.push('}');
+    const findings = analyzeStyle(lines.join('\n'), '/src/long.ts');
+    expect(findings.find((f) => f.title.includes('Long Function'))).toBeDefined();
+  });
+
+  it('should flag a function with nesting deeper than 4 levels', () => {
+    const content = [
+      'function deep() {',
+      '  if (a) {',
+      '    if (b) {',
+      '      if (c) {',
+      '        if (d) {',
+      '          if (e) {',
+      '            return 1;',
+      '          }',
+      '        }',
+      '      }',
+      '    }',
+      '  }',
+      '}',
+    ].join('\n');
+    const findings = analyzeStyle(content, '/src/deep.ts');
+    expect(findings.find((f) => f.title.includes('Deep Nesting'))).toBeDefined();
+  });
 });

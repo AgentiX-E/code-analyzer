@@ -240,12 +240,13 @@ function tryParseWithTreeSitter(
 } | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // require('tree-sitter') always resolves to its Parser class export (the
+    // module's `main` field); a missing module throws and is caught below, so
+    // there is no falsy-Parser case to guard against.
     const Parser = require('tree-sitter') as new () => {
       setLanguage(g: unknown): void;
       parse(src: string): { rootNode: TsNode };
     };
-    /* v8 ignore next */ // require('tree-sitter') always resolves to the Parser class
-    if (!Parser) return null;
     const grammar = loadGrammar(language);
     if (!grammar) return null;
 
@@ -518,7 +519,10 @@ function extractImportsRegex(lines: string[], language: string): AstImport[] {
       const m = pattern.exec(line);
       if (m) {
         imports.push({
-          moduleSpecifier: m[1] ?? m[2] ?? '',
+          // Every pattern in `importPatterns` captures the module specifier in
+          // group 1 (TS import-from / require) or group 2 (python `import X`),
+          // so at least one group is always populated when the pattern matches.
+          moduleSpecifier: (m[1] ?? m[2])!,
           symbols: [],
           line: i + 1,
           isType: line.includes('import type'),

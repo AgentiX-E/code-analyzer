@@ -105,4 +105,71 @@ describe('API Lens', () => {
     expect(Array.isArray(report.findings)).toBe(true);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('should handle a python route decorator on the last line', () => {
+    const content = 'from fastapi import FastAPI\napp = FastAPI()\n@app.get("/last")';
+    const findings = analyzeApi(content, '/src/last.py');
+    expect(Array.isArray(findings)).toBe(true);
+  });
+
+  it('should handle a python route decorator followed by a non-definition line', () => {
+    const content = [
+      'from fastapi import FastAPI',
+      'app = FastAPI()',
+      '@app.get("/items")',
+      '# a comment, not a def',
+      'async def handler(): pass',
+    ].join('\n');
+    const findings = analyzeApi(content, '/src/api.py');
+    expect(findings.find((f) => f.title.includes('Missing Error Handling'))).toBeDefined();
+  });
+
+  it('should flag a CORS wildcard origin in header form', () => {
+    const content = 'Access-Control-Allow-Origin: *';
+    const findings = analyzeApi(content, '/src/cors.ts');
+    expect(findings.find((f) => f.title.includes('Overly Permissive CORS'))).toBeDefined();
+  });
+
+  it('should flag credentials with an unquoted wildcard origin', () => {
+    const content = 'app.use(cors({ credentials: true, origin: * }));';
+    const findings = analyzeApi(content, '/src/cors.ts');
+    expect(findings.find((f) => f.title.includes('Dangerous CORS'))).toBeDefined();
+  });
+
+  it('should not flag credentials without a wildcard origin', () => {
+    const content = 'app.use(cors({ credentials: true, origin: "https://app.example.com" }));';
+    const findings = analyzeApi(content, '/src/cors.ts');
+    expect(findings.find((f) => f.title.includes('Dangerous CORS'))).toBeUndefined();
+  });
+
+  it('should skip GraphQL breaking-change detection for non-schema files', () => {
+    const schema = 'type Query { hello: String }';
+    const findings = analyzeApi(schema, '/src/util.ts', { previousContent: schema });
+    expect(findings.find((f) => f.title.includes('GraphQL Breaking Change'))).toBeUndefined();
+  });
+
+  it('should flag a removed GraphQL type', () => {
+    const previous = 'type User {\n  id: ID\n}\ntype Post {\n  id: ID\n}';
+    const current = 'type User {\n  id: ID\n}';
+    const findings = analyzeApi(current, '/src/schema.graphql', { previousContent: previous });
+    expect(findings.find((f) => f.title.includes('Removed Type'))).toBeDefined();
+  });
+
+  it('should flush an open GraphQL type when a new type declaration begins', () => {
+    const schema = 'type A {\n  id: ID\ntype B {\n  id: ID\n}';
+    const findings = analyzeApi(schema, '/src/schema.graphql', { previousContent: schema });
+    expect(findings).toHaveLength(0);
+  });
+
+  it('should ignore non-field lines inside a GraphQL type', () => {
+    const schema = 'type User {\n  # a comment line\n  id: ID\n}';
+    const findings = analyzeApi(schema, '/src/schema.graphql', { previousContent: schema });
+    expect(findings.find((f) => f.title.includes('Removed Field'))).toBeUndefined();
+  });
+
+  it('should flush a trailing unclosed GraphQL type', () => {
+    const schema = 'type Query {\n  hello: String';
+    const findings = analyzeApi(schema, '/src/schema.graphql', { previousContent: schema });
+    expect(findings).toHaveLength(0);
+  });
 });

@@ -153,11 +153,11 @@ export class RulesRegistry {
     const registry = new RulesRegistry();
 
     for (const definition of ALL_RULE_DEFINITIONS) {
-      const checker = CHECKER_MAP[definition.id];
-      /* v8 ignore next */ // every ALL_RULE_DEFINITIONS entry has a CHECKER_MAP entry by design
-      if (checker) {
-        registry.register(definition, checker);
-      }
+      // Every ALL_RULE_DEFINITIONS entry has a matching CHECKER_MAP entry by
+      // design (the definition ids and checker keys are kept in lockstep).
+      // A missing checker is a programming error, so fail loudly instead of
+      // silently skipping a rule.
+      registry.register(definition, CHECKER_MAP[definition.id]!);
     }
 
     return registry;

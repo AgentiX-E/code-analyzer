@@ -4,7 +4,15 @@
 // grammar-loading branches for tsx/python/cpp.
 
 import { describe, it, expect } from 'vitest';
-import { createAstContext, hasCall, getEnclosingFunction } from '../rules/ast-rule-checker.js';
+import {
+  createAstContext,
+  hasCall,
+  getEnclosingFunction,
+  hasStringLiteral,
+  findStringLiterals,
+  hasAssignment,
+  findImports,
+} from '../rules/ast-rule-checker.js';
 
 // A malformed line forces tree-sitter to report a syntax error, which routes
 // createAstContext into the regex-based fallback extractors.
@@ -64,9 +72,73 @@ describe('createAstContext — grammar loading for other languages', () => {
     expect(ctx.functions.length).toBe(1);
   });
 
-  it('loads the cpp grammar', () => {
+  it('gracefully falls back to regex for the unavailable cpp grammar', () => {
+    // tree-sitter-cpp is a dependency of @code-analyzer/analyzer, not of this
+    // intelligence package, so loadGrammar('cpp') cannot resolve it and the
+    // context factory transparently falls back to the regex extractors.
     const ctx = createAstContext(['int main() { return 0; }'], 'x.cpp', 'cpp');
+    expect(ctx.hasAst).toBe(false);
+    // The regex fallback still surfaces the call site even without an AST.
+    expect(ctx.calls.some((c) => c.name === 'main')).toBe(true);
+  });
+
+  it('does not extract a python import whose module is a dotted_name', () => {
+    // tree-sitter-python models `import os` as an import_statement with a
+    // `dotted_name` child (no `string` child), so the import extractor records
+    // nothing for it instead of emitting an empty module specifier.
+    const ctx = createAstContext(['import os', 'print(1)'], 'x.py', 'python');
     expect(ctx.hasAst).toBe(true);
+    expect(ctx.imports).toEqual([]);
+  });
+});
+
+describe('createAstContext — regex fallback imports and bounds', () => {
+  it('extracts a python `import X` module from capture group 2', () => {
+    // The dangling `def (` forces a syntax error, routing into the regex
+    // fallback where `import os` matches with its module in group 2 (the
+    // from-import alternative leaves group 1 unset).
+    const ctx = createAstContext(['import os', 'def ('], 'x.py', 'python');
+    expect(ctx.hasAst).toBe(false);
+    expect(ctx.imports).toEqual([{ moduleSpecifier: 'os', symbols: [], line: 1, isType: false }]);
+  });
+
+  it('extracts a python `from X import Y` module from capture group 1', () => {
+    const ctx = createAstContext(['from x import y', 'def ('], 'x.py', 'python');
+    expect(ctx.hasAst).toBe(false);
+    expect(ctx.imports.length).toBe(1);
+    expect(ctx.imports[0].moduleSpecifier).toBe('x');
+  });
+
+  it('records a zero-parameter arrow function bound via regex fallback', () => {
+    // An empty parameter list hits the `paramCount : 0` arm of the ternary.
+    const ctx = createAstContext(['const g = () => {}', 'const = ;'], 'x.ts', 'typescript');
+    expect(ctx.hasAst).toBe(false);
+    expect(ctx.functions).toEqual([{ name: 'g', startLine: 1, endLine: 1, paramCount: 0 }]);
+  });
+
+  it('detects a bare method signature in the regex fallback', () => {
+    // `handleClick(a, b) {` has no `function` keyword, so it is only matched by
+    // the method pattern (and is not a reserved keyword), exercising the method
+    // detection branch and the non-empty parameter-list arm.
+    const ctx = createAstContext(
+      ['handleClick(a, b) {', '  return a + b;', '}', 'const = ;'],
+      'x.ts',
+      'typescript',
+    );
+    expect(ctx.hasAst).toBe(false);
+    expect(ctx.functions).toEqual([
+      { name: 'handleClick', startLine: 1, endLine: 1, paramCount: 2 },
+    ]);
+  });
+
+  it('detects a zero-parameter method signature in the regex fallback', () => {
+    const ctx = createAstContext(
+      ['noArgs() {', '  return 1;', '}', 'const = ;'],
+      'x.ts',
+      'typescript',
+    );
+    expect(ctx.hasAst).toBe(false);
+    expect(ctx.functions).toEqual([{ name: 'noArgs', startLine: 1, endLine: 1, paramCount: 0 }]);
   });
 });
 
@@ -91,6 +163,26 @@ describe('createAstContext — tree-sitter walk edge cases', () => {
     expect(ctx.functions.length).toBe(1);
     expect(ctx.functions[0].paramCount).toBe(0);
   });
+
+  it('records a tagged-template call that has no `arguments` node', () => {
+    // tree-sitter-typescript models `tag`x`` as a call_expression whose child is
+    // a `template_string` rather than an `arguments` node, so the argument
+    // extractor must tolerate a missing arguments node and emit an empty list.
+    const ctx = createAstContext(['tag`hello`;'], 'x.ts', 'typescript');
+    expect(ctx.hasAst).toBe(true);
+    const call = ctx.calls.find((c) => c.name === 'tag');
+    expect(call).toBeDefined();
+    expect(call!.arguments).toEqual([]);
+  });
+
+  it('does not record a name for a private-field member call', () => {
+    // `a.#b` has a `private_property_identifier` (not `property_identifier`), so
+    // the member-expression property lookup finds nothing and the call has no
+    // usable name — it is therefore skipped rather than mis-attributed.
+    const ctx = createAstContext(['a.#b();'], 'x.ts', 'typescript');
+    expect(ctx.hasAst).toBe(true);
+    expect(ctx.calls).toEqual([]);
+  });
 });
 
 describe('AST helper edge cases', () => {
@@ -107,5 +199,34 @@ describe('AST helper edge cases', () => {
     expect(fn).not.toBeNull();
     expect(fn!.name).toBe('f');
     expect(getEnclosingFunction(ctx, 99)).toBeNull();
+  });
+
+  it('matches string literals by value pattern', () => {
+    const ctx = createAstContext(['a = "api-key";', 'b = "other";'], 'x.ts', 'typescript');
+    expect(hasStringLiteral(ctx, /api-key/)).toBe(true);
+    expect(hasStringLiteral(ctx, /missing/)).toBe(false);
+    expect(findStringLiterals(ctx, /api/).map((s) => s.value)).toEqual(['api-key']);
+  });
+
+  it('matches assignments by name pattern', () => {
+    const ctx = createAstContext(
+      ['const secretKey = 1;', 'const other = 2;'],
+      'x.ts',
+      'typescript',
+    );
+    expect(hasAssignment(ctx, /secret/)).toBe(true);
+    expect(hasAssignment(ctx, /missing/)).toBe(false);
+  });
+
+  it('finds imports by module pattern', () => {
+    const ctx = createAstContext(
+      ['import { X } from "lodash";', 'import { Y } from "fs";'],
+      'x.ts',
+      'typescript',
+    );
+    const found = findImports(ctx, /lodash/);
+    expect(found.length).toBe(1);
+    expect(found[0].moduleSpecifier).toBe('lodash');
+    expect(findImports(ctx, /missing/)).toEqual([]);
   });
 });

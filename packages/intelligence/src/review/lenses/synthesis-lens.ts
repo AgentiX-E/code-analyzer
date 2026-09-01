@@ -4,6 +4,7 @@
 
 import type { LensFinding, LensReport, EvidenceAnchor } from '../review-lenses.js';
 import { createLensFinding } from '../review-lenses.js';
+import type { Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // IoU (Intersection over Union) deduplication
@@ -23,13 +24,15 @@ function iouOverlap(a: LensFinding, b: LensFinding): number {
   if (intersectStart > intersectEnd) return 0;
 
   const intersection = intersectEnd - intersectStart + 1;
+  // `union` is always >= 1 here: the `intersectStart > intersectEnd` guard above
+  // already returned 0, so each span contributes at least one line.
   const union = aEnd - aStart + 1 + (bEnd - bStart + 1) - intersection;
-  return union === 0 ? 0 : intersection / union;
+  return intersection / union;
 }
 
 /** Deduplicate findings — merge overlapping ones, keep the higher-severity */
 function deduplicate(findings: LensFinding[]): LensFinding[] {
-  const severityRank: Record<string, number> = {
+  const severityRank: Record<Severity, number> = {
     critical: 4,
     high: 3,
     medium: 2,
@@ -48,8 +51,10 @@ function deduplicate(findings: LensFinding[]): LensFinding[] {
       const iou = iouOverlap(kept, findings[j]!);
       if (iou > 0.5) {
         // Keep the higher-severity finding, merge evidence
-        const aSev = severityRank[kept.severity] ?? 0;
-        const bSev = severityRank[findings[j]!.severity] ?? 0;
+        // severityRank is keyed on the complete Severity union, so the lookup
+        // can never be undefined.
+        const aSev = severityRank[kept.severity];
+        const bSev = severityRank[findings[j]!.severity];
         if (bSev > aSev) {
           kept = {
             ...findings[j]!,
@@ -92,7 +97,7 @@ function ensembleVoting(findings: LensFinding[]): LensFinding[] {
     locationMap.get(key)!.push(f);
   }
 
-  const severityUpgrade: Record<string, string> = {
+  const severityUpgrade: Record<Severity, Severity> = {
     info: 'low',
     low: 'medium',
     medium: 'high',
@@ -110,12 +115,14 @@ function ensembleVoting(findings: LensFinding[]): LensFinding[] {
       // Count distinct lenses in this group
       const distinctLenses = new Set(group.map((g) => g.lens));
       if (distinctLenses.size >= 3) {
-        const newSeverity = severityUpgrade[f.severity] ?? f.severity;
+        // severityUpgrade maps every Severity to its next level, so the lookup
+        // can never be undefined.
+        const newSeverity = severityUpgrade[f.severity];
         if (newSeverity !== f.severity) {
           boosted.add(f.id);
           return {
             ...f,
-            severity: newSeverity as LensFinding['severity'],
+            severity: newSeverity,
             description: `${f.description}\n\n[Ensemble Boosted: ${distinctLenses.size} lenses agree on this location]`,
           };
         }
@@ -137,7 +144,9 @@ function calibrateSeverity(findings: LensFinding[]): LensFinding[] {
   }
 
   return findings.map((f) => {
-    const count = titleCounts.get(f.title) ?? 1;
+    // Every finding's title was just `set` in the loop above, so the lookup
+    // can never be undefined.
+    const count = titleCounts.get(f.title)!;
     if (count > 3 && f.severity === 'low') return { ...f, severity: 'medium' as const };
     if (count > 3 && f.severity === 'medium') return { ...f, severity: 'high' as const };
     return f;
@@ -186,11 +195,6 @@ function mlCalibration(findings: LensFinding[]): LensFinding[] {
       }
     }
 
-    // Very low FP rate (<10%) → we can trust high-confidence findings
-    if (catFP < 0.1 && f.confidence === 'rule' && f.severity === 'medium') {
-      return { ...f, severity: 'high' as const };
-    }
-
     return f;
   });
 }
@@ -199,7 +203,7 @@ function mlCalibration(findings: LensFinding[]): LensFinding[] {
 // Health score
 // ---------------------------------------------------------------------------
 
-const SEVERITY_WEIGHT: Record<string, number> = {
+const SEVERITY_WEIGHT: Record<Severity, number> = {
   critical: 25,
   high: 10,
   medium: 3,
@@ -211,7 +215,9 @@ function computeHealthScore(findings: LensFinding[], totalLines: number): number
   if (totalLines === 0) return 100;
   let penalty = 0;
   for (const f of findings) {
-    const base = SEVERITY_WEIGHT[f.severity] ?? 1;
+    // SEVERITY_WEIGHT is keyed on the complete Severity union, so the lookup
+    // can never be undefined.
+    const base = SEVERITY_WEIGHT[f.severity];
     penalty += base;
   }
   const scaledPenalty = Math.min(penalty * (1000 / Math.max(totalLines, 1)), 100);
@@ -383,12 +389,12 @@ export function synthesizeFindings(
   const low = allFindings.filter((f) => f.severity === 'low' || f.severity === 'info').length;
 
   // 7. Top issues by frequency
-  const titleFreq = new Map<string, { count: number; severity: string }>();
+  const titleFreq = new Map<string, { count: number; severity: Severity }>();
   for (const f of allFindings) {
     const existing = titleFreq.get(f.title);
     if (existing) {
       existing.count++;
-      if (SEVERITY_WEIGHT[f.severity]! > SEVERITY_WEIGHT[existing.severity!]!) {
+      if (SEVERITY_WEIGHT[f.severity] > SEVERITY_WEIGHT[existing.severity]) {
         existing.severity = f.severity;
       }
     } else {

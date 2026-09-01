@@ -274,7 +274,9 @@ function detectResponseFormatInconsistencies(
     const shapes = new Set(routeShapes.map((r) => r.shape));
     if (shapes.size >= 2) {
       const sample1 = routeShapes[0]!;
-      const sample2 = routeShapes.find((r) => r.shape !== sample1.shape) ?? routeShapes[1]!;
+      // `shapes.size >= 2` guarantees an element whose shape differs from
+      // sample1's, so `find` always succeeds here.
+      const sample2 = routeShapes.find((r) => r.shape !== sample1.shape)!;
 
       const evidence: EvidenceAnchor = {
         filePath: routes[0]!.filePath,
