@@ -218,12 +218,12 @@ jobs:
       - name: Enforce coverage thresholds
         run: |
           # Per-dimension thresholds from vitest.config.ts
-          # lines: 95, branches: 89, functions: 95, statements: 95
+          # lines: 95, branches: 95, functions: 95, statements: 95
           FAILED=0
           for dim in lines branches functions statements; do
             case $dim in
               lines)     TH=95 ;;
-              branches)  TH=89 ;;
+              branches)  TH=95 ;;
               functions) TH=95 ;;
               statements)TH=95 ;;
             esac
@@ -236,7 +236,7 @@ jobs:
             echo "::error::Coverage gate failed — one or more dimensions below threshold."
             exit 1
           fi
-          echo "::notice::All coverage dimensions meet thresholds (lines≥95%, branches≥89%, functions≥95%, statements≥95%)."
+          echo "::notice::All coverage dimensions meet thresholds (lines≥95%, branches≥95%, functions≥95%, statements≥95%)."
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4
