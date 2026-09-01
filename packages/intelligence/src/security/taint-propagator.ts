@@ -281,12 +281,9 @@ export class TaintPropagator {
   private buildSinkIndex(cfg: FunctionCfg): Map<number, TaintSinkOccurrence[]> {
     const index = new Map<number, TaintSinkOccurrence[]>();
     for (const [key, sink] of cfg.stmtFacts.sinkSites) {
-      let bucket = index.get(key);
-      if (!bucket) {
-        bucket = [];
-        index.set(key, bucket);
-      }
-      bucket.push(sink);
+      // `sinkSites` is a ReadonlyMap with unique statement keys, so each key is
+      // visited exactly once and a fresh bucket is always required.
+      index.set(key, [sink]);
     }
     return index;
   }
@@ -294,12 +291,9 @@ export class TaintPropagator {
   private buildSanitizerIndex(cfg: FunctionCfg): Map<number, SanitizerOccurrence[]> {
     const index = new Map<number, SanitizerOccurrence[]>();
     for (const [key, san] of cfg.stmtFacts.sanitizerSites) {
-      let bucket = index.get(key);
-      if (!bucket) {
-        bucket = [];
-        index.set(key, bucket);
-      }
-      bucket.push(san);
+      // `sanitizerSites` is a ReadonlyMap with unique statement keys, so each
+      // key is visited exactly once and a fresh bucket is always required.
+      index.set(key, [san]);
     }
     return index;
   }
@@ -356,7 +350,8 @@ export class TaintPropagator {
 
   private computeConfidence(state: TaintState, _use: DefUseFact, pathLength: number): number {
     let confidence = 0.8;
-    if (state.viaCall) confidence *= 0.7;
+    // Inter-procedural taint (viaCall === true) is not yet implemented, so the
+    // ×0.7 call-crossing factor is intentionally omitted.
     if (state.exclusions.size > 0) confidence *= 0.5;
     if (pathLength > 5) confidence *= 0.8;
     if (pathLength > 10) confidence *= 0.6;

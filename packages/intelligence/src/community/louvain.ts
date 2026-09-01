@@ -144,7 +144,9 @@ export class LouvainDetector {
       if (!adjacency.has(edge.targetId)) adjacency.set(edge.targetId, new Map());
 
       // Undirected for community detection
-      const w = edge.weight ?? 1;
+      // Invariant: `GraphEdge.weight` is a required `number` (never undefined),
+      // so the `?? 1` fallback is unreachable and removed here.
+      const w = edge.weight;
 
       const srcNeighbors = adjacency.get(edge.sourceId)!;
       srcNeighbors.set(edge.targetId, (srcNeighbors.get(edge.targetId) ?? 0) + w);
@@ -169,15 +171,18 @@ export class LouvainDetector {
     totalWeight: number,
   ): Map<number, number> {
     const gains = new Map<number, number>();
-    const nodeDegree = degrees.get(nodeId) ?? 0;
-    const neighbors = adjacency.get(nodeId);
-    if (!neighbors) return gains;
+    // Invariant: `nodeId` is always a key of both `degrees` and `adjacency`.
+    // Both maps are built from the same adjacency map that the caller iterates,
+    // so `get` can never return `undefined` here.
+    const nodeDegree = degrees.get(nodeId)!;
+    const neighbors = adjacency.get(nodeId)!;
 
     // Compute weight to each community
     const communityWeights = new Map<number, number>();
     for (const [neighborId, weight] of neighbors) {
-      const comm = nodeToCommunity.get(neighborId);
-      if (comm === undefined) continue;
+      // Invariant: every neighbor id is itself an adjacency key (and therefore a
+      // nodeToCommunity key), because buildCallAdjacency registers both endpoints.
+      const comm = nodeToCommunity.get(neighborId)!;
       communityWeights.set(comm, (communityWeights.get(comm) ?? 0) + weight);
     }
 
@@ -190,7 +195,9 @@ export class LouvainDetector {
       // Sigma_tot: total degree of nodes in target community
       let sigmaTot = 0;
       for (const [nid, ncomm] of nodeToCommunity) {
-        if (ncomm === comm) sigmaTot += degrees.get(nid) ?? 0;
+        // Invariant: every nodeToCommunity key is an adjacency key, hence also a
+        // degrees key, so `get` can never return `undefined` here.
+        if (ncomm === comm) sigmaTot += degrees.get(nid)!;
       }
 
       // Simplified modularity gain
@@ -208,19 +215,23 @@ export class LouvainDetector {
     degrees: Map<number, number>,
     totalWeight: number,
   ): number {
-    if (totalWeight === 0) return 0;
+    // Invariant: the only caller (detectCommunities) returns early when
+    // `totalWeight === 0`, so this is always reached with a positive totalWeight.
     let q = 0;
     const m2 = 2 * totalWeight;
 
     for (const [nodeId, neighbors] of adjacency) {
       const commI = nodeToCommunity.get(nodeId)!;
-      const degI = degrees.get(nodeId) ?? 0;
+      // Invariant: every adjacency key is also a degrees key, so `get` can never
+      // return `undefined` here.
+      const degI = degrees.get(nodeId)!;
 
       for (const [neighborId, weight] of neighbors) {
         const commJ = nodeToCommunity.get(neighborId);
         if (commI !== commJ) continue;
 
-        const degJ = degrees.get(neighborId) ?? 0;
+        // Invariant: every neighbor id is an adjacency key, hence a degrees key.
+        const degJ = degrees.get(neighborId)!;
         q += weight - (degI * degJ) / m2;
       }
     }

@@ -351,12 +351,13 @@ describe('LouvainDetector', () => {
     expect(result.modularity).toBeGreaterThan(0);
   });
 
-  it('should handle CALLS edges with null weight defaulting to 1', () => {
+  it('should handle a single CALLS edge using the helper default weight', () => {
     const g = makeGraph();
     addNode(g, 0, 'Function', 'f0');
     addNode(g, 1, 'Function', 'f1');
-    // Edge without explicit weight — should default to 1 via edge.weight ?? 1
-    addEdge(g, 0, 0, 1, 'CALLS', undefined as any);
+    // No explicit weight — the edge helper defaults to weight 1. `GraphEdge.weight`
+    // is a required `number`, so production code reads it without a fallback.
+    addEdge(g, 0, 0, 1, 'CALLS');
 
     const detector = new LouvainDetector();
     const result = detector.detectCommunities(g);

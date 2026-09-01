@@ -174,9 +174,9 @@ export class BenchmarkRunner {
       if (!content) continue; // Skip empty files (e.g., deleted)
 
       const lines = content.split('\n');
-      // Determine changeType based on before/after content
-      const changeType: GitDiff['changeType'] =
-        file.beforeContent === '' ? 'added' : file.afterContent === '' ? 'deleted' : 'modified';
+      // Empty beforeContent means the file was added; an empty afterContent is
+      // already skipped above (deleted files produce no heuristic results).
+      const changeType: GitDiff['changeType'] = file.beforeContent === '' ? 'added' : 'modified';
 
       const diff = createDiff(file.filePath, changeType, content);
 
@@ -331,7 +331,7 @@ export class BenchmarkRunner {
     lines.push('| Category | Precision | Recall | F1 Score |');
     lines.push('|----------|-----------|--------|----------|');
     for (const [category, m] of Object.entries(metrics.byCategory)) {
-      if (m.precision > 0 || m.recall > 0 || m.f1 > 0) {
+      if (m.precision > 0 || m.recall > 0) {
         lines.push(
           `| ${category} | ${(m.precision * 100).toFixed(2)}% | ${(m.recall * 100).toFixed(2)}% | ${(m.f1 * 100).toFixed(2)}% |`,
         );

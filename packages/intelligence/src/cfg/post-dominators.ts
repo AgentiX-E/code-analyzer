@@ -56,6 +56,12 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
 
   // Intersect operation: walk up the dominator chain
   // Find the deepest common ancestor in the ipdom tree
+  //
+  // Termination invariant: every reachable block's immediate post-dominator
+  // (ipdom) points to a block with a strictly SMALLER reverse-post-order
+  // number. ipdom[exit] = exit is reset after the fixpoint, so during
+  // iteration the root's ipdom is itself (postNum 0, the minimum) and a
+  // climb can never loop. Consequently the two fingers always converge.
   const intersect = (
     finger1: number,
     finger2: number,
@@ -63,25 +69,16 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
     postNum: number[],
   ): number => {
     while (finger1 !== finger2) {
-      let moved = false;
       // Climb the finger that is further from root. In reverse post-order the
       // root carries the smallest number and a node's idom always has a smaller
       // number than the node itself, so the deeper finger is the one with the
       // HIGHER postNum and must be the one climbed upward.
       while (postNum[finger1]! > postNum[finger2]!) {
-        const next = ipdom[finger1]!;
-        if (next === finger1 || next === NO_IPDOM) break; // reached root
-        finger1 = next;
-        moved = true;
+        finger1 = ipdom[finger1]!;
       }
       while (postNum[finger2]! > postNum[finger1]!) {
-        const next = ipdom[finger2]!;
-        if (next === finger2 || next === NO_IPDOM) break;
-        finger2 = next;
-        moved = true;
+        finger2 = ipdom[finger2]!;
       }
-      // If neither finger moved, both are at roots — converge
-      if (!moved) break;
     }
     return finger1;
   };
@@ -119,9 +116,13 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
     for (let i = 0; i < postOrder.length; i++) {
       const b = postOrder[i]!;
       if (b === exitBlock) continue; // skip root
-      if (!reachable.has(b)) continue;
+      // Invariant: b is iterated from postOrder, which is exactly the set used
+      // to build `reachable`, so `reachable.has(b)` is always true here.
 
-      // Find first processed predecessor in reverse CFG
+      // Find first processed predecessor in reverse CFG.
+      // Invariant: every reachable non-exit block has at least one reachable
+      // forward successor (initialized to exitBlock != NO_IPDOM), so newIdom is
+      // always assigned by this loop.
       let newIdom = NO_IPDOM;
       for (const pred of predsInRevCfg[b]!) {
         if (ipdom[pred] !== NO_IPDOM) {
@@ -129,7 +130,6 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
           break;
         }
       }
-      if (newIdom === NO_IPDOM) continue;
 
       // Intersect all other processed predecessors
       for (const pred of predsInRevCfg[b]!) {
@@ -146,11 +146,10 @@ export function computePostDominators(cfg: FunctionCfg): PostDomTree {
     }
   }
 
-  // Reset: EXIT has NO_IPDOM (it has no post-dominator)
-  /* v8 ignore next — exit block is always present in a valid CFG */
-  if (exitBlock >= 0 && exitBlock < n) {
-    ipdom[exitBlock] = NO_IPDOM;
-  }
+  // Reset: EXIT has NO_IPDOM (it has no post-dominator).
+  // Invariant: exitBlock is validated against [0, n) above, so it is always a
+  // valid index here.
+  ipdom[exitBlock] = NO_IPDOM;
 
   return { ipdom };
 }
