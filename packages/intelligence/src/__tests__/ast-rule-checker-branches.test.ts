@@ -72,11 +72,12 @@ describe('createAstContext — grammar loading for other languages', () => {
     expect(ctx.functions.length).toBe(1);
   });
 
-  it('gracefully falls back to regex for the unavailable cpp grammar', () => {
-    // tree-sitter-cpp is a dependency of @code-analyzer/analyzer, not of this
-    // intelligence package, so loadGrammar('cpp') cannot resolve it and the
-    // context factory transparently falls back to the regex extractors.
-    const ctx = createAstContext(['int main() { return 0; }'], 'x.cpp', 'cpp');
+  it('gracefully falls back to regex for a language with no grammar package', () => {
+    // An unmapped language key has no entry in GRAMMAR_PACKAGES, so loadGrammar
+    // returns null deterministically (independent of whether any tree-sitter
+    // grammar happens to be hoisted into this package's resolution path) and
+    // the context factory transparently falls back to the regex extractors.
+    const ctx = createAstContext(['int main() { return 0; }'], 'x.foo', 'unknown');
     expect(ctx.hasAst).toBe(false);
     // The regex fallback still surfaces the call site even without an AST.
     expect(ctx.calls.some((c) => c.name === 'main')).toBe(true);
