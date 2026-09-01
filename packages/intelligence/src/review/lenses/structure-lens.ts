@@ -26,7 +26,7 @@ interface LayerRule {
 function parseLayerRules(configContent: string): LayerRule[] {
   const rules: LayerRule[] = [];
   const lines = configContent.split('\n');
-  let currentRule: Partial<LayerRule> | null = null;
+  let currentRule: LayerRule | null = null;
   let inForbidden = false;
   let inPaths = false;
 
@@ -38,8 +38,8 @@ function parseLayerRules(configContent: string): LayerRule[] {
       if (currentRule?.name) {
         rules.push({
           name: currentRule.name,
-          paths: currentRule.paths ?? [],
-          forbiddenImports: currentRule.forbiddenImports ?? [],
+          paths: currentRule.paths,
+          forbiddenImports: currentRule.forbiddenImports,
         });
       }
       currentRule = { name: nameMatch[1]!.trim(), paths: [], forbiddenImports: [] };
@@ -68,19 +68,19 @@ function parseLayerRules(configContent: string): LayerRule[] {
 
     if (inPaths) {
       const pathMatch = trimmed.match(/^\s*-\s*(.+)/);
-      if (pathMatch) currentRule.paths!.push(pathMatch[1]!.trim());
+      if (pathMatch) currentRule.paths.push(pathMatch[1]!.trim());
     }
     if (inForbidden) {
       const forbidMatch = trimmed.match(/^\s*-\s*(.+)/);
-      if (forbidMatch) currentRule.forbiddenImports!.push(forbidMatch[1]!.trim());
+      if (forbidMatch) currentRule.forbiddenImports.push(forbidMatch[1]!.trim());
     }
   }
 
   if (currentRule?.name) {
     rules.push({
       name: currentRule.name,
-      paths: currentRule.paths ?? [],
-      forbiddenImports: currentRule.forbiddenImports ?? [],
+      paths: currentRule.paths,
+      forbiddenImports: currentRule.forbiddenImports,
     });
   }
 
@@ -289,7 +289,7 @@ function detectCircularImports(
  */
 function detectBarrelExports(lines: string[], filePath: string): LensFinding[] {
   const findings: LensFinding[] = [];
-  const fileName = filePath.split('/').pop() ?? '';
+  const fileName = filePath.slice(filePath.lastIndexOf('/') + 1);
 
   // Only check index.* files
   if (!fileName.startsWith('index.')) return findings;
@@ -306,10 +306,8 @@ function detectBarrelExports(lines: string[], filePath: string): LensFinding[] {
       if (braceMatch) {
         const exports = braceMatch[1]!.split(',').filter((e) => e.trim());
         reExportCount += exports.length;
-      } else if (/export\s+\*\s+from/.test(trimmed)) {
-        reExportCount += 10; // wildcard export = high coupling proxy
       } else {
-        reExportCount++;
+        reExportCount += 10; // wildcard export = high coupling proxy
       }
       reExportLines.push(i + 1);
     }

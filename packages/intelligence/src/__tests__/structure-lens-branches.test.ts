@@ -123,6 +123,29 @@ describe('Structure Lens — detectCircularImports (graph-backed)', () => {
     const findings = analyzeStructure('', 'src/missing.ts', { store, projectId: 'test-project' });
     expect(findings.filter((f) => f.evidence.ruleId === 'struct-circular-import')).toHaveLength(0);
   });
+
+  it('renders "unknown" when the importer node in a cycle has no filePath', () => {
+    const store = new InMemoryGraphStore();
+    const a = node(store, 1, {
+      label: 'File',
+      name: 'a.ts',
+      qualifiedName: 'qn:a',
+      filePath: 'src/a.ts',
+    });
+    node(store, 2, {
+      label: 'File',
+      name: 'b.ts',
+      qualifiedName: 'qn:b',
+      filePath: null,
+    });
+    edge(store, a, 2, 'IMPORTS'); // a imports b
+    edge(store, 2, a, 'IMPORTS'); // b imports a
+
+    const findings = analyzeStructure('', 'src/a.ts', { store, projectId: 'test-project' });
+    const cycles = findings.filter((f) => f.evidence.ruleId === 'struct-circular-import');
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]!.evidence.codeSnippet).toContain('unknown');
+  });
 });
 
 describe('Structure Lens — detectOrphanCode (graph-backed)', () => {

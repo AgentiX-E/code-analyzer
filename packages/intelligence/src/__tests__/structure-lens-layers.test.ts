@@ -87,6 +87,48 @@ layers:
     const findings = analyzeStructure('const x = 1;\n', 'src/web/app.ts', { layerConfig: config });
     expect(findings.filter((f) => f.evidence.ruleId === 'struct-layer-violation')).toHaveLength(0);
   });
+
+  it('returns no rules when the layers block contains no - name: entry', () => {
+    const config = `
+layers:
+  paths:
+    - src/web/
+`;
+    const findings = analyzeStructure(
+      "import { db } from 'src/data/database';\n",
+      'src/web/app.ts',
+      {
+        layerConfig: config,
+      },
+    );
+    expect(findings.filter((f) => f.evidence.ruleId === 'struct-layer-violation')).toHaveLength(0);
+  });
+
+  it('ignores non-list lines inside paths and forbidden_imports sections', () => {
+    const config = `
+layers:
+  - name: web
+    paths:
+      - src/web/
+      a plain line in paths
+    forbidden_imports:
+      - data
+      a plain line in forbidden
+  - name: data
+    paths:
+      - src/data/
+`;
+    const findings = analyzeStructure(
+      "import { db } from 'src/data/database';\n",
+      'src/web/app.ts',
+      {
+        layerConfig: config,
+      },
+    );
+    const violations = findings.filter((f) => f.evidence.ruleId === 'struct-layer-violation');
+    expect(violations.length).toBeGreaterThanOrEqual(1);
+    expect(violations[0]!.title).toContain('data');
+  });
 });
 
 // ---------------------------------------------------------------------------
