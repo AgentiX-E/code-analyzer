@@ -30,7 +30,7 @@
     "theme": "dark"
   },
   "sideEffects": false,
-  "publisher": "agentix",
+  "publisher": "Lambertyan",
   "engines": {
     "vscode": "^1.95.0",
     "node": ">=20.0.0"
