@@ -150,7 +150,9 @@ export class CommentReflectionModule {
       if (!posResult.valid) {
         issues.push({
           type: 'position_invalid',
-          message: posResult.reason ?? 'Invalid comment position',
+          // `validatePosition` always sets `reason` when it returns `valid: false`,
+          // so the non-null assertion only narrows the optional type.
+          message: posResult.reason!,
           severity: 'error',
         });
       }
@@ -205,7 +207,9 @@ export class CommentReflectionModule {
       if (this.options.autoAdjustPositions && posResult.adjustedStartLine !== undefined) {
         adjustedPosition = {
           startLine: posResult.adjustedStartLine,
-          endLine: posResult.adjustedEndLine ?? comment.endLine,
+          // `validatePosition` sets `adjustedEndLine` whenever it sets
+          // `adjustedStartLine`, so the non-null assertion only narrows the type.
+          endLine: posResult.adjustedEndLine!,
         };
         relocatedComments++;
       }
@@ -233,9 +237,9 @@ export class CommentReflectionModule {
     // Detect duplicates
     const duplicateResults = this.detectDuplicates(results);
     for (const dup of duplicateResults) {
-      if (!dup.passed) {
-        failedComments++;
-      }
+      // `detectDuplicates` marks every returned entry `passed = false`, so each
+      // duplicate unconditionally counts as a failure.
+      failedComments++;
       issueBreakdown['duplicate'] = (issueBreakdown['duplicate'] ?? 0) + 1;
     }
 
@@ -303,8 +307,8 @@ export class CommentReflectionModule {
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    if (existingLines.length === 0) return false;
-
+    // The only caller (`reflect`) guards with `existingCode.trim().length > 0`,
+    // so `existingLines` is always non-empty here.
     const fileSnippet = fileLines
       .slice(startLine - 1, endLine)
       .map((l) => l.trim())

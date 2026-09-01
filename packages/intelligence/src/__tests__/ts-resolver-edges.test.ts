@@ -1,6 +1,5 @@
-// @ts-nocheck
-// @code-analyzer/intelligence — TS resolver edge branches: literal fallback,
-// import-resolved function, generic argument binding, and field access.
+// @code-analyzer/intelligence — TS resolver edge branches: import-resolved
+// function, generic argument binding, and field access.
 
 import { describe, it, expect } from 'vitest';
 import { TSResolverContext } from '../lsp/ts-resolver.js';
@@ -40,10 +39,6 @@ function makeCtx(): TSResolverContext {
 
 describe('TSResolverContext — literal and import fallbacks', () => {
   const ctx = makeCtx();
-
-  it('falls back to unknown for a non-primitive literal', () => {
-    expect(ctx.evalLiteral({} as never)).toBe(BUILTINS.unknown);
-  });
 
   it('resolves an import-mapped function name to the function builtin', () => {
     // `fetchUser` is in the import map but only a function exists at lib.fetchUser.

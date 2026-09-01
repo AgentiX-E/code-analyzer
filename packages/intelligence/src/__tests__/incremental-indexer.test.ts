@@ -12,12 +12,13 @@ import {
   existsSync,
   rmSync,
   statSync,
+  symlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { IncrementalCrossRepoIndexer } from '../cross-repo/incremental-indexer.js';
@@ -114,6 +115,22 @@ function makeNode(
     fingerprint: null,
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+/**
+ * Create a GraphEdge for manual insertion into the store.
+ */
+function makeEdge(projectId: string, sourceId: number, targetId: number): GraphEdge {
+  return {
+    id: 0,
+    projectId,
+    sourceId,
+    targetId,
+    type: 'CALLS',
+    properties: {},
+    weight: 1,
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -1056,6 +1073,102 @@ describe('IncrementalCrossRepoIndexer', () => {
       const result = await indexer.incrementalIndex('incr-rename-group');
 
       expect(result.errors).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // Defensive branches and filesystem edge cases
+  // =========================================================================
+
+  describe('Defensive branches and filesystem edge cases', () => {
+    it('defaults the cache directory when none is provided', () => {
+      const defaultIndexer = new IncrementalCrossRepoIndexer(crossRepoIndexer, store);
+      expect(defaultIndexer.getCachedFileCount('test/__no_such_repo__')).toBe(0);
+      expect(defaultIndexer.getLastIndexTime('test/__no_such_repo__')).toBeNull();
+    });
+
+    it('falls back to String(err) when re-index rejects a non-Error value', async () => {
+      const repoDir = setupRepo(workspaceDir, 'non-error-repo', {
+        'src/app.ts': 'export const x = 1;',
+      });
+      const group = groupManager.createGroup('non-error-group', 'Non-Error Group', '');
+      groupManager.addRepo('non-error-group', 'test', 'non-error-repo', '', repoDir);
+
+      vi.spyOn(crossRepoIndexer as any, 'indexSingleRepo').mockRejectedValue('raw failure');
+
+      const result = await indexer.incrementalIndex('non-error-group');
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain('raw failure');
+      vi.restoreAllMocks();
+    });
+
+    it('falls back to defaults when cache JSON fields are null', () => {
+      const safeId = 'test_null-cache'.replace(/[/\\:*?"<>|]/g, '_');
+      const dir = join(cacheDir, safeId);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, 'checksums.json'),
+        JSON.stringify({ repoId: null, lastIndexTime: null, files: null }),
+      );
+
+      expect(indexer.getCachedFileCount('test/null-cache')).toBe(0);
+      expect(indexer.getLastIndexTime('test/null-cache')).toBeNull();
+    });
+
+    it('skips symbolic links (neither directory nor regular file)', () => {
+      const repoDir = join(workspaceDir, 'symlink-repo');
+      mkdirSync(join(repoDir, 'src'), { recursive: true });
+      writeFileSync(join(repoDir, 'src', 'real.ts'), 'export const a = 1;', 'utf-8');
+      symlinkSync(join(repoDir, 'src', 'real.ts'), join(repoDir, 'src', 'link.ts'));
+
+      const result = indexer.computeChangeSet('test/symlink-repo', repoDir);
+      expect(result.added).toEqual(['src/real.ts']);
+    });
+
+    it('skips files with no extension', () => {
+      const repoDir = setupRepo(workspaceDir, 'extless-repo', {
+        'src/code.ts': 'export const a = 1;',
+        'src/Makefile': 'all:\n\techo hi',
+      });
+      const result = indexer.computeChangeSet('test/extless-repo', repoDir);
+      expect(result.added).toEqual(['src/code.ts']);
+    });
+
+    it('returns an empty change set when the scan directory cannot be read', () => {
+      const result = indexer.computeChangeSet(
+        'test/missing-dir',
+        join(workspaceDir, 'does-not-exist'),
+      );
+      expect(result.added).toEqual([]);
+      expect(result.deleted).toEqual([]);
+    });
+
+    it('removes only matching-project nodes (with edges) for deleted files', async () => {
+      const repoDir = setupRepo(workspaceDir, 'rm-filter-repo', {
+        'src/keep.ts': 'export const keep = 1;',
+      });
+      writeManualCache(cacheDir, 'test/rm-filter-repo', {
+        'src/keep.ts': sha256('export const keep = 1;'),
+        'src/gone.ts': sha256('export const gone = 1;'),
+      });
+
+      // A node from a different project is skipped entirely.
+      store.insertNode(makeNode('other/repo', 'otherNode', 'src/gone.ts'));
+      // A node in the target project whose filePath is NOT deleted survives.
+      const keepId = store.insertNode(makeNode('test/rm-filter-repo', 'keepNode', 'src/keep.ts'));
+      // A node in the target project whose filePath IS deleted is removed (with its edge).
+      const goneId = store.insertNode(makeNode('test/rm-filter-repo', 'goneNode', 'src/gone.ts'));
+      store.insertEdge(makeEdge('test/rm-filter-repo', goneId, keepId));
+
+      const group = groupManager.createGroup('rm-filter-group', 'RM Filter Group', '');
+      groupManager.addRepo('rm-filter-group', 'test', 'rm-filter-repo', '', repoDir);
+
+      const result = await indexer.incrementalIndex('rm-filter-group');
+
+      const remaining = store.getAllNodes();
+      expect(remaining.map((n) => n.name).sort()).toEqual(['keepNode', 'otherNode']);
+      expect(store.getEdgeCount()).toBe(0);
+      expect(result.nodesRemoved).toBe(1);
     });
   });
 });

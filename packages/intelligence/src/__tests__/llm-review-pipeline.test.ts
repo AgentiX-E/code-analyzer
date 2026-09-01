@@ -631,3 +631,25 @@ describe('LLMReviewPipeline — Pipeline Metrics', () => {
     expect(result.noiseReduction).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Snippet extraction fallback
+// ---------------------------------------------------------------------------
+
+describe('LLMReviewPipeline — snippet extraction fallback', () => {
+  it('extracts the snippet from file content when a finding omits its snippet', () => {
+    // Raw LLM output frequently omits `snippet`, so the pipeline must derive
+    // `existingCode` from the file content at the claimed line range.
+    const content = 'const a = 1;\nconst b = 2;\nconst c = 3;\n';
+    const pipeline = new LLMReviewPipeline();
+    const finding = makeLLMFinding({
+      startLine: 2,
+      endLine: 3,
+      snippet: undefined,
+      category: 'style',
+      severity: 'low',
+    });
+    const result = pipeline.processFindings([finding], content, 'file.ts');
+    expect(result.comments[0]!.existingCode).toBe('const b = 2;\nconst c = 3;');
+  });
+});

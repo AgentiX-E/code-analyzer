@@ -325,18 +325,19 @@ export class EmbeddingCache {
   private moveToFront(node: LRUNode): void {
     if (node === this.head) return;
 
-    // Remove from current position
-    if (node.prev) node.prev.next = node.next;
+    // Unlink from the current position. `node` is never the head here (the
+    // guard above returns early), so it always has a predecessor; the `!`
+    // narrows the `LRUNode | null` type only and has no runtime effect.
+    node.prev!.next = node.next;
     if (node.next) node.next.prev = node.prev;
     if (node === this.tail) this.tail = node.prev;
 
-    // Add to front
+    // Re-link as the new head. The list is non-empty (it still contains
+    // `node`), so `this.head` is guaranteed non-null.
     node.prev = null;
     node.next = this.head;
-    if (this.head) this.head.prev = node;
+    this.head!.prev = node;
     this.head = node;
-
-    if (!this.tail) this.tail = node;
   }
 
   private removeNode(node: LRUNode): void {

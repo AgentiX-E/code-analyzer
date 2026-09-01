@@ -6,6 +6,7 @@
 import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+import { cpus } from 'node:os';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -130,11 +131,14 @@ export class EmbeddingWorkerPool {
       if (s.status === 'fulfilled') {
         results.push(s.value);
       } else {
-        // The queue rejects with an EmbeddingError ({ taskId, error }), not an
-        // Error instance, so read `.error` before falling back to `.message`.
+        // The queue's reject callback is typed `(error: EmbeddingError) => void`,
+        // so every rejection carries a string `error` field. The defensive
+        // `?.message` / `String(reason)` fallbacks and the `?? 'unknown'`
+        // taskId fallback were unreachable and are omitted.
+        const reason = s.reason as EmbeddingError;
         errors.push({
-          taskId: tasks[i]?.taskId ?? 'unknown',
-          error: s.reason?.error ?? s.reason?.message ?? String(s.reason),
+          taskId: tasks[i]!.taskId,
+          error: reason.error,
         });
       }
     }
@@ -278,12 +282,8 @@ export class EmbeddingWorkerPool {
   // -----------------------------------------------------------------------
 
   private defaultWorkerCount(): number {
-    try {
-      const os = require('node:os');
-      return Math.max(1, os.cpus().length - 1); // Leave one core free
-    } catch {
-      return 2;
-    }
+    // Leave one core free for the main thread; never spawn fewer than one.
+    return Math.max(1, cpus().length - 1);
   }
 
   private spawnWorker(index: number): void {

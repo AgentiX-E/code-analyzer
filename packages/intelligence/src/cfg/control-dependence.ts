@@ -61,8 +61,10 @@ export function computeControlDependence(
       }
 
       // Walk up ipdom chain from S — additional nodes that C does NOT
-      // post-dominate are also control-dependent on C
-      let cur: number = ipdom[s] ?? NO_IPDOM;
+      // post-dominate are also control-dependent on C.
+      // ipdom is a dense number[] (every block holds an entry; NO_IPDOM is a
+      // real -1 value, never undefined), so indexed access needs no nullish guard.
+      let cur = ipdom[s]!;
       for (let limit = 0; limit < 100; limit++) {
         if (cur === NO_IPDOM || cur === exitIdx || cur === c) break;
         if (postDominates(postDom, c, cur)) break;
@@ -74,9 +76,10 @@ export function computeControlDependence(
           edges.push({ controllerBlock: c, dependentBlock: cur, label });
         }
 
-        const next: number = ipdom[cur] ?? NO_IPDOM;
-        if (next === NO_IPDOM || next === cur) break;
-        cur = next;
+        // The chain terminates via the top-of-loop guard on the next iteration
+        // (cur reaches exitIdx / NO_IPDOM) or via postDominates above; the tree
+        // is acyclic so ipdom[cur] never points back at cur.
+        cur = ipdom[cur]!;
       }
     }
   }

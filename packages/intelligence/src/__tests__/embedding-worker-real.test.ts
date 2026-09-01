@@ -226,3 +226,56 @@ describe('EmbeddingWorkerPool (real worker) - health check', () => {
     expect(pool.getStats().unhealthyWorkers).toBe(1);
   });
 });
+
+// ── Defensive branch coverage: orphan replies, missing fields, restart ──
+
+describe('EmbeddingWorkerPool (real worker) - defensive branches', () => {
+  let pool: EmbeddingWorkerPool;
+
+  afterEach(async () => {
+    try {
+      await pool?.shutdown();
+    } catch {
+      // Ignore teardown errors
+    }
+  });
+
+  it('ignores a stray reply for an unknown taskId', async () => {
+    pool = new EmbeddingWorkerPool(FIXTURE, 1);
+    const { results, errors } = await pool.embedBatch([{ taskId: 'stray', content: '__STRAY__' }]);
+    // The real task resolves; the orphan 'ghost-task-id' reply is ignored.
+    expect(results).toHaveLength(1);
+    expect(results[0]!.taskId).toBe('stray');
+    expect(errors).toHaveLength(0);
+    // Flush the worker's second (orphan) message so the orphan guard runs.
+    await new Promise((r) => setTimeout(r, 50));
+  });
+
+  it('defaults a missing durationMs to 0 on a result reply', async () => {
+    pool = new EmbeddingWorkerPool(FIXTURE, 1);
+    const { results, errors } = await pool.embedBatch([
+      { taskId: 'nodur', content: '__NO_DURATION__' },
+    ]);
+    expect(errors).toHaveLength(0);
+    expect(results).toHaveLength(1);
+    expect(results[0]!.durationMs).toBe(0);
+  });
+
+  it('defaults a missing error message to "Unknown worker error"', async () => {
+    pool = new EmbeddingWorkerPool(FIXTURE, 1);
+    const { results, errors } = await pool.embedBatch([
+      { taskId: 'noerr', content: '__NO_ERROR__' },
+    ]);
+    expect(results).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.taskId).toBe('noerr');
+    expect(errors[0]!.error).toBe('Unknown worker error');
+  });
+
+  it('restarts a worker at an out-of-range index', () => {
+    pool = new EmbeddingWorkerPool(FIXTURE, 2);
+    const result = pool.restartWorker(99);
+    expect(result).toBe(true);
+    expect(pool.getStats().restartedWorkers).toBe(1);
+  });
+});

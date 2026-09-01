@@ -7,7 +7,7 @@ import * as path from 'path';
 // Types
 // ---------------------------------------------------------------------------
 
-export type BundleCategory = 'mirror' | 'sibling' | 'impl' | 'config' | 'solo';
+export type BundleCategory = 'mirror' | 'sibling' | 'impl' | 'solo';
 
 export interface FileBundle {
   id: string;
@@ -170,11 +170,9 @@ function logicalBaseName(file: string): string {
   for (const pattern of MIRROR_STEM_PATTERNS) {
     const match = stem.match(pattern);
     if (match) {
-      const idx = stem.indexOf(match[0]);
-      if (idx >= 0) {
-        // Keep the separator before the variant
-        stem = stem.substring(0, idx);
-      }
+      // `match[0]` is a matched substring of `stem`, so its index is always >= 0.
+      // Keep the separator before the variant.
+      stem = stem.substring(0, stem.indexOf(match[0]));
       break;
     }
   }
@@ -291,24 +289,20 @@ function detectCategory(files: string[]): BundleCategory {
   // Implementation: interface/abstract prefix patterns
   if (names.some((n) => isInterfaceFile(n) || isAbstractFile(n))) return 'impl';
 
-  // Config: dev/prod/staging patterns
-  if (names.some((n) => /[._](dev|prod|staging|development|production)[._]/i.test(n)))
-    return 'config';
-
   // Sibling: styles, modules, stories, types suffixes
   if (names.some((n) => hasSiblingSuffix(n))) return 'sibling';
 
   // Test pairing
   if (names.some((n) => isTestFile(n))) return 'sibling';
 
-  // Multiple files with same base name in same directory = sibling
-  if (files.length > 1) {
-    const bases = files.map((f) => baseNameNoExt(fileName(f)));
-    const firstBase = bases[0];
-    if (firstBase && bases.every((b) => b === firstBase)) return 'sibling';
-  }
+  // `detectCategory` is only invoked when the group contains multiple files
+  // (see `bundleFiles`), so the group is non-singleton here. Multiple files with
+  // the same base name in the same directory are treated as siblings; a falsy
+  // `firstBase` (an empty base, e.g. a leading-dot file) falls through to solo.
+  const bases = files.map((f) => baseNameNoExt(fileName(f)));
+  const firstBase = bases[0];
+  if (firstBase && bases.every((b) => b === firstBase)) return 'sibling';
 
-  /* v8 ignore next -- @preserve */
   return 'solo';
 }
 

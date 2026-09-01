@@ -596,36 +596,37 @@ export function reviewDependencyHealth(
     }
   }
 
-  // Check for unpinned versions (npm: ^, ~, >=, *)
+  // Check for unpinned versions (npm: ^, ~, >=, <=, >, <, =, *). The wildcard
+  // "*" is the most unpinned form, so the version capture allows an empty
+  // remainder after the pin symbol. A single match both detects and extracts
+  // the dependency, so no redundant pre-filter test is needed.
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (/\s*"[^"]+"\s*:\s*"[~^><=*]/.test(line)) {
-      const match = line.match(/"([^"]+)"\s*:\s*"([~^><=*][^"]+)"/);
-      if (match) {
-        const depName = match[1]!;
-        const version = match[2]!;
-        const evidence: EvidenceAnchor = {
-          filePath,
-          startLine: i + 1,
-          endLine: i + 1,
-          codeSnippet: line.trim().slice(0, 200),
-          lens: 'deps',
+    const match = line.match(/"([^"]+)"\s*:\s*"([~^><=*][^"]*)"/);
+    if (match) {
+      const depName = match[1]!;
+      const version = match[2]!;
+      const evidence: EvidenceAnchor = {
+        filePath,
+        startLine: i + 1,
+        endLine: i + 1,
+        codeSnippet: line.trim().slice(0, 200),
+        lens: 'deps',
+        ruleId: 'deps-unpinned',
+      };
+      const finding = createLensFinding(
+        'deps',
+        'security',
+        'medium',
+        'Unpinned Dependency Version',
+        `Dependency "${depName}" has an unpinned version range "${version}". Pin to a specific version to ensure reproducible builds and prevent supply chain attacks.`,
+        evidence,
+        {
           ruleId: 'deps-unpinned',
-        };
-        const finding = createLensFinding(
-          'deps',
-          'security',
-          'medium',
-          'Unpinned Dependency Version',
-          `Dependency "${depName}" has an unpinned version range "${version}". Pin to a specific version to ensure reproducible builds and prevent supply chain attacks.`,
-          evidence,
-          {
-            ruleId: 'deps-unpinned',
-            suggestion: `Replace "${version}" with a specific version number.`,
-          },
-        );
-        findings.push(finding);
-      }
+          suggestion: `Replace "${version}" with a specific version number.`,
+        },
+      );
+      findings.push(finding);
     }
   }
 
@@ -866,45 +867,43 @@ export function reviewApiContract(
   // Check for missing @deprecated on changed exported functions
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (/\bexport\s+(?:async\s+)?function\s+(\w+)/.test(line)) {
-      const nameMatch = line.match(/export\s+(?:async\s+)?function\s+(\w+)/);
-      if (nameMatch) {
-        const funcName = nameMatch[1]!;
+    const nameMatch = line.match(/\bexport\s+(?:async\s+)?function\s+(\w+)/);
+    if (nameMatch) {
+      const funcName = nameMatch[1]!;
 
-        // Check preceding lines for @deprecated JSDoc tag
-        const precedingLines = lines.slice(Math.max(0, i - 10), i);
-        const hasDeprecated = precedingLines.some((l) => /@deprecated/.test(l));
+      // Check preceding lines for @deprecated JSDoc tag
+      const precedingLines = lines.slice(Math.max(0, i - 10), i);
+      const hasDeprecated = precedingLines.some((l) => /@deprecated/.test(l));
 
-        // Check if signature changed from previous version
-        if (previousContent) {
-          const prevSig = extractFunctionSignature(prevLines, funcName);
-          const curSig = extractFunctionSignature(lines, funcName);
-          // Guard: only flag if content actually differs (prevent false positives
-          // when comparing against the same content from split/join variance)
-          const contentDiffers = previousContent.trim() !== content.trim();
-          if (prevSig && curSig && prevSig !== curSig && !hasDeprecated && contentDiffers) {
-            const evidence: EvidenceAnchor = {
-              filePath,
-              startLine: i + 1,
-              endLine: i + 1,
-              codeSnippet: line.trim().slice(0, 200),
-              lens: 'contract',
+      // Check if signature changed from previous version
+      if (previousContent) {
+        const prevSig = extractFunctionSignature(prevLines, funcName);
+        const curSig = extractFunctionSignature(lines, funcName);
+        // Guard: only flag if content actually differs (prevent false positives
+        // when comparing against the same content from split/join variance)
+        const contentDiffers = previousContent.trim() !== content.trim();
+        if (prevSig && curSig && prevSig !== curSig && !hasDeprecated && contentDiffers) {
+          const evidence: EvidenceAnchor = {
+            filePath,
+            startLine: i + 1,
+            endLine: i + 1,
+            codeSnippet: line.trim().slice(0, 200),
+            lens: 'contract',
+            ruleId: 'contract-signature-change',
+          };
+          const finding = createLensFinding(
+            'contract',
+            'api',
+            'high',
+            `Signature Changed Without @deprecated: ${funcName}`,
+            `Function "${funcName}" signature changed:\n  Previous: ${prevSig}\n  Current:  ${curSig}\nAdd @deprecated annotation if this is a breaking change.`,
+            evidence,
+            {
               ruleId: 'contract-signature-change',
-            };
-            const finding = createLensFinding(
-              'contract',
-              'api',
-              'high',
-              `Signature Changed Without @deprecated: ${funcName}`,
-              `Function "${funcName}" signature changed:\n  Previous: ${prevSig}\n  Current:  ${curSig}\nAdd @deprecated annotation if this is a breaking change.`,
-              evidence,
-              {
-                ruleId: 'contract-signature-change',
-                suggestion: `Add JSDoc: /** @deprecated Use newFunction instead */`,
-              },
-            );
-            findings.push(finding);
-          }
+              suggestion: `Add JSDoc: /** @deprecated Use newFunction instead */`,
+            },
+          );
+          findings.push(finding);
         }
       }
     }
@@ -939,14 +938,14 @@ function extractFunctionSignature(lines: string[], funcName: string): string | n
       // Return normalized signature (remove whitespace variance)
       return line.trim().replace(/\s+/g, ' ');
     }
-    // Multi-line function
+    // Multi-line function: reaching this branch implies the opening line carries
+    // `function <name>(` without a closing `)` (otherwise the single-line branch
+    // above would have returned), so accumulate following lines until it closes.
     if (line.includes(`function ${funcName}(`)) {
       let sig = line.trim();
-      if (!line.includes(')')) {
-        for (let j = i + 1; j < Math.min(lines.length, i + 10); j++) {
-          sig += ' ' + lines[j]!.trim();
-          if (lines[j]!.includes(')')) break;
-        }
+      for (let j = i + 1; j < Math.min(lines.length, i + 10); j++) {
+        sig += ' ' + lines[j]!.trim();
+        if (lines[j]!.includes(')')) break;
       }
       return sig.replace(/\s+/g, ' ');
     }
@@ -986,7 +985,7 @@ export function createLensFinding(
   // comment. Fail fast so an invalid anchor is never silently swallowed.
   if (!evidence.filePath || !evidence.codeSnippet || evidence.startLine <= 0) {
     throw new Error(
-      `createLensFinding: evidence is missing a required anchor (filePath="${evidence.filePath}", startLine=${evidence.startLine}, codeSnippet length=${evidence.codeSnippet?.length ?? 0})`,
+      `createLensFinding: evidence is missing a required anchor (filePath="${evidence.filePath}", startLine=${evidence.startLine}, codeSnippet length=${evidence.codeSnippet.length})`,
     );
   }
 

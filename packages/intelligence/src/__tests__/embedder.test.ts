@@ -3,7 +3,58 @@
 // RealEmbeddingBackend tests require ONNX runtime and are excluded from CI coverage.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { EmbeddingEngine, MockEmbeddingBackend } from '../embeddings/embedder.js';
+import { EmbeddingEngine, MockEmbeddingBackend, murmurHash3 } from '../embeddings/embedder.js';
+
+// ---------------------------------------------------------------------------
+// murmurHash3 — deterministic 32-bit content hash
+// ---------------------------------------------------------------------------
+
+describe('murmurHash3', () => {
+  it('is deterministic for identical input and seed', () => {
+    expect(murmurHash3('abc')).toBe(murmurHash3('abc'));
+    expect(murmurHash3('hello world', 42)).toBe(murmurHash3('hello world', 42));
+  });
+
+  it('returns an unsigned 32-bit integer', () => {
+    for (const input of ['', 'a', 'abc', 'abcd', 'abcdefgh', 'a'.repeat(100)]) {
+      const h = murmurHash3(input);
+      expect(Number.isInteger(h)).toBe(true);
+      expect(h).toBeGreaterThanOrEqual(0);
+      expect(h).toBeLessThanOrEqual(0xffffffff);
+    }
+  });
+
+  it('handles every remainder length (0..3) and the 4-byte block loop', () => {
+    // Lengths >= 4 exercise the 4-byte block loop; lengths < 4 exercise the tail.
+    const lengths = [
+      '',
+      'a',
+      'ab',
+      'abc',
+      'abcd',
+      'abcde',
+      'abcdef',
+      'abcdefg',
+      'abcdefgh',
+      'abcdefghi',
+      'a'.repeat(16),
+      'a'.repeat(17),
+    ];
+    for (const input of lengths) {
+      const h = murmurHash3(input);
+      expect(h).toBeGreaterThanOrEqual(0);
+      expect(h).toBeLessThanOrEqual(0xffffffff);
+    }
+  });
+
+  it('is sensitive to the seed', () => {
+    expect(murmurHash3('abc', 0)).not.toBe(murmurHash3('abc', 1));
+  });
+
+  it('differs across distinct inputs', () => {
+    expect(murmurHash3('hello')).not.toBe(murmurHash3('world'));
+  });
+});
 
 // ---------------------------------------------------------------------------
 // MockEmbeddingBackend — n-gram content-based deterministic backend
@@ -110,6 +161,16 @@ describe('MockEmbeddingBackend', () => {
       }
       // Without normalization, norm should not be close to 1.0
       expect(Math.sqrt(norm)).not.toBeCloseTo(1.0, 3);
+    });
+
+    it('skips normalization for empty input when normalize=false', async () => {
+      const backend = new MockEmbeddingBackend({ dimensions: 4, normalize: false });
+      const vec = await backend.embedCode('');
+      // Empty content fills the vector with 1.0 and skips the normalization branch.
+      expect(vec.length).toBe(4);
+      for (let i = 0; i < vec.length; i++) {
+        expect(vec[i]).toBe(1.0);
+      }
     });
 
     it('produces unit-length normalized vectors for empty input', async () => {

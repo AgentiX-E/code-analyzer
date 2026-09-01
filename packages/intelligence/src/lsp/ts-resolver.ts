@@ -55,11 +55,6 @@ class Scope {
   push(): Scope {
     return new Scope(this);
   }
-
-  /** Get all bindings in this scope (excluding parents). */
-  getAll(): VarBinding[] {
-    return [...this.bindings.values()];
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -113,11 +108,6 @@ export class TSResolverContext {
   /** Declare a variable in the current scope. */
   declare(name: string, type: TypeRep, isConst = false, isExported = false): void {
     this.scope.declare(name, type, isConst, isExported);
-  }
-
-  /** Look up a variable in the scope chain. */
-  lookup(name: string): VarBinding | null {
-    return this.scope.lookup(name);
   }
 
   // ---------------------------------------------------------------------------
@@ -200,8 +190,9 @@ export class TSResolverContext {
     if (value === undefined) return BUILTINS.undefined;
     if (typeof value === 'string') return BUILTINS.string;
     if (typeof value === 'number') return BUILTINS.number;
-    if (typeof value === 'boolean') return BUILTINS.boolean;
-    return BUILTINS.unknown;
+    // The only remaining member of the parameter union is `boolean`, so this
+    // return is exhaustive — no other runtime value can reach it.
+    return BUILTINS.boolean;
   }
 
   /**

@@ -304,3 +304,137 @@ describe('scope exit at root', () => {
     expect(typeToString(ctx.evalVariable('x'))).toBe('string');
   });
 });
+
+describe('evalVariable — import-map and registry fallback paths', () => {
+  it('falls through the import map when neither type nor function resolves', () => {
+    const registry = new TypeRegistry();
+    const importMap = new Map<string, string>([['Missing', 'lib']]);
+    const ctx = new TSResolverContext(registry, importMap, false, 'test.ts');
+    // 'Missing' maps to 'lib' but neither lib.Missing type nor function exists.
+    expect(typeToString(ctx.evalVariable('Missing'))).toBe('any');
+  });
+
+  it('resolves a globally-registered type by its QN without an import entry', () => {
+    const registry = new TypeRegistry();
+    registry.registerType({
+      qn: 'GlobalThing',
+      shortName: 'GlobalThing',
+      label: 'Interface',
+      moduleQn: '',
+      type: t.named('GlobalThing'),
+      language: 'typescript',
+      sourceFile: 'globals.ts',
+      sourceLine: 1,
+    });
+    const ctx = new TSResolverContext(registry, new Map());
+    expect(ctx.evalVariable('GlobalThing').kind).toBe('named');
+  });
+});
+
+describe('evalCall — unknown function fallback', () => {
+  it('returns unknown for a call to an unknown function', () => {
+    const ctx = new TSResolverContext(new TypeRegistry(), new Map());
+    expect(ctx.evalCall('noSuchFunction', [])).toBe(BUILTINS.unknown);
+  });
+});
+
+describe('evalMemberAccess — method lookup and missing fieldDefs', () => {
+  it('returns the function builtin for a method resolved on a named receiver', () => {
+    const registry = new TypeRegistry();
+    registry.registerType({
+      qn: 'svc.Database',
+      shortName: 'Database',
+      label: 'Class',
+      moduleQn: 'svc',
+      type: t.named('Database'),
+      language: 'typescript',
+      sourceFile: 'svc.ts',
+      sourceLine: 1,
+    });
+    registry.registerFunction({
+      qn: 'svc.query',
+      shortName: 'query',
+      label: 'Method',
+      receiverType: 'Database',
+      moduleQn: 'svc',
+      returnTypes: 'string',
+      paramCount: 0,
+      paramTypes: '',
+      isAsync: false,
+      language: 'typescript',
+      sourceFile: 'svc.ts',
+      sourceLine: 5,
+    });
+    const ctx = new TSResolverContext(registry, new Map());
+    expect(ctx.evalMemberAccess(t.named('Database'), 'query')).toBe(BUILTINS.function);
+  });
+
+  it('skips field lookup for a named type without fieldDefs', () => {
+    const registry = new TypeRegistry();
+    registry.registerType({
+      qn: 'PlainType',
+      shortName: 'PlainType',
+      label: 'Class',
+      moduleQn: '',
+      type: t.named('PlainType'),
+      language: 'typescript',
+      sourceFile: 'plain.ts',
+      sourceLine: 1,
+    });
+    const ctx = new TSResolverContext(registry, new Map());
+    // No fieldDefs on PlainType, so member access falls through to unknown.
+    expect(ctx.evalMemberAccess(t.named('PlainType'), 'anything')).toBe(BUILTINS.unknown);
+  });
+
+  it('defaults a field without an explicit type to any', () => {
+    const registry = new TypeRegistry();
+    registry.registerType({
+      qn: 'User',
+      shortName: 'User',
+      label: 'Class',
+      moduleQn: '',
+      type: t.named('User'),
+      fieldDefs: 'id:number|nickname',
+      language: 'typescript',
+      sourceFile: 'lib.ts',
+      sourceLine: 1,
+    });
+    const ctx = new TSResolverContext(registry, new Map());
+    // 'nickname' has no `:type` suffix, so its type falls back to `any`.
+    expect(typeToString(ctx.evalMemberAccess(t.named('User'), 'nickname'))).toBe('any');
+  });
+});
+
+describe('evalJSXComponent — direct registry and import-map fallback', () => {
+  it('resolves a component registered directly under its QN', () => {
+    const registry = new TypeRegistry();
+    registry.registerType({
+      qn: 'GlobalComponent',
+      shortName: 'GlobalComponent',
+      label: 'Class',
+      moduleQn: '',
+      type: t.named('GlobalComponent'),
+      language: 'typescript',
+      sourceFile: 'comp.ts',
+      sourceLine: 1,
+    });
+    const ctx = new TSResolverContext(registry, new Map());
+    expect(ctx.evalJSXComponent('GlobalComponent', []).kind).toBe('named');
+  });
+
+  it('falls back to JSX.Element when the import-mapped type is missing', () => {
+    const registry = new TypeRegistry();
+    const importMap = new Map<string, string>([['Widget', 'lib']]);
+    const ctx = new TSResolverContext(registry, importMap, false, 'test.tsx');
+    // 'Widget' is in the import map but lib.Widget is not registered.
+    expect(typeToString(ctx.evalJSXComponent('Widget', []))).toBe('JSX.Element');
+  });
+});
+
+describe('resolveTypeName — generic argument splitting', () => {
+  it('ignores an empty trailing generic argument', () => {
+    const ctx = new TSResolverContext(new TypeRegistry(), new Map());
+    // 'Array<T,>' has a trailing comma; the empty trailing arg is dropped.
+    expect(ctx.resolveTypeName('Array<T,>').kind).toBe('template');
+  });
+});

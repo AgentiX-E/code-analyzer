@@ -492,4 +492,50 @@ describe('EmbeddingCache', () => {
       expect(entry!.contentHash).toBe('hash');
     });
   });
+
+  // ==========================================================================
+  // Branch Coverage: moveToFront unlink/re-link for middle and tail nodes
+  // ==========================================================================
+
+  describe('moveToFront — unlink and re-link', () => {
+    it('moves a middle node to the front, relinking both neighbors', () => {
+      const c = new EmbeddingCache({ maxEntries: 3 });
+      c.set('a', vec1, 'h1'); // head = a
+      c.set('b', vec2, 'h2'); // head = b -> a
+      c.set('c', vec3, 'h3'); // head = c -> b -> a (tail)
+      // 'b' is a middle node: head is 'c', tail is 'a'.
+      expect(c.get('b')).toBeDefined();
+      // Re-access to confirm the relinked list stays consistent.
+      expect(c.get('b')).toBeDefined();
+      expect(c.get('a')).toBeDefined();
+      expect(c.get('c')).toBeDefined();
+      expect(c.size).toBe(3);
+    });
+
+    it('moves the tail node to the front and updates the tail pointer', () => {
+      const c = new EmbeddingCache({ maxEntries: 3 });
+      c.set('a', vec1, 'h1'); // head = a
+      c.set('b', vec2, 'h2'); // head = b -> a
+      c.set('c', vec3, 'h3'); // head = c -> b -> a (tail)
+      // 'a' is the tail node.
+      expect(c.get('a')).toBeDefined();
+      expect(c.get('a')).toBeDefined();
+      expect(c.size).toBe(3);
+      // Eviction order now: 'a' (MRU), 'c', 'b' (LRU). Adding 'd' evicts 'b'.
+      c.set('d', vec1, 'h4');
+      expect(c.has('a')).toBe(true);
+      expect(c.has('c')).toBe(true);
+      expect(c.has('b')).toBe(false);
+      expect(c.has('d')).toBe(true);
+    });
+
+    it('short-circuits evictLRU when the cache is empty at maxEntries 0', () => {
+      const c = new EmbeddingCache({ maxEntries: 0 });
+      // map.size (0) >= maxEntries (0) triggers evictLRU, but the list is
+      // empty, so the `if (this.tail)` guard short-circuits without eviction.
+      c.set('a', vec1, 'h1');
+      expect(c.size).toBe(1);
+      expect(c.get('a')!.contentHash).toBe('h1');
+    });
+  });
 });

@@ -581,4 +581,53 @@ describe('CommentReflectionModule', () => {
       expect(report.qualityScore).toBe(1);
     });
   });
+
+  // ==========================================================================
+  // Branch Coverage: auto-adjust relocation when the positioner reports a drift
+  // ==========================================================================
+
+  describe('Reflect — auto-adjust relocation on heuristic overrun', () => {
+    it('relocates a heuristic match whose endLine overruns the file', () => {
+      // The heuristic matches `z` at line 3 but `existingCode` has three trailing
+      // newlines, so the computed endLine (6) exceeds the file length (4). The
+      // positioner therefore reports an adjusted position, which `reflect` applies.
+      const content = 'x\ny\nz\n';
+      const comment = makeComment({
+        startLine: 1,
+        endLine: 1,
+        existingCode: 'z\n\n\n',
+      });
+      const report = reflector.reflect([comment], content, 'src/test.ts');
+      expect(report.relocatedComments).toBe(1);
+      expect(report.results[0]!.adjustedPosition).toEqual({ startLine: 3, endLine: 4 });
+    });
+  });
+
+  // ==========================================================================
+  // Branch Coverage: contentSimilarity empty-token short-circuit
+  // ==========================================================================
+
+  describe('Reflect — duplicate detection with tokenless contents', () => {
+    it('treats two tokenless comments as duplicates via the empty-token short-circuit', () => {
+      // Single-character contents produce empty token sets, so `contentSimilarity`
+      // returns 1 through its "both empty" short-circuit. This is real behavior:
+      // two tokenless, overlapping comments are considered identical.
+      const content = 'line1\nline2\n';
+      const c1 = makeComment({
+        startLine: 1,
+        endLine: 1,
+        existingCode: 'line1',
+        content: 'a',
+      });
+      const c2 = makeComment({
+        startLine: 1,
+        endLine: 1,
+        existingCode: 'line1',
+        content: 'b',
+      });
+      const report = reflector.reflect([c1, c2], content, 'src/test.ts');
+      const hasDuplicate = report.results.some((r) => r.issues.some((i) => i.type === 'duplicate'));
+      expect(hasDuplicate).toBe(true);
+    });
+  });
 });

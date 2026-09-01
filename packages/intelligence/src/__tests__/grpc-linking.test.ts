@@ -70,6 +70,20 @@ describe('grpc-linking', () => {
       expect(extractGrpcServiceMethod('noDot')).toBeNull();
     });
 
+    it('strips the pb.New prefix', () => {
+      expect(extractGrpcServiceMethod('pb.NewCartServiceClient.getCart')).toEqual({
+        service: 'CartService',
+        method: 'getCart',
+      });
+    });
+
+    it('strips the pb. prefix when not pb.New', () => {
+      expect(extractGrpcServiceMethod('pb.CartServiceStub.getCart')).toEqual({
+        service: 'CartService',
+        method: 'getCart',
+      });
+    });
+
     it('returns null for trailing dot', () => {
       expect(extractGrpcServiceMethod('foo.')).toBeNull();
     });

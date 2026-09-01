@@ -59,7 +59,7 @@ const DEFAULT_CONFIG: EmbeddingConfig = {
  * Used to map n-gram tokens to reproducible seed values for vector generation.
  * This is deterministic (same input → same output) and has good avalanche properties.
  */
-function murmurHash3(input: string, seed: number = 0): number {
+export function murmurHash3(input: string, seed: number = 0): number {
   let h = seed >>> 0;
   const len = input.length;
   const remainder = len & 3;
@@ -171,7 +171,9 @@ export class MockEmbeddingBackend implements EmbeddingBackend {
       for (const ngram of ngrams) {
         const bucket = murmurHash3(ngram) % this.dimensions;
         const magnitude = ((murmurHash3(ngram, 42) % 2000) - 1000) / 1000; // [-1, 1]
-        vec[bucket] = (vec[bucket] ?? 0) + magnitude * (1.0 / Math.sqrt(totalWeight));
+        // bucket is always a valid index (murmurHash3 % dimensions), so vec[bucket]
+        // is an initialized number at runtime; the `!` narrows the index type only.
+        vec[bucket] = vec[bucket]! + magnitude * (1.0 / Math.sqrt(totalWeight));
       }
     }
 
@@ -209,7 +211,10 @@ export class MockEmbeddingBackend implements EmbeddingBackend {
       ngrams.push(padded.slice(i, i + this.ngramSize));
     }
 
-    return ngrams.length > 0 ? ngrams : [`__${token}`];
+    // The loop always runs at least once: padded.length = token.length + 4 and
+    // ngramSize is 3, so padded.length - ngramSize >= 1 even for an empty token.
+    // The previous `ngrams.length > 0 ? ... : [...]` fallback was unreachable.
+    return ngrams;
   }
 
   /**

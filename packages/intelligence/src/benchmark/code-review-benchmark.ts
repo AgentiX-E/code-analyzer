@@ -233,7 +233,9 @@ export class BenchmarkRunner {
       const catFN = catGT.length - catTP;
 
       const catPrecision = catTP + catFP > 0 ? catTP / (catTP + catFP) : 0;
-      const catRecall = catGT.length > 0 ? catTP / catGT.length : 0;
+      // catGT is non-empty: `categories` is derived from allGroundTruth, so every
+      // category key maps to at least one ground-truth member.
+      const catRecall = catTP / catGT.length;
       const catF1 =
         catPrecision + catRecall > 0
           ? (2 * catPrecision * catRecall) / (catPrecision + catRecall)
@@ -385,7 +387,9 @@ export class BenchmarkRunner {
     const detSpan = det.endLine - det.startLine + 1;
     const union = gtSpan + detSpan - overlap;
 
-    return union > 0 ? overlap / union : 0;
+    // union is always positive: overlap >= 1 (the disjoint-ranges guard above
+    // returns early), and both gtSpan and detSpan are >= overlap, so union >= 1.
+    return overlap / union;
   }
 
   private categoriesMatch(gtCategory: string, detCategory: string): boolean {

@@ -11,6 +11,7 @@ import {
   createLensFinding,
   lensFindingToReviewComment,
   SECURITY_PATTERNS,
+  PERFORMANCE_PATTERNS,
   KNOWN_CVE_ADVISORIES,
 } from '../review/review-lenses.js';
 import { analyzeApi, generateApiReport } from '../review/lenses/api-lens.js';
@@ -138,6 +139,63 @@ describe('KNOWN_CVE_ADVISORIES', () => {
       expect(advisory.description).toBeTruthy();
       expect(advisory.severity).toBeTruthy();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Performance Patterns
+// ---------------------------------------------------------------------------
+
+describe('PERFORMANCE_PATTERNS', () => {
+  const byId = (id: string) => PERFORMANCE_PATTERNS.find((p) => p.id === id)!;
+
+  it('should define performance patterns with detection callbacks', () => {
+    expect(PERFORMANCE_PATTERNS.length).toBeGreaterThan(0);
+    for (const pattern of PERFORMANCE_PATTERNS) {
+      expect(pattern.id).toBeTruthy();
+      expect(pattern.name).toBeTruthy();
+      expect(typeof pattern.detection).toBe('function');
+    }
+  });
+
+  it('should detect synchronous I/O calls and skip non-matching lines', () => {
+    const detection = byId('perf-sync-in-handler').detection;
+    const lines = ['const a = 1;', 'fs.writeFileSync("f", data);', 'const b = 2;'];
+    expect(detection(lines, '/src/handler.ts')).toEqual([{ startLine: 2, endLine: 2 }]);
+    expect(detection(['const x = 1;'], '/src/x.ts')).toEqual([]);
+    expect(detection([], '/src/empty.ts')).toEqual([]);
+  });
+
+  it('should detect nested loops and reset depth on brace closing', () => {
+    const detection = byId('perf-nested-loop').detection;
+    const lines = [
+      'function process(rows) {',
+      'for (const row of rows) {',
+      'for (const cell of row) {',
+      '}',
+      '}',
+    ];
+    expect(detection(lines, '/src/loops.ts')).toEqual([{ startLine: 2, endLine: 3 }]);
+  });
+
+  it('should decrement loop depth on `});` and `);` closing tokens', () => {
+    const detection = byId('perf-nested-loop').detection;
+    const lines = ['items.forEach((item) => {', 'item.forEach((sub) => {', '});', ');'];
+    expect(detection(lines, '/src/chained.ts')).toEqual([{ startLine: 1, endLine: 2 }]);
+  });
+
+  it('should flag setInterval without a nearby clearInterval as a leak', () => {
+    const detection = byId('perf-memory-leak').detection;
+    expect(detection(['setInterval(tick, 1000);'], '/src/timer.ts')).toEqual([
+      { startLine: 1, endLine: 1 },
+    ]);
+    expect(detection(['const x = 1;'], '/src/x.ts')).toEqual([]);
+  });
+
+  it('should not flag setInterval followed by clearInterval', () => {
+    const detection = byId('perf-memory-leak').detection;
+    const lines = ['setInterval(tick, 1000);', 'clearInterval(tick);'];
+    expect(detection(lines, '/src/timer.ts')).toEqual([]);
   });
 });
 
@@ -447,6 +505,56 @@ describe('reviewDependencyHealth', () => {
 
     const findings = reviewDependencyHealth(content, '/go.mod', 'go');
     expect(Array.isArray(findings)).toBe(true);
+  });
+
+  // --- pip/cargo/go: a finding-producing dependency exercises the push branch ---
+  it('should detect CVE in pip requirements', () => {
+    const content = 'axios==1.5.0\n';
+    const findings = reviewDependencyHealth(content, '/requirements.txt', 'pip');
+    const cve = findings.find((f) => f.title.includes('CVE-2023-45857'));
+    expect(cve).toBeDefined();
+    expect(cve!.category).toBe('security');
+  });
+
+  it('should detect CVE in cargo dependencies', () => {
+    const content = ['[dependencies]', 'axios = "1.5.0"'].join('\n');
+    const findings = reviewDependencyHealth(content, '/Cargo.toml', 'cargo');
+    const cve = findings.find((f) => f.title.includes('CVE-2023-45857'));
+    expect(cve).toBeDefined();
+  });
+
+  it('should detect deprecated package in a go.mod require block', () => {
+    const content = ['require (', '\trequest v2.88.0', ')'].join('\n');
+    const findings = reviewDependencyHealth(content, '/go.mod', 'go');
+    const deprecated = findings.find((f) => f.title.includes('request'));
+    expect(deprecated).toBeDefined();
+    expect(deprecated!.title).toContain('Deprecated');
+  });
+
+  // --- CVE false arm: name matches an advisory but the version is patched ---
+  it('should not flag a patched version as vulnerable', () => {
+    const content = 'axios==1.6.1\n';
+    const findings = reviewDependencyHealth(content, '/requirements.txt', 'pip');
+    expect(findings.length).toBe(0);
+  });
+
+  // --- go require block with a malformed single-token line ---
+  it('should tolerate a malformed single-token line inside a go require block', () => {
+    const content = ['require (', '\tgithub.com/example/package', '\trequest v2.88.0', ')'].join(
+      '\n',
+    );
+    const findings = reviewDependencyHealth(content, '/go.mod', 'go');
+    const deprecated = findings.find((f) => f.title.includes('request'));
+    expect(deprecated).toBeDefined();
+  });
+
+  // --- wildcard version is unpinned (regression: previously missed) ---
+  it('should flag a wildcard "*" version as unpinned', () => {
+    const content = JSON.stringify({ dependencies: { lodash: '*' } }, null, 2);
+    const findings = reviewDependencyHealth(content, '/package.json', 'npm');
+    const unpinned = findings.filter((f) => f.evidence.ruleId === 'deps-unpinned');
+    expect(unpinned.length).toBe(1);
+    expect(unpinned[0]!.description).toContain('lodash');
   });
 });
 

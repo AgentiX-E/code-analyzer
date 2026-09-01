@@ -246,3 +246,69 @@ describe('computePostDominators — cyclic CFG regression', () => {
     expect(postDominates(tree, 2, 5)).toBe(false); // branch does NOT post-dominate the merge
   });
 });
+
+describe('computeControlDependence — dedup & fallthrough branches', () => {
+  it('deduplicates identical direct-successor edges from a multi-case switch', () => {
+    // A switch where two cases fall through to the SAME target. Both edges emit
+    // the same `${c}:${s}:T` key, so the second must be deduplicated via the
+    // `!added.has(key)` false path, leaving exactly one direct edge.
+    const cfg = makeCfg(
+      3,
+      [
+        { from: 0, to: 1, kind: 'switch-case' },
+        { from: 0, to: 1, kind: 'switch-case' },
+        { from: 1, to: 2, kind: 'seq' },
+      ],
+      2,
+    );
+
+    const edges = computeControlDependence(cfg);
+    const direct = edges.filter((e) => e.controllerBlock === 0 && e.dependentBlock === 1);
+    expect(direct.length).toBe(1);
+  });
+
+  it('deduplicates shared-ancestor edges emitted by the ipdom walk', () => {
+    // A two-way switch where both cases funnel into a common merge block B3.
+    // The ipdom walk from the first successor emits `${c}:${3}:T`; the walk from
+    // the second successor re-encounters that key and must deduplicate it.
+    const cfg = makeCfg(
+      5,
+      [
+        { from: 0, to: 1, kind: 'switch-case' },
+        { from: 0, to: 2, kind: 'switch-case' },
+        { from: 1, to: 3, kind: 'seq' },
+        { from: 2, to: 3, kind: 'seq' },
+        { from: 3, to: 4, kind: 'seq' },
+      ],
+      4,
+    );
+
+    const edges = computeControlDependence(cfg);
+    const merge = edges.filter((e) => e.controllerBlock === 0 && e.dependentBlock === 3);
+    expect(merge.length).toBe(1);
+  });
+
+  it('labels a fallthrough successor when the branch has no explicit arms', () => {
+    // A block with only non-conditional successors (loop-back + seq) has neither
+    // a true nor a false arm, so labelForEdge falls through to the final 'F'.
+    const cfg = makeCfg(
+      4,
+      [
+        { from: 0, to: 1, kind: 'loop-back' },
+        { from: 0, to: 2, kind: 'seq' },
+        { from: 1, to: 3, kind: 'seq' },
+        { from: 2, to: 3, kind: 'seq' },
+      ],
+      3,
+    );
+
+    const edges = computeControlDependence(cfg);
+    const labels = edges.filter((e) => e.controllerBlock === 0).map((e) => e.label);
+    expect(labels).toContain('F');
+  });
+
+  it('returns no edges for an empty CFG', () => {
+    const cfg = makeCfg(0, [], -1);
+    expect(computeControlDependence(cfg)).toEqual([]);
+  });
+});

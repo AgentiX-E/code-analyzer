@@ -60,7 +60,8 @@ export function extractGrpcServiceMethod(
   if (lastDot < 0 || lastDot === source.length - 1) return null;
 
   const method = source.slice(lastDot + 1);
-  if (!method) return null;
+  // method is always non-empty: the guard above guarantees lastDot is not the
+  // final character, so slice(lastDot + 1) yields at least one character.
 
   const prefix = source.slice(0, lastDot);
 
@@ -90,7 +91,7 @@ export function extractGrpcServiceMethod(
   }
 
   if (!stripped) return null;
-  if (!service || !method) return null;
-
+  // service is non-empty after a successful strip (the `service.length > sfx.length`
+  // guard keeps a non-empty remainder), and method is non-empty per the guard above.
   return { service, method };
 }

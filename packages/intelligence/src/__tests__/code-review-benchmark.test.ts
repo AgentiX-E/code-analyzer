@@ -585,3 +585,99 @@ describe('BenchmarkRunner — Acceptance Criteria', () => {
     expect(result.f1Score).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: Branch Coverage
+// ---------------------------------------------------------------------------
+
+describe('BenchmarkRunner — Branch Coverage', () => {
+  const runner = new BenchmarkRunner();
+
+  it('keeps the best overlap when a second detection overlaps less', () => {
+    // Two detections overlap the same ground-truth range. The first has full
+    // overlap, the second only partial, so the `overlap > bestOverlap` guard
+    // must reject the weaker match (false path) and leave one TP + one FP.
+    const fixture = {
+      filePath: 'overlap.ts',
+      language: 'typescript',
+      content: 'code',
+      groundTruth: [
+        {
+          id: 'gt1',
+          filePath: 'overlap.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 10,
+          description: '',
+          language: 'typescript',
+        },
+      ],
+    };
+    const detections = new Map<string, ReviewComment[]>();
+    detections.set('overlap.ts', [
+      makeMockComment('full', 'overlap.ts', 1, 10, 'bug'),
+      makeMockComment('partial', 'overlap.ts', 1, 5, 'bug'),
+    ]);
+
+    const result = runner.runBenchmark([fixture], detections, 100);
+    expect(result.truePositives).toBe(1);
+    expect(result.falsePositives).toBe(1);
+  });
+
+  it('matches a primary category to its semantic alias (correctness -> bug)', () => {
+    // categoriesMatch: gt="correctness" (primary key) resolves via the
+    // "correctness" mapping whose aliases include "bug" (the mappedGt arm).
+    const fixture = {
+      filePath: 'cat.ts',
+      language: 'typescript',
+      content: 'code',
+      groundTruth: [
+        {
+          id: 'gt1',
+          filePath: 'cat.ts',
+          category: 'correctness',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: '',
+          language: 'typescript',
+        },
+      ],
+    };
+    const detections = new Map<string, ReviewComment[]>();
+    detections.set('cat.ts', [makeMockComment('det', 'cat.ts', 1, 1, 'bug')]);
+
+    const result = runner.runBenchmark([fixture], detections, 100);
+    expect(result.truePositives).toBe(1);
+    expect(result.falsePositives).toBe(0);
+  });
+
+  it('matches a semantic alias to its primary category (bug -> correctness)', () => {
+    // categoriesMatch: gt="bug" (alias) does not resolve via mappedGt against
+    // "correctness", so it falls through to mappedDt (the second semantic arm).
+    const fixture = {
+      filePath: 'cat2.ts',
+      language: 'typescript',
+      content: 'code',
+      groundTruth: [
+        {
+          id: 'gt1',
+          filePath: 'cat2.ts',
+          category: 'bug',
+          severity: 'high',
+          startLine: 1,
+          endLine: 1,
+          description: '',
+          language: 'typescript',
+        },
+      ],
+    };
+    const detections = new Map<string, ReviewComment[]>();
+    detections.set('cat2.ts', [makeMockComment('det', 'cat2.ts', 1, 1, 'correctness')]);
+
+    const result = runner.runBenchmark([fixture], detections, 100);
+    expect(result.truePositives).toBe(1);
+    expect(result.falsePositives).toBe(0);
+  });
+});
