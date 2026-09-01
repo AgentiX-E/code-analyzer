@@ -211,8 +211,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       tree-sitter-zig:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       typescript:
         specifier: ^6.0.3
@@ -492,8 +492,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       tree-sitter-zig:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@code-analyzer/analyzer':
         specifier: workspace:*
@@ -3828,8 +3828,8 @@ packages:
   tree-sitter-yaml@0.5.0:
     resolution: {integrity: sha512-POJ4ZNXXSWIG/W4Rjuyg36MkUD4d769YRUGKRqN+sVaj/VCo6Dh6Pkssn1Rtewd5kybx+jT1BWMyWN0CijXnMA==}
 
-  tree-sitter-zig@0.1.0:
-    resolution: {integrity: sha512-Ky5+72K6sYCqCIkYixqCkoRQX/RGk6L/MpQvdDyau9BeB8Cd16SoEDW6nmef4LGVhs0xIhhN2MkZ/62/tPF/tA==}
+  tree-sitter-zig@0.2.0:
+    resolution: {integrity: sha512-tvRaQw16pwlLVUFoBGMmBZFJfXaGB3vrgEcgrmanKL/MPdCBA12NYotrO8iS8C4DRJV5YimGvXt8do7f+d53qg==}
 
   tree-sitter@0.25.0:
     resolution: {integrity: sha512-PGZZzFW63eElZJDe/b/R/LbsjDDYJa5UEjLZJB59RQsMX+fo0j54fqBPn1MGKav/QNa0JR0zBiVaikYDWCj5KQ==}
@@ -7574,7 +7574,7 @@ snapshots:
     dependencies:
       nan: 2.28.0
 
-  tree-sitter-zig@0.1.0:
+  tree-sitter-zig@0.2.0:
     dependencies:
       nan: 2.28.0
 
