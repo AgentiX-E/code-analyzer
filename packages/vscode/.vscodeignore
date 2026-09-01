@@ -1,13 +1,29 @@
 # VS Code extension packaging — files excluded from the .vsix.
-# Only the compiled output (dist/), the manifest, README, LICENSE, and the
-# icon are shipped; TypeScript source and build tooling stay in the repo.
+#
+# The self-contained bundle (dist/extension/extension.js), the manifest, README,
+# LICENSE, and icon are shipped. Runtime dependencies (tree-sitter grammars,
+# onnxruntime-node, embed-code-*) are collected from node_modules by vsce via
+# `npm list --production` — do NOT exclude node_modules here, or the native
+# addons required at runtime will be missing from the published extension.
 
-# TypeScript source (already compiled to dist/)
+# TypeScript source and build tooling (already bundled into dist/)
 src/**
+scripts/**
 **/*.map
 
-# Build tooling and caches
-node_modules/**
+# tsc build artifacts — the esbuild bundle is the only runtime entry point
+dist/**
+!dist/extension/extension.js
+
+# node_modules redundancy (sources, type declarations, docs)
+node_modules/**/src/**
+node_modules/**/*.d.ts
+node_modules/**/*.d.cts
+node_modules/**/README.md
+node_modules/**/LICENSE
+node_modules/**/CHANGELOG.md
+
+# Build caches and config
 .turbo/**
 tsconfig.json
 tsconfig.tsbuildinfo

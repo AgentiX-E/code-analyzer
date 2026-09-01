@@ -72,7 +72,6 @@ jobs:
 
       - name: Type-check extension
         run: pnpm --filter code-analyzer typecheck
-        continue-on-error: true
 
   test:
     name: Test Extension
@@ -102,7 +101,6 @@ jobs:
 
       - name: Run extension tests
         run: pnpm --filter code-analyzer test
-        continue-on-error: true
 
   package:
     name: Package .vsix
@@ -131,12 +129,33 @@ jobs:
       - name: Build all dependencies
         run: pnpm build --filter=...code-analyzer
 
+      - name: Bundle extension (esbuild)
+        run: pnpm --filter code-analyzer bundle
+
+      # vsce resolves production dependencies with `npm list --production` and
+      # copies them without following symlinks, so a pnpm layout (symlinked
+      # `node_modules/.pnpm`) would produce broken links inside the .vsix. The
+      # workspace packages are already inlined into the bundle, so reinstall the
+      # production-only tree with npm to get a standard, flat node_modules.
+      - name: Prepare production dependencies (npm)
+        working-directory: packages/vscode
+        run: |
+          node scripts/prepare-prod.mjs
+          rm -rf node_modules
+          npm install --omit=dev --legacy-peer-deps --ignore-scripts --no-package-lock
+
       - name: Install vsce
-        run: pnpm add -g @vscode/vsce
+        run: npm install -g @vscode/vsce@3.9.2
+
+      # tree-sitter 0.25 grammars declare peer ranges older than 0.25, so
+      # `npm list --production` exits non-zero (ELSPROBLEMS) despite printing
+      # the correct paths. Patch vsce to consume stdout regardless of exit code.
+      - name: Patch vsce
+        run: node scripts/patch-vsce.mjs
 
       - name: Package extension
         working-directory: packages/vscode
-        run: pnpm exec vsce package --out ../../dist/code-analyzer.vsix
+        run: vsce package --out ../../dist/code-analyzer.vsix
 
       - name: Upload .vsix artifact
         uses: actions/upload-artifact@v4
