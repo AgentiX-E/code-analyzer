@@ -199,10 +199,10 @@ export class LeidenCommunityDetector {
 
         // Move if beneficial
         if (bestCommunity !== currentNodeCommunity && bestDeltaQ > this.minModularityImprovement) {
-          // Remove from current
+          // Remove from current. The node is always a member of its current
+          // community, so `indexOf` always finds it.
           const currentNodes = communityToNodes.get(currentNodeCommunity)!;
-          const idx = currentNodes.indexOf(nodeId);
-          if (idx > -1) currentNodes.splice(idx, 1);
+          currentNodes.splice(currentNodes.indexOf(nodeId), 1);
           if (currentNodes.length === 0) communityToNodes.delete(currentNodeCommunity);
 
           communityWeights.set(
@@ -210,13 +210,10 @@ export class LeidenCommunityDetector {
             communityWeights.get(currentNodeCommunity)! - nodeWeight,
           );
 
-          // Add to best
+          // Add to best. `bestCommunity` is always an existing neighbor's
+          // community, so it already has an entry in `communityToNodes`.
           nodeToCommunity.set(nodeId, bestCommunity);
-          let bestNodes = communityToNodes.get(bestCommunity);
-          if (!bestNodes) {
-            bestNodes = [];
-            communityToNodes.set(bestCommunity, bestNodes);
-          }
+          const bestNodes = communityToNodes.get(bestCommunity)!;
           bestNodes.push(nodeId);
 
           communityWeights.set(bestCommunity, communityWeights.get(bestCommunity)! + nodeWeight);
@@ -297,7 +294,11 @@ export class LeidenCommunityDetector {
 
         for (const nodeId of members) {
           const currentNodeSubComm = refinedComm.get(nodeId)!;
-          const nodeAdj = adjacency.get(nodeId) ?? new Map();
+          // Every node reaching refinement is in a community with >2 members, so it
+          // has at least one edge and therefore an `adjacency` entry. Isolated nodes
+          // (no adjacency entry) stay in singleton communities skipped above, so the
+          // `?? new Map()` fallback never fires.
+          const nodeAdj = adjacency.get(nodeId)!;
           const nWeight = nodeWeights.get(nodeId)!;
 
           // Compute weights to neighboring sub-communities WITHIN this community
@@ -306,8 +307,9 @@ export class LeidenCommunityDetector {
             if (neighborId === nodeId) continue;
             // ONLY consider neighbors in the SAME community
             if (nodeToCommunity.get(neighborId) !== commId) continue;
-            const subComm = refinedComm.get(neighborId);
-            if (subComm === undefined) continue;
+            // `neighborId` is in `commId` (guarded above) and `refinedComm` is seeded
+            // with every member, so it always maps to a sub-community.
+            const subComm = refinedComm.get(neighborId)!;
             neighborSubComms.set(subComm, (neighborSubComms.get(subComm) ?? 0) + weight);
           }
 
@@ -363,14 +365,14 @@ export class LeidenCommunityDetector {
           const [, groupNodes] = entries[i]!;
           const newCommId = this.generateNewCommId(nodeToCommunity, communityWeights);
           for (const nId of groupNodes) {
-            const oldComm = nodeToCommunity.get(nId);
+            // Every node in a group being split is already mapped in
+            // `nodeToCommunity`, so `oldComm` is always defined.
+            const oldComm = nodeToCommunity.get(nId)!;
             nodeToCommunity.set(nId, newCommId);
 
             // Update community weights
             const nW = nodeWeights.get(nId)!;
-            if (oldComm !== undefined) {
-              communityWeights.set(oldComm, communityWeights.get(oldComm)! - nW);
-            }
+            communityWeights.set(oldComm, communityWeights.get(oldComm)! - nW);
             communityWeights.set(newCommId, (communityWeights.get(newCommId) ?? 0) + nW);
           }
 
@@ -525,7 +527,9 @@ export class LeidenCommunityDetector {
     const currentCommunities = new Set(n2c.values());
     let sumDegreeSq = 0;
     for (const communityId of currentCommunities) {
-      const degree = communityWeights.get(communityId) ?? 0;
+      // Every community in `currentCommunities` also has a weight entry in
+      // `communityWeights`; both maps are maintained together, so the fallback never fires.
+      const degree = communityWeights.get(communityId)!;
       sumDegreeSq += degree * degree;
     }
 

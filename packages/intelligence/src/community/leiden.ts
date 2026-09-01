@@ -377,7 +377,11 @@ function computeModularity(
   const currentCommunities = new Set(nodeToCommunity.values());
   let sumDegreeSq = 0;
   for (const communityId of currentCommunities) {
-    const degree = communityWeights.get(communityId) ?? 0;
+    // `currentCommunities` is `new Set(nodeToCommunity.values())`, and every
+    // community in `nodeToCommunity` also has a weight entry in `communityWeights`
+    // (both are maintained together by `moveNode` and `refineCommunities`), so the
+    // `?? 0` fallback never fires.
+    const degree = communityWeights.get(communityId)!;
     sumDegreeSq += degree * degree;
   }
 
@@ -401,24 +405,19 @@ function moveNode(
 ): void {
   nodeToCommunity.set(nodeId, toCommunity);
 
-  // Remove from old community
-  const fromNodes = communityToNodes.get(fromCommunity);
-  if (fromNodes) {
-    const idx = fromNodes.indexOf(nodeId);
-    if (idx > -1) fromNodes.splice(idx, 1);
-    if (fromNodes.length === 0) communityToNodes.delete(fromCommunity);
-  }
+  // Remove from old community. `fromCommunity` is the node's current community
+  // (read from `nodeToCommunity` just before the move), so `communityToNodes` always
+  // has an array containing `nodeId` and `indexOf` always finds it.
+  const fromNodes = communityToNodes.get(fromCommunity)!;
+  fromNodes.splice(fromNodes.indexOf(nodeId), 1);
+  if (fromNodes.length === 0) communityToNodes.delete(fromCommunity);
 
   // Update old community weight
   communityWeights.set(fromCommunity, communityWeights.get(fromCommunity)! - nodeWeight);
 
-  // Add to target community
-  let targetNodes = communityToNodes.get(toCommunity);
-  if (!targetNodes) {
-    targetNodes = [];
-    communityToNodes.set(toCommunity, targetNodes);
-  }
-  targetNodes.push(nodeId);
+  // Add to target community. `toCommunity` is always an existing neighbor's
+  // community, so it already has an entry in `communityToNodes`.
+  communityToNodes.get(toCommunity)!.push(nodeId);
 
   // Update target community weight
   communityWeights.set(toCommunity, communityWeights.get(toCommunity)! + nodeWeight);
@@ -473,8 +472,9 @@ function refineCommunities(
         for (const [neighborId, weight] of nodeAdj) {
           if (neighborId === nodeId) continue;
           if (nodeToCommunity.get(neighborId) !== commId) continue;
-          const subComm = refinedComm.get(neighborId);
-          if (subComm === undefined) continue;
+          // `neighborId` is guaranteed to be in `commId` (guarded above), and
+          // `refinedComm` is seeded with every member of `commId`, so it always maps.
+          const subComm = refinedComm.get(neighborId)!;
           neighborSubComms.set(subComm, (neighborSubComms.get(subComm) ?? 0) + weight);
         }
 
@@ -527,13 +527,13 @@ function refineCommunities(
         const newCommId = generateNewCommId(nodeToCommunity, communityWeights);
 
         for (const nId of groupNodes) {
-          const oldComm = nodeToCommunity.get(nId);
+          // Every node in a group being split is already mapped in `nodeToCommunity`,
+          // so `oldComm` is always defined.
+          const oldComm = nodeToCommunity.get(nId)!;
           nodeToCommunity.set(nId, newCommId);
 
           const nW = nodeWeights.get(nId)!;
-          if (oldComm !== undefined) {
-            communityWeights.set(oldComm, communityWeights.get(oldComm)! - nW);
-          }
+          communityWeights.set(oldComm, communityWeights.get(oldComm)! - nW);
           communityWeights.set(newCommId, (communityWeights.get(newCommId) ?? 0) + nW);
         }
 

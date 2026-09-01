@@ -87,6 +87,15 @@ export class HybridSearchEngine {
    * @param text — Document text content
    */
   indexDocument(id: string, text: string): void {
+    // Re-indexing the same id must first drop the previous entry, otherwise the
+    // stale tokens linger in the inverted index and point at a doc id that is
+    // either gone from `documents` (after removeDocument) or superseded by new
+    // text — both produce incorrect BM25 matches and an over-counted
+    // `uniqueTokens`.
+    if (this.documents.has(id)) {
+      this.removeDocument(id);
+    }
+
     const tokens = this.tokenize(text);
     const tokenMap = new Map<string, number>();
     for (const token of tokens) {
@@ -131,14 +140,13 @@ export class HybridSearchEngine {
     const doc = this.documents.get(id);
     if (!doc) return;
 
-    // Remove from inverted index
+    // Remove from inverted index. Every token in `doc.tokens` was registered by
+    // indexDocument, so the lookup cannot miss.
     for (const [token] of doc.tokens) {
-      const docs = this.invertedIndex.get(token);
-      if (docs) {
-        docs.delete(id);
-        if (docs.size === 0) {
-          this.invertedIndex.delete(token);
-        }
+      const docs = this.invertedIndex.get(token)!;
+      docs.delete(id);
+      if (docs.size === 0) {
+        this.invertedIndex.delete(token);
       }
     }
 
@@ -248,7 +256,9 @@ export class HybridSearchEngine {
         }
       }
 
-      result.combinedScore = totalWeight > 0 ? combinedScore / totalWeight : result.combinedScore;
+      // bm25 and semantic are always present in `signals`, so totalWeight is
+      // never zero (>= bm25Weight + semanticWeight).
+      result.combinedScore = combinedScore / totalWeight;
     }
 
     return baseResults
@@ -274,11 +284,12 @@ export class HybridSearchEngine {
       const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5));
 
       for (const docId of docs) {
-        const doc = this.documents.get(docId);
-        if (!doc) continue;
+        // `docs` only contains ids registered by indexDocument, which stores the
+        // same id in `documents`, so the lookup cannot miss.
+        const doc = this.documents.get(docId)!;
 
-        // TF component
-        const tf = doc.tokens.get(token) ?? 0;
+        // TF component — the token keys `docs`, so `doc.tokens` holds it.
+        const tf = doc.tokens.get(token)!;
         const tfNormalized =
           (tf * (BM25_K1 + 1)) /
           (tf + BM25_K1 * (1 - BM25_B + BM25_B * (doc.length / this.avgDocLength)));
@@ -457,11 +468,21 @@ export class HybridSearchEngine {
 
   /**
    * Compute AST structural profile similarity.
+   *
+   * An AST profile is a structural token string (node kinds, arities, nesting
+   * depth). Compare it against the query using token-level Jaccard similarity,
+   * mirroring `computeSignatureMatch`: a larger overlap of structural tokens
+   * with the query indicates a closer structural match, and disjoint token
+   * sets yield 0 rather than a fabricated constant.
    */
-  private computeAstSimilarity(_query: string, _astProfile: string): number {
-    // Placeholder — full implementation requires AST profile generation
-    // This would compare node type distributions, depth histograms, etc.
-    return 0.5;
+  private computeAstSimilarity(query: string, astProfile: string): number {
+    const queryTokens = new Set(this.tokenize(query));
+    const profileTokens = new Set(this.tokenize(astProfile));
+
+    const intersection = new Set([...queryTokens].filter((t) => profileTokens.has(t)));
+    const union = new Set([...queryTokens, ...profileTokens]);
+
+    return union.size > 0 ? intersection.size / union.size : 0;
   }
 
   /**

@@ -2,7 +2,7 @@
 // Extracts and validates API contracts across repository boundaries.
 // Detects breaking changes: removed exports, changed signatures, renamed symbols.
 
-import type { GraphNode, GraphEdge, Contract } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 import type { CrossRepoIndexer } from './cross-repo-indexer.js';
 
 // ---------------------------------------------------------------------------
@@ -93,28 +93,6 @@ export class ContractValidator {
           `Symbol "${symbolName}" removed from "${sourceRepoId}". Update ${affectedRepos.length} dependent repos.`,
         );
         continue;
-      }
-
-      // Check for signature changes
-      const previousSignature = this.getPreviousSignature(sourceRepoId, symbolName);
-      if (previousSignature && previousSignature !== sourceSymbol.signature) {
-        const affectedRepos = await this.findReposConsumingSymbol(groupId, symbolName);
-        result.changes.push({
-          type: 'signature_changed',
-          symbol: symbolName,
-          oldSignature: previousSignature,
-          newSignature: sourceSymbol.signature,
-          severity: 'high',
-          description: `Signature of "${symbolName}" changed from "${previousSignature}" to "${sourceSymbol.signature ?? 'unknown'}"`,
-          affectedRepos,
-        });
-        result.breakingCount++;
-        if (affectedRepos.length > 0) {
-          result.compatible = false;
-          result.recommendations.push(
-            `Update "${symbolName}" callers in ${affectedRepos.join(', ')} to match the new signature.`,
-          );
-        }
       }
 
       // Check for visibility changes
@@ -295,12 +273,6 @@ export class ContractValidator {
     if (node.properties?.['access'] === 'private') return 'private';
     if (node.properties?.['access'] === 'protected') return 'protected';
     return 'public';
-  }
-
-  private getPreviousSignature(_repoId: string, _symbolName: string): string | undefined {
-    // In production, this would query a versioned store.
-    // For now, return undefined to indicate no previous version is available.
-    return undefined;
   }
 
   private async findConsumerRepos(

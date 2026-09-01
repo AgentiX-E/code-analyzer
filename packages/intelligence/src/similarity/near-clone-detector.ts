@@ -111,9 +111,11 @@ export class NearCloneDetector {
     let prunedByLSH = 0;
 
     for (const [i, j] of candidatePairs) {
-      const sig1 = signatures.get(candidates[i]!.id);
-      const sig2 = signatures.get(candidates[j]!.id);
-      if (!sig1 || !sig2) continue;
+      // Candidate pairs originate from lshCluster buckets, which only admit
+      // candidates whose signature exists, and computeSignatures registers a
+      // signature for every candidate — so both lookups are guaranteed to hit.
+      const sig1 = signatures.get(candidates[i]!.id)!;
+      const sig2 = signatures.get(candidates[j]!.id)!;
 
       const jaccard = this.estimateJaccard(sig1, sig2);
       if (jaccard >= this.similarityThreshold) {
@@ -252,8 +254,9 @@ export class NearCloneDetector {
       const bucket = new Map<number, number[]>();
 
       for (let i = 0; i < candidates.length; i++) {
-        const sig = signatures.get(candidates[i]!.id);
-        if (!sig) continue;
+        // computeSignatures registers a signature for every candidate, so this
+        // lookup always hits.
+        const sig = signatures.get(candidates[i]!.id)!;
 
         const bandHash = this.hashBand(sig, band);
         let ids = bucket.get(bandHash);
@@ -270,8 +273,9 @@ export class NearCloneDetector {
           for (let b = a + 1; b < ids.length; b++) {
             const i = ids[a]!;
             const j = ids[b]!;
-            // Store as ordered pair (i < j) for dedup
-            const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+            // Bucket ids are appended in ascending candidate-index order, so
+            // ids[a] < ids[b] for a < b — the pair is already ordered (i < j).
+            const key = `${i}-${j}`;
             candidateSet.add(key);
           }
         }
@@ -291,8 +295,11 @@ export class NearCloneDetector {
     const start = band * this.lshBands.bandSize;
     let hash = 0;
 
-    for (let i = start; i < start + this.lshBands.bandSize && i < signature.length; i++) {
-      hash = ((hash << 5) - hash + (signature[i] ?? 0)) | 0;
+    // numBands = floor(signatureLength / bandSize), so the last band ends at or
+    // before signature.length; the in-bounds indices always resolve and the
+    // extra `i < signature.length` bound plus `?? 0` fallback are never hit.
+    for (let i = start; i < start + this.lshBands.bandSize; i++) {
+      hash = ((hash << 5) - hash + signature[i]!) | 0;
     }
 
     return hash;

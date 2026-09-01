@@ -2,7 +2,8 @@
 // Bridges single-repo PR review with cross-repo context analysis.
 // Orchestrates contract validation, impact graph, and review engine.
 
-import type { PullRequest, GitDiff, ReviewComment, GraphNode } from '@code-analyzer/shared';
+import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
+import { EDGE_IMPORTS } from '@code-analyzer/shared';
 import type { CrossRepoIndexer } from './cross-repo-indexer.js';
 import type { RepoGroupManager } from './repo-group-manager.js';
 import type { CodeReviewEngine } from '../review/review-engine.js';
@@ -187,29 +188,24 @@ export class PRReviewBridge {
     const changedSymbols = this.extractChangedSymbols(diffs);
     const relatedRepos = await this.discoverRelatedRepos(groupId, sourceRepoId);
 
-    // Find shared dependencies
+    // Find shared dependencies (modules imported by both the source repo and
+    // each sibling repo). Imports are stored as IMPORTS edges carrying an
+    // `importPath` property — not as graph nodes — so read them from the store.
     const group = this.groupManager.getGroup(groupId);
     const sharedDependencies: string[] = [];
     if (group) {
+      const sourceImports = this.collectImports(sourceRepoId);
       for (const repo of group.repos) {
-        if (repo.fullName !== sourceRepoId) {
-          try {
-            const sourceNodes = this.indexer.getRepoNodes(sourceRepoId);
-            const targetNodes = this.indexer.getRepoNodes(repo.fullName);
-            const sourceImports = new Set(
-              sourceNodes.filter((n) => (n.label as string) === 'Import').map((n) => n.name),
-            );
-            const targetImports = new Set(
-              targetNodes.filter((n) => (n.label as string) === 'Import').map((n) => n.name),
-            );
-            for (const imp of sourceImports) {
-              if (targetImports.has(imp) && !sharedDependencies.includes(imp)) {
-                sharedDependencies.push(imp);
-              }
+        if (repo.fullName === sourceRepoId) continue;
+        try {
+          const targetImports = this.collectImports(repo.fullName);
+          for (const imp of sourceImports) {
+            if (targetImports.has(imp) && !sharedDependencies.includes(imp)) {
+              sharedDependencies.push(imp);
             }
-          } catch {
-            // Skip repos that can't be analyzed
           }
+        } catch {
+          // Skip repos that can't be analyzed
         }
       }
     }
@@ -297,11 +293,10 @@ export class PRReviewBridge {
   private extractChangedSymbols(diffs: GitDiff[]): string[] {
     const symbols = new Set<string>();
     for (const diff of diffs) {
-      const baseName =
-        diff.filePath
-          .split('/')
-          .pop()
-          ?.replace(/\.[^.]+$/, '') ?? '';
+      const baseName = diff.filePath
+        .split('/')
+        .pop()!
+        .replace(/\.[^.]+$/, '');
       if (baseName) {
         symbols.add(baseName);
         // Add PascalCase variant
@@ -313,6 +308,27 @@ export class PRReviewBridge {
       if (dirPath) symbols.add(dirPath);
     }
     return Array.from(symbols);
+  }
+
+  /**
+   * Collect the module import paths referenced by a repo's nodes.
+   *
+   * Imports are represented as IMPORTS edges (each carrying an `importPath`
+   * property) rather than as nodes, so we walk every node's outgoing IMPORTS
+   * edges and gather their module paths. Returns a set of distinct paths.
+   */
+  private collectImports(repoId: string): Set<string> {
+    const imports = new Set<string>();
+    const store = this.indexer.getStore();
+    for (const node of this.indexer.getRepoNodes(repoId)) {
+      for (const edge of store.getEdgesForNode(node.id, EDGE_IMPORTS)) {
+        const importPath = edge.properties['importPath'];
+        if (typeof importPath === 'string' && importPath.length > 0) {
+          imports.add(importPath);
+        }
+      }
+    }
+    return imports;
   }
 
   private determineRiskLevel(

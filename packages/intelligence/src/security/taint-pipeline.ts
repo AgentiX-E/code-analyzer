@@ -113,37 +113,40 @@ function buildFunctionSummary(
   const paramToReturns: FunctionSummary['paramToReturns'] = [];
   const callResults: FunctionSummary['callResults'] = [];
 
-  if (result.findings)
-    for (const finding of result.findings) {
-      const source = finding.source;
-      const sink = finding.sink;
+  // `findings` is a required array on TaintFunctionResult (the propagator always
+  // returns one, empty when there are no sources), so iterating directly is
+  // safe — a `for..of` over an empty array is a no-op. The previous truthiness
+  // guard tested a state the type system already excludes.
+  for (const finding of result.findings) {
+    const source = finding.source;
+    const sink = finding.sink;
 
-      // Source → Sink flow
-      if (source.category === 'source') {
-        // Check if this is source→callArg (seed for fixpoint)
-        // or source→sink (intra-proc finding)
-        if (sink.kind !== 'source') {
-          paramToSinks.push({
-            param: 0, // Simplified: map to first param
-            sinkLine: sink.point.line,
-            sink,
-            hops: finding.hops,
-          });
-        }
-      }
-
-      // Propagated flows (TITO patterns)
-      for (const block of finding.path) {
-        // Simplified: any block in the path could represent a call site
-        sourceToCallArgs.push({
-          source: finding.source,
-          calleeName: '',
-          callLine: block * 100, // Approximate line from block index
-          argIndex: 0,
-          resolved: false,
+    // Source → Sink flow
+    if (source.category === 'source') {
+      // Check if this is source→callArg (seed for fixpoint)
+      // or source→sink (intra-proc finding)
+      if (sink.kind !== 'source') {
+        paramToSinks.push({
+          param: 0, // Simplified: map to first param
+          sinkLine: sink.point.line,
+          sink,
+          hops: finding.hops,
         });
       }
     }
+
+    // Propagated flows (TITO patterns)
+    for (const block of finding.path) {
+      // Simplified: any block in the path could represent a call site
+      sourceToCallArgs.push({
+        source: finding.source,
+        calleeName: '',
+        callLine: block * 100, // Approximate line from block index
+        argIndex: 0,
+        resolved: false,
+      });
+    }
+  }
 
   return {
     fnQn,
