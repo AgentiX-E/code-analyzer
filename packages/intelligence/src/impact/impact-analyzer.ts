@@ -73,8 +73,6 @@ export interface ProcessImpact {
 // Constants
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 const RISK_ORDER: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
 
 const TRAVERSAL_RELATIONSHIPS: RelationshipType[] = [
@@ -253,19 +251,20 @@ export class ImpactAnalyzer {
     // BFS traversal
     while (queue.length > 0) {
       const current = queue.shift()!;
-      const node = this.store.getNode(current.nodeId);
+      // Edge integrity invariant: queue node IDs originate from edge.sourceId,
+      // and insertEdge validates endpoints while deleteNode cascades edge
+      // removal, so every queued node ID resolves to an existing node.
+      const node = this.store.getNode(current.nodeId)!;
 
-      if (node) {
-        result.push({
-          nodeId: node.id,
-          name: node.name,
-          qualifiedName: node.qualifiedName,
-          filePath: node.filePath ?? '',
-          label: node.label,
-          depth: current.depth,
-          relationship: current.relationship,
-        });
-      }
+      result.push({
+        nodeId: node.id,
+        name: node.name,
+        qualifiedName: node.qualifiedName,
+        filePath: node.filePath ?? '',
+        label: node.label,
+        depth: current.depth,
+        relationship: current.relationship,
+      });
 
       if (current.depth >= maxDepth) continue;
 
@@ -310,20 +309,23 @@ export class ImpactAnalyzer {
       });
 
       for (const edge of testEdges.items) {
-        const testNode = this.store.getNode(edge.sourceId);
-        if (!testNode) continue;
+        // Edge integrity invariant: insertEdge validates endpoints and
+        // deleteNode cascades edge removal, so edge.sourceId always resolves.
+        const testNode = this.store.getNode(edge.sourceId)!;
 
         // Deduplicate by test node, not edge (same test may have
         // TESTS edges to multiple symbols)
         if (seen.has(testNode.id)) continue;
         seen.add(testNode.id);
 
-        const targetNode = this.store.getNode(edge.targetId);
+        // Edge integrity invariant guarantees edge.targetId resolves, and
+        // qualifiedName is a non-nullable string field on GraphNode.
+        const targetNode = this.store.getNode(edge.targetId)!;
 
         results.push({
           testName: testNode.name,
           testFile: testNode.filePath ?? '',
-          testedSymbol: targetNode?.qualifiedName ?? `node-${edge.targetId}`,
+          testedSymbol: targetNode.qualifiedName,
           impactType: symbolIds.includes(edge.sourceId) ? 'direct' : 'indirect',
         });
       }
@@ -378,8 +380,8 @@ export class ImpactAnalyzer {
       });
 
       for (const edge of routeEdges.items) {
-        const routeNode = this.store.getNode(edge.targetId);
-        if (!routeNode) continue;
+        // Edge integrity invariant: edge.targetId always resolves to a node.
+        const routeNode = this.store.getNode(edge.targetId)!;
 
         const routePath =
           typeof routeNode.properties.routePath === 'string'
@@ -406,12 +408,13 @@ export class ImpactAnalyzer {
             (e: GraphEdge) => this.store.getNode(e.targetId)?.qualifiedName ?? `node-${e.targetId}`,
           );
 
-          const handlerNode = this.store.getNode(edge.sourceId);
+          // Edge integrity invariant: edge.sourceId (the handler) always resolves.
+          const handlerNode = this.store.getNode(edge.sourceId)!;
 
           results.push({
             routePath,
             routeMethod,
-            handlerFunction: handlerNode?.qualifiedName ?? `node-${edge.sourceId}`,
+            handlerFunction: handlerNode.qualifiedName,
             consumers,
           });
         }
@@ -456,24 +459,22 @@ export class ImpactAnalyzer {
         if (seen.has(edge.id)) continue;
         seen.add(edge.id);
 
-        const processNode = this.store.getNode(edge.sourceId);
-        const stepNode = this.store.getNode(edge.targetId);
+        // Edge integrity invariant: edge.sourceId (process) and edge.targetId
+        // (step) always resolve to existing nodes.
+        const processNode = this.store.getNode(edge.sourceId)!;
+        const stepNode = this.store.getNode(edge.targetId)!;
 
-        if (processNode) {
-          const existing = results.find((r) => r.processName === processNode.name);
+        const existing = results.find((r) => r.processName === processNode.name);
 
-          if (existing) {
-            if (stepNode) {
-              existing.affectedSteps.push(stepNode.name);
-            }
-          } else {
-            results.push({
-              processName: processNode.name,
-              entryPoint: processNode.qualifiedName,
-              affectedSteps: stepNode ? [stepNode.name] : [],
-              severity: 'degraded',
-            });
-          }
+        if (existing) {
+          existing.affectedSteps.push(stepNode.name);
+        } else {
+          results.push({
+            processName: processNode.name,
+            entryPoint: processNode.qualifiedName,
+            affectedSteps: [stepNode.name],
+            severity: 'degraded',
+          });
         }
       }
     }
@@ -628,7 +629,9 @@ export class ImpactAnalyzer {
   }
 
   private maxRisk(risks: RiskLevel[]): RiskLevel {
-    if (risks.length === 0) return 'low';
+    // determineRiskLevel only invokes this after at least one changed symbol
+    // resolved, so `risks` is non-empty; an empty input would still yield
+    // 'low' via RISK_ORDER[0], making an explicit guard redundant.
     let maxIdx = 0;
     for (const r of risks) {
       const idx = RISK_ORDER.indexOf(r);
@@ -647,5 +650,3 @@ export class ImpactAnalyzer {
     return 'low';
   }
 }
-
-/* v8 ignore stop */

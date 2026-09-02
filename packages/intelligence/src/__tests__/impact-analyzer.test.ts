@@ -2038,3 +2038,96 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     expect(result.processesAffected.length).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Honest-coverage edge cases (real graph data, no injection)
+// ---------------------------------------------------------------------------
+
+describe('ImpactAnalyzer — honest coverage edge cases', () => {
+  it('should map a dependent node with a null filePath to an empty string', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const target = store.insertNode(createNode(1));
+    const caller = store.insertNode(createNode(2, { filePath: null }));
+    createEdge(store, 201, caller, target, 'CALLS');
+
+    const result = analyzer.findDirectDependents(PROJECT_ID, [target]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.filePath).toBe('');
+  });
+
+  it('should map a test node with a null filePath to an empty string', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const fn = store.insertNode(createNode(1, { name: 'targetFn', qualifiedName: 'pkg.targetFn' }));
+    const test = store.insertNode(createNode(2, { label: 'Test', name: 'testFn', filePath: null }));
+    createEdge(store, 201, test, fn, 'TESTS');
+
+    const result = analyzer.findAffectedTests(PROJECT_ID, [fn]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.testFile).toBe('');
+  });
+
+  it('should ignore a symbol ID that does not resolve to a node', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [999999]);
+    expect(result).toHaveLength(0);
+  });
+
+  it('should deduplicate direct Route nodes sharing the same method and path', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const routeA = store.insertNode(
+      createNode(1, {
+        label: 'Route',
+        properties: { name: 'GET /api/users', routePath: '/api/users', routeMethod: 'GET' },
+      }),
+    );
+    const routeB = store.insertNode(
+      createNode(2, {
+        label: 'Route',
+        properties: { name: 'GET /api/users (dup)', routePath: '/api/users', routeMethod: 'GET' },
+      }),
+    );
+
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [routeA, routeB]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.routePath).toBe('/api/users');
+  });
+
+  it('should default a missing HANDLES_ROUTE target routePath to an empty string', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const handler = store.insertNode(createNode(1));
+    const route = store.insertNode(
+      createNode(2, {
+        label: 'Route',
+        properties: { name: 'GET route', routeMethod: 'GET' },
+      }),
+    );
+    createEdge(store, 102, handler, route, 'HANDLES_ROUTE');
+
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [handler]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.routePath).toBe('');
+  });
+
+  it('should deduplicate a process step listed more than once', () => {
+    const store = new InMemoryGraphStore();
+    const analyzer = new ImpactAnalyzer(store);
+
+    const process = store.insertNode(createNode(1, { label: 'Process', name: 'Checkout' }));
+    const step = store.insertNode(createNode(2, { name: 'validateCart' }));
+    createEdge(store, 102, process, step, 'STEP_IN_PROCESS');
+
+    const result = analyzer.findAffectedProcesses(PROJECT_ID, [step, step]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.affectedSteps).toEqual(['validateCart']);
+  });
+});
