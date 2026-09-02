@@ -1030,3 +1030,127 @@ describe('tokenize — additional patterns', () => {
     expect(tokenize('my-module_v2.config')).toEqual(['my', 'module', 'v2', 'config']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Coverage: null metadata indexing + vector search defensive branches
+// ---------------------------------------------------------------------------
+
+describe('HybridSearchEngine — null metadata and vector search branches', () => {
+  it('should index nodes with null signature and null docstring', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(
+      createNode(1, {
+        name: 'plainNode',
+        qualifiedName: 'pkg.plainNode',
+        signature: null,
+        docstring: null,
+      }),
+    );
+
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+
+    // Node with no signature/docstring is still indexed via name + qualifiedName.
+    const results = engine.bm25Search('plainNode');
+    expect(results.length).toBe(1);
+    expect(results[0]!.node.id).toBe(1);
+  });
+
+  it('should disable vector search when only a lookup is registered (no content fn)', async () => {
+    const store = createStore();
+    const engine = new HybridSearchEngine(store);
+
+    // Register a lookup without an embed-content function → embedContent stays null.
+    engine.registerEmbeddings(() => new Float32Array([0.5, 0.5]));
+
+    const results = await engine.vectorSearch('query', 5);
+    expect(results).toEqual([]);
+  });
+
+  it('should fall back to scoring all nodes when BM25 yields no candidates', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'alpha', qualifiedName: 'pkg.alpha' }));
+    store.insertNode(createNode(2, { name: 'beta', qualifiedName: 'pkg.beta' }));
+
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+
+    const emb = new Map<number, Float32Array>();
+    emb.set(1, new Float32Array([0.9, 0.1]));
+    emb.set(2, new Float32Array([0.1, 0.9]));
+    engine.registerEmbeddings(
+      (nodeId) => emb.get(nodeId) ?? null,
+      async () => new Float32Array([0.9, 0.1]),
+    );
+
+    // Query matches no BM25 term → bm25Results empty → candidateIds null.
+    const results = await engine.search({ query: 'zzz_no_match_xyz' });
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('should skip candidate IDs that do not exist in the store', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'present', qualifiedName: 'pkg.present' }));
+
+    const engine = new HybridSearchEngine(store);
+    engine.registerEmbeddings(
+      () => new Float32Array([0.5, 0.5]),
+      async () => new Float32Array([0.5, 0.5]),
+    );
+
+    // candidateIds includes 999, which is not in the store → getNode returns null.
+    const results = await engine.vectorSearch('query', 5, [1, 999]);
+    expect(results.length).toBe(1);
+    expect(results[0]!.node.id).toBe(1);
+  });
+
+  it('should cap vector scoring at 1000 candidates', async () => {
+    const store = new InMemoryGraphStore();
+    for (let i = 1; i <= 1001; i++) {
+      store.insertNode(createNode(i));
+    }
+
+    const engine = new HybridSearchEngine(store);
+    engine.registerEmbeddings(
+      () => new Float32Array([0.5, 0.5]),
+      async () => new Float32Array([0.5, 0.5]),
+    );
+
+    // No candidateIds → getAllNodes() returns 1001 nodes → capped to 1000.
+    const results = await engine.vectorSearch('query', 5);
+    expect(results.length).toBe(5);
+  });
+
+  it('should skip nodes without a stored embedding', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'hasEmb', qualifiedName: 'pkg.hasEmb' }));
+    store.insertNode(createNode(2, { name: 'noEmb', qualifiedName: 'pkg.noEmb' }));
+
+    const engine = new HybridSearchEngine(store);
+    engine.registerEmbeddings(
+      (nodeId) => (nodeId === 1 ? new Float32Array([0.5, 0.5]) : null),
+      async () => new Float32Array([0.5, 0.5]),
+    );
+
+    const results = await engine.vectorSearch('query', 5);
+    expect(results.length).toBe(1);
+    expect(results[0]!.node.id).toBe(1);
+  });
+
+  it('should exclude results with non-positive similarity', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(createNode(1, { name: 'aligned', qualifiedName: 'pkg.aligned' }));
+    store.insertNode(createNode(2, { name: 'orthogonal', qualifiedName: 'pkg.orthogonal' }));
+
+    const engine = new HybridSearchEngine(store);
+    engine.registerEmbeddings(
+      (nodeId) => (nodeId === 1 ? new Float32Array([1, 0]) : new Float32Array([0, 1])),
+      async () => new Float32Array([1, 0]),
+    );
+
+    // Node 2 is orthogonal to the query (similarity 0) → excluded.
+    const results = await engine.vectorSearch('query', 5);
+    expect(results.length).toBe(1);
+    expect(results[0]!.node.id).toBe(1);
+  });
+});

@@ -130,12 +130,15 @@ class InvertedIndex {
     if (!doc) return;
 
     for (const term of doc.docTerms.keys()) {
-      const postings = this.index.get(term);
-      if (postings) {
-        const idx = postings.findIndex((p) => p.nodeId === nodeId);
-        if (idx >= 0) postings.splice(idx, 1);
-        if (postings.length === 0) this.index.delete(term);
-      }
+      // Every term in a document's term-frequency map is guaranteed to have a
+      // non-empty postings list containing this node: addDocument writes
+      // docTerms and the inverted index together, and removeDocument deletes a
+      // term as soon as its postings list is drained. So both the postings
+      // lookup and the nodeId search below always resolve.
+      const postings = this.index.get(term)!;
+      const idx = postings.findIndex((p) => p.nodeId === nodeId);
+      postings.splice(idx, 1);
+      if (postings.length === 0) this.index.delete(term);
     }
 
     this.totalDocLength -= doc.docLength;
@@ -156,12 +159,9 @@ class InvertedIndex {
   }
 
   /**
-   * Score a document node against a query using BM25.
+   * Score a document against a query using BM25.
    */
-  scoreDocument(query: string, nodeId: number): number {
-    const doc = this.docs.get(nodeId);
-    if (!doc) return 0;
-
+  scoreDocument(query: string, doc: DocEntry): number {
     const queryTerms = tokenize(query);
     if (queryTerms.length === 0) return 0;
 
@@ -221,13 +221,15 @@ class InvertedIndex {
     const results: RankedResult[] = [];
 
     for (const nodeId of candidates) {
-      const doc = this.docs.get(nodeId);
-      if (!doc) continue;
+      // `candidates` only contains node IDs present in `docs` (built from
+      // index postings and docs.keys(), both subsets of docs), so get() always
+      // resolves here.
+      const doc = this.docs.get(nodeId)!;
 
       // Apply filters
       if (!this.passesFilters(doc.node, filters)) continue;
 
-      const score = this.scoreDocument(query, nodeId);
+      const score = this.scoreDocument(query, doc);
       if (score > 0) {
         results.push({ node: doc.node, score });
       }
