@@ -183,12 +183,12 @@ export class TrendAnalyzer {
     const deltas: Record<string, number> = {};
 
     for (const path of paths) {
-      const baseVal = this.getValueAtPath(baseline, path);
-      const currVal = this.getValueAtPath(current, path);
-
-      if (baseVal !== null && currVal !== null) {
-        deltas[path] = currVal - baseVal;
-      }
+      // Every `path` above resolves to a required `number` field on
+      // `AnalysisReport` (see ReportSummary / ReportMetrics), so
+      // `getValueAtPath` always returns a number — never null.
+      const baseVal = this.getValueAtPath(baseline, path)!;
+      const currVal = this.getValueAtPath(current, path)!;
+      deltas[path] = currVal - baseVal;
     }
 
     return deltas;

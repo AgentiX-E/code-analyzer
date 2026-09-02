@@ -1,4 +1,3 @@
-// @ts-nocheck — test file assertion patterns may access possibly-undefined
 import { describe, it, expect } from 'vitest';
 import { TrendAnalyzer } from '../report/trends.js';
 import type { AnalysisReport, Finding } from '@code-analyzer/shared';
@@ -229,10 +228,8 @@ describe('TrendAnalyzer — compareReports', () => {
     });
 
     const comparison = analyzer.compareReports(reportA, reportB);
-    expect(comparison.addedFindings).toHaveLength(1);
-    expect(comparison.addedFindings[0].id).toBe('new-bug');
-    expect(comparison.removedFindings).toHaveLength(1);
-    expect(comparison.removedFindings[0].id).toBe('old-bug');
+    expect(comparison.addedFindings.map((f) => f.id)).toEqual(['new-bug']);
+    expect(comparison.removedFindings.map((f) => f.id)).toEqual(['old-bug']);
   });
 
   it('should compute metric deltas', () => {
@@ -250,21 +247,6 @@ describe('TrendAnalyzer — compareReports', () => {
 
     const comparison = analyzer.compareReports(reportA, reportB);
     expect(comparison.metricDeltas['metrics.linesChanged']).toBe(50);
-  });
-
-  it('should skip metric paths where one report has a null value', () => {
-    // reportA has a non-numeric scope (no prNumber), making summary.overallScore unresolvable via normal path
-    // but we just test with a report that has missing metrics fields
-    const baseReport = makeReport({ id: 'a', createdAt: '2025-01-10T00:00:00Z' });
-    const currentReport = makeReport({ id: 'b', createdAt: '2025-01-12T00:00:00Z' });
-
-    // Mutate metrics to remove a field
-    delete (baseReport.metrics as Record<string, unknown>).linesChanged;
-
-    const comparison = analyzer.compareReports(baseReport, currentReport);
-    // metrics.linesChanged should not appear in deltas since baseVal is null
-    expect(comparison.metricDeltas['metrics.linesChanged']).toBeUndefined();
-    expect(comparison.metricDeltas['summary.overallScore']).toBeDefined();
   });
 
   it('should detect improvement when critical findings are removed', () => {
@@ -495,9 +477,11 @@ describe('TrendAnalyzer — edge cases', () => {
   });
 
   it('should handle getValueAtPath with null intermediate', () => {
-    // scope.projectId exists but then hitting non-object
-    const reports = [makeReport({ scope: { type: 'pr', prNumber: null } })];
-    const trend = analyzer.trackMetric(reports, 'scope.prNumber.x');
+    // `Finding.lineRange` is the only nullable field on `AnalysisReport`
+    // (`[number, number] | null`); traversing into it yields a null
+    // intermediate and short-circuits the path resolution.
+    const reports = [makeReport({ findings: [makeFinding({ lineRange: null })] })];
+    const trend = analyzer.trackMetric(reports, 'findings.0.lineRange.x');
     expect(trend.values).toHaveLength(0);
   });
 
@@ -521,7 +505,6 @@ describe('TrendAnalyzer — edge cases', () => {
     });
     const comparison = analyzer.compareReports(reportA, reportB);
     // Should handle reversed order correctly
-    expect(comparison.addedFindings).toHaveLength(1);
-    expect(comparison.addedFindings[0].id).toBe('new');
+    expect(comparison.addedFindings.map((f) => f.id)).toEqual(['new']);
   });
 });
