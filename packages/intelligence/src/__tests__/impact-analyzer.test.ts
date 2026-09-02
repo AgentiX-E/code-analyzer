@@ -1,11 +1,10 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Impact Analyzer Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ImpactAnalyzer } from '../impact/impact-analyzer.js';
 import type { ChangedSymbol } from '../impact/change-detector.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode } from '@code-analyzer/shared';
+import type { GraphNode, ImpactResult } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1053,7 +1052,7 @@ describe('ImpactAnalyzer risk determination', () => {
     const analyzer = new ImpactAnalyzer(store);
 
     // >= 20 -> 25 points
-    const largeImpact: any = {
+    const largeImpact: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1079,7 +1078,7 @@ describe('ImpactAnalyzer risk determination', () => {
     expect(analyzer.computeRiskScore(largeImpact)).toBeGreaterThanOrEqual(25);
 
     // >= 10 -> 18 points
-    const mediumImpact: any = {
+    const mediumImpact: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1105,7 +1104,7 @@ describe('ImpactAnalyzer risk determination', () => {
     expect(analyzer.computeRiskScore(mediumImpact)).toBeGreaterThanOrEqual(18);
 
     // >= 5 -> 12 points
-    const smallImpact: any = {
+    const smallImpact: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1131,7 +1130,7 @@ describe('ImpactAnalyzer risk determination', () => {
     expect(analyzer.computeRiskScore(smallImpact)).toBeGreaterThanOrEqual(12);
 
     // >= 1 -> 5 points
-    const tinyImpact: any = {
+    const tinyImpact: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1164,7 +1163,7 @@ describe('ImpactAnalyzer risk determination', () => {
     const analyzer = new ImpactAnalyzer(store);
 
     // >= 10 files -> 15 points
-    const hugeFiles: any = {
+    const hugeFiles: ImpactResult = {
       changedFiles: Array.from({ length: 10 }, (_, i) => `/src/f_${i}.ts`),
       changedSymbols: [
         {
@@ -1183,7 +1182,7 @@ describe('ImpactAnalyzer risk determination', () => {
     expect(analyzer.computeRiskScore(hugeFiles)).toBeGreaterThanOrEqual(15);
 
     // 1 file -> 2 points
-    const oneFile: any = {
+    const oneFile: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1286,7 +1285,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const aId = store.insertNode(createNode(1, { label: 'Namespace' }));
+    const aId = store.insertNode(createNode(1, { label: 'Module' }));
     const bId = store.insertNode(createNode(2, { label: 'Variable' }));
     createEdge(store, 201, bId, aId, 'MEMBER_OF');
 
@@ -1299,7 +1298,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1332,7 +1331,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1364,7 +1363,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts', '/src/e.ts'],
       changedSymbols: [
         {
@@ -1388,7 +1387,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: ['/src/a.ts', '/src/b.ts'],
       changedSymbols: [
         {
@@ -1420,7 +1419,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
       endLine: i + 1,
     }));
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: symbols.map((s) => s.filePath),
       changedSymbols: symbols,
       impactTree: [],
@@ -1499,7 +1498,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts', '/src/e.ts'],
       changedSymbols: [
         {
@@ -1531,7 +1530,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
       endLine: i + 1,
     }));
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: symbols.map((s) => s.filePath),
       changedSymbols: symbols,
       impactTree: [],
@@ -1547,7 +1546,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const result: any = {
+    const result: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1616,80 +1615,21 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     expect(result.length).toBeGreaterThanOrEqual(0);
   });
 
-  it('should handle Route node with non-string routePath property', async () => {
+  it('should default a direct Route node routeMethod to GET when omitted', () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
-    const route = createNode(1, {
-      label: 'Route',
-      properties: { name: 'test route', routePath: 12345 },
-    });
-    store.insertNode(route);
+    const route = store.insertNode(
+      createNode(1, {
+        label: 'Route',
+        properties: { name: 'health check', routePath: '/api/health' },
+      }),
+    );
 
-    const result = analyzer.findAffectedRoutes(PROJECT_ID, [1]);
-    // routePath is not a string, but typeof check should convert
-    expect(result.length).toBeGreaterThanOrEqual(0);
-  });
-
-  it('should handle route via HANDLES_ROUTE with non-string routePath', async () => {
-    const store = new InMemoryGraphStore();
-    const analyzer = new ImpactAnalyzer(store);
-
-    const handler = createNode(1, {
-      name: 'handler',
-      qualifiedName: 'pkg.handler',
-      filePath: '/src/handler.ts',
-    });
-    store.insertNode(handler);
-
-    const route = createNode(2, {
-      label: 'Route',
-      name: 'NumRoute',
-      qualifiedName: 'route.num',
-      filePath: '/src/routes.ts',
-      properties: { name: 'NumRoute', routePath: 99999, routeMethod: 'POST' },
-    });
-    store.insertNode(route);
-
-    store.insertEdge({
-      id: 201,
-      projectId: PROJECT_ID,
-      sourceId: 1,
-      targetId: 2,
-      type: 'HANDLES_ROUTE',
-      properties: {},
-      weight: 1,
-      createdAt: '2024-01-01T00:00:00Z',
-    });
-
-    const changedSymbols: ChangedSymbol[] = [
-      {
-        name: 'handler',
-        qualifiedName: 'pkg.handler',
-        filePath: '/src/handler.ts',
-        changeType: 'modified',
-        lineRange: [10, 20],
-        riskLevel: 'medium',
-        reason: '',
-      },
-    ];
-
-    const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
-    expect(result).toBeDefined();
-  });
-
-  it('should handle route node with routeMethod non-string property', async () => {
-    const store = new InMemoryGraphStore();
-    const analyzer = new ImpactAnalyzer(store);
-
-    const route = createNode(1, {
-      label: 'Route',
-      properties: { name: 'test', routePath: '/api/test', routeMethod: 42 },
-    });
-    store.insertNode(route);
-
-    const result = analyzer.findAffectedRoutes(PROJECT_ID, [1]);
-    expect(result.length).toBeGreaterThanOrEqual(0);
+    const result = analyzer.findAffectedRoutes(PROJECT_ID, [route]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.routeMethod).toBe('GET');
+    expect(result[0]!.routePath).toBe('/api/health');
   });
 
   it('should handle risk determination with impactCount between 10 and 19', async () => {
@@ -1752,7 +1692,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     const analyzer = new ImpactAnalyzer(store);
 
     // Exactly 2 processes → 13 points
-    const result2: any = {
+    const result2: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1774,7 +1714,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     expect(analyzer.computeRiskScore(result2)).toBeGreaterThanOrEqual(13);
 
     // Exactly 1 process → 7 points
-    const result1: any = {
+    const result1: ImpactResult = {
       changedFiles: ['/src/a.ts'],
       changedSymbols: [
         {
@@ -1865,7 +1805,7 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     expect(result).toBeDefined();
   });
 
-  it('should handle route consumer with null qualifiedName fallback', async () => {
+  it('should resolve a route consumer qualifiedName via CALLS edges', async () => {
     const store = new InMemoryGraphStore();
     const analyzer = new ImpactAnalyzer(store);
 
@@ -1887,10 +1827,10 @@ describe('ImpactAnalyzer — additional edge cases', () => {
     });
     store.insertNode(route);
 
-    // Consumer with null qualifiedName
+    // Consumer with a valid qualifiedName
     const consumer = createNode(3, {
       name: 'consumer',
-      qualifiedName: null as any,
+      qualifiedName: 'pkg.consumer',
       filePath: '/src/consumer.ts',
     });
     store.insertNode(consumer);
@@ -1931,62 +1871,6 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     const result = await analyzer.analyze(PROJECT_ID, changedSymbols);
     expect(result).toBeDefined();
-  });
-
-  it('should handle severityToRiskLevel for degraded severity', () => {
-    const store = new InMemoryGraphStore();
-    const analyzer = new ImpactAnalyzer(store);
-
-    // degraded → medium via severityToRiskLevel
-    // We test this through the public analyze API
-    const changedSymbols: ChangedSymbol[] = [
-      {
-        name: 'test',
-        qualifiedName: 'pkg.test',
-        filePath: '/src/test.ts',
-        changeType: 'modified',
-        lineRange: [10, 20],
-        riskLevel: 'medium',
-        reason: '',
-      },
-    ];
-
-    // This exercises the severityToRiskLevel path
-    analyzer.analyze(PROJECT_ID, changedSymbols).then((result) => {
-      expect(result.riskLevel).toBeDefined();
-    });
-  });
-
-  it('should handle severityToRiskLevel for unaffected severity', () => {
-    const store = new InMemoryGraphStore();
-    const analyzer = new ImpactAnalyzer(store);
-
-    const changedSymbols: ChangedSymbol[] = [
-      {
-        name: 'test',
-        qualifiedName: 'pkg.test',
-        filePath: '/src/test.ts',
-        changeType: 'modified',
-        lineRange: [10, 20],
-        riskLevel: 'low',
-        reason: '',
-      },
-    ];
-
-    analyzer.analyze(PROJECT_ID, changedSymbols).then((result) => {
-      expect(result.riskLevel).toBeDefined();
-    });
-  });
-
-  it('should cover severityToRiskLevel for all severities', () => {
-    const store = new InMemoryGraphStore();
-    const analyzer = new ImpactAnalyzer(store);
-
-    // Access private method via bracket notation to cover all branches
-    const method = (analyzer as any)['severityToRiskLevel'] as (severity: string) => string;
-    expect(method('blocked')).toBe('critical');
-    expect(method('degraded')).toBe('medium');
-    expect(method('unaffected')).toBe('low');
   });
 
   it('should trigger severityToRiskLevel for degraded via analyze', async () => {

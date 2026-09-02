@@ -2,13 +2,7 @@
 // BFS-based impact analysis that tracks how changes cascade through
 // the dependency graph to tests, routes, and execution processes.
 
-import type {
-  ImpactResult,
-  RiskLevel,
-  GraphEdge,
-  RelationshipType,
-  NodeLabel,
-} from '@code-analyzer/shared';
+import type { ImpactResult, RiskLevel, RelationshipType, NodeLabel } from '@code-analyzer/shared';
 import {
   EDGE_CALLS,
   EDGE_IMPLEMENTS,
@@ -66,7 +60,10 @@ export interface ProcessImpact {
   processName: string;
   entryPoint: string;
   affectedSteps: string[];
-  severity: 'blocked' | 'degraded' | 'unaffected';
+  // Only 'blocked' (a process node is itself a changed symbol) and 'degraded'
+  // (a changed symbol is a step in a process) are ever produced. 'unaffected'
+  // was a dead value with no producer and no consumer, so it is removed.
+  severity: 'blocked' | 'degraded';
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +71,12 @@ export interface ProcessImpact {
 // ---------------------------------------------------------------------------
 
 const RISK_ORDER: RiskLevel[] = ['low', 'medium', 'high', 'critical'];
+
+/** Maps a process impact severity to the shared RiskLevel enumeration. */
+const SEVERITY_TO_RISK: Record<ProcessImpact['severity'], RiskLevel> = {
+  blocked: 'critical',
+  degraded: 'medium',
+};
 
 const TRAVERSAL_RELATIONSHIPS: RelationshipType[] = [
   EDGE_CALLS,
@@ -349,10 +352,9 @@ export class ImpactAnalyzer {
       if (!node) continue;
 
       if (node.label === 'Route' && node.properties.routePath !== undefined) {
-        const routePath =
-          typeof node.properties.routePath === 'string'
-            ? node.properties.routePath
-            : String(node.properties.routePath);
+        // routePath is guarded non-undefined above and typed `string`, so the
+        // typeof check and String() coercion are unreachable.
+        const routePath = node.properties.routePath;
 
         const routeMethod =
           typeof node.properties.routeMethod === 'string' ? node.properties.routeMethod : 'GET';
@@ -404,8 +406,11 @@ export class ImpactAnalyzer {
             type: EDGE_CALLS,
             limit: 100000,
           });
+          // Edge integrity invariant: every edge target resolves to a node and
+          // qualifiedName is a non-nullable string, so the optional chain and
+          // nullish fallback are unreachable.
           const consumers = consumerEdges.items.map(
-            (e: GraphEdge) => this.store.getNode(e.targetId)?.qualifiedName ?? `node-${e.targetId}`,
+            (e) => this.store.getNode(e.targetId)!.qualifiedName,
           );
 
           // Edge integrity invariant: edge.sourceId (the handler) always resolves.
@@ -596,14 +601,7 @@ export class ImpactAnalyzer {
   }
 
   private severityToRiskLevel(severity: ProcessImpact['severity']): RiskLevel {
-    switch (severity) {
-      case 'blocked':
-        return 'critical';
-      case 'degraded':
-        return 'medium';
-      case 'unaffected':
-        return 'low';
-    }
+    return SEVERITY_TO_RISK[severity];
   }
 
   private determineRiskLevel(
