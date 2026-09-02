@@ -401,6 +401,19 @@ describe('DataflowSearchEngine', () => {
       expect(paths.length).toBeLessThanOrEqual(2);
     });
 
+    it('should return no paths when maxDepth is zero', () => {
+      const store = createMockStore();
+      const sourceNode = makeGraphNode({ id: 1, name: 'req.body' });
+      const sinkNode = makeGraphNode({ id: 2, name: 'db.query' });
+      setupNodes(store, [sourceNode, sinkNode]);
+      setupEdges(store, [makeGraphEdge(1, 2)]);
+      setupGetNode(store, new Map([[2, sinkNode]]));
+
+      const engine = new DataflowSearchEngine(store);
+      const paths = engine.findPaths({ maxDepth: 0 });
+      expect(paths).toEqual([]);
+    });
+
     it('should use default maxDepth of 10 when not specified', () => {
       const store = createMockStore();
       const sourceNode = makeGraphNode({ id: 1, name: 'req.body' });
@@ -470,6 +483,39 @@ describe('DataflowSearchEngine', () => {
       expect(results[0]!.sink.name).toBe('db.query');
       expect(results[0]!.shortestPathLength).toBeGreaterThan(0);
       expect(results[0]!.paths.length).toBeGreaterThan(0);
+    });
+
+    it('should fall back to empty filePath and zero line for a null source node', () => {
+      const store = createMockStore();
+      const sourceNode = makeGraphNode({
+        id: 1,
+        name: 'req.body',
+        filePath: null,
+        startLine: null,
+      });
+      const sinkNode = makeGraphNode({ id: 2, name: 'db.query' });
+      setupNodes(store, [sourceNode, sinkNode]);
+      setupGetNode(
+        store,
+        new Map([
+          [1, sourceNode],
+          [2, sinkNode],
+        ]),
+      );
+
+      (store.queryEdges as any).mockImplementation((query: { sourceId?: number }) => {
+        if (query.sourceId === 1)
+          return { items: [makeGraphEdge(1, 2)], total: 1, limit: 20, offset: 0 };
+        return { items: [], total: 0, limit: 20, offset: 0 };
+      });
+
+      const engine = new DataflowSearchEngine(store);
+      const results = engine.findReachableSinks(1);
+
+      expect(results.length).toBe(1);
+      // The source DataflowNode falls back to '' and 0 for null fields.
+      expect(results[0]!.paths[0]!.nodes[0]!.filePath).toBe('');
+      expect(results[0]!.paths[0]!.nodes[0]!.line).toBe(0);
     });
 
     it('should find multiple reachable sinks', () => {

@@ -211,7 +211,6 @@ export class DataflowSearchEngine {
 
     const identifiedSinks = this.identifyNodes(this.sinks);
     const identifiedSanitizers = this.identifySanitizerNodes();
-    const sinkSet = new Set(identifiedSinks.map((n) => n.nodeId));
 
     const sourceDataflowNode: DataflowNode = {
       nodeId: sourceNode.id,
@@ -228,25 +227,17 @@ export class DataflowSearchEngine {
       maxDepth,
     );
 
-    // Group paths by sink
-    const bySink = new Map<number, DataflowPath[]>();
-    for (const path of paths) {
-      const lastNode = path.nodes[path.nodes.length - 1];
-      if (!lastNode || !sinkSet.has(lastNode.nodeId)) continue;
-      if (!bySink.has(lastNode.nodeId)) bySink.set(lastNode.nodeId, []);
-      bySink.get(lastNode.nodeId)!.push(path);
-    }
-
-    const results: ReachableSink[] = [];
-    for (const [sinkId, sinkPaths] of bySink) {
-      results.push({
-        sink: sinkPaths[0]!.nodes[sinkPaths[0]!.nodes.length - 1]!,
-        paths: sinkPaths,
-        shortestPathLength: Math.min(...sinkPaths.map((p) => p.nodes.length)),
-      });
-    }
-
-    return results;
+    // bfsFromSource records each sink at most once (its visited set deduplicates
+    // edge targets) and every recorded path terminates at a sink, so each path
+    // maps directly to a single reachable sink.
+    return paths.map((path) => {
+      const sink = path.nodes[path.nodes.length - 1]!;
+      return {
+        sink,
+        paths: [path],
+        shortestPathLength: path.nodes.length,
+      };
+    });
   }
 
   /**
@@ -298,40 +289,39 @@ export class DataflowSearchEngine {
     // Check each line for source + sink coexistence
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      const hasSource = this.sources.some((s) => s.namePattern.test(line));
-      const hasSink = this.sinks.some((s) => s.namePattern.test(line));
+      // find() doubles as the presence check and the category lookup, avoiding
+      // the redundant some() + find() scan over the same pattern list.
+      const matchedSource = this.sources.find((s) => s.namePattern.test(line));
+      if (!matchedSource) continue;
+
+      const sinkFound = this.sinks.find((s) => s.namePattern.test(line));
       const hasSanitizer = this.sanitizers.some((s) => s.namePattern.test(line));
 
-      if (hasSource) {
-        const sourceKind =
-          this.sources.find((s) => s.namePattern.test(line))?.category ?? 'user_input';
-        const sinkFound = this.sinks.find((s) => s.namePattern.test(line));
-        const node: DataflowNode = {
-          nodeId: 0,
-          name: line.trim().slice(0, 60),
-          filePath,
-          line: i + 1,
-          kind: 'source',
-        };
+      const node: DataflowNode = {
+        nodeId: 0,
+        name: line.trim().slice(0, 60),
+        filePath,
+        line: i + 1,
+        kind: 'source',
+      };
 
-        if (hasSink && sinkFound) {
-          const sinkKind = sinkFound.category;
-          paths.push({
-            nodes: [
-              node,
-              {
-                nodeId: 0,
-                name: line.trim().slice(0, 60),
-                filePath,
-                line: i + 1,
-                kind: 'sink',
-              },
-            ],
-            riskScore: hasSanitizer ? 40 : 80,
-            hasSanitizer,
-            description: `Potential taint flow: ${sourceKind} → ${sinkKind} in ${filePath}:${i + 1}`,
-          });
-        }
+      if (sinkFound) {
+        const sinkKind = sinkFound.category;
+        paths.push({
+          nodes: [
+            node,
+            {
+              nodeId: 0,
+              name: line.trim().slice(0, 60),
+              filePath,
+              line: i + 1,
+              kind: 'sink',
+            },
+          ],
+          riskScore: hasSanitizer ? 40 : 80,
+          hasSanitizer,
+          description: `Potential taint flow: ${matchedSource.category} → ${sinkKind} in ${filePath}:${i + 1}`,
+        });
       }
     }
 
@@ -401,6 +391,10 @@ export class DataflowSearchEngine {
     const sinkSet = new Set(allSinks.map((s) => s.nodeId));
     const paths: DataflowPath[] = [];
 
+    // A non-positive maxDepth forbids any traversal: the source itself is never
+    // a sink, so "maximum depth 0" yields no paths.
+    if (maxDepth <= 0) return [];
+
     // BFS using adjacency from the graph store
     const visited = new Set<number>();
     const queue: Array<{
@@ -420,8 +414,6 @@ export class DataflowSearchEngine {
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-
-      if (current.depth >= maxDepth) continue;
 
       // Get outgoing edges
       const edges = this.store.queryEdges({
@@ -473,22 +465,18 @@ export class DataflowSearchEngine {
   }
 
   private computeRiskScore(path: DataflowNode[], hasSanitizer: boolean): number {
-    // Base score from path length (longer path = more opportunities for validation)
+    // Every path is recorded only when it terminates at a sink (see bfsFromSource),
+    // so the terminal node is always a sink and the origin is always a source.
+    // Base score from path length (longer path = more opportunities for validation).
     let score = Math.min(path.length * 10, 50);
 
-    // Sink type contributes risk
-    const lastNode = path[path.length - 1];
-    if (lastNode?.kind === 'sink') {
-      score += 30;
-    }
+    // Sink terminal always contributes risk.
+    score += 30;
 
-    // Source type contributes risk
-    const firstNode = path[0];
-    if (firstNode?.kind === 'source') {
-      score += 20;
-    }
+    // Source origin always contributes risk.
+    score += 20;
 
-    // Sanitizer reduces risk significantly
+    // Sanitizer reduces risk significantly.
     if (hasSanitizer) {
       score = Math.floor(score * 0.5);
     }
