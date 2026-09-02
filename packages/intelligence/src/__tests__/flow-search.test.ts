@@ -1630,4 +1630,62 @@ describe('FlowSearchEngine', () => {
     expect(path!.nodes[0]!.line).toBe(0);
     expect(path!.score).toBe(100);
   });
+
+  // ==========================================================================
+  // Branch Coverage: search with null filePath/startLine source node (?? fallback)
+  // ==========================================================================
+
+  it('should fall back to empty filePath and zero line for a null source node in search', () => {
+    const srcNode: GraphNode = {
+      id: 0,
+      projectId: 'test-project',
+      label: 'Function' as GraphNode['label'],
+      name: 'nullStart',
+      qualifiedName: '/test/start.ts:nullStart',
+      filePath: null,
+      startLine: null,
+      endLine: null,
+      language: 'typescript',
+      properties: {
+        name: 'nullStart',
+        filePath: null,
+        startLine: null,
+      } as unknown as NodeProperties,
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    srcNode.id = store.insertNode(srcNode);
+
+    const target = createNode(store, 'target', 'Function', '/test/target.ts', 1);
+    createEdge(store, srcNode.id, target.id, 'CALLS');
+
+    const results = engine.search([srcNode.id], { maxDepth: 1 });
+    expect(results.length).toBe(1);
+    // The origin node in the returned path reflects the null fallbacks
+    expect(results[0]!.path[0]!.filePath).toBe('');
+    expect(results[0]!.path[0]!.line).toBe(0);
+  });
+
+  // ==========================================================================
+  // Branch Coverage: non-positive maxDepth guards
+  // ==========================================================================
+
+  it('should return no results when search maxDepth is zero', () => {
+    const [mainId] = createCallChain(store);
+
+    const results = engine.search([mainId], { maxDepth: 0 });
+    expect(results).toEqual([]);
+  });
+
+  it('should return null when findShortestPath maxDepth is zero for distinct nodes', () => {
+    const [mainId, , utilId] = createCallChain(store);
+
+    const path = engine.findShortestPath(mainId, utilId, 0);
+    expect(path).toBeNull();
+  });
 });

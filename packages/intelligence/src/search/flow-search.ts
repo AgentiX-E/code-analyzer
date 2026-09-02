@@ -116,6 +116,10 @@ export class FlowSearchEngine {
 
     if (startNodeIds.length === 0) return [];
 
+    // A non-positive depth cannot traverse any edge (the origin would already
+    // be at or beyond the limit), so there is nothing to discover.
+    if (maxDepth <= 0) return [];
+
     const edgeTypeSet = new Set(edgeTypes);
     const allResults: FlowSearchResult[] = [];
 
@@ -147,7 +151,6 @@ export class FlowSearchEngine {
 
       while (queue.length > 0) {
         const current = queue.shift()!;
-        if (current.depth >= maxDepth) continue;
 
         // Get edges based on direction
         const edges = this.getEdges(current.nodeId, direction, edgeTypeSet, projectId);
@@ -158,8 +161,10 @@ export class FlowSearchEngine {
           if (visited.has(nextId)) continue;
           visited.add(nextId);
 
-          const nextNode = this.store.getNode(nextId);
-          if (!nextNode) continue;
+          // The store guarantees every edge references two existing nodes
+          // (insertEdge validates endpoints and deleteNode cascades removal),
+          // so getNode(nextId) always resolves here.
+          const nextNode = this.store.getNode(nextId)!;
 
           // Apply label filter
           if (
@@ -281,6 +286,10 @@ export class FlowSearchEngine {
       };
     }
 
+    // With a non-positive depth the only reachable result is the trivial
+    // same-node path handled above; no edge can be traversed.
+    if (maxDepth <= 0) return null;
+
     const projectId = sourceNode.projectId;
     const visited = new Set<number>();
     visited.add(sourceNodeId);
@@ -310,7 +319,6 @@ export class FlowSearchEngine {
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (current.depth >= maxDepth) continue;
 
       const edges = this.getEdges(current.nodeId, 'both', new Set(DEFAULT_FLOW_EDGES), projectId);
 
@@ -319,8 +327,8 @@ export class FlowSearchEngine {
         if (visited.has(nextId)) continue;
         visited.add(nextId);
 
-        const nextNode = this.store.getNode(nextId);
-        if (!nextNode) continue;
+        // Store invariant: edges only reference existing nodes (see insertEdge).
+        const nextNode = this.store.getNode(nextId)!;
 
         const flowNode: FlowNode = {
           nodeId: nextNode.id,
