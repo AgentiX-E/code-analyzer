@@ -99,7 +99,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       - name: Upload test results (Node 22 only)
         if: matrix.node-version == '22' && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-node-${{ matrix.node-version }}
           path: |
@@ -130,7 +130,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       - name: Upload integration test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: integration-test-results
           path: test-results/
@@ -180,7 +180,7 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       - name: Upload E2E test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-test-results
           path: test-results/
@@ -239,7 +239,7 @@ jobs:
           echo "::notice::All coverage dimensions meet thresholds (lines≥95%, branches≥95%, functions≥95%, statements≥95%)."
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
@@ -321,7 +321,7 @@ jobs:
         run: pnpm bench:ci
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: bench-results.json
