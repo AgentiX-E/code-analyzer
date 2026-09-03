@@ -1,9 +1,8 @@
 {
-  "totalHidden": 9632,
-  "totalLines": 129599,
+  "totalHidden": 8733,
+  "totalLines": 129607,
   "files": {
     "packages/mcp/src/tools/querying-exploration.ts": 1217,
-    "packages/infra/src/workers/parallel-indexer.ts": 899,
     "packages/intelligence/src/cross-repo/cross-repo-pr-review.ts": 850,
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,

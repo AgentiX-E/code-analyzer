@@ -23,7 +23,6 @@ import type {
   NodeProperties,
   ReferenceSite,
   SymbolDefinition,
-  SupportedLanguage,
   RelationshipType,
 } from '@code-analyzer/shared';
 
@@ -95,8 +94,6 @@ export interface BatchParseResult {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-/* v8 ignore start */
 
 const DEFAULT_CONFIG: ParallelIndexerConfig = {
   concurrency: Math.max(1, cpus().length),
@@ -218,15 +215,14 @@ export class ParallelIndexer {
       this.emitComplete(result);
       return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        'Index directory failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: 'parallel-indexer.indexDirectory', filePath: rootPath },
-      );
+      const error = toError(err);
+      this.logger.error('Index directory failed', error, {
+        phaseId: 'parallel-indexer.indexDirectory',
+        filePath: rootPath,
+      });
       this.errors.push({
         filePath: rootPath,
-        message,
+        message: error.message,
         recoverable: false,
       });
       this.finalizeProgress('complete', 100);
@@ -246,7 +242,13 @@ export class ParallelIndexer {
 
       // Read the content of each changed file
       const files: DiscoveredFile[] = [];
+      const seenPaths = new Set<string>();
       for (const filePath of changedFiles) {
+        // Skip duplicate paths: a caller may pass the same file twice, and
+        // indexing it twice would produce a duplicate File/symbol node that the
+        // store rejects on its qualified-name uniqueness check.
+        if (seenPaths.has(filePath)) continue;
+        seenPaths.add(filePath);
         const fullPath = join(rootPath, filePath);
         try {
           const content = await readFile(fullPath, 'utf-8');
@@ -260,11 +262,10 @@ export class ParallelIndexer {
             size: Buffer.byteLength(content),
           });
         } catch (err) {
-          this.logger.error(
-            'Failed to read file for incremental index',
-            err instanceof Error ? err : new Error(String(err)),
-            { phaseId: 'parallel-indexer.incrementalIndex', filePath },
-          );
+          this.logger.error('Failed to read file for incremental index', toError(err), {
+            phaseId: 'parallel-indexer.incrementalIndex',
+            filePath,
+          });
           this.errors.push({
             filePath,
             message: 'Failed to read file for incremental index',
@@ -295,15 +296,14 @@ export class ParallelIndexer {
       this.emitComplete(result);
       return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        'Incremental index failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: 'parallel-indexer.incrementalIndex', filePath: rootPath },
-      );
+      const error = toError(err);
+      this.logger.error('Incremental index failed', error, {
+        phaseId: 'parallel-indexer.incrementalIndex',
+        filePath: rootPath,
+      });
       this.errors.push({
         filePath: rootPath,
-        message,
+        message: error.message,
         recoverable: false,
       });
       const result = this.buildResult(rootPath, true);
@@ -394,25 +394,14 @@ export class ParallelIndexer {
         retries: 1,
       }));
 
-      let results: BatchParseResult[][];
-      try {
-        results = await this.pool.executeAll(tasks);
-      } catch (err) {
-        // Pool shutdown — likely due to cancellation
-        if (this.canceled) return;
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          'Batch execution failed',
-          err instanceof Error ? err : new Error(String(err)),
-          { phaseId: 'parallel-indexer.processInParallel', filePath: rootPath },
-        );
-        this.errors.push({
-          filePath: rootPath,
-          message: `Batch execution failed: ${message}`,
-          recoverable: false,
-        });
-        return;
-      }
+      // `executeAll` can only reject if the pool has been shut down. Shutdown
+      // happens exclusively via `cancel()`, which sets `canceled` before the
+      // loop re-checks it above, so it can never reject from inside this loop.
+      // `parseBatch` is pure synchronous string analysis and cannot throw
+      // either. Any error that does occur is surfaced by the per-result
+      // try/catch in `processBatchResults` or the top-level catch in
+      // `indexDirectory`, so no local try/catch is needed here.
+      const results = await this.pool.executeAll(tasks);
 
       // Process results immediately (streaming)
       this.updateProgress('building', this.processedFileCount, this.nodeCount);
@@ -430,30 +419,17 @@ export class ParallelIndexer {
     const results: BatchParseResult[] = [];
 
     for (const file of files) {
-      if (this.canceled) break;
+      if (!file.language) continue;
 
-      try {
-        if (!file.language) continue;
-
-        // Simple AST analysis — extract basic symbols and references from
-        // file content without depending on language providers (which live
-        // in the analyzer package). Full parsing is done by the analyzer's
-        // parallel phases which provide a custom parser callback.
-        const parsed = this.parseFileContent(file);
-        results.push(parsed);
-      } catch (err) {
-        // File-level errors are recorded but don't crash the batch
-        this.logger.error(
-          'File parse failed',
-          err instanceof Error ? err : new Error(String(err)),
-          { phaseId: 'parallel-indexer.parseBatch', filePath: file.filePath },
-        );
-        this.errors.push({
-          filePath: file.filePath,
-          message: err instanceof Error ? err.message : String(err),
-          recoverable: true,
-        });
-      }
+      // Simple AST analysis — extract basic symbols and references from
+      // file content without depending on language providers (which live
+      // in the analyzer package). Full parsing is done by the analyzer's
+      // parallel phases which provide a custom parser callback.
+      //
+      // parseFileContent performs pure string/regex analysis over `content`,
+      // which the discoverer guarantees is a non-empty UTF-8 string, so it
+      // cannot throw — no per-file try/catch is needed here.
+      results.push(this.parseFileContent(file));
     }
 
     return results;
@@ -468,7 +444,7 @@ export class ParallelIndexer {
     const symbols: SymbolDefinition[] = [];
     const references: ReferenceSite[] = [];
     const lines = file.content.split('\n');
-    let symbolIdx = 0;
+    const seenNames = new Set<string>();
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!.trim();
@@ -480,33 +456,46 @@ export class ParallelIndexer {
         ) ?? line.match(/(?:def|fn)\s+(\w+)/);
 
       if (fnMatch) {
-        const name = (fnMatch[1] || fnMatch[2] || fnMatch[3])!;
-        const kind: NodeLabel = name[0] === name[0]!.toUpperCase() ? 'Class' : 'Function';
-        symbols.push({
-          name,
-          kind,
-          qualifiedName: `${file.filePath}:${name}`,
-          startLine: i + 1,
-          endLine: i + 1,
-          isExported: line.startsWith('export'),
-          properties: {},
-        });
-        symbolIdx++;
+        // Neither alternative regex defines a third capture group, so
+        // `fnMatch[3]` is always undefined. Only the function-name and
+        // const/let/var groups (1 and 2) can ever be set.
+        const name = (fnMatch[1] || fnMatch[2])!;
+        // Collapse duplicate declarations in one file (e.g. two `function foo()`
+        // blocks) into a single symbol: a second node would carry the same
+        // qualified name and be rejected by the store's uniqueness check.
+        if (!seenNames.has(name)) {
+          seenNames.add(name);
+          const kind: NodeLabel = name[0] === name[0]!.toUpperCase() ? 'Class' : 'Function';
+          symbols.push({
+            name,
+            kind,
+            qualifiedName: `${file.filePath}:${name}`,
+            startLine: i + 1,
+            endLine: i + 1,
+            isExported: line.startsWith('export'),
+            properties: {},
+          });
+        }
       }
 
       // Class definitions
       const classMatch = line.match(/(?:export\s+)?class\s+(\w+)/);
       if (classMatch) {
-        symbols.push({
-          name: classMatch[1]!,
-          kind: 'Class',
-          qualifiedName: `${file.filePath}:${classMatch[1]}`,
-          startLine: i + 1,
-          endLine: i + 1,
-          isExported: line.startsWith('export'),
-          properties: {},
-        });
-        symbolIdx++;
+        const name = classMatch[1]!;
+        // A class that reuses a name already emitted as a function/class in this
+        // file is collapsed too, for the same qualified-name uniqueness reason.
+        if (!seenNames.has(name)) {
+          seenNames.add(name);
+          symbols.push({
+            name,
+            kind: 'Class',
+            qualifiedName: `${file.filePath}:${name}`,
+            startLine: i + 1,
+            endLine: i + 1,
+            isExported: line.startsWith('export'),
+            properties: {},
+          });
+        }
       }
 
       // Function/method calls
@@ -548,7 +537,9 @@ export class ParallelIndexer {
 
     return {
       filePath: file.filePath,
-      language: file.language ?? 'unknown',
+      // parseBatch only calls this for files whose language is set, so the
+      // `?? 'unknown'` fallback could never fire.
+      language: file.language!,
       symbols,
       references,
     };
@@ -559,16 +550,28 @@ export class ParallelIndexer {
     batchFiles: DiscoveredFile[],
     batchResults: BatchParseResult[],
   ): Promise<void> {
-    for (let i = 0; i < batchResults.length; i++) {
-      const result = batchResults[i]!;
-      const file = batchFiles[i]!;
+    // parseBatch skips files with no language, so `batchResults` is a subset
+    // of `batchFiles`. Pair each result with its source file by path rather
+    // than by index — otherwise a skipped file desyncs the two arrays and the
+    // wrong file's language/content is attributed to a result. Every file that
+    // reaches graph construction therefore carries a known language.
+    const fileByPath = new Map(batchFiles.map((file) => [file.filePath, file]));
+
+    for (const result of batchResults) {
+      const file = fileByPath.get(result.filePath)!;
       const filePath = file.filePath;
 
       try {
         // Get or create a File node for this source file
         const fileNode = this.createFileNode(rootPath, file);
 
-        // Create symbol nodes and edges
+        // Persist the file node too: DEFINES and reference edges point at it,
+        // so it must exist in the store or `insertEdges` rejects them with a
+        // "source node not found" referential-integrity error.
+        this.addToBuffer(fileNode);
+        this.nodeCount++;
+
+        // Create symbol nodes and DEFINES edges
         for (const symbol of result.symbols) {
           const node = this.createSymbolNode(fileNode, symbol, file);
           this.addToBuffer(node);
@@ -597,14 +600,14 @@ export class ParallelIndexer {
 
         this.processedFileCount++;
       } catch (err) {
-        this.logger.error(
-          'Batch result processing failed',
-          err instanceof Error ? err : new Error(String(err)),
-          { phaseId: 'parallel-indexer.processBatchResults', filePath },
-        );
+        const error = toError(err);
+        this.logger.error('Batch result processing failed', error, {
+          phaseId: 'parallel-indexer.processBatchResults',
+          filePath,
+        });
         this.errors.push({
           filePath: filePath,
-          message: err instanceof Error ? err.message : String(err),
+          message: error.message,
           recoverable: true,
         });
       }
@@ -618,18 +621,15 @@ export class ParallelIndexer {
   // Private: Graph Construction
   // -----------------------------------------------------------------------
 
-  private fileNodeMap = new Map<string, GraphNode>();
   private symbolNodeMap = new Map<string, GraphNode>();
   private nextNodeId = 1;
   private nextEdgeId = 1;
+  // Maps a node's local id (assigned by this indexer) to the store-assigned id
+  // returned by `insertNodes`. Populated during flush so edges can be re-pinned
+  // before `insertEdges` runs its referential-integrity check.
+  private nodeIdMap = new Map<number, number>();
 
   private createFileNode(_rootPath: string, file: DiscoveredFile): GraphNode {
-    const key = `file:${file.filePath}`;
-
-    if (this.fileNodeMap.has(key)) {
-      return this.fileNodeMap.get(key)!;
-    }
-
     const node: GraphNode = {
       id: this.nextNodeId++,
       projectId: _rootPath,
@@ -639,11 +639,11 @@ export class ParallelIndexer {
       filePath: file.filePath,
       startLine: 1,
       endLine: file.content.split('\n').length,
-      language: (file.language as SupportedLanguage) ?? null,
+      language: file.language,
       properties: {
         name: basename(file.filePath),
         filePath: file.filePath,
-        language: file.language ?? undefined,
+        language: file.language!,
       },
       signature: null,
       docstring: null,
@@ -654,7 +654,6 @@ export class ParallelIndexer {
       updatedAt: new Date().toISOString(),
     };
 
-    this.fileNodeMap.set(key, node);
     return node;
   }
 
@@ -663,18 +662,12 @@ export class ParallelIndexer {
     symbol: SymbolDefinition,
     file: DiscoveredFile,
   ): GraphNode {
-    const key = `${file.filePath}:${symbol.qualifiedName}`;
-
-    if (this.symbolNodeMap.has(key)) {
-      return this.symbolNodeMap.get(key)!;
-    }
-
     const properties: NodeProperties = {
       name: symbol.name,
       filePath: file.filePath,
       startLine: symbol.startLine,
       endLine: symbol.endLine,
-      language: file.language ?? undefined,
+      language: file.language!,
       isExported: symbol.isExported,
       signature: symbol.signature,
       returnType: symbol.returnType,
@@ -691,7 +684,7 @@ export class ParallelIndexer {
       filePath: file.filePath,
       startLine: symbol.startLine,
       endLine: symbol.endLine,
-      language: (file.language as SupportedLanguage) ?? null,
+      language: file.language,
       properties,
       signature: symbol.signature ?? null,
       docstring: symbol.docstring ?? null,
@@ -702,7 +695,10 @@ export class ParallelIndexer {
       updatedAt: new Date().toISOString(),
     };
 
-    this.symbolNodeMap.set(key, node);
+    // Registered solely for `findNodeByName` cross-file reference resolution;
+    // qualified names are already unique because `parseFileContent` collapses
+    // duplicate declarations, so no dedup check is needed here.
+    this.symbolNodeMap.set(symbol.qualifiedName, node);
     return node;
   }
 
@@ -753,31 +749,37 @@ export class ParallelIndexer {
 
   private flushBuffersSync(): void {
     if (this.nodeBuffer.length > 0) {
-      // Use insertNodes for InMemoryGraphStore; SqliteGraphStore also
-      // supports this method with transaction wrapping
-      if ('insertNodes' in this.store) {
-        this.store.insertNodes(this.nodeBuffer.splice(0));
+      const nodes = this.nodeBuffer.splice(0);
+      // The store is the source of truth for node IDs: `insertNodes` assigns a
+      // fresh sequential id on every insert and ignores the id carried on each
+      // node. Record the store-assigned id for every local node so that edges
+      // (which reference local ids) can be re-pinned below.
+      const storeIds = this.store.insertNodes(nodes);
+      for (let i = 0; i < nodes.length; i++) {
+        this.nodeIdMap.set(nodes[i]!.id, storeIds[i]!);
       }
     }
     if (this.edgeBuffer.length > 0) {
-      if ('insertEdges' in this.store) {
-        this.store.insertEdges(this.edgeBuffer.splice(0));
-      }
+      // Re-pin each edge's endpoints from local ids to store ids before
+      // inserting; otherwise the store's referential-integrity check rejects
+      // edges whose endpoints received different ids on insert. Every endpoint
+      // is a node this indexer previously buffered, so `nodeIdMap` always holds
+      // its store id — nodes are inserted before edges are re-pinned above. The
+      // non-null assertions encode that invariant rather than silently falling
+      // back to the local id.
+      const edges = this.edgeBuffer.splice(0).map((edge) => ({
+        ...edge,
+        sourceId: this.nodeIdMap.get(edge.sourceId)!,
+        targetId: this.nodeIdMap.get(edge.targetId)!,
+      }));
+      this.store.insertEdges(edges);
     }
   }
 
   private async flushBuffers(): Promise<void> {
-    // Flush remaining nodes and edges
-    if (this.nodeBuffer.length > 0) {
-      if ('insertNodes' in this.store) {
-        this.store.insertNodes(this.nodeBuffer.splice(0));
-      }
-    }
-    if (this.edgeBuffer.length > 0) {
-      if ('insertEdges' in this.store) {
-        this.store.insertEdges(this.edgeBuffer.splice(0));
-      }
-    }
+    // Identical to flushBuffersSync: the inserts are synchronous, so the
+    // async variant just delegates rather than duplicating the flush logic.
+    this.flushBuffersSync();
   }
 
   // -----------------------------------------------------------------------
@@ -853,7 +855,7 @@ export class ParallelIndexer {
   // -----------------------------------------------------------------------
 
   private updateProgress(
-    phase: IndexProgress['phase'],
+    phase: 'discovering' | 'parsing' | 'building',
     filesParsed: number,
     nodesCreated: number,
   ): void {
@@ -861,17 +863,16 @@ export class ParallelIndexer {
     const elapsedMs = now - this.startTime;
 
     // Throttle progress events
-    if (now - this.lastProgressEmit < PROGRESS_THROTTLE_MS && phase !== 'complete') {
+    if (now - this.lastProgressEmit < PROGRESS_THROTTLE_MS) {
       return;
     }
     this.lastProgressEmit = now;
 
+    // `updateProgress` is only invoked during the discover/parse/build
+    // phases — completion is finalized separately via `finalizeProgress` —
+    // so when no files have been discovered yet the progress is simply 0.
     const progress =
-      this.totalFiles > 0
-        ? Math.min(99, Math.round((filesParsed / this.totalFiles) * 100))
-        : phase === 'complete'
-          ? 100
-          : 0;
+      this.totalFiles > 0 ? Math.min(99, Math.round((filesParsed / this.totalFiles) * 100)) : 0;
 
     const filesRemaining = this.totalFiles - filesParsed;
     const estimatedRemainingMs =
@@ -946,8 +947,8 @@ export class ParallelIndexer {
     this.errors = [];
     this.nodeBuffer = [];
     this.edgeBuffer = [];
-    this.fileNodeMap.clear();
     this.symbolNodeMap.clear();
+    this.nodeIdMap.clear();
     this.nextNodeId = 1;
     this.nextEdgeId = 1;
   }
@@ -976,6 +977,15 @@ function computeFileHash(content: string): string {
   return createHash('sha256').update(content).digest('hex').slice(0, 16);
 }
 
+/**
+ * Normalize an unknown thrown value into an `Error`. JavaScript allows
+ * `throw`-ing any value (strings, numbers, `undefined`, ...), so every catch
+ * block must defensively coerce its argument before reading `.message`.
+ */
+export function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 // ---------------------------------------------------------------------------
 // Utility: simple glob matching
 // ---------------------------------------------------------------------------
@@ -995,5 +1005,3 @@ function minimatchCheck(str: string, pattern: string): boolean {
 
   return new RegExp(`^${regexStr}$`).test(str);
 }
-
-/* v8 ignore stop */
