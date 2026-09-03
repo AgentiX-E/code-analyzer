@@ -9,8 +9,6 @@ import { SkillInstaller } from '../skills/installer.js';
 // In-memory stores
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 interface StandardDefinition {
   standardId: string;
   projectId: string;
@@ -546,13 +544,17 @@ export async function installSkills(args: Record<string, unknown>): Promise<Tool
       installPath: '',
       skillFormat: 'markdown' as const,
     };
+    // Invariant: SkillInstaller.installSkills() always returns an array, and
+    // InstallResult.skill is a required string, so only `r.agent` can still be
+    // empty — callers may pass any string as an agent name, because the
+    // registry validates presence but not the schema's enum.
     const result = installer.installSkills([detectedAgent], skillsToInstall);
-    if (result && result.length > 0) {
+    if (result.length > 0) {
       for (const r of result) {
         if (r.skill && r.agent) {
           installed.push(`${agent}:${r.skill}`);
         } else {
-          failed.push(`${agent}:${r.skill ?? 'unknown'}`);
+          failed.push(`${agent}:${r.skill}`);
         }
       }
     } else {
@@ -583,5 +585,3 @@ export async function installSkills(args: Record<string, unknown>): Promise<Tool
     ],
   };
 }
-
-/* v8 ignore stop */

@@ -505,6 +505,74 @@ describe('manageADR', () => {
     expect(data.adrId).toBe('custom-adr-001');
   });
 
+  it('should default the title to Untitled when creating without one', async () => {
+    const created = await registry.execute('manage_adr', {
+      projectId: 'adr-default-title',
+      action: 'create',
+      content: 'A decision recorded without a title',
+    });
+
+    const createdData = JSON.parse(created.content[0].text);
+    expect(createdData.created).toBe(true);
+
+    const fetched = await registry.execute('manage_adr', {
+      projectId: 'adr-default-title',
+      action: 'get',
+      adrId: createdData.adrId,
+    });
+
+    const fetchedData = JSON.parse(fetched.content[0].text);
+    expect(fetchedData.found).toBe(true);
+    expect(fetchedData.title).toBe('Untitled');
+  });
+
+  it('should keep the existing title when updating without one', async () => {
+    await registry.execute('manage_adr', {
+      projectId: 'adr-keep-title',
+      action: 'create',
+      adrId: 'adr-keep-title-1',
+      title: 'Original Title',
+      content: 'Original content',
+    });
+
+    const updated = await registry.execute('manage_adr', {
+      projectId: 'adr-keep-title',
+      action: 'update',
+      adrId: 'adr-keep-title-1',
+      content: 'Revised content',
+    });
+
+    const updatedData = JSON.parse(updated.content[0].text);
+    expect(updatedData.updated).toBe(true);
+    expect(updatedData.title).toBe('Original Title');
+  });
+
+  it('should match every ADR in the project when searching without a query', async () => {
+    await registry.execute('manage_adr', {
+      projectId: 'adr-search-no-query',
+      action: 'create',
+      adrId: 'adr-no-query-1',
+      title: 'First',
+      content: 'alpha',
+    });
+    await registry.execute('manage_adr', {
+      projectId: 'adr-search-no-query',
+      action: 'create',
+      adrId: 'adr-no-query-2',
+      title: 'Second',
+      content: 'beta',
+    });
+
+    const result = await registry.execute('manage_adr', {
+      projectId: 'adr-search-no-query',
+      action: 'search',
+    });
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.total).toBe(2);
+    expect(data.results.map((r) => r.adrId).sort()).toEqual(['adr-no-query-1', 'adr-no-query-2']);
+  });
+
   it('should handle missing required params', async () => {
     const result = await registry.execute('manage_adr', {}, undefined as any);
     expect(result.isError).toBe(true);
@@ -661,5 +729,40 @@ describe('installSkills', () => {
     expect(Array.isArray(data.installed)).toBe(true);
     expect(data.failed).toBeDefined();
     expect(Array.isArray(data.failed)).toBe(true);
+  });
+
+  it('should report the completion message when not a dry run', async () => {
+    const result = await registry.execute('install_skills', {
+      agents: ['claude-code'],
+    });
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.dryRun).toBe(false);
+    expect(data.message).toContain('Skills installation completed');
+    expect(data.installed.length).toBeGreaterThan(0);
+  });
+
+  it('should report no matching config when every requested skill is unknown', async () => {
+    const result = await registry.execute('install_skills', {
+      agents: ['claude-code'],
+      skills: ['nonexistent_skill'],
+      dryRun: true,
+    });
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.skills).toEqual([]);
+    expect(data.installed).toEqual([]);
+    expect(data.failed).toEqual(['claude-code:no_matching_config']);
+  });
+
+  it('should classify an empty agent name as failed rather than installed', async () => {
+    const result = await registry.execute('install_skills', {
+      agents: [''],
+      dryRun: true,
+    });
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.installed).toEqual([]);
+    expect(data.failed).toEqual([':all']);
   });
 });

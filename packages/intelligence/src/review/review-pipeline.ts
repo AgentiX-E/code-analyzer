@@ -34,8 +34,6 @@ export interface PipelineReviewConfig {
   severityDistribution: Partial<Record<Severity, number>>;
 }
 
-/* v8 ignore start */
-
 const DEFAULT_CONFIG: PipelineReviewConfig = {
   maxTokens: 16000,
   concurrency: 4,
@@ -326,9 +324,11 @@ export class ReviewPipeline {
       info: 0,
     };
 
-    // Count current severity distribution
+    // Count current severity distribution.
+    // Invariant: `counts` is initialised for every Severity above and
+    // ReviewComment.severity is a Severity, so the lookup always resolves.
     for (const c of comments) {
-      counts[c.severity] = (counts[c.severity] ?? 0) + 1;
+      counts[c.severity] += 1;
     }
 
     const total = comments.length;
@@ -372,7 +372,9 @@ export class ReviewPipeline {
 
   private shouldSkip(diff: GitDiff): boolean {
     const filePath = diff.filePath;
-    const fileName = filePath.split('/').pop() ?? filePath;
+    // Invariant: String.prototype.split() always yields at least one element,
+    // so pop() on the result always returns a string.
+    const fileName = filePath.split('/').pop()!;
 
     // Skip binary files by extension
     if (this.config.skipBinary) {
@@ -496,11 +498,11 @@ export class ReviewPipeline {
   }
 
   private textSimilarity(a: string, b: string): number {
+    // Invariant: String.prototype.split() always yields at least one element —
+    // even '' splits to [''] — so both word sets are non-empty and `union`
+    // below can never be 0. The former empty-set guards were unreachable.
     const aWords = new Set(a.toLowerCase().split(/\s+/));
     const bWords = new Set(b.toLowerCase().split(/\s+/));
-
-    if (aWords.size === 0 && bWords.size === 0) return 1;
-    if (aWords.size === 0 || bWords.size === 0) return 0;
 
     let intersection = 0;
     for (const word of aWords) {
@@ -510,7 +512,7 @@ export class ReviewPipeline {
     }
 
     const union = aWords.size + bWords.size - intersection;
-    return union === 0 ? 1 : intersection / union;
+    return intersection / union;
   }
 
   private mergeSimilarComments(merged: ReviewComment[]): ReviewComment {
@@ -551,8 +553,10 @@ export class ReviewPipeline {
           path: diff.filePath,
           content: `Reviewing changes in ${diff.filePath}`,
           existingCode: lines.join('\n'),
-          startLine: diff.ranges[0]?.newStart ?? 1,
-          endLine: diff.ranges[0]?.newEnd ?? 1,
+          // Invariant: this branch only runs when `lines` is non-empty, which
+          // means `diff.ranges` has at least one entry.
+          startLine: diff.ranges[0]!.newStart,
+          endLine: diff.ranges[0]!.newEnd,
           category: 'other',
           severity: 'info',
           filtered: false,
@@ -565,5 +569,3 @@ export class ReviewPipeline {
     return comments;
   }
 }
-
-/* v8 ignore stop */

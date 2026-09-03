@@ -45,6 +45,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit hidden coverage (v8 ignore ratchet)
+        run: |
+          # V8 evaluates `/* v8 ignore */` hints natively inside the engine, so
+          # Vitest's coverage.ignoreHint option cannot disable them and every
+          # line inside an ignored region is invisible to the gate above.
+          # This step enforces a ratchet: the hidden surface may shrink but
+          # never grow. Lower --max-file-hidden as the surface is cleaned up.
+          node scripts/v8-ignore-audit.js --max-file-hidden 99
+
       - name: Run tests with coverage
         id: coverage
         run: |
@@ -171,3 +180,55 @@ jobs:
                 body: fullBody,
               });
             }
+
+  honest-coverage:
+    name: Honest coverage (v8 ignore disabled)
+    # The gate above is measured with `/* v8 ignore */` hints active. V8 honours
+    # those hints natively and Vitest cannot switch them off, so the reported
+    # number silently excludes every ignored line. This job disables the hints
+    # and re-measures, making the reported-versus-real gap visible on every
+    # master build. It runs on push only because it repeats the full test suite
+    # and would otherwise double PR turnaround.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Measure hidden surface
+        run: |
+          mkdir -p coverage-honest
+          node scripts/v8-ignore-audit.js \
+            --json coverage-honest/hidden.json \
+            --max-file-hidden 99
+
+      - name: Measure coverage with v8 ignore hints disabled
+        run: |
+          node scripts/coverage-honest.js \
+            --reportsDirectory coverage-honest \
+            --json coverage-honest/total.json \
+            --hidden-json coverage-honest/hidden.json
+
+      - name: Upload honest coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: honest-coverage-report
+          path: coverage-honest/
+          retention-days: 30

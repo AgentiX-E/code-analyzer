@@ -965,3 +965,162 @@ describe('ReviewPipeline - Edge Cases', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Paths that were invisible while the file carried a whole-file v8 ignore hint
+// ---------------------------------------------------------------------------
+
+describe('ReviewPipeline - newly measured paths', () => {
+  function pipelineNode(overrides: Partial<GraphNode>): GraphNode {
+    return {
+      id: 0,
+      projectId: 'test-project',
+      label: 'Function',
+      name: 'node',
+      qualifiedName: 'app.node',
+      filePath: 'src/app.ts',
+      startLine: 1,
+      endLine: 20,
+      language: 'typescript',
+      properties: { name: 'node', isExported: true },
+      signature: 'function node(): void',
+      docstring: null,
+      complexity: 1,
+      isExported: true,
+      fingerprint: null,
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-01T00:00:00Z',
+      ...overrides,
+    };
+  }
+
+  it('enrichContext ignores edges that do not link a file to a test', async () => {
+    const store = createStore();
+    const pipeline = new ReviewPipeline();
+
+    const appId = store.insertNode(
+      pipelineNode({ name: 'appFunc', qualifiedName: 'app.appFunc', filePath: 'src/app.ts' }),
+    );
+    const testAId = store.insertNode(
+      pipelineNode({ name: 'testA', qualifiedName: 'app.testA', filePath: 'src/app.test.ts' }),
+    );
+    const testBId = store.insertNode(
+      pipelineNode({ name: 'testB', qualifiedName: 'app.testB', filePath: 'src/app.test.ts' }),
+    );
+    const helperId = store.insertNode(
+      pipelineNode({ name: 'helper', qualifiedName: 'app.helper', filePath: 'src/other.ts' }),
+    );
+
+    // app -> helper is not a file-to-test edge, so it must be skipped.
+    // The two app -> test edges point into the same file, so the second one
+    // must not append a duplicate entry.
+    for (const targetId of [testAId, testBId, helperId]) {
+      store.insertEdge({
+        id: 0,
+        projectId: 'test-project',
+        sourceId: appId,
+        targetId,
+        type: 'CALLS',
+        properties: {},
+        weight: 1,
+        createdAt: '2024-01-01T00:00:00Z',
+      });
+    }
+
+    const enriched = await pipeline.enrichContext([createDiff({ filePath: 'src/app.ts' })], store);
+
+    expect(enriched).toHaveLength(1);
+    expect(enriched[0]!.affectedSymbols).toEqual(['app.appFunc']);
+    expect(enriched[0]!.relatedTests).toEqual(['src/app.test.ts']);
+  });
+
+  it('deduplicate skips a candidate that an earlier group already merged', () => {
+    const pipeline = new ReviewPipeline();
+    const comments = [
+      createReviewComment({
+        id: 'c0',
+        content: 'alpha beta gamma',
+        startLine: 1,
+        endLine: 10,
+      }),
+      createReviewComment({
+        id: 'c1',
+        content: 'completely unrelated wording',
+        startLine: 1,
+        endLine: 10,
+      }),
+      createReviewComment({
+        id: 'c2',
+        content: 'alpha beta gamma',
+        startLine: 1,
+        endLine: 10,
+      }),
+    ];
+
+    const result = pipeline.deduplicate(comments);
+
+    // c0 and c2 are identical so they merge; c1 shares no vocabulary with
+    // either and survives on its own.
+    expect(result).toHaveLength(2);
+    expect(result.map((c) => c.id)).toEqual(['c0', 'c1']);
+  });
+
+  it('normalize falls back to the default ratio for severities absent from the config', () => {
+    // A target ratio of 0 for `high` forces every high comment to be promoted.
+    // The severities left out of the config must fall back to the default ratio.
+    const pipeline = new ReviewPipeline({ severityDistribution: { high: 0 } });
+    const comments = Array.from({ length: 10 }, (_, i) =>
+      createReviewComment({
+        id: `h-${i}`,
+        severity: 'high',
+        startLine: i + 1,
+        endLine: i + 1,
+      }),
+    );
+
+    const result = pipeline.normalize(comments);
+
+    expect(result).toHaveLength(10);
+    expect(result.filter((c) => c.severity === 'high')).toHaveLength(0);
+    expect(result.filter((c) => c.severity === 'critical')).toHaveLength(10);
+  });
+
+  it('preFilter handles a mid-path ** that is not followed by a slash', () => {
+    const pipeline = new ReviewPipeline({ generatedPatterns: ['src/**.ts'] });
+    const diffs = [createDiff({ filePath: 'src/.ts' }), createDiff({ filePath: 'src/app.ts' })];
+
+    const { included, excluded } = pipeline.preFilter(diffs);
+
+    expect(excluded.map((d) => d.filePath)).toEqual(['src/.ts']);
+    expect(included.map((d) => d.filePath)).toEqual(['src/app.ts']);
+  });
+
+  it('executeReview emits no comment for a diff that has no ranges', async () => {
+    const store = createStore();
+    const engine = createEngine(store);
+    const pipeline = new ReviewPipeline();
+    const config = {
+      maxTokens: 8000,
+      maxToolCalls: 10,
+      timeout: 30000,
+      concurrency: 4,
+      contextLines: 3,
+      allowMetadataFallback: true,
+    };
+
+    const comments = await pipeline.executeReview(
+      [
+        {
+          diff: createDiff({ filePath: 'src/empty.ts', ranges: [] }),
+          affectedSymbols: [],
+          relatedTests: [],
+          impactScore: 0,
+        },
+      ],
+      engine,
+      config,
+    );
+
+    expect(comments).toHaveLength(0);
+  });
+});

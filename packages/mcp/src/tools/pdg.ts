@@ -18,8 +18,6 @@ import {
 // pdg_query — Analyze program dependence graph (CFG-based)
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 interface PDGQueryParams {
   functionId: string;
   projectId: string;
@@ -74,18 +72,19 @@ export async function pdgQuery(
           startLine: funcNode.startLine ?? 0,
         });
 
-        // Get CALLS edges as basic control flow approximation
+        // Get CALLS edges as basic control flow approximation.
+        // Invariant: insertEdge() rejects edges whose endpoints are absent and
+        // deleteNode() cascades to every connected edge, so an edge yielded by
+        // getEdgesForNode() always resolves to a live node.
         const callEdges = gstore.getEdgesForNode(funcNode.id, EDGE_CALLS);
         for (const edge of callEdges) {
-          const target = gstore.getNode(edge.targetId);
-          if (target) {
-            edges.push({
-              sourceId: edge.sourceId,
-              targetId: edge.targetId,
-              type: EDGE_CALLS,
-              targetName: target.name,
-            });
-          }
+          const target = gstore.getNode(edge.targetId)!;
+          edges.push({
+            sourceId: edge.sourceId,
+            targetId: edge.targetId,
+            type: EDGE_CALLS,
+            targetName: target.name,
+          });
         }
       }
     } catch {
@@ -188,8 +187,8 @@ export async function taintAnalysis(
         // Check if it calls anything that looks like a sink
         const callEdges = gstore.getEdgesForNode(node.id, EDGE_CALLS);
         for (const edge of callEdges) {
-          const target = gstore.getNode(edge.targetId);
-          if (!target) continue;
+          // Same referential-integrity invariant as in pdgQuery() above.
+          const target = gstore.getNode(edge.targetId)!;
           const tName = target.name.toLowerCase();
           const tFp = (target.filePath ?? '').toLowerCase();
 
@@ -320,5 +319,3 @@ export async function explainTaint(
     ],
   };
 }
-
-/* v8 ignore stop */

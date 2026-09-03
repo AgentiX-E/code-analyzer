@@ -308,6 +308,46 @@ function createTestContext(projectId: string = 'test-pdg'): ToolContextImpl {
   return new ToolContextImpl(store);
 }
 
+/**
+ * Build a GraphNode with location-carrying defaults, so a test only has to
+ * spell out the fields it actually cares about.
+ */
+function makeNode(projectId: string, overrides: Partial<GraphNode>): GraphNode {
+  return {
+    id: 0,
+    projectId,
+    label: 'Function',
+    name: 'node',
+    qualifiedName: 'app.node',
+    filePath: '/app/src/node.ts',
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function insertCallEdge(store: InMemoryGraphStore, sourceId: number, targetId: number): void {
+  store.insertEdge({
+    id: 0,
+    projectId: 'nullable-meta',
+    sourceId,
+    targetId,
+    type: 'CALLS',
+    properties: {},
+    weight: 1.0,
+    createdAt: new Date().toISOString(),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // pdgQuery Tests
 // ---------------------------------------------------------------------------
@@ -878,5 +918,106 @@ describe('explainTaint', () => {
         expect(step.depth).toBeDefined();
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Nodes without source location
+// ---------------------------------------------------------------------------
+// GraphNode.filePath is `string | null` and GraphNode.startLine is `number | null`,
+// so every tool must fall back to '' / 0 when a node carries no location.
+// These cases are matched by name only, never by file path.
+
+describe('nodes without source location', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  it('pdgQuery reports an empty file path and line 0', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(
+      makeNode('nullable-meta', {
+        name: 'locusFree',
+        qualifiedName: 'app.locusFree',
+        filePath: null,
+        startLine: null,
+      }),
+    );
+
+    const result = await registry.execute(
+      'pdg_query',
+      { functionId: 'app.locusFree', projectId: 'nullable-meta' },
+      new ToolContextImpl(store),
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.nodes).toHaveLength(1);
+    expect(data.nodes[0].filePath).toBe('');
+    expect(data.nodes[0].startLine).toBe(0);
+  });
+
+  it('taintAnalysis matches a source and a sink by name alone', async () => {
+    const store = new InMemoryGraphStore();
+    const sourceId = store.insertNode(
+      makeNode('nullable-meta', {
+        name: 'user-input-parser',
+        qualifiedName: 'app.userInputParser',
+        filePath: null,
+        startLine: null,
+      }),
+    );
+    const sinkId = store.insertNode(
+      makeNode('nullable-meta', {
+        name: 'sql-query-runner',
+        qualifiedName: 'app.sqlQueryRunner',
+        filePath: null,
+        startLine: null,
+      }),
+    );
+    insertCallEdge(store, sourceId, sinkId);
+
+    const result = await registry.execute(
+      'taint_analysis',
+      {
+        projectId: 'nullable-meta',
+        sourceKind: 'user-input',
+        sinkKind: 'sql-query',
+      },
+      new ToolContextImpl(store),
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.vulnerablePaths).toBe(1);
+    expect(data.severity).toBe('medium');
+    expect(data.taintPaths).toHaveLength(1);
+    expect(data.taintPaths[0].source.node).toBe('user-input-parser');
+    expect(data.taintPaths[0].source.filePath).toBe('');
+    expect(data.taintPaths[0].sink.node).toBe('sql-query-runner');
+    expect(data.taintPaths[0].sink.filePath).toBe('');
+  });
+
+  it('explainTaint reports an empty file path and line 0', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNode(
+      makeNode('nullable-meta', {
+        name: 'locusFree',
+        qualifiedName: 'app.locusFree',
+        filePath: null,
+        startLine: null,
+      }),
+    );
+
+    const result = await registry.execute(
+      'explain_taint',
+      { taintPathId: 'app.locusFree', projectId: 'nullable-meta' },
+      new ToolContextImpl(store),
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.source.node).toBe('locusFree');
+    expect(data.source.filePath).toBe('');
+    expect(data.source.line).toBe(0);
   });
 });

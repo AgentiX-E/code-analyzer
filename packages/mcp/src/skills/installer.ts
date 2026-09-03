@@ -15,8 +15,8 @@ export interface InstallResult {
 // Skill Templates
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
+// Indexed by an arbitrary caller-supplied name in installSkills(), so this
+// keeps a string index signature; generateRepoSKills() iterates its own keys.
 const SKILL_TEMPLATES: Record<string, string> = {
   exploration: 'code-analyzer-exploration.md',
   debugging: 'code-analyzer-debugging.md',
@@ -406,12 +406,15 @@ export class SkillInstaller {
         'tool-reference': 'reference',
       };
 
+      // Invariant: `name` enumerates the keys of SKILL_TEMPLATES, and both
+      // lookup tables below declare exactly that key set, so every lookup
+      // resolves and the fallbacks were unreachable.
       return {
         name: `code-analyzer-${name}`,
         description: `Code Analyzer skill for ${name}`,
-        category: categoryMap[name] ?? 'reference',
+        category: categoryMap[name]!,
         content,
-        tools: toolMap[name] ?? [],
+        tools: toolMap[name]!,
       };
     });
   }
@@ -426,5 +429,3 @@ export class SkillInstaller {
     return getSkillContent(name, projectId);
   }
 }
-
-/* v8 ignore stop */
