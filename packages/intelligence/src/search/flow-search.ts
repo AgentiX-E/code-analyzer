@@ -509,9 +509,9 @@ function matchesSimplePattern(filePath: string, pattern: string): boolean {
 
   try {
     return new RegExp(regexStr).test(filePath);
-    /* v8 ignore start -- defensive catch for invalid regex, unreachable with escaped input */
   } catch {
+    // A malformed pattern (e.g. an unbalanced `(`) still contains literal
+    // characters that may match the path, so fall back to substring matching.
     return filePath.includes(pattern.replace(/\*/g, ''));
   }
-  /* v8 ignore stop */
 }

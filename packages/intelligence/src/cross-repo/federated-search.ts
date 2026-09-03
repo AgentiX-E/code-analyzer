@@ -71,8 +71,6 @@ export interface UsageReport {
 // FederatedSearchEngine
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 export class FederatedSearchEngine {
   private minhash: MinHashSimilarity;
 
@@ -225,15 +223,6 @@ export class FederatedSearchEngine {
       (n) => n.label === 'File' && n.projectId && !n.projectId.startsWith('cross-repo:'),
     );
 
-    // Group files by repo
-    const repoFiles = new Map<string, GraphNode[]>();
-    for (const file of groupFiles) {
-      const repo = file.projectId;
-      const list = repoFiles.get(repo) ?? [];
-      list.push(file);
-      repoFiles.set(repo, list);
-    }
-
     // Compute MinHash fingerprints for each file
     // Use name + qualified name as token set (simplified for performance)
     const fingerprints = new Map<number, number[]>();
@@ -242,13 +231,11 @@ export class FederatedSearchEngine {
       const edges = this.store.getEdgesForNode(file.id, EDGE_DEFINES);
       const tokens: string[] = [];
 
-      // Use symbol names as tokens for structural similarity
-      const allNodesArr = allNodes;
+      // Every edge references an existing node (insertEdge validates endpoints and
+      // deleteNode cascades edge removal), so the target lookup always resolves.
       for (const edge of edges) {
-        const targetNode = allNodesArr.find((n) => n.id === edge.targetId);
-        if (targetNode) {
-          tokens.push(targetNode.label + ':' + targetNode.name);
-        }
+        const targetNode = allNodes.find((n) => n.id === edge.targetId)!;
+        tokens.push(targetNode.label + ':' + targetNode.name);
       }
 
       // Fallback: use file qualified name if no symbols
@@ -262,7 +249,6 @@ export class FederatedSearchEngine {
 
     // Compare all pairs across different repos
     const duplicateGroups: DuplicateGroup[] = [];
-    const processed = new Set<string>();
 
     const fileArray = Array.from(groupFiles);
     for (let i = 0; i < fileArray.length; i++) {
@@ -273,13 +259,9 @@ export class FederatedSearchEngine {
         // Skip same-repo comparisons
         if (fileA.projectId === fileB.projectId) continue;
 
-        const pairKey = [fileA.id, fileB.id].sort().join(':');
-        if (processed.has(pairKey)) continue;
-        processed.add(pairKey);
-
-        const fpA = fingerprints.get(fileA.id);
-        const fpB = fingerprints.get(fileB.id);
-        if (!fpA || !fpB) continue;
+        // Every file in groupFiles receives a fingerprint in the loop above.
+        const fpA = fingerprints.get(fileA.id)!;
+        const fpB = fingerprints.get(fileB.id)!;
 
         const similarity = this.minhash.estimateSimilarity(fpA, fpB);
         if (similarity >= threshold) {
@@ -383,5 +365,3 @@ export class FederatedSearchEngine {
     };
   }
 }
-
-/* v8 ignore stop */

@@ -1,6 +1,6 @@
-// @ts-nocheck
-// @code-analyzer/intelligence — Impact graph branch coverage (private weight
-// mapping, transitive BFS, cycle guards, and empty-node tolerance).
+// @code-analyzer/intelligence — Impact graph branch coverage (impact-level
+// weight mapping via build(), severity mapping via calculateBlastRadius,
+// transitive BFS, cycle guards, and empty-node tolerance).
 
 import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -14,22 +14,51 @@ function makeBuilder() {
   return new ImpactGraphBuilder(new CrossRepoIndexer(store, gm));
 }
 
-describe('ImpactGraphBuilder — impactLevelToWeight / weightToSeverity', () => {
+describe('ImpactGraphBuilder — impactLevelToWeight via build()', () => {
+  it('maps every impact level to an edge weight', async () => {
+    const indexer = {
+      async analyzeCrossRepoImpact() {
+        return {
+          changedRepo: 'org/core',
+          affectedRepos: ['org/a', 'org/b', 'org/c', 'org/d'],
+          analysis: [
+            { repo: 'org/a', affectedSymbols: ['a'], impactLevel: 'critical', reason: 'direct' },
+            { repo: 'org/b', affectedSymbols: ['b'], impactLevel: 'high', reason: 'direct' },
+            { repo: 'org/c', affectedSymbols: ['c'], impactLevel: 'medium', reason: 'transitive' },
+            { repo: 'org/d', affectedSymbols: ['d'], impactLevel: 'low', reason: 'transitive' },
+          ],
+        };
+      },
+      getRepoNodes(repo: string) {
+        return [{ name: `${repo.split('/')[1]}-fn` }];
+      },
+    } as unknown as CrossRepoIndexer;
+
+    const builder = new ImpactGraphBuilder(indexer);
+    const graph = await builder.build('g', 'org/core');
+
+    expect(graph.edges.map((e) => e.weight)).toEqual([10, 7, 4, 1]);
+  });
+});
+
+describe('ImpactGraphBuilder — weightToSeverity via calculateBlastRadius', () => {
   const builder = makeBuilder();
 
-  it('maps every impact level to a weight', () => {
-    expect((builder as any).impactLevelToWeight('critical')).toBe(10);
-    expect((builder as any).impactLevelToWeight('high')).toBe(7);
-    expect((builder as any).impactLevelToWeight('medium')).toBe(4);
-    expect((builder as any).impactLevelToWeight('low')).toBe(1);
-    expect((builder as any).impactLevelToWeight('unknown')).toBe(1);
-  });
-
-  it('maps weights to severities across all thresholds', () => {
-    expect((builder as any).weightToSeverity(10)).toBe('critical');
-    expect((builder as any).weightToSeverity(7)).toBe('high');
-    expect((builder as any).weightToSeverity(4)).toBe('medium');
-    expect((builder as any).weightToSeverity(1)).toBe('low');
+  it('maps edge weights to severity rankings across all thresholds', () => {
+    const graph = {
+      nodes: new Map(),
+      edges: [
+        { from: 'org/core', to: 'org/a', symbols: ['a'], weight: 10 },
+        { from: 'org/core', to: 'org/b', symbols: ['b'], weight: 7 },
+        { from: 'org/core', to: 'org/c', symbols: ['c'], weight: 4 },
+        { from: 'org/core', to: 'org/d', symbols: ['d'], weight: 1 },
+      ],
+    };
+    const result = builder.calculateBlastRadius('org/core', graph);
+    expect(result.severityRankings.get('org/a')).toBe('critical');
+    expect(result.severityRankings.get('org/b')).toBe('high');
+    expect(result.severityRankings.get('org/c')).toBe('medium');
+    expect(result.severityRankings.get('org/d')).toBe('low');
   });
 });
 
@@ -119,7 +148,7 @@ describe('ImpactGraphBuilder — computeTransitiveDependents dedup', () => {
       edges: [],
     };
     builder.computeTransitiveDependents(graph);
-    const core = graph.nodes.get('org/core');
+    const core = graph.nodes.get('org/core')!;
     // service-c reached from two paths but listed once
     expect(core.transitiveDependents).toEqual(['org/service-c']);
   });

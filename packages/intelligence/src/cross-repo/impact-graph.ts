@@ -253,7 +253,9 @@ export class ImpactGraphBuilder {
   // Private Helpers
   // -----------------------------------------------------------------------
 
-  private impactLevelToWeight(level: string): number {
+  private impactLevelToWeight(level: 'critical' | 'high' | 'medium' | 'low'): number {
+    // `level` is the closed `impactLevel` union from `CrossRepoImpactResult`, so
+    // every case is enumerated and no `default` fallback is reachable.
     switch (level) {
       case 'critical':
         return 10;
@@ -262,8 +264,6 @@ export class ImpactGraphBuilder {
       case 'medium':
         return 4;
       case 'low':
-        return 1;
-      default:
         return 1;
     }
   }

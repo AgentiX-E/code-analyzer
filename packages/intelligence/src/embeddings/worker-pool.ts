@@ -287,90 +287,90 @@ export class EmbeddingWorkerPool {
   }
 
   private spawnWorker(index: number): void {
-    try {
-      const worker = new Worker(this.workerScript, {
-        workerData: { workerIndex: index },
-      });
+    // `new Worker` does not throw synchronously for a missing or malformed
+    // script on the supported Node runtimes (>=20); those failures surface
+    // through the 'error' event handler below. The previous try/catch here was
+    // therefore unreachable and is omitted.
+    const worker = new Worker(this.workerScript, {
+      workerData: { workerIndex: index },
+    });
 
-      const state: WorkerState = {
-        worker,
-        index,
-        healthy: true,
-        taskCount: 0,
-        errorCount: 0,
-        lastHeartbeat: Date.now(),
-      };
+    const state: WorkerState = {
+      worker,
+      index,
+      healthy: true,
+      taskCount: 0,
+      errorCount: 0,
+      lastHeartbeat: Date.now(),
+    };
 
-      worker.on(
-        'message',
-        (msg: {
-          type: string;
-          taskId: string;
-          embedding?: number[];
-          error?: string;
-          durationMs?: number;
-        }) => {
-          state.lastHeartbeat = Date.now();
-          state.taskCount++;
+    worker.on(
+      'message',
+      (msg: {
+        type: string;
+        taskId: string;
+        embedding?: number[];
+        error?: string;
+        durationMs?: number;
+      }) => {
+        state.lastHeartbeat = Date.now();
+        state.taskCount++;
 
-          this.busyWorkers.delete(index);
-          this.processQueue();
-
-          // Find matching task in queue
-          const queueIdx = this.taskQueue.findIndex((e) => e.task.taskId === msg.taskId);
-          if (queueIdx < 0) return;
-
-          const queueEntry = this.taskQueue[queueIdx]!;
-          this.taskQueue.splice(queueIdx, 1);
-          this.dispatchedTasks.delete(msg.taskId);
-
-          if (msg.type === 'result' && msg.embedding) {
-            this.completedTasks++;
-            this.totalLatencyMs += msg.durationMs ?? 0;
-            queueEntry.resolve({
-              taskId: msg.taskId,
-              embedding: new Float32Array(msg.embedding),
-              durationMs: msg.durationMs ?? 0,
-            });
-          } else {
-            this.failedTasks++;
-            state.errorCount++;
-            queueEntry.reject({
-              taskId: msg.taskId,
-              error: msg.error ?? 'Unknown worker error',
-            });
-
-            // Mark unhealthy if too many errors
-            if (state.errorCount >= this.maxErrorsPerWorker) {
-              state.healthy = false;
-            }
-          }
-        },
-      );
-
-      worker.on('error', (_err) => {
-        state.healthy = false;
-        state.errorCount++;
         this.busyWorkers.delete(index);
         this.processQueue();
-      });
 
-      worker.on('exit', (code: number) => {
-        state.healthy = false;
-        this.busyWorkers.delete(index);
+        // Find matching task in queue
+        const queueIdx = this.taskQueue.findIndex((e) => e.task.taskId === msg.taskId);
+        if (queueIdx < 0) return;
 
-        if (code !== 0 && !this.useFallback) {
-          // Auto-restart on unexpected exit
-          if (this.workerStates.every((ws) => !ws.healthy)) {
-            this.useFallback = true;
+        const queueEntry = this.taskQueue[queueIdx]!;
+        this.taskQueue.splice(queueIdx, 1);
+        this.dispatchedTasks.delete(msg.taskId);
+
+        if (msg.type === 'result' && msg.embedding) {
+          this.completedTasks++;
+          this.totalLatencyMs += msg.durationMs ?? 0;
+          queueEntry.resolve({
+            taskId: msg.taskId,
+            embedding: new Float32Array(msg.embedding),
+            durationMs: msg.durationMs ?? 0,
+          });
+        } else {
+          this.failedTasks++;
+          state.errorCount++;
+          queueEntry.reject({
+            taskId: msg.taskId,
+            error: msg.error ?? 'Unknown worker error',
+          });
+
+          // Mark unhealthy if too many errors
+          if (state.errorCount >= this.maxErrorsPerWorker) {
+            state.healthy = false;
           }
         }
-      });
+      },
+    );
 
-      this.workerStates[index] = state;
-    } catch {
-      this.useFallback = true;
-    }
+    worker.on('error', (_err) => {
+      state.healthy = false;
+      state.errorCount++;
+      this.busyWorkers.delete(index);
+      this.processQueue();
+    });
+
+    worker.on('exit', (code: number) => {
+      state.healthy = false;
+      this.busyWorkers.delete(index);
+
+      if (code !== 0 && !this.useFallback) {
+        // Auto-restart on unexpected exit
+        if (this.workerStates.every((ws) => !ws.healthy)) {
+          this.useFallback = true;
+        }
+      }
+    });
+
+    this.workerStates[index] = state;
   }
 
   private processQueue(): void {

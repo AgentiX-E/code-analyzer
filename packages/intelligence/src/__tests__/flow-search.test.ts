@@ -818,6 +818,20 @@ describe('FlowSearchEngine', () => {
     expect(Array.isArray(results)).toBe(true);
   });
 
+  it('should fall back to substring match when a glob pattern forms an invalid regex', () => {
+    const a = createNode(store, 'A', 'Function', '/test/a.ts', 1);
+    const b = createNode(store, 'B', 'Function', '/test/b.ts', 1);
+    createEdge(store, a.id, b.id, 'CALLS');
+
+    // `(unclosed*` keeps a `*` so it passes the no-wildcard early return, but the
+    // unescaped `(` makes `new RegExp(...)` throw, exercising the catch fallback.
+    const results = engine.search([a.id], {
+      maxDepth: 2,
+      filePattern: '(unclosed*',
+    });
+    expect(Array.isArray(results)).toBe(true);
+  });
+
   // ==========================================================================
   // Branch Coverage: depth exactly at max (not continuing deeper)
   // ==========================================================================

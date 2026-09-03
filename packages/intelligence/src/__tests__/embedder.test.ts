@@ -182,6 +182,15 @@ describe('MockEmbeddingBackend', () => {
       }
       expect(Math.sqrt(norm)).toBeCloseTo(1.0, 5);
     });
+
+    it('does not divide by zero when normalizing a zero-length vector', async () => {
+      // A zero-dimension backend produces an empty vector; normalization must
+      // guard against a zero norm instead of dividing by zero.
+      const backend = new MockEmbeddingBackend({ dimensions: 0, normalize: true });
+      const vec = await backend.embedCode('');
+      expect(vec).toBeInstanceOf(Float32Array);
+      expect(vec.length).toBe(0);
+    });
   });
 
   describe('n-gram semantic approximation', () => {
