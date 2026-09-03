@@ -12,8 +12,6 @@ import { buildSearchResponse, buildTraceResponse } from './smart-response.js';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
@@ -419,9 +417,11 @@ export async function traceCallPath(
       const node = graphStore.getNodeByQualifiedName(sourceSymbol);
       if (node) {
         const bfs = graphStore.bfs(node.id, maxDepth, [EDGE_CALLS, EDGE_IMPLEMENTS, EDGE_EXTENDS]);
+        // Invariant: BFS records a path length for every visited node, so every
+        // node in bfs.nodes has a corresponding entry in bfs.pathLengths.
         const path = bfs.nodes.map((n) => ({
           symbol: n.qualifiedName,
-          depth: bfs.pathLengths.get(n.id) ?? 0,
+          depth: bfs.pathLengths.get(n.id)!,
           relationship: EDGE_CALLS,
           filePath: n.filePath,
         }));
@@ -1053,23 +1053,26 @@ export async function exploreSymbol(
 
           result.relationships = [
             ...outgoing.map((e) => {
-              const targetNode = graphStore.getNode(e.targetId);
+              // Invariant: edges always reference existing endpoint nodes
+              // (insertion validates both endpoints; node deletion cascades to edges).
+              const targetNode = graphStore.getNode(e.targetId)!;
               return {
                 direction: 'outgoing',
                 type: e.type,
                 targetId: e.targetId,
-                targetName: targetNode?.qualifiedName ?? `node-${e.targetId}`,
-                targetLabel: targetNode?.label,
+                targetName: targetNode.qualifiedName,
+                targetLabel: targetNode.label,
               };
             }),
             ...incoming.map((e) => {
-              const sourceNode = graphStore.getNode(e.sourceId);
+              // Invariant: edges always reference existing endpoint nodes.
+              const sourceNode = graphStore.getNode(e.sourceId)!;
               return {
                 direction: 'incoming',
                 type: e.type,
                 sourceId: e.sourceId,
-                sourceName: sourceNode?.qualifiedName ?? `node-${e.sourceId}`,
-                sourceLabel: sourceNode?.label,
+                sourceName: sourceNode.qualifiedName,
+                sourceLabel: sourceNode.label,
               };
             }),
           ];
@@ -1180,40 +1183,31 @@ export async function findImplementations(
         const incoming = graphStore.getEdgesForNode(ifaceNode.id, EDGE_IMPLEMENTS, 'in');
         const implementorIds = new Set<number>();
 
-        result.implementations = incoming
-          .map((e) => {
-            const node = graphStore.getNode(e.sourceId);
-            if (node) {
-              implementorIds.add(node.id);
-              return {
-                id: node.id,
-                name: node.name,
-                qualifiedName: node.qualifiedName,
-                filePath: node.filePath,
-              };
-            }
-            return null;
-          })
-          .filter(Boolean) as Array<{
-          id: number;
-          name: string;
-          qualifiedName: string;
-          filePath: string | null;
-        }>;
+        result.implementations = incoming.map((e) => {
+          // Invariant: IMPLEMENTS edges always reference an existing source node
+          // (insertion validates both endpoints; node deletion cascades to edges).
+          const node = graphStore.getNode(e.sourceId)!;
+          implementorIds.add(node.id);
+          return {
+            id: node.id,
+            name: node.name,
+            qualifiedName: node.qualifiedName,
+            filePath: node.filePath,
+          };
+        });
 
         // Find method implementations
         for (const implId of implementorIds) {
           const methods = graphStore.getEdgesForNode(implId, EDGE_HAS_METHOD, 'out');
           for (const methodEdge of methods) {
-            const methodNode = graphStore.getNode(methodEdge.targetId);
-            if (methodNode) {
-              result.methodImplementations.push({
-                implementorId: implId,
-                methodName: methodNode.name,
-                methodQname: methodNode.qualifiedName,
-                filePath: methodNode.filePath,
-              });
-            }
+            // Invariant: HAS_METHOD edges always reference an existing target node.
+            const methodNode = graphStore.getNode(methodEdge.targetId)!;
+            result.methodImplementations.push({
+              implementorId: implId,
+              methodName: methodNode.name,
+              methodQname: methodNode.qualifiedName,
+              filePath: methodNode.filePath,
+            });
           }
         }
       }
@@ -1230,4 +1224,3 @@ export async function findImplementations(
     };
   }
 }
-/* v8 ignore stop */
