@@ -36,7 +36,7 @@ export type { SimilarityEdge } from './similarity/lsh.js';
 
 // Review Engine
 export { CodeReviewEngine } from './review/review-engine.js';
-export type { ReviewConfig, ReviewContext, ReviewPlan } from './review/review-engine.js';
+export type { ReviewConfig, ReviewContext } from './review/review-engine.js';
 
 // PR Review
 export { PRReviewEngine } from './review/pr-review.js';

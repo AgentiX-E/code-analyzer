@@ -2,7 +2,6 @@
 // Hybrid deterministic + heuristic code review with Plan/Analyze/Filter/Relocate pipeline.
 //
 // Architecture:
-//   Plan    → Identify focus areas, risks, and checklist based on file characteristics
 //   Analyze → Run heuristic rules and (optionally) LLM-assisted review
 //   Filter  → Remove low-quality, empty, or noise comments
 //   Relocate → Adjust line numbers to map old-file positions to new-file positions
@@ -25,23 +24,6 @@ import type { LLMReviewOptions } from './llm/llm-review-engine.js';
 // Git Operations Interface
 // ---------------------------------------------------------------------------
 
-/** A parsed diff hunk from git output. */
-export interface DiffHunk {
-  oldStart: number;
-  oldCount: number;
-  newStart: number;
-  newCount: number;
-  header: string;
-  lines: string[];
-  oldLines: string[];
-  newLines: string[];
-}
-
-/** Extended GitDiff that may include parsed hunks. */
-interface GitDiffWithHunks extends GitDiff {
-  hunks?: DiffHunk[];
-}
-
 /**
  * Abstraction for reading file contents from git history.
  * Required for the review engine to access actual code being reviewed.
@@ -61,9 +43,6 @@ export interface GitOperations {
   /** Get the unified diff for a file between two commits. */
   getFileDiff(filePath: string, baseSha: string, targetSha: string): Promise<string>;
 
-  /** Get the raw diff hunks parsed from git output. */
-  getDiffHunks(filePath: string, baseSha: string, targetSha: string): Promise<DiffHunk[]>;
-
   /** Check if a file exists at a given commit. */
   fileExists(filePath: string, commitSha?: string): Promise<boolean>;
 }
@@ -82,6 +61,16 @@ export class ReviewEngineError extends Error {
   }
 }
 
+/**
+ * Coerce a caught `unknown` value into a human-readable message.
+ * Error instances expose `.message`; any other thrown value (string, number,
+ * null, …) is stringified via `String(...)`. Exposed as a pure function so
+ * both branches are testable without reaching into private engine state.
+ */
+export function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -91,8 +80,6 @@ export interface ReviewConfig {
   maxTokens: number;
   /** Maximum tool calls per file review (LLM mode). */
   maxToolCalls: number;
-  /** Files larger than this line count trigger extra scrutiny. */
-  planLineThreshold: number;
   /** Per-file review timeout in milliseconds. */
   timeout: number;
   /** Number of concurrent file reviews. */
@@ -106,7 +93,6 @@ export interface ReviewConfig {
 const DEFAULT_REVIEW_CONFIG: ReviewConfig = {
   maxTokens: 8000,
   maxToolCalls: 10,
-  planLineThreshold: 200,
   timeout: 30000,
   concurrency: 4,
   contextLines: 3,
@@ -130,13 +116,6 @@ export interface ReviewContext {
   baseSha?: string;
   /** Target commit SHA for diff comparison. */
   targetSha?: string;
-}
-
-export interface ReviewPlan {
-  focusAreas: string[];
-  checklist: string[];
-  estimatedComplexity: 'low' | 'medium' | 'high';
-  riskAreas: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +149,108 @@ const FILTER_RULES: FilterRule[] = [
     reason: 'Empty comment content',
   },
 ];
+
+/**
+ * Filter out noise comments (empty code context, invalid/inverted ranges,
+ * style comments on comment-only lines, empty content) and mark the survivors
+ * as unfiltered. Exposed as a pure function so the rule set is testable
+ * without reaching into private engine state.
+ */
+export function filterComments(comments: ReviewComment[]): ReviewComment[] {
+  return comments
+    .filter((comment) => {
+      for (const rule of FILTER_RULES) {
+        if (rule.test(comment)) {
+          return false;
+        }
+      }
+      return true;
+    })
+    .map((comment) => ({
+      ...comment,
+      filtered: false,
+    }));
+}
+
+// ---------------------------------------------------------------------------
+// Merge & Deduplicate
+// ---------------------------------------------------------------------------
+
+/** Minimum line overlap (inclusive) for two comments to count as duplicates. */
+const COMMENT_OVERLAP_THRESHOLD = 3;
+
+/**
+ * Merge heuristic and LLM review comments, removing duplicates.
+ * A comment is considered a duplicate if it matches in category and has
+ * overlapping line ranges within COMMENT_OVERLAP_THRESHOLD.
+ */
+export function mergeAndDeduplicateComments(
+  heuristic: ReviewComment[],
+  llm: ReviewComment[],
+): ReviewComment[] {
+  if (llm.length === 0) return heuristic;
+  if (heuristic.length === 0) return llm;
+
+  const result = [...heuristic];
+
+  for (const llmComment of llm) {
+    const isDuplicate = result.some((hc) => {
+      if (hc.category !== llmComment.category) return false;
+      const overlap = Math.max(
+        0,
+        Math.min(hc.endLine, llmComment.endLine) - Math.max(hc.startLine, llmComment.startLine) + 1,
+      );
+      return overlap >= COMMENT_OVERLAP_THRESHOLD;
+    });
+
+    if (!isDuplicate) {
+      result.push(llmComment);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Map a comment's old-file line range to its new-file position using
+ * range-based offsets. Works for both contiguous and non-contiguous diffs:
+ * each range contributes its net line delta (newEnd-newStart minus
+ * oldEnd-oldStart) to every comment line that lies at or after it.
+ */
+export function relocateCommentThroughRanges(
+  comment: ReviewComment,
+  ranges: NonNullable<GitDiff['ranges']>,
+): { startLine: number; endLine: number } {
+  const sortedRanges = [...ranges].sort((a, b) => a.oldStart - b.oldStart);
+
+  let startOffset = 0;
+  let endOffset = 0;
+  let startMapped = false;
+  let endMapped = false;
+
+  for (const range of sortedRanges) {
+    const delta = range.newEnd - range.newStart - (range.oldEnd - range.oldStart);
+
+    if (!startMapped && comment.startLine > range.oldEnd) {
+      startOffset += delta;
+    } else if (!startMapped && comment.startLine >= range.oldStart) {
+      startOffset += delta;
+      startMapped = true;
+    }
+
+    if (!endMapped && comment.endLine > range.oldEnd) {
+      endOffset += delta;
+    } else if (!endMapped && comment.endLine >= range.oldStart) {
+      endOffset += delta;
+      endMapped = true;
+    }
+  }
+
+  const newStart = Math.max(1, comment.startLine + startOffset);
+  const newEnd = Math.max(newStart, comment.endLine + endOffset);
+
+  return { startLine: newStart, endLine: newEnd };
+}
 
 // ---------------------------------------------------------------------------
 // Code Review Engine
@@ -276,7 +357,7 @@ export class CodeReviewEngine {
         this.sessionStore.recordItemFailed(session.id, {
           filePath: diff.filePath,
           fingerprint,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
           duration,
         });
       }
@@ -357,128 +438,40 @@ export class CodeReviewEngine {
   // -------------------------------------------------------------------------
 
   private async reviewFileItem(ctx: ReviewContext, diff: GitDiff): Promise<ReviewComment[]> {
-    // Phase 1: Plan — determine what to focus on
-    const plan = await this.planPhase(ctx, diff);
+    // Phase 1: Analyze — run heuristic rules against real code content
+    const heuristicComments = await this.analyzePhase(ctx, diff);
 
-    // Phase 2: Analyze — run heuristic rules against real code content
-    const heuristicComments = await this.analyzePhase(ctx, diff, plan);
-
-    // Phase 2b: LLM Review — if a provider is configured, supplement with AI analysis
+    // Phase 2: LLM Review — if a provider is configured, supplement with AI analysis
     let llmComments: ReviewComment[] = [];
     if (this.llmEngine && ctx.gitOps) {
-      try {
-        const diffContent = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
-        const actualDiff = {
-          ...diff,
-          content: diffContent,
-        } as GitDiff;
-        llmComments = await this.llmEngine.reviewDiffAsComments(actualDiff, ctx.fileContext);
-      } catch {
-        // LLM review failed — continue with heuristic results only
-        llmComments = [];
-      }
+      // LLMReviewEngine.reviewDiffAsComments never rejects: every lane error is
+      // converted to a `{ success: false }` result inside executeLane. Any
+      // residual failure is surfaced to reviewDiff's per-file error handler.
+      const diffContent = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
+      const actualDiff = {
+        ...diff,
+        content: diffContent,
+      } as GitDiff;
+      llmComments = await this.llmEngine.reviewDiffAsComments(actualDiff, ctx.fileContext);
     }
 
     // Merge and deduplicate results from both analyzers
-    const merged = this.mergeAndDeduplicate(heuristicComments, llmComments);
+    const merged = mergeAndDeduplicateComments(heuristicComments, llmComments);
 
     // Phase 3: Filter — remove noise and invalid comments
-    const filtered = await this.filterPhase(merged, diff);
+    const filtered = this.filterPhase(merged);
 
     // Phase 4: Relocate — adjust line numbers for non-contiguous diffs
-    const relocated = await this.relocatePhase(filtered, diff);
+    const relocated = this.relocatePhase(filtered, diff);
 
     return relocated;
-  }
-
-  // -------------------------------------------------------------------------
-  // Plan Phase
-  // -------------------------------------------------------------------------
-
-  private async planPhase(ctx: ReviewContext, diff: GitDiff): Promise<ReviewPlan> {
-    const content = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
-    const lines = content.split('\n');
-    const lineCount = lines.length;
-
-    // Determine focus areas based on file characteristics
-    const focusAreas: string[] = [];
-    const checklist: string[] = [];
-    const riskAreas: string[] = [];
-
-    // Language-specific checks
-    if (diff.filePath.endsWith('.ts') || diff.filePath.endsWith('.tsx')) {
-      focusAreas.push('TypeScript types');
-      checklist.push('Verify TypeScript type definitions are complete and correct');
-    }
-    if (diff.filePath.endsWith('.py')) {
-      focusAreas.push('Python conventions');
-      checklist.push('Verify PEP 8 compliance and type hints');
-    }
-    if (diff.filePath.endsWith('.go')) {
-      focusAreas.push('Go idioms');
-      checklist.push('Verify error handling follows Go conventions');
-    }
-
-    // Role-based checks
-    if (diff.filePath.includes('.test.') || diff.filePath.includes('.spec.')) {
-      focusAreas.push('Test quality');
-      checklist.push('Ensure test assertions are meaningful and cover edge cases');
-    }
-    if (diff.filePath.includes('/api/') || diff.filePath.includes('/routes/')) {
-      focusAreas.push('API contract');
-      riskAreas.push('API route change');
-      checklist.push('Verify API contract backward compatibility');
-    }
-    if (diff.filePath.includes('/types/') || diff.filePath.endsWith('.d.ts')) {
-      focusAreas.push('Type definitions');
-      riskAreas.push('Public type change');
-      checklist.push('Verify type changes do not break consumers');
-    }
-
-    // Size-based risk assessment
-    if (lineCount > this.config.planLineThreshold) {
-      focusAreas.push('Large change');
-      riskAreas.push(`File change is large (${lineCount} lines) — high complexity risk`);
-      checklist.push('Consider whether this change should be split into smaller PRs');
-    }
-
-    // Change type risk assessment
-    if (diff.changeType === 'deleted') {
-      riskAreas.push('File deletion');
-      checklist.push('Verify all imports referencing this file are updated');
-    }
-    if (diff.changeType === 'renamed') {
-      riskAreas.push('File rename');
-      checklist.push('Verify all import paths are updated to the new path');
-    }
-
-    // Default checks applicable to all files
-    focusAreas.push('Error handling', 'Code patterns', 'Naming');
-    checklist.push('Check for missing error handling on async operations and I/O');
-    checklist.push('Check for functions exceeding recommended length (>50 lines)');
-    checklist.push('Check for deep nesting (>4 levels)');
-    checklist.push('Verify naming conventions match project standards');
-
-    const estimatedComplexity: 'low' | 'medium' | 'high' =
-      lineCount < 100 ? 'low' : lineCount < 300 ? 'medium' : 'high';
-
-    return {
-      focusAreas,
-      checklist,
-      estimatedComplexity,
-      riskAreas,
-    };
   }
 
   // -------------------------------------------------------------------------
   // Analyze Phase
   // -------------------------------------------------------------------------
 
-  private async analyzePhase(
-    ctx: ReviewContext,
-    diff: GitDiff,
-    _plan: ReviewPlan,
-  ): Promise<ReviewComment[]> {
+  private async analyzePhase(ctx: ReviewContext, diff: GitDiff): Promise<ReviewComment[]> {
     // Get the actual file content for analysis
     const content = await this.getDiffContent(diff, ctx.gitOps, ctx.baseSha, ctx.targetSha);
     const lines = content.split('\n');
@@ -501,20 +494,8 @@ export class CodeReviewEngine {
   // Filter Phase
   // -------------------------------------------------------------------------
 
-  private async filterPhase(comments: ReviewComment[], _diff: GitDiff): Promise<ReviewComment[]> {
-    return comments
-      .filter((comment) => {
-        for (const rule of FILTER_RULES) {
-          if (rule.test(comment)) {
-            return false;
-          }
-        }
-        return true;
-      })
-      .map((comment) => ({
-        ...comment,
-        filtered: false,
-      }));
+  private filterPhase(comments: ReviewComment[]): ReviewComment[] {
+    return filterComments(comments);
   }
 
   // -------------------------------------------------------------------------
@@ -524,188 +505,28 @@ export class CodeReviewEngine {
   /**
    * Adjust comment line numbers to map from the old file to the new file.
    *
-   * Handles non-contiguous diffs by computing per-hunk offsets independently.
-   * Each comment is mapped through the specific hunk that contains its line
+   * Handles non-contiguous diffs by computing per-range offsets independently.
+   * Each comment is mapped through the range segment that contains its line
    * range, avoiding the linear offset accumulation bug.
    */
-  private async relocatePhase(comments: ReviewComment[], diff: GitDiff): Promise<ReviewComment[]> {
+  private relocatePhase(comments: ReviewComment[], diff: GitDiff): ReviewComment[] {
+    const ranges = diff.ranges;
     // If no diff ranges are available, return comments unchanged
-    if (!diff.ranges || diff.ranges.length === 0) {
+    if (!ranges || ranges.length === 0) {
       return comments;
     }
 
-    // If we have parsed hunks, use the precise hunk-based mapping
-    const hunks = (diff as GitDiffWithHunks).hunks;
-    if (hunks && hunks.length > 0) {
-      return comments.map((comment) => {
-        const newStartLine = this.mapLineThroughHunks(comment.startLine, hunks);
-        const newEndLine = this.mapLineThroughHunks(comment.endLine, hunks);
-        const clampedStart = Math.max(1, newStartLine);
-        const clampedEnd = Math.max(clampedStart, newEndLine);
-
-        return {
-          ...comment,
-          startLine: clampedStart,
-          endLine: clampedEnd,
-        };
-      });
-    }
-
-    // Fallback: use range-based offset per individual range segment
+    // Map comment line numbers using range-based offsets. Each comment is
+    // mapped through the range segment that contains its line range, handling
+    // both contiguous and non-contiguous diffs.
     return comments.map((comment) => {
-      const result = this.mapCommentThroughRanges(comment, diff.ranges);
+      const result = relocateCommentThroughRanges(comment, ranges);
       return {
         ...comment,
         startLine: result.startLine,
         endLine: result.endLine,
       };
     });
-  }
-
-  /**
-   * Map a line number through diff hunks to find its position in the new file.
-   *
-   * Each hunk represents a contiguous block of changes. We find the hunk that
-   * contains the old line and compute the offset within that hunk.
-   */
-  private mapLineThroughHunks(oldLine: number, hunks: DiffHunk[]): number {
-    // Sort hunks by old start line for binary search
-    const sorted = [...hunks].sort((a, b) => a.oldStart - b.oldStart);
-
-    for (const hunk of sorted) {
-      const oldEnd = hunk.oldStart + hunk.oldCount;
-      if (oldLine >= hunk.oldStart && oldLine <= oldEnd) {
-        let newLine = hunk.newStart;
-        let oldLineCounter = hunk.oldStart;
-
-        for (const rawLine of hunk.lines) {
-          const lineType = rawLine.startsWith('+')
-            ? ('addition' as const)
-            : rawLine.startsWith('-')
-              ? ('removal' as const)
-              : ('context' as const);
-          if (oldLineCounter >= oldLine || lineType === 'context') {
-            // For context lines after the target, we've gone past it
-            if (oldLineCounter > oldLine && lineType !== 'addition') {
-              break;
-            }
-          }
-
-          if (lineType === 'context') {
-            if (oldLineCounter === oldLine) return newLine;
-            oldLineCounter++;
-            newLine++;
-          } else if (lineType === 'removal') {
-            if (oldLineCounter === oldLine) {
-              // The line was removed — return the nearest new line
-              return newLine;
-            }
-            oldLineCounter++;
-          } else if (lineType === 'addition') {
-            newLine++;
-          }
-        }
-
-        return newLine;
-      }
-    }
-
-    // Line is before the first hunk — no offset needed
-    if (oldLine < (sorted[0]?.oldStart ?? Infinity)) {
-      return oldLine;
-    }
-
-    // Line is after the last hunk — apply cumulative offset
-    return this.applyCumulativeOffset(oldLine, sorted);
-  }
-
-  /**
-   * Compute the cumulative line offset from all hunks before the given line.
-   */
-  private applyCumulativeOffset(oldLine: number, hunks: DiffHunk[]): number {
-    let offset = 0;
-    for (const hunk of hunks) {
-      const oldEnd = hunk.oldStart + hunk.oldCount;
-      if (oldLine > oldEnd) {
-        offset += hunk.newCount - hunk.oldCount;
-      }
-    }
-    return oldLine + offset;
-  }
-
-  /**
-   * Fallback: map comment lines using range-based offsets.
-   * Works correctly for contiguous and non-contiguous diffs.
-   */
-  private mapCommentThroughRanges(
-    comment: ReviewComment,
-    ranges: NonNullable<GitDiff['ranges']>,
-  ): { startLine: number; endLine: number } {
-    const sortedRanges = [...ranges].sort((a, b) => a.oldStart - b.oldStart);
-
-    let startOffset = 0;
-    let endOffset = 0;
-    let startMapped = false;
-    let endMapped = false;
-
-    for (const range of sortedRanges) {
-      const delta = range.newEnd - range.newStart - (range.oldEnd - range.oldStart);
-
-      if (!startMapped && comment.startLine > range.oldEnd) {
-        startOffset += delta;
-      } else if (!startMapped && comment.startLine >= range.oldStart) {
-        startOffset += delta;
-        startMapped = true;
-      }
-
-      if (!endMapped && comment.endLine > range.oldEnd) {
-        endOffset += delta;
-      } else if (!endMapped && comment.endLine >= range.oldStart) {
-        endOffset += delta;
-        endMapped = true;
-      }
-    }
-
-    const newStart = Math.max(1, comment.startLine + startOffset);
-    const newEnd = Math.max(newStart, comment.endLine + endOffset);
-
-    return { startLine: newStart, endLine: newEnd };
-  }
-
-  // -------------------------------------------------------------------------
-  // Merge & Deduplicate
-  // -------------------------------------------------------------------------
-
-  /**
-   * Merge heuristic and LLM review comments, removing duplicates.
-   * A comment is considered a duplicate if it matches in category and
-   * has overlapping line ranges within a configurable threshold.
-   */
-  private mergeAndDeduplicate(heuristic: ReviewComment[], llm: ReviewComment[]): ReviewComment[] {
-    if (llm.length === 0) return heuristic;
-    if (heuristic.length === 0) return llm;
-
-    const result = [...heuristic];
-    const overlapThreshold = 3;
-
-    for (const llmComment of llm) {
-      const isDuplicate = result.some((hc) => {
-        if (hc.category !== llmComment.category) return false;
-        const overlap = Math.max(
-          0,
-          Math.min(hc.endLine, llmComment.endLine) -
-            Math.max(hc.startLine, llmComment.startLine) +
-            1,
-        );
-        return overlap >= overlapThreshold;
-      });
-
-      if (!isDuplicate) {
-        result.push(llmComment);
-      }
-    }
-
-    return result;
   }
 
   // -------------------------------------------------------------------------
@@ -776,7 +597,7 @@ export class CodeReviewEngine {
         return this.getDiffContentSync(diff);
       }
       throw new ReviewEngineError(
-        `Failed to read file content for ${diff.filePath}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to read file content for ${diff.filePath}: ${toErrorMessage(error)}`,
         'FILE_NOT_FOUND',
       );
     }
@@ -969,12 +790,12 @@ export class CodeReviewEngine {
       const currentColor = color.get(frame.node) ?? 0;
 
       if (currentColor === GRAY) {
-        // Cycle found: extract the path from the stack
+        // Cycle found. GRAY implies the node is already on `pathStack`: a node is
+        // marked GRAY and pushed together on enter, and popped only on exit, so
+        // `indexOf >= 0` is invariant here.
         const cycleStart = pathStack.indexOf(frame.node);
-        if (cycleStart >= 0) {
-          const cycle = [...pathStack.slice(cycleStart), frame.node];
-          cyclicPaths.push(cycle);
-        }
+        const cycle = [...pathStack.slice(cycleStart), frame.node];
+        cyclicPaths.push(cycle);
         continue;
       }
 

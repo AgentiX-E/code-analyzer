@@ -1,8 +1,4 @@
-// @ts-nocheck
-// @code-analyzer/intelligence — Review Engine additional branch coverage.
-// Covers the remaining reachable branches of mapLineThroughHunks (line before
-// first hunk, empty hunk list, removal before target) and resumeSession's
-// start-record fallback parsing.
+// @code-analyzer/intelligence — Review Engine resume-session branch coverage.
 
 import { describe, it, expect } from 'vitest';
 import { CodeReviewEngine } from '../review/review-engine.js';
@@ -28,49 +24,6 @@ function makeEngine(dir: string): CodeReviewEngine {
     new SessionStore(dir),
   );
 }
-
-describe('mapLineThroughHunks — remaining branches', () => {
-  it('maps a removal line before the target without advancing newLine', () => {
-    const engine = makeEngine(tempDir());
-    const hunks = [
-      {
-        oldStart: 1,
-        oldCount: 2,
-        newStart: 1,
-        newCount: 1,
-        header: '@@ -1,2 +1,1 @@',
-        lines: ['-old1', ' ctx2'],
-        oldLines: [],
-        newLines: [],
-      },
-    ];
-    // oldLine 2 (ctx2): '-old1' is a removal before the target, so newLine
-    // stays at 1 and the context line maps to newLine 1.
-    expect((engine as any).mapLineThroughHunks(2, hunks)).toBe(1);
-  });
-
-  it('returns the line unchanged when it precedes the first hunk', () => {
-    const engine = makeEngine(tempDir());
-    const hunks = [
-      {
-        oldStart: 10,
-        oldCount: 2,
-        newStart: 10,
-        newCount: 2,
-        header: '',
-        lines: [],
-        oldLines: [],
-        newLines: [],
-      },
-    ];
-    expect((engine as any).mapLineThroughHunks(5, hunks)).toBe(5);
-  });
-
-  it('returns the line unchanged when the hunk list is empty', () => {
-    const engine = makeEngine(tempDir());
-    expect((engine as any).mapLineThroughHunks(5, [])).toBe(5);
-  });
-});
 
 describe('resumeSession — partial start record', () => {
   it('falls back to empty/defaults for a start record missing optional fields', async () => {

@@ -1,16 +1,23 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Code Review Engine Tests
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { CodeReviewEngine, ReviewEngineError } from '../review/review-engine.js';
+import {
+  CodeReviewEngine,
+  ReviewEngineError,
+  filterComments,
+  relocateCommentThroughRanges,
+  toErrorMessage,
+} from '../review/review-engine.js';
 import { SessionStore } from '../review/session-store.js';
+import type { SessionMetadata } from '../review/session-store.js';
 import { analyzeFileHeuristics, toReviewComment } from '../review/heuristics.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { LLMProvider, CompletionResult } from '../review/llm/provider.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-import type { GitDiff, GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GitDiff, DiffRange, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,6 +82,59 @@ function getTempDir(): string {
   );
   fs.mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+function makeComment(
+  overrides: Partial<{
+    path: string;
+    content: string;
+    existingCode: string;
+    startLine: number;
+    endLine: number;
+    category: 'bug' | 'style' | 'security' | 'performance' | 'documentation';
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  }> = {},
+): Parameters<typeof filterComments>[0][number] {
+  return {
+    path: '/src/test.ts',
+    content: 'Test finding',
+    existingCode: 'code',
+    thinking: '',
+    startLine: 1,
+    endLine: 1,
+    category: 'bug',
+    severity: 'high',
+    filtered: false,
+    id: 'test-comment',
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function makeLLMProvider(commentJson: string): LLMProvider {
+  return {
+    name: 'fake',
+    model: 'test',
+    async complete(): Promise<CompletionResult> {
+      return {
+        content: commentJson,
+        model: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        finishReason: 'stop',
+      };
+    },
+    async completeWithTools(): Promise<CompletionResult> {
+      return {
+        content: '',
+        model: 'test',
+        createdAt: '2024-01-01T00:00:00Z',
+        finishReason: 'stop',
+      };
+    },
+    async healthCheck(): Promise<boolean> {
+      return true;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1070,55 +1130,6 @@ describe('Code Review Engine', () => {
     });
   });
 
-  describe('Plan phase — file path analysis', () => {
-    it('should detect TypeScript focus areas', async () => {
-      const diffs = [createDiff({ filePath: '/src/app.ts' })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect TSX focus areas', async () => {
-      const diffs = [createDiff({ filePath: '/src/Component.tsx' })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect test file focus areas', async () => {
-      const diffs = [createDiff({ filePath: '/src/service.test.ts' })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect spec file focus areas', async () => {
-      const diffs = [createDiff({ filePath: '/src/service.spec.ts' })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect API route focus areas', async () => {
-      const diffs = [createDiff({ filePath: '/src/api/endpoints.ts' })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect routes directory focus areas', async () => {
-      const diffs = [createDiff({ filePath: '/src/routes/index.ts' })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect large file threshold in plan', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/huge.ts',
-          ranges: [{ oldStart: 1, oldEnd: 300, newStart: 1, newEnd: 300, changeType: 'modified' }],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-  });
-
   describe('Relocate phase — line number adjustments', () => {
     it('should handle diffs with no ranges', async () => {
       const diffs = [
@@ -1161,7 +1172,7 @@ describe('Code Review Engine', () => {
       const diffs = [
         createDiff({
           filePath: '/src/negative.ts',
-          ranges: [{ oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 5, changeType: 'deleted' }],
+          ranges: [{ oldStart: 1, oldEnd: 20, newStart: 1, newEnd: 5, changeType: 'removed' }],
         }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
@@ -1187,7 +1198,7 @@ describe('Code Review Engine', () => {
         createDiff({
           filePath: '/src/gone.ts',
           changeType: 'deleted',
-          ranges: [{ oldStart: 1, oldEnd: 100, newStart: 0, newEnd: 0, changeType: 'deleted' }],
+          ranges: [{ oldStart: 1, oldEnd: 100, newStart: 0, newEnd: 0, changeType: 'removed' }],
         }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
@@ -1200,7 +1211,7 @@ describe('Code Review Engine', () => {
           filePath: '/src/renamed.ts',
           changeType: 'renamed',
           oldPath: '/src/original.ts',
-          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'renamed' }],
+          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'modified' }],
         }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
@@ -1216,27 +1227,6 @@ describe('Code Review Engine', () => {
         }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle diffs with large line counts for medium complexity', async () => {
-      // Generate content with 150 lines to trigger 'medium' complexity (100-299)
-      const mediumContent = Array.from({ length: 150 }, (_, i) => `// line ${i + 1}`).join('\n');
-      const engineWithMedium = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false, planLineThreshold: 50 },
-        sessionStore,
-        undefined,
-        undefined,
-        { readFileContent: async () => mediumContent },
-      );
-      const diffs = [
-        createDiff({
-          filePath: '/src/medium.ts',
-          ranges: [{ oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' }],
-        }),
-      ];
-      const session = await engineWithMedium.reviewDiff('test-project', diffs);
       expect(session.status).toBe('completed');
     });
   });
@@ -1268,8 +1258,8 @@ describe('Code Review Engine', () => {
       createNode(store, { filePath: '/src/a.ts', qualifiedName: 'pkg.a' });
       createNode(store, { filePath: '/src/b.ts', qualifiedName: 'pkg.b' });
       // Bidirectional: source→target and target→source
-      createEdge(store, { sourceId: 1, targetId: 2, type: 'DEPENDS_ON' });
-      createEdge(store, { sourceId: 2, targetId: 1, type: 'DEPENDS_ON' });
+      createEdge(store, { sourceId: 1, targetId: 2, type: 'IMPORTS' });
+      createEdge(store, { sourceId: 2, targetId: 1, type: 'IMPORTS' });
 
       const diffs = [createDiff({ filePath: '/src/a.ts' })];
       const session = await engine.reviewDiff('test-project', diffs);
@@ -1363,7 +1353,6 @@ describe('Code Review Engine', () => {
         {
           maxTokens: 16000,
           maxToolCalls: 20,
-          planLineThreshold: 400,
           timeout: 60000,
           concurrency: 8,
           allowMetadataFallback: true,
@@ -1488,103 +1477,41 @@ describe('Code Review Engine', () => {
     });
   });
 
-  describe('filterPhase — filter rules return false (L340-341)', () => {
-    it('should filter comments with empty existingCode via filter rule', async () => {
-      // Create a diff with file path that triggers a heuristic finding,
-      // then verify that the filterPhase applies filtering.
-      // The filter rules check for empty existingCode which can happen
-      // with heuristic findings on diff content lines.
-      const diffs = [
-        createDiff({
-          filePath: '/src/types/User.ts',
-          ranges: [],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle style comment on comment-only line matching filter rule', async () => {
-      // Create a diff where the content starts with // and a naming
-      // heuristic triggers a style finding
-      const diffs = [
-        createDiff({
-          filePath: '/src/config.ts',
-          ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 1, changeType: 'added' }],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should trigger filter rule return false when comment existingCode is empty', async () => {
-      // Use a ReviewComment with empty existingCode and pass it through
-      // the filter phase directly via the private method
-      const diff = createDiff({ filePath: '/src/test.ts' });
-
-      // Construct a comment that matches filter rule 1 (empty existingCode)
-      const emptyComment: any = {
-        path: '/src/test.ts',
-        content: 'Test finding',
-        existingCode: '',
-        startLine: 1,
-        endLine: 1,
-        category: 'bug',
-        severity: 'high',
-        filtered: false,
-        id: 'test-empty',
-        createdAt: new Date().toISOString(),
-      };
-
-      const filtered = await (engine as any).filterPhase?.([emptyComment], diff);
+  describe('filterComments — filter rule set', () => {
+    it('filters comments with empty existingCode', () => {
+      const filtered = filterComments([makeComment({ existingCode: '' })]);
       expect(filtered).toHaveLength(0);
+    });
+
+    it('filters comments with invalid line range (startLine <= 0)', () => {
+      const filtered = filterComments([makeComment({ startLine: 0, endLine: 1 })]);
+      expect(filtered).toHaveLength(0);
+    });
+
+    it('filters style comments on comment-only lines', () => {
+      const filtered = filterComments([
+        makeComment({ category: 'style', existingCode: '// a comment' }),
+      ]);
+      expect(filtered).toHaveLength(0);
+    });
+
+    it('keeps valid comments and marks them unfiltered', () => {
+      const filtered = filterComments([makeComment()]);
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0]!.filtered).toBe(false);
     });
   });
 
-  describe('Plan phase — all path branches', () => {
-    it('should handle renamed files in plan phase', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/new-name.ts',
-          changeType: 'renamed',
-          oldPath: '/src/old-name.ts',
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
+  describe('toErrorMessage', () => {
+    it('returns the message of an Error instance', () => {
+      expect(toErrorMessage(new Error('boom'))).toBe('boom');
     });
 
-    it('should handle deleted files in plan phase', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/to-delete.ts',
-          changeType: 'deleted',
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect low complexity for small files', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/tiny.ts',
-          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 1, newEnd: 50, changeType: 'modified' }],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect high complexity for very large files', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/massive.ts',
-          ranges: [{ oldStart: 1, oldEnd: 500, newStart: 1, newEnd: 500, changeType: 'modified' }],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
+    it('stringifies non-Error throw values', () => {
+      expect(toErrorMessage('string error')).toBe('string error');
+      expect(toErrorMessage(404)).toBe('404');
+      expect(toErrorMessage(null)).toBe('null');
+      expect(toErrorMessage(undefined)).toBe('undefined');
     });
   });
 
@@ -1736,7 +1663,7 @@ describe('Code Review Engine', () => {
         filePath: '/src/types/handler.ts',
         oldHash: '',
         newHash: '',
-        ranges: [{ oldStart: 0, oldEnd: 10, newStart: 1, newEnd: 1, changeType: 'deleted' }],
+        ranges: [{ oldStart: 0, oldEnd: 10, newStart: 1, newEnd: 1, changeType: 'removed' }],
         changeType: 'deleted',
       };
       const diffs = [diff];
@@ -1818,38 +1745,6 @@ describe('Code Review Engine', () => {
   // Plan phase — large file detection (L268-272)
   // -----------------------------------------------------------------------
 
-  describe('planPhase — large file threshold', () => {
-    it('should flag large files in plan phase focus areas', async () => {
-      // Create 201 ranges to produce >200 lines of diff content,
-      // exceeding the default planLineThreshold of 200.
-      const ranges = Array.from({ length: 201 }, (_: unknown, i: number) => ({
-        oldStart: i * 2,
-        oldEnd: i * 2 + 1,
-        newStart: i * 2,
-        newEnd: i * 2 + 1,
-        changeType: 'modified' as const,
-      }));
-
-      const diffs = [
-        {
-          filePath: '/src/large-module.ts',
-          oldHash: 'abc',
-          newHash: 'def',
-          ranges,
-          changeType: 'modified' as const,
-        },
-      ];
-
-      const result = await engine.reviewDiff('test', diffs);
-      // The plan phase should detect this as a large file
-      // and add focus/risk areas to the checklist
-      expect(result.status).toBeDefined();
-      const items = result.items ?? [];
-      // Large file detection adds to the plan checklist
-      expect(items.length).toBeGreaterThanOrEqual(0);
-    });
-  });
-
   // ==========================================================================
   // Branch Coverage Hardening — getDiffContent GitOps paths
   // ==========================================================================
@@ -1864,7 +1759,6 @@ describe('Code Review Engine', () => {
         },
         readFileRange: async () => '',
         getFileDiff: async () => '',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -1893,7 +1787,6 @@ describe('Code Review Engine', () => {
         },
         readFileRange: async () => '',
         getFileDiff: async () => '',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -1922,7 +1815,6 @@ describe('Code Review Engine', () => {
           called = true;
           return 'diff';
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -1949,7 +1841,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('diff fail');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -1978,7 +1869,6 @@ describe('Code Review Engine', () => {
           return 'range';
         },
         getFileDiff: async () => '',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2007,7 +1897,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('diff fail');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => false,
       };
       const eng = new CodeReviewEngine(
@@ -2042,7 +1931,7 @@ describe('Code Review Engine', () => {
         startLine: 1,
         endLine: 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'selfA' },
         signature: '',
         docstring: '',
         complexity: 1,
@@ -2078,7 +1967,7 @@ describe('Code Review Engine', () => {
         startLine: 1,
         endLine: 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'cycA' },
         signature: '',
         docstring: '',
         complexity: 1,
@@ -2097,7 +1986,7 @@ describe('Code Review Engine', () => {
         startLine: 1,
         endLine: 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'cycB' },
         signature: '',
         docstring: '',
         complexity: 1,
@@ -2116,7 +2005,7 @@ describe('Code Review Engine', () => {
         startLine: 1,
         endLine: 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'cycC' },
         signature: '',
         docstring: '',
         complexity: 1,
@@ -2162,278 +2051,6 @@ describe('Code Review Engine', () => {
     });
   });
 
-  // ==========================================================================
-  // Branch Coverage Hardening — Hunk-based relocation (mapLineThroughHunks + applyCumulativeOffset)
-  // ==========================================================================
-
-  describe('relocatePhase — hunk-based line mapping', () => {
-    function makeHunkGitOps(fileContent: string, throws = false) {
-      return {
-        readFileContent: async () => (throws ? Promise.reject(new Error('fail')) : fileContent),
-        readFileRange: async () => (throws ? Promise.reject(new Error('fail')) : fileContent),
-        getFileDiff: async () => fileContent,
-        getDiffHunks: async () => [],
-        fileExists: async () => !throws,
-      };
-    }
-
-    it('maps a context line through a single hunk', async () => {
-      // Code with patterns that trigger heuristic findings
-      const code =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 7,
-          newStart: 1,
-          newLines: 7,
-          lines: [
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = createDiff({ filePath: '/src/hunk.ts', changeType: 'modified', hunks } as any);
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('maps a removed line to the nearest new line in hunk', async () => {
-      const code =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 7,
-          newStart: 1,
-          newLines: 7,
-          lines: [
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'removal' as const },
-            { type: 'addition' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = createDiff({
-        filePath: '/src/removal.ts',
-        changeType: 'modified',
-        hunks,
-      } as any);
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('maps a line before first hunk (no offset)', async () => {
-      const code =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 4,
-          oldLines: 4,
-          newStart: 4,
-          newLines: 4,
-          lines: [
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      // Ensure comment lines map before the first hunk
-      const fullCode =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const fullMockGitOps = makeHunkGitOps(fullCode);
-      const fullEng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        fullMockGitOps,
-      );
-      const diff = createDiff({ filePath: '/src/before.ts', changeType: 'modified', hunks } as any);
-      const session = await fullEng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('maps a line after last hunk (cumulative offset)', async () => {
-      const code =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 3,
-          newStart: 1,
-          newLines: 5,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = createDiff({ filePath: '/src/after.ts', changeType: 'modified', hunks } as any);
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('handles multiple hunks with different offsets', async () => {
-      const code =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 3,
-          newStart: 1,
-          newLines: 5,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-        {
-          oldStart: 4,
-          oldLines: 4,
-          newStart: 6,
-          newLines: 4,
-          lines: [
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = createDiff({ filePath: '/src/multi.ts', changeType: 'modified', hunks } as any);
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('covers context line equal to oldLine in hunk walk', async () => {
-      const code =
-        'import x from "x";\n\nasync function fetchData(): Promise<void> {\n  const response = await fetch("https://api.example.com");\n  const data = response.json();\n  return data;\n}\n';
-      const mockGitOps = makeHunkGitOps(code);
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 7,
-          newStart: 1,
-          newLines: 7,
-          lines: [
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = createDiff({
-        filePath: '/src/ctxline.ts',
-        changeType: 'modified',
-        hunks,
-      } as any);
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — mergeAndDeduplicate edge cases
-  // ==========================================================================
-
-  describe('mergeAndDeduplicate — edge cases', () => {
-    it('should return heuristic results when LLM results are empty', () => {
-      const heuristic = [
-        {
-          path: '/src/test.ts',
-          content: 'Test',
-          existingCode: 'code',
-          thinking: '',
-          startLine: 1,
-          endLine: 3,
-          category: 'bug' as const,
-          severity: 'high' as const,
-          filtered: false,
-          id: 'h1',
-          createdAt: '2024-01-01T00:00:00Z',
-        },
-      ];
-      // Test that merge works by accessing the private method
-      // Actually this is tested indirectly via reviewDiff, let's just test the filter phase
-    });
-  });
-
   describe('getDiffContentSync — metadata fallback', () => {
     it('should include oldPath in metadata output', async () => {
       const diffs = [
@@ -2442,6 +2059,18 @@ describe('Code Review Engine', () => {
           oldPath: '/src/old-location.ts',
           changeType: 'renamed',
           ranges: [],
+        }),
+      ];
+      const session = await engine.reviewDiff('test-project', diffs);
+      expect(session.status).toBe('completed');
+    });
+
+    it('should omit range details when diff has no ranges', async () => {
+      const diffs = [
+        createDiff({
+          filePath: '/src/no-ranges.ts',
+          changeType: 'modified',
+          ranges: undefined,
         }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
@@ -2460,53 +2089,6 @@ describe('Code Review Engine', () => {
       await expect(eng.reviewDiff('test-project', [diff])).rejects.toThrow(
         'GitOperations is required',
       );
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — mapLineThroughHunks with line after last hunk
-  // ==========================================================================
-
-  describe('relocatePhase — applyCumulativeOffset', () => {
-    it('should apply cumulative offset when line is after all hunks', async () => {
-      const code = '// File with todo\nfunction test(): void {\n  return;\n}\n';
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 2,
-          newStart: 1,
-          newLines: 4,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      // Line 4 (after hunk that ends at oldStart+oldLines=3) → cumulative offset
-      const diff = createDiff({
-        filePath: '/src/after-hunks.ts',
-        changeType: 'modified',
-        hunks,
-      } as any);
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
     });
   });
 
@@ -2537,7 +2119,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('Diff error');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2567,7 +2148,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('Diff error');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2584,8 +2164,8 @@ describe('Code Review Engine', () => {
     });
 
     it('should rethrow ReviewEngineError from getDiffContent', async () => {
-      // ReviewEngineError is rethrown by getDiffContent (L780)
-      // When thrown from planPhase/analyzePhase, it's caught by reviewDiff's catch
+      // ReviewEngineError is rethrown by getDiffContent; reviewDiff's per-file
+      // catch records it as a failed item.
       const mockGitOps = {
         readFileContent: async () => {
           throw new ReviewEngineError('Test rethrow', 'FILE_NOT_FOUND');
@@ -2596,7 +2176,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('Diff error');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2625,7 +2204,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('Diff error');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2661,7 +2239,7 @@ describe('Code Review Engine', () => {
         startLine: 1,
         endLine: 10,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'A' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -2745,56 +2323,6 @@ describe('Code Review Engine', () => {
   });
 
   // ==========================================================================
-  // Branch Coverage: planPhase — .py, .go, .d.ts file types
-  // ==========================================================================
-
-  describe('planPhase — Python, Go, and .d.ts file detection', () => {
-    it('should add Python conventions focus for .py files', async () => {
-      const diffs = [createDiff({ filePath: '/src/app.py', changeType: 'modified', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should add Go idioms focus for .go files', async () => {
-      const diffs = [createDiff({ filePath: '/src/main.go', changeType: 'modified', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should add type definition risk for .d.ts files', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/globals.d.ts', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should add API contract risk for files in /api/ directory', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/api/handlers.ts', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should add API contract risk for files in /routes/ directory', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/routes/users.ts', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should add public type change risk for files in /types/ directory', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/types/User.ts', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
   // Branch Coverage: error instanceof Error check (L273)
   // ==========================================================================
 
@@ -2810,7 +2338,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('diff error');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2845,7 +2372,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('diff');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -2875,16 +2401,25 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('fail');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const llmProvider: any = {
-        complete: async () => {
+      const llmProvider: LLMProvider = {
+        name: 'fake',
+        model: 'test',
+        async complete() {
           throw new Error('LLM failure');
         },
-        model: 'test',
-        maxTokens: 1000,
-        temperature: 0,
+        async completeWithTools() {
+          return {
+            content: '',
+            model: 'test',
+            createdAt: '2024-01-01T00:00:00Z',
+            finishReason: 'stop',
+          };
+        },
+        async healthCheck() {
+          return true;
+        },
       };
       const eng = new CodeReviewEngine(
         store,
@@ -2916,16 +2451,11 @@ describe('Code Review Engine', () => {
           ].join('\n'),
         readFileRange: async () => 'code',
         getFileDiff: async () => 'diff',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const llmProvider: any = {
-        complete: async () =>
-          '{"comments":[{"path":"/src/test.ts","content":"Test","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"bug","severity":"high","filtered":false,"id":"llm-1","createdAt":"2024-01-01T00:00:00Z"}]}',
-        model: 'test',
-        maxTokens: 1000,
-        temperature: 0,
-      };
+      const llmProvider = makeLLMProvider(
+        '{"comments":[{"path":"/src/test.ts","content":"Test","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"bug","severity":"high","filtered":false,"id":"llm-1","createdAt":"2024-01-01T00:00:00Z"}]}',
+      );
       const eng = new CodeReviewEngine(
         store,
         { allowMetadataFallback: false },
@@ -2945,126 +2475,73 @@ describe('Code Review Engine', () => {
   // Branch Coverage: Filter rules — inverted line range and style on comment
   // ==========================================================================
 
-  describe('Filter rules — inverted range and style+comment', () => {
-    it('should pass comments with valid inverted range to filter phase', async () => {
-      // Create a diff that triggers a heuristic finding
-      const diffs = [
-        createDiff({
-          filePath: '/src/routes/filter.ts',
-          changeType: 'added',
-          ranges: [{ oldStart: 0, oldEnd: 0, newStart: 1, newEnd: 30, changeType: 'added' }],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
+  describe('filterComments — inverted range and empty content', () => {
+    it('filters comments with inverted line range (startLine > endLine)', () => {
+      const filtered = filterComments([makeComment({ startLine: 10, endLine: 5 })]);
+      expect(filtered).toHaveLength(0);
     });
 
-    it('should filter comments with empty content', async () => {
-      const comment: any = {
-        path: '/src/test.ts',
-        content: '   ',
-        existingCode: 'code',
-        startLine: 1,
-        endLine: 1,
-        category: 'style',
-        severity: 'low',
-        filtered: false,
-        id: 'test-empty-content',
-        createdAt: new Date().toISOString(),
-      };
-      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
+    it('filters comments with whitespace-only content', () => {
+      const filtered = filterComments([makeComment({ content: '   \t ' })]);
       expect(filtered).toHaveLength(0);
     });
   });
 
   // ==========================================================================
-  // Branch Coverage: planPhase — changeType renamed risk
+  // Relocate — range-based line mapping (pure function)
   // ==========================================================================
 
-  describe('planPhase — renamed file risk', () => {
-    it('should flag renamed files with file rename risk area', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/new.ts',
-          oldPath: '/src/old.ts',
-          changeType: 'renamed',
-          ranges: [],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
+  describe('relocateCommentThroughRanges', () => {
+    const modified = (r: Omit<DiffRange, 'changeType'>): DiffRange => ({
+      ...r,
+      changeType: 'modified',
     });
-  });
 
-  // ==========================================================================
-  // Branch Coverage: relocatePhase — fallback to ranges (no hunks)
-  // ==========================================================================
-
-  describe('relocatePhase — range fallback (no hunks)', () => {
-    it('should use range-based relocation when ranges exist but no hunks', async () => {
-      const content = '// TODO: improve\nfunction test() {\n  return 1;\n}\n';
-      const mockGitOps = {
-        readFileContent: async () => content,
-        readFileRange: async () => content,
-        getFileDiff: async () => content,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const diff = createDiff({
-        filePath: '/src/ranges-only.ts',
-        changeType: 'modified',
-        ranges: [{ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8, changeType: 'modified' }],
-      });
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
+    it('returns unchanged lines when there are no ranges', () => {
+      const comment = makeComment({ startLine: 3, endLine: 5 });
+      const result = relocateCommentThroughRanges(comment, []);
+      expect(result).toEqual({ startLine: 3, endLine: 5 });
     });
-  });
 
-  // ==========================================================================
-  // Branch Coverage: mapLineThroughHunks — line before first hunk
-  // ==========================================================================
+    it('applies a positive delta for a line after a range with added lines', () => {
+      const comment = makeComment({ startLine: 6, endLine: 6 });
+      const result = relocateCommentThroughRanges(comment, [
+        modified({ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8 }),
+      ]);
+      expect(result).toEqual({ startLine: 9, endLine: 9 });
+    });
 
-  describe('mapLineThroughHunks — line before first hunk (no offset)', () => {
-    it('should return original line when it is before first hunk', async () => {
-      const code = '// header\n// more header\n\nasync function fetchData() {\n  const x = 1;\n}\n';
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 5,
-          oldLines: 2,
-          newStart: 5,
-          newLines: 2,
-          lines: [{ type: 'addition' as const }, { type: 'context' as const }],
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/before-hunk.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
+    it('applies a negative delta for a line after a range with removed lines', () => {
+      const comment = makeComment({ startLine: 10, endLine: 10 });
+      const result = relocateCommentThroughRanges(comment, [
+        modified({ oldStart: 1, oldEnd: 8, newStart: 1, newEnd: 5 }),
+      ]);
+      expect(result).toEqual({ startLine: 7, endLine: 7 });
+    });
+
+    it('maps a comment inside a range using that range delta', () => {
+      const comment = makeComment({ startLine: 3, endLine: 4 });
+      const result = relocateCommentThroughRanges(comment, [
+        modified({ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 8 }),
+      ]);
+      expect(result).toEqual({ startLine: 6, endLine: 7 });
+    });
+
+    it('accumulates deltas across multiple ranges for a line after all of them', () => {
+      const comment = makeComment({ startLine: 20, endLine: 20 });
+      const result = relocateCommentThroughRanges(comment, [
+        modified({ oldStart: 1, oldEnd: 5, newStart: 1, newEnd: 7 }),
+        modified({ oldStart: 8, oldEnd: 10, newStart: 10, newEnd: 14 }),
+      ]);
+      expect(result).toEqual({ startLine: 24, endLine: 24 });
+    });
+
+    it('clamps the start line to a minimum of 1', () => {
+      const comment = makeComment({ startLine: 2, endLine: 2 });
+      const result = relocateCommentThroughRanges(comment, [
+        modified({ oldStart: 1, oldEnd: 10, newStart: 1, newEnd: 1 }),
+      ]);
+      expect(result.startLine).toBe(1);
     });
   });
 
@@ -3089,416 +2566,16 @@ describe('Code Review Engine', () => {
   });
 
   // ==========================================================================
-  // Branch Coverage: planPhase — test file with .spec. pattern
+  // Branch Coverage — relocatePhase: range-based mapping edge cases
   // ==========================================================================
 
-  describe('planPhase — .spec. test file detection', () => {
-    it('should detect .spec. test files for test quality focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/module.spec.ts', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage: getDiffContent — line after last hunk (cumulative offset)
-  // ==========================================================================
-
-  describe('relocatePhase — cumulative offset for line after all hunks', () => {
-    it('should apply cumulative offset when line is after all hunks', async () => {
-      const code = ['import x;', '', 'function old() {', '  return 1;', '}'].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 3,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-          ],
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/after-all.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — planPhase: non-TS/Python/Go extensions (false branches)
-  // ==========================================================================
-
-  describe('planPhase — non-TS/Python/Go file type false branches', () => {
-    it('should handle .java files without language-specific focus', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/Main.java', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .rb files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/app.rb', changeType: 'modified', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .php files without language-specific focus', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/index.php', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .rs files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/main.rs', changeType: 'modified', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .swift files without language-specific focus', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/App.swift', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .kt files without language-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/Main.kt', changeType: 'modified', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .cs files without language-specific focus', async () => {
-      const diffs = [
-        createDiff({ filePath: '/src/Program.cs', changeType: 'modified', ranges: [] }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle .js files without TS-specific focus', async () => {
-      const diffs = [createDiff({ filePath: '/src/app.js', changeType: 'modified', ranges: [] })];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — planPhase: __tests__ directory test file detection
-  // ==========================================================================
-
-  describe('planPhase — __tests__ directory detection', () => {
-    it('should detect test quality focus for files in __tests__ directory', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/__tests__/module.test.ts',
-          changeType: 'modified',
-          ranges: [],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should detect spec quality focus for __tests__ spec files', async () => {
-      const diffs = [
-        createDiff({
-          filePath: '/src/__tests__/module.spec.ts',
-          changeType: 'modified',
-          ranges: [],
-        }),
-      ];
-      const session = await engine.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — planPhase: medium complexity (100-299 lines)
-  // ==========================================================================
-
-  describe('planPhase — medium complexity estimation', () => {
-    it('should estimate medium complexity for 150-line files', async () => {
-      const mediumContent = Array.from({ length: 150 }, (_, i) => `const x${i} = ${i};`).join('\n');
-      const mockGitOps = {
-        readFileContent: async () => mediumContent,
-        readFileRange: async () => mediumContent,
-        getFileDiff: async () => mediumContent,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const diffs = [
-        createDiff({
-          filePath: '/src/medium.ts',
-          changeType: 'modified',
-          ranges: [{ oldStart: 1, oldEnd: 150, newStart: 1, newEnd: 150, changeType: 'modified' }],
-        }),
-      ];
-      const session = await eng.reviewDiff('test-project', diffs);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — relocatePhase: mapLineThroughHunks edge cases
-  // ==========================================================================
-
-  describe('relocatePhase — mapLineThroughHunks addition/removal/context lines', () => {
-    it('should handle addition line type within hunk walk', async () => {
-      const code = [
-        '// header',
-        'function fetchData() {',
-        '  const x = 1;',
-        '  return x;',
-        '}',
-      ].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 2,
-          oldLines: 3,
-          newStart: 2,
-          newLines: 4,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'context' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/addition-line.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle removal line equal to target oldLine', async () => {
-      const code = [
-        '// header',
-        'function oldFunc() {',
-        '  return 1;',
-        '}',
-        'function newFunc() {',
-        '  return 2;',
-        '}',
-      ].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 2,
-          oldLines: 3,
-          newStart: 2,
-          newLines: 3,
-          lines: [
-            { type: 'removal' as const },
-            { type: 'removal' as const },
-            { type: 'removal' as const },
-          ],
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/removal-eq.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should handle context line matching oldLine exactly', async () => {
-      const code = ['import x;', '', 'function test() {', '  return 1;', '}'].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 5,
-          newStart: 1,
-          newLines: 5,
-          lines: Array(5).fill({ type: 'context' as const }),
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/ctx-match.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should break after passing oldLine in hunk walk', async () => {
-      const code = [
-        'import x;',
-        '',
-        'function test() {',
-        '  return 1;',
-        '}',
-        '',
-        'function other() {',
-        '  return 2;',
-        '}',
-      ].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 9,
-          newStart: 1,
-          newLines: 9,
-          lines: Array(9).fill({ type: 'context' as const }),
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/past-target.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should return original line when before first hunk', async () => {
-      const code = [
-        '// header comment',
-        '',
-        '// another header',
-        '',
-        'function test() {',
-        '  return 1;',
-        '}',
-      ].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 5,
-          oldLines: 3,
-          newStart: 5,
-          newLines: 3,
-          lines: Array(3).fill({ type: 'context' as const }),
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/before-first.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — relocatePhase: mapCommentThroughRanges edge cases
-  // ==========================================================================
-
-  describe('relocatePhase — mapCommentThroughRanges branch coverage', () => {
+  describe('relocatePhase — range-based mapping edge cases', () => {
     it('should handle comment.startLine after all range.oldEnd values', async () => {
       const content = '// TODO: fix this\nfunction later() {\n  return;\n}\n';
       const mockGitOps = {
         readFileContent: async () => content,
         readFileRange: async () => content,
         getFileDiff: async () => content,
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -3528,7 +2605,6 @@ describe('Code Review Engine', () => {
         readFileContent: async () => content,
         readFileRange: async () => content,
         getFileDiff: async () => content,
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -3555,7 +2631,6 @@ describe('Code Review Engine', () => {
         readFileContent: async () => content,
         readFileRange: async () => content,
         getFileDiff: async () => content,
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -3580,113 +2655,7 @@ describe('Code Review Engine', () => {
   });
 
   // ==========================================================================
-  // Branch Coverage — applyCumulativeOffset (L644-653)
-  // ==========================================================================
-
-  describe('applyCumulativeOffset — multi-hunk accumulation', () => {
-    it('should accumulate offset from multiple hunks when line is after all', async () => {
-      const code = [
-        'import a;',
-        'import b;',
-        'import c;',
-        '',
-        'function test() {',
-        '  return 1;',
-        '}',
-      ].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 2,
-          oldLines: 1,
-          newStart: 2,
-          newLines: 3,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-          ],
-        },
-        {
-          oldStart: 3,
-          oldLines: 1,
-          newStart: 4,
-          newLines: 5,
-          lines: [
-            { type: 'context' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-            { type: 'addition' as const },
-            { type: 'context' as const },
-          ],
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/multi-offset.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-
-    it('should skip hunks where oldLine is not after oldEnd', async () => {
-      const code = ['import a;', '', 'function test() {', '  return 1;', '}'].join('\n');
-      const mockGitOps = {
-        readFileContent: async () => code,
-        readFileRange: async () => code,
-        getFileDiff: async () => code,
-        getDiffHunks: async () => [],
-        fileExists: async () => true,
-      };
-      const eng = new CodeReviewEngine(
-        store,
-        { allowMetadataFallback: false },
-        sessionStore,
-        undefined,
-        undefined,
-        mockGitOps,
-      );
-      const hunks = [
-        {
-          oldStart: 1,
-          oldLines: 1,
-          newStart: 1,
-          newLines: 1,
-          lines: [{ type: 'context' as const }],
-        },
-        {
-          oldStart: 5,
-          oldLines: 1,
-          newStart: 5,
-          newLines: 1,
-          lines: [{ type: 'context' as const }],
-        },
-      ];
-      const diff = {
-        ...createDiff({ filePath: '/src/skip-hunks.ts', changeType: 'modified' }),
-        hunks,
-      } as any;
-      const session = await eng.reviewDiff('test-project', [diff]);
-      expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — mergeAndDeduplicate: empty heuristic (L708)
+  // Branch Coverage — mergeAndDeduplicate: empty heuristic
   // ==========================================================================
 
   describe('mergeAndDeduplicate — empty heuristic', () => {
@@ -3695,16 +2664,11 @@ describe('Code Review Engine', () => {
         readFileContent: async () => '// Generated code\n',
         readFileRange: async () => '// Generated code\n',
         getFileDiff: async () => '// Generated code\n',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const llmProvider: any = {
-        complete: async () =>
-          '{"comments":[{"path":"/src/generated.ts","content":"LLM finding","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"documentation","severity":"low","filtered":false,"id":"llm-gen","createdAt":"2024-01-01T00:00:00Z"}]}',
-        model: 'test',
-        maxTokens: 1000,
-        temperature: 0,
-      };
+      const llmProvider = makeLLMProvider(
+        '{"comments":[{"path":"/src/generated.ts","content":"LLM finding","existingCode":"code","thinking":"","startLine":1,"endLine":1,"category":"documentation","severity":"low","filtered":false,"id":"llm-gen","createdAt":"2024-01-01T00:00:00Z"}]}',
+      );
       const eng = new CodeReviewEngine(
         store,
         { allowMetadataFallback: false },
@@ -3737,16 +2701,11 @@ describe('Code Review Engine', () => {
           '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
         getFileDiff: async () =>
           '// TODO: improve\nfunction risky() {\n  fs.readFile("data");\n}\n',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const llmProvider: any = {
-        complete: async () =>
-          '{"comments":[{"path":"/src/dedup.ts","content":"Different","existingCode":"code","thinking":"","startLine":2,"endLine":2,"category":"style","severity":"low","filtered":false,"id":"llm-diff","createdAt":"2024-01-01T00:00:00Z"}]}',
-        model: 'test',
-        maxTokens: 1000,
-        temperature: 0,
-      };
+      const llmProvider = makeLLMProvider(
+        '{"comments":[{"path":"/src/dedup.ts","content":"Different","existingCode":"code","thinking":"","startLine":2,"endLine":2,"category":"style","severity":"low","filtered":false,"id":"llm-diff","createdAt":"2024-01-01T00:00:00Z"}]}',
+      );
       const eng = new CodeReviewEngine(
         store,
         { allowMetadataFallback: false },
@@ -3769,16 +2728,11 @@ describe('Code Review Engine', () => {
           '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
         getFileDiff: async () =>
           '// TODO: optimize\nfunction heavyOps() {\n  db.query("SELECT 1");\n  axios.get("/api");\n}\n',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
-      const llmProvider: any = {
-        complete: async () =>
-          '{"comments":[{"path":"/src/overlap.ts","content":"LLM bug","existingCode":"code","thinking":"","startLine":2,"endLine":4,"category":"bug","severity":"high","filtered":false,"id":"llm-overlap","createdAt":"2024-01-01T00:00:00Z"}]}',
-        model: 'test',
-        maxTokens: 1000,
-        temperature: 0,
-      };
+      const llmProvider = makeLLMProvider(
+        '{"comments":[{"path":"/src/overlap.ts","content":"LLM bug","existingCode":"code","thinking":"","startLine":2,"endLine":4,"category":"bug","severity":"high","filtered":false,"id":"llm-overlap","createdAt":"2024-01-01T00:00:00Z"}]}',
+      );
       const eng = new CodeReviewEngine(
         store,
         { allowMetadataFallback: false },
@@ -3791,63 +2745,6 @@ describe('Code Review Engine', () => {
         createDiff({ filePath: '/src/overlap.ts', changeType: 'modified' }),
       ]);
       expect(session.status).toBe('completed');
-    });
-  });
-
-  // ==========================================================================
-  // Branch Coverage — filterPhase: inverted range and empty content
-  // ==========================================================================
-
-  describe('filterPhase — inverted range and empty content', () => {
-    it('should filter comments with inverted line range (startLine > endLine)', async () => {
-      const comment: any = {
-        path: '/src/test.ts',
-        content: 'Test',
-        existingCode: 'code',
-        startLine: 10,
-        endLine: 5,
-        category: 'bug',
-        severity: 'high',
-        filtered: false,
-        id: 'test-inverted',
-        createdAt: new Date().toISOString(),
-      };
-      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
-      expect(filtered).toHaveLength(0);
-    });
-
-    it('should filter comments with whitespace-only content', async () => {
-      const comment: any = {
-        path: '/src/test.ts',
-        content: ' \t  ',
-        existingCode: 'code',
-        startLine: 1,
-        endLine: 1,
-        category: 'style',
-        severity: 'low',
-        filtered: false,
-        id: 'test-whitespace',
-        createdAt: new Date().toISOString(),
-      };
-      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
-      expect(filtered).toHaveLength(0);
-    });
-
-    it('should filter style comment on comment-only line', async () => {
-      const comment: any = {
-        path: '/src/test.ts',
-        content: 'Style issue',
-        existingCode: '// some comment',
-        startLine: 1,
-        endLine: 1,
-        category: 'style',
-        severity: 'low',
-        filtered: false,
-        id: 'test-style-comment',
-        createdAt: new Date().toISOString(),
-      };
-      const filtered = await (engine as any).filterPhase?.([comment], createDiff());
-      expect(filtered).toHaveLength(0);
     });
   });
 
@@ -3883,13 +2780,13 @@ describe('Code Review Engine', () => {
         createDiff({
           filePath: '/src/deleted.ts',
           changeType: 'deleted',
-          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 0, newEnd: 0, changeType: 'deleted' }],
+          ranges: [{ oldStart: 1, oldEnd: 50, newStart: 0, newEnd: 0, changeType: 'removed' }],
         }),
         createDiff({
           filePath: '/src/renamed.ts',
           changeType: 'renamed',
           oldPath: '/src/orig.ts',
-          ranges: [{ oldStart: 1, oldEnd: 30, newStart: 1, newEnd: 30, changeType: 'renamed' }],
+          ranges: [{ oldStart: 1, oldEnd: 30, newStart: 1, newEnd: 30, changeType: 'modified' }],
         }),
       ];
       const session = await engine.reviewDiff('test-project', diffs);
@@ -3914,7 +2811,7 @@ describe('Code Review Engine', () => {
         startLine: 1,
         endLine: 10,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'A' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -4016,12 +2913,9 @@ describe('Code Review Engine', () => {
         fromRef: 'abc',
         toRef: 'def',
       };
-      (customSession as any).startSession('test-project', meta);
-      const session = await customEngine.reviewDiff('test-project', [
-        createDiff({ filePath: '/src/scan.ts' }),
-      ]);
-      const resumed = await customEngine.resumeSession(session.id);
-      expect(resumed.status).toBeDefined();
+      const started = customSession.startSession('test-project', meta);
+      const resumed = await customEngine.resumeSession(started.id);
+      expect(resumed.mode).toBe('scan');
 
       try {
         fs.rmSync(customDir, { recursive: true, force: true });
@@ -4062,7 +2956,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('Cannot get diff');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => false,
       };
       const eng = new CodeReviewEngine(
@@ -4090,7 +2983,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw new Error('Diff unavailable');
         },
-        getDiffHunks: async () => [],
         fileExists: async () => false,
       };
       const eng = new CodeReviewEngine(
@@ -4125,7 +3017,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw 'diff error';
         },
-        getDiffHunks: async () => [],
         fileExists: async () => false,
       };
       const eng = new CodeReviewEngine(
@@ -4153,7 +3044,6 @@ describe('Code Review Engine', () => {
         getFileDiff: async () => {
           throw 403;
         },
-        getDiffHunks: async () => [],
         fileExists: async () => false,
       };
       const eng = new CodeReviewEngine(
@@ -4185,7 +3075,6 @@ describe('Code Review Engine', () => {
         },
         readFileRange: async () => 'from options',
         getFileDiff: async () => 'from options',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(store, { allowMetadataFallback: false }, sessionStore);
@@ -4207,7 +3096,6 @@ describe('Code Review Engine', () => {
         },
         readFileRange: async () => 'from constructor',
         getFileDiff: async () => 'from constructor',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -4234,12 +3122,7 @@ describe('Code Review Engine', () => {
 
   describe('LLM engine — skipped when no gitOps available', () => {
     it('should skip LLM review when llmEngine exists but context has no gitOps', async () => {
-      const llmProvider: any = {
-        complete: async () => 'should not be called',
-        model: 'test',
-        maxTokens: 1000,
-        temperature: 0,
-      };
+      const llmProvider = makeLLMProvider('');
       const eng = new CodeReviewEngine(
         store,
         { allowMetadataFallback: true },
@@ -4268,7 +3151,6 @@ describe('Code Review Engine', () => {
         },
         readFileRange: async () => 'should not be called',
         getFileDiff: async () => 'should not be called',
-        getDiffHunks: async () => [],
         fileExists: async () => true,
       };
       const eng = new CodeReviewEngine(
@@ -4300,11 +3182,11 @@ describe('Code Review Engine', () => {
         label: 'Function',
         name: 'noPath1',
         qualifiedName: `np1.${suffix}`,
-        filePath: undefined,
+        filePath: null,
         startLine: 1,
         endLine: 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'noPath1' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -4319,11 +3201,11 @@ describe('Code Review Engine', () => {
         label: 'Function',
         name: 'noPath2',
         qualifiedName: `np2.${suffix}`,
-        filePath: undefined,
+        filePath: null,
         startLine: 1,
         endLine: 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'noPath2' },
         signature: null,
         docstring: null,
         complexity: null,

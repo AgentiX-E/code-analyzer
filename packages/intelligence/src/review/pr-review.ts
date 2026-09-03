@@ -626,7 +626,6 @@ export class PRReviewEngine {
       config: {
         maxTokens: 8000,
         maxToolCalls: 10,
-        planLineThreshold: 200,
         timeout: 30000,
         concurrency: 4,
         contextLines: 3,
