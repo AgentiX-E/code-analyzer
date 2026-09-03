@@ -1,5 +1,4 @@
-// @ts-nocheck — test file assertion patterns may access possibly-undefined
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { RecommendationEngine } from '../report/recommend.js';
 import type { Finding, Recommendation } from '@code-analyzer/shared';
 
@@ -51,6 +50,21 @@ describe('RecommendationEngine — groupRelatedFindings', () => {
     // f-1 and f-2 should be grouped together (same file + category)
     const group1 = groups.find((g) => g.some((f) => f.id === 'f-1'));
     expect(group1!.some((f) => f.id === 'f-2')).toBe(true);
+  });
+
+  it('should skip already-grouped findings in the inner scan (non-adjacent related pair)', () => {
+    // Findings ordered [A, B, C] where A and C share file+category but B is
+    // unrelated. A groups C first, so when the outer loop reaches B the inner
+    // scan re-encounters C and must skip it via the `used` guard.
+    const findings = [
+      makeFinding({ id: 'f-a', filePath: 'src/a.ts', category: 'bug' }),
+      makeFinding({ id: 'f-b', filePath: 'src/b.ts', category: 'style' }),
+      makeFinding({ id: 'f-c', filePath: 'src/a.ts', category: 'bug' }),
+    ];
+    const groups = engine.groupRelatedFindings(findings);
+    expect(groups).toHaveLength(2);
+    const aGroup = groups.find((g) => g.some((f) => f.id === 'f-a'));
+    expect(aGroup!.some((f) => f.id === 'f-c')).toBe(true);
   });
 
   it('should keep different-category findings separate', () => {
@@ -127,20 +141,20 @@ describe('RecommendationEngine — generateRecommendations', () => {
     const findings = [makeFinding({ id: 'f-critical', severity: 'critical' })];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThan(0);
-    expect(recs[0].priority).toBe(1);
+    expect(recs[0]!.priority).toBe(1);
   });
 
   it('should include action items from findings', () => {
     const findings = [makeFinding({ title: 'Fix null check' })];
     const recs = engine.generateRecommendations(findings);
-    expect(recs[0].actionItems.length).toBeGreaterThan(0);
-    expect(recs[0].actionItems[0].description).toBe('Fix null check');
+    expect(recs[0]!.actionItems.length).toBeGreaterThan(0);
+    expect(recs[0]!.actionItems[0]!.description).toBe('Fix null check');
   });
 
   it('should include affected files', () => {
     const findings = [makeFinding({ filePath: 'src/app.ts' })];
     const recs = engine.generateRecommendations(findings);
-    expect(recs[0].affectedFiles).toContain('src/app.ts');
+    expect(recs[0]!.affectedFiles).toContain('src/app.ts');
   });
 });
 
@@ -177,7 +191,7 @@ describe('RecommendationEngine — prioritizeRecommendations', () => {
     };
 
     const prioritized = engine.prioritizeRecommendations([lowRec, highRec]);
-    expect(prioritized[0].id).toBe('rec-2');
+    expect(prioritized[0]!.id).toBe('rec-2');
   });
 
   it('should not modify empty array', () => {
@@ -199,7 +213,7 @@ describe('RecommendationEngine — prioritizeRecommendations', () => {
     };
     const result = engine.prioritizeRecommendations([rec]);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('rec-1');
+    expect(result[0]!.id).toBe('rec-1');
   });
 
   it('should weight security risks higher', () => {
@@ -228,7 +242,7 @@ describe('RecommendationEngine — prioritizeRecommendations', () => {
     };
 
     const prioritized = engine.prioritizeRecommendations([styleRec, securityRec]);
-    expect(prioritized[0].id).toBe('rec-sec');
+    expect(prioritized[0]!.id).toBe('rec-sec');
   });
 
   it('should weigh security and trivial effort higher than low-impact priorities', () => {
@@ -261,7 +275,7 @@ describe('RecommendationEngine — prioritizeRecommendations', () => {
     // p2 = 0.5*0.5 + 1.0*0.3 + 1.0*0.2 = 0.25 + 0.3 + 0.2 = 0.75
     // p2 scores higher because security risk and trivial effort outweigh priority
     const prioritized = engine.prioritizeRecommendations([p1, p2]);
-    expect(prioritized[0].id).toBe('p2');
+    expect(prioritized[0]!.id).toBe('p2');
   });
 });
 
@@ -404,8 +418,8 @@ describe('RecommendationEngine — scoring model', () => {
     };
 
     const prioritized = engine.prioritizeRecommendations([worst, best]);
-    expect(prioritized[0].id).toBe('best');
-    expect(prioritized[1].id).toBe('worst');
+    expect(prioritized[0]!.id).toBe('best');
+    expect(prioritized[1]!.id).toBe('worst');
   });
 });
 
@@ -426,17 +440,14 @@ describe('RecommendationEngine edge cases', () => {
   });
 
   it('handles single finding', () => {
-    const finding: Finding = {
+    const finding = makeFinding({
       id: 'f-1',
       title: 'Missing error handling',
       description: 'Async function lacks try/catch',
       filePath: 'src/api.ts',
-      lineRange: [10, 15],
       severity: 'high',
-      category: 'error_handling',
-      recommendation: 'Add try/catch block',
-      relatedFindings: [],
-    };
+      category: 'maintainability',
+    });
     const recs = engine.generateRecommendations([finding]);
     expect(recs.length).toBeGreaterThanOrEqual(1);
     expect(recs[0]!.affectedFiles).toContain('src/api.ts');
@@ -444,39 +455,9 @@ describe('RecommendationEngine edge cases', () => {
 
   it('groups related findings by file and category', () => {
     const findings: Finding[] = [
-      {
-        id: '1',
-        title: 't1',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
-        severity: 'high',
-        category: 'bug',
-        recommendation: '',
-        relatedFindings: [],
-      },
-      {
-        id: '2',
-        title: 't2',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [3, 4],
-        severity: 'high',
-        category: 'bug',
-        recommendation: '',
-        relatedFindings: [],
-      },
-      {
-        id: '3',
-        title: 't3',
-        description: '',
-        filePath: 'b.ts',
-        lineRange: [1, 2],
-        severity: 'low',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
+      makeFinding({ id: '1', title: 't1', filePath: 'a.ts', severity: 'high', category: 'bug' }),
+      makeFinding({ id: '2', title: 't2', filePath: 'a.ts', severity: 'high', category: 'bug' }),
+      makeFinding({ id: '3', title: 't3', filePath: 'b.ts', severity: 'low', category: 'style' }),
     ];
     const recs = engine.generateRecommendations(findings);
     // a.ts bug findings should be grouped together
@@ -485,32 +466,62 @@ describe('RecommendationEngine edge cases', () => {
 
   it('finds related findings by id reference', () => {
     const findings: Finding[] = [
-      {
+      makeFinding({
         id: '1',
         title: 't1',
-        description: '',
         filePath: 'x.ts',
-        lineRange: [1, 2],
         severity: 'medium',
         category: 'bug',
-        recommendation: '',
         relatedFindings: ['2'],
-      },
-      {
+      }),
+      makeFinding({
         id: '2',
         title: 't2',
-        description: '',
         filePath: 'y.ts',
-        lineRange: [3, 4],
         severity: 'medium',
         category: 'bug',
-        recommendation: '',
         relatedFindings: ['1'],
-      },
+      }),
     ];
     const recs = engine.generateRecommendations(findings);
     // Should be grouped together since they reference each other
     expect(recs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('groups cross-category findings via relatedFindings and picks the majority category', () => {
+    // `relatedFindings` references can link findings of DIFFERENT categories
+    // into a single group. `mostCommonField` must then compare 2+ distinct
+    // categories (exercising its sort comparator) and the recommendation must
+    // reflect the majority category ('bug': 2 of 3).
+    const findings: Finding[] = [
+      makeFinding({
+        id: 'm1',
+        title: 't1',
+        filePath: 'x.ts',
+        severity: 'medium',
+        category: 'bug',
+        relatedFindings: ['m2'],
+      }),
+      makeFinding({
+        id: 'm2',
+        title: 't2',
+        filePath: 'y.ts',
+        severity: 'medium',
+        category: 'performance',
+        relatedFindings: ['m1'],
+      }),
+      makeFinding({
+        id: 'm3',
+        title: 't3',
+        filePath: 'z.ts',
+        severity: 'medium',
+        category: 'bug',
+        relatedFindings: ['m1'],
+      }),
+    ];
+    const recs = engine.generateRecommendations(findings);
+    expect(recs).toHaveLength(1);
+    expect(recs[0]!.risksAddressed).toContain('bug');
   });
 
   it('estimateEffort returns trivial for 1 file, 1 action', () => {
@@ -593,35 +604,20 @@ describe('RecommendationEngine edge cases', () => {
 
   it('computes priority correctly for all severity levels', () => {
     // Test via generateRecommendations
-    const severe: Finding = {
+    const severe = makeFinding({
       id: 's1',
       title: 'Critical bug',
-      description: '',
-      filePath: 'a.ts',
-      lineRange: [1, 2],
       severity: 'critical',
       category: 'bug',
-      recommendation: '',
-      relatedFindings: [],
-    };
+    });
     const recs = engine.generateRecommendations([severe]);
     expect(recs.length).toBeGreaterThanOrEqual(1);
     expect(recs[0]!.priority).toBe(1);
   });
 
   it('handles info severity correctly', () => {
-    const findings: Finding[] = [
-      {
-        id: 'i1',
-        title: 'Info note',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
-        severity: 'info',
-        category: 'documentation',
-        recommendation: '',
-        relatedFindings: [],
-      },
+    const findings = [
+      makeFinding({ id: 'i1', title: 'Info note', severity: 'info', category: 'documentation' }),
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -629,18 +625,13 @@ describe('RecommendationEngine edge cases', () => {
   });
 
   it('handles medium severity correctly', () => {
-    const findings: Finding[] = [
-      {
+    const findings = [
+      makeFinding({
         id: 'm1',
         title: 'Medium issue',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
         severity: 'medium',
         category: 'maintainability',
-        recommendation: '',
-        relatedFindings: [],
-      },
+      }),
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -648,93 +639,19 @@ describe('RecommendationEngine edge cases', () => {
   });
 
   it('handles unknown risk category gracefully', () => {
-    const findings: Finding[] = [
-      {
-        id: 'u1',
-        title: 'Unknown',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
-        severity: 'low',
-        category: 'other',
-        recommendation: '',
-        relatedFindings: [],
-      },
+    const findings = [
+      makeFinding({ id: 'u1', title: 'Unknown', severity: 'low', category: 'other' }),
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
   });
 
   it('enforces max recommendations limit', () => {
-    const findings: Finding[] = Array.from({ length: 50 }, (_, i) => ({
-      id: `f${i}`,
-      title: `Issue ${i}`,
-      description: '',
-      filePath: `src/file${i % 5}.ts`,
-      lineRange: [1, 2] as [number, number],
-      severity: (['low', 'medium', 'high'] as const)[i % 3],
-      category: (['bug', 'style', 'performance'] as const)[i % 3],
-      recommendation: '',
-      relatedFindings: [],
-    }));
+    const findings: Finding[] = Array.from({ length: 50 }, (_, i) =>
+      makeFinding({ id: `f${i}`, title: `Issue ${i}`, filePath: `src/file${i}.ts` }),
+    );
     const recs = engine.generateRecommendations(findings, { maxRecommendations: 5 });
     expect(recs.length).toBeLessThanOrEqual(5);
-  });
-
-  it('handles priority weight default case (priority 0 or invalid)', () => {
-    // Test that an invalid priority falls through to the default case (0.1 weight)
-    // We access the private method indirectly through generateRecommendations
-    // with findings that produce recommendations having specific priorities
-    const findings: Finding[] = [
-      {
-        id: 'i1',
-        title: 'Info issue',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
-        severity: 'info',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
-    ];
-    const recs = engine.generateRecommendations(findings);
-    // Info severity → priority 3 → weight 0.2
-    expect(recs.length).toBeGreaterThanOrEqual(1);
-    if (recs.length > 0) {
-      expect(recs[0]!.priority).toBe(3);
-    }
-  });
-
-  it('handles highestSeverity with info-only findings (default low)', () => {
-    // When all findings are 'info' severity, the first non-matching iteration
-    // falls through to return 'low' at the end
-    const findings: Finding[] = [
-      {
-        id: 'i1',
-        title: 'Info 1',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
-        severity: 'info',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
-      {
-        id: 'i2',
-        title: 'Info 2',
-        description: '',
-        filePath: 'b.ts',
-        lineRange: [1, 2],
-        severity: 'info',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
-    ];
-    const recs = engine.generateRecommendations(findings);
-    expect(recs.length).toBeGreaterThanOrEqual(0);
   });
 
   it('hits IMPACT_WEIGHT fallback (?? 0.2) for unknown risk categories (L214)', () => {
@@ -758,39 +675,11 @@ describe('RecommendationEngine edge cases', () => {
     expect(prioritized[0]!.id).toBe('rec-unknown');
   });
 
-  it('hits EFFORT_INVERSE fallback (?? 0.5) for unknown effort level (L223)', () => {
-    // Use estimatedEffort with a value NOT in EFFORT_INVERSE to trigger ?? 0.5
-    const rec: Recommendation = {
-      id: 'rec-effort-fallback',
-      priority: 2,
-      title: 'Unknown effort',
-      description: 'Effort fallback test',
-      estimatedEffort: 'invalid_effort' as any,
-      affectedFiles: ['a.ts'],
-      actionItems: [{ description: 'Fix' }],
-      risksAddressed: ['bug'],
-      references: [],
-    };
-    const prioritized = engine.prioritizeRecommendations([rec]);
-    expect(prioritized.length).toBe(1);
-    expect(prioritized[0]!.id).toBe('rec-effort-fallback');
-  });
-
   it('returns low severity via highestSeverity with low-only findings (L230)', () => {
     // When the ONLY findings have 'low' severity, the for loop must reach 'low'
     // and return it as the highest severity — covering the return sev branch
-    const lowFindings: Finding[] = [
-      {
-        id: 'l1',
-        title: 'Low issue',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [1, 2],
-        severity: 'low',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
+    const lowFindings = [
+      makeFinding({ id: 'l1', title: 'Low issue', severity: 'low', category: 'style' }),
     ];
     const recs = engine.generateRecommendations(lowFindings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -801,28 +690,20 @@ describe('RecommendationEngine edge cases', () => {
   it('returns low severity with multiple low findings (L230)', () => {
     // Multiple low severity findings should still return 'low' as highest
     const lowFindings: Finding[] = [
-      {
+      makeFinding({
         id: 'l1',
         title: 'Low 1',
-        description: '',
         filePath: 'a.ts',
-        lineRange: [1, 2],
         severity: 'low',
         category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
-      {
+      }),
+      makeFinding({
         id: 'l2',
         title: 'Low 2',
-        description: '',
         filePath: 'b.ts',
-        lineRange: [1, 2],
         severity: 'low',
         category: 'documentation',
-        recommendation: '',
-        relatedFindings: [],
-      },
+      }),
     ];
     const recs = engine.generateRecommendations(lowFindings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -832,28 +713,14 @@ describe('RecommendationEngine edge cases', () => {
   it('returns medium severity when highest severity is medium (L230)', () => {
     // Findings with mixed medium and low severities — highest should be medium
     const findings: Finding[] = [
-      {
+      makeFinding({
         id: 'm1',
         title: 'Medium',
-        description: '',
         filePath: 'a.ts',
-        lineRange: [1, 2],
         severity: 'medium',
         category: 'maintainability',
-        recommendation: '',
-        relatedFindings: [],
-      },
-      {
-        id: 'l1',
-        title: 'Low',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: [3, 4],
-        severity: 'low',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
+      }),
+      makeFinding({ id: 'l1', title: 'Low', filePath: 'a.ts', severity: 'low', category: 'style' }),
     ];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
@@ -861,34 +728,13 @@ describe('RecommendationEngine edge cases', () => {
     expect(recs[0]!.priority).toBe(2);
   });
 
-  it('hits mostCommonField fallback (??) with empty findings array (L255)', () => {
-    // Access private method to test the nullish coalescing fallback path.
-    // The fallback is at: sorted[0]?.[0] ?? (findings[0]?.[field] as Finding[T])
-    // When findings is empty, sorted is empty, so we hit the ?? fallback.
-    const result = (engine as any).mostCommonField?.([], 'category');
-    // The fallback returns undefined when findings is empty
-    expect(result).toBeUndefined();
-  });
-
   it('handles finding without lineRange via buildRecommendation (L180)', () => {
     // When a finding has no lineRange, the ?? undefined branch on line 180
     // should be triggered: lineRange: f.lineRange ?? undefined
-    const findings: Finding[] = [
-      {
-        id: 'no-range',
-        title: 'No range',
-        description: '',
-        filePath: 'a.ts',
-        lineRange: undefined,
-        severity: 'low',
-        category: 'style',
-        recommendation: '',
-        relatedFindings: [],
-      },
-    ];
+    // A null lineRange maps to an action item with no lineRange (undefined).
+    const findings = [makeFinding({ id: 'no-range', title: 'No range', lineRange: null })];
     const recs = engine.generateRecommendations(findings);
     expect(recs.length).toBeGreaterThanOrEqual(1);
-    // The action item should have lineRange undefined
     expect(recs[0]!.actionItems[0]!.lineRange).toBeUndefined();
   });
 });

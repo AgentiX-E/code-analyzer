@@ -1,4 +1,4 @@
-import type { Finding, Recommendation, ReviewCategory, Severity } from '@code-analyzer/shared';
+import type { Finding, Recommendation, Severity } from '@code-analyzer/shared';
 
 export interface RecommendationOptions {
   maxRecommendations?: number;
@@ -8,13 +8,16 @@ export interface RecommendationOptions {
 // Scoring weights
 // ---------------------------------------------------------------------------
 
-/** Impact weight mapping based on category */
+/**
+ * Impact weight mapping based on category.
+ * `api` intentionally falls back to the default weight in `computeImpactWeight`
+ * (it is a valid category with no dedicated weight here).
+ */
 const IMPACT_WEIGHT: Record<string, number> = {
   security: 1.0,
   bug: 0.9,
   architecture: 0.85,
   performance: 0.7,
-  error_handling: 0.65,
   maintainability: 0.5,
   test: 0.3,
   style: 0.15,
@@ -22,13 +25,29 @@ const IMPACT_WEIGHT: Record<string, number> = {
   other: 0.2,
 };
 
-/** Inverse effort multiplier based on estimated effort */
-const EFFORT_INVERSE: Record<string, number> = {
+/** Inverse effort multiplier based on estimated effort. */
+const EFFORT_INVERSE: Record<Recommendation['estimatedEffort'], number> = {
   trivial: 1.0,
   small: 0.8,
   medium: 0.5,
   large: 0.25,
   xlarge: 0.1,
+};
+
+/** Severity-weight contribution by recommendation priority band. */
+const PRIORITY_WEIGHT: Record<Recommendation['priority'], number> = {
+  1: 1.0,
+  2: 0.5,
+  3: 0.2,
+};
+
+/** Maps a finding severity to the recommendation priority band. */
+const SEVERITY_TO_PRIORITY: Record<Severity, 1 | 2 | 3> = {
+  critical: 1,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 3,
 };
 
 // ---------------------------------------------------------------------------
@@ -133,10 +152,6 @@ export class RecommendationEngine {
     // Same file path and category
     if (a.filePath === b.filePath && a.category === b.category) return true;
 
-    // Same severity and category within the same file
-    if (a.severity === b.severity && a.category === b.category && a.filePath === b.filePath)
-      return true;
-
     // Has related findings reference
     if (a.relatedFindings.includes(b.id) || b.relatedFindings.includes(a.id)) return true;
 
@@ -159,7 +174,7 @@ export class RecommendationEngine {
     });
 
     const severity = this.highestSeverity(group);
-    const category = this.mostCommonField(group, 'category') as ReviewCategory;
+    const category = this.mostCommonField(group, 'category');
 
     return {
       id: `rec-${this.idCounter}`,
@@ -187,17 +202,7 @@ export class RecommendationEngine {
   }
 
   private computeSeverityWeight(rec: Recommendation): number {
-    // Higher priority → higher severity weight
-    switch (rec.priority) {
-      case 1:
-        return 1.0;
-      case 2:
-        return 0.5;
-      case 3:
-        return 0.2;
-      default:
-        return 0.1;
-    }
+    return PRIORITY_WEIGHT[rec.priority];
   }
 
   private computeImpactWeight(rec: Recommendation): number {
@@ -214,29 +219,18 @@ export class RecommendationEngine {
   }
 
   private computeEffortInverse(rec: Recommendation): number {
-    return EFFORT_INVERSE[rec.estimatedEffort] ?? 0.5;
+    return EFFORT_INVERSE[rec.estimatedEffort];
   }
 
   private highestSeverity(findings: Finding[]): Severity {
     const severityOrder: Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
-    for (const sev of severityOrder) {
-      if (findings.some((f) => f.severity === sev)) return sev;
-    }
-    return 'low';
+    // The caller guarantees `findings` is non-empty, so exactly one severity
+    // in `severityOrder` is present.
+    return severityOrder.find((sev) => findings.some((f) => f.severity === sev))!;
   }
 
   private severityToPriority(severity: Severity): 1 | 2 | 3 {
-    switch (severity) {
-      case 'critical':
-      case 'high':
-        return 1;
-      case 'medium':
-        return 2;
-      case 'low':
-      case 'info':
-      default:
-        return 3;
-    }
+    return SEVERITY_TO_PRIORITY[severity];
   }
 
   private mostCommonField<T extends keyof Finding>(findings: Finding[], field: T): Finding[T] {
@@ -245,7 +239,9 @@ export class RecommendationEngine {
       const val = f[field];
       counts.set(val, (counts.get(val) ?? 0) + 1);
     }
+    // The caller guarantees `findings` is non-empty, so `counts` has at least
+    // one entry and `sorted[0]` always exists.
     const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    return sorted[0]?.[0] ?? (findings[0]?.[field] as Finding[T]);
+    return sorted[0]![0];
   }
 }
