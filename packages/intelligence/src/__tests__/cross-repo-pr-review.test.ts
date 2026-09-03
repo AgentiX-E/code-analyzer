@@ -5,7 +5,10 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import { CodeReviewEngine } from '../review/review-engine.js';
-import { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
+import {
+  CrossRepoPRReviewEngine,
+  buildSuggestedActionsForImpact,
+} from '../cross-repo/cross-repo-pr-review.js';
 import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
 import type { PullRequest, GitDiff, GraphNode } from '@code-analyzer/shared';
 import type {
@@ -183,6 +186,175 @@ function setupGroup(groupManager: RepoGroupManager): void {
   );
 }
 
+/**
+ * Build a standalone CrossRepoPRReviewEngine over a temp directory populated
+ * with the given repo manifests. Lets version-compatibility tests exercise
+ * go.mod parsing, minor/patch conflicts, non-numeric versions, and malformed
+ * package.json without disturbing the shared `setupGroup` fixtures.
+ */
+function buildVersionGroupEngine(
+  reviewEngine: CodeReviewEngine,
+  repoSpecs: Array<{ repo: string; packageJson?: Record<string, unknown>; goMod?: string }>,
+): CrossRepoPRReviewEngine {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+
+  const manager = new RepoGroupManager();
+  manager.createGroup('vg', 'Version Group', '');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'vg-'));
+
+  for (const spec of repoSpecs) {
+    const dir = path.join(base, spec.repo);
+    fs.mkdirSync(dir, { recursive: true });
+    if (spec.packageJson !== undefined) {
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(spec.packageJson));
+    }
+    if (spec.goMod !== undefined) {
+      fs.writeFileSync(path.join(dir, 'go.mod'), spec.goMod);
+    }
+    manager.addRepo('vg', 'myorg', spec.repo, '', dir);
+  }
+
+  return new CrossRepoPRReviewEngine(
+    new CrossRepoIndexer(new InMemoryGraphStore(), manager),
+    manager,
+    reviewEngine,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Graph seeding helpers — populate the shared InMemoryGraphStore with real
+// nodes and CROSS_REPO_* edges (no mocks) so impact analysis, dependency
+// tracing, and test-impact prediction operate on live data.
+// ---------------------------------------------------------------------------
+
+const REPO_A = 'myorg/service-a';
+const REPO_B = 'myorg/service-b';
+const REPO_C = 'myorg/service-c';
+
+function insertCrossRepoEdge(store: InMemoryGraphStore, sourceId: number, targetId: number): void {
+  store.insertEdge({
+    id: 0,
+    projectId: 'cross-repo:test-group',
+    sourceId,
+    targetId,
+    type: 'CROSS_REPO_CALLS',
+    properties: {},
+    weight: 1,
+    createdAt: '2024-01-01T00:00:00Z',
+  });
+}
+
+/**
+ * Seed a three-repo dependency chain:
+ *   service-a.UserService --CROSS_REPO_CALLS--> service-b.OrderService
+ *   service-b.OrderService --CROSS_REPO_CALLS--> service-c.PaymentService
+ * This makes analyzeCrossRepoImpact report service-b (depth 1, high) and
+ * service-c (depth 2, medium), and makes traceSymbolDependencies return
+ * direct + transitive traces for the "UserService" symbol.
+ */
+function seedCrossRepoGraph(store: InMemoryGraphStore): void {
+  const userService = store.insertNode(
+    createNode(0, REPO_A, {
+      label: 'Class',
+      name: 'UserService',
+      qualifiedName: 'UserService',
+      filePath: 'src/api/UserService.ts',
+      isExported: true,
+      properties: { name: 'UserService', filePath: 'src/api/UserService.ts', isExported: true },
+    }),
+  );
+  const orderService = store.insertNode(
+    createNode(0, REPO_B, {
+      label: 'Class',
+      name: 'OrderService',
+      qualifiedName: 'OrderService',
+      filePath: 'src/order.service.ts',
+      isExported: true,
+      properties: { name: 'OrderService', filePath: 'src/order.service.ts', isExported: true },
+    }),
+  );
+  const paymentService = store.insertNode(
+    createNode(0, REPO_C, {
+      label: 'Class',
+      name: 'PaymentService',
+      qualifiedName: 'PaymentService',
+      filePath: 'src/payment.service.ts',
+      isExported: true,
+      properties: { name: 'PaymentService', filePath: 'src/payment.service.ts', isExported: true },
+    }),
+  );
+
+  insertCrossRepoEdge(store, userService, orderService);
+  insertCrossRepoEdge(store, orderService, paymentService);
+}
+
+/**
+ * Seed the resolveCrossRepoSymbols fallback scenario: service-a exports
+ * `SharedUtil`, and a service-b File node imports it via an IMPORTS edge.
+ * With no CROSS_REPO_* edges, traceSymbolDependencies returns empty, so
+ * detectBreakingChanges falls through to resolveCrossRepoSymbols and maps
+ * the "SharedUtil" symbol to service-b via the import-reference match.
+ */
+function seedResolveSymbolScenario(store: InMemoryGraphStore): void {
+  const sharedUtil = store.insertNode(
+    createNode(0, REPO_A, {
+      label: 'Function',
+      name: 'SharedUtil',
+      qualifiedName: 'SharedUtil',
+      filePath: 'src/shared/SharedUtil.ts',
+      isExported: true,
+      properties: { name: 'SharedUtil', filePath: 'src/shared/SharedUtil.ts', isExported: true },
+    }),
+  );
+  const importerFile = store.insertNode(
+    createNode(0, REPO_B, {
+      label: 'File',
+      name: 'SharedUtil.ts',
+      qualifiedName: 'file:service-b:src/shared/SharedUtil.ts',
+      filePath: 'src/shared/SharedUtil.ts',
+      isExported: false,
+      properties: { name: 'SharedUtil.ts', filePath: 'src/shared/SharedUtil.ts' },
+    }),
+  );
+
+  store.insertEdge({
+    id: 0,
+    projectId: REPO_B,
+    sourceId: importerFile,
+    targetId: sharedUtil,
+    type: 'IMPORTS',
+    properties: {},
+    weight: 1,
+    createdAt: '2024-01-01T00:00:00Z',
+  });
+}
+
+/**
+ * Seed test-file nodes in service-b so predictTests can produce related test
+ * files at every confidence tier.
+ */
+function seedTestNodes(
+  store: InMemoryGraphStore,
+  repo: string,
+  count: number,
+  symbol: string,
+): void {
+  for (let i = 0; i < count; i++) {
+    store.insertNode(
+      createNode(0, repo, {
+        label: 'Function',
+        name: `${symbol}Test${i}`,
+        qualifiedName: `pkg.${symbol}Test${i}`,
+        filePath: `src/${symbol}${i}.test.ts`,
+        isExported: false,
+        properties: { name: `${symbol}Test${i}`, filePath: `src/${symbol}${i}.test.ts` },
+      }),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // CrossRepoPRReviewEngine Tests
 // ---------------------------------------------------------------------------
@@ -259,6 +431,42 @@ describe('CrossRepoPRReviewEngine', () => {
       expect(result.sourceRepo).toBe('myorg/service-a');
       expect(Array.isArray(result.apiBreakingChanges)).toBe(true);
       expect(Array.isArray(result.testPredictions)).toBe(true);
+    });
+
+    it('should report impact levels and suggested actions from a seeded dependency chain', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+
+      const result = await engine.reviewPRWithCrossRepoContext(
+        pr,
+        'test-group',
+        'myorg/service-a',
+        [],
+      );
+
+      expect(result.crossRepoImpacts.length).toBe(2);
+      const impactB = result.crossRepoImpacts.find((i) => i.affectedRepo === 'myorg/service-b');
+      const impactC = result.crossRepoImpacts.find((i) => i.affectedRepo === 'myorg/service-c');
+      expect(impactB?.impactLevel).toBe('high');
+      expect(impactB?.suggestedActions.length).toBeGreaterThan(0);
+      expect(impactC?.impactLevel).toBe('medium');
+      expect(impactC?.suggestedActions.length).toBeGreaterThan(0);
+    });
+
+    it('should swallow review engine failures when git ops are unavailable', async () => {
+      const noGitOpsReview = new CodeReviewEngine(store, { allowMetadataFallback: false });
+      const noGitOpsEngine = new CrossRepoPRReviewEngine(indexer, groupManager, noGitOpsReview);
+      const pr = createPR();
+
+      const result = await noGitOpsEngine.reviewPRWithCrossRepoContext(
+        pr,
+        'test-group',
+        'myorg/service-a',
+        [createDiff()],
+      );
+
+      expect(result.prComments).toEqual([]);
+      expect(result.sourceRepo).toBe('myorg/service-a');
     });
   });
 
@@ -435,6 +643,191 @@ describe('CrossRepoPRReviewEngine', () => {
       expect(result.sourceRepo).toBe('myorg/service-a');
       expect(Array.isArray(result.breakingChanges)).toBe(true);
     });
+
+    it('should detect signature change for a modified symbol with dependents', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/UserService.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 15, changeType: 'modified' }],
+      });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.breakingChanges.some((b) => b.changeType === 'signature_changed')).toBe(true);
+      const sig = result.breakingChanges.find((b) => b.changeType === 'signature_changed');
+      expect(sig?.affectedInRepos).toContain('myorg/service-b');
+    });
+
+    it('should detect return type change only for tsx symbols', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/UserService.tsx',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 12, changeType: 'modified' },
+          { oldStart: 20, oldEnd: 22, newStart: 20, newEnd: 22, changeType: 'modified' },
+        ],
+      });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.breakingChanges.some((b) => b.changeType === 'return_type_changed')).toBe(true);
+      expect(result.breakingChanges.some((b) => b.changeType === 'signature_changed')).toBe(false);
+    });
+
+    it('should detect required parameter addition for non-signature-file symbols', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/UserService.java',
+        changeType: 'modified',
+        ranges: [{ oldStart: 10, oldEnd: 10, newStart: 10, newEnd: 12, changeType: 'added' }],
+      });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.breakingChanges.some((b) => b.changeType === 'parameter_added_required')).toBe(
+        true,
+      );
+      expect(result.breakingChanges.some((b) => b.changeType === 'signature_changed')).toBe(false);
+    });
+
+    it('should detect parameter removal', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/UserService.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 10, oldEnd: 14, newStart: 10, newEnd: 10, changeType: 'removed' }],
+      });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.breakingChanges.some((b) => b.changeType === 'parameter_removed')).toBe(true);
+    });
+
+    it('should fall back to resolveCrossRepoSymbols when no graph traces exist', async () => {
+      seedResolveSymbolScenario(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/shared/SharedUtil.ts',
+        changeType: 'modified',
+        ranges: [{ oldStart: 1, oldEnd: 2, newStart: 1, newEnd: 4, changeType: 'modified' }],
+      });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      const sig = result.breakingChanges.find((b) => b.changeType === 'signature_changed');
+      expect(sig).toBeDefined();
+      expect(sig?.affectedInRepos).toContain('myorg/service-b');
+    });
+
+    it('should return empty breaking changes for a non-existent group', async () => {
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts', changeType: 'modified' });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'nope', 'myorg/service-a', [diff]);
+
+      expect(result.totalBreakingChanges).toBe(0);
+      expect(result.severity).toBe('low');
+    });
+
+    it('should handle a closed graph store gracefully', async () => {
+      seedCrossRepoGraph(store);
+      store.close();
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts', changeType: 'modified' });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.totalBreakingChanges).toBe(0);
+    });
+
+    it('should set severity to medium for many minor breaking changes', async () => {
+      const pr = createPR();
+      const diffs = [
+        createDiff({ filePath: 'src/a.ts', changeType: 'renamed', oldPath: 'src/a-old.ts' }),
+        createDiff({ filePath: 'src/b.ts', changeType: 'renamed', oldPath: 'src/b-old.ts' }),
+        createDiff({ filePath: 'src/c.ts', changeType: 'renamed', oldPath: 'src/c-old.ts' }),
+      ];
+
+      const result = await engine.detectAPIBreakingChanges(
+        pr,
+        'test-group',
+        'myorg/service-a',
+        diffs,
+      );
+
+      expect(result.totalBreakingChanges).toBe(6);
+      expect(result.severity).toBe('medium');
+    });
+
+    it('should suggest a fix for removed symbols that have dependents', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/UserService.ts',
+        changeType: 'deleted',
+        ranges: [{ oldStart: 1, oldEnd: 20, newStart: 0, newEnd: 0, changeType: 'removed' }],
+      });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      const removed = result.breakingChanges.find((b) => b.changeType === 'removed');
+      expect(removed?.affectedInRepos).toContain('myorg/service-b');
+      expect(removed?.suggestedFix).toBeDefined();
+    });
+
+    it('should handle dotfile diffs without a base name or directory', async () => {
+      const pr = createPR();
+      const diff = createDiff({ filePath: '.gitignore', changeType: 'modified' });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.totalBreakingChanges).toBe(0);
+      expect(result.severity).toBe('low');
+    });
+
+    it('should skip graph nodes with empty symbol names when extracting changed symbols', async () => {
+      // A graph node with an empty name/qualifiedName (e.g. an anonymous
+      // symbol) must not contribute a bogus empty string to the change set.
+      store.insertNode(
+        createNode(0, REPO_A, {
+          name: '',
+          qualifiedName: '',
+          filePath: 'src/api/UserService.ts',
+          properties: { name: '', filePath: 'src/api/UserService.ts' },
+        }),
+      );
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts', changeType: 'modified' });
+
+      const result = await engine.detectAPIBreakingChanges(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(result.sourceRepo).toBe('myorg/service-a');
+      expect(result.breakingChanges.every((b) => b.symbol !== '')).toBe(true);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -504,6 +897,102 @@ describe('CrossRepoPRReviewEngine', () => {
       // Should have predictions for service-b and service-c
       const otherRepos = result.affectedTests.filter((t) => t.repo !== 'myorg/service-a');
       expect(otherRepos.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should assign medium confidence for 1-5 related test files', async () => {
+      seedTestNodes(store, REPO_B, 3, 'UserService');
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      const serviceB = result.affectedTests.find((t) => t.repo === 'myorg/service-b');
+      expect(serviceB).toBeDefined();
+      expect(serviceB?.testFiles.length).toBe(3);
+      expect(serviceB?.confidence).toBe('medium');
+      expect(result.reposWithAffectedTests).toContain('myorg/service-b');
+    });
+
+    it('should assign high confidence for more than 5 related test files', async () => {
+      seedTestNodes(store, REPO_B, 6, 'UserService');
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      const serviceB = result.affectedTests.find((t) => t.repo === 'myorg/service-b');
+      expect(serviceB?.testFiles.length).toBe(6);
+      expect(serviceB?.confidence).toBe('high');
+    });
+
+    it('should return empty predictions for a non-existent group', async () => {
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'nope', 'myorg/service-a', [diff]);
+
+      expect(result.totalTestsAffected).toBe(0);
+      expect(result.affectedTests).toEqual([]);
+    });
+
+    it('should not match unrelated test files', async () => {
+      seedTestNodes(store, REPO_B, 2, 'UserService');
+      seedTestNodes(store, REPO_B, 1, 'Unrelated');
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      const serviceB = result.affectedTests.find((t) => t.repo === 'myorg/service-b');
+      expect(serviceB?.testFiles.length).toBe(2);
+    });
+
+    it('should handle a closed graph store during prediction', async () => {
+      seedTestNodes(store, REPO_B, 2, 'UserService');
+      store.close();
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      // Every other repo reports low confidence with an "Unable to analyze" reason.
+      const serviceB = result.affectedTests.find((t) => t.repo === 'myorg/service-b');
+      expect(serviceB?.testFiles).toEqual([]);
+      expect(serviceB?.confidence).toBe('low');
+      expect(serviceB?.reason).toContain('Unable to analyze');
+    });
+
+    it('should deduplicate test files when multiple nodes share a file path', async () => {
+      // Two symbols resolved to the same test file must count that file once.
+      const sharedPath = 'src/UserService.test.ts';
+      for (const nm of ['UserServiceAlpha', 'UserServiceBeta']) {
+        store.insertNode(
+          createNode(0, REPO_B, {
+            name: nm,
+            qualifiedName: `pkg.${nm}`,
+            filePath: sharedPath,
+            isExported: false,
+            properties: { name: nm, filePath: sharedPath },
+          }),
+        );
+      }
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const result = await engine.predictCrossRepoTestImpact(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      const serviceB = result.affectedTests.find((t) => t.repo === 'myorg/service-b');
+      expect(serviceB?.testFiles).toEqual([sharedPath]);
     });
   });
 
@@ -590,6 +1079,94 @@ describe('CrossRepoPRReviewEngine', () => {
       ]);
       expect(summary.mergeRecommendation).toBeDefined();
     });
+
+    it('should include impacted repos and a run-tests recommendation', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+
+      const summary = await engine.generateCrossRepoSummary(
+        pr,
+        'test-group',
+        'myorg/service-a',
+        [],
+      );
+
+      expect(summary.reposImpacted).toBe(2);
+      expect(summary.recommendations.some((r) => r.includes('2 repos may be impacted'))).toBe(true);
+    });
+
+    it('should set risk to high for return-type-only changes', async () => {
+      seedCrossRepoGraph(store);
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/api/UserService.tsx',
+        changeType: 'modified',
+        ranges: [
+          { oldStart: 10, oldEnd: 12, newStart: 10, newEnd: 12, changeType: 'modified' },
+          { oldStart: 20, oldEnd: 22, newStart: 20, newEnd: 22, changeType: 'modified' },
+        ],
+      });
+
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(summary.crossRepoRisk).toBe('high');
+      expect(summary.mergeRecommendation).toBe('request-changes');
+    });
+
+    it('should return approve-with-caution for medium-risk renamed changes', async () => {
+      const pr = createPR();
+      const diff = createDiff({
+        filePath: 'src/new-name.ts',
+        changeType: 'renamed',
+        oldPath: 'src/old-name.ts',
+      });
+
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      expect(summary.crossRepoRisk).toBe('medium');
+      expect(summary.mergeRecommendation).toBe('approve-with-caution');
+    });
+
+    it('should include a run-tests recommendation when test impact is predicted', async () => {
+      seedTestNodes(store, REPO_B, 1, 'UserService');
+      const pr = createPR();
+      const diff = createDiff({ filePath: 'src/api/UserService.ts' });
+
+      const summary = await engine.generateCrossRepoSummary(pr, 'test-group', 'myorg/service-a', [
+        diff,
+      ]);
+
+      // predictTests resolves the seeded service-b test node against the
+      // "UserService" changed symbol, so the summary must surface a run-tests
+      // recommendation naming the affected repo.
+      expect(summary.recommendations.some((r) => r.includes('Run tests in 1 affected repos'))).toBe(
+        true,
+      );
+      expect(summary.recommendations.some((r) => r.includes('myorg/service-b'))).toBe(true);
+    });
+
+    it('should recover from an impact-analysis failure on a closed graph store', async () => {
+      store.close();
+      const pr = createPR();
+
+      const summary = await engine.generateCrossRepoSummary(
+        pr,
+        'test-group',
+        'myorg/service-a',
+        [],
+      );
+
+      // analyzeCrossRepoImpact throws once the store is closed; the summary must
+      // fall back to an empty impact result instead of propagating the error.
+      expect(summary.sourceRepo).toBe('myorg/service-a');
+      expect(summary.reposImpacted).toBe(0);
+      expect(summary.crossRepoRisk).toBe('low');
+      expect(summary.mergeRecommendation).toBe('approve');
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -629,6 +1206,169 @@ describe('CrossRepoPRReviewEngine', () => {
       expect(result.repoVersions.some((rv) => rv.version === '1.0.0')).toBe(true);
       expect(result.repoVersions.some((rv) => rv.version === '2.0.0')).toBe(true);
       expect(result.repoVersions.some((rv) => rv.version === '1.5.0')).toBe(true);
+    });
+
+    it('should read a go.mod manifest when package.json is absent', async () => {
+      const goEngine = buildVersionGroupEngine(reviewEngine, [
+        {
+          repo: 'go-repo',
+          goMod: [
+            'module example.com/foo',
+            '',
+            'go 1.21',
+            '',
+            'require (',
+            '\tgithub.com/gin-gonic/gin v1.9.0',
+            '\tgolang.org/x/sync v0.3.0',
+            ')',
+          ].join('\n'),
+        },
+      ]);
+
+      const result = await goEngine.checkVersionCompatibility('vg');
+
+      const rv = result.repoVersions.find((r) => r.repo === 'myorg/go-repo');
+      expect(rv?.version).toBe('example.com/foo');
+      expect(rv?.dependencies['github.com/gin-gonic/gin']).toBe('v1.9.0');
+      expect(rv?.dependencies['golang.org/x/sync']).toBe('v0.3.0');
+    });
+
+    it('should detect a minor version mismatch', async () => {
+      const minorEngine = buildVersionGroupEngine(reviewEngine, [
+        {
+          repo: 'ra',
+          packageJson: { name: 'ra', version: '1.0.0', dependencies: { express: '^4.18.0' } },
+        },
+        {
+          repo: 'rb',
+          packageJson: { name: 'rb', version: '1.0.0', dependencies: { express: '^4.17.0' } },
+        },
+      ]);
+
+      const result = await minorEngine.checkVersionCompatibility('vg');
+
+      expect(result.incompatiblePairs.length).toBeGreaterThan(0);
+      expect(result.incompatiblePairs[0]!.issue).toContain('minor version mismatch');
+    });
+
+    it('should detect a patch version mismatch', async () => {
+      const patchEngine = buildVersionGroupEngine(reviewEngine, [
+        {
+          repo: 'ra',
+          packageJson: { name: 'ra', version: '1.0.0', dependencies: { axios: '1.6.0' } },
+        },
+        {
+          repo: 'rb',
+          packageJson: { name: 'rb', version: '1.0.0', dependencies: { axios: '1.6.1' } },
+        },
+      ]);
+
+      const result = await patchEngine.checkVersionCompatibility('vg');
+
+      expect(result.incompatiblePairs.length).toBeGreaterThan(0);
+      expect(result.incompatiblePairs[0]!.issue).toContain('patch version mismatch');
+    });
+
+    it('should handle non-numeric dependency versions gracefully', async () => {
+      const nonNumericEngine = buildVersionGroupEngine(reviewEngine, [
+        {
+          repo: 'ra',
+          packageJson: { name: 'ra', version: '1.0.0', dependencies: { lodash: 'latest' } },
+        },
+        {
+          repo: 'rb',
+          packageJson: { name: 'rb', version: '1.0.0', dependencies: { lodash: '^4.17.0' } },
+        },
+      ]);
+
+      const result = await nonNumericEngine.checkVersionCompatibility('vg');
+
+      expect(result.incompatiblePairs.length).toBeGreaterThan(0);
+      expect(result.incompatiblePairs[0]!.issue).toContain('major version mismatch');
+    });
+
+    it('should handle a package.json missing dependencies and version', async () => {
+      const minimalEngine = buildVersionGroupEngine(reviewEngine, [
+        { repo: 'ra', packageJson: { name: 'ra' } },
+      ]);
+
+      const result = await minimalEngine.checkVersionCompatibility('vg');
+
+      const rv = result.repoVersions.find((r) => r.repo === 'myorg/ra');
+      expect(rv?.dependencies).toEqual({});
+      expect(rv?.version).toBeUndefined();
+    });
+
+    it('should handle an unreadable package.json gracefully', async () => {
+      const fs = require('node:fs');
+      const os = require('node:os');
+      const path = require('node:path');
+
+      const manager = new RepoGroupManager();
+      manager.createGroup('bad', 'Bad Group', '');
+      const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'bad-')), 'bad-repo');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'package.json'), '{ not valid json !! }');
+      manager.addRepo('bad', 'myorg', 'bad-repo', '', dir);
+
+      const badEngine = new CrossRepoPRReviewEngine(
+        new CrossRepoIndexer(new InMemoryGraphStore(), manager),
+        manager,
+        reviewEngine,
+      );
+
+      const result = await badEngine.checkVersionCompatibility('bad');
+
+      expect(result.repoVersions.length).toBe(1);
+      expect(result.repoVersions[0]!.dependencies).toEqual({});
+    });
+
+    it('should report no conflict for identical shared dependency versions', async () => {
+      const sameEngine = buildVersionGroupEngine(reviewEngine, [
+        {
+          repo: 'ra',
+          packageJson: { name: 'ra', version: '1.0.0', dependencies: { lodash: '^4.17.0' } },
+        },
+        {
+          repo: 'rb',
+          packageJson: { name: 'rb', version: '1.0.0', dependencies: { lodash: '^4.17.0' } },
+        },
+      ]);
+
+      const result = await sameEngine.checkVersionCompatibility('vg');
+
+      expect(result.incompatiblePairs).toEqual([]);
+      expect(result.recommendations).toEqual([]);
+    });
+
+    it('should handle a go.mod without a module directive or require block', async () => {
+      const bareGoEngine = buildVersionGroupEngine(reviewEngine, [
+        { repo: 'go-repo', goMod: 'go 1.21\n' },
+      ]);
+
+      const result = await bareGoEngine.checkVersionCompatibility('vg');
+
+      const rv = result.repoVersions.find((r) => r.repo === 'myorg/go-repo');
+      expect(rv?.version).toBe('unknown');
+      expect(rv?.dependencies).toEqual({});
+    });
+
+    it('should treat a version starting with a digit as non-numeric', async () => {
+      const weirdEngine = buildVersionGroupEngine(reviewEngine, [
+        {
+          repo: 'ra',
+          packageJson: { name: 'ra', version: '1.0.0', dependencies: { foo: '4beta' } },
+        },
+        {
+          repo: 'rb',
+          packageJson: { name: 'rb', version: '1.0.0', dependencies: { foo: '4.0.0' } },
+        },
+      ]);
+
+      const result = await weirdEngine.checkVersionCompatibility('vg');
+
+      expect(result.incompatiblePairs.length).toBeGreaterThan(0);
+      expect(result.incompatiblePairs[0]!.issue).toContain('major version mismatch');
     });
   });
 
@@ -843,6 +1583,41 @@ describe('CrossRepoPRReviewEngine', () => {
       expect(result.sourceRepo).toBe('myorg/service-a');
       expect(result.totalTestsAffected).toBeDefined();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSuggestedActionsForImpact (pure helper)
+// ---------------------------------------------------------------------------
+
+describe('buildSuggestedActionsForImpact', () => {
+  it('should build critical remediation actions', () => {
+    const actions = buildSuggestedActionsForImpact('critical', 'myorg/service-b');
+    expect(actions.length).toBe(3);
+    expect(actions[0]).toContain('Block merge');
+    expect(actions[1]).toContain('Coordinate breaking changes');
+    expect(actions[2]).toContain('full integration test suite');
+  });
+
+  it('should build high remediation actions', () => {
+    const actions = buildSuggestedActionsForImpact('high', 'myorg/service-b');
+    expect(actions.length).toBe(3);
+    expect(actions[0]).toContain('Notify');
+    expect(actions[1]).toContain('test suite');
+    expect(actions[2]).toContain('integration tests');
+  });
+
+  it('should build medium remediation actions', () => {
+    const actions = buildSuggestedActionsForImpact('medium', 'myorg/service-b');
+    expect(actions.length).toBe(2);
+    expect(actions[0]).toContain('smoke tests');
+    expect(actions[1]).toContain('import reference updates');
+  });
+
+  it('should build low remediation actions', () => {
+    const actions = buildSuggestedActionsForImpact('low', 'myorg/service-b');
+    expect(actions.length).toBe(1);
+    expect(actions[0]).toContain('Monitor');
   });
 });
 
