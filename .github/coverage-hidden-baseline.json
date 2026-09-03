@@ -1,9 +1,8 @@
 {
-  "totalHidden": 11970,
-  "totalLines": 129601,
+  "totalHidden": 10379,
+  "totalLines": 129606,
   "files": {
     "packages/mcp/src/tools/querying-exploration.ts": 1217,
-    "packages/mcp/src/tools/cross-repo.ts": 1066,
     "packages/infra/src/workers/parallel-indexer.ts": 899,
     "packages/intelligence/src/cross-repo/cross-repo-pr-review.ts": 850,
     "packages/mcp/src/tools/code-review.ts": 790,
@@ -11,7 +10,6 @@
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
     "packages/analyzer/src/pipeline/parallel-phases.ts": 574,
     "packages/mcp/src/tools/change-impact.ts": 543,
-    "packages/mcp/src/tools/reports.ts": 525,
     "packages/analyzer/src/pipeline/phase-helpers.ts": 509,
     "packages/analyzer/src/languages/php.ts": 420,
     "packages/intelligence/src/review/github-webhook.ts": 338,

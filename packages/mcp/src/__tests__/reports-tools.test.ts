@@ -3,6 +3,9 @@
 // Tests for generateReport, exportReport, getRecommendations
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -800,5 +803,445 @@ describe('getRecommendations', () => {
     const result = await registry.execute('get_recommendations', {}, ctx);
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Missing required parameter');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Paths that were invisible while reports.ts carried a whole-file v8 ignore hint
+// ---------------------------------------------------------------------------
+
+let tmpDir: string;
+let nextOut = 0;
+
+function outFile(ext: string): string {
+  nextOut += 1;
+  return join(tmpDir, `export-${nextOut}.${ext}`);
+}
+
+function makeNode(projectId: string, name: string, overrides: Partial<GraphNode> = {}): GraphNode {
+  return {
+    id: 0,
+    projectId,
+    label: 'Function',
+    name,
+    qualifiedName: `${projectId}.${name}`,
+    filePath: `/app/src/${projectId}.ts`,
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function contextWithNodes(nodes: GraphNode[]): ToolContextImpl {
+  const store = new InMemoryGraphStore();
+  store.insertNodes(nodes);
+  return new ToolContextImpl(store);
+}
+
+/** Build `count` Function nodes that all live in the same file. */
+function manyFunctions(projectId: string, count: number, filePath: string): GraphNode[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeNode(projectId, `fn${i}`, { filePath, qualifiedName: `${projectId}.fn${i}` }),
+  );
+}
+
+afterEach(() => {
+  if (tmpDir) {
+    rmSync(tmpDir, { recursive: true, force: true });
+    tmpDir = undefined as unknown as string;
+  }
+});
+
+beforeEach(() => {
+  tmpDir = mkdtempSync(join(tmpdir(), 'reports-tools-'));
+});
+
+describe('generateReport - recommendation and default branches', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  it('recommends splitting modules once a project passes 100 functions', async () => {
+    const ctx = contextWithNodes(manyFunctions('big-project', 101, '/app/src/big.ts'));
+
+    const result = await registry.execute(
+      'generate_report',
+      { projectId: 'big-project', type: 'codebase-audit' },
+      ctx,
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.metrics.functionCount).toBe(101);
+    expect(data.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'maintainability',
+          message: 'Consider splitting large modules',
+        }),
+      ]),
+    );
+  });
+
+  it('reports the empty-project defaults and both "no routes"/"no tests" recommendations', async () => {
+    const ctx = contextWithNodes([]);
+
+    const result = await registry.execute(
+      'generate_report',
+      { projectId: 'empty-project', type: 'codebase-audit' },
+      ctx,
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    // Every label lookup misses, so each count falls back to 0.
+    expect(data.metrics).toMatchObject({
+      nodeCount: 0,
+      edgeCount: 0,
+      functionCount: 0,
+      classCount: 0,
+      routeCount: 0,
+      testCount: 0,
+      callCount: 0,
+      importCount: 0,
+      extendsCount: 0,
+      implementsCount: 0,
+      complianceScore: 65,
+    });
+    expect(data.summary.overallScore).toBe(95);
+    expect(data.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'documentation',
+          message: 'No routes detected — consider adding API documentation',
+        }),
+        expect.objectContaining({
+          category: 'testing',
+          message: 'No test files detected — add tests for critical paths',
+        }),
+      ]),
+    );
+  });
+
+  it('falls back to default metrics when the graph store is closed', async () => {
+    const store = new InMemoryGraphStore();
+    createSampleGraph(store, 'closed-project');
+    const ctx = new ToolContextImpl(store);
+    store.close();
+
+    const result = await registry.execute(
+      'generate_report',
+      { projectId: 'closed-project', type: 'codebase-audit' },
+      ctx,
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    // getGraphStats() throws on a closed store, so the handler keeps its defaults.
+    expect(data.metrics.nodeCount).toBe(0);
+    expect(data.metrics.edgeCount).toBe(0);
+    expect(data.summary.overallScore).toBe(95);
+  });
+});
+
+describe('exportReport - store-backed exports', () => {
+  let registry: ToolRegistry;
+  let ctx: ToolContextImpl;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+    ctx = createTestContext('test-project');
+  });
+
+  it('renders the markdown report from graph data', async () => {
+    const path = outFile('md');
+    const result = await registry.execute(
+      'export_report',
+      { reportId: 'report_test-project', format: 'markdown', outputPath: path },
+      ctx,
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.exported).toBe(true);
+    expect(data.outputPath).toBe(path);
+
+    const content = readFileSync(path, 'utf-8');
+    // 7 nodes / 3 edges in the sample graph.
+    expect(content).toContain('| Total Nodes | 7 |');
+    expect(content).toContain('| Total Edges | 3 |');
+    expect(content).toContain('| Edge-to-Node Ratio | 0.43 |');
+    expect(content).toContain('## Node Distribution');
+    expect(content).toContain('- **Function**: 3');
+    expect(content).toContain('## Top Complexity Symbols');
+    // Sorted by descending complexity, capped at 10.
+    expect(content).toContain('`complexFn` (complexity: 35)');
+    expect(content).toContain('`MyService` (complexity: 15)');
+  });
+
+  it('renders the html report from graph data', async () => {
+    const path = outFile('html');
+    const result = await registry.execute(
+      'export_report',
+      { reportId: 'report_test-project', format: 'html', outputPath: path },
+      ctx,
+    );
+
+    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+
+    const content = readFileSync(path, 'utf-8');
+    expect(content).toContain('<!DOCTYPE html>');
+    expect(content).toContain('<tr><td>Function</td><td>3</td></tr>');
+    expect(content).toContain('<code>complexFn</code>');
+    expect(content).toContain('<td>35</td>');
+    expect(content).toContain('<td>/app/src/core/complex.ts</td>');
+  });
+
+  it('renders the json report from graph data', async () => {
+    const path = outFile('json');
+    const result = await registry.execute(
+      'export_report',
+      { reportId: 'report_test-project', format: 'json', outputPath: path },
+      ctx,
+    );
+
+    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+
+    const parsed = JSON.parse(readFileSync(path, 'utf-8'));
+    expect(parsed.reportId).toBe('report_test-project');
+    // Nodes exist, so the export is classified as a codebase audit.
+    expect(parsed.type).toBe('codebase-audit');
+    expect(parsed.projectId).toBe('test-project');
+    expect(parsed.summary).toEqual({ nodeCount: 7, edgeCount: 3 });
+    expect(parsed.labelDistribution).toEqual(
+      expect.arrayContaining([{ label: 'Function', count: 3 }]),
+    );
+    expect(parsed.topComplexity.map((n: GraphNode) => n.name)).toEqual([
+      'complexFn',
+      'MyService',
+      'doWork',
+      'validate',
+    ]);
+  });
+
+  it('treats an unrecognised format as markdown', async () => {
+    const path = outFile('pdf');
+    const result = await registry.execute(
+      'export_report',
+      { reportId: 'report_test-project', format: 'pdf', outputPath: path },
+      ctx,
+    );
+
+    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+    // Only the store-backed markdown generator emits the distribution section,
+    // so its presence proves the switch reached its default arm.
+    expect(readFileSync(path, 'utf-8')).toContain('## Node Distribution');
+  });
+
+  it('reports a zero ratio and the architecture-review type for an empty project', async () => {
+    const emptyCtx = contextWithNodes([]);
+    const path = outFile('md');
+    await registry.execute(
+      'export_report',
+      { reportId: 'empty-project', format: 'markdown', outputPath: path },
+      emptyCtx,
+    );
+
+    const content = readFileSync(path, 'utf-8');
+    expect(content).toContain('| Edge-to-Node Ratio | 0 |');
+    expect(content).not.toContain('## Node Distribution');
+    expect(content).not.toContain('## Top Complexity Symbols');
+
+    const jsonPath = outFile('json');
+    await registry.execute(
+      'export_report',
+      { reportId: 'empty-project', format: 'json', outputPath: jsonPath },
+      emptyCtx,
+    );
+    expect(JSON.parse(readFileSync(jsonPath, 'utf-8')).type).toBe('architecture-review');
+  });
+
+  it('omits the complexity section when no node carries a complexity score', async () => {
+    const noComplexity = contextWithNodes([
+      makeNode('flat-project', 'alpha'),
+      makeNode('flat-project', 'beta'),
+    ]);
+    const path = outFile('md');
+    await registry.execute(
+      'export_report',
+      { reportId: 'flat-project', format: 'markdown', outputPath: path },
+      noComplexity,
+    );
+
+    const content = readFileSync(path, 'utf-8');
+    expect(content).toContain('## Node Distribution');
+    expect(content).toContain('- **Function**: 2');
+    expect(content).not.toContain('## Top Complexity Symbols');
+  });
+
+  it('falls back to a placeholder file path for symbols without a source location', async () => {
+    const orphanCtx = contextWithNodes([
+      makeNode('orphan-project', 'orphan', { complexity: 12, filePath: null }),
+    ]);
+
+    const mdPath = outFile('md');
+    await registry.execute(
+      'export_report',
+      { reportId: 'orphan-project', format: 'markdown', outputPath: mdPath },
+      orphanCtx,
+    );
+    expect(readFileSync(mdPath, 'utf-8')).toContain('`orphan` (complexity: 12) — unknown file');
+
+    const htmlPath = outFile('html');
+    await registry.execute(
+      'export_report',
+      { reportId: 'orphan-project', format: 'html', outputPath: htmlPath },
+      orphanCtx,
+    );
+    expect(readFileSync(htmlPath, 'utf-8')).toContain(
+      '<tr><td><code>orphan</code></td><td>12</td><td>unknown</td></tr>',
+    );
+  });
+
+  it('falls back to the minimal export when the graph store is closed', async () => {
+    const store = new InMemoryGraphStore();
+    createSampleGraph(store, 'closed-project');
+    const closedCtx = new ToolContextImpl(store);
+    store.close();
+
+    const path = outFile('md');
+    const result = await registry.execute(
+      'export_report',
+      { reportId: 'closed-project', format: 'markdown', outputPath: path },
+      closedCtx,
+    );
+
+    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+    // reportContent stayed empty, so the no-graph-data fallback was used.
+    expect(readFileSync(path, 'utf-8')).toContain('No graph data available');
+  });
+});
+
+describe('getRecommendations - graph-derived branches', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  it('flags a file that holds more than 50 functions', async () => {
+    const ctx = contextWithNodes(manyFunctions('bigfile', 51, '/app/src/giant.ts'));
+
+    const result = await registry.execute('get_recommendations', { projectId: 'bigfile' }, ctx);
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'maintainability',
+          message: 'File /app/src/giant.ts contains 51 functions — consider splitting',
+        }),
+      ]),
+    );
+  });
+
+  it('flags a Function node with more than 20 outgoing calls', async () => {
+    const store = new InMemoryGraphStore();
+    const hub = makeNode('fanout', 'hub');
+    const hubId = store.insertNode(hub);
+    for (let i = 0; i < 21; i++) {
+      const leaf = makeNode('fanout', `leaf${i}`);
+      const leafId = store.insertNode(leaf);
+      store.insertEdge({
+        id: 0,
+        projectId: 'fanout',
+        sourceId: hubId,
+        targetId: leafId,
+        type: 'CALLS',
+        properties: {},
+        weight: 1.0,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const result = await registry.execute(
+      'get_recommendations',
+      { projectId: 'fanout' },
+      new ToolContextImpl(store),
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'architecture',
+          message: "Function 'hub' has 21 outgoing calls — high coupling",
+        }),
+      ]),
+    );
+  });
+
+  it('falls back to the properties.filePath override when the node has no source location', async () => {
+    // Cross-repo module nodes are indexed with filePath: null; NodeProperties
+    // carries the location instead. 51 of them must still trip the limit.
+    const nodes = manyFunctions('props-path', 51, '').map((n) => ({
+      ...n,
+      filePath: null,
+      properties: { name: n.name, filePath: '/app/src/from-props.ts' },
+    }));
+    const ctx = contextWithNodes(nodes);
+
+    const result = await registry.execute('get_recommendations', { projectId: 'props-path' }, ctx);
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: 'File /app/src/from-props.ts contains 51 functions — consider splitting',
+        }),
+      ]),
+    );
+  });
+
+  it('skips nodes that have neither a filePath nor a properties.filePath override', async () => {
+    const nodes = manyFunctions('no-path', 51, '').map((n) => ({ ...n, filePath: null }));
+    const ctx = contextWithNodes(nodes);
+
+    const result = await registry.execute('get_recommendations', { projectId: 'no-path' }, ctx);
+
+    const data = JSON.parse(result.content[0].text);
+    // No file was ever counted, so no large-file recommendation was produced.
+    expect(
+      data.recommendations.some((r: { message: string }) =>
+        r.message.includes('contains 51 functions'),
+      ),
+    ).toBe(false);
+  });
+
+  it('falls back to the generic recommendations when the graph store is closed', async () => {
+    const store = new InMemoryGraphStore();
+    createSampleGraph(store, 'closed-project');
+    const ctx = new ToolContextImpl(store);
+    store.close();
+
+    const result = await registry.execute(
+      'get_recommendations',
+      { projectId: 'closed-project' },
+      ctx,
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.recommendations.map((r: { category: string }) => r.category)).toEqual([
+      'maintainability',
+      'architecture',
+      'security',
+    ]);
   });
 });

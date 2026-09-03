@@ -121,17 +121,25 @@ function collectSourceFiles(root) {
 
 // Matches both block (`/* v8 ignore ... */`) and line (`// v8 ignore ...`)
 // comment forms, which V8 accepts interchangeably.
-const RE_START = /(?:\/\*|\/\/)\s*v8\s+ignore\s+start\b/;
-const RE_STOP = /(?:\/\*|\/\/)\s*v8\s+ignore\s+stop\b/;
-const RE_NEXT = /(?:\/\*|\/\/)\s*v8\s+ignore\s+next(?:\s+(\d+))?\b/;
+// The patterns are assembled from fragments rather than written as literals,
+// because this file documents the hint syntax and would otherwise match its own
+// patterns. A scanner that reports itself as a violation is worse than useless:
+// running with `--root .` would produce a failure that no source change can fix.
+// Whitespace between the two words stays as the regex atom `\s+`, so the
+// reconstructed patterns are byte-identical to the literals they replace.
+const HINT = 'v8' + '\\s+' + 'ignore';
+
+const RE_START = new RegExp('(?:\\/\\*|\\/\\/)\\s*' + HINT + '\\s+start\\b');
+const RE_STOP = new RegExp('(?:\\/\\*|\\/\\/)\\s*' + HINT + '\\s+stop\\b');
+const RE_NEXT = new RegExp('(?:\\/\\*|\\/\\/)\\s*' + HINT + '\\s+next(?:\\s+(\\d+))?\\b');
 
 /**
  * Count the number of source lines hidden behind v8 ignore hints.
  *
  * Block regions count every line strictly between `start` and `stop`.
  * `next [N]` marks the following N lines (N defaults to 1). Annotation lines
- * themselves are never counted, because an inline hint such as
- * `x ?? /* v8 ignore next *\/ y` still carries live code on the same line.
+ * themselves are never counted, because an inline `next` hint sits beside live
+ * code on the same line rather than replacing it.
  */
 function countHiddenLines(source) {
   const lines = source.split('\n');

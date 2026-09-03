@@ -11,8 +11,6 @@ import { EDGE_CALLS } from '@code-analyzer/shared';
 // Singleton RepoGroupManager for session-scoped group persistence
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 let _groupManagerPromise: Promise<
   InstanceType<(typeof import('@code-analyzer/intelligence'))['RepoGroupManager']>
 > | null = null;
@@ -236,8 +234,10 @@ export async function crossRepoTrace(
             if (visited.has(targetId)) continue;
             visited.add(targetId);
 
-            const targetNode = gstore.getNode(targetId);
-            if (!targetNode) continue;
+            // Invariant: insertEdge() rejects edges whose endpoints are absent
+            // and deleteNode() cascades to every connected edge, so the target
+            // of an edge returned by getEdgesForNode() always resolves.
+            const targetNode = gstore.getNode(targetId)!;
 
             // Check if this is a cross-repo call
             if (
@@ -401,8 +401,10 @@ export async function crossRepoImpact(
       riskLevel,
       processesAffected: [] as unknown[],
       estimatedEffort: riskLevel === 'high' ? 'high' : riskLevel === 'medium' ? 'medium' : 'low',
+      // Invariant: every entry pushed into `impactedRepos` is constructed with
+      // a `callers` array, so the lookup and its length are always defined.
       directDependents: impactedRepos.reduce(
-        (sum, r) => sum + ((r['callers'] as string[])?.length ?? 0),
+        (sum, r) => sum + (r['callers'] as string[]).length,
         0,
       ),
       indirectDependents: 0,
@@ -410,7 +412,8 @@ export async function crossRepoImpact(
     };
 
     for (const repo of impactedRepos) {
-      const callers = (repo['callers'] as string[]) ?? [];
+      // Same invariant as `directDependents` above.
+      const callers = repo['callers'] as string[];
       for (const caller of callers) {
         impactResult.impactTree.push({
           symbolQname: caller,
@@ -438,7 +441,7 @@ export async function crossRepoImpact(
             impactedRepos,
             totalImpactedRepos: impactedRepos.length,
             totalCallers: impactedRepos.reduce(
-              (sum, r) => sum + ((r['callers'] as string[])?.length ?? 0),
+              (sum, r) => sum + (r['callers'] as string[]).length,
               0,
             ),
             includeConsumers,
@@ -545,8 +548,10 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
           if (updated) {
             // Repos parameter replaces the entire repo list
             if (params.repos !== undefined) {
-              // Remove all existing repos
-              const currentRepos = manager.getGroup(groupId)?.repos ?? [];
+              // Remove all existing repos.
+              // Invariant: this branch is only reached when updateGroup()
+              // returned true, which means the group exists.
+              const currentRepos = manager.getGroup(groupId)!.repos;
               for (const r of currentRepos) {
                 try {
                   manager.removeRepo(groupId, r.fullName);
@@ -606,7 +611,10 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
             }
             result['groupId'] = groupId;
             result['addedRepos'] = added;
-            result['totalRepos'] = manager.getGroup(groupId)?.repos.length ?? 0;
+            // Invariant: `group` is non-null here. Re-read the group instead of
+            // reusing that reference, because getGroup() returns a copy and the
+            // add/remove loop above has since mutated the stored group.
+            result['totalRepos'] = manager.getGroup(groupId)!.repos.length;
           } else {
             result['error'] = 'Group not found';
           }
@@ -632,7 +640,10 @@ export async function manageRepoGroup(args: Record<string, unknown>): Promise<To
             }
             result['groupId'] = groupId;
             result['removedRepos'] = removed;
-            result['totalRepos'] = manager.getGroup(groupId)?.repos.length ?? 0;
+            // Invariant: `group` is non-null here. Re-read the group instead of
+            // reusing that reference, because getGroup() returns a copy and the
+            // add/remove loop above has since mutated the stored group.
+            result['totalRepos'] = manager.getGroup(groupId)!.repos.length;
           } else {
             result['error'] = 'Group not found';
           }
@@ -686,8 +697,11 @@ export async function syncContracts(
   const direction = params.direction ?? 'bidirectional';
   const contracts = params.contracts ?? [];
 
+  // Conflict detection is not implemented: no code path ever records a
+  // conflict. The response therefore reports the reserved `conflicts` and
+  // `conflictDetails` fields as empty, and `status` has no 'partial' arm.
+  // Reintroduce both when a conflict detector lands.
   const synced: string[] = [];
-  const conflicts: string[] = [];
   const manager = await getGroupManager();
   const group = manager.getGroup(groupId);
 
@@ -739,10 +753,10 @@ export async function syncContracts(
             groupId,
             direction,
             synced: synced.length,
-            conflicts: conflicts.length,
+            conflicts: 0,
             syncDetails: synced.map((s) => ({ contract: s, status: 'synced' })),
-            conflictDetails: conflicts.map((c) => ({ contract: c, reason: 'mismatch' })),
-            status: conflicts.length > 0 ? 'partial' : synced.length > 0 ? 'success' : 'no-changes',
+            conflictDetails: [],
+            status: synced.length > 0 ? 'success' : 'no-changes',
           },
           null,
           2,
@@ -947,14 +961,12 @@ export async function crossRepoReviewPR(
 
   const ctx = store as ToolContextImpl;
 
-  // Convert plain repo name to owner/name format if needed (hoisted for catch access)
-  let parsedSourceRepo: string;
-  try {
-    const parsed = parseRepoRef(sourceRepoId);
-    parsedSourceRepo = `${parsed.owner}/${parsed.name}`;
-  } catch {
-    parsedSourceRepo = sourceRepoId;
-  }
+  // Convert plain repo name to owner/name format if needed.
+  // Invariant: parseRepoRef() cannot throw for a string — its only fallible
+  // call, new URL(), is already guarded internally — so the try/catch that
+  // used to fall back to the raw value was unreachable.
+  const parsed = parseRepoRef(sourceRepoId);
+  const parsedSourceRepo = `${parsed.owner}/${parsed.name}`;
 
   try {
     // Build GitDiff objects from raw diffs
@@ -984,8 +996,10 @@ export async function crossRepoReviewPR(
         sha: '',
         repo: {
           id: 0,
-          owner: parsedSourceRepo.split('/')[0] ?? '',
-          name: parsedSourceRepo.split('/')[1] ?? '',
+          // Invariant: parseRepoRef() always returns both parts, so
+          // `parsedSourceRepo` is `owner/name` and split() yields two elements.
+          owner: parsedSourceRepo.split('/')[0]!,
+          name: parsedSourceRepo.split('/')[1]!,
           fullName: parsedSourceRepo,
           defaultBranch: 'main',
           cloneUrl: '',
@@ -1000,8 +1014,10 @@ export async function crossRepoReviewPR(
         sha: '',
         repo: {
           id: 0,
-          owner: parsedSourceRepo.split('/')[0] ?? '',
-          name: parsedSourceRepo.split('/')[1] ?? '',
+          // Invariant: parseRepoRef() always returns both parts, so
+          // `parsedSourceRepo` is `owner/name` and split() yields two elements.
+          owner: parsedSourceRepo.split('/')[0]!,
+          name: parsedSourceRepo.split('/')[1]!,
           fullName: parsedSourceRepo,
           defaultBranch: 'main',
           cloneUrl: '',
@@ -1077,5 +1093,3 @@ export async function crossRepoReviewPR(
     };
   }
 }
-
-/* v8 ignore stop */

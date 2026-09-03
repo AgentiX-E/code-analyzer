@@ -3,13 +3,17 @@
 
 import type { ToolResult } from './registry.js';
 import { ToolContextImpl } from './tool-context.js';
-import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS, EDGE_IMPORTS } from '@code-analyzer/shared';
+import {
+  EDGE_CALLS,
+  EDGE_EXTENDS,
+  EDGE_IMPLEMENTS,
+  EDGE_IMPORTS,
+  type GraphNode,
+} from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // generate_report — Real implementation using graph store data
 // ---------------------------------------------------------------------------
-
-/* v8 ignore start */
 
 interface GenerateReportParams {
   projectId: string;
@@ -53,23 +57,23 @@ export async function generateReport(
   let edgeCount = 0;
   let labelDistribution: Record<string, number> = {};
   let relationshipDistribution: Record<string, number> = {};
-  let projectName = projectId;
 
   if (store && ToolContextImpl.isToolContext(store)) {
     const ctx = store as ToolContextImpl;
     try {
+      // Invariant: getGraphStats() is declared to return a non-optional GraphStats
+      // and populates every field on every return path, so none of its members
+      // need a guard here. `stats.projectId` is by construction the `projectId`
+      // passed in, so the report title needs no separate project-name variable.
       const stats = ctx.getGraphStats(projectId);
-      if (stats) {
-        nodeCount = typeof stats.nodeCount === 'number' ? stats.nodeCount : 0;
-        edgeCount = typeof stats.edgeCount === 'number' ? stats.edgeCount : 0;
-        labelDistribution = Object.fromEntries(
-          (stats.labelDistribution ?? []).map((e) => [e.label, e.count]),
-        );
-        relationshipDistribution = Object.fromEntries(
-          (stats.relationshipDistribution ?? []).map((e) => [e.type, e.count]),
-        );
-        projectName = stats.projectId ?? projectId;
-      }
+      nodeCount = stats.nodeCount;
+      edgeCount = stats.edgeCount;
+      labelDistribution = Object.fromEntries(
+        stats.labelDistribution.map((e) => [e.label, e.count]),
+      );
+      relationshipDistribution = Object.fromEntries(
+        stats.relationshipDistribution.map((e) => [e.type, e.count]),
+      );
     } catch {
       // Use defaults on error
     }
@@ -90,7 +94,7 @@ export async function generateReport(
   const report = {
     id: `report_${Date.now()}`,
     type,
-    title: `${type === 'pr-review' ? 'PR Review' : type === 'codebase-audit' ? 'Codebase Audit' : type === 'impact-analysis' ? 'Impact Analysis' : type === 'architecture-review' ? 'Architecture Review' : 'Standards Compliance'} Report for ${projectName}`,
+    title: `${type === 'pr-review' ? 'PR Review' : type === 'codebase-audit' ? 'Codebase Audit' : type === 'impact-analysis' ? 'Impact Analysis' : type === 'architecture-review' ? 'Architecture Review' : 'Standards Compliance'} Report for ${projectId}`,
     createdAt: new Date().toISOString(),
     scope: { type: 'project', projectId },
     summary: {
@@ -145,7 +149,7 @@ export async function generateReport(
       complianceScore: testCount > 0 ? 85 : 65,
     },
     metadata: {
-      project: projectName,
+      project: projectId,
       generatedBy: 'code-analyzer',
       generatorVersion: '0.1.0',
     },
@@ -201,86 +205,75 @@ export async function exportReport(
     const ctx = store as ToolContextImpl;
     try {
       exportMeta.projectId = reportId.replace(/^report_/, '');
+      // Invariant: same as in generateReport — getGraphStats() always returns a
+      // fully populated GraphStats, so neither the object nor its members are
+      // optional. ctx.store is a required constructor-assigned field.
       const stats = ctx.getGraphStats(exportMeta.projectId);
       const gstore = ctx.store;
 
-      exportMeta.nodeCount = typeof stats.nodeCount === 'number' ? stats.nodeCount : 0;
-      exportMeta.edgeCount = typeof stats.edgeCount === 'number' ? stats.edgeCount : 0;
+      exportMeta.nodeCount = stats.nodeCount;
+      exportMeta.edgeCount = stats.edgeCount;
       exportMeta.type =
-        stats.labelDistribution && stats.labelDistribution.length > 0
-          ? 'codebase-audit'
-          : 'architecture-review';
+        stats.labelDistribution.length > 0 ? 'codebase-audit' : 'architecture-review';
 
-      if (gstore) {
-        const allNodes = gstore.getAllNodes();
-        const nodesByLabel: Record<
-          string,
-          Array<{ name: string; filePath: string | null; complexity: number | null }>
-        > = {};
-        for (const node of allNodes) {
-          const label = node.label;
-          if (!nodesByLabel[label]) nodesByLabel[label] = [];
-          nodesByLabel[label].push({
-            name: node.name,
-            filePath: node.filePath,
-            complexity: node.complexity,
-          });
+      const allNodes = gstore.getAllNodes();
+
+      // The predicate narrows `complexity` to `number`, so the sort comparator
+      // below needs no fallback of its own.
+      const topComplexity = allNodes
+        .filter((n): n is GraphNode & { complexity: number } => n.complexity !== null)
+        .sort((a, b) => b.complexity - a.complexity)
+        .slice(0, 10);
+
+      const generateMarkdown = (): string => {
+        const lines: string[] = [
+          `# Code Analyzer Report`,
+          ``,
+          `**Report ID**: ${reportId}`,
+          `**Generated**: ${new Date().toISOString()}`,
+          `**Project**: ${exportMeta.projectId}`,
+          ``,
+          `## Summary`,
+          ``,
+          `| Metric | Value |`,
+          `|--------|-------|`,
+          `| Total Nodes | ${exportMeta.nodeCount} |`,
+          `| Total Edges | ${exportMeta.edgeCount} |`,
+          `| Edge-to-Node Ratio | ${exportMeta.nodeCount > 0 ? (exportMeta.edgeCount / exportMeta.nodeCount).toFixed(2) : '0'} |`,
+        ];
+
+        if (stats.labelDistribution.length > 0) {
+          lines.push(``, `## Node Distribution`, ``);
+          for (const { label, count } of stats.labelDistribution) {
+            lines.push(`- **${label}**: ${count}`);
+          }
         }
 
-        const topComplexity = allNodes
-          .filter((n) => n.complexity !== null)
-          .sort((a, b) => (b.complexity ?? 0) - (a.complexity ?? 0))
-          .slice(0, 10);
-
-        const generateMarkdown = (): string => {
-          const lines: string[] = [
-            `# Code Analyzer Report`,
-            ``,
-            `**Report ID**: ${reportId}`,
-            `**Generated**: ${new Date().toISOString()}`,
-            `**Project**: ${exportMeta.projectId}`,
-            ``,
-            `## Summary`,
-            ``,
-            `| Metric | Value |`,
-            `|--------|-------|`,
-            `| Total Nodes | ${exportMeta.nodeCount} |`,
-            `| Total Edges | ${exportMeta.edgeCount} |`,
-            `| Edge-to-Node Ratio | ${exportMeta.nodeCount > 0 ? (exportMeta.edgeCount / exportMeta.nodeCount).toFixed(2) : '0'} |`,
-          ];
-
-          if (stats.labelDistribution && stats.labelDistribution.length > 0) {
-            lines.push(``, `## Node Distribution`, ``);
-            for (const { label, count } of stats.labelDistribution) {
-              lines.push(`- **${label}**: ${count}`);
-            }
+        if (topComplexity.length > 0) {
+          lines.push(``, `## Top Complexity Symbols`, ``);
+          for (const sym of topComplexity) {
+            lines.push(
+              `- \`${sym.name}\` (complexity: ${sym.complexity}) — ${sym.filePath ?? 'unknown file'}`,
+            );
           }
+        }
 
-          if (topComplexity.length > 0) {
-            lines.push(``, `## Top Complexity Symbols`, ``);
-            for (const sym of topComplexity) {
-              lines.push(
-                `- \`${sym.name}\` (complexity: ${sym.complexity}) — ${sym.filePath ?? 'unknown file'}`,
-              );
-            }
-          }
+        lines.push(``, `---`, `*Generated by Code Analyzer v0.1.0*`);
+        return lines.join('\n');
+      };
 
-          lines.push(``, `---`, `*Generated by Code Analyzer v0.1.0*`);
-          return lines.join('\n');
-        };
+      const generateHtml = (): string => {
+        const distributionRows = stats.labelDistribution
+          .map(({ label, count }) => `<tr><td>${label}</td><td>${count}</td></tr>`)
+          .join('');
+        const complexityRows = topComplexity
+          .map(
+            (sym) =>
+              `<tr><td><code>${sym.name}</code></td><td>${sym.complexity}</td><td>${sym.filePath ?? 'unknown'}</td></tr>`,
+          )
+          .join('');
 
-        const generateHtml = (): string => {
-          const distributionRows = (stats.labelDistribution ?? [])
-            .map(({ label, count }) => `<tr><td>${label}</td><td>${count}</td></tr>`)
-            .join('');
-          const complexityRows = topComplexity
-            .map(
-              (sym) =>
-                `<tr><td><code>${sym.name}</code></td><td>${sym.complexity}</td><td>${sym.filePath ?? 'unknown'}</td></tr>`,
-            )
-            .join('');
-
-          return `<!DOCTYPE html>
+        return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><title>Code Analyzer Report — ${reportId}</title>
 <style>body{font-family:system-ui,sans-serif;max-width:900px;margin:0 auto;padding:2rem}
@@ -302,33 +295,32 @@ th{background:#f5f5f5}h1,h2{color:#333}</style></head>
 <table><tr><th>Symbol</th><th>Complexity</th><th>File</th></tr>${complexityRows}</table>
 <hr><p><em>Generated by Code Analyzer v0.1.0</em></p>
 </body></html>`;
-        };
+      };
 
-        switch (format) {
-          case 'markdown':
-            reportContent = generateMarkdown();
-            break;
-          case 'html':
-            reportContent = generateHtml();
-            break;
-          case 'json':
-            reportContent = JSON.stringify(
-              {
-                reportId,
-                type: exportMeta.type,
-                generatedAt: new Date().toISOString(),
-                projectId: exportMeta.projectId,
-                summary: { nodeCount: exportMeta.nodeCount, edgeCount: exportMeta.edgeCount },
-                labelDistribution: stats.labelDistribution,
-                topComplexity,
-              },
-              null,
-              2,
-            );
-            break;
-          default:
-            reportContent = generateMarkdown();
-        }
+      switch (format) {
+        case 'markdown':
+          reportContent = generateMarkdown();
+          break;
+        case 'html':
+          reportContent = generateHtml();
+          break;
+        case 'json':
+          reportContent = JSON.stringify(
+            {
+              reportId,
+              type: exportMeta.type,
+              generatedAt: new Date().toISOString(),
+              projectId: exportMeta.projectId,
+              summary: { nodeCount: exportMeta.nodeCount, edgeCount: exportMeta.edgeCount },
+              labelDistribution: stats.labelDistribution,
+              topComplexity,
+            },
+            null,
+            2,
+          );
+          break;
+        default:
+          reportContent = generateMarkdown();
       }
     } catch {
       // Fall back to basic export
@@ -428,59 +420,60 @@ export async function getRecommendations(
       const filterCategory = (rec: { category: string }) => !category || rec.category === category;
 
       // Maintainability: large files
-      if (gstore) {
-        const allNodes = gstore.getAllNodes();
-        const fileNodeCounts = new Map<string, number>();
-        for (const node of allNodes) {
-          const fp = node.filePath ?? (node.properties?.filePath as string | undefined);
-          if (fp && node.label === 'Function') {
-            fileNodeCounts.set(fp, (fileNodeCounts.get(fp) ?? 0) + 1);
-          }
+      const allNodes = gstore.getAllNodes();
+      const fileNodeCounts = new Map<string, number>();
+      for (const node of allNodes) {
+        // Cross-repo module nodes are indexed without a source location, so
+        // `filePath` is null there; NodeProperties declares an optional
+        // `filePath` override that supplies the location when it is known.
+        const fp = node.filePath ?? node.properties.filePath;
+        if (fp && node.label === 'Function') {
+          fileNodeCounts.set(fp, (fileNodeCounts.get(fp) ?? 0) + 1);
         }
-        for (const [fp, count] of fileNodeCounts) {
-          if (count > 50) {
-            recommendations.push({
-              category: 'maintainability',
-              severity: 'medium',
-              message: `File ${fp} contains ${count} functions — consider splitting`,
-              evidence: `Large file with ${count} function definitions`,
-            });
-          }
-        }
-
-        // Architecture: high-degree nodes (potential god objects)
-        for (const node of allNodes) {
-          const edges = gstore.getEdgesForNode(node.id, EDGE_CALLS);
-          if (edges.length > 20 && (node.label === 'Class' || node.label === 'Function')) {
-            recommendations.push({
-              category: 'architecture',
-              severity: 'medium',
-              message: `${node.label} '${node.name}' has ${edges.length} outgoing calls — high coupling`,
-              evidence: `${node.name} calls ${edges.length} other symbols`,
-            });
-          }
-        }
-
-        // Security: no security rules applied
-        if (filterCategory({ category: 'security' })) {
+      }
+      for (const [fp, count] of fileNodeCounts) {
+        if (count > 50) {
           recommendations.push({
-            category: 'security',
-            severity: 'low',
-            message:
-              'Run a full security scan with review_pr or check_standards for comprehensive security analysis',
-            evidence: 'No security rules have been manually applied to this project',
+            category: 'maintainability',
+            severity: 'medium',
+            message: `File ${fp} contains ${count} functions — consider splitting`,
+            evidence: `Large file with ${count} function definitions`,
           });
         }
+      }
 
-        // Performance: check for deeply nested call chains
-        if (filterCategory({ category: 'performance' })) {
+      // Architecture: high-degree nodes (potential god objects)
+      for (const node of allNodes) {
+        const edges = gstore.getEdgesForNode(node.id, EDGE_CALLS);
+        if (edges.length > 20 && (node.label === 'Class' || node.label === 'Function')) {
           recommendations.push({
-            category: 'performance',
-            severity: 'info',
-            message: 'Run impact_analysis on critical paths to identify performance bottlenecks',
-            evidence: 'Performance profiling requires impact analysis execution',
+            category: 'architecture',
+            severity: 'medium',
+            message: `${node.label} '${node.name}' has ${edges.length} outgoing calls — high coupling`,
+            evidence: `${node.name} calls ${edges.length} other symbols`,
           });
         }
+      }
+
+      // Security: no security rules applied
+      if (filterCategory({ category: 'security' })) {
+        recommendations.push({
+          category: 'security',
+          severity: 'low',
+          message:
+            'Run a full security scan with review_pr or check_standards for comprehensive security analysis',
+          evidence: 'No security rules have been manually applied to this project',
+        });
+      }
+
+      // Performance: check for deeply nested call chains
+      if (filterCategory({ category: 'performance' })) {
+        recommendations.push({
+          category: 'performance',
+          severity: 'info',
+          message: 'Run impact_analysis on critical paths to identify performance bottlenecks',
+          evidence: 'Performance profiling requires impact analysis execution',
+        });
       }
     } catch {
       // Graceful degradation
@@ -534,5 +527,3 @@ export async function getRecommendations(
     ],
   };
 }
-
-/* v8 ignore stop */

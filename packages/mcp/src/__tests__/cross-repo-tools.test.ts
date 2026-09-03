@@ -1287,3 +1287,710 @@ describe('cross_repo_review_pr', () => {
     expect(data.mergeRecommendation).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Paths that were invisible while this file carried a whole-file v8 ignore hint
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a GraphNode with defaults that carry a real source location, so a test
+ * only has to spell out the fields it actually cares about.
+ */
+function makeNode(projectId: string, overrides: Partial<GraphNode>): GraphNode {
+  return {
+    id: 0,
+    projectId,
+    label: 'Function',
+    name: 'node',
+    qualifiedName: `${projectId}.node`,
+    filePath: `/${projectId}/src/node.ts`,
+    startLine: 1,
+    endLine: 10,
+    language: 'typescript',
+    properties: {},
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: true,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function insertCall(
+  store: InMemoryGraphStore,
+  sourceId: number,
+  targetId: number,
+  projectId: string,
+): void {
+  store.insertEdge({
+    id: 0,
+    projectId,
+    sourceId,
+    targetId,
+    type: 'CALLS',
+    properties: {},
+    weight: 1.0,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+/** Look a node up by the qualified name it was given. */
+function nodeByQName(store: InMemoryGraphStore, qname: string): GraphNode {
+  const node = store.getAllNodes().find((n) => n.qualifiedName === qname);
+  if (!node) throw new Error(`fixture node ${qname} missing`);
+  return node;
+}
+
+describe('crossRepoImpact - cross-repo caller paths', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  /**
+   * Build a graph where every listed caller has a CALLS edge into a single
+   * target node in `target-repo`. Callers are labelled Function, because
+   * crossRepoImpact only inspects Function and Method nodes.
+   */
+  function buildFanInGraph(callers: Array<{ repo: string; name: string }>): InMemoryGraphStore {
+    const store = new InMemoryGraphStore();
+    const nodes: GraphNode[] = [
+      makeNode('target-repo', { name: 'api', qualifiedName: 'target.api' }),
+    ];
+    for (const caller of callers) {
+      nodes.push(
+        makeNode(caller.repo, {
+          name: caller.name,
+          qualifiedName: `${caller.repo}.${caller.name}`,
+        }),
+      );
+    }
+    store.insertNodes(nodes);
+
+    const target = nodeByQName(store, 'target.api');
+    for (const node of store.getAllNodes()) {
+      if (node.id === target.id) continue;
+      insertCall(store, node.id, target.id, node.projectId);
+    }
+    return store;
+  }
+
+  it('reports high risk when more than three repos are impacted', async () => {
+    const callers = [
+      { repo: 'caller-a', name: 'first' },
+      { repo: 'caller-a', name: 'second' },
+      { repo: 'caller-b', name: 'third' },
+      { repo: 'caller-c', name: 'fourth' },
+      { repo: 'caller-d', name: 'fifth' },
+    ];
+    const ctx = new ToolContextImpl(buildFanInGraph(callers));
+
+    const result = await registry.execute(
+      'cross_repo_impact',
+      { symbol: 'target.api', groupId: 'fan-in-high' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.riskLevel).toBe('high');
+    expect(data.totalImpactedRepos).toBe(4);
+    expect(data.totalCallers).toBe(5);
+
+    expect(data.enriched.summary.estimatedEffort).toBe('high');
+
+    // Two callers live in caller-a, so that entry must have been merged into
+    // the existing record rather than pushed as a second one.
+    const repos = data.impactedRepos as Array<{ repo: string; callers: string[] }>;
+    const repoA = repos.find((r) => r.repo === 'caller-a');
+    expect(repoA).toBeDefined();
+    expect(repoA!.callers.sort()).toEqual(['first', 'second']);
+  });
+
+  it('reports medium risk when one to three repos are impacted', async () => {
+    const ctx = new ToolContextImpl(buildFanInGraph([{ repo: 'caller-b', name: 'third' }]));
+
+    const result = await registry.execute(
+      'cross_repo_impact',
+      { symbol: 'target.api', groupId: 'fan-in-medium' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.riskLevel).toBe('medium');
+    expect(data.totalImpactedRepos).toBe(1);
+    expect(data.totalCallers).toBe(1);
+    expect(data.enriched.summary.estimatedEffort).toBe('medium');
+  });
+
+  it('reports low risk when the symbol is absent from the graph', async () => {
+    const ctx = new ToolContextImpl(buildFanInGraph([{ repo: 'caller-b', name: 'third' }]));
+
+    const result = await registry.execute(
+      'cross_repo_impact',
+      { symbol: 'target.doesNotExist', groupId: 'fan-in-missing' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.riskLevel).toBe('low');
+    expect(data.impactedRepos).toEqual([]);
+    expect(data.totalImpactedRepos).toBe(0);
+  });
+
+  it('reports low risk when every caller lives in the target repo', async () => {
+    const ctx = new ToolContextImpl(buildFanInGraph([{ repo: 'target-repo', name: 'local' }]));
+
+    const result = await registry.execute(
+      'cross_repo_impact',
+      { symbol: 'target.api', groupId: 'fan-in-low' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.riskLevel).toBe('low');
+    expect(data.totalImpactedRepos).toBe(0);
+    expect(data.enriched.summary.estimatedEffort).toBe('low');
+  });
+});
+
+describe('crossRepoSearch - group filter', () => {
+  it('skips hits whose repo is not a member of the group', async () => {
+    const registry = createToolRegistry();
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'search-filter-group',
+      name: 'Search Filter',
+      repos: ['repo-gamma'],
+    });
+
+    const ctx = createTestContext();
+    const result = await registry.execute(
+      'cross_repo_search',
+      { query: 'Fn', groupId: 'search-filter-group' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    // alphaFn and betaFn exist in the fixture and are excluded by the filter;
+    // gammaFn is a member and survives.
+    expect(data.items.some((i: any) => i.repo === 'repo-alpha')).toBe(false);
+    expect(data.items.some((i: any) => i.repo === 'repo-beta')).toBe(false);
+    for (const item of data.items) {
+      expect(item.repo).toBe('repo-gamma');
+    }
+  });
+});
+
+describe('nodes without a source location', () => {
+  // GraphNode.filePath is `string | null` and GraphNode.startLine is
+  // `number | null`, so every tool must fall back to '' / 0 when a node
+  // carries no location.
+  function buildUnlocatedGraph(): InMemoryGraphStore {
+    const store = new InMemoryGraphStore();
+    store.insertNodes([
+      makeNode('loc-repo', {
+        name: 'sourceFn',
+        qualifiedName: 'loc.sourceFn',
+        filePath: null,
+        startLine: null,
+      }),
+      makeNode('loc-repo', {
+        name: 'sinkFn',
+        qualifiedName: 'loc.sinkFn',
+        filePath: null,
+        startLine: null,
+      }),
+    ]);
+    const source = nodeByQName(store, 'loc.sourceFn');
+    const sink = nodeByQName(store, 'loc.sinkFn');
+    insertCall(store, source.id, sink.id, 'loc-repo');
+    return store;
+  }
+
+  it('crossRepoSearch reports an empty file path and line 0', async () => {
+    const registry = createToolRegistry();
+    const ctx = new ToolContextImpl(buildUnlocatedGraph());
+
+    const result = await registry.execute('cross_repo_search', { query: 'sourceFn' }, ctx);
+    const data = JSON.parse(result.content[0].text);
+    const hit = data.items.find((i: any) => i.symbol === 'sourceFn');
+
+    expect(hit).toBeDefined();
+    expect(hit.filePath).toBe('');
+    expect(hit.startLine).toBe(0);
+  });
+
+  it('crossRepoTrace reports an empty file path for the source and the target', async () => {
+    const registry = createToolRegistry();
+    const ctx = new ToolContextImpl(buildUnlocatedGraph());
+
+    const result = await registry.execute(
+      'cross_repo_trace',
+      { sourceSymbol: 'loc.sourceFn', groupId: 'loc-group' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.path).toHaveLength(2);
+    for (const step of data.path) {
+      expect(step.filePath).toBe('');
+    }
+  });
+});
+
+describe('crossRepoTrace - graph shapes', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  it('skips a target that an earlier traversal already visited', async () => {
+    // A calls B and B calls A, so the second hop revisits the source node.
+    const store = new InMemoryGraphStore();
+    store.insertNodes([
+      makeNode('cyc-a', { name: 'a', qualifiedName: 'cyc.a' }),
+      makeNode('cyc-b', { name: 'b', qualifiedName: 'cyc.b' }),
+    ]);
+    const a = nodeByQName(store, 'cyc.a');
+    const b = nodeByQName(store, 'cyc.b');
+    insertCall(store, a.id, b.id, 'cyc-a');
+    insertCall(store, b.id, a.id, 'cyc-b');
+
+    const ctx = new ToolContextImpl(store);
+    const result = await registry.execute(
+      'cross_repo_trace',
+      { sourceSymbol: 'cyc.a', groupId: 'cycle-group' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.path).toHaveLength(2);
+    expect(data.crossRepoConnections).toBe(1);
+  });
+
+  it('does not record a same-repo hop as a cross-repo connection', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNodes([
+      makeNode('same-repo', { name: 'p1', qualifiedName: 'same.p1' }),
+      makeNode('same-repo', { name: 'p2', qualifiedName: 'same.p2' }),
+    ]);
+    const p1 = nodeByQName(store, 'same.p1');
+    const p2 = nodeByQName(store, 'same.p2');
+    insertCall(store, p1.id, p2.id, 'same-repo');
+
+    const ctx = new ToolContextImpl(store);
+    const result = await registry.execute(
+      'cross_repo_trace',
+      { sourceSymbol: 'same.p1', groupId: 'same-group' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.path).toHaveLength(2);
+    expect(data.crossRepoEdges).toEqual([]);
+    expect(data.reposVisited).toEqual(['same-repo']);
+  });
+});
+
+describe('manageRepoGroup - optional arguments', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  it('defaults the group name to the generated id on create', async () => {
+    const result = await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'unnamed-group',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.name).toBe('unnamed-group');
+
+    const fetched = await registry.execute('manage_repo_group', {
+      action: 'get',
+      groupId: 'unnamed-group',
+    });
+    expect(JSON.parse(fetched.content[0].text).name).toBe('unnamed-group');
+  });
+
+  it('defaults the group name to the timestamp id when no id is given', async () => {
+    const result = await registry.execute('manage_repo_group', { action: 'create' });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.groupId).toMatch(/^group_\d+$/);
+    expect(data.name).toBe(data.groupId);
+  });
+
+  it('reports not found when get is called without a groupId', async () => {
+    const result = await registry.execute('manage_repo_group', { action: 'get' });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.found).toBe(false);
+    expect(data.groupId).toBeUndefined();
+  });
+
+  it('keeps the existing name when update carries only a description', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'desc-only-group',
+      name: 'Original Name',
+    });
+
+    const result = await registry.execute('manage_repo_group', {
+      action: 'update',
+      groupId: 'desc-only-group',
+      description: 'a new description',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.updated).toBe(true);
+
+    // Updating without `repos` must leave the repo list untouched.
+    const fetched = await registry.execute('manage_repo_group', {
+      action: 'get',
+      groupId: 'desc-only-group',
+    });
+    const fetchedData = JSON.parse(fetched.content[0].text);
+    expect(fetchedData.name).toBe('Original Name');
+    expect(fetchedData.description).toBe('a new description');
+  });
+
+  it('reports Group not found when adding repos to a missing group', async () => {
+    const result = await registry.execute('manage_repo_group', {
+      action: 'add_repo',
+      groupId: 'missing-add-group',
+      repos: ['acme/widget'],
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toBe('Group not found');
+  });
+
+  it('reports Group not found when removing repos from a missing group', async () => {
+    const result = await registry.execute('manage_repo_group', {
+      action: 'remove_repo',
+      groupId: 'missing-remove-group',
+      repos: ['acme/widget'],
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.error).toBe('Group not found');
+  });
+});
+
+describe('parseRepoRef - reference formats', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  it('parses owner/name references', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'ref-slash-group',
+      name: 'Slash',
+      repos: ['acme/widget'],
+    });
+
+    const result = await registry.execute('manage_repo_group', {
+      action: 'get',
+      groupId: 'ref-slash-group',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.repos).toEqual(['acme/widget']);
+  });
+
+  it('parses full https URLs', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'ref-url-group',
+      name: 'Url',
+      repos: ['https://github.com/acme/widget'],
+    });
+
+    const result = await registry.execute('manage_repo_group', {
+      action: 'get',
+      groupId: 'ref-url-group',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.repos).toEqual(['acme/widget']);
+  });
+
+  it('parses host-only URLs by adding a scheme first', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'ref-host-group',
+      name: 'Host',
+      repos: ['github.com/acme/widget'],
+    });
+
+    const result = await registry.execute('manage_repo_group', {
+      action: 'get',
+      groupId: 'ref-host-group',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.repos).toEqual(['acme/widget']);
+  });
+
+  it('strips the default owner prefix from plain repo names', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'ref-plain-group',
+      name: 'Plain',
+      repos: ['widget', 'acme/widget'],
+    });
+
+    const result = await registry.execute('manage_repo_group', {
+      action: 'get',
+      groupId: 'ref-plain-group',
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.repos.sort()).toEqual(['acme/widget', 'widget']);
+  });
+});
+
+describe('syncContracts - route metadata', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  function buildRouteStore(
+    routes: Array<{ projectId: string; name: string; properties: Record<string, unknown> }>,
+  ): InMemoryGraphStore {
+    const store = new InMemoryGraphStore();
+    store.insertNodes(
+      routes.map((r) =>
+        makeNode(r.projectId, {
+          label: 'Route',
+          name: r.name,
+          qualifiedName: `${r.projectId}.${r.name}`,
+          properties: r.properties,
+        }),
+      ),
+    );
+    return store;
+  }
+
+  it('falls back to unknown/GET when a route carries no metadata', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'route-bare-group',
+      name: 'Bare routes',
+      repos: ['route-bare'],
+    });
+    const ctx = new ToolContextImpl(
+      buildRouteStore([{ projectId: 'route-bare', name: 'bare', properties: {} }]),
+    );
+
+    const result = await registry.execute('sync_contracts', { groupId: 'route-bare-group' }, ctx);
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.status).toBe('no-changes');
+    expect(data.synced).toBe(0);
+    expect(data.conflicts).toBe(0);
+  });
+
+  it('records a contract shared by two repos', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'route-shared-group',
+      name: 'Shared routes',
+      repos: ['route-x', 'route-y'],
+    });
+    const ctx = new ToolContextImpl(
+      buildRouteStore([
+        {
+          projectId: 'route-x',
+          name: 'itemsX',
+          properties: { routePath: '/api/items', routeMethod: 'GET' },
+        },
+        {
+          projectId: 'route-y',
+          name: 'itemsY',
+          properties: { routePath: '/api/items', routeMethod: 'GET' },
+        },
+      ]),
+    );
+
+    const result = await registry.execute('sync_contracts', { groupId: 'route-shared-group' }, ctx);
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.status).toBe('success');
+    expect(data.synced).toBe(2);
+    expect(data.syncDetails[0].contract).toContain('/api/items');
+  });
+
+  it('does not match a route that shares the path but not the method', async () => {
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'route-method-group',
+      name: 'Method mismatch',
+      repos: ['route-p', 'route-q'],
+    });
+    const ctx = new ToolContextImpl(
+      buildRouteStore([
+        {
+          projectId: 'route-p',
+          name: 'p',
+          properties: { routePath: '/api/x', routeMethod: 'GET' },
+        },
+        {
+          projectId: 'route-q',
+          name: 'q',
+          properties: { routePath: '/api/x', routeMethod: 'POST' },
+        },
+      ]),
+    );
+
+    const result = await registry.execute('sync_contracts', { groupId: 'route-method-group' }, ctx);
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.status).toBe('no-changes');
+    expect(data.synced).toBe(0);
+  });
+});
+
+describe('discoverRelatedRepos - symbol overlap', () => {
+  let registry: ToolRegistry;
+
+  beforeEach(() => {
+    registry = createToolRegistry();
+  });
+
+  /** Build a graph where `main` and `peer` share the first `shared` symbols. */
+  function buildOverlapGraph(shared: number): InMemoryGraphStore {
+    const nodes: GraphNode[] = [];
+    for (let i = 0; i < shared; i += 1) {
+      nodes.push(
+        makeNode('overlap-main', { name: `sym${i}`, qualifiedName: `overlap-main.${i}` }),
+        makeNode('overlap-peer', { name: `sym${i}`, qualifiedName: `overlap-peer.${i}` }),
+      );
+    }
+    const store = new InMemoryGraphStore();
+    store.insertNodes(nodes);
+    return store;
+  }
+
+  it('returns an empty result when no store is supplied', async () => {
+    const result = await registry.execute('discover_related_repos', {
+      projectId: 'overlap-main',
+    });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.projectId).toBe('overlap-main');
+    expect(data.relatedRepos).toEqual([]);
+    expect(data.total).toBe(0);
+  });
+
+  it('grades an overlap of more than ten symbols as strong', async () => {
+    const ctx = new ToolContextImpl(buildOverlapGraph(11));
+    const result = await registry.execute(
+      'discover_related_repos',
+      { projectId: 'overlap-main' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+    const peer = data.relatedRepos.find((r: any) => r.repo === 'overlap-peer');
+
+    expect(peer).toBeDefined();
+    expect(peer.relationType).toBe('strong');
+    expect(peer.sharedSymbols).toHaveLength(5);
+  });
+
+  it('grades an overlap of four to ten symbols as moderate', async () => {
+    const ctx = new ToolContextImpl(buildOverlapGraph(4));
+    const result = await registry.execute(
+      'discover_related_repos',
+      { projectId: 'overlap-main' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+    const peer = data.relatedRepos.find((r: any) => r.repo === 'overlap-peer');
+
+    expect(peer).toBeDefined();
+    expect(peer.relationType).toBe('moderate');
+  });
+
+  it('ignores synthetic cross-repo projects and unnamed nodes', async () => {
+    const store = new InMemoryGraphStore();
+    store.insertNodes([
+      makeNode('skip-main', { name: 'shared', qualifiedName: 'skip-main.a' }),
+      makeNode('skip-peer', { name: 'shared', qualifiedName: 'skip-peer.a' }),
+      // Synthetic projects are excluded from the candidate set.
+      makeNode('cross-repo:bridge', { name: 'shared', qualifiedName: 'bridge.a' }),
+      // An unnamed node must not be counted as a shared symbol.
+      makeNode('skip-peer', { name: '', qualifiedName: 'skip-peer.b' }),
+    ]);
+
+    const ctx = new ToolContextImpl(store);
+    const result = await registry.execute(
+      'discover_related_repos',
+      { projectId: 'skip-main' },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.relatedRepos.map((r: any) => r.repo)).toEqual(['skip-peer']);
+    expect(data.relatedRepos[0].sharedSymbols).toEqual(['shared']);
+  });
+});
+
+describe('cross_repo_review_pr - diff defaults', () => {
+  let registry: ToolRegistry;
+  let ctx: ToolContextImpl;
+
+  beforeEach(async () => {
+    registry = createToolRegistry();
+    ctx = createTestContext();
+    await registry.execute('manage_repo_group', {
+      action: 'create',
+      groupId: 'diff-defaults-group',
+      name: 'Diff defaults',
+      repos: ['repo-alpha', 'repo-beta'],
+    });
+  });
+
+  it('defaults the file change type and the range list', async () => {
+    const result = await registry.execute(
+      'cross_repo_review_pr',
+      {
+        groupId: 'diff-defaults-group',
+        sourceRepoId: 'repo-alpha',
+        diffs: [{ filePath: 'src/api/untyped.ts' }],
+      },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.error).toBeUndefined();
+    expect(data.sourceRepo).toBe('repo-alpha');
+    expect(data.mergeRecommendation).toBeDefined();
+  });
+
+  it('defaults the range change type when a range omits it', async () => {
+    const result = await registry.execute(
+      'cross_repo_review_pr',
+      {
+        groupId: 'diff-defaults-group',
+        sourceRepoId: 'repo-alpha',
+        diffs: [
+          {
+            filePath: 'src/api/partial.ts',
+            changeType: 'modified',
+            ranges: [{ oldStart: 1, oldEnd: 1, newStart: 1, newEnd: 3 }],
+          },
+        ],
+      },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.error).toBeUndefined();
+    expect(data.sourceRepo).toBe('repo-alpha');
+    expect(data.mergeRecommendation).toBeDefined();
+  });
+});
