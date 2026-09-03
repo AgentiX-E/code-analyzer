@@ -1,7 +1,6 @@
 // @code-analyzer/mcp — PR Review Tools
 
 import { existsSync, readFileSync } from 'node:fs';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { StandardsEngine } from '@code-analyzer/intelligence';
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 import type { ToolResult } from './registry.js';
@@ -12,16 +11,8 @@ import { EDGE_CALLS, EDGE_EXTENDS, EDGE_IMPLEMENTS } from '@code-analyzer/shared
 // Helpers
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
-  return null;
-}
-
-function getStore(storeOrContext: unknown): InMemoryGraphStore | null {
-  if (storeOrContext instanceof InMemoryGraphStore) return storeOrContext;
-  if (ToolContextImpl.isToolContext(storeOrContext)) return storeOrContext.store;
   return null;
 }
 
@@ -72,6 +63,24 @@ export async function reviewPR(
       const ctx = getContext(store);
       if (ctx) {
         const diffs = diff ? parsePrDiff(projectId, diff) : [];
+
+        // `String.prototype.split` always yields at least one element, so the
+        // owner segment is defined. The name segment is only present when the
+        // project id uses the "owner/name" form.
+        const [owner, name] = projectId.split('/');
+        const repo = {
+          id: 0,
+          owner: owner!,
+          name: name ?? projectId,
+          fullName: projectId,
+          defaultBranch: 'main',
+          cloneUrl: '',
+          language: 'typescript',
+          topics: [],
+          isPrivate: false,
+          description: '',
+        };
+
         const pr = {
           number: prNumber ?? 0,
           title: `PR Review for ${projectId}`,
@@ -80,34 +89,12 @@ export async function reviewPR(
           base: {
             ref: baseRef,
             sha: '',
-            repo: {
-              id: 0,
-              owner: projectId.split('/')[0] ?? '',
-              name: projectId.split('/')[1] ?? projectId,
-              fullName: projectId,
-              defaultBranch: 'main',
-              cloneUrl: '',
-              language: 'typescript',
-              topics: [],
-              isPrivate: false,
-              description: '',
-            },
+            repo,
           },
           head: {
             ref: headRef,
             sha: '',
-            repo: {
-              id: 0,
-              owner: projectId.split('/')[0] ?? '',
-              name: projectId.split('/')[1] ?? projectId,
-              fullName: projectId,
-              defaultBranch: 'main',
-              cloneUrl: '',
-              language: 'typescript',
-              topics: [],
-              isPrivate: false,
-              description: '',
-            },
+            repo,
           },
           user: { login: 'unknown' },
           labels: [],
@@ -167,7 +154,7 @@ export async function reviewPR(
 
   try {
     const ctx = getContext(store);
-    const graphStore = getStore(store);
+    const graphStore = ToolContextImpl.getStore(store);
 
     let findings: unknown[] = [];
     let totalFindings = 0;
@@ -516,8 +503,11 @@ export async function checkStandards(
                   passed: false,
                   source: 'StandardsEngine',
                 });
-                const sev = v.severity as keyof typeof summary;
-                if (sev in summary) (summary as Record<string, number>)[sev]!++;
+                // Invariant: Severity is 'critical' | 'high' | 'medium' | 'low'
+                // | 'info' and `summary` holds a counter for each of those (plus
+                // 'passed'), so every severity the engine can emit maps onto an
+                // existing counter — no runtime guard is needed.
+                summary[v.severity]++;
               }
 
               if (complianceReport.passedChecks > 0 && complianceReport.failedChecks === 0) {
@@ -579,9 +569,13 @@ export async function checkStandards(
         }
       } else {
         // All files: project-level analysis
+        // Invariant: GraphStats declares `labelDistribution` as a required
+        // array and getGraphStats() always populates it, so no fallback is
+        // needed here. For an array, `Object.keys(...).length` and `.length`
+        // are the same value.
         const stats = ctx.getGraphStats(projectId);
 
-        const highComplexityTotal = (stats.labelDistribution ?? [])
+        const highComplexityTotal = stats.labelDistribution
           .filter((d) => d.label === 'Function' || d.label === 'Method')
           .reduce((sum, d) => sum + d.count, 0);
 
@@ -589,7 +583,7 @@ export async function checkStandards(
           results.push({
             standard: 'project-size',
             title: 'Large project detected',
-            description: `Project has ${stats.nodeCount} nodes across ${Object.keys(stats.labelDistribution ?? {}).length} label types.`,
+            description: `Project has ${stats.nodeCount} nodes across ${stats.labelDistribution.length} label types.`,
             severity: 'info',
             passed: true,
             source: 'GraphHeuristics',
@@ -760,4 +754,3 @@ function generateRecommendations(critical: number, high: number, medium: number)
 
   return recs;
 }
-/* v8 ignore stop */
