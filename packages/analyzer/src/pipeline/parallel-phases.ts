@@ -37,8 +37,6 @@ import { GraphBuilder } from '../graph/graph-builder.js';
 // Provider Loader (shared with sequential phases)
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
   typescript: async () => {
     const { TypeScriptProvider } = await import('../languages/typescript.js');
@@ -116,7 +114,7 @@ const providerLoaders: Record<string, () => Promise<LanguageProvider>> = {
 
 const providerCache = new Map<string, LanguageProvider>();
 
-async function getOrLoadProvider(language: string): Promise<LanguageProvider | null> {
+export async function getOrLoadProvider(language: string): Promise<LanguageProvider | null> {
   const cached = providerCache.get(language);
   if (cached) return cached;
 
@@ -132,7 +130,7 @@ async function getOrLoadProvider(language: string): Promise<LanguageProvider | n
 // Shared capture → symbol/reference conversion (mirrors sequential phases)
 // ---------------------------------------------------------------------------
 
-function captureTagToNodeLabel(tag: string): NodeLabel {
+export function captureTagToNodeLabel(tag: string): NodeLabel {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_DEF:
     case CAPTURE_TAGS.FUNCTION_CALL:
@@ -171,7 +169,7 @@ function captureTagToNodeLabel(tag: string): NodeLabel {
   }
 }
 
-function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
+export function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] {
   switch (tag) {
     case CAPTURE_TAGS.FUNCTION_CALL:
     case CAPTURE_TAGS.METHOD_CALL:
@@ -190,7 +188,7 @@ function captureTagToReferenceKind(tag: string): ReferenceSite['referenceKind'] 
   }
 }
 
-function groupCaptures(
+export function groupCaptures(
   captures: UnifiedCapture[],
   filePath: string,
 ): {
@@ -289,6 +287,28 @@ function groupCaptures(
 }
 
 // ---------------------------------------------------------------------------
+// Shared phase-failure result
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a failed PhaseExecutionResult for a thrown error. Coerces non-Error
+ * throws (e.g. a thrown string) into a message and normalizes the logger input.
+ */
+export function toPhaseFailure(
+  err: unknown,
+  phaseId: PipelinePhaseId,
+  logger: PhaseLogger,
+  rootPath?: string,
+): PhaseExecutionResult {
+  const message = err instanceof Error ? err.message : String(err);
+  logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), {
+    phaseId,
+    filePath: rootPath,
+  });
+  return { phaseId, status: 'failed', error: message };
+}
+
+// ---------------------------------------------------------------------------
 // ParallelScanPhase
 // ---------------------------------------------------------------------------
 
@@ -379,13 +399,7 @@ export class ParallelScanPhase implements ExecutablePhase {
         output: { filesDiscovered: discoveredFiles.length },
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }
@@ -453,13 +467,7 @@ export class ParallelParsePhase implements ExecutablePhase {
         output: { filesParsed: successCount, filesFailed: failCount },
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 
@@ -601,15 +609,7 @@ export class ParallelBuildPhase implements ExecutablePhase {
         },
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }
-
-/* v8 ignore stop */
