@@ -56,8 +56,6 @@ export interface PhaseExecutionResult {
 // Constants
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 export const SKIP_DIRECTORIES = new Set([
   'node_modules',
   '.git',
