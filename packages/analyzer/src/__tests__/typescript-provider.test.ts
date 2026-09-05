@@ -284,8 +284,17 @@ describe('TypeScriptProvider', () => {
       const source = "import { foo as bar, baz } from './module';";
       const imports = provider.extractImports(source);
       expect(imports).toHaveLength(1);
-      // tree-sitter extracts the identifier (foo is the import_specifier identifier)
+      // The local binding (alias `bar`) is recorded, matching the regex fallback.
+      expect(imports[0]!.names).toContain('bar');
       expect(imports[0]!.names).toContain('baz');
+      expect(imports[0]!.names).not.toContain('foo');
+    });
+
+    it('skips a malformed aliased import with an empty alias', () => {
+      // `foo as` leaves an empty trailing identifier; the empty local binding is
+      // skipped rather than recorded.
+      const imports = provider.extractImports('import { foo as } from "x";');
+      expect(imports).toHaveLength(0);
     });
 
     it('should parse type imports', () => {
@@ -379,6 +388,241 @@ describe('TypeScriptProvider', () => {
         (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'compute',
       );
       expect(funcs).toHaveLength(1);
+    });
+  });
+
+  describe('destructuring (no identifier name)', () => {
+    it('skips object-destructured var', () => {
+      const captures = provider.parse('var { a, b } = obj;\n', 'test.ts');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars).toHaveLength(0);
+    });
+
+    it('skips array-destructured var', () => {
+      const captures = provider.parse('var [a, b] = arr;\n', 'test.ts');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars).toHaveLength(0);
+    });
+
+    it('skips object-destructured const', () => {
+      const captures = provider.parse('const { a } = obj;\n', 'test.ts');
+      const defs = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF || c.tag === CAPTURE_TAGS.VARIABLE_DEF,
+      );
+      expect(defs).toHaveLength(0);
+    });
+  });
+
+  describe('arrow function parent contexts', () => {
+    it('does not name callbacks (parent is arguments)', () => {
+      const captures = provider.parse('const r = [1].map((x) => x * 2);', 'test.ts');
+      const arrows = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+      );
+      expect(arrows).toHaveLength(0);
+    });
+
+    it('captures the outer const of a mapped call', () => {
+      const captures = provider.parse('const r = [1].map((x) => x * 2);', 'test.ts');
+      const consts = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF);
+      expect(consts.some((c) => c.name === 'r')).toBe(true);
+    });
+
+    it('skips destructured arrow names (no identifier)', () => {
+      const captures = provider.parse('const { a } = () => {};', 'test.ts');
+      const arrows = captures.filter(
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+      );
+      expect(arrows).toHaveLength(0);
+    });
+  });
+
+  describe('dynamic import variants', () => {
+    it('skips non-literal dynamic imports', () => {
+      const imports = provider.extractImports('import(specifier);');
+      expect(imports).toHaveLength(0);
+    });
+
+    it('skips empty named imports (side-effect only)', () => {
+      const imports = provider.extractImports('import {} from "x";');
+      expect(imports).toHaveLength(0);
+    });
+
+    it('ignores plain call expressions (no dynamic import)', () => {
+      const imports = provider.extractImports('const r = compute(1, 2);');
+      expect(imports).toHaveLength(0);
+    });
+  });
+
+  describe('export aliases', () => {
+    it('matches the local name of an aliased export', () => {
+      expect(provider.isExported('export { foo as bar };', 'foo')).toBe(true);
+    });
+
+    it('matches the alias of an aliased export', () => {
+      expect(provider.isExported('export { foo as bar };', 'bar')).toBe(true);
+    });
+
+    it('does not match an unrelated symbol in an aliased export', () => {
+      expect(provider.isExported('export { foo as bar };', 'baz')).toBe(false);
+    });
+  });
+
+  describe('decorators', () => {
+    it('captures a class decorator', () => {
+      const captures = provider.parse('@Component({ selector: "app" })\nclass App {}', 'test.ts');
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('container name extraction', () => {
+    it('resolves an enum container via its identifier name', () => {
+      const source = 'enum E { /** doc */ A = 1 }';
+      const captures = provider.parse(source, 'test.ts');
+      const docs = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs).toHaveLength(1);
+      expect(docs[0]!.containerName).toBe('E');
+    });
+
+    it('leaves the container name undefined for a nameless object type', () => {
+      const source = 'type X = { /** doc */ m: () => void }';
+      const captures = provider.parse(source, 'test.ts');
+      const docs = captures.filter((c) => c.tag === CAPTURE_TAGS.DOCSTRING);
+      expect(docs).toHaveLength(1);
+      expect(docs[0]!.containerName).toBeUndefined();
+    });
+  });
+
+  describe('call sites', () => {
+    it('captures new expressions', () => {
+      const captures = provider.parse('new Foo();', 'test.ts');
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.NEW_EXPRESSION)).toBe(true);
+    });
+
+    it('captures method calls as function calls with method callType', () => {
+      const captures = provider.parse('obj.method();', 'test.ts');
+      const call = captures.find((c) => c.name === 'method');
+      expect(call).toBeDefined();
+      // tree-sitter-typescript emits `call_expression` (not `method_invocation`),
+      // so the tag is FUNCTION_CALL while the callType metadata marks it a method.
+      expect(call!.tag).toBe(CAPTURE_TAGS.FUNCTION_CALL);
+      expect(call!.properties?.callType).toBe('method');
+    });
+  });
+
+  describe('fallbackParse (regex fallback)', () => {
+    it('falls back to regex on a syntax error', () => {
+      const captures = provider.parse('function broken(', 'test.ts');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((f) => f.name === 'broken')).toBe(true);
+    });
+
+    it('detects functions and classes', () => {
+      const captures = provider.fallbackParse('function alpha() {}\nclass Beta {}', 'f.ts');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(funcs.some((f) => f.name === 'alpha')).toBe(true);
+      expect(classes.some((c) => c.name === 'Beta')).toBe(true);
+    });
+
+    it('detects interfaces, type aliases, and enums', () => {
+      const src = 'interface I {}\ntype T = string;\nenum E { A }';
+      const captures = provider.fallbackParse(src, 't.ts');
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF && c.name === 'I')).toBe(
+        true,
+      );
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.TYPE_DEF && c.name === 'T')).toBe(true);
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.ENUM_DEF && c.name === 'E')).toBe(true);
+    });
+
+    it('detects arrow functions and variables', () => {
+      const src = 'const f = () => {};\nconst c = 1;\nlet l = 2;\nvar v = 3;';
+      const captures = provider.fallbackParse(src, 'v.ts');
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'f')).toBe(
+        true,
+      );
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.name === 'c')).toBe(
+        true,
+      );
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'l')).toBe(
+        true,
+      );
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'v')).toBe(
+        true,
+      );
+    });
+
+    it('detects decorators and JSDoc', () => {
+      const src = '@Component()\n/** doc */\nfunction g() {}';
+      const captures = provider.fallbackParse(src, 'd.ts');
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.DECORATOR)).toBe(true);
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.DOCSTRING)).toBe(true);
+    });
+
+    it('extracts imports through the fallback parser', () => {
+      const src = 'import { a } from "m";\nfunction h() {}';
+      const captures = provider.fallbackParse(src, 'i.ts');
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.IMPORT && c.name === 'm')).toBe(true);
+    });
+
+    it('sorts same-line captures by byte offset', () => {
+      const captures = provider.fallbackParse('const a = 1; let b = 2;', 's.ts');
+      expect(captures).toHaveLength(2);
+      expect(captures[0]!.startByte).toBeLessThan(captures[1]!.startByte);
+    });
+  });
+
+  describe('fallbackExtractImports (regex fallback)', () => {
+    it('parses named imports', () => {
+      const imports = provider.fallbackExtractImports('import { a, b } from "./m";');
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.type).toBe('named');
+      expect(imports[0]!.names).toEqual(['a', 'b']);
+    });
+
+    it('parses aliased named imports (records the alias)', () => {
+      const imports = provider.fallbackExtractImports('import { foo as bar } from "./m";');
+      expect(imports[0]!.names).toEqual(['bar']);
+    });
+
+    it('parses namespace imports', () => {
+      const imports = provider.fallbackExtractImports('import * as ns from "./m";');
+      expect(imports[0]!.type).toBe('namespace');
+      expect(imports[0]!.names).toEqual(['ns']);
+    });
+
+    it('parses default imports', () => {
+      const imports = provider.fallbackExtractImports('import React from "react";');
+      expect(imports[0]!.type).toBe('default');
+      expect(imports[0]!.names).toEqual(['React']);
+    });
+
+    it('parses dynamic imports', () => {
+      const imports = provider.fallbackExtractImports('const m = import("./dyn");');
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('./dyn');
+    });
+
+    it('returns empty for no imports', () => {
+      expect(provider.fallbackExtractImports('const x = 1;')).toHaveLength(0);
+    });
+  });
+
+  describe('fallbackIsExported (regex fallback)', () => {
+    it('detects exported declarations', () => {
+      expect(provider.fallbackIsExported('export function f() {}', 'f')).toBe(true);
+      expect(provider.fallbackIsExported('export class C {}', 'C')).toBe(true);
+      expect(provider.fallbackIsExported('export const x = 1;', 'x')).toBe(true);
+    });
+
+    it('detects named export clauses', () => {
+      expect(provider.fallbackIsExported('export { foo };', 'foo')).toBe(true);
+      expect(provider.fallbackIsExported('export { foo as bar };', 'bar')).toBe(true);
+    });
+
+    it('returns false for non-exported symbols', () => {
+      expect(provider.fallbackIsExported('function f() {}', 'f')).toBe(false);
     });
   });
 });

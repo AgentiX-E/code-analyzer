@@ -104,20 +104,18 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
         // Special handling for variable_declaration (var / ambient declare var)
         if (nodeType === 'variable_declaration') {
-          // tree-sitter-typescript emits variable_declaration for `var` (and
-          // ambient `declare var`), with the name nested in a variable_declarator.
-          const isConst = node.text.startsWith('const');
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-          const tag = isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
+          // tree-sitter-typescript emits `variable_declaration` only for `var`
+          // (and ambient `declare var`); `const`/`let` produce `lexical_declaration`.
+          // Every named child is a `variable_declarator`, so the tag is always
+          // VARIABLE_DEF and declarators can be iterated directly.
           for (let i = 0; i < node.namedChildCount; i++) {
             const declarator = node.namedChild(i);
-            /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-            if (declarator.type === 'variable_declarator') {
-              const nameChild = this.findNamedChild(declarator, 'identifier');
-              /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-              if (nameChild) {
-                captures.push(this.buildCapture(node, tag, nameChild));
-              }
+            // The first named child is the binding name. Destructuring
+            // (`var { a, b } = obj`) yields an object/array pattern instead of an
+            // identifier, so it is skipped rather than mislabeling the RHS value.
+            const nameChild = declarator.namedChild(0);
+            if (nameChild.type === 'identifier') {
+              captures.push(this.buildCapture(node, CAPTURE_TAGS.VARIABLE_DEF, nameChild));
             }
           }
           break;
@@ -125,11 +123,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
         // Special handling for arrow_function
         if (nodeType === 'arrow_function') {
+          // Arrow functions are only named when bound to a `variable_declarator`
+          // (e.g. `const f = () => {}`); callbacks (`.map(...)`) and IIFEs are
+          // skipped because their parent is not a variable_declarator.
           const parent = node.parent;
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
           if (parent && parent.type === 'variable_declarator') {
+            // Destructured names (`const { a } = () => {}`) leave no identifier,
+            // so the name child may be absent.
             const nameChild = this.findNamedChild(parent, 'identifier');
-            /* v8 ignore next -- @preserve -- defensive null / boundary branch */
             if (nameChild) {
               const cap = this.buildCapture(node, CAPTURE_TAGS.FUNCTION_DEF, nameChild);
               cap.properties = {
@@ -160,19 +161,18 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // Also handle lexical_declaration
     if (nodeType === 'lexical_declaration') {
       for (let i = 0; i < node.namedChildCount; i++) {
+        // `lexical_declaration` (`const`/`let`) holds only `variable_declarator`
+        // children. The first named child of each declarator is the binding name;
+        // destructuring yields an object/array pattern instead of an identifier.
         const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-        if (child.type === 'variable_declarator') {
-          const nameChild = this.findNamedChild(child, 'identifier');
-          const valueChild = child.namedChild(1); // value expression
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-          if (nameChild) {
-            const isArrow = valueChild?.type === 'arrow_function';
-            if (!isArrow) {
-              const isConst = node.text.startsWith('const');
-              const tag = isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
-              captures.push(this.buildCapture(node, tag, nameChild));
-            }
+        const nameChild = child.namedChild(0);
+        const valueChild = child.namedChild(1); // value expression
+        if (nameChild.type === 'identifier') {
+          const isArrow = valueChild?.type === 'arrow_function';
+          if (!isArrow) {
+            const isConst = node.text.startsWith('const');
+            const tag = isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF;
+            captures.push(this.buildCapture(node, tag, nameChild));
           }
         }
       }
@@ -206,7 +206,6 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     if (node.type === 'call_expression') {
       for (let i = 0; i < node.childCount; i++) {
         const child = node.child(i);
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (child.type === 'import') {
           this.extractDynamicImport(node, imports);
           break;
@@ -237,26 +236,27 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
         for (let j = 0; j < child.childCount; j++) {
           const sub = child.child(j);
 
-          /* v8 ignore next -- @preserve -- import_clause children are namespace_import/named_imports/identifier */
           if (sub.type === 'namespace_import') {
             importType = 'namespace';
+            // namespace_import (`* as ns`) always carries exactly one identifier.
             const nameNode = this.findDeepChild(sub, 'identifier');
-            /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-            if (nameNode) names.push(nameNode.text);
+            names.push(nameNode!.text);
           } else if (sub.type === 'named_imports') {
             importType = 'named';
             for (let k = 0; k < sub.childCount; k++) {
               const spec = sub.child(k);
               if (spec.type === 'import_specifier') {
-                /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                const nameNode =
-                  this.findDeepChild(spec, 'identifier') ||
-                  this.findDeepChild(spec, 'property_identifier');
-                /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                if (nameNode) names.push(nameNode.text);
+                // An import_specifier holds the imported name and, when aliased
+                // (`{ foo as bar }`), a trailing local alias — both `identifier`
+                // nodes. Record the trailing identifier (the local binding),
+                // matching the regex fallback. A malformed alias (`{ foo as }`)
+                // leaves an empty trailing identifier, which is skipped.
+                const nameNode = spec.namedChild(spec.namedChildCount - 1);
+                if (nameNode.text) names.push(nameNode.text);
               }
             }
-          } else if (sub.type === 'identifier') {
+          } else {
+            // The only remaining import_clause child type is `identifier` (default import).
             importType = 'default';
             names.push(sub.text);
           }
@@ -264,7 +264,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       }
     }
 
-    /* v8 ignore next -- @preserve -- defensive null / boundary branch */
+    // Side-effect-only imports (`import 'x'` or `import {} from 'x'`) carry no
+    // names and are intentionally skipped.
     if (sourcePath && names.length > 0) {
       imports.push({
         source: sourcePath,
@@ -279,8 +280,9 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       if (child.type === 'arguments') {
+        // Dynamic imports may be non-literal (`import(specifier)`), in which
+        // case the arguments hold an identifier rather than a `string`.
         const strNode = this.findDeepChild(child, 'string');
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (strNode) {
           imports.push({
             source: strNode.text.slice(1, -1),
@@ -305,9 +307,13 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
           for (let j = 0; j < child.childCount; j++) {
             const spec = child.child(j);
             if (spec.type === 'export_specifier') {
-              const nameNode = this.findNamedChild(spec, 'identifier');
-              /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-              if (nameNode && nameNode.text === symbolName) return true;
+              // `export { foo as bar }` holds two identifiers (local name and
+              // alias); either may be the symbol the caller is looking for.
+              // export_specifier children are always `identifier` nodes.
+              for (let k = 0; k < spec.namedChildCount; k++) {
+                const nameNode = spec.namedChild(k);
+                if (nameNode.text === symbolName) return true;
+              }
             }
           }
         }
@@ -329,9 +335,9 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
             this.findNamedChild(child, 'type_identifier');
           // export const x = 1 → lexical_declaration → variable_declarator → identifier
           if (!nameNode) {
+            // lexical/variable_declaration always nests its binding in a variable_declarator.
             const declarator = this.findDeepChild(child, 'variable_declarator');
-            /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-            if (declarator) nameNode = this.findNamedChild(declarator, 'identifier');
+            nameNode = this.findNamedChild(declarator!, 'identifier');
           }
           if (nameNode && nameNode.text === symbolName) return true;
         }
@@ -339,27 +345,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       return false; // Don't keep recursing
     }
 
-    // Check for 'export' keyword directly on declarations
-    /* v8 ignore start -- @preserve -- tree-sitter-typescript wraps exports in export_statement */
-    const isExported =
-      node.type === 'function_declaration' ||
-      node.type === 'class_declaration' ||
-      node.type === 'interface_declaration' ||
-      node.type === 'type_alias_declaration' ||
-      node.type === 'enum_declaration' ||
-      node.type === 'lexical_declaration' ||
-      node.type === 'variable_declaration';
-
-    if (isExported) {
-      // Check if this node has 'export' modifier prefix
-      const prefix = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex);
-      if (prefix.includes('export')) {
-        const nameNode =
-          this.findNamedChild(node, 'identifier') || this.findNamedChild(node, 'type_identifier');
-        if (nameNode && nameNode.text === symbolName) return true;
-      }
-    }
-
+    // tree-sitter-typescript always wraps exported declarations in an
+    // `export_statement` (verified for top-level, namespace, module, and ambient
+    // declarations), so a bare declaration never carries an `export` prefix.
+    // Recurse into children to find symbols nested inside non-export nodes.
     for (let i = 0; i < node.childCount; i++) {
       if (this.checkExported(node.child(i), symbolName)) return true;
     }
@@ -432,13 +421,11 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       const result = this.findDeepChild(node.namedChild(i), type);
       if (result) return result;
     }
-    /* v8 ignore next -- @preserve -- every node type passed here has an identifier */
     return null;
   }
 
   // ---- Fallback (regex-based) ----
 
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
 
@@ -595,7 +582,6 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex =
@@ -609,8 +595,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       } else if (match[3]) {
         const names = this.parseNamedImports(match[3]);
         imports.push({ source: path, names, type: 'named', lineNumber: line });
-      } else if (match[4]) {
-        imports.push({ source: path, names: [match[4]], type: 'default', lineNumber: line });
+      } else {
+        // The regex alternation always captures exactly one group; the remaining
+        // case is the default import (capture group 4).
+        imports.push({ source: path, names: [match[4]!], type: 'default', lineNumber: line });
       }
     }
 
@@ -627,7 +615,6 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const patterns = [
       new RegExp(
@@ -638,12 +625,10 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return patterns.some((p) => p.test(source));
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private lineFromOffset(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private parseNamedImports(braceContent: string): string[] {
     const names: string[] = [];
     const regex = /(\w+)(?:\s+as\s+(\w+))?/g;
@@ -655,7 +640,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 }
 
-/* v8 ignore next -- @preserve -- only used by regex fallback */
+/* escapeRegex is shared with the regex fallback's fallbackIsExported. */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

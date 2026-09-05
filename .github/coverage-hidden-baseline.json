@@ -1,13 +1,13 @@
 {
-  "totalHidden": 5164,
-  "totalLines": 129565,
+  "totalHidden": 4836,
+  "totalLines": 129550,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
     "packages/mcp/src/tools/change-impact.ts": 543,
     "packages/analyzer/src/languages/php.ts": 1,
     "packages/intelligence/src/review/github-webhook.ts": 338,
-    "packages/analyzer/src/languages/typescript.ts": 330,
+    "packages/analyzer/src/languages/typescript.ts": 2,
     "packages/server/src/routes/sse.ts": 163,
     "packages/intelligence/src/cross-repo/cross-repo-indexer.ts": 142,
     "packages/mcp/src/cypher/parser.ts": 114,
