@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4737,
-  "totalLines": 129534,
+  "totalHidden": 4688,
+  "totalLines": 129302,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -18,7 +18,7 @@
     "packages/server/src/routes/tools.ts": 85,
     "packages/server/src/middleware/logging.ts": 80,
     "packages/intelligence/src/cross-repo/repo-group-manager.ts": 74,
-    "packages/analyzer/src/languages/tree-sitter-base.ts": 71,
+    "packages/analyzer/src/languages/tree-sitter-base.ts": 22,
     "packages/intelligence/src/review/review-swarm.ts": 65,
     "packages/intelligence/src/embeddings/embedder.ts": 62,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,

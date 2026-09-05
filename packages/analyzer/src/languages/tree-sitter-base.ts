@@ -140,7 +140,7 @@ function getTreeSitter(): TreeSitterParserClass | null {
     treeSitterParserClass = Parser;
     return Parser;
   } catch {
-    /* v8 ignore start -- @preserve -- require never throws in the bundled runtime */
+    /* v8 ignore start -- @preserve -- require('tree-sitter') never throws in the bundled runtime */
     return null;
   }
   /* v8 ignore stop */
@@ -208,7 +208,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
    * {@link walkAndCapture} implementation. Providers that override
    * walkAndCapture directly do not need to provide mappings.
    */
-  /* v8 ignore next -- @preserve -- only reached via the default walkAndCapture, which every subclass overrides */
   protected getNodeMappings(): NodeTypeMapping[] {
     return [];
   }
@@ -223,7 +222,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     this.source = sanitized;
     this.filePath = filePath;
 
-    /* v8 ignore next -- @preserve -- parser is always set for bundled grammars */
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackParse(sanitized, filePath);
     }
@@ -243,7 +241,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
       return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
     } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
+      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
       return this.fallbackParse(sanitized, filePath);
     }
     /* v8 ignore stop */
@@ -272,7 +270,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   extractImports(source: string): ParsedImport[] {
     this.source = source;
 
-    /* v8 ignore next -- @preserve -- parser is always set for bundled grammars */
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackExtractImports(source);
     }
@@ -286,7 +283,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
       return imports;
     } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
+      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
       return this.fallbackExtractImports(source);
     }
     /* v8 ignore stop */
@@ -299,7 +296,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   isExported(source: string, symbolName: string): boolean {
     this.source = source;
 
-    /* v8 ignore next -- @preserve -- parser is always set for bundled grammars */
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackIsExported(source, symbolName);
     }
@@ -309,7 +305,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       const rootNode = tree.rootNode;
       return this.checkExported(rootNode, symbolName);
     } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
+      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
       return this.fallbackIsExported(source, symbolName);
     }
     /* v8 ignore stop */
@@ -412,75 +408,20 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Walk the AST to find import statements */
   protected walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    const importNodeTypes = this.getImportNodeTypes();
-    const nodeType = node.type;
-
-    /* v8 ignore start -- @preserve -- only html/json inherit this; both use the default no-op emitImport */
-    if (importNodeTypes.includes(nodeType)) {
-      this.emitImport(node, imports);
-    }
-    /* v8 ignore stop */
-
+    // Base default: no import detection. 19 of 21 subclasses override this with
+    // a language-specific import walk. The two providers that inherit this
+    // default (html, json) have no import syntax, so the walk only recurses.
     for (let i = 0; i < node.childCount; i++) {
       this.walkForImports(node.child(i), imports);
     }
   }
 
-  /** Extract import info from an import AST node */
-  /* v8 ignore start */ // abstract/default import handler
-  protected emitImport(_node: TreeSitterSyntaxNode, _imports: ParsedImport[]): void {
-    // Default implementation — subclasses should override for language-specific import parsing
-  }
-  /* v8 ignore stop */
-
   /** Walk the AST to check if a symbol is exported */
-  protected checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    // Check for export modifiers or statements
-    const nodeType = node.type;
-    const isExportRelated = nodeType.includes('export') || this.isExportStatement(node);
-
-    /* v8 ignore start -- @preserve -- only html/json inherit this, and neither has export nodes */
-    if (isExportRelated) {
-      const name = this.extractNameFromNode(node);
-      if (name === symbolName) return true;
-
-      // Check children for the symbol name
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (
-          child.type === 'identifier' ||
-          child.type === 'type_identifier' ||
-          child.type === 'property_identifier'
-        ) {
-          if (child.text === symbolName) return true;
-        }
-      }
-    }
-    /* v8 ignore stop */
-
-    // Recurse
-    for (let i = 0; i < node.childCount; i++) {
-      /* v8 ignore next -- @preserve -- html/json have no export nodes, so recursion never returns true */
-      if (this.checkExported(node.child(i), symbolName)) return true;
-    }
-
+  protected checkExported(_node: TreeSitterSyntaxNode, _symbolName: string): boolean {
+    // Base default: no export detection. 19 of 21 subclasses override this with
+    // a language-specific export check. The two providers that inherit this
+    // default (html, json) have no export syntax, so no symbol is ever exported.
     return false;
-  }
-
-  /** Subclasses can override to define import-related node types */
-  protected getImportNodeTypes(): string[] {
-    return [
-      'import_statement',
-      'import_declaration',
-      'import_from_statement',
-      'import_call',
-      'lexical_declaration', // for require() calls
-    ];
-  }
-
-  /** Subclasses can override for language-specific export node detection */
-  protected isExportStatement(node: TreeSitterSyntaxNode): boolean {
-    return node.type === 'export_statement' || node.type === 'export_default';
   }
 
   /** Extract the name identifier from a node */
@@ -530,8 +471,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       // TypeScript/JavaScript: class_heritage → extends_clause → identifier
-      // Python: argument_list → identifier
-      // Java: superclass → type_identifier
+      // Java/Kotlin: superclass → type_identifier
       if (
         child.type === 'class_heritage' ||
         child.type === 'superclass' ||
@@ -539,23 +479,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       ) {
         const parts: string[] = [];
         this.collectIdentifiers(child, parts);
-        /* v8 ignore next -- @preserve -- a class_heritage always contains at least one identifier */
-        if (parts.length > 0) return parts.join(',');
-      }
-      // Python-style class Foo(Bar): argument_list
-      /* v8 ignore next -- @preserve -- emitCapture's only caller (typescript) uses class_heritage */
-      if (child.type === 'argument_list') {
-        const parts: string[] = [];
-        for (let j = 0; j < child.childCount; j++) {
-          const arg = child.child(j);
-          if (
-            arg.type === 'identifier' ||
-            arg.type === 'type_identifier' ||
-            arg.type === 'attribute'
-          ) {
-            parts.push(arg.text);
-          }
-        }
+        /* v8 ignore next -- @preserve -- a heritage clause always contains at least one identifier */
         if (parts.length > 0) return parts.join(',');
       }
     }
@@ -604,10 +528,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected queryTree(source: string, queryStr: string): TreeSitterQueryMatch[] {
     if (!this.parser || !this.languageGrammar) return [];
 
+    // this.parser is only set after getTreeSitter() succeeds in the constructor,
+    // so the module-level parser class is cached and guaranteed non-null here.
     const ParserClass = getTreeSitter();
-    /* v8 ignore next -- @preserve -- getTreeSitter always returns a parser in tests */
-    if (!ParserClass) return [];
-
     const tree = this.parser.parse(source);
     const query = new ParserClass.Query(this.languageGrammar, queryStr);
     return query.matches(tree.rootNode);
@@ -633,18 +556,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     for (let i = 0; i < node.childCount; i++) {
       this.walkNode(node.child(i), depth + 1, visitor);
     }
-  }
-
-  /** Get source text for a node range */
-  /* v8 ignore next -- @preserve -- zero callers */
-  protected nodeText(source: string, node: TreeSitterSyntaxNode): string {
-    return source.slice(node.startIndex, node.endIndex);
-  }
-
-  /** Get line number (1-based) for a node */
-  /* v8 ignore next -- @preserve -- zero callers */
-  protected nodeLine(_source: string, node: TreeSitterSyntaxNode): number {
-    return node.startPosition.row + 1;
   }
 
   // -----------------------------------------------------------------------
@@ -676,7 +587,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Emit a UnifiedCapture for a call site node */
   protected emitCallCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const name = this.extractCallName(node) ?? this.extractNewExpressionName(node);
+    const name = this.extractCallName(node);
     if (!name) return;
 
     const startLine = node.startPosition.row + 1;
@@ -709,20 +620,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Determine the capture tag for a call node type */
   protected getCallTagForNodeType(nodeType: string): CaptureTag {
-    /* v8 ignore next -- @preserve -- emitCallCapture callers (js/ts) only emit call_expression/new_expression */
-    if (
-      nodeType === 'method_invocation' ||
-      nodeType === 'member_call' ||
-      nodeType === 'member_access_expression' ||
-      nodeType === 'send' ||
-      nodeType === 'method_call'
-    ) {
-      return CAPTURE_TAGS.METHOD_CALL;
-    }
-    if (nodeType === 'new_expression' || nodeType === 'explicit_constructor_invocation') {
-      return CAPTURE_TAGS.NEW_EXPRESSION;
-    }
-    return CAPTURE_TAGS.FUNCTION_CALL;
+    // The only callers (js/ts) emit either call_expression or new_expression;
+    // no other node type reaches this method.
+    return nodeType === 'new_expression' ? CAPTURE_TAGS.NEW_EXPRESSION : CAPTURE_TAGS.FUNCTION_CALL;
   }
 
   /** Check if a call node is a method call (has a receiver/object) */
@@ -744,7 +644,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Extract the called function/method name from a call expression */
   protected extractCallName(node: TreeSitterSyntaxNode): string | undefined {
-    // Try function child (function name in call_expression)
+    // A plain call (foo()) or constructor (new Foo()) carries the name as a
+    // direct function/identifier/type_identifier child.
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       if (
@@ -756,7 +657,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       }
     }
 
-    // Try member_expression → property_identifier (obj.method())
+    // A method call (obj.method()) carries the name in a member_expression's
+    // property_identifier child.
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       if (child.type === 'member_expression') {
@@ -767,71 +669,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       }
     }
 
-    // Try selector_expression (Go: obj.Method())
-    /* v8 ignore next -- @preserve -- emitCallCapture callers (js/ts) use member_expression */
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child.type === 'selector_expression') {
-        for (let j = 0; j < child.childCount; j++) {
-          const field = child.child(j);
-          if (field.type === 'field_identifier') return field.text;
-        }
-      }
-    }
-
-    // Try field_access (Java/Kotlin: obj.method())
-    /* v8 ignore next -- @preserve -- emitCallCapture callers (js/ts) use member_expression */
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child.type === 'field_access') {
-        for (let j = 0; j < child.childCount; j++) {
-          const field = child.child(j);
-          if (field.type === 'identifier' || field.type === 'type_identifier') return field.text;
-        }
-      }
-    }
-
-    // Try dot expression (Ruby: obj.method)
-    /* v8 ignore next -- @preserve -- emitCallCapture callers (js/ts) use member_expression */
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child.type === 'dot') {
-        // The method name is typically after the dot
-        const nextIdx = i + 1;
-        if (nextIdx < node.childCount) {
-          const next = node.child(nextIdx);
-          if (next.type === 'identifier' || next.type === 'method') return next.text;
-        }
-      }
-    }
-
-    return undefined;
-  }
-
-  /** Extract the constructor name from a new_expression */
-  protected extractNewExpressionName(node: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      /* v8 ignore next -- @preserve -- extractCallName resolves the identifier before this runs */
-      if (
-        child.type === 'identifier' ||
-        child.type === 'type_identifier' ||
-        child.type === 'new' ||
-        child.type === 'object'
-      ) {
-        // For 'new' keyword, find the type after it
-        if (child.type === 'new') {
-          const nextIdx = i + 1;
-          if (nextIdx < node.childCount) {
-            const next = node.child(nextIdx);
-            if (next.type === 'identifier' || next.type === 'type_identifier') {
-              return next.text;
-            }
-          }
-        }
-        return child.text;
-      }
-    }
     return undefined;
   }
 
@@ -841,7 +678,6 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Extract taint sources from source code using AST walking */
   extractTaintSources(source: string): TaintSource[] {
-    /* v8 ignore next -- @preserve -- parser is always set for bundled grammars */
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackExtractTaintSources(source);
     }
@@ -852,43 +688,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkForTaintSources(tree.rootNode, sources);
       return sources;
     } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
+      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
       return this.fallbackExtractTaintSources(source);
     }
     /* v8 ignore stop */
   }
 
   /** Walk the AST to find taint sources */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
   protected walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
-    const nodeType = node.type;
-    const sourceType = this.getTaintSourceType(nodeType, node);
-    if (sourceType) {
-      const name = this.extractTaintName(node);
-      if (name) {
-        sources.push({
-          name,
-          sourceType,
-          line: node.startPosition.row + 1,
-          text: node.text,
-          properties: {},
-        });
-      }
-    }
+    // Base default: no taint sources are recognized. Subclasses override this
+    // method to detect language-specific taint sources.
     for (let i = 0; i < node.childCount; i++) {
       this.walkForTaintSources(node.child(i), sources);
     }
   }
 
-  /** Determine if a node type is a taint source, and return the source type */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
-  protected getTaintSourceType(_nodeType: string, _node: TreeSitterSyntaxNode): string | null {
-    return null; // Override in subclasses
-  }
-
   /** Extract taint sinks from source code using AST walking */
   extractTaintSinks(source: string): TaintSink[] {
-    /* v8 ignore next -- @preserve -- parser is always set for bundled grammars */
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackExtractTaintSinks(source);
     }
@@ -899,43 +715,23 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkForTaintSinks(tree.rootNode, sinks);
       return sinks;
     } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
+      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
       return this.fallbackExtractTaintSinks(source);
     }
     /* v8 ignore stop */
   }
 
   /** Walk the AST to find taint sinks */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
   protected walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
-    const nodeType = node.type;
-    const sinkType = this.getTaintSinkType(nodeType, node);
-    if (sinkType) {
-      const name = this.extractTaintName(node);
-      if (name) {
-        sinks.push({
-          name,
-          sinkType,
-          line: node.startPosition.row + 1,
-          text: node.text,
-          properties: {},
-        });
-      }
-    }
+    // Base default: no taint sinks are recognized. Subclasses override this
+    // method to detect language-specific taint sinks.
     for (let i = 0; i < node.childCount; i++) {
       this.walkForTaintSinks(node.child(i), sinks);
     }
   }
 
-  /** Determine if a node type is a taint sink, and return the sink type */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
-  protected getTaintSinkType(_nodeType: string, _node: TreeSitterSyntaxNode): string | null {
-    return null; // Override in subclasses
-  }
-
   /** Extract taint sanitizers from source code using AST walking */
   extractSanitizers(source: string): TaintSanitizer[] {
-    /* v8 ignore next -- @preserve -- parser is always set for bundled grammars */
     if (!this.parser || !this.languageGrammar) {
       return this.fallbackExtractSanitizers(source);
     }
@@ -946,44 +742,19 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       this.walkForSanitizers(tree.rootNode, sanitizers);
       return sanitizers;
     } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for valid grammars */
+      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
       return this.fallbackExtractSanitizers(source);
     }
     /* v8 ignore stop */
   }
 
   /** Walk the AST to find taint sanitizers */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
   protected walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
-    const nodeType = node.type;
-    const sanitizerType = this.getSanitizerType(nodeType, node);
-    if (sanitizerType) {
-      const name = this.extractTaintName(node);
-      if (name) {
-        sanitizers.push({
-          name,
-          sanitizerType,
-          line: node.startPosition.row + 1,
-          text: node.text,
-          properties: {},
-        });
-      }
-    }
+    // Base default: no sanitizers are recognized. Subclasses override this
+    // method to detect language-specific sanitizers.
     for (let i = 0; i < node.childCount; i++) {
       this.walkForSanitizers(node.child(i), sanitizers);
     }
-  }
-
-  /** Determine if a node type is a sanitizer, and return the sanitizer type */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
-  protected getSanitizerType(_nodeType: string, _node: TreeSitterSyntaxNode): string | null {
-    return null; // Override in subclasses
-  }
-
-  /** Extract the name from a taint-related node */
-  /* v8 ignore next -- @preserve -- no provider reaches the default taint walk */
-  protected extractTaintName(node: TreeSitterSyntaxNode): string | undefined {
-    return this.extractNameFromNode(node) ?? this.extractCallName(node);
   }
 
   // -----------------------------------------------------------------------
@@ -991,19 +762,16 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   /** Regex-based fallback for taint source extraction */
-  /* v8 ignore next -- @preserve -- fallback for a never-missing parser */
   protected fallbackExtractTaintSources(_source: string): TaintSource[] {
     return [];
   }
 
   /** Regex-based fallback for taint sink extraction */
-  /* v8 ignore next -- @preserve -- fallback for a never-missing parser */
   protected fallbackExtractTaintSinks(_source: string): TaintSink[] {
     return [];
   }
 
   /** Regex-based fallback for sanitizer extraction */
-  /* v8 ignore next -- @preserve -- fallback for a never-missing parser */
   protected fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }

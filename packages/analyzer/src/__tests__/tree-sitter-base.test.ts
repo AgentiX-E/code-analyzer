@@ -105,6 +105,40 @@ class TestProvider extends TreeSitterBaseProvider {
   }
 }
 
+// A provider that deliberately overrides nothing so the base class's default
+// template methods (getNodeMappings, walkAndCapture, walkForImports,
+// checkExported, walkForTaint*) run against a real TypeScript grammar.
+class GenericProvider extends TreeSitterBaseProvider {
+  readonly language = 'generic';
+  readonly displayName = 'Generic';
+  readonly extensions = ['.generic'];
+  readonly globs = ['**/*.generic'];
+  readonly importSemantics: ImportSemantics = 'named';
+
+  protected loadGrammar(): TreeSitterLanguage | null {
+    // Reuse the bundled TypeScript grammar (already installed) to exercise the
+    // base defaults over a real AST.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const tsGrammar = require('tree-sitter-typescript') as {
+      typescript: TreeSitterLanguage;
+      tsx: TreeSitterLanguage;
+    };
+    return tsGrammar.typescript;
+  }
+
+  protected fallbackParse(_source: string, _filePath: string): UnifiedCapture[] {
+    return [];
+  }
+
+  protected fallbackExtractImports(_source: string): ParsedImport[] {
+    return [];
+  }
+
+  protected fallbackIsExported(_source: string, _symbolName: string): boolean {
+    return false;
+  }
+}
+
 describe('TreeSitterBaseProvider', () => {
   const provider = new TestProvider();
 
@@ -194,14 +228,6 @@ describe('TreeSitterBaseProvider', () => {
 
     it('should have walkTree method', () => {
       expect(typeof provider.walkTree).toBe('function');
-    });
-
-    it('should have nodeText method', () => {
-      expect(typeof provider.nodeText).toBe('function');
-    });
-
-    it('should have nodeLine method', () => {
-      expect(typeof provider.nodeLine).toBe('function');
     });
 
     it('queryTree should return empty when no parser', () => {
@@ -371,11 +397,6 @@ describe('TreeSitterBaseProvider', () => {
   });
 
   describe('TestProvider utility coverage', () => {
-    it('nodeText and nodeLine should be callable functions', () => {
-      expect(typeof provider.nodeText).toBe('function');
-      expect(typeof provider.nodeLine).toBe('function');
-    });
-
     it('queryTree should return matches with TypeScript provider', () => {
       const tsProvider = new TypeScriptProvider();
       const results = tsProvider.queryTree(
@@ -575,20 +596,6 @@ describe('TreeSitterBaseProvider', () => {
     });
   });
 
-  describe('nodeText and nodeLine utility methods', () => {
-    it('nodeText should return slice of source', () => {
-      const tsProvider = new TypeScriptProvider();
-      const captures = tsProvider.parse('const x = 42;', 'test.ts');
-      // nodeText is protected but can be tested indirectly
-      expect(typeof tsProvider.nodeText).toBe('function');
-    });
-
-    it('nodeLine should return 1-based line number', () => {
-      const tsProvider = new TypeScriptProvider();
-      expect(typeof tsProvider.nodeLine).toBe('function');
-    });
-  });
-
   describe('extractImports edge cases', () => {
     it('should handle source with no imports', () => {
       const jsProvider = new JavaScriptProvider();
@@ -717,6 +724,52 @@ describe('TreeSitterBaseProvider', () => {
       const source = 'export default () => {};';
       const captures = jsProvider.parse(source, 'test.js');
       expect(Array.isArray(captures)).toBe(true);
+    });
+  });
+
+  describe('default template methods through GenericProvider (real grammar)', () => {
+    const generic = new GenericProvider();
+
+    it('getNodeMappings default returns no mappings, so parse yields no captures', () => {
+      const captures = generic.parse('class Foo { bar(): void {} }', 'test.generic');
+      expect(Array.isArray(captures)).toBe(true);
+      expect(captures).toHaveLength(0);
+    });
+
+    it('walkForImports default finds no imports', () => {
+      const imports = generic.extractImports("import { x } from 'y';");
+      expect(imports).toEqual([]);
+    });
+
+    it('checkExported default always returns false (no export syntax)', () => {
+      expect(generic.isExported('export function foo() {}', 'foo')).toBe(false);
+      expect(generic.isExported('function bar() {}', 'bar')).toBe(false);
+    });
+
+    it('extractTaintSources default walk finds no sources', () => {
+      expect(generic.extractTaintSources('const x = readline();\nconsole.log(x);')).toEqual([]);
+    });
+
+    it('extractTaintSinks default walk finds no sinks', () => {
+      expect(generic.extractTaintSinks('eval("1+1");')).toEqual([]);
+    });
+
+    it('extractSanitizers default walk finds no sanitizers', () => {
+      expect(generic.extractSanitizers('escape(userInput);')).toEqual([]);
+    });
+  });
+
+  describe('taint fallback through TestProvider (no parser)', () => {
+    it('extractTaintSources falls back to empty', () => {
+      expect(provider.extractTaintSources('const x = 1;')).toEqual([]);
+    });
+
+    it('extractTaintSinks falls back to empty', () => {
+      expect(provider.extractTaintSinks('eval("x")')).toEqual([]);
+    });
+
+    it('extractSanitizers falls back to empty', () => {
+      expect(provider.extractSanitizers('escape(x)')).toEqual([]);
     });
   });
 });
