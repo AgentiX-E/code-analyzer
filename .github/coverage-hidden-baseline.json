@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4836,
-  "totalLines": 129550,
+  "totalHidden": 4737,
+  "totalLines": 129534,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -12,7 +12,7 @@
     "packages/intelligence/src/cross-repo/cross-repo-indexer.ts": 142,
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/intelligence/src/github/cross-repo-bridge.ts": 109,
-    "packages/analyzer/src/languages/ruby.ts": 101,
+    "packages/analyzer/src/languages/ruby.ts": 2,
     "packages/core/src/agents/detector.ts": 93,
     "packages/intelligence/src/github/repo-sync.ts": 85,
     "packages/server/src/routes/tools.ts": 85,

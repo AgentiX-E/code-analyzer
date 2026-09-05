@@ -68,7 +68,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return false;
   }
 
-  /* v8 ignore start */
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
@@ -159,7 +158,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
     // Delegate to base class for mapped node types (class, module, method, singleton_method)
     super.walkAndCapture(node, captures);
   }
-  /* v8 ignore stop */
 
   // ---- Import extraction (tree-sitter AST) ----
 
@@ -173,7 +171,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
    *   require_relative '../lib/foo'   // relative path
    *   load 'config.rb'                // load a file
    */
-  /* v8 ignore next */
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'call') {
       this.extractRubyRequireImport(node, imports);
@@ -193,11 +190,12 @@ export class RubyProvider extends TreeSitterBaseProvider {
   private extractRubyRequireImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     const lineNumber = node.startPosition.row + 1;
 
-    // Find the method identifier (require, require_relative, load)
+    // Find the method identifier (require, require_relative, load). A call's
+    // first named child may be a receiver (`self`, a `constant`, ...), so scan
+    // past it to the `identifier` that names the invoked method.
     let methodName = '';
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
-      /* v8 ignore next -- @preserve -- call nodes always start with an identifier */
       if (child.type === 'identifier') {
         methodName = child.text;
         break;
@@ -208,29 +206,18 @@ export class RubyProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    // Find the string argument
+    // The string argument always lives inside an `argument_list` (tree-sitter-ruby
+    // emits one even without parentheses). Non-string arguments (a variable or
+    // constant) are skipped.
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
-
-      /* v8 ignore next -- @preserve -- string argument lives inside argument_list */
-      if (child.type === 'string') {
-        const raw = child.text;
-        const path = raw.slice(1, -1); // Remove surrounding quotes
-        const name = path.split('/').pop() ?? path;
-        imports.push({ source: path, names: [name], type: 'named', lineNumber });
-        return;
-      }
-
-      // Check inside argument_list for the string
       if (child.type === 'argument_list') {
         for (let j = 0; j < child.namedChildCount; j++) {
           const sub = child.namedChild(j);
-          /* v8 ignore next -- @preserve -- require arguments are string literals */
           if (sub.type === 'string') {
             const raw = sub.text;
             const path = raw.slice(1, -1);
-            /* v8 ignore next -- @preserve -- path is always non-empty */
-            const name = path.split('/').pop() ?? path;
+            const name = path.split('/').pop();
             imports.push({ source: path, names: [name], type: 'named', lineNumber });
             return;
           }
@@ -240,7 +227,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -324,8 +310,10 @@ export class RubyProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // Imports (require)
-    const impRegex = /require\s+['"]([^'"]+)['"]/g;
+    // Imports (require, require_relative, load) — mirror the tree-sitter path
+    // and fallbackExtractImports so the regex fallback does not silently drop
+    // the relative/load forms.
+    const impRegex = /(?:require|require_relative|load)\s+['"]([^'"]+)['"]/g;
     while ((m = impRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
@@ -342,7 +330,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -351,7 +338,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     const reqRegex = /(?:require|require_relative|load)\s+['"]([^'"]+)['"]/g;
     while ((m = reqRegex.exec(source)) !== null) {
       const path = m[1]!;
-      const name = path.split('/').pop() ?? path;
+      const name = path.split('/').pop();
       imports.push({
         source: path,
         names: [name],
@@ -363,7 +350,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // Ruby: methods are public by default
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -375,7 +361,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
       new RegExp(`def\\s+(?:self\.)?${s}\\b|class\\s+${s}\\b|module\\s+${s}\\b`).test(source)
     );
   }
-  /* v8 ignore stop */
 
   // ---- Utility helpers ----
 
@@ -389,7 +374,6 @@ export class RubyProvider extends TreeSitterBaseProvider {
     return null;
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }
