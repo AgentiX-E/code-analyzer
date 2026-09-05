@@ -104,7 +104,6 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
   // ---- Import extraction (tree-sitter AST) ----
 
-  /* v8 ignore start */ // tree-sitter import walk
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     // Handle namespace_use_declaration (use statements)
     if (node.type === 'namespace_use_declaration') {
@@ -127,152 +126,120 @@ export class PhpProvider extends TreeSitterBaseProvider {
   private extractPhpUseImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     const lineNumber = node.startPosition.row + 1;
 
+    // Grouped imports: use Namespace\{A, B as C, D}.
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
+      if (child.type !== 'namespace_use_group') continue;
 
-      // Handle grouped imports: use Namespace\{A, B as C, D}
-      if (child.type === 'namespace_use_group') {
-        // Find the base namespace from a preceding qualified_name sibling
-        let baseNamespace = '';
-        for (let j = i - 1; j >= 0; j--) {
-          const prev = node.child(j);
-          if (
-            prev.type === 'qualified_name' ||
-            prev.type === 'name' ||
-            prev.type === 'namespace_name'
-          ) {
-            baseNamespace = prev.text;
-            break;
-          }
+      // The base namespace precedes the group as a qualified_name/namespace_name
+      // sibling.
+      let baseNamespace = '';
+      for (let j = i - 1; j >= 0; j--) {
+        const prev = node.child(j);
+        if (
+          prev.type === 'qualified_name' ||
+          prev.type === 'name' ||
+          prev.type === 'namespace_name'
+        ) {
+          baseNamespace = prev.text;
+          break;
         }
-
-        // Extract individual clauses from the group
-        for (let j = 0; j < child.childCount; j++) {
-          const sub = child.child(j);
-          if (sub.type === 'namespace_use_clause') {
-            let clauseName = '';
-            let clauseAlias: string | undefined;
-
-            for (let k = 0; k < sub.childCount; k++) {
-              const clause = sub.child(k);
-              if (clause.type === 'name' || clause.type === 'qualified_name') {
-                clauseName = clause.text;
-              }
-            }
-
-            // Look for alias: the last name child after a separator is the alias
-            // Pattern: node has only one name/qualified_name = no alias
-            // Pattern: node has two names = second is alias
-            const nameCount = (() => {
-              let count = 0;
-              for (let k = 0; k < sub.childCount; k++) {
-                const t = sub.child(k).type;
-                if (t === 'name' || t === 'qualified_name' || t === 'identifier') count++;
-              }
-              return count;
-            })();
-
-            if (nameCount >= 2) {
-              // Last name is the alias
-              for (let k = sub.childCount - 1; k >= 0; k--) {
-                const t = sub.child(k).type;
-                if (t === 'name' || t === 'qualified_name' || t === 'identifier') {
-                  clauseAlias = sub.child(k).text;
-                  break;
-                }
-              }
-            }
-
-            if (clauseName) {
-              const fullSource = baseNamespace ? `${baseNamespace}\\${clauseName}` : clauseName;
-              const name = clauseAlias ?? clauseName;
-              imports.push({ source: fullSource, names: [name], type: 'named', lineNumber });
-            }
-          }
-        }
-        return; // Handled grouped import
       }
+
+      for (let j = 0; j < child.childCount; j++) {
+        const clause = child.child(j);
+        if (clause.type !== 'namespace_use_clause') continue;
+        const { name, alias } = this.parseUseClause(clause);
+        if (!name) continue;
+        // Invariant: a namespace_use_group is always preceded by its base
+        // namespace sibling, so baseNamespace is non-empty here.
+        imports.push({
+          source: `${baseNamespace}\\${name}`,
+          names: [alias ?? name],
+          type: 'named',
+          lineNumber,
+        });
+      }
+      return; // Handled grouped import
     }
 
-    // Handle single/aliased use declaration: use Namespace\Class; or use Namespace\Class as Alias;
-    // Also: use function Namespace\func; use const Namespace\CONST;
-    let source = '';
+    // Single / multiple clauses: use Namespace\Class; use Namespace\Class as
+    // Alias; use A\B, C\D; use function Namespace\func; use const Namespace\C.
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type !== 'namespace_use_clause') continue;
+      const { name, alias } = this.parseUseClause(child);
+      if (!name) continue;
+      const parts = name.split('\\');
+      imports.push({
+        source: name,
+        names: [alias ?? parts[parts.length - 1]!],
+        type: 'named',
+        lineNumber,
+      });
+    }
+  }
+
+  /**
+   * Read the imported name and optional alias out of a namespace_use_clause.
+   * The clause holds either a single qualified_name (no alias) or a
+   * qualified_name/name followed by an `as` keyword and a trailing name alias.
+   */
+  private parseUseClause(clause: TreeSitterSyntaxNode): {
+    name: string;
+    alias: string | undefined;
+  } {
+    let name = '';
     let alias: string | undefined;
-    let importType: 'named' | 'default' = 'named';
-
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-
-      // The qualified name and alias live inside a namespace_use_clause child
-      // (use Namespace\Class as Alias;).
-      if (child.type === 'namespace_use_clause') {
-        for (let j = 0; j < child.childCount; j++) {
-          const sub = child.child(j);
-          if (sub.type === 'qualified_name' || sub.type === 'namespace_name') {
-            if (source === '') source = sub.text;
-          } else if (sub.type === 'name') {
-            if (source === '') source = sub.text;
-            else alias = sub.text;
-          }
-        }
-        continue;
-      }
-
-      // Defensive: some grammar versions expose the qualified name directly.
-      if (
-        (child.type === 'qualified_name' ||
-          child.type === 'name' ||
-          child.type === 'namespace_name') &&
-        source === ''
-      ) {
-        source = child.text;
+    for (let i = 0; i < clause.childCount; i++) {
+      const sub = clause.child(i);
+      if (sub.type === 'qualified_name' || sub.type === 'namespace_name') {
+        // A clause holds at most one qualified/namespace name, so it is always
+        // the first name; only a trailing `name` after `as` is an alias.
+        name = sub.text;
+      } else if (sub.type === 'name') {
+        if (name === '') name = sub.text;
+        else alias = sub.text;
       }
     }
-
-    if (source) {
-      const parts = source.split('\\');
-      const name = alias ?? parts[parts.length - 1]!;
-      imports.push({ source, names: [name], type: importType, lineNumber });
-    }
+    return { name, alias };
   }
 
   private extractPhpIncludeImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     const lineNumber = node.startPosition.row + 1;
 
-    // Find the string argument (the file path)
+    // Find the string argument (the file path). tree-sitter-php emits `string`
+    // for single-quoted literals and `encapsed_string` for double-quoted ones.
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
 
-      if (child.type === 'string') {
-        const raw = child.text;
-        const path = raw.slice(1, -1); // Remove quotes
-        imports.push({
-          source: path,
-          names: [path],
-          type: 'default',
-          lineNumber,
-        });
+      if (child.type === 'string' || child.type === 'encapsed_string') {
+        this.pushIncludeImport(child.text, lineNumber, imports);
         return;
       }
 
-      // Look inside arguments/parameters node
-      if (child.type === 'arguments' || child.type === 'parameters') {
+      // Parenthesized includes (require('x.php')) wrap the literal in a
+      // parenthesized_expression node.
+      if (child.type === 'parenthesized_expression') {
         for (let j = 0; j < child.childCount; j++) {
           const sub = child.child(j);
-          if (sub.type === 'string') {
-            const raw = sub.text;
-            const path = raw.slice(1, -1);
-            imports.push({
-              source: path,
-              names: [path],
-              type: 'default',
-              lineNumber,
-            });
+          if (sub.type === 'string' || sub.type === 'encapsed_string') {
+            this.pushIncludeImport(sub.text, lineNumber, imports);
             return;
           }
         }
       }
     }
+  }
+
+  private pushIncludeImport(raw: string, lineNumber: number, imports: ParsedImport[]): void {
+    const path = raw.slice(1, -1); // Remove surrounding quotes
+    imports.push({
+      source: path,
+      names: [path],
+      type: 'default',
+      lineNumber,
+    });
   }
 
   private isPhpIncludeNode(node: TreeSitterSyntaxNode): boolean {
@@ -326,7 +293,6 @@ export class PhpProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -457,7 +423,6 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -480,8 +445,9 @@ export class PhpProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // Grouped imports: use Namespace\{A, B, C as D}
-    const groupRegex = /use\s+([\w\\]+)\\{([^}]+)\\}/g;
+    // Grouped imports: use Namespace\{A, B, C as D} — the opening brace is
+    // backslash-escaped, but the closing brace is a bare `}` in PHP syntax.
+    const groupRegex = /use\s+([\w\\]+)\\{([^}]+)\}/g;
     while ((m = groupRegex.exec(source)) !== null) {
       const basePath = m[1]!;
       const namesStr = m[2]!;
@@ -513,13 +479,15 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
-    // PHP: public methods/properties, classes are typically public
+    // PHP: public (explicit or default) functions and class-like declarations are
+    // exported; private/protected members are not.
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(
-      `(?:public\\s+)?function\\s+${s}\\b|class\\s+${s}\\b|interface\\s+${s}\\b|trait\\s+${s}\\b`,
+    const declared = new RegExp(
+      `function\\s+${s}\\b|class\\s+${s}\\b|interface\\s+${s}\\b|trait\\s+${s}\\b`,
     ).test(source);
+    if (!declared) return false;
+    return !new RegExp(`(?:private|protected)\\s+function\\s+${s}\\b`).test(source);
   }
 
   private ln(source: string, offset: number): number {

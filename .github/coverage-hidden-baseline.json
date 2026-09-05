@@ -1,11 +1,11 @@
 {
-  "totalHidden": 5583,
-  "totalLines": 129596,
+  "totalHidden": 5164,
+  "totalLines": 129565,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
     "packages/mcp/src/tools/change-impact.ts": 543,
-    "packages/analyzer/src/languages/php.ts": 420,
+    "packages/analyzer/src/languages/php.ts": 1,
     "packages/intelligence/src/review/github-webhook.ts": 338,
     "packages/analyzer/src/languages/typescript.ts": 330,
     "packages/server/src/routes/sse.ts": 163,
