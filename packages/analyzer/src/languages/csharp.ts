@@ -5,11 +5,7 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
-import type {
-  NodeTypeMapping,
-  TreeSitterLanguage,
-  TreeSitterSyntaxNode,
-} from './tree-sitter-base.js';
+import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const CSHARP_EXTENSIONS = ['.cs'];
 const CSHARP_GLOBS = ['**/*.cs'];
@@ -24,180 +20,32 @@ export class CSharpProvider extends TreeSitterBaseProvider {
   protected override loadGrammar(): TreeSitterLanguage | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const cs = require('tree-sitter-c-sharp') as { csharp: TreeSitterLanguage };
-      return cs.csharp || (cs as unknown as TreeSitterLanguage);
+      return require('tree-sitter-c-sharp') as TreeSitterLanguage;
     } catch {
-      /* v8 ignore next -- @preserve -- native grammar module load failure is untestable */
+      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
   }
 
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      {
-        nodeType: 'class_declaration',
-        captureTag: CAPTURE_TAGS.CLASS_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'interface_declaration',
-        captureTag: CAPTURE_TAGS.INTERFACE_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'struct_declaration',
-        captureTag: CAPTURE_TAGS.CLASS_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'enum_declaration',
-        captureTag: CAPTURE_TAGS.ENUM_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'method_declaration',
-        captureTag: CAPTURE_TAGS.METHOD_DEF,
-        nameChildType: 'identifier',
-      },
-    ];
-  }
-
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
-    const nodeType = node.type;
-
-    if (nodeType === 'class_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.CLASS_DEF,
-          text: `class ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'interface_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.INTERFACE_DEF,
-          text: `interface ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'struct_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.CLASS_DEF,
-          text: `struct ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { isStruct: 'true', filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'enum_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.ENUM_DEF,
-          text: `enum ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'method_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        const container = this.findContainerNode(node);
-        let containerName: string | undefined;
-        /* v8 ignore next -- @preserve -- a method_declaration is always nested inside a class/struct/interface */
-        if (container) {
-          const cn = this.findChild(container, 'identifier');
-          /* v8 ignore next -- @preserve -- the container always carries an identifier */
-          if (cn) containerName = cn.text;
-        }
-        let tag: CaptureTag = CAPTURE_TAGS.METHOD_DEF;
-        /* v8 ignore next -- @preserve -- constructors are constructor_declaration, never method_declaration */
-        if (nameNode.text === containerName) {
-          tag = CAPTURE_TAGS.CONSTRUCTOR_DEF;
-        }
-        captures.push({
-          tag,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          containerName,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'property_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'using_directive') {
-      const nameNode = this.findChild(node, 'identifier') || this.findChild(node, 'qualified_name');
-      /* v8 ignore next -- @preserve -- a using_directive always carries an identifier or qualified_name */
-      const sourcePath = nameNode ? nameNode.text : '';
-      captures.push({
-        tag: CAPTURE_TAGS.IMPORT,
-        text: sourcePath,
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        startByte: node.startIndex,
-        endByte: node.endIndex,
-        name: sourcePath,
-        properties: { filePath: this.filePath },
-      });
-    } else if (nodeType === 'attribute') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.DECORATOR,
-          text: node.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: nameNode.text,
-          properties: { decorator: nameNode.text, filePath: this.filePath },
-        });
-      }
+    if (node.type === 'class_declaration') {
+      this.emitTypeDeclaration(node, captures, CAPTURE_TAGS.CLASS_DEF, 'class');
+    } else if (node.type === 'interface_declaration') {
+      this.emitTypeDeclaration(node, captures, CAPTURE_TAGS.INTERFACE_DEF, 'interface');
+    } else if (node.type === 'struct_declaration') {
+      this.emitTypeDeclaration(node, captures, CAPTURE_TAGS.STRUCT_DEF, 'struct');
+    } else if (node.type === 'enum_declaration') {
+      this.emitTypeDeclaration(node, captures, CAPTURE_TAGS.ENUM_DEF, 'enum');
+    } else if (node.type === 'method_declaration') {
+      this.emitMethodLike(node, captures, CAPTURE_TAGS.METHOD_DEF);
+    } else if (node.type === 'constructor_declaration') {
+      this.emitMethodLike(node, captures, CAPTURE_TAGS.CONSTRUCTOR_DEF);
+    } else if (node.type === 'property_declaration') {
+      this.emitProperty(node, captures);
+    } else if (node.type === 'using_directive') {
+      this.emitImport(node, captures);
+    } else if (node.type === 'attribute') {
+      this.emitAttribute(node, captures);
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -207,19 +55,13 @@ export class CSharpProvider extends TreeSitterBaseProvider {
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'using_directive') {
-      const line = node.startPosition.row + 1;
-      let path = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child.type === 'identifier') path = child.text;
-      }
-      // For qualified names
-      const qn = this.findDeep(node, 'qualified_name');
-      if (qn) path = qn.text;
-      /* v8 ignore next -- @preserve -- a using_directive always yields an identifier or qualified_name path */
-      if (path) {
-        imports.push({ source: path, names: [path], type: 'named', lineNumber: line });
-      }
+      const path = this.extractImportPath(node);
+      imports.push({
+        source: path,
+        names: [path],
+        type: 'named',
+        lineNumber: node.startPosition.row + 1,
+      });
       return;
     }
 
@@ -229,19 +71,11 @@ export class CSharpProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (
-      node.type === 'class_declaration' ||
-      node.type === 'interface_declaration' ||
-      node.type === 'struct_declaration' ||
-      node.type === 'enum_declaration' ||
-      node.type === 'method_declaration' ||
-      node.type === 'property_declaration'
-    ) {
-      const modifierList = this.findChild(node, 'modifier');
-      const isPublic = !modifierList || modifierList.text.includes('public');
-      if (isPublic) {
-        const nameNode = this.findChild(node, 'identifier');
-        if (nameNode && nameNode.text === symbolName) return true;
+    if (this.isExportableDeclaration(node.type)) {
+      // The `name` field is required on every exportable declaration type.
+      const nameNode = node.childForFieldName('name')!;
+      if (nameNode.text === symbolName && this.hasModifier(node, 'public')) {
+        return true;
       }
     }
 
@@ -251,14 +85,17 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     return false;
   }
 
-  // Fallbacks
-  /* v8 ignore next */
+  // -----------------------------------------------------------------------
+  // Fallbacks — regex extraction used when the grammar is unavailable
+  // -----------------------------------------------------------------------
+
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
-    const clRegex =
+
+    const classRegex =
       /(?:public\s+)?(?:static\s+)?(?:abstract\s+)?(?:sealed\s+)?(?:partial\s+)?class\s+(\w+)/g;
-    while ((m = clRegex.exec(source)) !== null) {
+    while ((m = classRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.CLASS_DEF,
         text: `class ${m[1]!}`,
@@ -270,8 +107,9 @@ export class CSharpProvider extends TreeSitterBaseProvider {
         properties: { filePath },
       });
     }
-    const ifRegex = /(?:public\s+)?interface\s+(\w+)/g;
-    while ((m = ifRegex.exec(source)) !== null) {
+
+    const interfaceRegex = /(?:public\s+)?interface\s+(\w+)/g;
+    while ((m = interfaceRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.INTERFACE_DEF,
         text: `interface ${m[1]!}`,
@@ -283,8 +121,8 @@ export class CSharpProvider extends TreeSitterBaseProvider {
         properties: { filePath },
       });
     }
-    const usings = this.fallbackExtractImports(source);
-    for (const u of usings) {
+
+    for (const u of this.fallbackExtractImports(source)) {
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
         text: u.source,
@@ -296,18 +134,22 @@ export class CSharpProvider extends TreeSitterBaseProvider {
         properties: { names: u.names.join(','), importType: u.type, filePath },
       });
     }
+
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
-    const regex = /using\s+(?:static\s+)?([\w.]+)\s*;/g;
+    // Matches `using X;`, `using static X;`, and `using Alias = X;` (the alias
+    // form targets the name after `=`). The optional alias group is absent for
+    // plain/static directives, where the first capture is already the target.
+    const regex = /using\s+(?:static\s+)?([\w.]+)(?:\s*=\s*([\w.]+))?\s*;/g;
     while ((m = regex.exec(source)) !== null) {
+      const target = m[2] ?? m[1]!;
       imports.push({
-        source: m[1]!,
-        names: [m[1]!],
+        source: target,
+        names: [target],
         type: 'named',
         lineNumber: this.ln(source, m.index),
       });
@@ -315,7 +157,6 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(
@@ -323,20 +164,138 @@ export class CSharpProvider extends TreeSitterBaseProvider {
     ).test(source);
   }
 
-  private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
-    }
-    return null;
+  // -----------------------------------------------------------------------
+  // Capture emitters
+  // -----------------------------------------------------------------------
+
+  private emitTypeDeclaration(
+    node: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+    tag: CaptureTag,
+    prefix: string,
+  ): void {
+    const nameNode = this.extractNameNode(node);
+    captures.push({
+      tag,
+      text: `${prefix} ${nameNode.text}`,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+      name: nameNode.text,
+      properties: { filePath: this.filePath },
+    });
   }
 
-  private findDeep(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    if (node.type === type) return node;
+  private emitMethodLike(
+    node: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+    tag: CaptureTag,
+  ): void {
+    const nameNode = this.extractNameNode(node);
+    // A method/constructor is always nested inside a type declaration whose
+    // grammar marks `name` as a required field, so both lookups never fail.
+    const container = this.findContainerNode(node)!;
+    const containerName = container.childForFieldName('name')!.text;
+    captures.push({
+      tag,
+      text: nameNode.text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+      name: nameNode.text,
+      containerName,
+      properties: { filePath: this.filePath },
+    });
+  }
+
+  private emitProperty(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nameNode = this.extractNameNode(node);
+    captures.push({
+      tag: CAPTURE_TAGS.VARIABLE_DEF,
+      text: nameNode.text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: nameNode.startIndex,
+      endByte: nameNode.endIndex,
+      name: nameNode.text,
+      properties: { filePath: this.filePath },
+    });
+  }
+
+  private emitImport(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const path = this.extractImportPath(node);
+    captures.push({
+      tag: CAPTURE_TAGS.IMPORT,
+      text: path,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: node.startIndex,
+      endByte: node.endIndex,
+      name: path,
+      properties: { filePath: this.filePath },
+    });
+  }
+
+  private emitAttribute(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
+    const nameNode = this.extractNameNode(node);
+    captures.push({
+      tag: CAPTURE_TAGS.DECORATOR,
+      text: node.text,
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      startByte: node.startIndex,
+      endByte: node.endIndex,
+      name: nameNode.text,
+      properties: { decorator: nameNode.text, filePath: this.filePath },
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Helpers
+  // -----------------------------------------------------------------------
+
+  /**
+   * Return a declaration's `name` field. The C# grammar marks `name` as a
+   * required field on class/interface/struct/enum/method/constructor/property
+   * and attribute nodes, so the lookup never yields null for those node types.
+   * This is deliberately field-based rather than a positional `identifier` scan:
+   * for `public T GetValue()`, the return type `T` is also an `identifier`, and
+   * a positional scan would mistake it for the method name.
+   */
+  private extractNameNode(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
+    return node.childForFieldName('name')!;
+  }
+
+  /**
+   * Return the import target of a `using_directive`. It is always the final
+   * named child: an alias directive `using Alias = X` lists the alias identifier
+   * first and the target `X` last, while a plain/static directive carries only
+   * the target itself.
+   */
+  private extractImportPath(node: TreeSitterSyntaxNode): string {
+    return node.namedChild(node.namedChildCount - 1).text;
+  }
+
+  private hasModifier(node: TreeSitterSyntaxNode, modifier: string): boolean {
     for (let i = 0; i < node.namedChildCount; i++) {
-      const r = this.findDeep(node.namedChild(i), type);
-      if (r) return r;
+      const child = node.namedChild(i);
+      if (child.type === 'modifier' && child.text === modifier) return true;
     }
-    return null;
+    return false;
+  }
+
+  private isExportableDeclaration(type: string): boolean {
+    return (
+      type === 'class_declaration' ||
+      type === 'interface_declaration' ||
+      type === 'struct_declaration' ||
+      type === 'enum_declaration' ||
+      type === 'method_declaration' ||
+      type === 'constructor_declaration' ||
+      type === 'property_declaration'
+    );
   }
 
   private ln(source: string, offset: number): number {

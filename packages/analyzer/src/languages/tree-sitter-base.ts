@@ -79,6 +79,8 @@ export interface TreeSitterSyntaxNode {
   readonly hasError: boolean;
   child(index: number): TreeSitterSyntaxNode;
   namedChild(index: number): TreeSitterSyntaxNode;
+  /** Return the named child that carries the given grammar field, or null. */
+  childForFieldName(fieldName: string): TreeSitterSyntaxNode | null;
   parent: TreeSitterSyntaxNode | null;
   walk(): TreeSitterTreeCursor;
 }
