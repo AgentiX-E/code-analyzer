@@ -5,11 +5,7 @@ import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-import type {
-  NodeTypeMapping,
-  TreeSitterLanguage,
-  TreeSitterSyntaxNode,
-} from './tree-sitter-base.js';
+import type { TreeSitterLanguage, TreeSitterSyntaxNode } from './tree-sitter-base.js';
 
 const JAVA_EXTENSIONS = ['.java'];
 const JAVA_GLOBS = ['**/*.java'];
@@ -31,167 +27,105 @@ export class JavaProvider extends TreeSitterBaseProvider {
     }
   }
 
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      {
-        nodeType: 'class_declaration',
-        captureTag: CAPTURE_TAGS.CLASS_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'interface_declaration',
-        captureTag: CAPTURE_TAGS.INTERFACE_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'enum_declaration',
-        captureTag: CAPTURE_TAGS.ENUM_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'method_declaration',
-        captureTag: CAPTURE_TAGS.METHOD_DEF,
-        nameChildType: 'identifier',
-      },
-      {
-        nodeType: 'constructor_declaration',
-        captureTag: CAPTURE_TAGS.CONSTRUCTOR_DEF,
-        nameChildType: 'identifier',
-      },
-    ];
-  }
-
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
     if (nodeType === 'class_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        let baseClasses = '';
-        let interfaces = '';
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
-          if (child.type === 'superclass') {
-            const id = this.findDeep(child, 'type_identifier');
-            /* v8 ignore next -- @preserve -- a superclass always carries a type_identifier */
-            if (id) baseClasses = id.text;
-          } else if (child.type === 'super_interfaces') {
-            const ids: string[] = [];
-            this._collectTypeIdentifiers(child, ids);
-            interfaces = ids.join(',');
-          }
+      const nameNode = this.findChild(node, 'identifier')!;
+      let baseClasses = '';
+      let interfaces = '';
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'superclass') {
+          baseClasses = this.typeBaseName(child.namedChild(0));
+        } else if (child.type === 'super_interfaces') {
+          interfaces = this.interfaceNames(child);
         }
-        captures.push({
-          tag: CAPTURE_TAGS.CLASS_DEF,
-          text: `class ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { baseClasses, interfaces, filePath: this.filePath },
-        });
       }
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `class ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { baseClasses, interfaces, filePath: this.filePath },
+      });
     } else if (nodeType === 'interface_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.INTERFACE_DEF,
-          text: `interface ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      const nameNode = this.findChild(node, 'identifier')!;
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `interface ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'enum_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.ENUM_DEF,
-          text: `enum ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      const nameNode = this.findChild(node, 'identifier')!;
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'method_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        const container = this.findContainerNode(node);
-        let containerName: string | undefined;
-        /* v8 ignore next -- @preserve -- a method is always nested inside a class/interface */
-        if (container) {
-          const cn = this.findChild(container, 'identifier');
-          /* v8 ignore next -- @preserve -- the container always carries an identifier */
-          if (cn) containerName = cn.text;
-        }
-        /* v8 ignore next -- @preserve -- constructors are constructor_declaration, never method_declaration */
-        const tag =
-          nameNode.text === containerName ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF;
-        captures.push({
-          tag,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          containerName,
-          properties: { filePath: this.filePath },
-        });
-      }
+      const nameNode = this.findChild(node, 'identifier')!;
+      // A method_declaration is always a method, never a constructor — Java
+      // constructors are parsed as constructor_declaration (no return type).
+      const container = this.findContainerNode(node)!;
+      const cn = this.findChild(container, 'identifier')!;
+      captures.push({
+        tag: CAPTURE_TAGS.METHOD_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        containerName: cn.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'constructor_declaration') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries an identifier child */
-      if (nameNode) {
-        const container = this.findContainerNode(node);
-        let containerName: string | undefined;
-        /* v8 ignore next -- @preserve -- a constructor is always nested inside a class */
-        if (container) {
-          const cn = this.findChild(container, 'identifier');
-          /* v8 ignore next -- @preserve -- the container always carries an identifier */
-          if (cn) containerName = cn.text;
-        }
+      const nameNode = this.findChild(node, 'identifier')!;
+      // A constructor is always nested inside a class or enum declaration.
+      const container = this.findContainerNode(node)!;
+      const cn = this.findChild(container, 'identifier')!;
+      captures.push({
+        tag: CAPTURE_TAGS.CONSTRUCTOR_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        containerName: cn.text,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'field_declaration') {
+      // A field_declaration can declare multiple variables (e.g. `int a, b;`),
+      // each emitted as its own VARIABLE_DEF capture.
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const declarator = node.namedChild(i);
+        if (declarator.type !== 'variable_declarator') continue;
+        const nameNode = this.variableNameNode(declarator);
         captures.push({
-          tag: CAPTURE_TAGS.CONSTRUCTOR_DEF,
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
           text: nameNode.text,
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           startByte: nameNode.startIndex,
           endByte: nameNode.endIndex,
           name: nameNode.text,
-          containerName,
           properties: { filePath: this.filePath },
         });
-      }
-    } else if (nodeType === 'field_declaration') {
-      const declarator = this.findChild(node, 'variable_declarator');
-      /* v8 ignore next -- @preserve -- a field_declaration always carries a variable_declarator */
-      if (declarator) {
-        const nameNode = this.findChild(declarator, 'identifier');
-        /* v8 ignore next -- @preserve -- a variable_declarator always carries an identifier */
-        if (nameNode) {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: nameNode.text,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: nameNode.startIndex,
-            endByte: nameNode.endIndex,
-            name: nameNode.text,
-            properties: { filePath: this.filePath },
-          });
-        }
       }
     } else if (nodeType === 'import_declaration') {
       const parts: string[] = [];
@@ -203,35 +137,33 @@ export class JavaProvider extends TreeSitterBaseProvider {
           parts.push(child.text);
         }
       }
-      /* v8 ignore next -- @preserve -- an import_declaration always carries an identifier or scoped_identifier */
-      if (parts.length > 0) {
-        const path = parts.join('.');
-        captures.push({
-          tag: CAPTURE_TAGS.IMPORT,
-          text: path,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: path,
-          properties: { filePath: this.filePath },
-        });
-      }
-    } else if (nodeType === 'annotation') {
-      const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- an annotation always carries an identifier child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.DECORATOR,
-          text: node.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: nameNode.text,
-          properties: { decorator: nameNode.text, filePath: this.filePath },
-        });
-      }
+      // An import_declaration always carries an identifier or scoped_identifier.
+      const path = parts.join('.');
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: path,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: path,
+        properties: { filePath: this.filePath },
+      });
+    } else if (nodeType === 'annotation' || nodeType === 'marker_annotation') {
+      const nameNode =
+        this.findChild(node, 'identifier') ?? this.findChild(node, 'scoped_identifier');
+      // An annotation's name field is always an identifier or scoped_identifier.
+      const name = nameNode!.text;
+      captures.push({
+        tag: CAPTURE_TAGS.DECORATOR,
+        text: node.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name,
+        properties: { decorator: name, filePath: this.filePath },
+      });
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -258,16 +190,14 @@ export class JavaProvider extends TreeSitterBaseProvider {
         }
       }
 
+      // An import_declaration always carries an identifier or scoped_identifier.
       const path = parts.join('.');
-      /* v8 ignore next -- @preserve -- an import_declaration always carries an identifier or scoped_identifier */
-      if (path) {
-        imports.push({
-          source: path,
-          names: isWildcard ? [] : [parts[parts.length - 1]!],
-          type: isWildcard ? 'wildcard' : 'named',
-          lineNumber: line,
-        });
-      }
+      imports.push({
+        source: path,
+        names: isWildcard ? [] : [parts[parts.length - 1]!],
+        type: isWildcard ? 'wildcard' : 'named',
+        lineNumber: line,
+      });
       return;
     }
 
@@ -277,21 +207,26 @@ export class JavaProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    // Check for 'public' modifier on declarations
+    const nodeType = node.type;
+
     if (
-      node.type === 'class_declaration' ||
-      node.type === 'interface_declaration' ||
-      node.type === 'enum_declaration' ||
-      node.type === 'method_declaration' ||
-      node.type === 'field_declaration' ||
-      node.type === 'constructor_declaration'
+      nodeType === 'class_declaration' ||
+      nodeType === 'interface_declaration' ||
+      nodeType === 'enum_declaration' ||
+      nodeType === 'method_declaration' ||
+      nodeType === 'constructor_declaration'
     ) {
-      const prefix = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex).trim();
-      const nodeText = this.source.slice(node.startIndex, node.startIndex + 50);
-      const isPublic = prefix.includes('public') || nodeText.trimStart().startsWith('public');
-      if (isPublic) {
-        const nameNode = this.findChild(node, 'identifier');
-        if (nameNode && nameNode.text === symbolName) return true;
+      if (this.hasPublicModifier(node)) {
+        const nameNode = this.findChild(node, 'identifier')!;
+        if (nameNode.text === symbolName) return true;
+      }
+    } else if (nodeType === 'field_declaration') {
+      if (this.hasPublicModifier(node)) {
+        for (let i = 0; i < node.namedChildCount; i++) {
+          const declarator = node.namedChild(i);
+          if (declarator.type !== 'variable_declarator') continue;
+          if (this.variableNameNode(declarator).text === symbolName) return true;
+        }
       }
     }
 
@@ -302,7 +237,6 @@ export class JavaProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -361,7 +295,6 @@ export class JavaProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -378,7 +311,6 @@ export class JavaProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(
@@ -394,13 +326,59 @@ export class JavaProvider extends TreeSitterBaseProvider {
     return null;
   }
 
-  private findDeep(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    if (node.type === type) return node;
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const r = this.findDeep(node.namedChild(i), type);
-      if (r) return r;
+  /**
+   * Extract the leaf name of a class/interface type. Unwraps generic types,
+   * scoped (dotted) types, and type-use annotations to the base identifier,
+   * e.g. `java.util.AbstractList<String>` -> `AbstractList`.
+   */
+  private typeBaseName(type: TreeSitterSyntaxNode): string {
+    if (
+      type.type === 'generic_type' ||
+      type.type === 'scoped_type_identifier' ||
+      type.type === 'annotated_type'
+    ) {
+      for (let i = type.namedChildCount - 1; i >= 0; i--) {
+        const child = type.namedChild(i);
+        if (child.type === 'type_identifier') return child.text;
+        if (
+          child.type === 'generic_type' ||
+          child.type === 'scoped_type_identifier' ||
+          child.type === 'annotated_type'
+        ) {
+          return this.typeBaseName(child);
+        }
+      }
     }
-    return null;
+    return type.text;
+  }
+
+  /** Join the comma-separated interface names of a super_interfaces clause. */
+  private interfaceNames(superInterfaces: TreeSitterSyntaxNode): string {
+    const typeList = superInterfaces.namedChild(0);
+    const names: string[] = [];
+    for (let i = 0; i < typeList.namedChildCount; i++) {
+      names.push(this.typeBaseName(typeList.namedChild(i)));
+    }
+    return names.join(',');
+  }
+
+  /** Whether a declaration carries a `public` visibility modifier. */
+  private hasPublicModifier(node: TreeSitterSyntaxNode): boolean {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (child.type === 'modifiers') {
+        return /\bpublic\b/.test(child.text);
+      }
+    }
+    return false;
+  }
+
+  /** The name node of a variable_declarator (an identifier or `_` pattern). */
+  private variableNameNode(declarator: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
+    const nameNode =
+      this.findChild(declarator, 'identifier') ?? this.findChild(declarator, 'underscore_pattern');
+    // A variable_declarator always carries an identifier or underscore_pattern name.
+    return nameNode!;
   }
 
   private _collectIdentifiers(node: TreeSitterSyntaxNode, result: string[]): void {
@@ -410,16 +388,6 @@ export class JavaProvider extends TreeSitterBaseProvider {
     }
     for (let i = 0; i < node.namedChildCount; i++) {
       this._collectIdentifiers(node.namedChild(i), result);
-    }
-  }
-
-  private _collectTypeIdentifiers(node: TreeSitterSyntaxNode, result: string[]): void {
-    if (node.type === 'type_identifier' || node.type === 'identifier') {
-      result.push(node.text);
-      return;
-    }
-    for (let i = 0; i < node.namedChildCount; i++) {
-      this._collectTypeIdentifiers(node.namedChild(i), result);
     }
   }
 

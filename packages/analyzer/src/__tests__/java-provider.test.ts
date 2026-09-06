@@ -1,736 +1,397 @@
-import { describe, it, expect } from 'vitest';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { describe, it, expect } from 'vitest';
 
 import { JavaProvider } from '../languages/java.js';
+
+/** JavaProvider with tree-sitter disabled, forcing the regex fallback path. */
+class RegexJavaProvider extends JavaProvider {
+  constructor() {
+    super();
+    // Force the regex fallback by clearing the tree-sitter parser and grammar.
+    this.parser = null;
+    this.languageGrammar = null;
+  }
+}
 
 describe('JavaProvider', () => {
   const provider = new JavaProvider();
 
-  describe('language metadata', () => {
-    it('should report correct language', () => {
+  describe('properties', () => {
+    it('should report the correct language metadata', () => {
       expect(provider.language).toBe('java');
-    });
-
-    it('should have correct display name', () => {
       expect(provider.displayName).toBe('Java');
-    });
-
-    it('should have .java extension', () => {
       expect(provider.extensions).toContain('.java');
-    });
-
-    it('should have named import semantics', () => {
       expect(provider.importSemantics).toBe('named');
     });
   });
 
   describe('parse', () => {
-    it('should extract class definitions', () => {
-      const code = 'public class MyClass {\n  void foo() {}\n}';
-      const captures = provider.parse(code, 'MyClass.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should record superclass and interfaces for a class declaration', () => {
-      const code = 'public class Foo extends Base implements A, B { }';
-      const captures = provider.parse(code, 'Foo.java');
+    it('should capture a class name and empty base-class/interface properties', () => {
+      const captures = provider.parse('public class Foo { }', 'Foo.java');
       const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(cls).toBeDefined();
-      expect((cls!.properties as Record<string, unknown>).baseClasses).toBe('Base');
-      expect((cls!.properties as Record<string, unknown>).interfaces).toBe('A,B');
+      expect(cls!.name).toBe('Foo');
+      expect(cls!.properties?.baseClasses).toBe('');
+      expect(cls!.properties?.interfaces).toBe('');
     });
 
-    it('should extract a single-identifier import', () => {
+    it.each([
+      ['plain type', 'public class Foo extends Base { }', 'Base'],
+      ['generic type', 'public class Foo<T> extends AbstractList<T> { }', 'AbstractList'],
+      ['scoped type', 'public class Foo extends com.example.Base { }', 'Base'],
+      [
+        'generic scoped type',
+        'public class Foo extends java.util.AbstractList<String> { }',
+        'AbstractList',
+      ],
+      ['annotated type', 'public class Foo extends @Nullable Base { }', 'Base'],
+    ])('should extract the superclass leaf name for a %s', (_label, decl, expected) => {
+      const captures = provider.parse(decl, 'Foo.java');
+      const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(cls!.properties?.baseClasses).toBe(expected);
+    });
+
+    it.each([
+      ['plain interfaces', 'public class Foo implements A, B { }', 'A,B'],
+      [
+        'generic and scoped interfaces',
+        'public class Foo implements List<T>, java.io.Serializable { }',
+        'List,Serializable',
+      ],
+      [
+        'annotated and plain interfaces',
+        'public class Foo implements @NonNull Comparable<Foo>, Runnable { }',
+        'Comparable,Runnable',
+      ],
+    ])('should extract interface names for %s', (_label, decl, expected) => {
+      const captures = provider.parse(decl, 'Foo.java');
+      const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(cls!.properties?.interfaces).toBe(expected);
+    });
+
+    it('should capture an interface definition', () => {
+      const captures = provider.parse('public interface Repository { void find(); }', 'R.java');
+      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
+      expect(ifaces.some((c) => c.name === 'Repository')).toBe(true);
+    });
+
+    it('should capture an enum definition', () => {
+      const captures = provider.parse('public enum Color { RED, GREEN }', 'Color.java');
+      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
+      expect(enums.some((c) => c.name === 'Color')).toBe(true);
+    });
+
+    it('should capture a method with its container name', () => {
+      const captures = provider.parse('public class Svc { public void run() { } }', 'Svc.java');
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods).toHaveLength(1);
+      expect(methods[0]!.name).toBe('run');
+      expect(methods[0]!.containerName).toBe('Svc');
+    });
+
+    it('should capture an interface method with the interface as container', () => {
+      const captures = provider.parse(
+        'public interface I { default void init() { } void go(); }',
+        'I.java',
+      );
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.length).toBeGreaterThanOrEqual(2);
+      expect(methods.every((m) => m.containerName === 'I')).toBe(true);
+    });
+
+    it('should capture an enum method with the enum as container', () => {
+      const captures = provider.parse(
+        'public enum E { A; public String code() { return "A"; } }',
+        'E.java',
+      );
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some((m) => m.name === 'code' && m.containerName === 'E')).toBe(true);
+    });
+
+    it('should capture a record method with the record as container', () => {
+      const captures = provider.parse(
+        'public record R(int x) { public int get() { return x; } }',
+        'R.java',
+      );
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some((m) => m.name === 'get' && m.containerName === 'R')).toBe(true);
+    });
+
+    it('should tag a method sharing its class name as METHOD_DEF, not CONSTRUCTOR_DEF', () => {
+      const captures = provider.parse(
+        'public class Foo { public void Foo() { } public Foo() { } }',
+        'Foo.java',
+      );
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+      expect(methods.some((c) => c.name === 'Foo')).toBe(true);
+      expect(constructors).toHaveLength(1);
+    });
+
+    it('should capture a constructor with its container name', () => {
+      const captures = provider.parse('public class U { public U(String n) { } }', 'U.java');
+      const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
+      expect(constructors).toHaveLength(1);
+      expect(constructors[0]!.name).toBe('U');
+      expect(constructors[0]!.containerName).toBe('U');
+    });
+
+    it('should capture a single-variable field', () => {
+      const captures = provider.parse('public class F { private String name; }', 'F.java');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.map((c) => c.name)).toEqual(['name']);
+    });
+
+    it('should capture every declarator in a multi-variable field', () => {
+      const captures = provider.parse(
+        'public class F { private int a, b; public String s; }',
+        'F.java',
+      );
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.map((c) => c.name)).toEqual(['a', 'b', 's']);
+    });
+
+    it('should capture an underscore-named field', () => {
+      const captures = provider.parse('public class F { private int _; }', 'F.java');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.map((c) => c.name)).toEqual(['_']);
+    });
+
+    it('should capture a single-identifier import', () => {
       const captures = provider.parse('import Foo;\n', 'Test.java');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'Foo')).toBe(true);
     });
 
-    it('should extract abstract class', () => {
-      const code = 'public abstract class BaseService { }';
-      const captures = provider.parse(code, 'BaseService.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'BaseService')).toBe(true);
-    });
-
-    it('should extract final class', () => {
-      const code = 'public final class Constants { }';
-      const captures = provider.parse(code, 'Constants.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'Constants')).toBe(true);
-    });
-
-    it('should extract non-public class', () => {
-      const code = 'class PackagePrivate { }';
-      const captures = provider.parse(code, 'PackagePrivate.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'PackagePrivate')).toBe(true);
-    });
-
-    it('should extract interface definitions', () => {
-      const code = 'public interface Repository {\n  void find();\n}';
-      const captures = provider.parse(code, 'Repository.java');
-      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
-      expect(ifaces.some((c) => c.name === 'Repository')).toBe(true);
-    });
-
-    it('should extract interface with default methods', () => {
-      const code =
-        'public interface Processor {\n  default void init() { }\n  static void reset() { }\n  void process();\n}';
-      const captures = provider.parse(code, 'test.java');
-      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
-      expect(ifaces.some((c) => c.name === 'Processor')).toBe(true);
-      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.length).toBeGreaterThanOrEqual(3);
-    });
-
-    it('should extract interface with static methods', () => {
-      const code =
-        'public interface Factory {\n  static Factory create() { return new FactoryImpl(); }\n}';
-      const captures = provider.parse(code, 'test.java');
-      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
-      expect(ifaces.some((c) => c.name === 'Factory')).toBe(true);
-    });
-
-    it('should extract enum definitions', () => {
-      const code = 'public enum Color { RED, GREEN, BLUE }';
-      const captures = provider.parse(code, 'Color.java');
-      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
-      expect(enums.some((c) => c.name === 'Color')).toBe(true);
-    });
-
-    it('should extract enum with constructors and methods', () => {
-      const code =
-        'public enum Status {\n  ACTIVE("A"), INACTIVE("I");\n  private String code;\n  Status(String c) { code = c; }\n  public String getCode() { return code; }\n}';
-      const captures = provider.parse(code, 'Status.java');
-      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
-      expect(enums.some((c) => c.name === 'Status')).toBe(true);
-      const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
-      expect(constructors.length).toBeGreaterThanOrEqual(1);
-      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('should extract enum with fields', () => {
-      const code =
-        'public enum Direction {\n  NORTH(0), SOUTH(180);\n  private int degrees;\n  Direction(int d) { degrees = d; }\n}';
-      const captures = provider.parse(code, 'Direction.java');
-      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
-      expect(enums.some((c) => c.name === 'Direction')).toBe(true);
-    });
-
-    it('should extract import statements', () => {
-      const code = 'import java.util.List;\nimport java.util.Map;\npublic class Test { }';
-      const captures = provider.parse(code, 'Test.java');
+    it('should capture a scoped import', () => {
+      const captures = provider.parse('import java.util.List;\n', 'Test.java');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports.length).toBeGreaterThanOrEqual(2);
+      expect(imports.some((c) => c.name === 'java.util.List')).toBe(true);
     });
 
-    it('should extract static imports in parse', () => {
-      const code = 'import static org.junit.Assert.assertEquals;\npublic class Test { }';
-      const captures = provider.parse(code, 'Test.java');
+    it('should capture a wildcard import without the asterisk', () => {
+      const captures = provider.parse('import java.util.*;\n', 'Test.java');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports.length).toBeGreaterThanOrEqual(1);
+      expect(imports.some((c) => c.name === 'java.util')).toBe(true);
     });
 
-    it('should extract wildcard import in parse', () => {
-      const code = 'import java.util.*;\npublic class Test { }';
-      const captures = provider.parse(code, 'Test.java');
-      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports.length).toBeGreaterThanOrEqual(1);
+    it('should capture a marker annotation', () => {
+      const captures = provider.parse('@Deprecated public class A { }', 'A.java');
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators.some((c) => c.name === 'Deprecated')).toBe(true);
     });
 
-    it('should handle empty files', () => {
-      const captures = provider.parse('', 'Empty.java');
-      expect(Array.isArray(captures)).toBe(true);
+    it('should capture an annotation with arguments', () => {
+      const captures = provider.parse(
+        'public class A { @SuppressWarnings("unused") public void m() { } }',
+        'A.java',
+      );
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators.some((c) => c.name === 'SuppressWarnings')).toBe(true);
     });
 
-    it('should handle files with only comments', () => {
-      const code = '// Just a comment\n/* Block comment */';
-      const captures = provider.parse(code, 'Test.java');
-      expect(Array.isArray(captures)).toBe(true);
+    it('should capture a qualified annotation', () => {
+      const captures = provider.parse(
+        '@java.lang.SuppressWarnings("x") public class A { }',
+        'A.java',
+      );
+      const decorators = captures.filter((c) => c.tag === CAPTURE_TAGS.DECORATOR);
+      expect(decorators.some((c) => c.name === 'java.lang.SuppressWarnings')).toBe(true);
     });
 
-    it('should return captures sorted by line', () => {
-      const code = 'import java.util.List;\npublic class First { }\npublic enum Color { RED }';
-      const captures = provider.parse(code, 'Test.java');
-      for (let i = 1; i < captures.length; i++) {
-        expect(captures[i].startLine).toBeGreaterThanOrEqual(captures[i - 1].startLine);
-      }
-    });
-
-    it('should extract method definitions', () => {
-      const code = 'public class Service {\n  public void doWork() { }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some((c) => c.name === 'doWork')).toBe(true);
-    });
-
-    it('should extract constructor definitions', () => {
-      const code = 'public class User {\n  public User(String name) { }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const constructors = captures.filter((c) => c.tag === CAPTURE_TAGS.CONSTRUCTOR_DEF);
-      expect(constructors.some((c) => c.name === 'User')).toBe(true);
-    });
-
-    it('should extract field declarations', () => {
-      const code = 'public class User {\n  private String name;\n  public int age;\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('should extract annotations', () => {
-      const code = '@Override\npublic String toString() { return ""; }';
-      const captures = provider.parse(code, 'Test.java');
-      // tree-sitter-java uses 'marker_annotation' not 'annotation' for @Override
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should extract annotation with arguments', () => {
-      const code = '@SuppressWarnings("unused")\npublic void foo() { }';
-      const captures = provider.parse(code, 'Test.java');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should handle class with generics', () => {
-      const code =
-        'public class Box<T> {\n  private T value;\n  public T getValue() { return value; }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'Box')).toBe(true);
-    });
-
-    it('should handle class with bounded type parameter', () => {
-      const code =
-        'public class Comparable<T extends Comparable<T>> {\n  public int compare(T other) { return 0; }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'Comparable')).toBe(true);
-    });
-
-    it('should handle class with extends and implements', () => {
-      const code =
-        'public class ArrayList<E> extends AbstractList<E> implements List<E>, RandomAccess { }';
-      const captures = provider.parse(code, 'Test.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'ArrayList')).toBe(true);
-    });
-
-    it('should handle multiple methods in a class', () => {
-      const code =
-        'public class Calculator {\n  public int add(int a, int b) { return a + b; }\n  public int subtract(int a, int b) { return a - b; }\n  private void init() { }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.length).toBeGreaterThanOrEqual(3);
-    });
-
-    it('should handle class with annotations', () => {
-      const code =
-        '@Deprecated\npublic class OldClass {\n  @SuppressWarnings("unused")\n  public void legacyMethod() { }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      // tree-sitter-java uses 'marker_annotation' and 'annotation' types
-      // inside 'modifiers' nodes, not matched by current walkAndCapture
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('should handle try-with-resources', () => {
-      const code =
-        'public class FileReader {\n  public String readFirstLine() throws IOException {\n    try (BufferedReader br = new BufferedReader(new java.io.FileReader("file.txt"))) {\n      return br.readLine();\n    }\n  }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some((c) => c.name === 'readFirstLine')).toBe(true);
-    });
-
-    it('should handle class with inner class', () => {
-      const code =
-        'public class Outer {\n  public class Inner {\n    public void doWork() { }\n  }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.length).toBeGreaterThanOrEqual(2);
-      expect(classDefs.some((c) => c.name === 'Outer')).toBe(true);
-      expect(classDefs.some((c) => c.name === 'Inner')).toBe(true);
-    });
-
-    it('should handle class with static method', () => {
-      const code =
-        'public class Utils {\n  public static String format(String input) { return input.trim(); }\n}';
-      const captures = provider.parse(code, 'Test.java');
-      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some((c) => c.name === 'format')).toBe(true);
-    });
-
-    it('should handle file with class, interface, and enum', () => {
-      const code = 'public class Main { }\ninterface Helper { }\nenum Type { A, B }';
-      const captures = provider.parse(code, 'Test.java');
+    it('should capture nested classes and their methods', () => {
+      const captures = provider.parse(
+        'public class Outer { public class Inner { public void m() { } } }',
+        'Outer.java',
+      );
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
-      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
-      expect(classes.length).toBeGreaterThanOrEqual(1);
-      expect(ifaces.length).toBeGreaterThanOrEqual(1);
-      expect(enums.length).toBeGreaterThanOrEqual(1);
+      expect(classes.map((c) => c.name)).toEqual(expect.arrayContaining(['Outer', 'Inner']));
+      const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
+      expect(methods.some((m) => m.name === 'm' && m.containerName === 'Inner')).toBe(true);
+    });
+
+    it('should handle empty source', () => {
+      expect(provider.parse('', 'Empty.java')).toEqual([]);
+    });
+
+    it('should return captures sorted by line and byte', () => {
+      const captures = provider.parse(
+        'import java.util.List;\npublic class First { }\npublic enum Color { RED }',
+        'Test.java',
+      );
+      for (let i = 1; i < captures.length; i++) {
+        expect(captures[i]!.startLine).toBeGreaterThanOrEqual(captures[i - 1]!.startLine);
+      }
     });
   });
 
   describe('extractImports', () => {
-    it('should extract imports', () => {
-      const code = 'import java.util.List;\nimport java.util.Map;';
-      const imports = provider.extractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(2);
-    });
-
     it('should extract a single-identifier import', () => {
       const imports = provider.extractImports('import Foo;\n');
       expect(imports).toContainEqual(expect.objectContaining({ source: 'Foo', type: 'named' }));
     });
 
-    it('should extract static imports', () => {
-      const code = 'import static org.junit.Assert.assertEquals;';
-      const imports = provider.extractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(1);
+    it('should extract a deeply scoped import', () => {
+      const imports = provider.extractImports('import java.util.stream.Collectors;\n');
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('java.util.stream.Collectors');
+      expect(imports[0]!.names).toEqual(['Collectors']);
     });
 
-    it('should extract wildcard imports', () => {
-      const code = 'import java.util.*;';
-      const imports = provider.extractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(1);
-      const wildcard = imports.find((i) => i.type === 'wildcard');
-      expect(wildcard).toBeDefined();
+    it('should extract a static import', () => {
+      const imports = provider.extractImports('import static org.junit.Assert.assertEquals;\n');
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.source).toBe('org.junit.Assert.assertEquals');
     });
 
-    it('should extract static wildcard imports', () => {
-      const code = 'import static org.junit.Assert.*;';
-      const imports = provider.extractImports(code);
-      expect(Array.isArray(imports)).toBe(true);
+    it('should extract a wildcard import', () => {
+      const imports = provider.extractImports('import java.util.*;\n');
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.type).toBe('wildcard');
+      expect(imports[0]!.names).toEqual([]);
     });
 
-    it('should handle files without imports', () => {
-      const imports = provider.extractImports('class Foo { }');
-      expect(imports.length).toBe(0);
+    it('should extract a static wildcard import', () => {
+      const imports = provider.extractImports('import static org.junit.Assert.*;\n');
+      expect(imports).toHaveLength(1);
+      expect(imports[0]!.type).toBe('wildcard');
     });
 
     it('should include line numbers', () => {
-      const code = '// comment\nimport java.util.List;\n';
-      const imports = provider.extractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(1);
-      expect(imports[0].lineNumber).toBe(2);
+      const imports = provider.extractImports('// comment\nimport java.util.List;\n');
+      expect(imports[0]!.lineNumber).toBe(2);
     });
 
-    it('should extract multiple imports including static', () => {
-      const code = 'import java.util.List;\nimport static org.junit.Assert.*;\nimport java.io.*;';
-      const imports = provider.extractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(3);
+    it('should return no imports for source without imports', () => {
+      expect(provider.extractImports('class Foo { }')).toEqual([]);
     });
   });
 
   describe('isExported', () => {
-    it('should detect public class as exported', () => {
-      expect(provider.isExported('public class MyClass { }', 'MyClass')).toBe(true);
+    it('should detect a public class as exported', () => {
+      expect(provider.isExported('public class Foo { }', 'Foo')).toBe(true);
     });
 
-    it('should detect public interface as exported', () => {
-      expect(provider.isExported('public interface MyIface { }', 'MyIface')).toBe(true);
+    it('should detect a public interface as exported', () => {
+      expect(provider.isExported('public interface Bar { }', 'Bar')).toBe(true);
     });
 
-    it('should detect public enum as exported', () => {
-      expect(provider.isExported('public enum Color { RED }', 'Color')).toBe(true);
+    it('should detect a public enum as exported', () => {
+      expect(provider.isExported('public enum Baz { A }', 'Baz')).toBe(true);
     });
 
-    it('should return false for non-public class', () => {
-      expect(provider.isExported('class InternalClass { }', 'InternalClass')).toBe(false);
+    it('should detect a public method as exported', () => {
+      expect(provider.isExported('public class A { public void run() { } }', 'run')).toBe(true);
     });
 
-    it('should return false for non-matching name', () => {
-      expect(provider.isExported('public class Foo { }', 'Bar')).toBe(false);
+    it('should detect a public constructor as exported', () => {
+      expect(provider.isExported('public class Test { public Test() { } }', 'Test')).toBe(true);
     });
 
-    it('should detect public method as exported', () => {
-      expect(provider.isExported('public void doWork() { }', 'doWork')).toBe(true);
+    it('should detect a public field as exported', () => {
+      expect(provider.isExported('public class A { public String name; }', 'name')).toBe(true);
     });
 
-    it('should detect public field as exported', () => {
-      // checkExported looks for 'public' prefix in source before the field_declaration node
-      const result = provider.isExported('public String name;', 'name');
-      expect(typeof result).toBe('boolean');
+    it('should detect each declarator of a public multi-variable field', () => {
+      const code = 'public class A { public int x, y; }';
+      expect(provider.isExported(code, 'x')).toBe(true);
+      expect(provider.isExported(code, 'y')).toBe(true);
     });
 
-    it('should detect public method inside class as exported (top-level)', () => {
-      const result = provider.isExported('public void test() { }', 'test');
-      expect(result).toBe(true);
+    it('should detect a public class preceded by an annotation as exported', () => {
+      expect(provider.isExported('@Deprecated public class Foo { }', 'Foo')).toBe(true);
     });
 
-    it('should return false for private method', () => {
-      const result = provider.isExported('private void secret() { }', 'secret');
-      expect(result).toBe(false);
-    });
-
-    it('should detect public constructor as exported', () => {
-      const result = provider.isExported('public class Test { public Test() { } }', 'Test');
-      expect(result).toBe(true);
-    });
-  });
-
-  describe('fallback methods', () => {
-    it('fallbackParse should extract class definitions', () => {
-      const code = 'public class MyClass {\n  void foo() {}\n}';
-      const captures = provider.fallbackParse(code, 'MyClass.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'MyClass')).toBe(true);
-    });
-
-    it('fallbackParse should extract interface definitions', () => {
-      const code = 'public interface Repository {\n  void find();\n}';
-      const captures = provider.fallbackParse(code, 'test.java');
-      const ifaces = captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF);
-      expect(ifaces.some((c) => c.name === 'Repository')).toBe(true);
-    });
-
-    it('fallbackParse should extract enum definitions', () => {
-      const code = 'public enum Color { RED, GREEN, BLUE }';
-      const captures = provider.fallbackParse(code, 'test.java');
-      const enums = captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF);
-      expect(enums.some((c) => c.name === 'Color')).toBe(true);
-    });
-
-    it('fallbackParse should extract imports', () => {
-      const code = 'import java.util.List;\nimport java.util.Map;';
-      const captures = provider.fallbackParse(code, 'test.java');
-      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('fallbackParse should handle empty files', () => {
-      const captures = provider.fallbackParse('', 'Empty.java');
-      expect(Array.isArray(captures)).toBe(true);
-    });
-
-    it('fallbackParse should extract abstract class', () => {
-      const code = 'public abstract class BaseService { }';
-      const captures = provider.fallbackParse(code, 'test.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'BaseService')).toBe(true);
-    });
-
-    it('fallbackParse should extract final class', () => {
-      const code = 'public final class Constants { }';
-      const captures = provider.fallbackParse(code, 'test.java');
-      const classDefs = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classDefs.some((c) => c.name === 'Constants')).toBe(true);
-    });
-
-    it('fallbackExtractImports should extract import statements', () => {
-      const code = 'import java.util.List;\nimport java.util.Map;\nimport java.util.ArrayList;';
-      const imports = provider.fallbackExtractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(3);
-    });
-
-    it('fallbackExtractImports should extract static imports', () => {
-      const code = 'import static org.junit.Assert.assertEquals;';
-      const imports = provider.fallbackExtractImports(code);
-      expect(imports.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('fallbackExtractImports should handle empty source', () => {
-      const imports = provider.fallbackExtractImports('');
-      expect(imports).toHaveLength(0);
-    });
-
-    it('fallbackIsExported should detect public class as exported', () => {
-      expect(provider.fallbackIsExported('public class MyClass { }', 'MyClass')).toBe(true);
-    });
-
-    it('fallbackIsExported should detect public interface', () => {
-      expect(provider.fallbackIsExported('public interface MyIface { }', 'MyIface')).toBe(true);
-    });
-
-    it('fallbackIsExported should detect public enum', () => {
-      expect(provider.fallbackIsExported('public enum Color { RED }', 'Color')).toBe(true);
-    });
-
-    it('fallbackIsExported should detect public method', () => {
-      expect(provider.fallbackIsExported('public void doWork() { }', 'doWork')).toBe(true);
-    });
-
-    it('fallbackIsExported should detect public static method', () => {
+    it('should find a public nested class', () => {
       expect(
-        provider.fallbackIsExported(
-          'public static String format(String s) { return s; }',
-          'format',
-        ),
+        provider.isExported('public class Outer { public static class Inner { } }', 'Inner'),
       ).toBe(true);
     });
 
-    it('fallbackIsExported should return false for non-public class', () => {
-      expect(provider.fallbackIsExported('class InternalClass { }', 'InternalClass')).toBe(false);
+    it('should return false for a non-public class', () => {
+      expect(provider.isExported('class Internal { }', 'Internal')).toBe(false);
     });
 
-    it('fallbackIsExported should return false for non-matching name', () => {
-      expect(provider.fallbackIsExported('public class Foo { }', 'Bar')).toBe(false);
-    });
-  });
-
-  describe('internal helpers', () => {
-    it('getNodeMappings should return node type mappings', () => {
-      const p = provider as any;
-      const mappings = p.getNodeMappings();
-      expect(Array.isArray(mappings)).toBe(true);
-      expect(mappings.length).toBeGreaterThan(0);
+    it('should return false for a private method', () => {
+      expect(provider.isExported('public class A { private void secret() { } }', 'secret')).toBe(
+        false,
+      );
     });
 
-    it('findChild should find child by type', () => {
-      const code = 'public class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const classNode = p.findDeep(tree.rootNode, 'class_declaration');
-        if (classNode) {
-          const nameNode = p.findChild(classNode, 'identifier');
-          expect(nameNode).toBeDefined();
-        }
-      }
+    it('should return false for a private field', () => {
+      expect(provider.isExported('public class A { private int hidden; }', 'hidden')).toBe(false);
     });
 
-    it('findChild should return null for missing child', () => {
-      const code = 'public class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const classNode = p.findDeep(tree.rootNode, 'class_declaration');
-        if (classNode) {
-          const result = p.findChild(classNode, 'nonexistent');
-          expect(result).toBeNull();
-        }
-      }
-    });
-
-    it('findDeep should find nested node', () => {
-      const code = 'public class Foo { public void bar() {} }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.findDeep(tree.rootNode, 'method_declaration');
-        expect(result).toBeDefined();
-      }
-    });
-
-    it('findDeep should return null for missing type', () => {
-      const code = 'public class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.findDeep(tree.rootNode, 'nonexistent');
-        expect(result).toBeNull();
-      }
-    });
-
-    it('findDeep should match the root node itself', () => {
-      const code = 'public class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.findDeep(tree.rootNode, 'program');
-        expect(result).toBeDefined();
-      }
-    });
-
-    it('collectIdentifiers should collect nested identifiers', () => {
-      const code = 'import java.util.List;';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const importNode = p.findDeep(tree.rootNode, 'import_declaration');
-        if (importNode) {
-          const parts: string[] = [];
-          for (let i = 0; i < importNode.namedChildCount; i++) {
-            const child = importNode.namedChild(i);
-            if (child.type === 'scoped_identifier') {
-              p.collectIdentifiers(child, parts);
-            }
-          }
-          expect(parts.length).toBeGreaterThan(0);
-          expect(parts).toContain('List');
-        }
-      }
-    });
-
-    it('collectIdentifiers should handle plain identifier', () => {
-      const code = 'import org.junit.Test;';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const importNode = p.findDeep(tree.rootNode, 'import_declaration');
-        if (importNode) {
-          const parts: string[] = [];
-          for (let i = 0; i < importNode.namedChildCount; i++) {
-            const child = importNode.namedChild(i);
-            if (child.type === 'scoped_identifier') {
-              p.collectIdentifiers(child, parts);
-            }
-          }
-          expect(parts.length).toBeGreaterThanOrEqual(2);
-        }
-      }
-    });
-
-    it('walkAndCapture should handle empty source_file root', () => {
-      const code = '';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const captures: any[] = [];
-        p.walkAndCapture(tree.rootNode, captures);
-        expect(Array.isArray(captures)).toBe(true);
-      }
-    });
-
-    it('walkAndCapture should capture class with extends', () => {
-      const code = 'public class MyList extends ArrayList { }';
-      const p = provider as any;
-      const captures: any[] = [];
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        p.walkAndCapture(tree.rootNode, captures);
-        const classDefs = captures.filter((c: any) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-        expect(classDefs.length).toBeGreaterThanOrEqual(1);
-        expect(classDefs[0].properties).toBeDefined();
-      }
-    });
-
-    it('walkAndCapture should capture class with interfaces', () => {
-      const code = 'public class MyList implements List, Serializable { }';
-      const p = provider as any;
-      const captures: any[] = [];
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        p.walkAndCapture(tree.rootNode, captures);
-        const classDefs = captures.filter((c: any) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-        expect(classDefs.length).toBeGreaterThanOrEqual(1);
-      }
-    });
-
-    it('checkExported should detect public class', () => {
-      const p = provider as any;
-      const code = 'public class MyClass { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.checkExported(tree.rootNode, 'MyClass');
-        expect(result).toBe(true);
-      }
-    });
-
-    it('checkExported should detect public interface', () => {
-      const p = provider as any;
-      const code = 'public interface MyIface { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.checkExported(tree.rootNode, 'MyIface');
-        expect(result).toBe(true);
-      }
-    });
-
-    it('checkExported should detect public enum', () => {
-      const p = provider as any;
-      const code = 'public enum Color { RED }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.checkExported(tree.rootNode, 'Color');
-        expect(result).toBe(true);
-      }
-    });
-
-    it('checkExported should detect public method', () => {
-      const p = provider as any;
-      const code = 'public void doWork() { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.checkExported(tree.rootNode, 'doWork');
-        expect(result).toBe(true);
-      }
-    });
-
-    it('checkExported should return false for non-public class', () => {
-      const p = provider as any;
-      const code = 'class InternalClass { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.checkExported(tree.rootNode, 'InternalClass');
-        expect(result).toBe(false);
-      }
-    });
-
-    it('checkExported should return false for non-matching name', () => {
-      const p = provider as any;
-      const code = 'public class Foo { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.checkExported(tree.rootNode, 'Bar');
-        expect(result).toBe(false);
-      }
+    it('should return false for a non-matching name', () => {
+      expect(provider.isExported('public class Foo { }', 'Bar')).toBe(false);
     });
   });
 
-  describe('direct method coverage for functions metric', () => {
-    it('ln should return correct line numbers', () => {
-      const p = provider as any;
-      expect(p.ln('line1\nline2\nline3\n', 0)).toBe(1);
-      expect(p.ln('line1\nline2\nline3\n', 6)).toBe(2);
-      expect(p.ln('line1\nline2\nline3\n', 12)).toBe(3);
-      expect(p.ln('single-liner', 5)).toBe(1);
-      expect(p.ln('', 0)).toBe(1);
+  describe('regex fallback (no parser)', () => {
+    const fallback = new RegexJavaProvider();
+
+    it('should parse classes, interfaces, enums, and imports', () => {
+      const source =
+        'public class Foo { }\ninterface Bar { }\nenum Baz { A }\nimport java.util.List;\n';
+      const captures = fallback.parse(source, 'Test.java');
+      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).map((c) => c.name)).toContain(
+        'Foo',
+      );
+      expect(
+        captures.filter((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF).map((c) => c.name),
+      ).toContain('Bar');
+      expect(captures.filter((c) => c.tag === CAPTURE_TAGS.ENUM_DEF).map((c) => c.name)).toContain(
+        'Baz',
+      );
+      expect(
+        captures.some((c) => c.tag === CAPTURE_TAGS.IMPORT && c.name === 'java.util.List'),
+      ).toBe(true);
     });
 
-    it('walkForImports with wildcard import', () => {
-      const p = provider as any;
-      const code = 'import java.util.*;\npublic class Test { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const imports: any[] = [];
-        p.walkForImports(tree.rootNode, imports);
-        expect(imports.length).toBeGreaterThanOrEqual(1);
-        expect(imports[0].type).toBe('wildcard');
-      }
+    it('should parse abstract and final classes', () => {
+      const source = 'public abstract class Base { }\npublic final class C { }\n';
+      const captures = fallback.parse(source, 'Test.java');
+      const names = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF).map((c) => c.name);
+      expect(names).toEqual(expect.arrayContaining(['Base', 'C']));
     });
 
-    it('walksAndCapture with import_declaration having asterisk', () => {
-      const p = provider as any;
-      const code = 'import java.util.*;\npublic class Test { }';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const captures: any[] = [];
-        p.walkAndCapture(tree.rootNode, captures);
-        const imports = captures.filter((c: any) => c.tag === CAPTURE_TAGS.IMPORT);
-        expect(imports.length).toBeGreaterThanOrEqual(1);
-      }
+    it('should handle empty source', () => {
+      expect(fallback.parse('', 'Empty.java')).toEqual([]);
     });
 
-    it('collectIdentifiers with deeply nested identifier', () => {
-      const p = provider as any;
-      const code = 'import java.util.stream.Collectors;';
-      p.source = code;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const importNode = p.findDeep(tree.rootNode, 'import_declaration');
-        if (importNode) {
-          for (let i = 0; i < importNode.namedChildCount; i++) {
-            const child = importNode.namedChild(i);
-            if (child.type === 'scoped_identifier') {
-              const parts: string[] = [];
-              p.collectIdentifiers(child, parts);
-              expect(parts.length).toBeGreaterThanOrEqual(2);
-              expect(parts).toContain('Collectors');
-            }
-          }
-        }
-      }
+    it('should order same-line captures by byte offset', () => {
+      const captures = fallback.parse('class A { } class B { }\n', 'Test.java');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.map((c) => c.name)).toEqual(['A', 'B']);
+    });
+
+    it('should extract single, static, and wildcard imports', () => {
+      const source =
+        'import java.util.List;\nimport static org.junit.Assert.assertEquals;\nimport java.io.*;\n';
+      const imports = fallback.extractImports(source);
+      expect(imports.map((i) => i.source)).toEqual(
+        expect.arrayContaining(['java.util.List', 'org.junit.Assert.assertEquals', 'java.io']),
+      );
+    });
+
+    it('should return no imports for empty source', () => {
+      expect(fallback.extractImports('')).toEqual([]);
+    });
+
+    it('should detect exported classes, interfaces, enums, and methods', () => {
+      expect(fallback.isExported('public class Foo { }', 'Foo')).toBe(true);
+      expect(fallback.isExported('public interface Bar { }', 'Bar')).toBe(true);
+      expect(fallback.isExported('public enum Baz { }', 'Baz')).toBe(true);
+      expect(fallback.isExported('public void run() { }', 'run')).toBe(true);
+      expect(fallback.isExported('public static String fmt(String s) { return s; }', 'fmt')).toBe(
+        true,
+      );
+      expect(fallback.isExported('class Internal { }', 'Internal')).toBe(false);
+      expect(fallback.isExported('public class Foo { }', 'Bar')).toBe(false);
+    });
+
+    it('should escape regex metacharacters in the symbol name', () => {
+      expect(fallback.isExported('public class Foo$Bar { }', 'Foo$Bar')).toBe(true);
     });
   });
 });
