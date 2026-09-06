@@ -22,18 +22,16 @@ export class CppProvider extends TreeSitterBaseProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-cpp') as TreeSitterLanguage;
     } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
+      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
-    /* v8 ignore stop */
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
-    if (nodeType === 'function_definition' || nodeType === 'function_declarator') {
-      const nameNode =
-        this.findNamedChild(node, 'identifier') || this.findNamedChild(node, 'field_identifier');
+    if (nodeType === 'function_declarator') {
+      const nameNode = this.extractFunctionNameNode(node);
       if (nameNode && this.isValidFnName(nameNode.text)) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -47,10 +45,7 @@ export class CppProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'class_specifier') {
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-      const nameNode =
-        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
+      const nameNode = this.extractTypeNameNode(node);
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.CLASS_DEF,
@@ -64,10 +59,7 @@ export class CppProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'struct_specifier') {
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-      const nameNode =
-        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
+      const nameNode = this.extractTypeNameNode(node);
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.STRUCT_DEF,
@@ -81,10 +73,7 @@ export class CppProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'enum_specifier') {
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-      const nameNode =
-        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
+      const nameNode = this.extractTypeNameNode(node);
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.ENUM_DEF,
@@ -98,14 +87,7 @@ export class CppProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'preproc_include') {
-      let path = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'string_literal' || child.type === 'system_lib_string') {
-          path = child.text.replace(/^["'<]|["'>]$/g, '');
-        }
-      }
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
+      const path = this.extractIncludePath(node);
       if (path) {
         captures.push({
           tag: CAPTURE_TAGS.IMPORT,
@@ -127,19 +109,11 @@ export class CppProvider extends TreeSitterBaseProvider {
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'preproc_include') {
-      let path = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'string_literal' || child.type === 'system_lib_string') {
-          path = child.text.replace(/^["'<]|["'>]$/g, '');
-        }
-      }
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
+      const path = this.extractIncludePath(node);
       if (path) {
         imports.push({
           source: path,
-          /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-          names: [path.split('/').pop() ?? path],
+          names: [path.split('/').pop()!],
           type: 'named',
           lineNumber: node.startPosition.row + 1,
         });
@@ -159,32 +133,20 @@ export class CppProvider extends TreeSitterBaseProvider {
       node.type === 'struct_specifier' ||
       node.type === 'enum_specifier'
     ) {
-      // For functions the name lives inside function_declarator; for
-      // class/struct/enum it is a direct type_identifier/identifier child.
+      // For functions the name lives inside the (mandatory) function_declarator;
+      // for class/struct/enum it is a direct type/qualified/template name child.
       let nameNode: TreeSitterSyntaxNode | null;
       if (node.type === 'function_definition') {
-        const declarator = this.findNamedChild(node, 'function_declarator');
-        /* v8 ignore next -- @preserve -- declarator is always non-null for function definitions */
-        nameNode = declarator
-          ? this.findNamedChild(declarator, 'identifier') ||
-            this.findNamedChild(declarator, 'field_identifier')
-          : null;
+        nameNode = this.extractFunctionNameNode(this.findNamedChild(node, 'function_declarator')!);
       } else {
-        /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-        nameNode =
-          this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
+        nameNode = this.extractTypeNameNode(node);
       }
-      /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
+
       if (nameNode && nameNode.text === symbolName) {
-        // C++: all top-level declarations are exported (public by default)
-        // unless declared in an anonymous namespace or static
-        const prefix = this.source.slice(Math.max(0, node.startIndex - 20), node.startIndex);
-        /* v8 ignore next -- @preserve -- tree-sitter-cpp guarantees these child nodes / keyword placement */
-        if (prefix.includes('static')) return false;
-        // The static keyword lives inside the node (storage_class_specifier),
-        // not before it, so also check the node text itself.
+        // C++ file-scope declarations have external linkage (exported) unless
+        // they carry internal linkage (`static`) or sit in an anonymous namespace.
         if (/^\s*static\b/.test(node.text)) return false;
-        if (prefix.includes('namespace') && prefix.includes('{')) return false;
+        if (this.isInAnonymousNamespace(node)) return false;
         return true;
       }
     }
@@ -196,7 +158,6 @@ export class CppProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -282,7 +243,6 @@ export class CppProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -290,7 +250,7 @@ export class CppProvider extends TreeSitterBaseProvider {
     while ((m = incRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,
-        names: [m[1]!.split('/').pop() ?? m[1]!],
+        names: [m[1]!.split('/').pop()!],
         type: 'named',
         lineNumber: this.ln(source, m.index),
       });
@@ -298,7 +258,6 @@ export class CppProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // In C++, everything not in an anonymous namespace is exported at file level.
     // Check for 'static' keyword before the symbol.
@@ -316,6 +275,80 @@ export class CppProvider extends TreeSitterBaseProvider {
       if (node.namedChild(i).type === type) return node.namedChild(i);
     }
     return null;
+  }
+
+  /**
+   * Resolve the function name node of a `function_declarator`. The name is one
+   * of identifier (free function / constructor), field_identifier (in-class
+   * member), qualified_identifier (out-of-class `Foo::bar`), destructor_name,
+   * or operator_name. Function pointers (`int (*fp)(int)`) nest the name too
+   * deep to reach and return null.
+   */
+  private extractFunctionNameNode(declarator: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    const id = this.findNamedChild(declarator, 'identifier');
+    if (id) return id;
+    const field = this.findNamedChild(declarator, 'field_identifier');
+    if (field) return field;
+    const qualified = this.findNamedChild(declarator, 'qualified_identifier');
+    if (qualified) return this.trailingName(qualified);
+    const dtor = this.findNamedChild(declarator, 'destructor_name');
+    if (dtor) return dtor;
+    const op = this.findNamedChild(declarator, 'operator_name');
+    if (op) return op;
+    return null;
+  }
+
+  /**
+   * Resolve the name node of a class/struct/enum specifier. The grammar emits
+   * type_identifier (plain), qualified_identifier (`class ns::Foo`), or
+   * template_type (`class Foo<T>` specialization); anonymous specifiers have
+   * no name and return null.
+   */
+  private extractTypeNameNode(specifier: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    const typeId = this.findNamedChild(specifier, 'type_identifier');
+    if (typeId) return typeId;
+    const qualified = this.findNamedChild(specifier, 'qualified_identifier');
+    if (qualified) return this.trailingName(qualified);
+    const templateType = this.findNamedChild(specifier, 'template_type');
+    if (templateType) return this.findNamedChild(templateType, 'type_identifier');
+    return null;
+  }
+
+  /**
+   * Return the trailing (unqualified) name node of a qualified_identifier. In
+   * tree-sitter-cpp the trailing name is always the last named child, possibly
+   * nested one level deeper (`a::b::foo`).
+   */
+  private trailingName(qualified: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
+    const last = qualified.namedChild(qualified.namedChildCount - 1);
+    if (last.type === 'qualified_identifier') return this.trailingName(last);
+    return last;
+  }
+
+  /** Extract the literal path of a `preproc_include`, or '' for a macro include. */
+  private extractIncludePath(node: TreeSitterSyntaxNode): string {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (child.type === 'string_literal' || child.type === 'system_lib_string') {
+        return child.text.replace(/^["'<]|["'>]$/g, '');
+      }
+    }
+    return '';
+  }
+
+  /** Whether the node is nested inside an anonymous namespace. */
+  private isInAnonymousNamespace(node: TreeSitterSyntaxNode): boolean {
+    let parent = node.parent;
+    while (parent) {
+      if (parent.type === 'namespace_definition') {
+        const hasName =
+          this.findNamedChild(parent, 'namespace_identifier') !== null ||
+          this.findNamedChild(parent, 'nested_namespace_specifier') !== null;
+        if (!hasName) return true;
+      }
+      parent = parent.parent;
+    }
+    return false;
   }
 
   private isValidFnName(name: string): boolean {
@@ -348,7 +381,6 @@ export class CppProvider extends TreeSitterBaseProvider {
     ].includes(name);
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }
