@@ -22,39 +22,31 @@ export class CProvider extends TreeSitterBaseProvider {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('tree-sitter-c') as TreeSitterLanguage;
     } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
+      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
-    /* v8 ignore stop */
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nodeType = node.type;
 
     if (nodeType === 'function_definition' || nodeType === 'declaration') {
-      const declarator = this.findNamedChild(node, 'function_declarator');
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-      if (declarator) {
-        const nameNode = this.findNamedChild(declarator, 'identifier');
-        /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-        if (nameNode && this.isValidFnName(nameNode.text)) {
-          captures.push({
-            tag: CAPTURE_TAGS.FUNCTION_DEF,
-            text: nameNode.text,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: nameNode.startIndex,
-            endByte: nameNode.endIndex,
-            name: nameNode.text,
-            properties: { filePath: this.filePath },
-          });
-        }
+      const nameNode = this.extractFunctionNameNode(node);
+      if (nameNode) {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: nameNode.text,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: nameNode.startIndex,
+          endByte: nameNode.endIndex,
+          name: nameNode.text,
+          properties: { filePath: this.filePath },
+        });
       }
     } else if (nodeType === 'struct_specifier') {
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-      const nameNode =
-        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
+      // The name is always a `type_identifier`; anonymous structs omit it.
+      const nameNode = this.findNamedChild(node, 'type_identifier');
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.STRUCT_DEF,
@@ -68,10 +60,7 @@ export class CProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'enum_specifier') {
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-      const nameNode =
-        this.findNamedChild(node, 'type_identifier') || this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
+      const nameNode = this.findNamedChild(node, 'type_identifier');
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.ENUM_DEF,
@@ -85,14 +74,7 @@ export class CProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'preproc_include') {
-      let path = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'string_literal' || child.type === 'system_lib_string') {
-          path = child.text.replace(/^["'<]|["'>]$/g, '');
-        }
-      }
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
+      const path = this.extractIncludePath(node);
       if (path) {
         captures.push({
           tag: CAPTURE_TAGS.IMPORT,
@@ -114,19 +96,11 @@ export class CProvider extends TreeSitterBaseProvider {
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'preproc_include') {
-      let path = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'string_literal' || child.type === 'system_lib_string') {
-          path = child.text.replace(/^["'<]|["'>]$/g, '');
-        }
-      }
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
+      const path = this.extractIncludePath(node);
       if (path) {
         imports.push({
           source: path,
-          /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-          names: [path.split('/').pop() ?? path],
+          names: [path.split('/').pop()!],
           type: 'named',
           lineNumber: node.startPosition.row + 1,
         });
@@ -140,33 +114,16 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (
-      node.type === 'function_definition' ||
-      node.type === 'declaration' ||
-      node.type === 'struct_specifier' ||
-      node.type === 'enum_specifier'
-    ) {
-      const declarator =
-        node.type === 'function_definition' || node.type === 'declaration'
-          ? this.findNamedChild(node, 'function_declarator')
-          : node;
-      /* v8 ignore next -- @preserve -- declarator is always node or function_declarator */
-      const nameNode = declarator
-        ? this.findNamedChild(declarator, 'identifier') ||
-          this.findNamedChild(declarator, 'type_identifier')
-        : null;
-      /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-      if (nameNode && nameNode.text === symbolName) {
-        // C: all top-level declarations are externally visible
-        // unless declared static
-        const before = this.source.slice(Math.max(0, node.startIndex - 10), node.startIndex);
-        /* v8 ignore next -- @preserve -- tree-sitter-c guarantees these child nodes / keyword placement */
-        if (before.includes('static')) return false;
-        // Also check if the node text itself starts with static
-        // (tree-sitter-c 0.24 includes static keyword in the declaration node text)
-        if (/^\s*static\b/.test(node.text)) return false;
-        return true;
-      }
+    let nameNode: TreeSitterSyntaxNode | null = null;
+    if (node.type === 'function_definition' || node.type === 'declaration') {
+      nameNode = this.extractFunctionNameNode(node);
+    } else if (node.type === 'struct_specifier' || node.type === 'enum_specifier') {
+      nameNode = this.findNamedChild(node, 'type_identifier');
+    }
+
+    if (nameNode && nameNode.text === symbolName) {
+      // C: top-level declarations are externally visible unless `static`.
+      return !this.hasStaticStorage(node);
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -176,7 +133,6 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -211,33 +167,14 @@ export class CProvider extends TreeSitterBaseProvider {
       });
     }
 
-    // Function definitions: return_type name(params) { or return_type name(params);
+    // Function definitions/declarations: [storage] return_type [*] name(params) {|;
+    // The return-type group allows stars both attached to the type (`int* fp`)
+    // and attached to the name (`int *fp`); the name is the last word before `(`.
     const funcRegex =
-      /(?:(?:static|inline|extern)\s+)*(?:\w+\s*[\*]*\s+)+(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
+      /(?:(?:static|inline|extern)\s+)*(?:\w+[\*]*\s+)+(\*+\s*)?(\w+)\s*\([^)]*\)\s*(?:\{|;)/g;
     while ((m = funcRegex.exec(source)) !== null) {
-      const name = m[1]!;
+      const name = m[2]!;
       if (!this.isValidFnName(name)) continue;
-      captures.push({
-        tag: CAPTURE_TAGS.FUNCTION_DEF,
-        text: name,
-        startLine: this.ln(source, m.index),
-        endLine: this.ln(source, m.index + m[0].length),
-        startByte: m.index,
-        endByte: m.index + m[0].length,
-        name,
-        properties: { filePath },
-      });
-    }
-
-    // Also match simpler function declarations: void foo(void);
-    const simpleFuncRegex = /(?:(?:static|inline|extern)\s+)*void\s+(\w+)\s*\([^)]*\)\s*;/g;
-    while ((m = simpleFuncRegex.exec(source)) !== null) {
-      const name = m[1]!;
-      if (
-        !this.isValidFnName(name) ||
-        captures.some((c) => c.name === name && c.tag === CAPTURE_TAGS.FUNCTION_DEF)
-      )
-        continue;
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: name,
@@ -268,7 +205,6 @@ export class CProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -276,7 +212,7 @@ export class CProvider extends TreeSitterBaseProvider {
     while ((m = incRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,
-        names: [m[1]!.split('/').pop() ?? m[1]!],
+        names: [m[1]!.split('/').pop()!],
         type: 'named',
         lineNumber: this.ln(source, m.index),
       });
@@ -284,11 +220,11 @@ export class CProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Static functions are not exported
-    const staticRegex = new RegExp(`static\\s+\\w+\\s+${s}\\s*\\(`);
+    // A `static` function — with any number of storage/type words before the
+    // name (`static inline void helper`) — is not exported.
+    const staticRegex = new RegExp(`static(?:\\s+\\w+)*\\s+${s}\\s*\\(`);
     if (staticRegex.test(source)) return false;
     return new RegExp(`\\b(?:struct|enum|void|int|char|float|double|long|short)\\s+${s}\\b`).test(
       source,
@@ -301,6 +237,35 @@ export class CProvider extends TreeSitterBaseProvider {
       if (node.namedChild(i).type === type) return node.namedChild(i);
     }
     return null;
+  }
+
+  /**
+   * Return the `identifier` naming a function. For pointer-returning functions
+   * (`int *fp(void)`) the `function_declarator` is nested inside a
+   * `pointer_declarator`, so unwrap those first. Function-pointer declarations
+   * (`int (*fp)(int)`) have no direct `identifier` under the declarator and
+   * are correctly skipped.
+   */
+  private extractFunctionNameNode(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+    const declarator = this.findNamedChild(node, 'function_declarator');
+    if (declarator) return this.findNamedChild(declarator, 'identifier');
+    const pointer = this.findNamedChild(node, 'pointer_declarator');
+    return pointer ? this.extractFunctionNameNode(pointer) : null;
+  }
+
+  /** Strip quotes/angle brackets from a `preproc_include` path, or `''` for macros. */
+  private extractIncludePath(node: TreeSitterSyntaxNode): string {
+    const literal =
+      this.findNamedChild(node, 'string_literal') || this.findNamedChild(node, 'system_lib_string');
+    return literal ? literal.text.replace(/^["'<]|["'>]$/g, '') : '';
+  }
+
+  private hasStaticStorage(node: TreeSitterSyntaxNode): boolean {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (child.type === 'storage_class_specifier' && child.text === 'static') return true;
+    }
+    return false;
   }
 
   private isValidFnName(name: string): boolean {
@@ -339,7 +304,6 @@ export class CProvider extends TreeSitterBaseProvider {
     ].includes(name);
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }

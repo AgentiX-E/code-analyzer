@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4556,
-  "totalLines": 129224,
+  "totalHidden": 4539,
+  "totalLines": 129188,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -47,7 +47,7 @@
     "packages/analyzer/src/languages/java.ts": 1,
     "packages/analyzer/src/languages/cpp.ts": 1,
     "packages/analyzer/src/languages/bash.ts": 1,
-    "packages/analyzer/src/languages/c.ts": 18,
+    "packages/analyzer/src/languages/c.ts": 1,
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/analyzer/src/languages/json.ts": 17,
     "packages/core/src/security/supply-chain-integrity.ts": 17,
