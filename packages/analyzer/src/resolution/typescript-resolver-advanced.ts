@@ -517,47 +517,26 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const nt = node.type;
 
     if (nt === 'class_declaration' || nt === 'abstract_class_declaration') {
-      const info = this.extractClass(node, source);
-      /* v8 ignore next -- @preserve -- extractClass always returns a TypeInfo for a class declaration */
-      if (info) types.push(info);
+      types.push(this.extractClass(node, source));
     }
     if (nt === 'interface_declaration') {
-      const info = this.extractInterface(node, source);
-      /* v8 ignore next -- @preserve -- extractInterface always returns a TypeInfo for an interface declaration */
-      if (info) types.push(info);
+      types.push(this.extractInterface(node, source));
     }
     if (nt === 'type_alias_declaration') {
-      const info = this.extractTypeAlias(node, source);
-      /* v8 ignore next -- @preserve -- extractTypeAlias always returns a TypeInfo for a type alias */
-      if (info) types.push(info);
+      types.push(this.extractTypeAlias(node, source));
     }
     if (nt === 'enum_declaration') {
-      const info = this.extractEnum(node, source);
-      /* v8 ignore next -- @preserve -- extractEnum always returns a TypeInfo for an enum declaration */
-      if (info) types.push(info);
+      types.push(this.extractEnum(node, source));
     }
     if (nt === 'function_declaration' || nt === 'generator_function_declaration') {
-      const parent = node.parent;
-      // Only top-level functions are extracted; TSX always wraps them in
-      // `program` or `export_statement` (module/source_file are defensive).
-      /* v8 ignore next -- @preserve -- TSX always wraps top-level functions in program or export_statement */
-      if (
-        parent &&
-        (parent.type === 'program' ||
-          parent.type === 'export_statement' ||
-          parent.type === 'module' ||
-          parent.type === 'source_file')
-      ) {
-        const info = this.extractFunction(node, source);
-        /* v8 ignore next -- @preserve -- extractFunction always returns a TypeInfo for a function declaration */
-        if (info) types.push(info);
+      // Only top-level functions are extracted. TSX wraps exported functions
+      // in `export_statement` and leaves non-exported ones directly under
+      // `program`; nested function declarations (parented by a
+      // `statement_block`) are intentionally skipped.
+      const parent = node.parent!;
+      if (parent.type === 'program' || parent.type === 'export_statement') {
+        types.push(this.extractFunction(node, source));
       }
-    }
-    if (nt === 'export_statement') {
-      for (let i = 0; i < node.childCount; i++) {
-        this.walkAST(node.child(i), source, types);
-      }
-      return;
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -569,10 +548,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   // AST Extractors
   // -----------------------------------------------------------------------
 
-  private extractClass(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'type_identifier');
-    /* v8 ignore next -- @preserve -- class_declaration always has a type_identifier */
-    if (!name) return null;
+  private extractClass(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.childText(node, 'type_identifier')!;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = this.isExported(node);
@@ -601,10 +578,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     };
   }
 
-  private extractInterface(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'type_identifier');
-    /* v8 ignore next -- @preserve -- interface_declaration always has a type_identifier */
-    if (!name) return null;
+  private extractInterface(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.childText(node, 'type_identifier')!;
     const qn = `file:${this.filePath}:${name}`;
     const baseTypes = this.extractBaseTypes(node);
     const typeParams = this.extractTypeParams(node);
@@ -628,10 +603,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     };
   }
 
-  private extractTypeAlias(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'type_identifier');
-    /* v8 ignore next -- @preserve -- type_alias_declaration always has a type_identifier */
-    if (!name) return null;
+  private extractTypeAlias(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.childText(node, 'type_identifier')!;
     const qn = `file:${this.filePath}:${name}`;
     const typeParams = this.extractTypeParams(node);
 
@@ -653,31 +626,26 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     };
   }
 
-  private extractEnum(node: SyntaxNode, _source: string): TypeInfo | null {
+  private extractEnum(node: SyntaxNode, _source: string): TypeInfo {
     // enum_declaration names the type with an `identifier` (unlike class/
     // interface/type_alias, which use `type_identifier`).
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- enum_declaration always has an identifier */
-    if (!name) return null;
+    const name = this.childText(node, 'identifier')!;
     const qn = `file:${this.filePath}:${name}`;
     const members = new Map();
-    const body = this.findChild(node, 'enum_body');
-    /* v8 ignore next -- @preserve -- enum_declaration always has an enum_body */
-    if (body) {
-      for (let i = 0; i < body.childCount; i++) {
-        const c = body.child(i);
-        if (c.type === 'property_identifier') {
-          members.set(c.text, {
-            name: c.text,
-            type: 'number',
-            visibility: 'public',
-            isStatic: true,
-            isOptional: false,
-            isAsync: false,
-            parameterTypes: [],
-            returnType: 'number',
-          });
-        }
+    const body = this.findChild(node, 'enum_body')!;
+    for (let i = 0; i < body.childCount; i++) {
+      const c = body.child(i);
+      if (c.type === 'property_identifier') {
+        members.set(c.text, {
+          name: c.text,
+          type: 'number',
+          visibility: 'public',
+          isStatic: true,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: [],
+          returnType: 'number',
+        });
       }
     }
     return {
@@ -698,12 +666,10 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     };
   }
 
-  private extractFunction(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- function_declaration always has an identifier */
-    if (!name) return null;
+  private extractFunction(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.childText(node, 'identifier')!;
     const qn = `file:${this.filePath}:${name}`;
-    const isAsync = this.findChild(node, 'async') !== null;
+    const isAsync = this.hasModifier(node, 'async');
     const paramTypes = this.extractParamTypes(node);
     let returnType: string | null = null;
     // tree-sitter-typescript uses type_annotation for the return type.
@@ -747,7 +713,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       else if (ch === '>') depth--;
       else if (ch === '|' && depth === 0) {
         const trimmed = current.trim();
-        /* v8 ignore next -- @preserve -- an empty segment only occurs for malformed unions */
+        // Skip empty segments that arise from malformed unions (e.g. `A || B`).
         if (trimmed) result.push(trimmed);
         current = '';
         continue;
@@ -755,7 +721,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       current += ch;
     }
     const trimmed = current.trim();
-    /* v8 ignore next -- @preserve -- an empty segment only occurs for malformed unions */
+    // Skip a trailing empty segment from a malformed union (e.g. `A | B |`).
     if (trimmed) result.push(trimmed);
     return result;
   }
@@ -770,7 +736,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       else if (ch === '>') depth--;
       else if (ch === '&' && depth === 0) {
         const trimmed = current.trim();
-        /* v8 ignore next -- @preserve -- an empty segment only occurs for malformed intersections */
+        // Skip empty segments that arise from malformed intersections (e.g. `A && B`).
         if (trimmed) result.push(trimmed);
         current = '';
         continue;
@@ -778,7 +744,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       current += ch;
     }
     const trimmed = current.trim();
-    /* v8 ignore next -- @preserve -- an empty segment only occurs for malformed intersections */
+    // Skip a trailing empty segment from a malformed intersection (e.g. `A & B &`).
     if (trimmed) result.push(trimmed);
     return result;
   }
@@ -795,7 +761,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         if (c.type === 'extends_clause') {
           for (let j = 0; j < c.childCount; j++) {
             const ext = c.child(j);
-            if (ext && (ext.type === 'type_identifier' || ext.type === 'identifier')) {
+            if (ext.type === 'type_identifier' || ext.type === 'identifier') {
               bases.push(ext.text);
             }
           }
@@ -807,7 +773,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     if (extendsType) {
       for (let i = 0; i < extendsType.childCount; i++) {
         const c = extendsType.child(i);
-        if (c && (c.type === 'type_identifier' || c.type === 'identifier')) {
+        if (c.type === 'type_identifier' || c.type === 'identifier') {
           bases.push(c.text);
         }
       }
@@ -824,7 +790,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       if (c.type === 'implements_clause') {
         for (let j = 0; j < c.childCount; j++) {
           const imp = c.child(j);
-          if (imp && (imp.type === 'type_identifier' || imp.type === 'identifier')) {
+          if (imp.type === 'type_identifier' || imp.type === 'identifier') {
             impls.push(imp.text);
           }
         }
@@ -839,10 +805,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     if (!tp) return params;
     for (let i = 0; i < tp.childCount; i++) {
       const c = tp.child(i);
-      if (c && (c.type === 'type_parameter' || c.type === 'required_type_parameter')) {
-        const name = this.childText(c, 'type_identifier');
-        /* v8 ignore next -- @preserve -- type_parameter always has a type_identifier */
-        if (name) params.push(name);
+      if (c.type === 'type_parameter') {
+        params.push(this.childText(c, 'type_identifier')!);
       }
     }
     return params;
@@ -850,12 +814,12 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
 
   private extractDecorators(node: SyntaxNode): string[] {
     const decs: string[] = [];
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- declarations always have a parent node */
-    if (parent) {
-      for (let i = 0; i < parent.childCount; i++) {
-        const c = parent.child(i);
-        if (c && c.type === 'decorator') decs.push(c.text);
+    // A decorator is a direct child of the declaration when it is not
+    // exported, and a sibling inside `export_statement` when it is exported.
+    for (const scope of [node, node.parent!]) {
+      for (let i = 0; i < scope.childCount; i++) {
+        const c = scope.child(i);
+        if (c.type === 'decorator') decs.push(c.text);
       }
     }
     return decs;
@@ -863,9 +827,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
 
   private extractClassMembers(node: SyntaxNode): Map<string, any> {
     const members = new Map();
-    const body = this.findChild(node, 'class_body');
-    /* v8 ignore next -- @preserve -- class_declaration always has a class_body */
-    if (!body) return members;
+    const body = this.findChild(node, 'class_body')!;
     this.walkClassMembers(body, members);
     return members;
   }
@@ -879,7 +841,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         c.type === 'abstract_method_signature'
       ) {
         const name = this.childText(c, 'property_identifier');
-        /* v8 ignore next -- @preserve -- class member always has a property_identifier */
+        // Computed member names (e.g. `[Symbol.iterator]() {}`) carry a
+        // `computed_property_name` but no `property_identifier`.
         if (!name) continue;
         const isStatic = this.hasModifier(c, 'static');
         const isAsync = this.hasModifier(c, 'async');
@@ -905,36 +868,13 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
           returnType,
         });
       }
-      /* v8 ignore start -- @preserve -- tree-sitter-typescript (tsx) uses public_field_definition for class fields */
-      if (c.type === 'property_definition' || c.type === 'field_definition') {
-        const name = this.childText(c, 'property_identifier');
-        if (!name) continue;
-        const isStatic = this.hasModifier(c, 'static');
-        const visibility = this.getVisibility(c);
-        let propType = 'any';
-        const typeNode = this.findChild(c, 'type_annotation');
-        if (typeNode) propType = typeNode.text.replace(/^:\s*/, '');
-        members.set(name, {
-          name,
-          type: propType,
-          visibility,
-          isStatic,
-          isOptional: false,
-          isAsync: false,
-          parameterTypes: [],
-          returnType: propType,
-        });
-      }
-      /* v8 ignore stop */
       this.walkClassMembers(c, members);
     }
   }
 
   private extractInterfaceMembers(node: SyntaxNode): Map<string, any> {
     const members = new Map();
-    const body = this.findChild(node, 'object_type') || this.findChild(node, 'interface_body');
-    /* v8 ignore next -- @preserve -- interface_declaration always has an interface_body */
-    if (!body) return members;
+    const body = this.findChild(node, 'interface_body')!;
     this.walkInterfaceMembers(body, members);
     return members;
   }
@@ -948,12 +888,11 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
         c.type === 'call_signature'
       ) {
         const name = this.childText(c, 'property_identifier');
-        /* v8 ignore next -- @preserve -- interface member always has a property_identifier */
+        // `call_signature` (and index signatures) carry no property_identifier.
         if (!name) continue;
         const paramTypes = this.extractParamTypes(c);
         let returnType = 'void';
         const ret = this.findChild(c, 'type_annotation');
-        /* v8 ignore next -- @preserve -- interface member without an annotation defaults to void */
         if (ret) returnType = ret.text.replace(/^:\s*/, '').trim();
         members.set(name, {
           name,
@@ -985,71 +924,45 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   }
 
   private isExported(node: SyntaxNode): boolean {
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- declarations always have a parent node */
-    if (!parent) return false;
-    if (parent.type === 'export_statement') return true;
-    for (let i = 0; i < parent.childCount; i++) {
-      const c = parent.child(i);
-      /* v8 ignore next -- @preserve -- TSX wraps exports in an export_statement */
-      if (c && c.type === 'export') return true;
-    }
-    return false;
+    // TSX always wraps exported declarations (including `export default`)
+    // in an `export_statement`; non-exported ones sit directly under `program`.
+    return node.parent!.type === 'export_statement';
   }
 
   private childText(node: SyntaxNode, type: string): string | null {
     for (let i = 0; i < node.childCount; i++) {
       const c = node.child(i);
-      if (c && c.type === type && c.text) return c.text;
+      if (c.type === type && c.text) return c.text;
     }
-    /* v8 ignore next -- @preserve -- helper returns null only when type is absent */
     return null;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       const c = node.namedChild(i);
-      if (c && c.type === type) return c;
+      if (c.type === type) return c;
     }
     return null;
   }
 
   private hasModifier(node: SyntaxNode, modifier: string): boolean {
+    // `static`, `async`, `abstract`, and accessor keywords are anonymous
+    // tokens that sit directly on the member node.
     for (let i = 0; i < node.childCount; i++) {
       if (node.child(i).type === modifier) return true;
-    }
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- members always have a parent node */
-    if (parent) {
-      for (let i = 0; i < parent.childCount; i++) {
-        /* v8 ignore next -- @preserve -- modifiers live on the node itself */
-        if (parent.child(i).type === modifier) return true;
-      }
     }
     return false;
   }
 
   private getVisibility(node: SyntaxNode): 'public' | 'protected' | 'private' {
-    // Accessibility is an `accessibility_modifier` child of the member itself
-    // (tree-sitter-typescript), or a keyword token on the parent.
-    for (const scope of [node, node.parent]) {
-      /* v8 ignore next -- @preserve -- members always have a node scope */
-      if (!scope) continue;
-      for (let i = 0; i < scope.childCount; i++) {
-        const c = scope.child(i);
-        /* v8 ignore next -- @preserve -- index is bounded by childCount */
-        if (!c) continue;
-        if (c.type === 'accessibility_modifier') {
-          if (c.text === 'private') return 'private';
-          if (c.text === 'protected') return 'protected';
-          return 'public';
-        }
-        /* v8 ignore next -- @preserve -- TSX uses accessibility_modifier for visibility */
-        if (c.type === 'public' || c.type === 'public_keyword') return 'public';
-        /* v8 ignore next -- @preserve -- TSX uses accessibility_modifier for visibility */
-        if (c.type === 'protected' || c.type === 'protected_keyword') return 'protected';
-        /* v8 ignore next -- @preserve -- TSX uses accessibility_modifier for visibility */
-        if (c.type === 'private' || c.type === 'private_keyword') return 'private';
+    // Visibility is carried by a single `accessibility_modifier` child whose
+    // text is `private`, `protected`, or `public` (default).
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c.type === 'accessibility_modifier') {
+        if (c.text === 'private') return 'private';
+        if (c.text === 'protected') return 'protected';
+        return 'public';
       }
     }
     return 'public';

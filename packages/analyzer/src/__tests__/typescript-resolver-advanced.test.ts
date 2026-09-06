@@ -1,6 +1,7 @@
 // @code-analyzer/analyzer — TypeScript Advanced Resolver Tests
-// Covers the remaining generic utility handlers, indexed access types, and
-// the AST extraction path (classes/interfaces/type aliases/enums/functions).
+// Covers the generic utility handlers, indexed access types, union /
+// intersection / conditional / mapped / template-literal / function types,
+// and the AST extraction path (classes/interfaces/type aliases/enums/functions).
 
 import { describe, it, expect } from 'vitest';
 import { TypeScriptAdvancedResolver } from '../resolution/typescript-resolver-advanced.js';
@@ -56,6 +57,62 @@ describe('TypeScriptAdvancedResolver — generic utility types', () => {
     expect(result!.name).toBe('Awaited<Promise<User>>');
   });
 
+  it('resolves Array<T> with length/index members', async () => {
+    const result = await makeResolver().resolveType('Array<string>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('Array<string>');
+    expect(result!.members!.length.name).toBe('number');
+    expect(result!.members!['[index]'].kind).toBe('primitive');
+  });
+
+  it('resolves ReadonlyArray<T> with length/index members', async () => {
+    const result = await makeResolver().resolveType('ReadonlyArray<string>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('ReadonlyArray<string>');
+    expect(result!.members!.length.name).toBe('number');
+  });
+
+  it('resolves Map<K, V> with get/set/size members', async () => {
+    const result = await makeResolver().resolveType('Map<string, number>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('Map<string, number>');
+    expect(result!.members!.size.name).toBe('number');
+    expect(result!.members!.get.kind).toBe('function');
+    expect(result!.members!.set.kind).toBe('function');
+  });
+
+  it('resolves Set<T> with add/size members', async () => {
+    const result = await makeResolver().resolveType('Set<string>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('Set<string>');
+    expect(result!.members!.add.kind).toBe('function');
+  });
+
+  it('resolves Promise<T> with then/catch members', async () => {
+    const result = await makeResolver().resolveType('Promise<string>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('Promise<string>');
+    expect(result!.members!.then.kind).toBe('function');
+  });
+
+  it('resolves Partial<T> as a generic type', async () => {
+    const result = await makeResolver().resolveType('Partial<User>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('Partial<User>');
+  });
+
+  it('resolves Record<K, V> as a generic type', async () => {
+    const result = await makeResolver().resolveType('Record<string, number>', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('Record<string, number>');
+  });
+
+  it('resolves NonNullable<T> as non-nullable', async () => {
+    const result = await makeResolver().resolveType('NonNullable<string>', makeContext());
+    expect(result!.kind).toBe('primitive');
+    expect(result!.isNullable).toBe(false);
+  });
+
   it('falls through to a generic type when arity mismatches a known handler', async () => {
     // Array<A, B> does not match the single-arg handler → general generic.
     const result = await makeResolver().resolveType('Array<string, number>', makeContext());
@@ -93,6 +150,12 @@ describe('TypeScriptAdvancedResolver — generic utility types', () => {
     expect(result!.name).toBe('Foo<Bar>');
   });
 
+  it('resolves a primitive type name directly', async () => {
+    const result = await makeResolver().resolveType('string', makeContext());
+    expect(result!.kind).toBe('primitive');
+    expect(result!.name).toBe('string');
+  });
+
   it('resolves an arrow function type with untyped params', async () => {
     const result = await makeResolver().resolveType('(a, b) => boolean', makeContext());
     expect(result!.kind).toBe('function');
@@ -104,6 +167,14 @@ describe('TypeScriptAdvancedResolver — generic utility types', () => {
     const a = await resolver.resolveType('Array<string>', makeContext());
     const b = await resolver.resolveType('Array<string>', makeContext());
     expect(a).toBe(b);
+  });
+
+  it('exposes all cached types via getAllTypes', async () => {
+    const resolver = makeResolver();
+    await resolver.resolveType('Array<string>', makeContext());
+    const all = resolver.getAllTypes();
+    expect(all.has('Array<string>')).toBe(true);
+    expect(all.get('Array<string>')!.kind).toBe('generic');
   });
 
   it('delegates to the external resolver when a match is found', async () => {
@@ -128,6 +199,112 @@ describe('TypeScriptAdvancedResolver — generic utility types', () => {
 });
 
 // ====================================================================
+// Union / intersection / conditional / mapped / template-literal types
+// ====================================================================
+
+describe('TypeScriptAdvancedResolver — structural types', () => {
+  it('resolves a union type', async () => {
+    const result = await makeResolver().resolveType('A | B', makeContext());
+    expect(result!.kind).toBe('union');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('resolves a three-way union type', async () => {
+    const result = await makeResolver().resolveType('A | B | C', makeContext());
+    expect(result!.kind).toBe('union');
+    expect(result!.genericArgs).toHaveLength(3);
+  });
+
+  it('skips empty segments in a malformed union (double pipe)', async () => {
+    const result = await makeResolver().resolveType('A || B', makeContext());
+    expect(result!.kind).toBe('union');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('skips a trailing empty segment in a malformed union', async () => {
+    const result = await makeResolver().resolveType('A | B |', makeContext());
+    expect(result!.kind).toBe('union');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('does not split a pipe nested inside angle brackets', async () => {
+    const result = await makeResolver().resolveType('A<B | C> | D', makeContext());
+    expect(result!.kind).toBe('union');
+    expect(result!.genericArgs).toHaveLength(2);
+    expect(result!.genericArgs![0]!.name).toBe('A<B|C>');
+  });
+
+  it('resolves a union whose left operand is a generic type', async () => {
+    const result = await makeResolver().resolveType('Map<string, number> | null', makeContext());
+    expect(result!.kind).toBe('union');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('resolves an intersection type', async () => {
+    const result = await makeResolver().resolveType('A & B', makeContext());
+    expect(result!.kind).toBe('intersection');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('skips empty segments in a malformed intersection (double ampersand)', async () => {
+    const result = await makeResolver().resolveType('A && B', makeContext());
+    expect(result!.kind).toBe('intersection');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('skips a trailing empty segment in a malformed intersection', async () => {
+    const result = await makeResolver().resolveType('A & B &', makeContext());
+    expect(result!.kind).toBe('intersection');
+    expect(result!.genericArgs).toHaveLength(2);
+  });
+
+  it('resolves a conditional type', async () => {
+    const result = await makeResolver().resolveType('T extends U ? X : Y', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.documentation).toContain('Conditional type');
+  });
+
+  it('resolves a mapped type', async () => {
+    const result = await makeResolver().resolveType('{ [K in keyof T]: V }', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.documentation).toContain('Mapped type');
+  });
+
+  it('resolves a readonly optional mapped type', async () => {
+    const result = await makeResolver().resolveType(
+      '{ readonly [K in keyof T]?: V }',
+      makeContext(),
+    );
+    expect(result!.kind).toBe('generic');
+  });
+
+  it('resolves a template literal type', async () => {
+    const tpl = '\u0060${prefix}${string}\u0060';
+    const result = await makeResolver().resolveType(tpl, makeContext());
+    expect(result!.kind).toBe('primitive');
+    expect(result!.name).toBe(tpl);
+  });
+
+  it('resolves an arrow function type with typed params', async () => {
+    const result = await makeResolver().resolveType(
+      '(a: string, b: number) => boolean',
+      makeContext(),
+    );
+    expect(result!.kind).toBe('function');
+    expect(result!.parameterTypes).toHaveLength(2);
+    expect(result!.parameterTypes![0]!.name).toBe('string');
+    expect(result!.returnType!.name).toBe('boolean');
+  });
+
+  it('resolves an arrow function type with no params', async () => {
+    const result = await makeResolver().resolveType('() => void', makeContext());
+    expect(result!.kind).toBe('function');
+    expect(result!.parameterTypes).toHaveLength(0);
+    expect(result!.returnType!.name).toBe('void');
+  });
+});
+
+// ====================================================================
 // Indexed access types
 // ====================================================================
 
@@ -142,6 +319,11 @@ describe('TypeScriptAdvancedResolver — indexed access types', () => {
   it('resolves T["quoted"] with single quotes', async () => {
     const result = await makeResolver().resolveType("User['id']", makeContext());
     expect(result!.name).toBe('User["id"]');
+  });
+
+  it('resolves a namespaced base type with dots', async () => {
+    const result = await makeResolver().resolveType('ns.User["name"]', makeContext());
+    expect(result!.name).toBe('ns.User["name"]');
   });
 
   it('returns null for a non-indexed access type', async () => {
@@ -221,6 +403,31 @@ describe('TypeScriptAdvancedResolver.extractTypes — classes', () => {
     const types = resolver.extractTypes('class C {\n  protected secret: boolean;\n}', '/test.ts');
     expect(types[0]!.members.get('secret')!.visibility).toBe('protected');
   });
+
+  it('skips computed member names without a property identifier', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      'class C {\n  [Symbol.iterator]() {}\n  normal() {}\n}',
+      '/test.ts',
+    );
+    const members = types[0]!.members;
+    expect(members.has('[Symbol.iterator]')).toBe(false);
+    expect(members.has('normal')).toBe(true);
+  });
+
+  it('extracts a decorated but non-exported class', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('@Component({}) class C {}', '/test.ts');
+    expect(types[0]!.name).toBe('C');
+    expect(types[0]!.decorators).toContain('@Component({})');
+    expect(types[0]!.isExported).toBe(false);
+  });
+
+  it('does not extract an anonymous default-exported class', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('export default class {}', '/test.ts');
+    expect(types).toHaveLength(0);
+  });
 });
 
 // ====================================================================
@@ -262,6 +469,13 @@ describe('TypeScriptAdvancedResolver.extractTypes — interface/alias/enum/funct
     expect(enm.members.has('Green')).toBe(true);
   });
 
+  it('extracts an empty enum with no members', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('export enum E {}', '/test.ts');
+    expect(types[0]!.kind).toBe('enum');
+    expect(types[0]!.members.size).toBe(0);
+  });
+
   it('extracts an exported function with return and param types', () => {
     const resolver = makeResolver();
     const types = resolver.extractTypes(
@@ -279,6 +493,63 @@ describe('TypeScriptAdvancedResolver.extractTypes — interface/alias/enum/funct
     const resolver = makeResolver();
     const types = resolver.extractTypes('function noop(x: number) { return x; }', '/test.ts');
     expect(types[0]!.returnType).toBeNull();
+  });
+
+  it('marks a non-exported function as not exported', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('function f() {}', '/test.ts');
+    expect(types[0]!.isExported).toBe(false);
+  });
+
+  it('marks an async top-level function as async', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('async function fetch(): Promise<void> {}', '/test.ts');
+    const fn = types.find((t) => t.name === 'fetch')!;
+    expect(fn.kind).toBe('function');
+    expect(fn.isAsync).toBe(true);
+    expect(fn.returnType).toBe('Promise<void>');
+  });
+
+  it('extracts a generator function declaration', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('function* gen(): number { yield 1; }', '/test.ts');
+    const gen = types.find((t) => t.name === 'gen')!;
+    expect(gen.kind).toBe('function');
+    expect(gen.returnType).toBe('number');
+  });
+
+  it('extracts an exported generator function declaration', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('export function* gen() {}', '/test.ts');
+    const gen = types.find((t) => t.name === 'gen')!;
+    expect(gen.kind).toBe('function');
+    expect(gen.isExported).toBe(true);
+  });
+
+  it('skips nested function declarations', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('function outer() { function inner() {} }', '/test.ts');
+    expect(types.map((t) => t.name)).toEqual(['outer']);
+  });
+
+  it('extracts optional and rest parameter types', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('function f(a?: string, ...rest: number[]) {}', '/test.ts');
+    expect(types[0]!.parameterTypes).toEqual(['string', 'number[]']);
+  });
+
+  it('skips an interface call signature without a name', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('interface I { (): void; read(): void; }', '/test.ts');
+    const iface = types[0]!;
+    expect(iface.members.has('read')).toBe(true);
+    expect(iface.members.size).toBe(1);
+  });
+
+  it('defaults an interface member without a return annotation to void', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('interface I { read(); }', '/test.ts');
+    expect(types[0]!.members.get('read')!.returnType).toBe('void');
   });
 });
 

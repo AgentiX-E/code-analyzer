@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4509,
-  "totalLines": 129126,
+  "totalHidden": 4457,
+  "totalLines": 129071,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -19,7 +19,6 @@
     "packages/intelligence/src/embeddings/embedder.ts": 62,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
     "packages/intelligence/src/github/check-run.ts": 56,
-    "packages/analyzer/src/resolution/typescript-resolver-advanced.ts": 53,
     "packages/server/src/middleware/cors.ts": 50,
     "packages/mcp/src/cypher/executor.ts": 48,
     "packages/intelligence/src/review/pr-review.ts": 46,
@@ -98,6 +97,7 @@
     "packages/analyzer/src/languages/scala.ts": 1,
     "packages/analyzer/src/pipeline/phases/config.ts": 1,
     "packages/analyzer/src/resolution/type-registry.ts": 1,
+    "packages/analyzer/src/resolution/typescript-resolver-advanced.ts": 1,
     "packages/cli/src/commands/review.ts": 1,
     "packages/core/src/operations/health-check.ts": 1,
     "packages/core/src/operations/resilience.ts": 1,
