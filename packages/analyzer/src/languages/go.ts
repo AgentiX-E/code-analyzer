@@ -32,31 +32,27 @@ export class GoProvider extends TreeSitterBaseProvider {
     const nodeType = node.type;
 
     if (nodeType === 'function_declaration') {
-      const nameNode = this.findChildType(node, 'identifier');
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-      if (nameNode) {
-        const exported = nameNode.text[0] === nameNode.text[0]?.toUpperCase();
-        captures.push({
-          tag: CAPTURE_TAGS.FUNCTION_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { exported: String(exported), filePath: this.filePath },
-        });
-      }
+      // function_declaration = `func identifier ...` — the name is a mandatory identifier.
+      const nameNode = this.findChildType(node, 'identifier')!;
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: {
+          exported: String(this.isExportedName(nameNode.text)),
+          filePath: this.filePath,
+        },
+      });
     } else if (nodeType === 'type_declaration') {
-      // Determine if it's a struct, interface, or type alias
       for (let i = 0; i < node.childCount; i++) {
         const child = node.child(i);
         if (child.type === 'type_spec') {
-          const nameNode = this.findChildType(child, 'type_identifier');
-          /* v8 ignore next -- @preserve -- type_spec always has a type_identifier */
-          if (!nameNode) continue;
-
-          // Check what kind of type
+          // type_spec = `type_identifier type` — the name is a mandatory type_identifier.
+          const nameNode = this.findChildType(child, 'type_identifier')!;
           const structType = this.findChildType(child, 'struct_type');
           const ifaceType = this.findChildType(child, 'interface_type');
 
@@ -97,132 +93,59 @@ export class GoProvider extends TreeSitterBaseProvider {
         }
       }
     } else if (nodeType === 'method_declaration') {
-      // Find receiver type and method name
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-      const nameNode =
-        this.findChildType(node, 'field_identifier') || this.findChildType(node, 'identifier');
-      let receiverType: string | undefined;
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child.type === 'parameter_list') {
-          // Check if it's a receiver (first param list)
-          for (let j = 0; j < child.childCount; j++) {
-            const p = child.child(j);
-            if (p.type === 'parameter_declaration') {
-              const typeId =
-                this.findChildType(p, 'type_identifier') || this.findChildType(p, 'pointer_type');
-              /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-              if (typeId) {
-                receiverType =
-                  typeId.type === 'pointer_type'
-                    ? /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-                      this.findChildType(typeId, 'type_identifier')?.text
-                    : typeId.text;
-              }
-              break;
-            }
-          }
-          break;
-        }
-      }
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.METHOD_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          containerName: receiverType,
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-          properties: { receiverType: receiverType ?? '', filePath: this.filePath },
-        });
-      }
+      // method_declaration = `func receiver name ...` — the name is a mandatory
+      // field_identifier and the receiver is the first parameter_list.
+      const nameNode = this.findChildType(node, 'field_identifier')!;
+      const receiverType = this.extractReceiverType(node);
+      captures.push({
+        tag: CAPTURE_TAGS.METHOD_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        containerName: receiverType,
+        properties: { receiverType, filePath: this.filePath },
+      });
     } else if (nodeType === 'import_declaration') {
-      // Handle both single imports (import "fmt") and grouped imports (import ( ... ))
-      const specNodes: TreeSitterSyntaxNode[] = [];
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- import_declaration children are import_spec or import_spec_list */
-        if (child.type === 'import_spec') {
-          specNodes.push(child);
-        } else if (child.type === 'import_spec_list') {
-          // Grouped imports: import_spec children are inside import_spec_list
-          for (let j = 0; j < child.namedChildCount; j++) {
-            const spec = child.namedChild(j);
-            /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-            if (spec.type === 'import_spec') {
-              specNodes.push(spec);
-            }
-          }
-        }
-      }
-      for (const spec of specNodes) {
-        let path = '';
-        let alias: string | undefined;
-        for (let j = 0; j < spec.childCount; j++) {
-          const sub = spec.child(j);
-          /* v8 ignore next -- @preserve -- import_spec children are string literal or package_identifier */
-          if (sub.type === 'interpreted_string_literal') {
-            path = sub.text.slice(1, -1);
-          } else if (sub.type === 'package_identifier') {
-            alias = sub.text;
-          }
-        }
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-        if (path) {
-          captures.push({
-            tag: CAPTURE_TAGS.IMPORT,
-            text: path,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: path,
-            properties: { alias: alias ?? '', filePath: this.filePath },
-          });
+      // import_declaration has a single named child: import_spec (single import) or
+      // import_spec_list (grouped import).
+      const child = node.namedChild(0);
+      if (child.type === 'import_spec') {
+        this.emitImportCapture(node, child, captures);
+      } else {
+        for (let j = 0; j < child.namedChildCount; j++) {
+          this.emitImportCapture(node, child.namedChild(j), captures);
         }
       }
     } else if (nodeType === 'var_declaration' || nodeType === 'const_declaration') {
       const isConst = nodeType === 'const_declaration';
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (child.type === 'var_spec' || child.type === 'const_spec') {
-          const idNode = this.findChildType(child, 'identifier');
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-          if (idNode) {
-            captures.push({
-              /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-              tag: isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
-              text: idNode.text,
-              startLine: child.startPosition.row + 1,
-              endLine: child.endPosition.row + 1,
-              startByte: idNode.startIndex,
-              endByte: idNode.endIndex,
-              name: idNode.text,
-              properties: { filePath: this.filePath },
-            });
+          this.emitVariableCapture(child, isConst, captures);
+        }
+        if (child.type === 'var_spec_list') {
+          // Grouped `var (...)` declarations wrap their specs in a var_spec_list.
+          for (let j = 0; j < child.namedChildCount; j++) {
+            this.emitVariableCapture(child.namedChild(j), isConst, captures);
           }
         }
       }
     } else if (nodeType === 'package_clause') {
-      const nameNode = this.findChildType(node, 'package_identifier');
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.VARIABLE_DEF,
-          text: `package ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      // package_clause = `package identifier` — the name is a mandatory package_identifier.
+      const nameNode = this.findChildType(node, 'package_identifier')!;
+      captures.push({
+        tag: CAPTURE_TAGS.VARIABLE_DEF,
+        text: `package ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -232,21 +155,9 @@ export class GoProvider extends TreeSitterBaseProvider {
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_spec') {
-      let path = '';
-      let alias: string | undefined;
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        /* v8 ignore next -- @preserve -- import_spec children are string literal or package_identifier */
-        if (child.type === 'interpreted_string_literal') {
-          path = child.text.slice(1, -1);
-        } else if (child.type === 'package_identifier') {
-          alias = child.text;
-        }
-      }
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
+      const { path, alias } = this.extractImportSpec(node);
       if (path) {
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-        const names = alias ? [alias] : [path.split('/').pop() ?? path];
+        const names = alias ? [alias] : [this.importLeaf(path)];
         imports.push({
           source: path,
           names,
@@ -263,15 +174,9 @@ export class GoProvider extends TreeSitterBaseProvider {
   }
 
   protected override checkExported(_node: TreeSitterSyntaxNode, symbolName: string): boolean {
-    if (!symbolName) return false;
-    return (
-      symbolName[0] === symbolName[0]?.toUpperCase() &&
-      symbolName[0] !== symbolName[0]?.toLowerCase()
-    );
+    return this.isExportedName(symbolName);
   }
 
-  // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -357,7 +262,6 @@ export class GoProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -365,7 +269,7 @@ export class GoProvider extends TreeSitterBaseProvider {
     while ((m = singleRegex.exec(source)) !== null) {
       imports.push({
         source: m[1]!,
-        names: [m[1]!.split('/').pop() ?? m[1]!],
+        names: [this.importLeaf(m[1]!)],
         type: 'named',
         lineNumber: this.ln(source, m.index),
       });
@@ -386,7 +290,7 @@ export class GoProvider extends TreeSitterBaseProvider {
       while ((inner = lineRegex.exec(m[1]!))) {
         imports.push({
           source: inner[2]!,
-          names: [inner[1] ?? inner[2]!.split('/').pop() ?? inner[2]!],
+          names: [inner[1] ?? this.importLeaf(inner[2]!)],
           type: inner[1] ? 'namespace' : 'named',
           lineNumber: this.ln(source, m.index),
         });
@@ -395,28 +299,139 @@ export class GoProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, symbolName: string): boolean {
+    return this.isExportedName(symbolName);
+  }
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+
+  /** Extract the receiver type name, stripping pointer/package/argument wrappers. */
+  private extractReceiverType(methodNode: TreeSitterSyntaxNode): string {
+    let receiverType = '';
+    for (let i = 0; i < methodNode.childCount; i++) {
+      const child = methodNode.child(i);
+      if (child.type === 'parameter_list') {
+        for (let j = 0; j < child.childCount; j++) {
+          const p = child.child(j);
+          if (p.type === 'parameter_declaration') {
+            // The receiver parameter's type is its last named child (the name, if
+            // present, precedes the type).
+            receiverType = this.extractTypeName(p.namedChild(p.namedChildCount - 1));
+            break;
+          }
+        }
+        break;
+      }
+    }
+    return receiverType;
+  }
+
+  /**
+   * Recursively unwrap transparent type wrappers — pointer_type (`*T`),
+   * qualified_type (`pkg.T`), generic_type (`T[args]`) — to the base named type.
+   */
+  private extractTypeName(node: TreeSitterSyntaxNode): string {
+    if (
+      node.type === 'pointer_type' ||
+      node.type === 'qualified_type' ||
+      node.type === 'generic_type'
+    ) {
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child.type === 'type_identifier') return child.text;
+        if (
+          child.type === 'pointer_type' ||
+          child.type === 'qualified_type' ||
+          child.type === 'generic_type'
+        ) {
+          return this.extractTypeName(child);
+        }
+      }
+    }
+    return node.text;
+  }
+
+  /** Extract the path and optional alias from an import_spec node. */
+  private extractImportSpec(spec: TreeSitterSyntaxNode): {
+    path: string;
+    alias: string | undefined;
+  } {
+    let path = '';
+    let alias: string | undefined;
+    for (let i = 0; i < spec.childCount; i++) {
+      const child = spec.child(i);
+      if (child.type === 'interpreted_string_literal' || child.type === 'raw_string_literal') {
+        path = child.text.slice(1, -1);
+      } else if (child.type === 'package_identifier') {
+        alias = child.text;
+      }
+    }
+    return { path, alias };
+  }
+
+  /** Emit an IMPORT capture for a single import_spec. */
+  private emitImportCapture(
+    node: TreeSitterSyntaxNode,
+    spec: TreeSitterSyntaxNode,
+    captures: UnifiedCapture[],
+  ): void {
+    const { path, alias } = this.extractImportSpec(spec);
+    // An import path is always present in valid Go; guard against empty paths.
+    if (path) {
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: path,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: path,
+        properties: { alias: alias ?? '', filePath: this.filePath },
+      });
+    }
+  }
+
+  /** Emit a VARIABLE_DEF or CONSTANT_DEF capture for a var_spec/const_spec. */
+  private emitVariableCapture(
+    spec: TreeSitterSyntaxNode,
+    isConst: boolean,
+    captures: UnifiedCapture[],
+  ): void {
+    // var_spec/const_spec always carry at least one identifier (the declared name).
+    const idNode = this.findChildType(spec, 'identifier')!;
+    captures.push({
+      tag: isConst ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
+      text: idNode.text,
+      startLine: spec.startPosition.row + 1,
+      endLine: spec.endPosition.row + 1,
+      startByte: idNode.startIndex,
+      endByte: idNode.endIndex,
+      name: idNode.text,
+      properties: { filePath: this.filePath },
+    });
+  }
+
+  /** The leaf (basename) of an import path, e.g. `os/exec` → `exec`. */
+  private importLeaf(path: string): string {
+    return path.slice(path.lastIndexOf('/') + 1);
+  }
+
+  /** Whether a Go identifier is exported (starts with a Unicode uppercase letter). */
+  private isExportedName(symbolName: string): boolean {
     if (!symbolName) return false;
-    return (
-      symbolName[0] === symbolName[0]?.toUpperCase() &&
-      symbolName[0] !== symbolName[0]?.toLowerCase()
-    );
+    const first = symbolName[0];
+    return first === first.toUpperCase() && first !== first.toLowerCase();
   }
 
   private findChildType(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       if (node.namedChild(i).type === type) return node.namedChild(i);
     }
-    for (let i = 0; i < node.childCount; i++) {
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
-      if (node.child(i).type === type) return node.child(i);
-    }
-    /* v8 ignore next -- @preserve -- every node type passed here has a matching child */
     return null;
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }

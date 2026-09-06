@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4653,
-  "totalLines": 129226,
+  "totalHidden": 4629,
+  "totalLines": 129241,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -38,7 +38,7 @@
     "packages/mcp/src/tools/smart-response.ts": 30,
     "packages/analyzer/src/resolution/typescript-resolver.ts": 28,
     "packages/analyzer/src/resolution/python-resolver-advanced.ts": 27,
-    "packages/analyzer/src/languages/go.ts": 26,
+    "packages/analyzer/src/languages/go.ts": 2,
     "packages/mcp/src/cypher/planner.ts": 26,
     "packages/infra/src/project/auto-indexer.ts": 25,
     "packages/analyzer/src/languages/python.ts": 23,
