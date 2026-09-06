@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4610,
-  "totalLines": 129209,
+  "totalHidden": 4591,
+  "totalLines": 129210,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -43,7 +43,7 @@
     "packages/infra/src/project/auto-indexer.ts": 25,
     "packages/analyzer/src/languages/python.ts": 23,
     "packages/analyzer/src/resolution/go-resolver.ts": 23,
-    "packages/analyzer/src/languages/elixir.ts": 20,
+    "packages/analyzer/src/languages/elixir.ts": 1,
     "packages/analyzer/src/languages/java.ts": 1,
     "packages/analyzer/src/languages/cpp.ts": 19,
     "packages/analyzer/src/languages/bash.ts": 18,
