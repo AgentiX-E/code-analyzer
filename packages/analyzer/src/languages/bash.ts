@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Bash/Shell Provider (tree-sitter AST walker)
-// Full tree-sitter AST walker: 15+ node mappings, functions, variables,
-// command injection taint sinks, source/include import tracking.
+// Full tree-sitter AST walker: functions, variables, command injection taint
+// sinks, source/include import tracking.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
@@ -64,13 +64,11 @@ export class BashProvider extends TreeSitterBaseProvider {
   protected override loadGrammar(): TreeSitterLanguage | null {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const m = require('tree-sitter-bash') as TreeSitterLanguage;
-      return m;
+      return require('tree-sitter-bash') as TreeSitterLanguage;
     } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
+      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
       return null;
     }
-    /* v8 ignore stop */
   }
 
   // ---- AST Walking ----
@@ -79,19 +77,11 @@ export class BashProvider extends TreeSitterBaseProvider {
     const nt = node.type;
 
     if (nt === 'function_definition') {
-      let funcName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-        if (child.type === 'word') {
-          funcName = child.text;
-          break;
-        }
-      }
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-      if (funcName) {
-        captures.push(this.makeCapture(node, CAPTURE_TAGS.FUNCTION_DEF, funcName, funcName));
-      }
+      // The grammar always emits the function name as the first `word` child.
+      const nameNode = this.findNamedChild(node, 'word')!;
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.FUNCTION_DEF, nameNode.text, nameNode.text),
+      );
     } else if (nt === 'variable_assignment') {
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
@@ -103,7 +93,7 @@ export class BashProvider extends TreeSitterBaseProvider {
       this.captureCommand(node, captures);
     } else if (nt === 'command_substitution') {
       captures.push(
-        this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, '$(...))', node.text, {
+        this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, '$(...)', node.text, {
           isSubshell: 'true',
         }),
       );
@@ -128,8 +118,6 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   private captureCommand(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const cmdName = this.getCommandName(node);
-    /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-    if (!cmdName) return;
 
     // Source/include detection
     if (cmdName === 'source' || cmdName === '.') {
@@ -152,22 +140,16 @@ export class BashProvider extends TreeSitterBaseProvider {
     }
   }
 
-  private getCommandName(node: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-      if (child.type === 'command_name') {
-        for (let j = 0; j < child.childCount; j++) {
-          const sub = child.child(j);
-          /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-          if (sub.type === 'word') return sub.text;
-        }
-        return child.text;
-      }
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-      if (child.type === 'word') return child.text;
-    }
-    return undefined;
+  /**
+   * Extract the command name of a `command` node. The grammar always wraps the
+   * name in a `command_name` field whose child is a `word` for plain commands,
+   * or a `string`/`simple_expansion`/`concatenation` for quoted, dynamic, or
+   * concatenated command names — in which case the raw text is used.
+   */
+  private getCommandName(node: TreeSitterSyntaxNode): string {
+    const commandName = this.findNamedChild(node, 'command_name')!;
+    const word = this.findNamedChild(commandName, 'word');
+    return word ? word.text : commandName.text;
   }
 
   // ---- Taint Analysis ----
@@ -248,8 +230,6 @@ export class BashProvider extends TreeSitterBaseProvider {
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     if (node.type === 'command') {
       const cmdName = this.getCommandName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-      if (!cmdName) return;
 
       // Command injection sinks
       if (
@@ -290,7 +270,6 @@ export class BashProvider extends TreeSitterBaseProvider {
       }
 
       // Network sinks
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
       if (cmdName === 'nc' || cmdName === 'telnet' || cmdName === 'ssh') {
         sinks.push({
           name: cmdName,
@@ -327,11 +306,10 @@ export class BashProvider extends TreeSitterBaseProvider {
       }
     }
 
-    // Parameter expansion with default values
+    // Parameter expansion with default values: ${x:-d}, ${x:=d}, ${x:?e}
     if (node.type === 'expansion') {
       const text = node.text;
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
-      if (text.includes(':-') || text.includes(':=?')) {
+      if (text.includes(':-') || text.includes(':=') || text.includes(':?')) {
         sanitizers.push({
           name: text,
           sanitizerType: 'parameter_validation',
@@ -353,7 +331,6 @@ export class BashProvider extends TreeSitterBaseProvider {
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'command') {
       const cmdName = this.getCommandName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching command branch */
       if (cmdName === 'source' || cmdName === '.') {
         for (let i = 0; i < node.namedChildCount; i++) {
           const child = node.namedChild(i);
@@ -380,6 +357,13 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   // ---- Helpers ----
 
+  private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      if (node.namedChild(i).type === type) return node.namedChild(i);
+    }
+    return null;
+  }
+
   private makeCapture(
     node: TreeSitterSyntaxNode,
     tag: (typeof CAPTURE_TAGS)[keyof typeof CAPTURE_TAGS],
@@ -401,7 +385,6 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback ----
 
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -449,7 +432,11 @@ export class BashProvider extends TreeSitterBaseProvider {
         properties: { importType: 'source', filePath },
       });
     }
-    const pipeRegex = /(\S+)\s*\|\s*\S+/g;
+    // Capture the command name (first word) of the left-hand side of a
+    // pipeline. The previous pattern `(\S+)\s*\|\s*\S+` anchored the capture
+    // group to the word immediately before `|`, so `cat file | grep` yielded
+    // the argument `file` instead of the command `cat`.
+    const pipeRegex = /(\S+)[^|\n]*\|\s*\S+/g;
     while ((m = pipeRegex.exec(source)) !== null) {
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_CALL,
@@ -465,7 +452,6 @@ export class BashProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -477,12 +463,10 @@ export class BashProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return true;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -500,7 +484,6 @@ export class BashProvider extends TreeSitterBaseProvider {
     return sources;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -520,7 +503,6 @@ export class BashProvider extends TreeSitterBaseProvider {
     return sinks;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }

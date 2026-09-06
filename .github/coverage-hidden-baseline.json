@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4573,
-  "totalLines": 129242,
+  "totalHidden": 4556,
+  "totalLines": 129224,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -46,7 +46,7 @@
     "packages/analyzer/src/languages/elixir.ts": 1,
     "packages/analyzer/src/languages/java.ts": 1,
     "packages/analyzer/src/languages/cpp.ts": 1,
-    "packages/analyzer/src/languages/bash.ts": 18,
+    "packages/analyzer/src/languages/bash.ts": 1,
     "packages/analyzer/src/languages/c.ts": 18,
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/analyzer/src/languages/json.ts": 17,
