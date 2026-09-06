@@ -3,6 +3,16 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { ScalaProvider } from '../languages/scala.js';
 
+/** ScalaProvider with tree-sitter disabled, forcing the regex fallback path. */
+class RegexScalaProvider extends ScalaProvider {
+  constructor() {
+    super();
+    // Force the regex fallback by clearing the tree-sitter parser and grammar.
+    this.parser = null;
+    this.languageGrammar = null;
+  }
+}
+
 describe('ScalaProvider', () => {
   const provider = new ScalaProvider();
 
@@ -31,6 +41,13 @@ describe('ScalaProvider', () => {
       const captures = provider.parse(code, 'Foo.scala');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.some((c) => c.name === 'Foo')).toBe(true);
+    });
+
+    it('should extract an operator class definition', () => {
+      const code = 'class +(x: Int) {}';
+      const captures = provider.parse(code, 'Plus.scala');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some((c) => c.name === '+')).toBe(true);
     });
 
     it('should extract an object definition with isObject flag', () => {
@@ -69,6 +86,20 @@ describe('ScalaProvider', () => {
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'add')).toBe(true);
     });
+
+    it('should extract an operator method definition', () => {
+      const code = 'class A {\n  def +(other: Int): Int = other\n}';
+      const captures = provider.parse(code, 't.scala');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((c) => c.name === '+')).toBe(true);
+    });
+
+    it('should extract an abstract method declaration', () => {
+      const code = 'trait A { def foo(): Int }';
+      const captures = provider.parse(code, 't.scala');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((c) => c.name === 'foo')).toBe(true);
+    });
   });
 
   describe('parse — imports', () => {
@@ -84,6 +115,20 @@ describe('ScalaProvider', () => {
       const captures = provider.parse(code, 't.scala');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.some((c) => c.name === 'scala.collection.mutable')).toBe(true);
+    });
+
+    it('should extract an operator import path', () => {
+      const code = 'import foo.::';
+      const captures = provider.parse(code, 't.scala');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((c) => c.name === 'foo.::')).toBe(true);
+    });
+
+    it('should extract only the package prefix for a selector import', () => {
+      const code = 'import foo.{bar, baz}';
+      const captures = provider.parse(code, 't.scala');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((c) => c.name === 'foo')).toBe(true);
     });
   });
 
@@ -109,6 +154,26 @@ describe('ScalaProvider', () => {
       expect(provider.isExported('class Foo {}', 'Foo')).toBe(true);
     });
 
+    it('should report a public object as exported', () => {
+      expect(provider.isExported('object Bar {}', 'Bar')).toBe(true);
+    });
+
+    it('should report a public trait as exported', () => {
+      expect(provider.isExported('trait Baz {}', 'Baz')).toBe(true);
+    });
+
+    it('should report a public method as exported', () => {
+      expect(provider.isExported('class A { def foo() = 1 }', 'foo')).toBe(true);
+    });
+
+    it('should report a public abstract method as exported', () => {
+      expect(provider.isExported('trait A { def foo(): Int }', 'foo')).toBe(true);
+    });
+
+    it('should report an operator method as exported', () => {
+      expect(provider.isExported('class A { def +(x: Int) = x }', '+')).toBe(true);
+    });
+
     it('should report a private class as not exported', () => {
       expect(provider.isExported('private class Secret {}', 'Secret')).toBe(false);
     });
@@ -123,6 +188,101 @@ describe('ScalaProvider', () => {
 
     it('should report a private[pkg] class as not exported', () => {
       expect(provider.isExported('private[pkg] class Secret {}', 'Secret')).toBe(false);
+    });
+
+    it('should return false for an unknown symbol', () => {
+      expect(provider.isExported('class Foo {}', 'bar')).toBe(false);
+    });
+  });
+
+  describe('fallback (regex)', () => {
+    const fallback = new RegexScalaProvider();
+
+    it('should parse class, object, trait, function, and import', () => {
+      const code =
+        'class Foo {}\nobject Bar {}\ntrait Baz {}\ndef qux() = 1\nimport scala.collection.mutable\n';
+      const captures = fallback.parse(code, 't.scala');
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'Foo')).toBe(true);
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'Bar')).toBe(true);
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.INTERFACE_DEF && c.name === 'Baz')).toBe(
+        true,
+      );
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'qux')).toBe(
+        true,
+      );
+      expect(
+        captures.some(
+          (c) => c.tag === CAPTURE_TAGS.IMPORT && c.name === 'scala.collection.mutable',
+        ),
+      ).toBe(true);
+    });
+
+    it('should parse an abstract/case class', () => {
+      const captures = fallback.parse('abstract class Foo {}\ncase class Bar(a: Int)', 't.scala');
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes.some((c) => c.name === 'Foo')).toBe(true);
+      expect(classes.some((c) => c.name === 'Bar')).toBe(true);
+    });
+
+    it('should parse an operator method name', () => {
+      const captures = fallback.parse('def +(x: Int) = x', 't.scala');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((c) => c.name === '+')).toBe(true);
+    });
+
+    it('should parse a type-annotated method name', () => {
+      const captures = fallback.parse('def foo: Int = 1', 't.scala');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((c) => c.name === 'foo')).toBe(true);
+    });
+
+    it('should sort captures by position', () => {
+      const captures = fallback.parse('def b() = 1\ndef a() = 2', 't.scala');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.map((c) => c.name)).toEqual(['b', 'a']);
+    });
+
+    it('should sort same-line captures by byte offset', () => {
+      const captures = fallback.parse('def b() = 1 def a() = 2', 't.scala');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.map((c) => c.name)).toEqual(['b', 'a']);
+    });
+
+    it('should return empty captures for empty source', () => {
+      expect(fallback.parse('', 't.scala')).toEqual([]);
+    });
+
+    it('should extract imports with the last segment as the name', () => {
+      const imports = fallback.extractImports(
+        'import scala.collection.mutable.ListBuffer',
+        't.scala',
+      );
+      expect(imports.some((i) => i.source === 'scala.collection.mutable.ListBuffer')).toBe(true);
+      expect(imports.some((i) => i.names.includes('ListBuffer'))).toBe(true);
+    });
+
+    it('should return empty imports without imports', () => {
+      expect(fallback.extractImports('val x = 1', 't.scala')).toEqual([]);
+    });
+
+    it('should report a public class as exported', () => {
+      expect(fallback.isExported('class Foo {}', 'Foo')).toBe(true);
+    });
+
+    it('should report a public function as exported', () => {
+      expect(fallback.isExported('def foo() = 1', 'foo')).toBe(true);
+    });
+
+    it('should report a private class as not exported', () => {
+      expect(fallback.isExported('private class Secret {}', 'Secret')).toBe(false);
+    });
+
+    it('should report a protected def as not exported', () => {
+      expect(fallback.isExported('class A { protected def foo() = 1 }', 'foo')).toBe(false);
+    });
+
+    it('should return false for a non-matching symbol', () => {
+      expect(fallback.isExported('class Foo {}', 'bar')).toBe(false);
     });
   });
 });

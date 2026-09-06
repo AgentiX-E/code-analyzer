@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4539,
-  "totalLines": 129188,
+  "totalHidden": 4524,
+  "totalLines": 129168,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -53,7 +53,7 @@
     "packages/core/src/security/supply-chain-integrity.ts": 17,
     "packages/infra/src/storage/sqlite-graph-store.ts": 17,
     "packages/analyzer/src/languages/csharp.ts": 16,
-    "packages/analyzer/src/languages/scala.ts": 16,
+    "packages/analyzer/src/languages/scala.ts": 1,
     "packages/server/src/http-server.ts": 16,
     "packages/analyzer/src/languages/rust.ts": 13,
     "packages/analyzer/src/resolution/python-resolver.ts": 13,
