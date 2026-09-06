@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4688,
-  "totalLines": 129302,
+  "totalHidden": 4653,
+  "totalLines": 129226,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -29,7 +29,7 @@
     "packages/intelligence/src/review/pr-review.ts": 46,
     "packages/server/src/middleware/error-handler.ts": 42,
     "packages/infra/src/project/project-detector.ts": 39,
-    "packages/analyzer/src/languages/groovy.ts": 38,
+    "packages/analyzer/src/languages/groovy.ts": 3,
     "packages/analyzer/src/languages/html.ts": 35,
     "packages/analyzer/src/resolution/java-resolver.ts": 34,
     "packages/cli/src/commands/agent.ts": 33,

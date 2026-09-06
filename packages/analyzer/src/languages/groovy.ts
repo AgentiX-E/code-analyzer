@@ -1,6 +1,6 @@
 // @code-analyzer/analyzer — Groovy Provider (tree-sitter AST walker)
-// Full tree-sitter AST walker: 15+ node mappings, classes, methods, traits,
-// closures, GStrings, metaprogramming injection sinks.
+// Full tree-sitter AST walker: classes, methods, traits, closures, GStrings,
+// metaprogramming injection sinks.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
@@ -27,7 +27,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       const m = require('tree-sitter-groovy') as TreeSitterLanguage;
       return m;
     } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
+      /* v8 ignore start -- @preserve -- bundled grammar never fails to require */
       return null;
     }
     /* v8 ignore stop */
@@ -39,76 +39,55 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     const nt = node.type;
 
     if (nt === 'class_declaration') {
+      // A class_declaration always carries an `identifier` named child in a valid
+      // parse; walkAndCapture only runs on error-free trees.
       const nameNode = this.findIdent(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (nameNode) {
-        const baseClasses = this.extractGroovyBases(node);
-        captures.push(
-          this.makeCapture(node, CAPTURE_TAGS.CLASS_DEF, nameNode.text, `class ${nameNode.text}`, {
-            baseClasses,
-          }),
-        );
-      }
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-    } else if (nt === 'juxt_function_call' && this.findIdent(node)?.text === 'trait') {
+      const baseClasses = this.extractGroovyBases(node);
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.CLASS_DEF, nameNode.text, `class ${nameNode.text}`, {
+          baseClasses,
+        }),
+      );
+    } else if (nt === 'juxt_function_call' && this.findIdent(node).text === 'trait') {
       // tree-sitter-groovy parses `trait Name {}` as a juxt_function_call whose
       // first identifier is 'trait' and whose argument_list holds the trait name.
-      /* v8 ignore next -- @preserve -- non-matching / fallthrough return */
-      const nameNode = this.findFirstIdent(node.namedChild(1));
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (nameNode) {
-        captures.push(
-          this.makeCapture(node, CAPTURE_TAGS.TRAIT_DEF, nameNode.text, `trait ${nameNode.text}`),
-        );
-      }
+      const nameNode = this.findIdent(node.namedChild(1));
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.TRAIT_DEF, nameNode.text, `trait ${nameNode.text}`),
+      );
     } else if (nt === 'enum_declaration') {
       const nameNode = this.findIdent(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (nameNode) {
-        captures.push(
-          this.makeCapture(node, CAPTURE_TAGS.ENUM_DEF, nameNode.text, `enum ${nameNode.text}`),
-        );
-      }
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.ENUM_DEF, nameNode.text, `enum ${nameNode.text}`),
+      );
     } else if (nt === 'method_declaration') {
       const nameNode = this.findIdent(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (nameNode) {
-        let containerName: string | undefined;
-        const container = this.findContainerNode(node);
-        /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-        if (container) containerName = this.extractContainerName(container);
-        const isConstructor = containerName === nameNode.text;
-        captures.push(
-          this.makeCapture(
-            node,
-            /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-            isConstructor ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF,
-            /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-            nameNode.text,
-            nameNode.text,
-            { containerName: containerName ?? '', isConstructor: String(isConstructor) },
-          ),
-        );
-      }
+      let containerName: string | undefined;
+      const container = this.findContainerNode(node);
+      if (container) containerName = this.extractContainerName(container);
+      const isConstructor = containerName === nameNode.text;
+      captures.push(
+        this.makeCapture(
+          node,
+          isConstructor ? CAPTURE_TAGS.CONSTRUCTOR_DEF : CAPTURE_TAGS.METHOD_DEF,
+          nameNode.text,
+          nameNode.text,
+          { containerName: containerName ?? '', isConstructor: String(isConstructor) },
+        ),
+      );
     } else if (nt === 'constructor_declaration') {
       const nameNode = this.findIdent(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (nameNode) {
-        captures.push(
-          this.makeCapture(node, CAPTURE_TAGS.CONSTRUCTOR_DEF, nameNode.text, nameNode.text),
-        );
-      }
-    } else if (nt === 'field_declaration' || nt === 'variable_declaration') {
+      captures.push(
+        this.makeCapture(node, CAPTURE_TAGS.CONSTRUCTOR_DEF, nameNode.text, nameNode.text),
+      );
+    } else if (nt === 'field_declaration') {
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
         if (child.type === 'variable_declarator') {
-          const idNode = this.findFirstIdent(child);
-          /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-          if (idNode) {
-            captures.push(
-              this.makeCapture(child, CAPTURE_TAGS.VARIABLE_DEF, idNode.text, idNode.text),
-            );
-          }
+          const idNode = this.findIdent(child);
+          captures.push(
+            this.makeCapture(child, CAPTURE_TAGS.VARIABLE_DEF, idNode.text, idNode.text),
+          );
         }
       }
     } else if (nt === 'import_declaration') {
@@ -121,13 +100,10 @@ export class GroovyProvider extends TreeSitterBaseProvider {
           importType: 'named',
         }),
       );
-    } else if (nt === 'method_invocation' || nt === 'call_expression') {
+    } else if (nt === 'method_invocation') {
       const callName = this.extractCallName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (callName) {
-        captures.push(this.makeCapture(node, CAPTURE_TAGS.METHOD_CALL, callName, callName));
-      }
-    } else if (nt === 'closure_expression' || nt === 'closure') {
+      captures.push(this.makeCapture(node, CAPTURE_TAGS.METHOD_CALL, callName, callName));
+    } else if (nt === 'closure') {
       captures.push(
         this.makeCapture(
           node,
@@ -137,11 +113,10 @@ export class GroovyProvider extends TreeSitterBaseProvider {
           { isClosure: 'true' },
         ),
       );
-    } else if (
-      nt === 'gstring' ||
-      nt === 'string_interpolation' ||
-      (nt === 'string_literal' && node.text.includes('${'))
-    ) {
+    } else if (nt === 'string_literal' && node.text.includes('${')) {
+      // tree-sitter-groovy does not emit a dedicated GString node: `${name}` is
+      // parsed as a literal string_fragment, so detect GStrings by scanning the
+      // raw text for the interpolation marker.
       captures.push(
         this.makeCapture(
           node,
@@ -154,16 +129,11 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     } else if (nt === 'annotation') {
       const nameNode = this.findIdent(node);
       captures.push(
-        this.makeCapture(
-          node,
-          CAPTURE_TAGS.ANNOTATION,
-          /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-          nameNode?.text ?? node.text,
-          node.text,
-          { isAnnotation: 'true' },
-        ),
+        this.makeCapture(node, CAPTURE_TAGS.ANNOTATION, nameNode.text, node.text, {
+          isAnnotation: 'true',
+        }),
       );
-    } else if (nt === 'comment' || nt === 'line_comment' || nt === 'block_comment') {
+    } else if (nt === 'line_comment' || nt === 'block_comment') {
       captures.push(
         this.makeCapture(node, CAPTURE_TAGS.COMMENT, '[comment]', node.text.trim(), {
           isComment: 'true',
@@ -179,26 +149,24 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   // ---- Taint Analysis ----
 
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
-    if (node.type === 'method_invocation' || node.type === 'call_expression') {
+    if (node.type === 'method_invocation') {
       const name = this.extractCallName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       const fullName = this.extractFullCallName(node) ?? name;
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (!name && !fullName) {
-        return;
-      }
       const line = node.startPosition.row + 1;
-      // Groovy-specific taint sources
+      // Groovy-specific taint sources. `System.console` / `System.in` are nested
+      // receivers (field_access), so they are matched via the full call name; the
+      // remaining sources are leading identifiers exposed directly by
+      // extractCallName.
       if (
-        name === 'System.console' ||
-        name === 'System.in' ||
+        fullName.startsWith('System.console.') ||
+        fullName.startsWith('System.in.') ||
         name === 'args' ||
         name === 'binding' ||
-        (name !== null && name.includes('request')) ||
-        (name !== null && name.includes('params'))
+        name.includes('request') ||
+        name.includes('params')
       ) {
         sources.push({
-          name: name!,
+          name: fullName,
           sourceType: 'user_input',
           line,
           text: node.text,
@@ -206,7 +174,6 @@ export class GroovyProvider extends TreeSitterBaseProvider {
         });
         return;
       }
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (fullName === 'Eval.me' || fullName === 'Eval.x') {
         sources.push({
           name: fullName,
@@ -217,7 +184,6 @@ export class GroovyProvider extends TreeSitterBaseProvider {
         });
         return;
       }
-      /* v8 ignore next -- @preserve -- non-matching / fallthrough return */
       return;
     }
     for (let i = 0; i < node.childCount; i++) {
@@ -226,25 +192,22 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   }
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
-    if (node.type === 'method_invocation' || node.type === 'call_expression') {
+    if (node.type === 'method_invocation') {
       const name = this.extractCallName(node);
       const fullName = this.extractFullCallName(node) ?? name;
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (!name && !fullName) {
-        return;
-      }
       const line = node.startPosition.row + 1;
-      // Groovy metaprogramming sinks
+      // Groovy metaprogramming sinks. GroovyShell / GroovyScriptEngine are object
+      // receivers (object_creation_expression), so they are matched via the full
+      // call name.
       if (
         fullName === 'Eval.me' ||
         fullName === 'Eval.x' ||
-        name === 'GroovyShell' ||
-        name === 'GroovyScriptEngine' ||
+        fullName.includes('GroovyShell') ||
+        fullName.includes('GroovyScriptEngine') ||
         name === 'evaluate'
       ) {
-        /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
         sinks.push({
-          name: fullName ?? name!,
+          name: fullName,
           sinkType: 'code_injection',
           line,
           text: node.text,
@@ -253,20 +216,14 @@ export class GroovyProvider extends TreeSitterBaseProvider {
         return;
       }
       // SQL sinks in Groovy — match the full call name (receiver.method)
-      if (
-        fullName &&
-        (fullName.includes('execute') ||
-          fullName.includes('executeUpdate') ||
-          fullName.includes('Sql'))
-      ) {
+      if (fullName.includes('execute') || fullName.includes('Sql')) {
         sinks.push({ name: fullName, sinkType: 'sql_exec', line, text: node.text, properties: {} });
       }
       // File write sinks — match the full call name (receiver.method)
       if (
-        fullName &&
-        (fullName.includes('write') ||
-          fullName.includes('withWriter') ||
-          fullName.includes('withOutputStream'))
+        fullName.includes('write') ||
+        fullName.includes('withWriter') ||
+        fullName.includes('withOutputStream')
       ) {
         sinks.push({
           name: fullName,
@@ -287,19 +244,12 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     node: TreeSitterSyntaxNode,
     sanitizers: TaintSanitizer[],
   ): void {
-    if (node.type === 'method_invocation' || node.type === 'call_expression') {
+    if (node.type === 'method_invocation') {
       const name = this.extractCallName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       const fullName = this.extractFullCallName(node) ?? name;
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (!name && !fullName) {
-        return;
-      }
       const line = node.startPosition.row + 1;
-      // Groovy sanitizers
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      const methodName = fullName ? fullName.split('.').pop()! : name;
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
+      // Groovy sanitizers — the sanitizer is the trailing method name.
+      const methodName = fullName.split('.').pop();
       if (
         methodName === 'encodeAsHTML' ||
         methodName === 'encodeAsJavaScript' ||
@@ -308,9 +258,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
         methodName === 'stripIndent' ||
         methodName === 'replaceAll'
       ) {
-        /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
         sanitizers.push({
-          name: fullName ?? name!,
+          name: fullName,
           sanitizerType: 'encoding',
           line,
           text: node.text,
@@ -318,7 +267,6 @@ export class GroovyProvider extends TreeSitterBaseProvider {
         });
         return;
       }
-      /* v8 ignore next -- @preserve -- non-matching / fallthrough return */
       return;
     }
     for (let i = 0; i < node.childCount; i++) {
@@ -329,65 +277,41 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   // ---- Helpers ----
 
   private extractFullCallName(node: TreeSitterSyntaxNode): string | null {
-    // For member expressions like Eval.me
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      /* v8 ignore next -- @preserve -- tree-sitter-groovy emits flat identifiers, not member_expression */
-      if (child.type === 'member_expression') {
-        const parts: string[] = [];
-        for (let j = 0; j < child.childCount; j++) {
-          const sub = child.child(j);
-          if (
-            sub.type === 'identifier' ||
-            sub.type === 'type_identifier' ||
-            sub.type === 'property_identifier'
-          ) {
-            parts.push(sub.text);
-          }
-        }
-        if (parts.length > 1) return parts.join('.');
-      }
-    }
-    // For tree-sitter-groovy: identifiers are direct children of method_invocation
-    // separated by dots, e.g., Eval.me(userScript)
+    // Reconstruct the full dotted call path. tree-sitter-groovy flattens a
+    // two-part receiver into direct identifier children (Eval.me(script) →
+    // "Eval" + "me") but nests deeper receivers: System.console.readLine() →
+    // field_access "System.console" + identifier "readLine", and
+    // new GroovyShell().evaluate() → object_creation_expression + identifier
+    // "evaluate". Collect every identifier in document order and join with '.';
+    // a bare call (foo()) has no receiver, so return null.
     const parts: string[] = [];
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (
-        child.type === 'identifier' ||
-        child.type === 'type_identifier' ||
-        child.type === 'property_identifier'
-      ) {
-        parts.push(child.text);
+    const collect = (n: TreeSitterSyntaxNode): void => {
+      for (let i = 0; i < n.childCount; i++) {
+        const child = n.child(i);
+        if (
+          child.type === 'identifier' ||
+          child.type === 'type_identifier' ||
+          child.type === 'property_identifier'
+        ) {
+          parts.push(child.text);
+        } else if (child.type === 'field_access' || child.type === 'object_creation_expression') {
+          collect(child);
+        }
       }
-    }
-    if (parts.length > 1) return parts.join('.');
-    return null;
+    };
+    collect(node);
+    return parts.length > 1 ? parts.join('.') : null;
   }
 
   private findIdent(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
-    // Prefer identifier over type_identifier: method_declaration's first named
-    // child is type_identifier "def" (return-type keyword) and the method name
-    // is the identifier that follows it.
-    let typeId: TreeSitterSyntaxNode | null = null;
+    // The declared name is always the `identifier` named child (method_declaration
+    // also carries a leading type_identifier "def"/return-type keyword, which is
+    // skipped here).
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
       if (child.type === 'identifier') return child;
-      /* v8 ignore next -- @preserve -- identifier always precedes type_identifier here */
-      if (child.type === 'type_identifier' && !typeId) typeId = child;
     }
-    /* v8 ignore next -- @preserve -- every node type passed here has an identifier */
-    return typeId;
-  }
-
-  private findFirstIdent(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
-    if (node.type === 'identifier' || node.type === 'type_identifier') return node;
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const result = this.findFirstIdent(node.namedChild(i));
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-      if (result) return result;
-    }
-    /* v8 ignore next -- @preserve -- declarators always contain an identifier */
+    /* v8 ignore next -- @preserve -- every declaration passed here has an identifier */
     return null;
   }
 
@@ -396,10 +320,9 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
       if (child.type === 'superclass' || child.type === 'super_interfaces') {
-        for (let j = 0; j < child.childCount; j++) {
-          const sub = child.child(j);
-          if (sub.type === 'identifier' || sub.type === 'type_identifier') parts.push(sub.text);
-        }
+        // super_interfaces wraps its types in a type_list node (implements A, B),
+        // so collect identifiers recursively rather than only reading direct children.
+        this.collectIdentifiers(child, parts);
       }
     }
     return parts.join(',');
@@ -452,7 +375,6 @@ export class GroovyProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback ----
 
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -525,7 +447,6 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -542,21 +463,20 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return true;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
     let m: RegExpExecArray | null;
     const rx = /\b(Eval\.me|Eval\.x|System\.console|request|params)\b/g;
     while ((m = rx.exec(source)) !== null) {
+      const isCodeInjection = m[1] === 'Eval.me' || m[1] === 'Eval.x';
       sources.push({
         name: m[1]!,
-        sourceType: 'user_input',
+        sourceType: isCodeInjection ? 'code_injection' : 'user_input',
         line: ln(m.index),
         text: m[0],
         properties: {},
@@ -565,7 +485,6 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     return sources;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -573,13 +492,18 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     const rx =
       /\b(Eval\.me|Eval\.x|GroovyShell|GroovyScriptEngine|evaluate|executeUpdate|\.execute\()\b/g;
     while ((m = rx.exec(source)) !== null) {
-      const st = m[1]!.includes('eval') || m[1]!.includes('Groovy') ? 'code_injection' : 'sql_exec';
-      sinks.push({ name: m[1]!, sinkType: st, line: ln(m.index), text: m[0], properties: {} });
+      const isCodeInjection = m[1].toLowerCase().includes('eval') || m[1].includes('Groovy');
+      sinks.push({
+        name: m[1]!,
+        sinkType: isCodeInjection ? 'code_injection' : 'sql_exec',
+        line: ln(m.index),
+        text: m[0],
+        properties: {},
+      });
     }
     return sinks;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }
