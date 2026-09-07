@@ -3,11 +3,9 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { ServerConfig } from '../server-config.js';
-import type { ToolRegistry } from '@code-analyzer/mcp';
+import type { ToolRegistry, ToolResult } from '@code-analyzer/mcp';
 
 /** Active SSE connections tracked for cleanup. */
-/* v8 ignore start */
-
 interface SSEConnection {
   reply: FastifyReply;
   requestId: string;
@@ -93,7 +91,7 @@ export function registerSSERoutes(
 
     // Execute the tool
     const registry = getRegistry();
-    let result;
+    let result: ToolResult;
     try {
       result = await registry.execute(toolName, args);
     } catch (err) {
@@ -170,4 +168,3 @@ function sendSSEEvent(
 
 /** Exported for testing */
 export { sendSSEEvent };
-/* v8 ignore stop */
