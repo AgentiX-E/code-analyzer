@@ -10,8 +10,6 @@ import type { SupportedLanguage } from '@code-analyzer/shared';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 function getToolContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
@@ -134,7 +132,10 @@ export async function analyzeRepository(
               {
                 projectId,
                 path,
-                language: (language ?? result.graph.nodes.size > 0) ? 'auto-detected' : 'unknown',
+                // `??` binds looser than `>`, so the coalesce must be parenthesized
+                // first — otherwise a provided `language` (a truthy string) is
+                // discarded in favor of the literal 'auto-detected'.
+                language: language ?? (result.graph.nodes.size > 0 ? 'auto-detected' : 'unknown'),
                 status: result.status,
                 force,
                 nodeCount,
@@ -166,7 +167,9 @@ export async function analyzeRepository(
                 projectId,
                 path,
                 language: language ?? 'auto-detected',
-                status: force ? 're-indexed' : 'indexed',
+                // `force` is guaranteed truthy by the enclosing `if (graphStore && force)`
+                // guard, so the 'indexed' arm of the old ternary was provably dead.
+                status: 're-indexed',
                 force,
                 nodeCount: integrity.nodeCount,
                 edgeCount: integrity.edgeCount,
@@ -653,4 +656,3 @@ export async function autoIndex(
     };
   }
 }
-/* v8 ignore stop */

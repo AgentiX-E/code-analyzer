@@ -1,8 +1,7 @@
 {
-  "totalHidden": 3547,
-  "totalLines": 128848,
+  "totalHidden": 2905,
+  "totalLines": 128850,
   "files": {
-    "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
     "packages/mcp/src/tools/change-impact.ts": 543,
     "packages/intelligence/src/review/github-webhook.ts": 338,
     "packages/server/src/routes/sse.ts": 163,
