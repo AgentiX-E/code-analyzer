@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4424,
-  "totalLines": 128978,
+  "totalHidden": 4397,
+  "totalLines": 128885,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -29,7 +29,6 @@
     "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
     "packages/mcp/src/tools/smart-response.ts": 30,
-    "packages/analyzer/src/resolution/typescript-resolver.ts": 28,
     "packages/analyzer/src/resolution/python-resolver-advanced.ts": 27,
     "packages/mcp/src/cypher/planner.ts": 26,
     "packages/infra/src/project/auto-indexer.ts": 25,
@@ -98,6 +97,7 @@
     "packages/analyzer/src/resolution/java-resolver.ts": 1,
     "packages/analyzer/src/resolution/type-registry.ts": 1,
     "packages/analyzer/src/resolution/typescript-resolver-advanced.ts": 1,
+    "packages/analyzer/src/resolution/typescript-resolver.ts": 1,
     "packages/cli/src/commands/review.ts": 1,
     "packages/core/src/operations/health-check.ts": 1,
     "packages/core/src/operations/resilience.ts": 1,

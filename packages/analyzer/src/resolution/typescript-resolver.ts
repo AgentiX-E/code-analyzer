@@ -75,54 +75,35 @@ export class TypeScriptTypeResolver {
 
     // Class / Abstract Class
     if (nt === 'class_declaration' || nt === 'abstract_class_declaration') {
-      const info = this.extractClassDeclaration(node, source);
-      /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-      if (info) types.push(info);
+      types.push(this.extractClassDeclaration(node, source));
     }
 
     // Interface
     if (nt === 'interface_declaration') {
-      const info = this.extractInterfaceDeclaration(node, source);
-      /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-      if (info) types.push(info);
+      types.push(this.extractInterfaceDeclaration(node, source));
     }
 
     // Type Alias
     if (nt === 'type_alias_declaration') {
-      const info = this.extractTypeAlias(node, source);
-      /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-      if (info) types.push(info);
+      types.push(this.extractTypeAlias(node, source));
     }
 
     // Enum
     if (nt === 'enum_declaration') {
-      const info = this.extractEnumDeclaration(node, source);
-      /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-      if (info) types.push(info);
+      types.push(this.extractEnumDeclaration(node, source));
     }
 
-    // Function Declaration (standalone)
+    // Function Declaration (standalone) — only capture top-level functions;
+    // exported functions are handled by walkExportStatement below.
     if (nt === 'function_declaration' || nt === 'generator_function_declaration') {
-      // Only capture top-level or exported functions
-      const parent = node.parent;
-      if (
-        parent &&
-        (parent.type === 'program' ||
-          parent.type === 'export_statement' ||
-          parent.type === 'module' ||
-          parent.type === 'source_file')
-      ) {
-        const info = this.extractFunctionDeclaration(node, source);
-        /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-        if (info) types.push(info);
+      if (node.parent!.type === 'program') {
+        types.push(this.extractFunctionDeclaration(node, source));
       }
     }
 
-    // Variable Declaration (const with type annotation or arrow function)
+    // Variable Declaration (const / let / var)
     if (nt === 'variable_declaration' || nt === 'lexical_declaration') {
-      const info = this.extractVariableDeclaration(node, source);
-      /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-      if (info) types.push(info);
+      types.push(...this.extractVariableDeclarations(node, source));
     }
 
     // Named export directly
@@ -140,10 +121,8 @@ export class TypeScriptTypeResolver {
   // Extractors
   // -------------------------------------------------------------------------
 
-  private extractClassDeclaration(node: SyntaxNode, source: string): TypeInfo | null {
-    const name = this.findChildText(node, 'type_identifier');
-    /* v8 ignore next -- @preserve -- declaration node always carries a name */
-    if (!name) return null;
+  private extractClassDeclaration(node: SyntaxNode, source: string): TypeInfo {
+    const name = this.findChildText(node, 'type_identifier')!;
 
     const containerName = this.findContainerName(node);
     const qualifiedName = containerName
@@ -160,25 +139,13 @@ export class TypeScriptTypeResolver {
     const implementedInterfaces: string[] = [];
 
     if (heritage) {
-      // extends clause
-      for (let i = 0; i < heritage.childCount; i++) {
-        const child = heritage.child(i);
-        if (child.type === 'extends_clause') {
-          for (let j = 0; j < child.childCount; j++) {
-            const ext = child.child(j);
-            if (ext.type === 'type_identifier' || ext.type === 'identifier') {
-              baseTypes.push(ext.text);
-            }
-          }
-        }
-        if (child.type === 'implements_clause') {
-          for (let j = 0; j < child.childCount; j++) {
-            const impl = child.child(j);
-            if (impl.type === 'type_identifier' || impl.type === 'identifier') {
-              implementedInterfaces.push(impl.text);
-            }
-          }
-        }
+      const extendsClause = this.findChild(heritage, 'extends_clause');
+      if (extendsClause) {
+        baseTypes.push(...this.heritageTypeNames(extendsClause));
+      }
+      const implementsClause = this.findChild(heritage, 'implements_clause');
+      if (implementsClause) {
+        implementedInterfaces.push(...this.heritageTypeNames(implementsClause));
       }
     }
 
@@ -187,11 +154,7 @@ export class TypeScriptTypeResolver {
 
     // Members
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'class_body');
-    /* v8 ignore next -- @preserve -- class_declaration always has a class_body */
-    if (body) {
-      this.extractClassMembers(body, source, members);
-    }
+    this.extractClassMembers(this.findChild(node, 'class_body')!, source, members);
 
     return {
       name,
@@ -214,10 +177,8 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractInterfaceDeclaration(node: SyntaxNode, source: string): TypeInfo | null {
-    const name = this.findChildText(node, 'type_identifier');
-    /* v8 ignore next -- @preserve -- declaration node always carries a name */
-    if (!name) return null;
+  private extractInterfaceDeclaration(node: SyntaxNode, source: string): TypeInfo {
+    const name = this.findChildText(node, 'type_identifier')!;
 
     const containerName = this.findContainerName(node);
     const qualifiedName = containerName
@@ -231,23 +192,14 @@ export class TypeScriptTypeResolver {
     const baseTypes: string[] = [];
     const extendsClause = this.findChild(node, 'extends_type_clause');
     if (extendsClause) {
-      for (let j = 0; j < extendsClause.childCount; j++) {
-        const ext = extendsClause.child(j);
-        if (ext.type === 'type_identifier' || ext.type === 'identifier') {
-          baseTypes.push(ext.text);
-        }
-      }
+      baseTypes.push(...this.heritageTypeNames(extendsClause));
     }
 
     const typeParams = this.extractTypeParameters(node);
 
     // Body members
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'interface_body');
-    /* v8 ignore next -- @preserve -- interface_declaration always has an interface_body */
-    if (body) {
-      this.extractInterfaceMembers(body, source, members);
-    }
+    this.extractInterfaceMembers(this.findChild(node, 'interface_body')!, source, members);
 
     return {
       name,
@@ -270,10 +222,8 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractTypeAlias(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.findChildText(node, 'type_identifier');
-    /* v8 ignore next -- @preserve -- declaration node always carries a name */
-    if (!name) return null;
+  private extractTypeAlias(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChildText(node, 'type_identifier')!;
 
     const containerName = this.findContainerName(node);
     const qualifiedName = containerName
@@ -304,10 +254,8 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractEnumDeclaration(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.findChildText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- declaration node always carries a name */
-    if (!name) return null;
+  private extractEnumDeclaration(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChildText(node, 'identifier')!;
 
     const containerName = this.findContainerName(node);
     const qualifiedName = containerName
@@ -318,28 +266,25 @@ export class TypeScriptTypeResolver {
 
     // Enum members
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'enum_body');
-    /* v8 ignore next -- @preserve -- enum_declaration always has an enum_body */
-    if (body) {
-      for (let i = 0; i < body.childCount; i++) {
-        const prop = body.child(i);
-        if (prop.type === 'property_identifier' || prop.type === 'enum_assignment') {
-          const propName =
-            prop.type === 'enum_assignment'
-              ? this.findChildText(prop, 'property_identifier')
-              : prop.text;
-          if (propName) {
-            members.set(propName, {
-              name: propName,
-              type: 'number',
-              visibility: 'public',
-              isStatic: true,
-              isOptional: false,
-              isAsync: false,
-              parameterTypes: [],
-              returnType: 'number',
-            });
-          }
+    const body = this.findChild(node, 'enum_body')!;
+    for (let i = 0; i < body.childCount; i++) {
+      const prop = body.child(i);
+      if (prop.type === 'property_identifier' || prop.type === 'enum_assignment') {
+        const propName =
+          prop.type === 'enum_assignment'
+            ? this.findChildText(prop, 'property_identifier')
+            : prop.text;
+        if (propName) {
+          members.set(propName, {
+            name: propName,
+            type: 'number',
+            visibility: 'public',
+            isStatic: true,
+            isOptional: false,
+            isAsync: false,
+            parameterTypes: [],
+            returnType: 'number',
+          });
         }
       }
     }
@@ -365,10 +310,8 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractFunctionDeclaration(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.findChildText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- function declaration always carries a name */
-    if (!name) return null;
+  private extractFunctionDeclaration(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChildText(node, 'identifier')!;
 
     const containerName = this.findContainerName(node);
     const qualifiedName = containerName
@@ -380,15 +323,12 @@ export class TypeScriptTypeResolver {
 
     // Parameters
     const paramTypes: string[] = [];
-    const formalParams = this.findChild(node, 'formal_parameters');
-    /* v8 ignore next -- @preserve -- function_declaration always has formal_parameters */
-    if (formalParams) {
-      for (let i = 0; i < formalParams.childCount; i++) {
-        const param = formalParams.child(i);
-        if (param.type === 'required_parameter' || param.type === 'optional_parameter') {
-          const typeNode = this.findChild(param, 'type_annotation');
-          paramTypes.push(typeNode ? this.getTypeText(typeNode.lastChild) : 'any');
-        }
+    const formalParams = this.findChild(node, 'formal_parameters')!;
+    for (let i = 0; i < formalParams.childCount; i++) {
+      const param = formalParams.child(i);
+      if (param.type === 'required_parameter' || param.type === 'optional_parameter') {
+        const typeNode = this.findChild(param, 'type_annotation');
+        paramTypes.push(typeNode ? this.getTypeText(typeNode.lastChild) : 'any');
       }
     }
 
@@ -422,14 +362,16 @@ export class TypeScriptTypeResolver {
     };
   }
 
-  private extractVariableDeclaration(node: SyntaxNode, _source: string): TypeInfo | null {
-    // Look for declarations
-    const declarations = node.namedChildren.filter((n) => n.type === 'variable_declarator');
+  private extractVariableDeclarations(node: SyntaxNode, _source: string): TypeInfo[] {
+    const types: TypeInfo[] = [];
 
-    for (const decl of declarations) {
-      const name = this.findChildText(decl, 'identifier');
-      /* v8 ignore next -- @preserve -- a variable_declarator carries an identifier */
-      if (!name) continue;
+    for (const decl of node.namedChildren) {
+      // The first named child is the binding pattern: a plain identifier for a
+      // simple binding, or object_pattern/array_pattern for destructuring (which
+      // we skip — those names live inside the pattern, not as a flat declaration).
+      const binding = decl.namedChild(0);
+      if (binding.type !== 'identifier') continue;
+      const name = binding.text;
 
       // Type annotation
       const typeNode = this.findChild(decl, 'type_annotation');
@@ -456,7 +398,7 @@ export class TypeScriptTypeResolver {
         ? `${containerName}.${name}`
         : `file:${this.filePath}:${name}`;
 
-      return {
+      types.push({
         name,
         qualifiedName,
         filePath: this.filePath,
@@ -474,11 +416,10 @@ export class TypeScriptTypeResolver {
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
         },
-      };
+      });
     }
 
-    /* v8 ignore next -- @preserve -- a variable declaration always has a declarator */
-    return null;
+    return types;
   }
 
   private walkExportStatement(node: SyntaxNode, source: string, types: TypeInfo[]): void {
@@ -486,25 +427,20 @@ export class TypeScriptTypeResolver {
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       if (child.type === 'class_declaration' || child.type === 'abstract_class_declaration') {
-        const info = this.extractClassDeclaration(child, source);
-        /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-        if (info) types.push(info);
+        types.push(this.extractClassDeclaration(child, source));
       } else if (child.type === 'interface_declaration') {
-        const info = this.extractInterfaceDeclaration(child, source);
-        /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-        if (info) types.push(info);
+        types.push(this.extractInterfaceDeclaration(child, source));
       } else if (child.type === 'type_alias_declaration') {
-        const info = this.extractTypeAlias(child, source);
-        /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-        if (info) types.push(info);
+        types.push(this.extractTypeAlias(child, source));
       } else if (child.type === 'enum_declaration') {
-        const info = this.extractEnumDeclaration(child, source);
-        /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-        if (info) types.push(info);
-      } else if (child.type === 'function_declaration') {
-        const info = this.extractFunctionDeclaration(child, source);
-        /* v8 ignore next -- @preserve -- extractor always returns a TypeInfo */
-        if (info) types.push(info);
+        types.push(this.extractEnumDeclaration(child, source));
+      } else if (
+        child.type === 'function_declaration' ||
+        child.type === 'generator_function_declaration'
+      ) {
+        types.push(this.extractFunctionDeclaration(child, source));
+      } else if (child.type === 'variable_declaration' || child.type === 'lexical_declaration') {
+        types.push(...this.extractVariableDeclarations(child, source));
       }
     }
   }
@@ -528,7 +464,6 @@ export class TypeScriptTypeResolver {
         child.type === 'abstract_method_signature'
       ) {
         const name = this.findChildText(child, 'property_identifier');
-        /* v8 ignore next -- @preserve -- class members always carry a name */
         if (!name) continue;
 
         const isStatic = this.hasModifier(child, 'static');
@@ -650,6 +585,24 @@ export class TypeScriptTypeResolver {
     return null;
   }
 
+  /**
+   * Extract the referenced type names from an `extends_clause`,
+   * `implements_clause`, or `extends_type_clause`. Each named child is a type
+   * expression (`identifier` / `type_identifier` / `member_expression`); a
+   * trailing `type_arguments` child (e.g. `Foo<string>`) is merged back into
+   * the preceding name so generic references are not truncated.
+   */
+  private heritageTypeNames(clause: SyntaxNode): string[] {
+    const names: string[] = [];
+    for (let i = 0; i < clause.namedChildCount; i++) {
+      const child = clause.namedChild(i)!;
+      if (child.type === 'type_arguments') continue;
+      const next = clause.namedChild(i + 1);
+      names.push(next && next.type === 'type_arguments' ? child.text + next.text : child.text);
+    }
+    return names;
+  }
+
   private extractTypeParameters(node: SyntaxNode): string[] {
     const tparams = this.findChild(node, 'type_parameters');
     if (!tparams) return [];
@@ -657,23 +610,24 @@ export class TypeScriptTypeResolver {
     const params: string[] = [];
     for (let i = 0; i < tparams.childCount; i++) {
       const child = tparams.child(i);
-      if (child && (child.type === 'type_parameter' || child.type === 'required_type_parameter')) {
-        const name = this.findChildText(child, 'type_identifier');
-        /* v8 ignore next -- @preserve -- type_parameter always carries a type_identifier */
-        if (name) params.push(name);
+      if (child.type === 'type_parameter') {
+        params.push(this.findChildText(child, 'type_identifier')!);
       }
     }
     return params;
   }
 
   private extractDecorators(node: SyntaxNode, _source: string): string[] {
-    // Decorators are direct children of the declaration node itself (e.g.
-    // `@Component` is a `decorator` child of `class_declaration`).
+    // Decorators are direct children of a non-exported declaration, but for an
+    // exported declaration the decorator is a sibling inside the wrapping
+    // `export_statement`. Scan both scopes so exported decorators are not lost.
     const decorators: string[] = [];
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child && child.type === 'decorator') {
-        decorators.push(child.text);
+    for (const scope of [node, node.parent!]) {
+      for (let i = 0; i < scope.childCount; i++) {
+        const child = scope.child(i);
+        if (child.type === 'decorator') {
+          decorators.push(child.text);
+        }
       }
     }
     return decorators;
@@ -683,21 +637,12 @@ export class TypeScriptTypeResolver {
     let current: SyntaxNode | null = node.parent;
     while (current) {
       if (current.type === 'class_declaration' || current.type === 'abstract_class_declaration') {
-        const name = this.findChildText(current, 'type_identifier');
-        /* v8 ignore next -- @preserve -- class declaration always carries a name */
-        if (name) {
-          const parentContainer = this.findContainerName(current);
-          return parentContainer ? `${parentContainer}.${name}` : name;
-        }
+        const name = this.findChildText(current, 'type_identifier')!;
+        const parentContainer = this.findContainerName(current);
+        return parentContainer ? `${parentContainer}.${name}` : name;
       }
-      if (
-        current.type === 'module' ||
-        current.type === 'namespace_declaration' ||
-        current.type === 'internal_module'
-      ) {
-        const name = this.findChildText(current, 'identifier');
-        /* v8 ignore next -- @preserve -- namespace/module always carries a name */
-        if (name) return name;
+      if (current.type === 'module' || current.type === 'internal_module') {
+        return this.findChildText(current, 'identifier')!;
       }
       current = current.parent;
     }
@@ -707,10 +652,7 @@ export class TypeScriptTypeResolver {
   private isNodeExported(node: SyntaxNode): boolean {
     // tree-sitter-typescript always wraps `export` declarations in an
     // `export_statement`; there is no bare sibling `export` token to scan for.
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- declaration nodes always have a parent */
-    if (!parent) return false;
-    return parent.type === 'export_statement';
+    return node.parent!.type === 'export_statement';
   }
 
   private hasModifier(node: SyntaxNode, modifier: string): boolean {

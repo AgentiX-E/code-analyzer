@@ -29,6 +29,16 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
     expect(count.type).toBe('number');
   });
 
+  it('extracts an untyped class field as any', () => {
+    const types = makeResolver().extractTypes('class C {\n  count = 0;\n}', '/test.ts');
+    expect(types[0]!.members.get('count')!.returnType).toBe('any');
+  });
+
+  it('extracts a typed class method parameter type', () => {
+    const types = makeResolver().extractTypes('class C {\n  m(p: string): void {}\n}', '/test.ts');
+    expect(types[0]!.members.get('m')!.parameterTypes).toEqual(['string']);
+  });
+
   it('extracts private/protected/public visibility via accessibility_modifier', () => {
     const types = makeResolver().extractTypes(
       [
@@ -56,12 +66,54 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
     expect(types[0]!.members.get('fetch')!.isAsync).toBe(true);
   });
 
+  it('detects static methods via the static modifier token', () => {
+    const types = makeResolver().extractTypes(
+      'class C {\n  static make(): C { return new C(); }\n}',
+      '/test.ts',
+    );
+    expect(types[0]!.members.get('make')!.isStatic).toBe(true);
+  });
+
   it('extracts interface extends base types', () => {
     const types = makeResolver().extractTypes(
       'interface Reader extends AutoCloseable, Other {\n}',
       '/test.ts',
     );
     expect(types[0]!.baseTypes).toEqual(['AutoCloseable', 'Other']);
+  });
+
+  it('extracts interface generic extends base types', () => {
+    const types = makeResolver().extractTypes('interface I extends A<B> {\n}', '/test.ts');
+    expect(types[0]!.baseTypes).toEqual(['A<B>']);
+  });
+
+  it('extracts class extends base type', () => {
+    const types = makeResolver().extractTypes('class Child extends Parent {\n}', '/test.ts');
+    expect(types[0]!.baseTypes).toEqual(['Parent']);
+  });
+
+  it('extracts class implements interfaces', () => {
+    const types = makeResolver().extractTypes('class C implements I {\n}', '/test.ts');
+    expect(types[0]!.implementedInterfaces).toEqual(['I']);
+  });
+
+  it('extracts class extends and implements together', () => {
+    const types = makeResolver().extractTypes(
+      'class C extends B implements I1, I2 {\n}',
+      '/test.ts',
+    );
+    expect(types[0]!.baseTypes).toEqual(['B']);
+    expect(types[0]!.implementedInterfaces).toEqual(['I1', 'I2']);
+  });
+
+  it('extracts a qualified base type', () => {
+    const types = makeResolver().extractTypes('class C extends ns.Base {\n}', '/test.ts');
+    expect(types[0]!.baseTypes).toEqual(['ns.Base']);
+  });
+
+  it('extracts a generic base type', () => {
+    const types = makeResolver().extractTypes('class C extends Foo<string> {\n}', '/test.ts');
+    expect(types[0]!.baseTypes).toEqual(['Foo<string>']);
   });
 
   it('extracts an interface method signature return type', () => {
@@ -89,6 +141,38 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
     expect(types[0]!.returnType).toBe('number');
   });
 
+  it('extracts an async top-level function as async', () => {
+    const types = makeResolver().extractTypes('async function f(): Promise<void> {}', '/test.ts');
+    const f = types.find((t) => t.name === 'f')!;
+    expect(f.kind).toBe('function');
+    expect(f.isAsync).toBe(true);
+  });
+
+  it('extracts a top-level generator function', () => {
+    const types = makeResolver().extractTypes('function* gen(): Generator<number> {}', '/test.ts');
+    const gen = types.find((t) => t.name === 'gen')!;
+    expect(gen.kind).toBe('function');
+  });
+
+  it('does not extract nested (non-top-level) functions', () => {
+    const types = makeResolver().extractTypes(
+      'function outer() {\n  function inner() { return 1; }\n  return inner();\n}',
+      '/test.ts',
+    );
+    const names = types.filter((t) => t.kind === 'function').map((t) => t.name);
+    expect(names).toEqual(['outer']);
+  });
+
+  it('qualifies an exported function inside a namespace', () => {
+    const types = makeResolver().extractTypes(
+      'namespace N {\n  export function f(): void {}\n}',
+      '/test.ts',
+    );
+    const f = types.find((t) => t.name === 'f')!;
+    expect(f.qualifiedName).toBe('N.f');
+    expect(f.isExported).toBe(true);
+  });
+
   it('extracts a const variable with a type annotation as a variable with returnType', () => {
     const types = makeResolver().extractTypes('const total: number = 42;', '/test.ts');
     const v = types.find((t) => t.name === 'total')!;
@@ -96,14 +180,135 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
     expect(v.returnType).toBe('number');
   });
 
+  it('extracts a var declaration as a variable with a null returnType', () => {
+    const types = makeResolver().extractTypes('var v: number = 1;', '/test.ts');
+    const v = types.find((t) => t.name === 'v')!;
+    expect(v.kind).toBe('variable');
+    expect(v.returnType).toBeNull();
+  });
+
+  it('infers a number type from a numeric initializer', () => {
+    const types = makeResolver().extractTypes('const x = 1;', '/test.ts');
+    expect(types.find((t) => t.name === 'x')!.returnType).toBe('number');
+  });
+
+  it('infers a string type from a string initializer', () => {
+    const types = makeResolver().extractTypes('const s = "hi";', '/test.ts');
+    expect(types.find((t) => t.name === 's')!.returnType).toBe('string');
+  });
+
+  it('infers an object type from an object initializer', () => {
+    const types = makeResolver().extractTypes('const o = {};', '/test.ts');
+    expect(types.find((t) => t.name === 'o')!.returnType).toBe('object');
+  });
+
+  it('infers an array type from an array initializer', () => {
+    const types = makeResolver().extractTypes('const a = [];', '/test.ts');
+    expect(types.find((t) => t.name === 'a')!.returnType).toBe('array');
+  });
+
+  it('defaults an untyped variable to any when no initializer literal matches', () => {
+    const types = makeResolver().extractTypes('const u = build();', '/test.ts');
+    expect(types.find((t) => t.name === 'u')!.returnType).toBe('any');
+  });
+
+  it('extracts every declarator of a multi-declarator const', () => {
+    const types = makeResolver().extractTypes('const a = 1, b = 2;', '/test.ts');
+    const names = types.filter((t) => t.kind === 'variable').map((t) => t.name);
+    expect(names).toEqual(['a', 'b']);
+  });
+
+  it('skips destructured variables (no flat declaration name)', () => {
+    const types = makeResolver().extractTypes('const { a } = obj.prop;', '/test.ts');
+    expect(types).toEqual([]);
+  });
+
+  it('extracts an exported class as exported', () => {
+    const types = makeResolver().extractTypes('export class C {}', '/test.ts');
+    expect(types[0]!.isExported).toBe(true);
+  });
+
+  it('extracts an exported const variable', () => {
+    const types = makeResolver().extractTypes('export const x: number = 1;', '/test.ts');
+    const x = types.find((t) => t.name === 'x')!;
+    expect(x.kind).toBe('variable');
+    expect(x.isExported).toBe(true);
+  });
+
+  it('extracts an exported let variable', () => {
+    const types = makeResolver().extractTypes('export let y: number;', '/test.ts');
+    const y = types.find((t) => t.name === 'y')!;
+    expect(y.kind).toBe('variable');
+    expect(y.isExported).toBe(true);
+    expect(y.returnType).toBeNull();
+  });
+
+  it('extracts an exported generator function', () => {
+    const types = makeResolver().extractTypes('export function* gen() {}', '/test.ts');
+    const gen = types.find((t) => t.name === 'gen')!;
+    expect(gen.kind).toBe('function');
+    expect(gen.isExported).toBe(true);
+  });
+
   it('extracts class decorators', () => {
     const types = makeResolver().extractTypes('@Component({})\nclass Foo {}\n', '/test.ts');
+    expect(types[0]!.decorators).toContain('@Component({})');
+  });
+
+  it('extracts decorators of an exported class', () => {
+    const types = makeResolver().extractTypes('@Component({})\nexport class Foo {}\n', '/test.ts');
     expect(types[0]!.decorators).toContain('@Component({})');
   });
 
   it('extracts a non-exported class as not exported', () => {
     const types = makeResolver().extractTypes('class Plain {}\n', '/test.ts');
     expect(types[0]!.isExported).toBe(false);
+  });
+
+  it('extracts an abstract class as abstract', () => {
+    const types = makeResolver().extractTypes('abstract class Base {}\n', '/test.ts');
+    expect(types[0]!.isAbstract).toBe(true);
+    expect(types[0]!.kind).toBe('class');
+  });
+
+  it('extracts class generic type parameters', () => {
+    const types = makeResolver().extractTypes('class Box<T, U> {}\n', '/test.ts');
+    expect(types[0]!.typeParameters).toEqual(['T', 'U']);
+  });
+
+  it('extracts interface generic type parameters', () => {
+    const types = makeResolver().extractTypes('interface I<T> {}\n', '/test.ts');
+    expect(types[0]!.typeParameters).toEqual(['T']);
+  });
+
+  it('extracts type alias generic type parameters', () => {
+    const types = makeResolver().extractTypes('type T<A> = A;\n', '/test.ts');
+    expect(types[0]!.typeParameters).toEqual(['A']);
+  });
+
+  it('skips computed method names', () => {
+    const types = makeResolver().extractTypes(
+      'class C {\n  [Symbol.iterator]() { return 1; }\n}',
+      '/test.ts',
+    );
+    expect(types[0]!.members.size).toBe(0);
+  });
+
+  it('skips interface call signatures', () => {
+    const types = makeResolver().extractTypes('interface I {\n  (): void;\n}', '/test.ts');
+    expect(types[0]!.members.size).toBe(0);
+  });
+
+  it('skips computed enum members', () => {
+    const types = makeResolver().extractTypes('enum E {\n  [foo] = 1,\n  Bar = 2,\n}', '/test.ts');
+    const members = types[0]!.members;
+    expect(members.has('Bar')).toBe(true);
+    expect(members.size).toBe(1);
+  });
+
+  it('extracts a plain enum member', () => {
+    const types = makeResolver().extractTypes('enum E {\n  Red,\n}', '/test.ts');
+    expect(types[0]!.members.has('Red')).toBe(true);
   });
 
   it('extracts an abstract method signature return type', () => {
@@ -147,6 +352,11 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
     expect(types[0]!.parameterTypes).toEqual(['any']);
   });
 
+  it('extracts a function with an optional parameter type', () => {
+    const types = makeResolver().extractTypes('function f(x?: string) { return x; }', '/test.ts');
+    expect(types[0]!.parameterTypes).toEqual(['string']);
+  });
+
   it('extracts a method with an untyped parameter as any', () => {
     const types = makeResolver().extractTypes('class C {\n  m(x) { return x; }\n}', '/test.ts');
     expect(types[0]!.members.get('m')!.parameterTypes).toEqual(['any']);
@@ -178,6 +388,14 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
     expect(en.qualifiedName).toBe('N.E');
   });
 
+  it('qualifies a declaration inside a module block', () => {
+    const types = makeResolver().extractTypes(
+      'module M {\n  export interface I { x: number; }\n}',
+      '/test.ts',
+    );
+    expect(types.find((t) => t.name === 'I')!.qualifiedName).toBe('M.I');
+  });
+
   it('qualifies a variable inside a namespace', () => {
     const types = makeResolver().extractTypes(
       'namespace N {\n  const x: number = 1;\n}',
@@ -200,6 +418,11 @@ describe('TypeScriptTypeResolver — extraction (tree-sitter)', () => {
   it('extracts an interface property without a type annotation as any', () => {
     const types = makeResolver().extractTypes('interface I {\n  x;\n}', '/test.ts');
     expect(types[0]!.members.get('x')!.returnType).toBe('any');
+  });
+
+  it('extracts an interface property with an optional marker', () => {
+    const types = makeResolver().extractTypes('interface I {\n  x?: string;\n}', '/test.ts');
+    expect(types[0]!.members.get('x')!.isOptional).toBe(true);
   });
 });
 
