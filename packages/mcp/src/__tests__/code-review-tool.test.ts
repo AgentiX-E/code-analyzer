@@ -1,7 +1,6 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Code Review Tool Tests
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
@@ -11,6 +10,12 @@ import {
   reviewDiffSchema,
   reviewFile,
   reviewFileSchema,
+  parseDiffContent,
+  extractCommentsFromSession,
+  filterComments,
+  buildSummary,
+  analyzeFileFromGraph,
+  generateActionableRecommendations,
 } from '../tools/code-review.js';
 import type { GraphNode } from '@code-analyzer/shared';
 
@@ -458,11 +463,9 @@ describe('Code Review Tools — Error handling', () => {
       throw 'string error';
     };
     // Also patch getPRReviewEngine since it internally calls getReviewEngine
-    if ((ctx as any).getPRReviewEngine) {
-      (ctx as any).getPRReviewEngine = () => {
-        throw 'string error';
-      };
-    }
+    ctx.getPRReviewEngine = () => {
+      throw 'string error';
+    };
 
     const result = await reviewDiff(
       {
@@ -717,5 +720,442 @@ describe('Code Review Tools — Registry integration', () => {
 
     const data = JSON.parse(result.content[0].text);
     expect(data.hasContent).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseDiffContent — direct unit tests
+// ---------------------------------------------------------------------------
+
+describe('parseDiffContent', () => {
+  it('parses a modified file diff with a hunk range', () => {
+    const diffs = parseDiffContent(`diff --git a/src/test.ts b/src/test.ts
+index abc..def 100644
+--- a/src/test.ts
++++ b/src/test.ts
+@@ -1,5 +1,10 @@
+-old
++new`);
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]!.filePath).toBe('src/test.ts');
+    expect(diffs[0]!.oldPath).toBe('src/test.ts');
+    expect(diffs[0]!.changeType).toBe('modified');
+    expect(diffs[0]!.ranges).toHaveLength(1);
+    expect(diffs[0]!.ranges[0]).toMatchObject({
+      oldStart: 1,
+      newStart: 1,
+      changeType: 'modified',
+    });
+  });
+
+  it('detects an added file and leaves oldPath undefined', () => {
+    const diffs = parseDiffContent(`diff --git a/new.ts b/new.ts
+new file mode 100644
+index 0000000..abc
+--- /dev/null
++++ b/new.ts
+@@ -0,0 +1,3 @@
++line1
++line2`);
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]!.changeType).toBe('added');
+    expect(diffs[0]!.filePath).toBe('new.ts');
+    expect(diffs[0]!.oldPath).toBeUndefined();
+    expect(diffs[0]!.ranges[0]!.changeType).toBe('added');
+  });
+
+  it('detects a deleted file and reuses the old path as filePath', () => {
+    const diffs = parseDiffContent(`diff --git a/old.ts b/old.ts
+deleted file mode 100644
+index abc..0000000
+--- a/old.ts
++++ /dev/null
+@@ -1,3 +0,0 @@
+-line1`);
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]!.changeType).toBe('deleted');
+    expect(diffs[0]!.filePath).toBe('old.ts');
+    expect(diffs[0]!.oldPath).toBe('old.ts');
+    expect(diffs[0]!.ranges[0]!.changeType).toBe('removed');
+  });
+
+  it('detects a renamed file', () => {
+    const diffs = parseDiffContent(`diff --git a/old.ts b/new.ts
+similarity index 90%
+rename from old.ts
+rename to new.ts`);
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]!.changeType).toBe('renamed');
+    expect(diffs[0]!.filePath).toBe('new.ts');
+  });
+
+  it('defaults ranges when no @@ hunks are present', () => {
+    const diffs = parseDiffContent(`diff --git a/x.ts b/x.ts
+--- a/x.ts
++++ b/x.ts`);
+    expect(diffs[0]!.ranges).toHaveLength(1);
+    expect(diffs[0]!.ranges[0]).toMatchObject({
+      oldStart: 1,
+      oldEnd: 1,
+      newStart: 1,
+      newEnd: 1,
+      changeType: 'modified',
+    });
+  });
+
+  it('parses multiple file sections', () => {
+    const diffs = parseDiffContent(`diff --git a/a.ts b/a.ts
+--- a/a.ts
++++ b/a.ts
+diff --git a/b.ts b/b.ts
+--- a/b.ts
++++ b/b.ts`);
+    expect(diffs).toHaveLength(2);
+    expect(diffs.map((d) => d.filePath)).toEqual(['a.ts', 'b.ts']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractCommentsFromSession — direct unit tests
+// ---------------------------------------------------------------------------
+
+describe('extractCommentsFromSession', () => {
+  it('returns a session digest when comments were generated', () => {
+    const comments = extractCommentsFromSession({
+      id: 'sess-1',
+      commentsGenerated: 3,
+      filesReviewed: 2,
+    });
+    expect(comments).toHaveLength(1);
+    expect((comments[0] as { content: string }).content).toContain('3 comments');
+    expect((comments[0] as { content: string }).content).toContain('2 files');
+  });
+
+  it('returns an empty list when no comments were generated', () => {
+    expect(extractCommentsFromSession({ id: 'sess-2' })).toEqual([]);
+    expect(extractCommentsFromSession({ id: 'sess-3', commentsGenerated: 0 })).toEqual([]);
+  });
+
+  it('falls back to zero files when filesReviewed is absent', () => {
+    const comments = extractCommentsFromSession({ id: 'sess-4', commentsGenerated: 5 });
+    expect(comments).toHaveLength(1);
+    expect((comments[0] as { content: string }).content).toContain('5 comments');
+    expect((comments[0] as { content: string }).content).toContain('0 files');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterComments — direct unit tests
+// ---------------------------------------------------------------------------
+
+describe('filterComments', () => {
+  const c = (severity: string, category?: string) => ({ severity, category });
+
+  it('filters comments below the minimum severity', () => {
+    expect(filterComments([c('critical'), c('high'), c('low'), c('info')], 'high')).toEqual([
+      c('critical'),
+      c('high'),
+    ]);
+  });
+
+  it('filters by an allow-list of categories', () => {
+    const comments = [c('low', 'bug'), c('low', 'style'), c('low', 'security')];
+    expect(filterComments(comments, 'low', ['bug', 'security'])).toEqual([
+      c('low', 'bug'),
+      c('low', 'security'),
+    ]);
+  });
+
+  it('treats an unknown comment severity as medium', () => {
+    // `wat` resolves to severityOrder['wat'] ?? 2 (medium); low threshold keeps it.
+    expect(filterComments([c('wat')], 'low')).toEqual([c('wat')]);
+    // medium threshold drops it (2 < 2 is false → kept; 2 < 3 would drop, so use high).
+    expect(filterComments([c('wat')], 'high')).toEqual([]);
+  });
+
+  it('treats an unknown minSeverity as medium', () => {
+    expect(filterComments([c('critical'), c('low')], 'wat')).toEqual([c('critical')]);
+  });
+
+  it('treats a missing minSeverity as medium', () => {
+    expect(filterComments([c('critical'), c('low')])).toEqual([c('critical')]);
+  });
+
+  it('ignores categories when the allow-list is empty', () => {
+    expect(filterComments([c('low', 'bug')], 'low', [])).toEqual([c('low', 'bug')]);
+  });
+
+  it('keeps comments without a category when filtering by category', () => {
+    expect(filterComments([c('low')], 'low', ['bug'])).toEqual([c('low')]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSummary — direct unit tests
+// ---------------------------------------------------------------------------
+
+describe('buildSummary', () => {
+  it('counts comments by severity', () => {
+    const summary = buildSummary([
+      { severity: 'critical' },
+      { severity: 'high' },
+      { severity: 'medium' },
+      { severity: 'low' },
+      { severity: 'info' },
+      { severity: 'critical' },
+    ]);
+    expect(summary).toEqual({ total: 6, critical: 2, high: 1, medium: 1, low: 1, info: 1 });
+  });
+
+  it('ignores unknown severities', () => {
+    const summary = buildSummary([{ severity: 'wat' }, { severity: 'critical' }]);
+    expect(summary.total).toBe(2);
+    expect(summary.critical).toBe(1);
+    expect(summary.medium).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// analyzeFileFromGraph — direct unit tests
+// ---------------------------------------------------------------------------
+
+describe('analyzeFileFromGraph', () => {
+  it('flags an empty file with a low-severity comment', () => {
+    const comments = analyzeFileFromGraph('/src/empty.ts', []);
+    expect(comments).toHaveLength(1);
+    expect((comments[0] as { content: string }).content).toContain('No symbols');
+  });
+
+  it('flags a large file with many symbols', () => {
+    const nodes = Array.from({ length: 51 }, (_, i) =>
+      makeNode({ name: `sym${i}`, qualifiedName: `pkg.sym${i}` }),
+    );
+    const comments = analyzeFileFromGraph('/src/large.ts', nodes);
+    expect(comments).toHaveLength(1);
+    expect((comments[0] as { content: string }).content).toContain('Large file');
+  });
+
+  it('flags a complex function as medium (15 < complexity <= 25)', () => {
+    const comments = analyzeFileFromGraph('/src/x.ts', [makeNode({ complexity: 20 })]);
+    expect(comments).toHaveLength(1);
+    expect((comments[0] as { severity: string }).severity).toBe('medium');
+  });
+
+  it('flags a very complex function as high and handles null location fields', () => {
+    const comments = analyzeFileFromGraph('/src/x.ts', [
+      makeNode({ complexity: 30, startLine: null, endLine: null }),
+    ]);
+    expect(comments).toHaveLength(1);
+    expect((comments[0] as { severity: string }).severity).toBe('high');
+    expect((comments[0] as { startLine: number }).startLine).toBe(0);
+    expect((comments[0] as { endLine: number }).endLine).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateActionableRecommendations — direct unit tests
+// ---------------------------------------------------------------------------
+
+describe('generateActionableRecommendations', () => {
+  it('returns only best-practice recommendations for a clean summary', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 0,
+      riskLevel: 'low',
+      mergeRecommendation: 'approve',
+    });
+    expect(recs).toHaveLength(2);
+    expect(recs.every((r) => r.priority === 'low')).toBe(true);
+  });
+
+  it('flags immediate action for critical risk with severity counts', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 5,
+      riskLevel: 'critical',
+      mergeRecommendation: 'approve',
+      bySeverity: { critical: 2, high: 3 },
+    });
+    const immediate = recs.find((r) => r.priority === 'immediate')!;
+    expect(immediate.action).toContain('Do not merge');
+    expect(immediate.detail).toContain('2 critical');
+    expect(immediate.detail).toContain('3 high');
+  });
+
+  it('reports zero severity counts when bySeverity is absent', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 1,
+      riskLevel: 'critical',
+      mergeRecommendation: 'approve',
+    });
+    const immediate = recs.find((r) => r.priority === 'immediate')!;
+    expect(immediate.detail).toContain('0 critical');
+    expect(immediate.detail).toContain('0 high');
+  });
+
+  it('flags request-changes/block merge recommendations', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 0,
+      riskLevel: 'low',
+      mergeRecommendation: 'request-changes',
+    });
+    expect(recs.some((r) => r.action.includes('Request changes'))).toBe(true);
+  });
+
+  it('prioritizes bug fixes as high when more than 3 bugs', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 5,
+      riskLevel: 'low',
+      mergeRecommendation: 'approve',
+      byCategory: { bug: 5 },
+    });
+    const bug = recs.find((r) => r.action.includes('potential bug'))!;
+    expect(bug.priority).toBe('high');
+  });
+
+  it('prioritizes bug fixes as medium for up to 3 bugs', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 2,
+      riskLevel: 'low',
+      mergeRecommendation: 'approve',
+      byCategory: { bug: 2 },
+    });
+    const bug = recs.find((r) => r.action.includes('potential bug'))!;
+    expect(bug.priority).toBe('medium');
+  });
+
+  it('flags security, performance, and maintainability findings', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 13,
+      riskLevel: 'medium',
+      mergeRecommendation: 'approve',
+      byCategory: { security: 2, performance: 3, maintainability: 8 },
+    });
+    expect(recs.some((r) => r.action.includes('security'))).toBe(true);
+    expect(recs.some((r) => r.action.includes('Optimize'))).toBe(true);
+    expect(recs.some((r) => r.action.includes('Refactor for maintainability'))).toBe(true);
+  });
+
+  it('skips maintainability recommendation for 5 or fewer issues', () => {
+    const recs = generateActionableRecommendations({
+      totalComments: 3,
+      riskLevel: 'low',
+      mergeRecommendation: 'approve',
+      byCategory: { maintainability: 3 },
+    });
+    expect(recs.some((r) => r.action.includes('maintainability'))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reviewDiff — null fields and error-path edge cases
+// ---------------------------------------------------------------------------
+
+describe('reviewDiff — null fields and fallback', () => {
+  it('handles a high-complexity node with null location fields', async () => {
+    const store = new InMemoryGraphStore();
+    const projectId = 'test-null';
+    store.insertNode(
+      makeNode({
+        name: 'nullFn',
+        qualifiedName: 'pkg.nullFn',
+        complexity: 35,
+        filePath: null,
+        startLine: null,
+        endLine: null,
+        projectId,
+      }),
+    );
+    const ctx = new ToolContextImpl(store);
+    const result = await reviewDiff({ projectId }, ctx);
+    const data = JSON.parse(result.content[0].text);
+    expect(
+      data.comments.some((c: { content?: string }) => c.content?.includes('High complexity')),
+    ).toBe(true);
+  });
+
+  it('handles a high-coupling node with null location fields', async () => {
+    const store = new InMemoryGraphStore();
+    const projectId = 'test-coupling-null';
+    const targetId = store.insertNode(
+      makeNode({
+        name: 'coupled',
+        qualifiedName: 'pkg.coupled',
+        filePath: null,
+        startLine: null,
+        endLine: null,
+        projectId,
+      }),
+    );
+    for (let i = 0; i < 16; i++) {
+      const callerId = store.insertNode(
+        makeNode({ name: `caller${i}`, qualifiedName: `pkg.caller${i}`, projectId }),
+      );
+      store.insertEdge({
+        id: 0,
+        projectId,
+        sourceId: callerId,
+        targetId,
+        type: 'CALLS',
+        properties: {},
+        weight: 1.0,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    const ctx = new ToolContextImpl(store);
+    const result = await reviewDiff({ projectId }, ctx);
+    const data = JSON.parse(result.content[0].text);
+    expect(
+      data.comments.some((c: { content?: string }) => c.content?.includes('High coupling')),
+    ).toBe(true);
+  });
+
+  it('falls back to the basic review engine when PRReviewEngine fails', async () => {
+    const ctx = createTestContext();
+    ctx.getPRReviewEngine = () => {
+      throw new Error('PR review unavailable');
+    };
+    const result = await reviewDiff(
+      {
+        projectId: 'test-project',
+        diff: 'diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-old\n+new',
+      },
+      ctx,
+    );
+    const data = JSON.parse(result.content[0].text);
+    expect(data.reviewMethod).toBe('Basic code review (heuristics)');
+    expect(data.sessionId).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error handling — real Error instances
+// ---------------------------------------------------------------------------
+
+describe('Code Review Tools — real Error handling', () => {
+  it('reviewDiff surfaces an Error message', async () => {
+    const store = new InMemoryGraphStore();
+    const ctx = new ToolContextImpl(store);
+    ctx.getPRReviewEngine = () => {
+      throw new Error('pr down');
+    };
+    ctx.getReviewEngine = () => {
+      throw new Error('engine boom');
+    };
+    const result = await reviewDiff(
+      { projectId: 'test', diff: 'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b' },
+      ctx,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('engine boom');
+  });
+
+  it('reviewFile surfaces an Error message', async () => {
+    const store = new InMemoryGraphStore();
+    const ctx = new ToolContextImpl(store);
+    ctx.getReviewEngine = () => {
+      throw new Error('file boom');
+    };
+    const result = await reviewFile({ projectId: 'test', filePath: '/x.ts', content: 'code' }, ctx);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('file boom');
   });
 });

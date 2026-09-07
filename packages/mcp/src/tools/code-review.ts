@@ -10,17 +10,18 @@ import { EDGE_CALLS } from '@code-analyzer/shared';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
   return null;
 }
 
-function getStore(storeOrContext: unknown): InMemoryGraphStore | null {
-  if (storeOrContext instanceof InMemoryGraphStore) return storeOrContext;
-  if (ToolContextImpl.isToolContext(storeOrContext)) return storeOrContext.store;
-  return null;
+/**
+ * Resolve a raw graph store from the fallback parameter. This is only invoked
+ * after `getContext` already ruled out a ToolContext, so the parameter can only
+ * be a raw `InMemoryGraphStore` (or `undefined`).
+ */
+function getStore(store: unknown): InMemoryGraphStore | null {
+  return store instanceof InMemoryGraphStore ? store : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,7 +75,7 @@ export async function reviewDiff(
     if (ctx) {
       // Build GitDiff objects from the diff string if provided
       if (diffContent) {
-        const diffs = parseDiffContent(projectId, diffContent);
+        const diffs = parseDiffContent(diffContent);
 
         // Use PRReviewEngine for deep analysis (standards + impact + review)
         try {
@@ -152,7 +153,9 @@ export async function reviewDiff(
                     bySeverity: prResult.summary.bySeverity,
                     impactResult: {
                       riskLevel: prResult.impactResult.riskLevel,
-                      affectedFiles: prResult.impactResult.changedFiles?.length ?? 0,
+                      // ImpactResult.changedFiles is a required `string[]` (computeImpact always
+                      // returns an array), so the null-coalescing fallback is provably dead.
+                      affectedFiles: prResult.impactResult.changedFiles.length,
                       estimatedEffort: prResult.impactResult.estimatedEffort,
                     },
                     standardsChecked: prResult.standardsResults.length,
@@ -471,7 +474,7 @@ export async function reviewFile(
 // ---------------------------------------------------------------------------
 
 /** Parse raw git diff content into GitDiff objects. */
-function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
+export function parseDiffContent(rawDiff: string): GitDiff[] {
   const diffs: GitDiff[] = [];
   const fileSections = rawDiff.split(/^diff --git /m).filter(Boolean);
 
@@ -482,11 +485,22 @@ function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
     let changeType: GitDiff['changeType'] = 'modified';
 
     for (const line of lines) {
+      if (line.startsWith('rename from ')) {
+        changeType = 'renamed';
+        oldPath = line.slice('rename from '.length).trim();
+      }
+      if (line.startsWith('rename to ')) {
+        filePath = line.slice('rename to '.length).trim();
+      }
       if (line.startsWith('--- ')) {
-        oldPath = line.replace('--- a/', '').trim();
+        const path = line.slice(4).trim();
+        oldPath = path === '/dev/null' ? undefined : path.replace(/^a\//, '');
       }
       if (line.startsWith('+++ ')) {
-        filePath = line.replace('+++ b/', '').trim();
+        const path = line.slice(4).trim();
+        if (path !== '/dev/null') {
+          filePath = path.replace(/^b\//, '');
+        }
       }
       if (line.startsWith('new file mode')) {
         changeType = 'added';
@@ -494,9 +508,12 @@ function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
       if (line.startsWith('deleted file mode')) {
         changeType = 'deleted';
       }
-      if (line.startsWith('rename from')) {
-        changeType = 'renamed';
-      }
+    }
+
+    // A deleted file's `+++` line is `/dev/null` (no new path); reuse the old
+    // path so the diff entry still tracks the removed file.
+    if (!filePath && oldPath) {
+      filePath = oldPath;
     }
 
     if (filePath) {
@@ -546,7 +563,12 @@ function parseDiffContent(_projectId: string, rawDiff: string): GitDiff[] {
   return diffs;
 }
 
-function extractCommentsFromSession(session: {
+/**
+ * Extract a human-readable summary from a review session. Real per-file comments
+ * live in the session store (JSONL); this surfaces a session-level digest when
+ * the session recorded generated comments.
+ */
+export function extractCommentsFromSession(session: {
   id?: string;
   commentsGenerated?: number;
   filesReviewed?: number;
@@ -576,7 +598,15 @@ function extractCommentsFromSession(session: {
   return comments;
 }
 
-function filterComments(comments: any[], minSeverity?: string, categories?: string[]): any[] {
+/**
+ * Filter review comments by minimum severity and (optionally) an allow-list of
+ * categories. A missing/unknown severity is treated as `medium`.
+ */
+export function filterComments(
+  comments: any[],
+  minSeverity?: string,
+  categories?: string[],
+): any[] {
   const severityOrder: Record<string, number> = {
     critical: 4,
     high: 3,
@@ -596,7 +626,8 @@ function filterComments(comments: any[], minSeverity?: string, categories?: stri
   });
 }
 
-function buildSummary(comments: any[]): Record<string, number> {
+/** Count comments by severity into a `{ total, critical, high, medium, low, info }` summary. */
+export function buildSummary(comments: any[]): Record<string, number> {
   const summary = { total: comments.length, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   for (const c of comments) {
     const key = c.severity as string;
@@ -655,7 +686,11 @@ function runBasicHeuristics(
   };
 }
 
-function analyzeFileFromGraph(
+/**
+ * Analyze the symbols of a single file and produce maintainability comments for
+ * empty files, oversized files, and high-complexity functions.
+ */
+export function analyzeFileFromGraph(
   filePath: string,
   fileNodes: import('@code-analyzer/shared').GraphNode[],
 ): unknown[] {
@@ -715,7 +750,7 @@ function analyzeFileFromGraph(
  * Generate actionable recommendations from PR review summary.
  * Produces prioritized, concrete fix suggestions based on review findings.
  */
-function generateActionableRecommendations(summary: {
+export function generateActionableRecommendations(summary: {
   totalComments: number;
   riskLevel: string;
   mergeRecommendation: string;
@@ -800,5 +835,3 @@ function generateActionableRecommendations(summary: {
 
   return recs;
 }
-
-/* v8 ignore stop */
