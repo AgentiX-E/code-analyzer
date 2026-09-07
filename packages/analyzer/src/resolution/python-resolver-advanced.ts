@@ -335,20 +335,16 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     const nt = node.type;
 
     if (nt === 'class_definition') {
-      const info = this.extractClass(node, source);
-      /* v8 ignore next -- @preserve -- extractClass always returns a TypeInfo for a class_definition */
-      if (info) types.push(info);
+      types.push(this.extractClass(node, source));
     }
 
     if (nt === 'function_definition' || nt === 'decorated_definition') {
       const info = this.extractTopLevelFunction(node, source);
-      /* v8 ignore next -- @preserve -- extractTopLevelFunction always returns a TypeInfo for a function */
       if (info) types.push(info);
     }
 
     if (nt === 'expression_statement') {
       const info = this.extractTypeAlias(node, source);
-      /* v8 ignore next -- @preserve -- extractTypeAlias returns null for non-alias statements */
       if (info) types.push(info);
     }
 
@@ -361,10 +357,9 @@ export class PythonAdvancedResolver extends TypeResolverBase {
   // Extractors
   // -----------------------------------------------------------------------
 
-  private extractClass(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- class_definition always has an identifier */
-    if (!name) return null;
+  private extractClass(node: SyntaxNode, _source: string): TypeInfo {
+    // A class_definition always carries its name as a direct `identifier` child.
+    const name = this.childText(node, 'identifier')!;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = !name.startsWith('_');
@@ -383,10 +378,10 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
     // Add __init__ params as members for dataclasses
     if (isDataclass) {
-      this.extractDataclassFields(body!, members);
+      this.extractDataclassFields(body, members);
     }
 
-    this.extractClassMembers(body!, _source, members);
+    this.extractClassMembers(body, _source, members);
 
     return {
       name,
@@ -418,12 +413,14 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = !name.startsWith('_');
-    const isAsync = this.findChild(actualNode, 'async') !== null;
+    const isAsync = this.hasAsyncModifier(actualNode);
     const paramTypes = this.extractParamTypes(actualNode);
 
     let returnType: string | null = null;
+    // tree-sitter-python places the `->` return annotation as a direct `type`
+    // child of the function_definition node.
     const retAnn = this.findChild(actualNode, 'type');
-    if (retAnn && retAnn.text !== 'parameters') {
+    if (retAnn) {
       returnType = retAnn.text;
     }
 
@@ -455,13 +452,11 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     const assignment = this.findChildAll(node, 'assignment');
     if (!assignment) return null;
 
-    const lhs = assignment.child(0);
-    /* v8 ignore next -- @preserve -- assignment lhs is always an identifier */
-    if (!lhs || lhs.type !== 'identifier') return null;
+    const lhs = assignment.child(0)!;
+    // Dotted attribute targets (a.b = ...) are member writes, not type aliases.
+    if (lhs.type !== 'identifier') return null;
     const varName = lhs.text;
-    const rhs = assignment.child(2);
-    /* v8 ignore next -- @preserve -- assignment always has a rhs */
-    if (!rhs) return null;
+    const rhs = assignment.child(2)!;
 
     // Check if this is a type annotation (colon) or value assignment (equals)
     const sep = assignment.child(1);
@@ -534,23 +529,22 @@ export class PythonAdvancedResolver extends TypeResolverBase {
       if (child.type === 'function_definition' || child.type === 'decorated_definition') {
         let methodNode = child;
         if (child.type === 'decorated_definition') {
+          // A decorated_definition may wrap either a function or a nested class;
+          // only the former is a method.
           const inner = this.findChild(child, 'function_definition');
-          /* v8 ignore next -- @preserve -- decorated_definition always wraps a function_definition */
           if (inner) methodNode = inner;
         }
 
         const mName = this.childText(methodNode, 'identifier');
-        /* v8 ignore next -- @preserve -- function_definition always has an identifier */
         if (!mName || (mName.startsWith('__') && mName.endsWith('__'))) continue;
 
         const isStatic = this.hasDecorator(methodNode, 'staticmethod');
-        const isAsync = this.findChild(methodNode, 'async') !== null;
+        const isAsync = this.hasAsyncModifier(methodNode);
         const paramTypes = this.extractParamTypes(methodNode);
 
         let retType = 'None';
         // tree-sitter-python uses a `type` node for the `->` return annotation.
         const retNode = this.findChild(methodNode, 'type');
-        /* v8 ignore next -- @preserve -- a method without a return annotation defaults to None */
         if (retNode) {
           retType = retNode.text;
         }
@@ -573,20 +567,16 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
       if (child.type === 'expression_statement') {
         const assignment = this.findChildAll(child, 'assignment');
-        /* v8 ignore next -- @preserve -- expression statements with assignments are attributes */
         if (assignment) {
-          const lhs = assignment.child(0);
-          /* v8 ignore next -- @preserve -- attribute assignment lhs is an identifier */
-          if (lhs && lhs.type === 'identifier') {
+          const lhs = assignment.child(0)!;
+          // Dotted attribute targets (a.b = ...) are member writes, not fields.
+          if (lhs.type === 'identifier') {
             const attrName = lhs.text;
             // Check if this is a type annotation (colon) or value assignment (equals)
-            const sep = assignment.child(1);
-            const isAnnotation = sep && (sep.text === ':' || sep.type === ':');
-            if (isAnnotation) {
+            const sep = assignment.child(1)!;
+            if (sep.text === ':' || sep.type === ':') {
               // Type-annotated attribute: x: int
-              const typeNode = assignment.child(2);
-              /* v8 ignore next -- @preserve -- annotation attribute always has a type */
-              const attrType = typeNode ? typeNode.text : 'Any';
+              const attrType = assignment.child(2)!.text;
               members.set(attrName, {
                 name: attrName,
                 type: attrType,
@@ -603,15 +593,10 @@ export class PythonAdvancedResolver extends TypeResolverBase {
               });
             } else {
               // Regular assignment: x = value
-              const rhs = assignment.child(2);
-              /* v8 ignore next -- @preserve -- value assignment always has a rhs */
-              const attrType = rhs ? rhs.text : 'Any';
-              const typeAnn = this.findChildAll(child, 'type');
-              /* v8 ignore next -- @preserve -- value assignment carries no type node */
-              const finalType = typeAnn ? typeAnn.text : attrType;
+              const attrType = assignment.child(2)!.text;
               members.set(attrName, {
                 name: attrName,
-                type: finalType,
+                type: attrType,
                 visibility: attrName.startsWith('__')
                   ? 'private'
                   : attrName.startsWith('_')
@@ -621,7 +606,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
                 isOptional: false,
                 isAsync: false,
                 parameterTypes: [],
-                returnType: finalType,
+                returnType: attrType,
               });
             }
           }
@@ -638,23 +623,18 @@ export class PythonAdvancedResolver extends TypeResolverBase {
       const child = body.child(i);
 
       // Annotated assignment: name: Type = default
-      /* v8 ignore next -- @preserve -- dataclass fields are expression statements */
       if (child.type === 'expression_statement') {
         // tree-sitter-python uses 'assignment' node for x: int
         const assignment = this.findChildAll(child, 'assignment');
-        /* v8 ignore next -- @preserve -- dataclass fields are assignments */
         if (assignment) {
-          const sep = assignment.child(1);
-          /* v8 ignore next -- @preserve -- dataclass field assignment uses a colon */
-          if (sep && (sep.text === ':' || sep.type === ':')) {
-            const attrName = this.childText(assignment, 'identifier');
-            const typeNode = assignment.child(2);
-            /* v8 ignore next -- @preserve -- dataclass field always has a name */
-            if (attrName) {
-              /* v8 ignore next -- @preserve -- dataclass field always has a type */
-              const attrType = typeNode ? typeNode.text : 'Any';
-              members.set(attrName, {
-                name: attrName,
+          const sep = assignment.child(1)!;
+          if (sep.text === ':' || sep.type === ':') {
+            const lhs = assignment.child(0)!;
+            // Dotted attributes (a.b = ...) are not dataclass fields.
+            if (lhs.type === 'identifier') {
+              const attrType = assignment.child(2)!.text;
+              members.set(lhs.text, {
+                name: lhs.text,
                 type: attrType,
                 visibility: 'public',
                 isStatic: false,
@@ -723,7 +703,6 @@ export class PythonAdvancedResolver extends TypeResolverBase {
       else if (ch === ']') depth--;
       else if (ch === '|' && depth === 0) {
         const trimmed = current.trim();
-        /* v8 ignore next -- @preserve -- an empty segment only occurs for malformed unions */
         if (trimmed) result.push(trimmed);
         current = '';
         continue;
@@ -731,16 +710,15 @@ export class PythonAdvancedResolver extends TypeResolverBase {
       current += ch;
     }
     const trimmed = current.trim();
-    /* v8 ignore next -- @preserve -- an empty segment only occurs for malformed unions */
     if (trimmed) result.push(trimmed);
     return result;
   }
 
   private extractBaseTypes(node: SyntaxNode): string[] {
     const bases: string[] = [];
-    const superclass =
-      this.findChild(node, 'superclasses') || this.findChild(node, 'argument_list');
-    /* v8 ignore next -- @preserve -- class_definition always has an argument_list */
+    // Base classes live in the `argument_list` node; a base-less class
+    // (class Foo:) has no argument_list and must yield an empty list.
+    const superclass = this.findChild(node, 'argument_list');
     if (!superclass) return bases;
     for (let i = 0; i < superclass.childCount; i++) {
       const child = superclass.child(i);
@@ -758,9 +736,9 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
   private extractParamTypes(node: SyntaxNode): string[] {
     const paramTypes: string[] = [];
-    const params = this.findChild(node, 'parameters');
-    /* v8 ignore next -- @preserve -- every function definition has parameters */
-    if (!params) return paramTypes;
+    // Every function_definition carries a `parameters` node, even for no-arg
+    // functions (it wraps an empty `()`).
+    const params = this.findChild(node, 'parameters')!;
 
     for (let i = 0; i < params.childCount; i++) {
       const p = params.child(i);
@@ -775,7 +753,6 @@ export class PythonAdvancedResolver extends TypeResolverBase {
         if (paramName === 'self' || paramName === 'cls') continue;
 
         const typeNode = this.findChild(p, 'type');
-        /* v8 ignore next -- @preserve -- an untyped parameter defaults to Any */
         paramTypes.push(typeNode ? typeNode.text : 'Any');
       }
     }
@@ -784,14 +761,11 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
   private extractDecorators(node: SyntaxNode): string[] {
     const decs: string[] = [];
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- declarations always have a parent node */
-    if (!parent) return decs;
+    // Callers always pass a declaration node (never the root), so a parent exists.
+    const parent = node.parent!;
     let foundSelf = false;
     for (let i = 0; i < parent.childCount; i++) {
-      const child = parent.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
+      const child = parent.child(i)!;
       if (child === node) {
         foundSelf = true;
         continue;
@@ -803,6 +777,19 @@ export class PythonAdvancedResolver extends TypeResolverBase {
 
   private hasDecorator(node: SyntaxNode, decoratorName: string): boolean {
     return this.extractDecorators(node).some((d) => d.includes(decoratorName));
+  }
+
+  /**
+   * Detect the `async` modifier. tree-sitter-python represents `async` as an
+   * anonymous token child of the function_definition, which `findChild` (that
+   * only walks named children) cannot see. Scan all children instead.
+   */
+  private hasAsyncModifier(node: SyntaxNode): boolean {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child && child.type === 'async') return true;
+    }
+    return false;
   }
 
   private childText(node: SyntaxNode, type: string): string | null {

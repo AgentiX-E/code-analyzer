@@ -88,6 +88,19 @@ describe('PythonAdvancedResolver — generic handlers', () => {
     expect(result!.parameterTypes).toEqual([]);
   });
 
+  it('resolves Callable with a non-empty arg list', async () => {
+    const result = await makeResolver().resolveType('Callable[[int, str], bool]', makeContext());
+    expect(result!.kind).toBe('function');
+    expect(result!.parameterTypes).toHaveLength(2);
+    expect(result!.returnType!.name).toBe('bool');
+  });
+
+  it('returns a copy of the resolved-type cache from getAllTypes', async () => {
+    const resolver = makeResolver();
+    await resolver.resolveType('List[int]', makeContext());
+    expect(resolver.getAllTypes().has('List[int]')).toBe(true);
+  });
+
   it('returns the cached instance on a second resolve', async () => {
     const resolver = makeResolver();
     const a = await resolver.resolveType('List[int]', makeContext());
@@ -111,6 +124,31 @@ describe('PythonAdvancedResolver — generic handlers', () => {
       resolveExternal: () => null,
     });
     expect(result).toBeNull();
+  });
+
+  it('returns null for an unknown type with no external resolver', async () => {
+    const result = await makeResolver().resolveType('TotallyUnknown', makeContext());
+    expect(result).toBeNull();
+  });
+
+  it('resolves Union[A, B] as a union type', async () => {
+    const result = await makeResolver().resolveType('Union[str, int]', makeContext());
+    expect(result!.kind).toBe('union');
+  });
+
+  it('resolves A | B (Python 3.10 syntax) as a union type', async () => {
+    const result = await makeResolver().resolveType('str | int', makeContext());
+    expect(result!.kind).toBe('union');
+  });
+
+  it('skips empty segments in a malformed union', async () => {
+    const result = await makeResolver().resolveType('str || int', makeContext());
+    expect(result!.kind).toBe('union');
+  });
+
+  it('drops a trailing empty segment in a union', async () => {
+    const result = await makeResolver().resolveType('str | int |', makeContext());
+    expect(result!.kind).toBe('union');
   });
 });
 
@@ -311,6 +349,125 @@ describe('PythonAdvancedResolver.extractTypes', () => {
     const result = await makeResolver().resolveType('memoryview', makeContext());
     expect(result!.kind).toBe('primitive');
     expect(result!.name).toBe('memoryview');
+  });
+
+  it('marks an async top-level function as async', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('async def fetch():\n    pass', '/test.py');
+    const fn = types.find((t) => t.name === 'fetch')!;
+    expect(fn.isAsync).toBe(true);
+  });
+
+  it('marks an async method as async', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['class C:', '    async def run(self):', '        pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.get('run')!.isAsync).toBe(true);
+  });
+
+  it('extracts a top-level function return annotation', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['def greet(name: str) -> str:', '    return name'].join('\n'),
+      '/test.py',
+    );
+    const fn = types.find((t) => t.name === 'greet')!;
+    expect(fn.returnType).toBe('str');
+    expect(fn.parameterTypes).toEqual(['str']);
+  });
+
+  it('extracts untyped and default parameters as Any', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(['def f(x, y=5):', '    return x'].join('\n'), '/test.py');
+    expect(types.find((t) => t.name === 'f')!.parameterTypes).toEqual(['Any', 'Any']);
+  });
+
+  it('extracts a typed parameter with a default value', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['def f(x: int = 5):', '    return x'].join('\n'),
+      '/test.py',
+    );
+    expect(types.find((t) => t.name === 'f')!.parameterTypes).toEqual(['int']);
+  });
+
+  it('does not extract a dotted attribute assignment as a type alias', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('a.b = 5', '/test.py');
+    expect(types).toEqual([]);
+  });
+
+  it('skips a decorated nested class as a member and extracts it separately', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['class Outer:', '    @dataclass', '    class Inner:', '        x: int'].join('\n'),
+      '/test.py',
+    );
+    expect(types.find((t) => t.name === 'Outer')!.members.has('Inner')).toBe(false);
+    expect(types.find((t) => t.name === 'Inner')).toBeDefined();
+  });
+
+  it('ignores a bare call statement in a class body', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(['class C:', '    register("x")'].join('\n'), '/test.py');
+    expect(types[0]!.members.size).toBe(0);
+  });
+
+  it('ignores a dotted attribute assignment in a class body', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(['class C:', '    a.b = 5'].join('\n'), '/test.py');
+    expect(types[0]!.members.size).toBe(0);
+  });
+
+  it('extracts dataclass fields while skipping methods, calls and plain assignments', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      [
+        '@dataclass',
+        'class Point:',
+        '    x: int',
+        '    plain = 5',
+        '    register("x")',
+        '    def m(self):',
+        '        pass',
+      ].join('\n'),
+      '/test.py',
+    );
+    const cls = types[0]!;
+    expect(cls.members.get('x')!.type).toBe('int');
+    expect(cls.members.get('plain')!.type).toBe('5');
+    expect(cls.members.get('m')!.returnType).toBe('None');
+    expect(cls.members.has('register')).toBe(false);
+  });
+
+  it('ignores a dotted annotated target in a dataclass body', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['@dataclass', 'class C:', '    a.b: int'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.size).toBe(0);
+  });
+
+  it('extracts a decorated static method', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['class C:', '    @staticmethod', '    def helper(self):', '        pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.get('helper')!.isStatic).toBe(true);
+  });
+
+  it('extracts a private annotated and a protected value attribute', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      ['class C:', '    __annot: int', '    _value = 5'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.get('__annot')!.visibility).toBe('private');
+    expect(types[0]!.members.get('_value')!.visibility).toBe('protected');
   });
 });
 
