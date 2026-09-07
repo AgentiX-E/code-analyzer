@@ -8,10 +8,8 @@ import type { GitHubCheckRunManager } from './check-run.js';
 import type { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import type { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import type { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
-import type { PRReviewEngine } from '../review/pr-review.js';
 import { DiffParser } from '../review/diff-parser.js';
 import type { PullRequest, GitDiff, GitHubRepo } from '@code-analyzer/shared';
-import type { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,7 +68,6 @@ export interface BridgeResult {
  *   groupManager,
  *   indexer,
  *   reviewEngine,
- *   store,
  * });
  *
  * const result = await bridge.process(payload);
@@ -86,8 +83,6 @@ export class CrossRepoWebhookBridge {
     private groupManager: RepoGroupManager,
     private indexer: CrossRepoIndexer,
     private reviewEngine: CrossRepoPRReviewEngine,
-    private singleRepoReviewEngine: PRReviewEngine,
-    private store: InMemoryGraphStore,
   ) {}
 
   /**
@@ -125,17 +120,13 @@ export class CrossRepoWebhookBridge {
           title: 'Cross-Repo Code Review',
           summary: `Analyzing cross-repository impact for PR #${prNumber} in group "${groupId}"...`,
         });
-        /* v8 ignore start — requires real GitHub API for check run creation */
         checkRunId = checkRun.id;
-        /* v8 ignore stop */
-      } catch (err) {
+      } catch {
         // Check run creation failures are non-fatal
       }
 
       // 4. Sync all repos in the group
-      /* v8 ignore start — defensive: null return from getRepos */
       const repos = this.groupManager.getRepos(groupId) ?? [];
-      /* v8 ignore stop */
       const synced = await this.sync.ensureSynced(
         repos.map((r) => ({
           owner: r.owner,
@@ -143,7 +134,6 @@ export class CrossRepoWebhookBridge {
         })),
       );
 
-      /* v8 ignore start — requires real GitHub API and synced repos */
       if (synced.errors.length > 0) {
         const errMsg = synced.errors.map((e) => `${e.owner}/${e.repo}: ${e.error}`).join('; ');
         if (checkRunId) {
@@ -154,7 +144,6 @@ export class CrossRepoWebhookBridge {
             `Failed to sync repos: ${errMsg}`,
           );
         }
-        /* v8 ignore stop */
         return {
           status: 'error',
           checkRunId,
@@ -163,21 +152,10 @@ export class CrossRepoWebhookBridge {
         };
       }
 
-      /* v8 ignore start — requires successfully synced repos, real GitHub API, and working indexer/review engine */
-      // 5. Update repo local paths in group manager
-      for (const result of synced.results) {
-        const repoFullName = `${result.owner}/${result.repo}`;
-        try {
-          // Update repo project ID for cross-repo indexer
-        } catch {
-          // Path update failure is non-fatal
-        }
-      }
-
-      // 6. Index all repos
+      // 5. Index all repos
       await this.indexer.indexGroup(groupId);
 
-      // 7. Fetch PR diff
+      // 6. Fetch PR diff
       let diffs: GitDiff[] = [];
       try {
         const diffText = await this.client.getPRDiff(owner, repo, prNumber);
@@ -199,7 +177,7 @@ export class CrossRepoWebhookBridge {
         };
       }
 
-      // 8. Construct PullRequest object
+      // 7. Construct PullRequest object
       const pr: PullRequest = {
         number: prNumber,
         title: payload.pull_request.title,
@@ -208,24 +186,12 @@ export class CrossRepoWebhookBridge {
         base: {
           ref: payload.pull_request.base.ref,
           sha: payload.pull_request.base.sha,
-          repo: {
-            id: 0,
-            owner: owner,
-            name: repo,
-            fullName: fullName,
-            defaultBranch: 'main',
-          } as unknown as GitHubRepo,
+          repo: makeRepo(owner, repo, fullName),
         },
         head: {
           ref: payload.pull_request.head.ref,
           sha: payload.pull_request.head.sha,
-          repo: {
-            id: 0,
-            owner: owner,
-            name: repo,
-            fullName: fullName,
-            defaultBranch: 'main',
-          } as unknown as GitHubRepo,
+          repo: makeRepo(owner, repo, fullName),
         },
         user: { login: '' },
         labels: [],
@@ -233,7 +199,7 @@ export class CrossRepoWebhookBridge {
         updatedAt: new Date().toISOString(),
       };
 
-      // 9. Run cross-repo PR review
+      // 8. Run cross-repo PR review
       // Use source repo as fullName since that's where changes originate
       const crossRepoResult = await this.reviewEngine.reviewPRWithCrossRepoContext(
         pr,
@@ -242,7 +208,7 @@ export class CrossRepoWebhookBridge {
         diffs,
       );
 
-      // 10. Update check run with results
+      // 9. Update check run with results
       if (checkRunId) {
         await this.checkRunManager.complete(checkRunId, owner, repo, crossRepoResult);
       }
@@ -253,8 +219,6 @@ export class CrossRepoWebhookBridge {
         reviewResult: crossRepoResult as unknown as Record<string, unknown>,
         durationMs: Date.now() - startTime,
       };
-      /* v8 ignore stop */
-      /* v8 ignore start — defensive: unexpected errors during processing */
     } catch (err) {
       return {
         status: 'error',
@@ -262,7 +226,6 @@ export class CrossRepoWebhookBridge {
         durationMs: Date.now() - startTime,
       };
     }
-    /* v8 ignore stop */
   }
 
   /**
@@ -271,9 +234,7 @@ export class CrossRepoWebhookBridge {
   private findGroupForRepo(repoFullName: string): string | null {
     const groups = this.groupManager.listGroups();
     for (const group of groups) {
-      /* v8 ignore start — defensive: null return from getRepos */
       const repos = this.groupManager.getRepos(group.id) ?? [];
-      /* v8 ignore stop */
       for (const r of repos) {
         if (r.fullName === repoFullName) {
           return group.id;
@@ -282,4 +243,22 @@ export class CrossRepoWebhookBridge {
     }
     return null;
   }
+}
+
+/**
+ * Build the minimal repository metadata attached to a synthesized pull request.
+ */
+function makeRepo(owner: string, name: string, fullName: string): GitHubRepo {
+  return {
+    id: 0,
+    owner,
+    name,
+    fullName,
+    defaultBranch: 'main',
+    cloneUrl: `https://github.com/${fullName}.git`,
+    language: null,
+    topics: [],
+    isPrivate: false,
+    description: null,
+  };
 }
