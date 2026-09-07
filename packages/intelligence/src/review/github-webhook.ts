@@ -4,26 +4,14 @@
 // and posts inline comments back to GitHub PRs.
 
 import { createHmac, timingSafeEqual } from 'crypto';
-import type { PullRequest, GitDiff, ReviewComment } from '@code-analyzer/shared';
+import type { PullRequest } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { PRReviewEngine } from './pr-review.js';
 import { DiffParser } from './diff-parser.js';
-import { ReviewPipeline } from './review-pipeline.js';
-import type { ReviewConfig } from './review-engine.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface GitHubPRFile {
-  filename: string;
-  status: string;
-  additions: number;
-  deletions: number;
-  changes: number;
-  patch?: string;
-}
 
 export interface GitHubPREvent {
   action: 'opened' | 'synchronize' | 'reopened' | 'closed';
@@ -64,8 +52,6 @@ export interface InlineComment {
 // Constants
 // ---------------------------------------------------------------------------
 
-/* v8 ignore start */
-
 const GITHUB_API_BASE = 'https://api.github.com';
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
@@ -76,17 +62,14 @@ const RETRY_BASE_DELAY_MS = 1000;
 
 export class GitHubPRWebhook {
   private readonly diffParser: DiffParser;
-  private readonly pipeline: ReviewPipeline;
   private logger: PhaseLogger = createNoopPhaseLogger();
 
   constructor(
     private githubToken: string,
     private reviewEngine: PRReviewEngine,
-    private store: InMemoryGraphStore,
     private webhookSecret?: string,
   ) {
     this.diffParser = new DiffParser();
-    this.pipeline = new ReviewPipeline();
   }
 
   // -------------------------------------------------------------------------
@@ -109,9 +92,11 @@ export class GitHubPRWebhook {
 
     try {
       return timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature));
-    } /* v8 ignore start */ catch {
+    } catch {
+      // `timingSafeEqual` throws when the two buffers differ in length, which
+      // a malformed `X-Hub-Signature-256` header can trigger.
       return false;
-    } /* v8 ignore stop */
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -142,7 +127,6 @@ export class GitHubPRWebhook {
         return { status: 'error', message: 'Invalid repository full_name' };
       }
 
-      /* v8 ignore start */
       const prNumber = payload.pull_request.number;
       const commitId = payload.pull_request.head.sha;
 
@@ -228,7 +212,6 @@ export class GitHubPRWebhook {
         sessionId: result.sessionId,
         commentsCount: result.comments.length,
       };
-      /* v8 ignore stop */
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { status: 'error', message };
@@ -243,7 +226,6 @@ export class GitHubPRWebhook {
    * Fetch a pull request diff from the GitHub API.
    * Uses the media type application/vnd.github.v3.diff for raw diff format.
    */
-  /* v8 ignore start */
   async fetchPRDiff(owner: string, repo: string, prNumber: number): Promise<string> {
     const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/pulls/${prNumber}`;
     return this.githubRequest(url, {
@@ -263,16 +245,11 @@ export class GitHubPRWebhook {
     });
 
     try {
-      const data = JSON.parse(response) as GitHubPRFile[];
-      return data.map((f) => ({
-        filename: f.filename as string,
-        status: f.status as string,
-        additions: f.additions as number,
-        deletions: f.deletions as number,
-        changes: f.changes as number,
-        patch: f.patch as string | undefined,
-      }));
+      const data: PRFile[] = JSON.parse(response);
+      // Guard against a non-array payload (e.g. an unexpected API envelope).
+      return Array.isArray(data) ? data : [];
     } catch {
+      // Malformed JSON must not crash the handler; surface an empty list.
       return [];
     }
   }
@@ -422,9 +399,7 @@ export class GitHubPRWebhook {
 
     throw lastError ?? new Error('GitHub API request failed');
   }
-  /* v8 ignore stop */
 
-  /* v8 ignore start */
   private buildReviewSummaryBody(summary: import('./pr-review.js').PRReviewSummary): string {
     const lines: string[] = [
       '## Code Analyzer Review Summary',
@@ -455,7 +430,4 @@ export class GitHubPRWebhook {
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
-  /* v8 ignore stop */
 }
-
-/* v8 ignore stop */
