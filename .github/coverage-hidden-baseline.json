@@ -1,8 +1,7 @@
 {
-  "totalHidden": 2905,
-  "totalLines": 128850,
+  "totalHidden": 2362,
+  "totalLines": 128860,
   "files": {
-    "packages/mcp/src/tools/change-impact.ts": 543,
     "packages/intelligence/src/review/github-webhook.ts": 338,
     "packages/server/src/routes/sse.ts": 163,
     "packages/intelligence/src/cross-repo/cross-repo-indexer.ts": 142,

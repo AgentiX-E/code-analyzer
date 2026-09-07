@@ -11,12 +11,11 @@ import {
   EDGE_IMPORTS,
   EDGE_MEMBER_OF,
 } from '@code-analyzer/shared';
+import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/* v8 ignore start */
 
 function getContext(store?: unknown): ToolContext | null {
   if (ToolContextImpl.isToolContext(store)) return store;
@@ -88,7 +87,14 @@ export async function detectChanges(
         }));
 
       // Find symbols with the most dependents (highly referenced = high risk when changed)
-      const highImpactSymbols: unknown[] = [];
+      const highImpactSymbols: Array<{
+        name: string;
+        qualifiedName: string;
+        filePath: string | null;
+        label: NodeLabel;
+        dependencyCount: number;
+        isExported: boolean;
+      }> = [];
       for (const node of allNodes.slice(0, 50)) {
         const degree = ctx.store.getDegree(node.id);
         if (degree > 3) {
@@ -103,7 +109,7 @@ export async function detectChanges(
         }
       }
 
-      highImpactSymbols.sort((a: any, b: any) => b.dependencyCount - a.dependencyCount);
+      highImpactSymbols.sort((a, b) => b.dependencyCount - a.dependencyCount);
 
       return {
         content: [
@@ -267,7 +273,9 @@ export async function impactAnalysis(
         const indirectNodes: unknown[] = [];
 
         const nodesByDepth: unknown[] = bfs.nodes.map((n) => {
-          const nodeDepth = bfs.pathLengths.get(n.id) ?? 0;
+          // bfs() records a pathLength for every node it returns (the source
+          // is seeded at depth 0), so this lookup can never be undefined.
+          const nodeDepth = bfs.pathLengths.get(n.id)!;
           const impactNode = {
             symbolQname: n.qualifiedName,
             label: n.label,
@@ -336,7 +344,7 @@ export async function impactAnalysis(
         return incoming.length === 0;
       });
 
-      result.changedFiles = [...new Set(roots.map((r) => r.filePath).filter(Boolean) as string[])];
+      result.changedFiles = [...new Set(roots.flatMap((r) => (r.filePath ? [r.filePath] : [])))];
       result.changedSymbols = roots.slice(0, 20).map((r) => ({
         symbolQname: r.qualifiedName,
         label: r.label,
@@ -495,9 +503,7 @@ export async function checkCycles(
 
     if (graphStore) {
       const nodes = module
-        ? ([graphStore.getNodeByQualifiedName(module)].filter(Boolean) as NonNullable<
-            ReturnType<typeof graphStore.getNodeByQualifiedName>
-          >[])
+        ? [graphStore.getNodeByQualifiedName(module)].filter((n): n is GraphNode => n !== null)
         : graphStore.getAllNodes().filter((n) => n.projectId === projectId);
 
       const visited = new Set<number>();
@@ -544,20 +550,24 @@ function detectCycle(
     if (!visited.has(neighborId)) {
       detectCycle(neighborId, store, visited, recStack, path, result);
     } else if (recStack.has(neighborId)) {
+      // `recStack` and `path` stay in lockstep (pushed together on entry,
+      // popped together on exit), so a back-edge to a recStack member
+      // guarantees the node is still present in `path`; `indexOf` cannot
+      // return -1 here.
       const cycleStart = path.indexOf(neighborId);
-      if (cycleStart >= 0) {
-        const cyclePath = path.slice(cycleStart);
-        const cycleNames = cyclePath.map((id) => store.getNode(id)?.qualifiedName ?? `node_${id}`);
-        result.cycles.push({
-          nodes: cycleNames,
-          types: cyclePath.map((id) => store.getNode(id)?.label ?? 'Module'),
-        });
-        result.cyclesFound++;
-      }
+      const cyclePath = path.slice(cycleStart);
+      // Every id in `path` is a live node: seeded from existing nodes and
+      // traversed via edges whose endpoints are guaranteed to exist, so
+      // `getNode` can never return null for these lookups.
+      const cycleNames = cyclePath.map((id) => store.getNode(id)!.qualifiedName);
+      result.cycles.push({
+        nodes: cycleNames,
+        types: cyclePath.map((id) => store.getNode(id)!.label),
+      });
+      result.cyclesFound++;
     }
   }
 
   path.pop();
   recStack.delete(nodeId);
 }
-/* v8 ignore stop */
