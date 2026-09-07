@@ -4,7 +4,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
-import type { TypeInfo, TypeMember, TypeVisibility } from './type-registry.js';
+import type { TypeInfo, TypeMember } from './type-registry.js';
 
 // Lazy import
 let PythonLanguage: unknown;
@@ -72,17 +72,18 @@ export class PythonTypeResolver {
 
     // Class definition
     if (nt === 'class_definition') {
-      const info = this.extractClass(node, source);
-      /* v8 ignore next -- @preserve -- extractClass always returns a TypeInfo */
-      if (info) types.push(info);
+      types.push(this.extractClass(node, source));
     }
 
-    // Function definition (top-level only)
+    // Function definition (top-level only). A decorated_definition wraps
+    // either a function or a class (e.g. `@dataclass class`); only genuine
+    // functions are extracted here — decorated classes are handled by the
+    // class_definition branch above.
     if (nt === 'function_definition' || nt === 'decorated_definition') {
-      const parent = node.parent;
-      if (parent && (parent.type === 'module' || parent.type === 'source_file')) {
-        const info = this.extractFunction(node, source);
-        if (info) types.push(info);
+      const isFunction =
+        nt === 'function_definition' || this.findChild(node, 'function_definition') !== null;
+      if (isFunction && this.isTopLevel(node)) {
+        types.push(this.extractFunction(node, source));
       }
     }
 
@@ -90,19 +91,18 @@ export class PythonTypeResolver {
     if (nt === 'expression_statement' && this.isTopLevel(node)) {
       const assignment = this.findChild(node, 'assignment');
       if (assignment) {
-        const lhs = assignment.child(0);
-        if (lhs && lhs.type === 'identifier') {
+        const lhs = assignment.child(0)!;
+        if (lhs.type === 'identifier') {
           const varName = lhs.text;
           const qualifiedName = `file:${this.filePath}:${varName}`;
 
           // Check if it's a type alias (TypeAlias = SomeType)
-          const rhs = assignment.child(2);
+          const rhs = assignment.child(2)!;
           if (
-            rhs &&
-            (rhs.type === 'identifier' ||
-              rhs.type === 'attribute' ||
-              rhs.type === 'generic_type' ||
-              rhs.type === 'call')
+            rhs.type === 'identifier' ||
+            rhs.type === 'attribute' ||
+            rhs.type === 'call' ||
+            rhs.type === 'subscript'
           ) {
             types.push({
               name: varName,
@@ -137,10 +137,8 @@ export class PythonTypeResolver {
   // Extractors
   // -------------------------------------------------------------------------
 
-  private extractClass(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.findChildText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- class_definition always carries a name */
-    if (!name) return null;
+  private extractClass(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChildText(node, 'identifier')!;
 
     const containerName = this.findContainerName(node);
     const qualifiedName = containerName
@@ -149,13 +147,14 @@ export class PythonTypeResolver {
 
     const isExported = !name.startsWith('_');
 
-    // Base classes (inheritance)
+    // Base classes (inheritance). tree-sitter-python puts the base list in the
+    // class's argument_list; a class declared without parentheses (`class Foo:`)
+    // has no argument_list at all.
     const baseTypes: string[] = [];
-    const superclass =
-      this.findChild(node, 'superclasses') || this.findChild(node, 'argument_list');
-    if (superclass) {
-      for (let i = 0; i < superclass.childCount; i++) {
-        const child = superclass.child(i);
+    const argumentList = this.findChild(node, 'argument_list');
+    if (argumentList) {
+      for (let i = 0; i < argumentList.childCount; i++) {
+        const child = argumentList.child(i);
         if (child.type === 'identifier' || child.type === 'attribute') {
           baseTypes.push(child.text);
         }
@@ -167,11 +166,8 @@ export class PythonTypeResolver {
 
     // Class body — members
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'block');
-    /* v8 ignore next -- @preserve -- class_definition always has a block body */
-    if (body) {
-      this.extractClassMembers(body, _source, members);
-    }
+    const body = this.findChild(node, 'block')!;
+    this.extractClassMembers(body, _source, members);
 
     // Check for @dataclass or ABC
     const isAbstract = decorators.some((d) => d.includes('abstractmethod') || d.includes('ABC'));
@@ -197,17 +193,14 @@ export class PythonTypeResolver {
     };
   }
 
-  private extractFunction(node: SyntaxNode, _source: string): TypeInfo | null {
-    // Handle decorated_definition: unwrap to the actual function
-    let actualNode = node;
-    if (node.type === 'decorated_definition') {
-      const inner = this.findChild(node, 'function_definition');
-      if (inner) actualNode = inner;
-    }
+  private extractFunction(node: SyntaxNode, _source: string): TypeInfo {
+    // Unwrap a decorated_definition to the wrapped function_definition. The
+    // caller (walkForTypes) guarantees `node` is a function — a decorated
+    // class is filtered out before reaching here.
+    const actualNode =
+      node.type === 'decorated_definition' ? this.findChild(node, 'function_definition')! : node;
 
-    const name = this.findChildText(actualNode, 'identifier');
-    /* v8 ignore next -- @preserve -- function declaration always carries a name */
-    if (!name) return null;
+    const name = this.findChildText(actualNode, 'identifier')!;
 
     // extractFunction only runs on top-level functions (walkForTypes skips
     // nested ones), so there is never a container to qualify against.
@@ -218,21 +211,18 @@ export class PythonTypeResolver {
 
     // Parameters with type annotations
     const paramTypes: string[] = [];
-    const params = this.findChild(actualNode, 'parameters');
-    /* v8 ignore next -- @preserve -- function_definition always has parameters */
-    if (params) {
-      for (let i = 0; i < params.childCount; i++) {
-        const p = params.child(i);
-        if (
-          p.type === 'typed_parameter' ||
-          p.type === 'typed_default_parameter' ||
-          p.type === 'identifier' ||
-          p.type === 'default_parameter'
-        ) {
-          // Try to find type annotation
-          const typeNode = this.findChild(p, 'type');
-          paramTypes.push(typeNode ? typeNode.text : 'Any');
-        }
+    const params = this.findChild(actualNode, 'parameters')!;
+    for (let i = 0; i < params.childCount; i++) {
+      const p = params.child(i);
+      if (
+        p.type === 'typed_parameter' ||
+        p.type === 'typed_default_parameter' ||
+        p.type === 'identifier' ||
+        p.type === 'default_parameter'
+      ) {
+        // Try to find type annotation
+        const typeNode = this.findChild(p, 'type');
+        paramTypes.push(typeNode ? typeNode.text : 'Any');
       }
     }
 
@@ -285,32 +275,30 @@ export class PythonTypeResolver {
       if (child.type === 'function_definition' || child.type === 'decorated_definition') {
         let methodNode = child;
         if (child.type === 'decorated_definition') {
+          // A decorated_definition may wrap a class (@dataclass class) rather
+          // than a function; only a function is a method. A decorated class is
+          // skipped here (it is extracted by walkForTypes instead).
           const inner = this.findChild(child, 'function_definition');
-          /* v8 ignore next -- @preserve -- a decorated method always wraps a function */
           if (inner) methodNode = inner;
         }
 
         const methodName = this.findChildText(methodNode, 'identifier');
         if (!methodName || (methodName.startsWith('__') && methodName.endsWith('__'))) {
-          continue; // Skip dunder methods
+          continue; // Skip dunder methods and non-function decorated definitions
         }
 
         const isStatic = this.hasDecorator(methodNode, 'staticmethod');
         const isAsync = this.hasToken(methodNode, 'async');
 
         // First parameter check for 'self' or 'cls' → instance/class method
-        const params = this.findChild(methodNode, 'parameters');
-        let paramTypes: string[] = [];
-        /* v8 ignore next -- @preserve -- a method always has parameters */
-        if (params) {
-          const paramNodes = params.namedChildren;
-          paramTypes = paramNodes
-            .filter((p) => p.type !== 'comment')
-            .map((p) => {
-              const typeNode = this.findChild(p, 'type');
-              return typeNode ? typeNode.text : 'Any';
-            });
-        }
+        const params = this.findChild(methodNode, 'parameters')!;
+        const paramNodes = params.namedChildren;
+        const paramTypes = paramNodes
+          .filter((p) => p.type !== 'comment')
+          .map((p) => {
+            const typeNode = this.findChild(p, 'type');
+            return typeNode ? typeNode.text : 'Any';
+          });
 
         let returnType = 'None';
         // tree-sitter-python annotates the `->` return with a `type` node.
@@ -342,12 +330,10 @@ export class PythonTypeResolver {
       if (child.type === 'expression_statement') {
         const assignment = this.findChild(child, 'assignment');
         if (assignment) {
-          const lhs = assignment.child(0);
-          if (lhs && lhs.type === 'identifier') {
+          const lhs = assignment.child(0)!;
+          if (lhs.type === 'identifier') {
             const attrName = lhs.text;
-            const rhs = assignment.child(2);
-            /* v8 ignore next -- @preserve -- an assignment always has a RHS */
-            const attrType = rhs ? rhs.text : 'Any';
+            const attrType = assignment.child(2)!.text;
 
             members.set(attrName, {
               name: attrName,
@@ -402,12 +388,9 @@ export class PythonTypeResolver {
     let current: SyntaxNode | null = node.parent;
     while (current) {
       if (current.type === 'class_definition') {
-        const name = this.findChildText(current, 'identifier');
-        /* v8 ignore next -- @preserve -- class_definition always carries a name */
-        if (name) {
-          const parentContainer = this.findContainerName(current);
-          return parentContainer ? `${parentContainer}.${name}` : name;
-        }
+        const name = this.findChildText(current, 'identifier')!;
+        const parentContainer = this.findContainerName(current);
+        return parentContainer ? `${parentContainer}.${name}` : name;
       }
       current = current.parent;
     }
@@ -416,17 +399,13 @@ export class PythonTypeResolver {
 
   private extractDecorators(node: SyntaxNode, _source: string): string[] {
     // Python decorators are preceding sibling nodes
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- declaration nodes always have a parent */
-    if (!parent) return [];
+    const parent = node.parent!;
 
     const decorators: string[] = [];
     let foundSelf = false;
 
     for (let i = 0; i < parent.childCount; i++) {
-      const child = parent.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
+      const child = parent.child(i)!;
       if (child === node) {
         foundSelf = true;
         continue;
@@ -445,10 +424,10 @@ export class PythonTypeResolver {
   }
 
   private isTopLevel(node: SyntaxNode): boolean {
-    const parent = node.parent;
-    /* v8 ignore next -- @preserve -- declarations always have a parent */
-    if (!parent) return true;
-    return parent.type === 'module' || parent.type === 'source_file';
+    // tree-sitter-python names the root node `module`; expression statements
+    // and function/class declarations are never the root, so their parent is
+    // always present.
+    return node.parent!.type === 'module';
   }
 
   // -------------------------------------------------------------------------

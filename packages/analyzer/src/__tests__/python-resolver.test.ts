@@ -126,6 +126,103 @@ describe('PythonTypeResolver — extraction (tree-sitter)', () => {
     const c = types.find((t) => t.name === 'C')!;
     expect(c.qualifiedName).toBe('A.B.C');
   });
+
+  it('extracts a subscripted type alias (Name = List[int])', () => {
+    const types = makeResolver().extractTypes('Name = List[int]\n', '/test.py');
+    const alias = types.find((t) => t.name === 'Name')!;
+    expect(alias.kind).toBe('variable');
+    expect(alias.returnType).toBe('List[int]');
+  });
+
+  it('extracts a dotted type alias (Name = a.b)', () => {
+    const types = makeResolver().extractTypes('Name = a.b\n', '/test.py');
+    expect(types.find((t) => t.name === 'Name')!.returnType).toBe('a.b');
+  });
+
+  it('extracts a call type alias (Name = Foo())', () => {
+    const types = makeResolver().extractTypes('Name = Foo()\n', '/test.py');
+    expect(types.find((t) => t.name === 'Name')!.returnType).toBe('Foo()');
+  });
+
+  it('ignores a top-level dotted assignment target', () => {
+    const types = makeResolver().extractTypes('a.b = 5\n', '/test.py');
+    expect(types).toEqual([]);
+  });
+
+  it('ignores a top-level assignment whose RHS is not a type', () => {
+    const types = makeResolver().extractTypes('Count = 5\n', '/test.py');
+    expect(types).toEqual([]);
+  });
+
+  it('extracts typed, default, and bare parameters from a function', () => {
+    const types = makeResolver().extractTypes(
+      "def f(a: int, b: str = 'x', c, d=5):\n    pass\n",
+      '/test.py',
+    );
+    expect(types[0]!.parameterTypes).toEqual(['int', 'str', 'Any', 'Any']);
+  });
+
+  it('extracts a nested decorated class and skips it as a method', () => {
+    const types = makeResolver().extractTypes(
+      ['class Outer:', '    @dataclass', '    class Inner:', '        pass'].join('\n'),
+      '/test.py',
+    );
+    const outer = types.find((t) => t.name === 'Outer')!;
+    const inner = types.find((t) => t.name === 'Inner')!;
+    expect(outer.members.size).toBe(0);
+    expect(inner.qualifiedName).toBe('Outer.Inner');
+  });
+
+  it('skips dunder methods', () => {
+    const types = makeResolver().extractTypes(
+      ['class C:', '    def __init__(self):', '        pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.size).toBe(0);
+  });
+
+  it('extracts a method parameter type annotation', () => {
+    const types = makeResolver().extractTypes(
+      ['class C:', '    def m(self, x: int) -> str:', '        pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.get('m')!.parameterTypes).toEqual(['Any', 'int']);
+  });
+
+  it('marks a protected method', () => {
+    const types = makeResolver().extractTypes(
+      ['class C:', '    def _m(self):', '        pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.get('_m')!.visibility).toBe('protected');
+  });
+
+  it('marks a private method', () => {
+    const types = makeResolver().extractTypes(
+      ['class C:', '    def __m(self):', '        pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types[0]!.members.get('__m')!.visibility).toBe('private');
+  });
+
+  it('marks a protected class attribute', () => {
+    const types = makeResolver().extractTypes(['class C:', '    _x = 5'].join('\n'), '/test.py');
+    expect(types[0]!.members.get('_x')!.visibility).toBe('protected');
+  });
+
+  it('marks a private class attribute', () => {
+    const types = makeResolver().extractTypes(['class C:', '    __x = 5'].join('\n'), '/test.py');
+    expect(types[0]!.members.get('__x')!.visibility).toBe('private');
+  });
+
+  it('extracts sibling declarations without cross-attributing decorators', () => {
+    const types = makeResolver().extractTypes(
+      ['class A:', '    pass', 'class B:', '    pass'].join('\n'),
+      '/test.py',
+    );
+    expect(types.map((t) => t.name)).toEqual(['A', 'B']);
+    expect(types[1]!.decorators).toEqual([]);
+  });
 });
 
 describe('PythonTypeResolver — fallback (regex)', () => {

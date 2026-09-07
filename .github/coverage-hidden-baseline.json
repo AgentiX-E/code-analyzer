@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4349,
-  "totalLines": 128836,
+  "totalHidden": 4337,
+  "totalLines": 128815,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -39,7 +39,6 @@
     "packages/infra/src/storage/sqlite-graph-store.ts": 17,
     "packages/server/src/http-server.ts": 16,
     "packages/analyzer/src/languages/rust.ts": 13,
-    "packages/analyzer/src/resolution/python-resolver.ts": 13,
     "packages/infra/src/filesystem/discoverer.ts": 12,
     "packages/intelligence/src/report/generator.ts": 12,
     "packages/mcp/src/cypher/lexer.ts": 12,
@@ -95,6 +94,7 @@
     "packages/analyzer/src/resolution/go-resolver.ts": 1,
     "packages/analyzer/src/resolution/java-resolver.ts": 1,
     "packages/analyzer/src/resolution/python-resolver-advanced.ts": 1,
+    "packages/analyzer/src/resolution/python-resolver.ts": 1,
     "packages/analyzer/src/resolution/type-registry.ts": 1,
     "packages/analyzer/src/resolution/typescript-resolver-advanced.ts": 1,
     "packages/analyzer/src/resolution/typescript-resolver.ts": 1,
