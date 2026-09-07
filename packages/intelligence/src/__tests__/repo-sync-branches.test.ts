@@ -1,19 +1,21 @@
 // @code-analyzer/intelligence — GitHub Repo Sync deterministic branch tests
 //
-// The sibling github-repo-sync.test.ts is excluded from the coverage run
-// because its fresh-clone cases invoke a real `git clone` against github.com,
-// which hangs in sandboxed/offline environments. This file instead mocks
-// `node:child_process` execSync so the git operations return instantly and
-// deterministically, and covers every branch that is NOT already guarded by a
-// `/* v8 ignore */` annotation in repo-sync.ts.
+// The sibling github-repo-sync.test.ts exercises the same class with a real
+// `git` binary (whose clone/fetch against github.com fails in sandboxed/offline
+// environments). This file instead mocks `node:child_process` execSync so the
+// git operations return instantly and deterministically, and covers the
+// previously-annotated branches (default-branch resolution, autoFetch, cache
+// eviction, and the defensive non-Error coercion arms) with no `v8 ignore`
+// hints left in repo-sync.ts.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync, utimesSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, utimesSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { GitHubRepoSync } from '../github/repo-sync.js';
 import type { SyncOptions } from '../github/repo-sync.js';
 import { GitHubApiClient } from '../github/client.js';
+import type { GitHubRepo } from '../github/client.js';
 
 // Mock execSync so `git clone` / `git fetch` / `git rev-parse` never spawn a
 // real process (which would block on network access in sandboxed CI).
@@ -24,6 +26,37 @@ vi.mock('node:child_process', () => ({
 
 function makeClient(): GitHubApiClient {
   return new GitHubApiClient({ token: 'ghp_test' });
+}
+
+/**
+ * Build a typed GitHubApiClient substitute whose `getRepo` is a vi.fn() that the
+ * test can configure, plus a handle to that mock. `GitHubRepoSync` only calls
+ * `client.getRepo`, so a single mock method is enough to drive the default-branch
+ * resolution branch.
+ */
+function makeMockClient(): { client: GitHubApiClient; getRepo: ReturnType<typeof vi.fn> } {
+  const getRepo = vi.fn();
+  const client = { getRepo } as unknown as GitHubApiClient;
+  return { client, getRepo };
+}
+
+function makeRepo(overrides: Partial<GitHubRepo> = {}): GitHubRepo {
+  return {
+    id: 1,
+    full_name: 'o/r',
+    owner: 'o',
+    name: 'r',
+    description: null,
+    private: false,
+    default_branch: 'main',
+    language: null,
+    topics: [],
+    stargazers_count: 0,
+    open_issues_count: 0,
+    updated_at: '',
+    clone_url: '',
+    ...overrides,
+  };
 }
 
 function createTempDir(): string {
@@ -260,5 +293,99 @@ describe('GitHubRepoSync — deterministic branches', () => {
     // All five succeed against the mocked git, filling two batches of 4 + 1.
     expect(result.results).toHaveLength(5);
     expect(result.errors).toHaveLength(0);
+  });
+
+  // -----------------------------------------------------------------------
+  // de-gamification — branches previously hidden by `v8 ignore` annotations
+  // -----------------------------------------------------------------------
+
+  it('resolves the default branch from the API when no branch option is provided', async () => {
+    const { client, getRepo } = makeMockClient();
+    getRepo.mockResolvedValue(makeRepo({ default_branch: 'develop' }));
+    const sync = new GitHubRepoSync({ client, cacheDir, autoFetch: false });
+    createCachedRepo(cacheDir, 'o', 'r', 10);
+
+    const result = await sync.clone('o', 'r');
+
+    expect(getRepo).toHaveBeenCalledWith('o', 'r');
+    expect(result.branch).toBe('develop');
+  });
+
+  it('falls back to "main" when the default-branch lookup fails', async () => {
+    const { client, getRepo } = makeMockClient();
+    getRepo.mockRejectedValue(new Error('API unavailable'));
+    const sync = new GitHubRepoSync({ client, cacheDir, autoFetch: false });
+    createCachedRepo(cacheDir, 'o', 'r', 10);
+
+    const result = await sync.clone('o', 'r');
+
+    expect(result.branch).toBe('main');
+  });
+
+  it('fetches a cached repo when autoFetch is enabled (default)', async () => {
+    const sync = new GitHubRepoSync({ client: makeClient(), cacheDir, branch: 'main' });
+    createCachedRepo(cacheDir, 'o', 'r', 10);
+
+    const result = await sync.clone('o', 'r');
+
+    // git fetch + git reset succeed against the mock; rev-parse returns mock-sha.
+    expect(result.synced).toBe(false);
+    expect(result.commitSha).toBe('mock-sha');
+  });
+
+  it('falls back to a fresh clone when the autoFetch fetch fails', async () => {
+    execSyncMock.mockImplementation((cmd: string) => {
+      if (cmd.includes('git fetch')) throw new Error('fetch failed');
+      if (cmd.includes('rev-parse')) return 'mock-sha\n';
+      return '';
+    });
+    const sync = new GitHubRepoSync({ client: makeClient(), cacheDir, branch: 'main' });
+    createCachedRepo(cacheDir, 'o', 'r', 10);
+
+    const result = await sync.clone('o', 'r');
+
+    // The cached repo was removed and a fresh clone succeeded on the retry.
+    expect(result.synced).toBe(true);
+    expect(result.commitSha).toBe('mock-sha');
+  });
+
+  it('coerces a non-Error pull failure into the error message', async () => {
+    const failure: unknown = 'pull exploded';
+    execSyncMock.mockImplementation((cmd: string) => {
+      if (cmd.includes('git fetch')) throw failure;
+      if (cmd.includes('rev-parse')) return 'mock-sha\n';
+      return '';
+    });
+    const sync = new GitHubRepoSync({ client: makeClient(), cacheDir, branch: 'main' });
+    createCachedRepo(cacheDir, 'o', 'r', 10);
+
+    await expect(sync.pull('o', 'r')).rejects.toThrow(/pull exploded/);
+  });
+
+  it('returns an empty list when the cache directory vanishes before eviction', async () => {
+    const sync = new GitHubRepoSync({
+      client: makeClient(),
+      cacheDir,
+      maxCacheSize: 0,
+      branch: 'main',
+    });
+    // getDirSize returns 0 for the missing dir, and `0 >= 0` satisfies the
+    // eviction guard, so ensureCacheSpace reaches listCachedRepos and hits its
+    // missing-directory early return.
+    rmSync(cacheDir, { recursive: true, force: true });
+
+    const result = await sync.clone('o', 'newrepo');
+
+    expect(result.synced).toBe(true);
+  });
+
+  it('ignores symbolic links when computing the cache size', () => {
+    const sync = new GitHubRepoSync({ client: makeClient(), cacheDir });
+    writeFileSync(join(cacheDir, 'real.txt'), 'hello'); // 5 bytes
+    // A symlink is neither a directory nor a regular file, so Dirent.isFile()
+    // is false and the entry contributes nothing.
+    symlinkSync(join(cacheDir, 'real.txt'), join(cacheDir, 'link.txt'));
+
+    expect(sync.getCacheSize()).toBe(5);
   });
 });
