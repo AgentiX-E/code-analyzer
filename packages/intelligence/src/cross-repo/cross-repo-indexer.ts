@@ -211,10 +211,8 @@ export class CrossRepoIndexer {
         try {
           await this.indexSingleRepo(repo.fullName, repo.localPath, options);
         } catch (err) {
-          /* v8 ignore start */
           const message = err instanceof Error ? err.message : String(err);
           errors.push(`Failed to index ${repo.fullName}: ${message}`);
-          /* v8 ignore stop */
         }
       });
       await Promise.all(promises);
@@ -292,25 +290,29 @@ export class CrossRepoIndexer {
     const langFilter = options.languages ? new Set(options.languages) : null;
 
     for (const file of files) {
-      if (langFilter && file.language && !langFilter.has(file.language)) {
-        /* v8 ignore next */
+      if (langFilter && !langFilter.has(file.language)) {
         continue;
       }
 
       try {
         const content = readFileSync(file.filePath, 'utf-8');
-        const symbols = this.extractSymbols(file.filePath, content, projectId, localPath);
+        const symbols = this.extractSymbols(
+          file.filePath,
+          content,
+          projectId,
+          localPath,
+          file.language,
+        );
         this.insertNodes(projectId, symbols);
 
-        // Create File and Folder nodes
-        /* v8 ignore next */
-        this.ensureFileNode(projectId, file.filePath, localPath, file.language ?? '');
+        // Create File node
+        this.ensureFileNode(projectId, file.filePath, localPath, file.language);
 
-        // Extract imports and create edges
+        // Extract imports and create edges. Pass the repo-relative path so it
+        // matches the `filePath` stored on File nodes.
         const imports = this.extractImports(file.filePath, content, projectId);
-        this.createImportEdges(projectId, file.filePath, imports);
+        this.createImportEdges(projectId, relative(localPath, file.filePath), imports);
       } catch {
-        /* v8 ignore next */
         // Skip files that can't be read or parsed
       }
     }
@@ -337,9 +339,8 @@ export class CrossRepoIndexer {
     try {
       entries = await readdir(currentPath, { withFileTypes: true });
     } catch {
-      /* v8 ignore start */
+      // Skip directories that cannot be read (missing or permission-denied).
       return;
-      /* v8 ignore stop */
     }
 
     for (const entry of entries) {
@@ -352,24 +353,21 @@ export class CrossRepoIndexer {
         const name = basename(fullPath);
         if (SKIP_FILE_PATTERNS.some((p) => p.test(name))) continue;
 
-        /* v8 ignore next */
         const ext = name.lastIndexOf('.') >= 0 ? name.slice(name.lastIndexOf('.')) : '';
         if (!SOURCE_EXTENSIONS.has(ext)) continue;
 
-        const language = getLanguageFromFilename(fullPath);
-        /* v8 ignore next */
-        if (!language) continue;
+        // Invariant: every entry in SOURCE_EXTENSIONS maps to a non-null language
+        // in getLanguageFromFilename, so the null branch is unreachable here.
+        const language = getLanguageFromFilename(fullPath)!;
 
         let fileStat;
         try {
           fileStat = await stat(fullPath);
         } catch {
-          /* v8 ignore start */
+          // Skip files that vanish or become unreadable mid-walk.
           continue;
-          /* v8 ignore stop */
         }
 
-        /* v8 ignore next */
         if (fileStat.size > 5 * 1024 * 1024) continue; // Skip >5MB files
 
         results.push({ filePath: fullPath, language });
@@ -386,11 +384,11 @@ export class CrossRepoIndexer {
     content: string,
     projectId: string,
     rootPath: string,
+    language: string,
   ): GraphNode[] {
     const nodes: GraphNode[] = [];
     const relPath = relative(rootPath, filePath);
     const now = new Date().toISOString();
-    const language = getLanguageFromFilename(filePath) ?? /* v8 ignore next */ 'unknown';
 
     let nodeCounter = 0;
 
@@ -419,9 +417,8 @@ export class CrossRepoIndexer {
       let match;
       pattern.lastIndex = 0;
       while ((match = pattern.exec(content)) !== null) {
-        const name = match[1];
-        /* v8 ignore next */
-        if (!name) continue;
+        // Invariant: every funcPattern captures `\w+`, so match[1] is non-empty.
+        const name = match[1]!;
         if (seen.has(name)) continue;
         seen.add(name);
 
@@ -487,12 +484,11 @@ export class CrossRepoIndexer {
     const namedImportRe = /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
     let match;
     while ((match = namedImportRe.exec(content)) !== null) {
-      /* v8 ignore next */
-      const names =
-        match[1]
-          ?.split(',')
-          .map((s) => s.trim().replace(/^(\w+)\s+as\s+\w+$/, '$1'))
-          .filter(Boolean) ?? [];
+      // Invariant: `\{([^}]+)\}` always captures a non-empty name list.
+      const names = match[1]!
+        .split(',')
+        .map((s) => s.trim().replace(/^(\w+)\s+as\s+\w+$/, '$1'))
+        .filter(Boolean);
       imports.push({ modulePath: match[2]!, importedNames: names });
     }
 
@@ -514,10 +510,12 @@ export class CrossRepoIndexer {
       });
     }
 
-    // Match: require('module')
+    // Match: require('module') and const { a, b } = require('module').
+    // The optional group matches either the destructuring binding ({ a, b } =)
+    // or the plain variable binding (name =), so match[1] is undefined for a
+    // non-destructured require.
     const requireRe =
-      /(?:const|let|var)\s+(?:\{([^}]+)\}\s*=\s*)?require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-    /* v8 ignore start */
+      /(?:const|let|var)\s+(?:\{([^}]+)\}\s*=\s*|\w+\s*=\s*)?require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
     while ((match = requireRe.exec(content)) !== null) {
       const names =
         match[1]
@@ -526,11 +524,9 @@ export class CrossRepoIndexer {
           .filter(Boolean) ?? [];
       imports.push({ modulePath: match[2]!, importedNames: names });
     }
-    /* v8 ignore stop */
 
     // Match: from 'module' import ... (Python)
     const pyImportRe = /from\s+['"]?([^'"]+)['"]?\s+import\s+([^\n]+)/g;
-    /* v8 ignore start */
     while ((match = pyImportRe.exec(content)) !== null) {
       const names = match[2]!
         .split(',')
@@ -543,7 +539,6 @@ export class CrossRepoIndexer {
         .filter(Boolean);
       imports.push({ modulePath: match[1]!, importedNames: names });
     }
-    /* v8 ignore stop */
 
     // Match: import module (Python)
     const pyImportSimpleRe = /^import\s+([^\n]+)/gm;
@@ -607,10 +602,8 @@ export class CrossRepoIndexer {
       for (let j = i + 1; j < repos.length; j++) {
         const repoA = repos[i]!;
         const repoB = repos[j]!;
-        /* v8 ignore start */
-        const symbolsA = repoSymbols.get(repoA) ?? [];
-        const symbolsB = repoSymbols.get(repoB) ?? [];
-        /* v8 ignore stop */
+        const symbolsA = repoSymbols.get(repoA)!;
+        const symbolsB = repoSymbols.get(repoB)!;
 
         for (const symA of symbolsA) {
           for (const symB of symbolsB) {
@@ -631,15 +624,12 @@ export class CrossRepoIndexer {
         const repoB = repos[j]!;
 
         const nodesA = this.getRepoNodes(repoA);
-        /* v8 ignore start */
-        const symbolsB = repoSymbols.get(repoB) ?? [];
-        /* v8 ignore stop */
+        const symbolsB = repoSymbols.get(repoB)!;
 
         // Get all imports from repo A's nodes
         for (const nodeA of nodesA) {
           if (nodeA.label !== 'File') continue;
           const edges = this.store.getEdgesForNode(nodeA.id, EDGE_IMPORTS);
-          /* v8 ignore start */
           for (const edge of edges) {
             const targetNode = this.store.getNode(edge.targetId);
             if (!targetNode || targetNode.projectId !== repoB) continue;
@@ -659,7 +649,6 @@ export class CrossRepoIndexer {
               }
             }
           }
-          /* v8 ignore stop */
         }
       }
     }
@@ -771,10 +760,8 @@ export class CrossRepoIndexer {
         const edgesOut = this.store.getEdgesForNode(nodeA.id);
 
         for (const edge of edgesOut) {
-          /* v8 ignore start */
           const targetNode = this.store.getNode(edge.targetId);
           if (!targetNode) continue;
-          /* v8 ignore stop */
 
           const repoB = targetNode.projectId;
           if (repoB === repoA) continue;
@@ -815,15 +802,12 @@ export class CrossRepoIndexer {
             createdAt: now,
           };
 
-          try {
-            this.store.insertEdge(crossRepoEdge);
-            crossRepoEdges++;
-            byType[crossRepoType] = (byType[crossRepoType] ?? 0) + 1;
-          } catch {
-            /* v8 ignore start */
-            // Edge may already exist
-            /* v8 ignore stop */
-          }
+          // Invariant: insertEdge only throws when an endpoint is missing, and both
+          // nodeA (from getRepoNodes) and targetNode (non-null above) are guaranteed
+          // to exist, so this insert cannot throw.
+          this.store.insertEdge(crossRepoEdge);
+          crossRepoEdges++;
+          byType[crossRepoType] = (byType[crossRepoType] ?? 0) + 1;
         }
       }
     }
@@ -913,18 +897,12 @@ export class CrossRepoIndexer {
         fields: [],
       };
 
-      // Attempt to extract field information for at least one repo
-      /* v8 ignore start */
-      for (const repo of contractingRepos) {
-        const interfaces = repoInterfaces.get(repo) ?? [];
-        const iface = interfaces.find((i) => i.name === name);
-        if (iface) {
-          definition['sampleRepo'] = repo;
-          definition['sampleQualifiedName'] = iface.qualifiedName;
-          break;
-        }
-      }
-      /* v8 ignore stop */
+      // Invariant: every repo in `contractingRepos` contributed an interface named
+      // `name` to `seeNameCount`, so `find` on the first repo is guaranteed to match.
+      const sampleRepo = contractingRepos[0]!;
+      const sampleIface = repoInterfaces.get(sampleRepo)!.find((i) => i.name === name)!;
+      definition['sampleRepo'] = sampleRepo;
+      definition['sampleQualifiedName'] = sampleIface.qualifiedName;
 
       contracts.push({
         id: `contract:${groupId}:${contractCounter}`,
@@ -1018,13 +996,11 @@ export class CrossRepoIndexer {
     }
 
     // Compare signatures
-    /* v8 ignore start */
     if (nodeA.node.signature !== nodeB.node.signature) {
       if (nodeA.node.signature && nodeB.node.signature) {
         warnings.push(`Signature changed: "${nodeA.node.signature}" → "${nodeB.node.signature}"`);
       }
     }
-    /* v8 ignore stop */
 
     // Compare return types
     if (propsA.returnType && propsB.returnType && propsA.returnType !== propsB.returnType) {
@@ -1184,7 +1160,6 @@ export class CrossRepoIndexer {
     if (sourceNodes.length === 0) return traces;
 
     // For each matching source node, follow outgoing CROSS_REPO_* edges
-    /* v8 ignore start */
     for (const sourceNode of sourceNodes) {
       const edgesOut = this.store.getEdgesForNode(sourceNode.id);
 
@@ -1232,7 +1207,6 @@ export class CrossRepoIndexer {
         });
       }
     }
-    /* v8 ignore stop */
 
     return traces;
   }
@@ -1271,9 +1245,7 @@ export class CrossRepoIndexer {
       try {
         this.store.insertNode({ ...node, projectId });
       } catch {
-        /* v8 ignore start */
-        // Node may already exist
-        /* v8 ignore stop */
+        // Node may already exist from a previous index pass.
       }
     }
   }
@@ -1292,35 +1264,31 @@ export class CrossRepoIndexer {
     const existing = this.store.getNodeByQualifiedName(qname);
     if (existing) return;
 
-    try {
-      this.store.insertNode({
-        id: 0,
-        projectId,
-        label: 'File',
+    // Invariant: the qualified-name guard above runs synchronously in the same
+    // indexing loop, so no duplicate insert can occur and insertNode cannot throw.
+    this.store.insertNode({
+      id: 0,
+      projectId,
+      label: 'File',
+      name: basename(filePath),
+      qualifiedName: qname,
+      filePath: relPath,
+      startLine: 1,
+      endLine: 1,
+      language,
+      properties: {
         name: basename(filePath),
-        qualifiedName: qname,
         filePath: relPath,
-        startLine: 1,
-        endLine: 1,
         language,
-        properties: {
-          name: basename(filePath),
-          filePath: relPath,
-          language,
-        },
-        signature: null,
-        docstring: null,
-        complexity: null,
-        isExported: false,
-        fingerprint: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } catch {
-      /* v8 ignore start */
-      // Already exists
-      /* v8 ignore stop */
-    }
+      },
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: false,
+      fingerprint: null,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   private createImportEdges(
@@ -1343,33 +1311,25 @@ export class CrossRepoIndexer {
 
       if (!targetFileNode) continue;
 
-      const sourceFileNode = nodes.find((n) => n.label === 'File' && n.filePath === sourceFile);
+      // Invariant: ensureFileNode() runs immediately before createImportEdges()
+      // for the same file, so the source file's File node is always present.
+      const sourceFileNode = nodes.find((n) => n.label === 'File' && n.filePath === sourceFile)!;
 
-      // Fallback: search by name
-      const sourceNode =
-        sourceFileNode ?? nodes.find((n) => n.label === 'File' && n.filePath === sourceFile);
-
-      if (!sourceNode) continue;
-
-      /* v8 ignore start */
-      try {
-        this.store.insertEdge({
-          id: 0,
-          projectId,
-          sourceId: sourceNode.id,
-          targetId: targetFileNode.id,
-          type: EDGE_IMPORTS,
-          properties: {
-            importPath: imp.modulePath,
-            importedSymbols: imp.importedNames,
-          },
-          weight: 1,
-          createdAt: now,
-        });
-      } catch {
-        // Edge may already exist
-      }
-      /* v8 ignore stop */
+      // Invariant: both endpoint ids come from getRepoNodes above, so insertEdge
+      // cannot throw for a missing node (and edges are not de-duplicated).
+      this.store.insertEdge({
+        id: 0,
+        projectId,
+        sourceId: sourceFileNode.id,
+        targetId: targetFileNode.id,
+        type: EDGE_IMPORTS,
+        properties: {
+          importPath: imp.modulePath,
+          importedSymbols: imp.importedNames,
+        },
+        weight: 1,
+        createdAt: now,
+      });
     }
   }
 
@@ -1381,38 +1341,31 @@ export class CrossRepoIndexer {
     );
     if (existing) return existing.id;
 
-    try {
-      return this.store.insertNode({
-        id: 0,
-        projectId: repo,
-        label: 'CrossRepoModule',
+    // Invariant: the getAllNodes guard above returns on any existing module with
+    // the same (repo, edgeType), so a duplicate insert cannot occur here.
+    return this.store.insertNode({
+      id: 0,
+      projectId: repo,
+      label: 'CrossRepoModule',
+      name: edgeType,
+      qualifiedName: `cross-repo:${repo}:${edgeType}`,
+      filePath: null,
+      startLine: null,
+      endLine: null,
+      language: null,
+      properties: {
         name: edgeType,
-        qualifiedName: `cross-repo:${repo}:${edgeType}`,
-        filePath: null,
-        startLine: null,
-        endLine: null,
-        language: null,
-        properties: {
-          name: edgeType,
-          edgeType,
-          repository: repo,
-        },
-        signature: null,
-        docstring: null,
-        complexity: null,
-        isExported: true,
-        fingerprint: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } catch {
-      /* v8 ignore start */
-      // Already exists, try to find it
-      const nodes = this.getRepoNodes(repo);
-      const found = nodes.find((n) => n.label === 'CrossRepoModule' && n.name === edgeType);
-      return found ? found.id : 0;
-      /* v8 ignore stop */
-    }
+        edgeType,
+        repository: repo,
+      },
+      signature: null,
+      docstring: null,
+      complexity: null,
+      isExported: true,
+      fingerprint: null,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   private findSymbolAcrossRepos(

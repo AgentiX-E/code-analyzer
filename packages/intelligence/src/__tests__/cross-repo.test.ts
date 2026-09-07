@@ -3,12 +3,19 @@
 // and Levenshtein distance.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  symlinkSync,
+  truncateSync,
+  chmodSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { CrossRepoIndexer, levenshteinDistance } from '../cross-repo/cross-repo-indexer.js';
@@ -3419,6 +3426,367 @@ describe('CrossRepoIndexer — branch coverage', () => {
       groupManager.addRepo('g1', 'org', 'filematch-repo', 'https://a.example.com', repoDir);
       const result = await indexer.indexGroup('g1');
       expect(result.reposIndexed).toBe(1);
+    });
+  });
+});
+
+describe('CrossRepoIndexer — de-gamification branch coverage', () => {
+  let store: InMemoryGraphStore;
+  let groupManager: RepoGroupManager;
+  let indexer: CrossRepoIndexer;
+  const now = new Date().toISOString();
+
+  beforeEach(() => {
+    store = new InMemoryGraphStore();
+    groupManager = new RepoGroupManager();
+    indexer = new CrossRepoIndexer(store, groupManager);
+  });
+
+  function addNode(
+    projectId: string,
+    name: string,
+    label: 'Function' | 'Class' | 'Interface' | 'TypeAlias' | 'Enum' | 'Method' | 'File',
+    filePath: string,
+    isExported = false,
+    overrides: Partial<GraphNode> = {},
+  ): number {
+    const node = {
+      ...createProjectNode(projectId, name, label, filePath, isExported),
+      ...overrides,
+    };
+    return store.insertNode(node);
+  }
+
+  function addEdge(sourceId: number, targetId: number, type: string, projectId: string): void {
+    store.insertEdge({
+      id: 0,
+      projectId,
+      sourceId,
+      targetId,
+      type: type as GraphEdge['type'],
+      properties: {},
+      weight: 1,
+      createdAt: now,
+    });
+  }
+
+  function makeGroup(repos: string[]): void {
+    groupManager.createGroup('g1', 'Branch Group', '');
+    for (const repo of repos) {
+      const [owner, name] = repo.split('/');
+      groupManager.addRepo('g1', owner!, name!, 'https://a.example.com', `/tmp/${name}`);
+    }
+  }
+
+  describe('directory walk — non-file entries and size limits', () => {
+    it('skips symlink entries (neither file nor directory)', async () => {
+      const tmpDir = join(tmpdir(), `symlink-${Date.now()}`);
+      mkdirSync(tmpDir, { recursive: true });
+      const repoDir = createTestRepoDir(tmpDir, 'symlink-repo', {
+        'a.ts': 'export const x = 1;',
+      });
+      symlinkSync('/tmp/does-not-exist-target', join(repoDir, 'dangling-link'));
+      groupManager.createGroup('g1', 'Symlink', '');
+      groupManager.addRepo('g1', 'org', 'symlink-repo', 'https://a.example.com', repoDir);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('treats a filename without a dot as an empty extension', async () => {
+      const tmpDir = join(tmpdir(), `nodot-${Date.now()}`);
+      const repoDir = createTestRepoDir(tmpDir, 'nodot-repo', {
+        Makefile: 'all:\n\techo hi\n',
+      });
+      groupManager.createGroup('g1', 'NoDot', '');
+      groupManager.addRepo('g1', 'org', 'nodot-repo', 'https://a.example.com', repoDir);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('skips source files larger than 5MB', async () => {
+      const tmpDir = join(tmpdir(), `bigfile-${Date.now()}`);
+      const repoDir = join(tmpDir, 'bigfile-repo');
+      mkdirSync(repoDir, { recursive: true });
+      writeFileSync(join(repoDir, 'big.ts'), '');
+      truncateSync(join(repoDir, 'big.ts'), 6 * 1024 * 1024);
+      groupManager.createGroup('g1', 'BigFile', '');
+      groupManager.addRepo('g1', 'org', 'bigfile-repo', 'https://a.example.com', repoDir);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+      expect(result.totalNodes).toBe(0);
+    });
+
+    it('returns no files when the repo path is a file, not a directory', async () => {
+      const tmpDir = join(tmpdir(), `filepath-${Date.now()}`);
+      mkdirSync(tmpDir, { recursive: true });
+      const filePath = join(tmpDir, 'not-a-dir.txt');
+      writeFileSync(filePath, 'hello');
+      groupManager.createGroup('g1', 'FilePath', '');
+      groupManager.addRepo('g1', 'org', 'filepath-repo', 'https://a.example.com', filePath);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+      expect(result.totalNodes).toBe(0);
+    });
+
+    it("skips a file that cannot be stat'ed (unsearchable directory)", async () => {
+      const tmpDir = join(tmpdir(), `statfail-${Date.now()}`);
+      const repoDir = join(tmpDir, 'statfail-repo');
+      const subDir = join(repoDir, 'sub');
+      mkdirSync(subDir, { recursive: true });
+      writeFileSync(join(subDir, 'inner.ts'), 'export const x = 1;');
+      // Remove search (execute) permission so stat() on inner.ts fails with
+      // EACCES while readdir() on the directory still succeeds.
+      chmodSync(subDir, 0o400);
+      try {
+        groupManager.createGroup('g1', 'StatFail', '');
+        groupManager.addRepo('g1', 'org', 'statfail-repo', 'https://a.example.com', repoDir);
+        const result = await indexer.indexGroup('g1');
+        expect(result.reposIndexed).toBe(1);
+      } finally {
+        chmodSync(subDir, 0o755);
+      }
+    });
+  });
+
+  describe('extractImports — require and Python patterns', () => {
+    it('extracts a non-destructured require() import', async () => {
+      const tmpDir = join(tmpdir(), `require-plain-${Date.now()}`);
+      const repoDir = createTestRepoDir(tmpDir, 'require-plain-repo', {
+        'index.js': "const fs = require('fs');\nmodule.exports = 1;",
+      });
+      groupManager.createGroup('g1', 'RequirePlain', '');
+      groupManager.addRepo('g1', 'org', 'require-plain-repo', 'https://a.example.com', repoDir);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('extracts a destructured require() import', async () => {
+      const tmpDir = join(tmpdir(), `require-dest-${Date.now()}`);
+      const repoDir = createTestRepoDir(tmpDir, 'require-dest-repo', {
+        'index.js': "const { readFileSync, writeFileSync } = require('fs');",
+      });
+      groupManager.createGroup('g1', 'RequireDest', '');
+      groupManager.addRepo('g1', 'org', 'require-dest-repo', 'https://a.example.com', repoDir);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+
+    it('extracts a Python from-import statement', async () => {
+      const tmpDir = join(tmpdir(), `py-from-${Date.now()}`);
+      const repoDir = createTestRepoDir(tmpDir, 'py-from-repo', {
+        'main.py': 'from os import path, environ\nimport sys\n',
+      });
+      groupManager.createGroup('g1', 'PyFrom', '');
+      groupManager.addRepo('g1', 'org', 'py-from-repo', 'https://a.example.com', repoDir);
+      const result = await indexer.indexGroup('g1');
+      expect(result.reposIndexed).toBe(1);
+    });
+  });
+
+  describe('resolveCrossRepoSymbols — import reference name mismatch', () => {
+    it('skips target symbols whose name does not match the import target', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+
+      // repo-a has a File node with an IMPORTS edge to "targetFn" in repo-b.
+      const fileA = addNode('org/repo-a', 'index.ts', 'File', 'src/index.ts');
+      const targetFn = addNode('org/repo-b', 'targetFn', 'Function', 'src/target.ts', true);
+      // A second exported symbol in repo-b that is NOT the import target.
+      addNode('org/repo-b', 'otherFn', 'Function', 'src/other.ts', true);
+
+      addEdge(fileA, targetFn, 'IMPORTS', 'org/repo-a');
+
+      const matches = await indexer.resolveCrossRepoSymbols('g1');
+      const importMatch = matches.find((m) => m.matchType === 'import_reference');
+      expect(importMatch).toBeTruthy();
+      expect(importMatch!.targetSymbol).toContain('targetFn');
+    });
+
+    it('skips an import reference whose target belongs to a different repo', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b', 'org/repo-c']);
+      // repo-a's File imports a symbol that lives in repo-c, not repo-b.
+      const fileA = addNode('org/repo-a', 'index.ts', 'File', 'src/index.ts');
+      const targetC = addNode('org/repo-c', 'sharedFn', 'Function', 'src/c.ts', true);
+      addEdge(fileA, targetC, 'IMPORTS', 'org/repo-a');
+
+      const matches = await indexer.resolveCrossRepoSymbols('g1');
+      const importMatches = matches.filter((m) => m.matchType === 'import_reference');
+      // The (repo-a -> repo-b) pair skips the repo-c target; only the
+      // (repo-a -> repo-c) pair emits an import_reference match.
+      expect(importMatches.some((m) => m.targetRepo === 'org/repo-c')).toBe(true);
+      expect(importMatches.some((m) => m.targetRepo === 'org/repo-b')).toBe(false);
+    });
+  });
+
+  describe('buildCrossRepoGraph — dangling target edge', () => {
+    it('skips an edge whose target node no longer exists', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'sourceFn', 'Function', 'src/a.ts', true);
+      const victim = addNode('org/repo-a', 'victimFn', 'Function', 'src/victim.ts', true);
+      addEdge(sourceFn, victim, 'IMPORTS', 'org/repo-a');
+      // Simulate a dangling edge by removing the target node directly.
+      store.nodes.delete(victim);
+
+      const report = await indexer.buildCrossRepoGraph('g1');
+      expect(report.crossRepoEdges).toBe(0);
+    });
+
+    it('skips an edge whose target belongs to the same repo', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const fileA = addNode('org/repo-a', 'index.ts', 'File', 'src/index.ts');
+      const localFn = addNode('org/repo-a', 'localFn', 'Function', 'src/local.ts', true);
+      // Intra-repo import: the target is in repo-a, the same repo as the source.
+      addEdge(fileA, localFn, 'IMPORTS', 'org/repo-a');
+
+      const report = await indexer.buildCrossRepoGraph('g1');
+      expect(report.crossRepoEdges).toBe(0);
+    });
+  });
+
+  describe('checkTypeCompatibility — signature comparison fallback', () => {
+    it('does not warn when exactly one symbol lacks a signature', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      // "getUser" gets a signature from the helper; "getData" does not.
+      addNode('org/repo-a', 'getUser', 'Function', 'src/a.ts', true);
+      addNode('org/repo-b', 'getData', 'Function', 'src/b.ts', true);
+
+      const result = await indexer.checkTypeCompatibility('g1', 'getUser', 'getData');
+      // Signatures differ but one is null, so no "Signature changed" warning.
+      const signatureWarning = result.warnings.find((w) => w.startsWith('Signature changed'));
+      expect(signatureWarning).toBeFalsy();
+    });
+  });
+
+  describe('analyzeCrossRepoImpact — dangling, empty qname, and visited repos', () => {
+    it('skips a dangling target edge during BFS', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'sourceFn', 'Function', 'src/a.ts', true);
+      const victim = addNode('org/repo-b', 'victimFn', 'Function', 'src/victim.ts', true);
+      addEdge(sourceFn, victim, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+      store.nodes.delete(victim);
+
+      const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
+      expect(result.affectedRepos).toEqual([]);
+    });
+
+    it('does not add the qualified name when it is empty', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'sourceFn', 'Function', 'src/a.ts', true);
+      const targetFn = addNode('org/repo-b', 'targetFn', 'Function', 'src/b.ts', true, {
+        qualifiedName: '',
+      });
+      addEdge(sourceFn, targetFn, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+
+      const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
+      expect(result.affectedRepos).toContain('org/repo-b');
+    });
+
+    it('does not re-enqueue an already-visited repo (cycle)', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const fnA = addNode('org/repo-a', 'fnA', 'Function', 'src/a.ts', true);
+      const fnB = addNode('org/repo-b', 'fnB', 'Function', 'src/b.ts', true);
+      addEdge(fnA, fnB, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+      addEdge(fnB, fnA, 'CROSS_REPO_IMPORTS', 'org/repo-b');
+
+      const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
+      expect(result.affectedRepos).toContain('org/repo-b');
+    });
+
+    it('skips non-cross-repo edges during BFS', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const fnA = addNode('org/repo-a', 'fnA', 'Function', 'src/a.ts', true);
+      const localFn = addNode('org/repo-a', 'localFn', 'Function', 'src/local.ts', true);
+      // A plain intra-repo import (not CROSS_REPO_*) should be skipped.
+      addEdge(fnA, localFn, 'IMPORTS', 'org/repo-a');
+
+      const result = await indexer.analyzeCrossRepoImpact('g1', 'org/repo-a');
+      expect(result.affectedRepos).toEqual([]);
+    });
+  });
+
+  describe('traceSymbolDependencies — defensive traversal branches', () => {
+    it('skips a dangling target edge and emits null-file traces', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'fn', 'Function', 'src/a.ts', true, {
+        filePath: null,
+      });
+      const targetFn = addNode('org/repo-b', 'target', 'Function', 'src/b.ts', true, {
+        filePath: null,
+      });
+      const victim = addNode('org/repo-b', 'victim', 'Function', 'src/v.ts', true);
+      addEdge(sourceFn, targetFn, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+      addEdge(sourceFn, victim, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+      store.nodes.delete(victim);
+
+      const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'fn');
+      expect(traces.length).toBe(1);
+      expect(traces[0]!.sourceFile).toBe('');
+      expect(traces[0]!.targetFile).toBe('');
+    });
+
+    it('skips a target in the same source repo', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'fn', 'Function', 'src/a.ts', true);
+      const sameRepo = addNode('org/repo-a', 'other', 'Function', 'src/o.ts', true);
+      addEdge(sourceFn, sameRepo, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+
+      const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'fn');
+      expect(traces).toEqual([]);
+    });
+
+    it('skips a target in a repo outside the group', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'fn', 'Function', 'src/a.ts', true);
+      const outside = addNode('org/repo-c', 'out', 'Function', 'src/o.ts', true);
+      addEdge(sourceFn, outside, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+
+      const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'fn');
+      expect(traces).toEqual([]);
+    });
+
+    it('skips non-cross-repo transitive edges and out-of-group transitive targets', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b', 'org/repo-c']);
+      const sourceFn = addNode('org/repo-a', 'fn', 'Function', 'src/a.ts', true, {
+        filePath: null,
+      });
+      const targetFn = addNode('org/repo-b', 'target', 'Function', 'src/b.ts', true);
+      const transitiveFn = addNode('org/repo-c', 'trans', 'Function', 'src/c.ts', true, {
+        filePath: null,
+      });
+      const outside = addNode('org/repo-d', 'out', 'Function', 'src/o.ts', true);
+      addEdge(sourceFn, targetFn, 'CROSS_REPO_IMPORTS', 'org/repo-a');
+      // Non-cross-repo transitive edge (skipped by id=102).
+      addEdge(targetFn, sourceFn, 'IMPORTS', 'org/repo-b');
+      // Cross-repo transitive edge to an out-of-group repo (skipped by id=105).
+      addEdge(targetFn, outside, 'CROSS_REPO_IMPORTS', 'org/repo-b');
+      // Valid transitive edge (emits a transitive trace with a null target file).
+      addEdge(targetFn, transitiveFn, 'CROSS_REPO_IMPORTS', 'org/repo-b');
+
+      const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'fn');
+      expect(traces.length).toBeGreaterThanOrEqual(1);
+      const transitive = traces.find((t) => t.depth === 2);
+      expect(transitive).toBeTruthy();
+      expect(transitive!.targetFile).toBe('');
+    });
+
+    it('skips a non-cross-repo edge on the source node', async () => {
+      makeGroup(['org/repo-a', 'org/repo-b']);
+      const sourceFn = addNode('org/repo-a', 'fn', 'Function', 'src/a.ts', true);
+      const localFn = addNode('org/repo-a', 'local', 'Function', 'src/local.ts', true);
+      // A plain intra-repo import (not CROSS_REPO_*) should be skipped.
+      addEdge(sourceFn, localFn, 'IMPORTS', 'org/repo-a');
+
+      const traces = await indexer.traceSymbolDependencies('g1', 'org/repo-a', 'fn');
+      expect(traces).toEqual([]);
+    });
+  });
+
+  describe('public accessors', () => {
+    it('returns the underlying graph store', () => {
+      expect(indexer.getStore()).toBe(store);
+    });
+
+    it('returns the underlying group manager', () => {
+      expect(indexer.getGroupManager()).toBe(groupManager);
     });
   });
 });

@@ -299,7 +299,10 @@ describe('CrossRepoWebhookBridge', () => {
   });
 
   describe('process — diff fetch errors', () => {
-    function setupDiffError(getPRDiff: ReturnType<typeof vi.fn>, checkRunId?: number) {
+    function setupDiffError(
+      getPRDiff: (owner: string, repo: string, number: number) => Promise<string>,
+      checkRunId?: number,
+    ) {
       const mocks = createMocks();
       mocks.groupManager.listGroups = vi
         .fn()

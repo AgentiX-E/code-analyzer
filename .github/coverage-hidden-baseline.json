@@ -1,8 +1,7 @@
 {
-  "totalHidden": 1752,
-  "totalLines": 128808,
+  "totalHidden": 1610,
+  "totalLines": 128761,
   "files": {
-    "packages/intelligence/src/cross-repo/cross-repo-indexer.ts": 142,
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
     "packages/intelligence/src/github/repo-sync.ts": 85,
