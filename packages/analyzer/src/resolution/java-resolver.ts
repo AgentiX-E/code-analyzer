@@ -309,11 +309,8 @@ export class JavaResolver extends TypeResolverBase {
   parseAnnotations(annotationNodes: SyntaxNode[], _source: string): JavaAnnotation[] {
     return annotationNodes.map((node) => {
       const text = node.text;
-      // Extract name (strip @)
-      let name = '';
-      const nameMatch = text.match(/@(\w[\w.]*)/);
-      /* v8 ignore next -- @preserve -- annotation nodes always begin with '@' */
-      if (nameMatch) name = nameMatch[1]!;
+      // Annotation nodes always begin with '@' (marker_annotation or annotation).
+      const name = text.match(/@(\w[\w.]*)/)![1]!;
 
       // Extract params
       const params: Record<string, string> = {};
@@ -475,27 +472,19 @@ export class JavaResolver extends TypeResolverBase {
     const nt = node.type;
 
     if (nt === 'class_declaration') {
-      const info = this.extractClass(node, source);
-      /* v8 ignore next -- @preserve -- extractClass always returns a TypeInfo for a class_declaration */
-      if (info) types.push(info);
+      types.push(this.extractClass(node, source));
     }
 
     if (nt === 'interface_declaration') {
-      const info = this.extractInterface(node, source);
-      /* v8 ignore next -- @preserve -- extractInterface always returns a TypeInfo for an interface_declaration */
-      if (info) types.push(info);
+      types.push(this.extractInterface(node, source));
     }
 
     if (nt === 'enum_declaration') {
-      const info = this.extractEnum(node, source);
-      /* v8 ignore next -- @preserve -- extractEnum always returns a TypeInfo for an enum_declaration */
-      if (info) types.push(info);
+      types.push(this.extractEnum(node, source));
     }
 
     if (nt === 'annotation_type_declaration') {
-      const info = this.extractAnnotationType(node, source);
-      /* v8 ignore next -- @preserve -- extractAnnotationType always returns a TypeInfo for an annotation_type_declaration */
-      if (info) types.push(info);
+      types.push(this.extractAnnotationType(node, source));
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -507,68 +496,32 @@ export class JavaResolver extends TypeResolverBase {
   // Extractors
   // -----------------------------------------------------------------------
 
-  private extractClass(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- class_declaration always has an identifier */
-    if (!name) return null;
+  private extractClass(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChild(node, 'identifier')!.text;
 
     const qn = `file:${this.filePath}:${name}`;
     const modifiers = this.extractModifiers(node);
     const exported = modifiers.includes('public');
     const isAbstract = modifiers.includes('abstract');
-    const isFinal = modifiers.includes('final');
     const annotations = this.extractAnnotations(node);
 
-    // Superclass (extends)
+    // Superclass (extends) — a superclass child carries a single type node
+    // (type_identifier, scoped_type_identifier, or generic_type).
     const baseTypes: string[] = [];
     const superclass = this.findChild(node, 'superclass');
     if (superclass) {
-      let scName =
-        this.childText(superclass, 'type_identifier') ||
-        this.childText(superclass, 'identifier') ||
-        this.childText(superclass, 'scoped_type_identifier');
-      // If superclass uses generics (e.g., AbstractList<T>), type_identifier is inside generic_type
-      if (!scName) {
-        const genericType = this.findChild(superclass, 'generic_type');
-        /* v8 ignore next -- @preserve -- a generic superclass always has a generic_type node */
-        if (genericType) {
-          scName = this.childText(genericType, 'type_identifier');
-        }
-      }
-      /* v8 ignore next -- @preserve -- superclass always resolves to a name */
-      if (scName) baseTypes.push(scName);
+      baseTypes.push(this.extractTypeName(superclass.namedChild(0)!));
     }
 
     // Interfaces (implements)
-    const implemented: string[] = [];
-    const superInterfaces = this.findChild(node, 'super_interfaces');
-    if (superInterfaces) {
-      // tree-sitter-java always wraps implemented interfaces in a type_list node.
-      const typeList = this.findChild(superInterfaces, 'type_list')!;
-      for (let i = 0; i < typeList.childCount; i++) {
-        const iface = typeList.child(i);
-        let ifaceName: string | null = null;
-        if (iface.type === 'type_identifier') {
-          ifaceName = iface.text;
-        } else if (iface.type === 'generic_type') {
-          ifaceName = this.childText(iface, 'type_identifier');
-        } else {
-          ifaceName = this.childText(iface, 'type_identifier');
-        }
-        if (ifaceName) implemented.push(ifaceName);
-      }
-    }
+    const implemented = this.extractTypeListNames(node, 'super_interfaces');
 
     // Type parameters (generics)
     const typeParams = this.extractTypeParameters(node);
 
     // Members
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'class_body');
-    /* v8 ignore next -- @preserve -- class_declaration always has a class_body */
-    if (body) {
-      this.extractClassMembers(body, members);
-    }
+    this.extractClassMembers(this.findChild(node, 'class_body')!, members);
 
     return {
       name,
@@ -588,40 +541,19 @@ export class JavaResolver extends TypeResolverBase {
     };
   }
 
-  private extractInterface(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- interface_declaration always has an identifier */
-    if (!name) return null;
+  private extractInterface(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChild(node, 'identifier')!.text;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = this.extractModifiers(node).includes('public');
     const annotations = this.extractAnnotations(node);
 
     // Extended interfaces
-    const baseTypes: string[] = [];
-    const extendsClause = this.findChild(node, 'extends_interfaces');
-    if (extendsClause) {
-      // tree-sitter-java always wraps extended interfaces in a type_list node.
-      const typeList = this.findChild(extendsClause, 'type_list')!;
-      for (let i = 0; i < typeList.childCount; i++) {
-        const c = typeList.child(i);
-        if (c.type === 'type_identifier' || c.type === 'identifier') {
-          baseTypes.push(c.text);
-        } else if (c.type === 'generic_type') {
-          const genericName = this.childText(c, 'type_identifier');
-          /* v8 ignore next -- @preserve -- generic_type always has a type_identifier */
-          if (genericName) baseTypes.push(genericName);
-        }
-      }
-    }
+    const baseTypes = this.extractTypeListNames(node, 'extends_interfaces');
 
     const typeParams = this.extractTypeParameters(node);
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'interface_body');
-    /* v8 ignore next -- @preserve -- interface_declaration always has an interface_body */
-    if (body) {
-      this.extractInterfaceMembers(body, members);
-    }
+    this.extractInterfaceMembers(this.findChild(node, 'interface_body')!, members);
 
     return {
       name,
@@ -641,10 +573,8 @@ export class JavaResolver extends TypeResolverBase {
     };
   }
 
-  private extractEnum(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- enum_declaration always has an identifier */
-    if (!name) return null;
+  private extractEnum(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChild(node, 'identifier')!.text;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = this.extractModifiers(node).includes('public');
@@ -652,27 +582,21 @@ export class JavaResolver extends TypeResolverBase {
 
     // Enum constants
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'enum_body');
-    /* v8 ignore next -- @preserve -- enum_declaration always has an enum_body */
-    if (body) {
-      for (let i = 0; i < body.childCount; i++) {
-        const c = body.child(i);
-        if (c.type === 'enum_constant') {
-          const constName = this.childText(c, 'identifier');
-          /* v8 ignore next -- @preserve -- enum_constant always has an identifier */
-          if (constName) {
-            members.set(constName, {
-              name: constName,
-              type: 'enum_constant',
-              visibility: 'public',
-              isStatic: true,
-              isOptional: false,
-              isAsync: false,
-              parameterTypes: [],
-              returnType: 'enum_constant',
-            });
-          }
-        }
+    const body = this.findChild(node, 'enum_body')!;
+    for (let i = 0; i < body.childCount; i++) {
+      const c = body.child(i);
+      if (c.type === 'enum_constant') {
+        const constName = this.findChild(c, 'identifier')!.text;
+        members.set(constName, {
+          name: constName,
+          type: 'enum_constant',
+          visibility: 'public',
+          isStatic: true,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: [],
+          returnType: 'enum_constant',
+        });
       }
     }
 
@@ -694,39 +618,29 @@ export class JavaResolver extends TypeResolverBase {
     };
   }
 
-  private extractAnnotationType(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- annotation_type_declaration always has an identifier */
-    if (!name) return null;
+  private extractAnnotationType(node: SyntaxNode, _source: string): TypeInfo {
+    const name = this.findChild(node, 'identifier')!.text;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = this.extractModifiers(node).includes('public');
 
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(node, 'annotation_type_body');
-    /* v8 ignore next -- @preserve -- annotation_type_declaration always has a body */
-    if (body) {
-      for (let i = 0; i < body.childCount; i++) {
-        const c = body.child(i);
-        if (c.type === 'annotation_type_element_declaration') {
-          const elemName = this.childText(c, 'identifier');
-          /* v8 ignore next -- @preserve -- element declaration always has an identifier */
-          if (elemName) {
-            const typeNode = this.findTypeNode(c);
-            /* v8 ignore next -- @preserve -- element always has a type; String is a fallback */
-            const elemType = typeNode ? typeNode.text : 'String';
-            members.set(elemName, {
-              name: elemName,
-              type: elemType,
-              visibility: 'public',
-              isStatic: true,
-              isOptional: false,
-              isAsync: false,
-              parameterTypes: [],
-              returnType: elemType,
-            });
-          }
-        }
+    const body = this.findChild(node, 'annotation_type_body')!;
+    for (let i = 0; i < body.childCount; i++) {
+      const c = body.child(i);
+      if (c.type === 'annotation_type_element_declaration') {
+        const elemName = this.findChild(c, 'identifier')!.text;
+        const elemType = this.findTypeNode(c).text;
+        members.set(elemName, {
+          name: elemName,
+          type: elemType,
+          visibility: 'public',
+          isStatic: true,
+          isOptional: false,
+          isAsync: false,
+          parameterTypes: [],
+          returnType: elemType,
+        });
       }
     }
 
@@ -755,14 +669,10 @@ export class JavaResolver extends TypeResolverBase {
   private extractClassMembers(body: SyntaxNode, members: Map<string, TypeMember>): void {
     for (let i = 0; i < body.childCount; i++) {
       const child = body.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
 
       // Method declaration
       if (child.type === 'method_declaration' || child.type === 'constructor_declaration') {
-        const mName = this.childText(child, 'identifier');
-        /* v8 ignore next -- @preserve -- method/constructor always has an identifier */
-        if (!mName) continue;
+        const mName = this.findChild(child, 'identifier')!.text;
 
         const modifiers = this.extractModifiers(child);
         const visibility = modifiers.includes('private')
@@ -812,27 +722,22 @@ export class JavaResolver extends TypeResolverBase {
             : 'public';
         const isStatic = modifiers.includes('static');
 
-        const typeNode = this.findTypeNode(child);
-        /* v8 ignore next -- @preserve -- field always has a type; Object is a fallback */
-        const fieldType = typeNode ? typeNode.text : 'Object';
+        const fieldType = this.findTypeNode(child).text;
 
-        for (let j = 0; j < child.childCount; j++) {
-          const decl = child.child(j);
-          if (decl && decl.type === 'variable_declarator') {
-            const fname = this.childText(decl, 'identifier');
-            /* v8 ignore next -- @preserve -- variable_declarator always has an identifier */
-            if (fname) {
-              members.set(fname, {
-                name: fname,
-                type: fieldType,
-                visibility: visibility as 'public' | 'protected' | 'private',
-                isStatic,
-                isOptional: false,
-                isAsync: false,
-                parameterTypes: [],
-                returnType: fieldType,
-              });
-            }
+        for (let j = 0; j < child.namedChildCount; j++) {
+          const decl = child.namedChild(j);
+          if (decl.type === 'variable_declarator') {
+            const fname = this.findChild(decl, 'identifier')!.text;
+            members.set(fname, {
+              name: fname,
+              type: fieldType,
+              visibility: visibility as 'public' | 'protected' | 'private',
+              isStatic,
+              isOptional: false,
+              isAsync: false,
+              parameterTypes: [],
+              returnType: fieldType,
+            });
           }
         }
       }
@@ -842,13 +747,9 @@ export class JavaResolver extends TypeResolverBase {
   private extractInterfaceMembers(body: SyntaxNode, members: Map<string, TypeMember>): void {
     for (let i = 0; i < body.childCount; i++) {
       const child = body.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
 
       if (child.type === 'method_declaration') {
-        const mName = this.childText(child, 'identifier');
-        /* v8 ignore next -- @preserve -- interface method always has an identifier */
-        if (!mName) continue;
+        const mName = this.findChild(child, 'identifier')!.text;
 
         const paramTypes = this.extractMethodParams(child);
         const returnType = this.extractMethodReturn(child);
@@ -916,22 +817,19 @@ export class JavaResolver extends TypeResolverBase {
     const modNode = this.findChild(node, 'modifiers');
     if (!modNode) return mods;
     for (let i = 0; i < modNode.childCount; i++) {
-      const c = modNode.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (c) mods.push(c.text);
+      mods.push(modNode.child(i).text);
     }
     return mods;
   }
 
   private extractAnnotations(node: SyntaxNode): JavaAnnotation[] {
-    const anns: JavaAnnotation[] = [];
     const modNode = this.findChild(node, 'modifiers');
-    if (!modNode) return anns;
+    if (!modNode) return [];
 
     const annotationNodes: SyntaxNode[] = [];
     for (let i = 0; i < modNode.childCount; i++) {
       const c = modNode.child(i);
-      if (c && (c.type === 'annotation' || c.type === 'marker_annotation')) {
+      if (c.type === 'annotation' || c.type === 'marker_annotation') {
         annotationNodes.push(c);
       }
     }
@@ -943,38 +841,28 @@ export class JavaResolver extends TypeResolverBase {
     const params: string[] = [];
     const tp = this.findChild(node, 'type_parameters');
     if (!tp) return params;
-    for (let i = 0; i < tp.childCount; i++) {
-      const c = tp.child(i);
-      if (c && c.type === 'type_parameter') {
-        const name = this.childText(c, 'type_identifier');
-        /* v8 ignore next -- @preserve -- type_parameter always has a type_identifier */
-        if (name) params.push(name);
-      }
+    // Every named child of type_parameters is a type_parameter (`<`, `>`, and
+    // `,` are anonymous), and each type_parameter names itself with a
+    // type_identifier.
+    for (let i = 0; i < tp.namedChildCount; i++) {
+      params.push(this.findChild(tp.namedChild(i), 'type_identifier')!.text);
     }
     return params;
   }
 
   private extractMethodParams(node: SyntaxNode): string[] {
     const paramTypes: string[] = [];
-    const formalParams = this.findChild(node, 'formal_parameters');
-    /* v8 ignore next -- @preserve -- every method declaration has formal_parameters */
-    if (!formalParams) return paramTypes;
+    const formalParams = this.findChild(node, 'formal_parameters')!;
 
     for (let i = 0; i < formalParams.childCount; i++) {
       const param = formalParams.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!param) continue;
 
       // Varargs are a *sibling* of formal_parameter (spread_parameter), not a
       // child — both must be handled at the same level.
       if (param.type === 'formal_parameter') {
-        const typeNode = this.findTypeNode(param);
-        /* v8 ignore next -- @preserve -- parameter always has a type; Object is a fallback */
-        paramTypes.push(typeNode ? typeNode.text : 'Object');
+        paramTypes.push(this.findTypeNode(param).text);
       } else if (param.type === 'spread_parameter') {
-        const typeNode = this.findTypeNode(param);
-        /* v8 ignore next -- @preserve -- spread parameter always has a type */
-        paramTypes.push(typeNode ? `${typeNode.text}...` : 'Object...');
+        paramTypes.push(`${this.findTypeNode(param).text}...`);
       }
     }
     return paramTypes;
@@ -984,23 +872,13 @@ export class JavaResolver extends TypeResolverBase {
     // tree-sitter-java has no `type` wrapper; the return type is one of the
     // declaration type nodes directly (array_type text already includes its
     // dimensions, e.g. "int[][]").
-    const returnType = this.findTypeNode(node);
-    /* v8 ignore next -- @preserve -- method always has a return type; void is a fallback */
-    return returnType ? returnType.text : 'void';
-  }
-
-  private childText(node: SyntaxNode, type: string): string | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
-      if (c && c.type === type && c.text) return c.text;
-    }
-    return null;
+    return this.findTypeNode(node).text;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       const c = node.namedChild(i);
-      if (c && c.type === type) return c;
+      if (c.type === type) return c;
     }
     return null;
   }
@@ -1022,14 +900,40 @@ export class JavaResolver extends TypeResolverBase {
     'array_type',
   ]);
 
-  /** Find the first named child that represents a Java type declaration. */
-  private findTypeNode(node: SyntaxNode): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
-      if (c && JavaResolver.DECLARATION_TYPE_NODES.has(c.type)) return c;
+  /**
+   * Find the type node of a declaration (return type, parameter type, field
+   * type, or annotation element type). The grammar guarantees every such
+   * declaration carries one of `DECLARATION_TYPE_NODES` as a named child.
+   */
+  private findTypeNode(node: SyntaxNode): SyntaxNode {
+    return node.namedChildren.find((c) => JavaResolver.DECLARATION_TYPE_NODES.has(c.type))!;
+  }
+
+  /**
+   * Return the bare type name of a type node, stripping generic arguments.
+   * Handles `type_identifier` ("Baz"), `scoped_type_identifier`
+   * ("java.util.List"), and `generic_type` ("Qux<T>", "java.util.List<String>").
+   * A `generic_type`'s first named child is the underlying (possibly scoped)
+   * type name.
+   */
+  private extractTypeName(node: SyntaxNode): string {
+    return node.type === 'generic_type' ? node.namedChild(0)!.text : node.text;
+  }
+
+  /**
+   * Extract the names of the types in a `super_interfaces` (implements) or
+   * `extends_interfaces` (interface extends) clause. Both wrap their types in a
+   * `type_list` whose named children are the type nodes.
+   */
+  private extractTypeListNames(node: SyntaxNode, clauseType: string): string[] {
+    const names: string[] = [];
+    const clause = this.findChild(node, clauseType);
+    if (!clause) return names;
+    const typeList = this.findChild(clause, 'type_list')!;
+    for (let i = 0; i < typeList.namedChildCount; i++) {
+      names.push(this.extractTypeName(typeList.namedChild(i)!));
     }
-    /* v8 ignore next -- @preserve -- declarations always carry a type node */
-    return null;
+    return names;
   }
 
   // -----------------------------------------------------------------------

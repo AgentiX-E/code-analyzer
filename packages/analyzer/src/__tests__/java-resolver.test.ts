@@ -460,6 +460,33 @@ describe('JavaResolver.extractTypes — classes', () => {
     expect(types[0]!.baseTypes).toEqual(['java.util.ArrayList']);
   });
 
+  it('extracts a class with a scoped generic superclass', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      'public class MyList extends java.util.ArrayList<String> {\n}',
+      '/test.java',
+    );
+    expect(types[0]!.baseTypes).toEqual(['java.util.ArrayList']);
+  });
+
+  it('extracts a class implementing a fully-qualified interface', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      'public class Wrapper implements java.io.Serializable {\n}',
+      '/test.java',
+    );
+    expect(types[0]!.implementedInterfaces).toEqual(['java.io.Serializable']);
+  });
+
+  it('extracts a class implementing a fully-qualified generic interface', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      'public class Wrapper implements java.util.List<String> {\n}',
+      '/test.java',
+    );
+    expect(types[0]!.implementedInterfaces).toEqual(['java.util.List']);
+  });
+
   it('extracts fields with correct types and modifiers', () => {
     const resolver = makeResolver();
     const types = resolver.extractTypes(
@@ -549,6 +576,15 @@ describe('JavaResolver.extractTypes — interface/enum/annotation', () => {
       '/test.java',
     );
     expect(types[0]!.baseTypes).toEqual(['Set', 'Collection']);
+  });
+
+  it('extracts an interface extending a fully-qualified interface', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes(
+      'public interface Reader extends java.io.Closeable, Cloneable {\n}',
+      '/test.java',
+    );
+    expect(types[0]!.baseTypes).toEqual(['java.io.Closeable', 'Cloneable']);
   });
 
   it('extracts decorators on interfaces and enums', () => {

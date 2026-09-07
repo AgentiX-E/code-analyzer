@@ -1,6 +1,6 @@
 {
-  "totalHidden": 4457,
-  "totalLines": 129071,
+  "totalHidden": 4424,
+  "totalLines": 128978,
   "files": {
     "packages/mcp/src/tools/code-review.ts": 790,
     "packages/mcp/src/tools/indexing-lifecycle.ts": 642,
@@ -25,7 +25,6 @@
     "packages/server/src/middleware/error-handler.ts": 42,
     "packages/infra/src/project/project-detector.ts": 39,
     "packages/analyzer/src/languages/html.ts": 35,
-    "packages/analyzer/src/resolution/java-resolver.ts": 34,
     "packages/cli/src/commands/agent.ts": 33,
     "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
@@ -96,6 +95,7 @@
     "packages/analyzer/src/languages/php.ts": 1,
     "packages/analyzer/src/languages/scala.ts": 1,
     "packages/analyzer/src/pipeline/phases/config.ts": 1,
+    "packages/analyzer/src/resolution/java-resolver.ts": 1,
     "packages/analyzer/src/resolution/type-registry.ts": 1,
     "packages/analyzer/src/resolution/typescript-resolver-advanced.ts": 1,
     "packages/cli/src/commands/review.ts": 1,
