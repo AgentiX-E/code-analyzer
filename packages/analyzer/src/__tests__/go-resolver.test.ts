@@ -111,6 +111,14 @@ describe('GoResolver.extractTypes — interfaces', () => {
     expect(types[0]!.name).toBe('MyInt');
     expect(types[0]!.kind).toBe('type');
   });
+
+  it('extracts a Go 1.9 alias (type A = int) as kind type', () => {
+    const resolver = makeResolver();
+    const types = resolver.extractTypes('package main\n\ntype Alias = int', '/test.go');
+    expect(types).toHaveLength(1);
+    expect(types[0]!.name).toBe('Alias');
+    expect(types[0]!.kind).toBe('type');
+  });
 });
 
 // ====================================================================
@@ -265,6 +273,52 @@ describe('GoResolver — interface satisfaction integration', () => {
       }
     ).findSatisfiedInterfaces(structMethods);
     expect(satisfied).toContain('Reader');
+  });
+});
+
+// ====================================================================
+// Type resolution — collections, pointer, channel, func
+// ====================================================================
+
+describe('GoResolver.resolveType — collections, pointer, channel, func', () => {
+  it('resolves an array type [5]int', async () => {
+    const result = await makeResolver().resolveType('[5]int', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('[5]int');
+  });
+
+  it('resolves a map type map[string]int', async () => {
+    const result = await makeResolver().resolveType('map[string]int', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('map[string]int');
+  });
+
+  it('resolves a pointer type *int', async () => {
+    const result = await makeResolver().resolveType('*int', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('*int');
+    expect(result!.isNullable).toBe(true);
+  });
+
+  it('resolves a channel type chan int', async () => {
+    const result = await makeResolver().resolveType('chan int', makeContext());
+    expect(result!.kind).toBe('generic');
+    expect(result!.name).toBe('chan int');
+  });
+
+  it('resolves a receive-only channel <-chan int', async () => {
+    const result = await makeResolver().resolveType('<-chan int', makeContext());
+    expect(result!.name).toBe('<-chan int');
+  });
+
+  it('resolves a send-only channel chan<- int', async () => {
+    const result = await makeResolver().resolveType('chan<- int', makeContext());
+    expect(result!.name).toBe('chan<- int');
+  });
+
+  it('resolves a func type with multiple results', async () => {
+    const result = await makeResolver().resolveType('func(a int) (int, error)', makeContext());
+    expect(result!.kind).toBe('function');
   });
 });
 
@@ -485,6 +539,78 @@ describe('GoResolver — edge cases', () => {
       }
     ).findSatisfiedInterfaces(new Map());
     expect(satisfied).toEqual([]);
+  });
+
+  it('returns a copy of the resolved-type cache from getAllTypes', async () => {
+    const resolver = makeResolver();
+    await resolver.resolveType('int', makeContext());
+    expect(resolver.getAllTypes().has('int')).toBe(true);
+  });
+
+  it('delegates to the external resolver when a match is found', async () => {
+    const result = await makeResolver().resolveType('Ext', {
+      filePath: '/test.go',
+      imports: [],
+      resolveExternal: () => ({ name: 'External', kind: 'object' }),
+    });
+    expect(result!.name).toBe('External');
+  });
+
+  it('returns null for an unknown type with no external resolver', async () => {
+    expect(await makeResolver().resolveType('TotallyUnknown', makeContext())).toBeNull();
+  });
+
+  it('parses a normal struct tag with a field name and options', () => {
+    const tags = makeResolver().parseStructTags(
+      '`json:"name,omitempty" validate:"required,min=3"`',
+    );
+    expect(tags).toHaveLength(2);
+    expect(tags[0]!.fieldName).toBe('name');
+    expect(tags[0]!.options).toEqual(['omitempty']);
+    expect(tags[1]!.fieldName).toBe('required');
+    expect(tags[1]!.options).toEqual(['min=3']);
+  });
+
+  it('parses a struct tag without surrounding backticks', () => {
+    const tags = makeResolver().parseStructTags('json:"name"');
+    expect(tags).toHaveLength(1);
+    expect(tags[0]!.fieldName).toBe('name');
+  });
+
+  it('detects a param count mismatch as unsatisfied', () => {
+    const resolver = makeResolver() as unknown as {
+      checkInterfaceSatisfaction: (
+        s: string,
+        m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
+        i: string,
+        info: { methods: Map<string, { params: { type: string }[]; results: { type: string }[] }> },
+      ) => boolean;
+    };
+    const satisfied = resolver.checkInterfaceSatisfaction(
+      'X',
+      new Map([['M', { params: [{ type: 'int' }], results: [] }]]),
+      'I',
+      { methods: new Map([['M', { params: [], results: [] }]]) },
+    );
+    expect(satisfied).toBe(false);
+  });
+
+  it('accepts a compatibly assignable parameter type (any vs int)', () => {
+    const resolver = makeResolver() as unknown as {
+      checkInterfaceSatisfaction: (
+        s: string,
+        m: Map<string, { params: { type: string }[]; results: { type: string }[] }>,
+        i: string,
+        info: { methods: Map<string, { params: { type: string }[]; results: { type: string }[] }> },
+      ) => boolean;
+    };
+    const satisfied = resolver.checkInterfaceSatisfaction(
+      'X',
+      new Map([['M', { params: [{ type: 'any' }], results: [] }]]),
+      'I',
+      { methods: new Map([['M', { params: [{ type: 'int' }], results: [] }]]) },
+    );
+    expect(satisfied).toBe(true);
   });
 });
 

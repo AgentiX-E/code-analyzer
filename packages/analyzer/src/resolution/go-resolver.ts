@@ -411,15 +411,11 @@ export class GoResolver extends TypeResolverBase {
     }
 
     if (nt === 'function_declaration') {
-      const info = this.extractFunction(node, source);
-      /* v8 ignore next -- @preserve -- extractFunction always returns a TypeInfo for a function_declaration */
-      if (info) types.push(info);
+      types.push(this.extractFunction(node, source));
     }
 
     if (nt === 'method_declaration') {
-      const info = this.extractMethod(node, source);
-      /* v8 ignore next -- @preserve -- extractMethod always returns a TypeInfo for a method_declaration */
-      if (info) types.push(info);
+      types.push(this.extractMethod(node, source));
     }
 
     if (nt === 'var_declaration' || nt === 'const_declaration') {
@@ -433,20 +429,17 @@ export class GoResolver extends TypeResolverBase {
 
   private extractTypeDeclaration(node: SyntaxNode, _source: string, types: TypeInfo[]): void {
     for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
+      const child = node.child(i)!;
 
-      if (child.type === 'type_spec') {
-        const name = this.childText(child, 'type_identifier');
-        /* v8 ignore next -- @preserve -- type_spec always has a type_identifier */
-        if (!name) continue;
+      // type_spec is `type Foo ...`; type_alias is `type Foo = ...` (Go 1.9+).
+      // Both carry the declared name as their first type_identifier child.
+      if (child.type === 'type_spec' || child.type === 'type_alias') {
+        const name = this.childText(child, 'type_identifier')!;
 
         const qn = `file:${this.filePath}:${name}`;
         const exported = name[0] === name[0]?.toUpperCase();
         let kind: TypeInfo['kind'] = 'type';
         let members = new Map<string, TypeMember>();
-        let baseTypes: string[] = [];
         const typeParams: string[] = [];
 
         // Generic type params (Go 1.18+) — type_parameter_list on the type_spec.
@@ -477,7 +470,7 @@ export class GoResolver extends TypeResolverBase {
           filePath: this.filePath,
           kind,
           members,
-          baseTypes,
+          baseTypes: [],
           implementedInterfaces: [],
           typeParameters: typeParams,
           returnType: null,
@@ -494,10 +487,9 @@ export class GoResolver extends TypeResolverBase {
     }
   }
 
-  private extractFunction(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'identifier');
-    /* v8 ignore next -- @preserve -- function_declaration always has an identifier */
-    if (!name) return null;
+  private extractFunction(node: SyntaxNode, _source: string): TypeInfo {
+    // A function_declaration always carries its name as a direct `identifier`.
+    const name = this.childText(node, 'identifier')!;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = name[0] === name[0]?.toUpperCase();
@@ -505,12 +497,9 @@ export class GoResolver extends TypeResolverBase {
 
     const paramLists = this.collectParamLists(node);
 
-    // Parameters (first parameter_list)
+    // Parameters (first parameter_list, always present even when empty).
     const paramTypes: string[] = [];
-    /* v8 ignore next -- @preserve -- every function declaration has a parameter_list */
-    if (paramLists[0]) {
-      this.extractGoParams(paramLists[0], paramTypes);
-    }
+    this.extractGoParams(paramLists[0]!, paramTypes);
 
     // Results: a second parameter_list (multi-result) or a direct type node.
     const returnType = this.extractResultType(node, paramLists, 1);
@@ -533,10 +522,9 @@ export class GoResolver extends TypeResolverBase {
     };
   }
 
-  private extractMethod(node: SyntaxNode, _source: string): TypeInfo | null {
-    const name = this.childText(node, 'field_identifier');
-    /* v8 ignore next -- @preserve -- method_declaration always has a field_identifier */
-    if (!name) return null;
+  private extractMethod(node: SyntaxNode, _source: string): TypeInfo {
+    // A method_declaration always carries its name as a direct `field_identifier`.
+    const name = this.childText(node, 'field_identifier')!;
 
     const qn = `file:${this.filePath}:${name}`;
     const exported = name[0] === name[0]?.toUpperCase();
@@ -544,24 +532,15 @@ export class GoResolver extends TypeResolverBase {
     // paramLists[0] = receiver, paramLists[1] = params, paramLists[2] = results.
     const paramLists = this.collectParamLists(node);
 
-    // Receiver type (strip the leading `*` from pointer receivers).
-    let receiverType = '';
-    /* v8 ignore next -- @preserve -- method_declaration always has a receiver */
-    if (paramLists[0]) {
-      const recvParams: string[] = [];
-      this.extractGoParams(paramLists[0], recvParams);
-      /* v8 ignore next -- @preserve -- receiver always carries a type */
-      if (recvParams.length > 0) {
-        receiverType = recvParams[0]!.replace(/^\*/, '').trim();
-      }
-    }
+    // Receiver type (strip the leading `*` from pointer receivers). The receiver
+    // parameter_list always carries exactly one typed parameter.
+    const recvParams: string[] = [];
+    this.extractGoParams(paramLists[0]!, recvParams);
+    const receiverType = recvParams[0]!.replace(/^\*/, '').trim();
 
-    // Parameters after the receiver.
+    // Parameters after the receiver (always present even when empty).
     const paramTypes: string[] = [];
-    /* v8 ignore next -- @preserve -- method always has a parameter_list */
-    if (paramLists[1]) {
-      this.extractGoParams(paramLists[1], paramTypes);
-    }
+    this.extractGoParams(paramLists[1]!, paramTypes);
 
     const returnType = this.extractResultType(node, paramLists, 2);
 
@@ -595,9 +574,9 @@ export class GoResolver extends TypeResolverBase {
     _structName: string,
   ): Map<string, TypeMember> {
     const members = new Map<string, TypeMember>();
-    const body = this.findChild(structNode, 'field_declaration_list');
-    /* v8 ignore next -- @preserve -- struct_type always has a field_declaration_list */
-    if (!body) return members;
+    // A struct_type always wraps its fields in a field_declaration_list (even an
+    // empty struct `{}` carries an empty one).
+    const body = this.findChild(structNode, 'field_declaration_list')!;
 
     for (let i = 0; i < body.childCount; i++) {
       const child = body.child(i);
@@ -614,12 +593,12 @@ export class GoResolver extends TypeResolverBase {
 
       // Get type — tree-sitter-go has no `type` wrapper; the type is one of
       // type_identifier / pointer_type / qualified_type / slice_type / etc.
-      const typeNode = this.findTypeNode(child);
-      /* v8 ignore next -- @preserve -- every field declaration has a type node */
-      const fieldType = typeNode ? typeNode.text : 'unknown';
+      // Every field_declaration carries a type (embedded fields carry only one).
+      const typeNode = this.findTypeNode(child)!;
+      const fieldType = typeNode.text;
 
       // If no explicit field name, this is an embedded type (e.g. `io.Reader`).
-      if (fieldNames.length === 0 && typeNode) {
+      if (fieldNames.length === 0) {
         const embeddedType = typeNode.text;
         members.set(embeddedType, {
           name: embeddedType,
@@ -660,23 +639,18 @@ export class GoResolver extends TypeResolverBase {
   private extractInterfaceMethods(interfaceNode: SyntaxNode): Map<string, TypeMember> {
     const members = new Map<string, TypeMember>();
     for (let i = 0; i < interfaceNode.childCount; i++) {
-      const child = interfaceNode.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
+      const child = interfaceNode.child(i)!;
 
       // tree-sitter-go represents interface methods as `method_elem`
       // (embedded interfaces are `type_elem`).
       if (child.type === 'method_elem') {
-        const name = this.childText(child, 'field_identifier');
-        /* v8 ignore next -- @preserve -- method_elem always has a field_identifier */
-        if (!name) continue;
+        const name = this.childText(child, 'field_identifier')!;
 
         const paramLists = this.collectParamLists(child);
 
-        // Parameters
+        // Parameters (always present even when empty).
         const paramTypes: string[] = [];
-        /* v8 ignore next -- @preserve -- method_elem always has a params parameter_list */
-        if (paramLists[0]) this.extractGoParams(paramLists[0], paramTypes);
+        this.extractGoParams(paramLists[0]!, paramTypes);
 
         // Results: a second parameter_list, or a direct type node.
         let returnType = 'void';
@@ -711,18 +685,15 @@ export class GoResolver extends TypeResolverBase {
   private extractInterfaceSigs(interfaceNode: SyntaxNode): Map<string, GoMethodSig> {
     const methods = new Map<string, GoMethodSig>();
     for (let i = 0; i < interfaceNode.childCount; i++) {
-      const child = interfaceNode.child(i);
-      if (!child || child.type !== 'method_elem') continue;
+      const child = interfaceNode.child(i)!;
+      if (child.type !== 'method_elem') continue;
 
-      const name = this.childText(child, 'field_identifier');
-      /* v8 ignore next -- @preserve -- method_elem always has a field_identifier */
-      if (!name) continue;
+      const name = this.childText(child, 'field_identifier')!;
 
       const paramLists = this.collectParamLists(child);
 
       const params: GoParam[] = [];
-      /* v8 ignore next -- @preserve -- method_elem always has a params parameter_list */
-      if (paramLists[0]) params.push(...this.extractGoSigParams(paramLists[0]));
+      params.push(...this.extractGoSigParams(paramLists[0]!));
 
       const results: GoParam[] = [];
       if (paramLists[1]) {
@@ -795,11 +766,9 @@ export class GoResolver extends TypeResolverBase {
 
   private extractGoParams(paramList: SyntaxNode, result: string[]): void {
     for (let i = 0; i < paramList.childCount; i++) {
-      const child = paramList.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
-      // Each parameter is a parameter_declaration wrapping a type node
-      // (type_identifier / slice_type / pointer_type / qualified_type / ...).
+      const child = paramList.child(i)!;
+      // Each parameter is a parameter_declaration (or variadic_parameter_declaration)
+      // wrapping a type node; anonymous tokens (`(`, `,`, `)`) carry no type.
       const typeNode = this.findTypeNode(child);
       if (typeNode) result.push(typeNode.text);
     }
@@ -808,9 +777,7 @@ export class GoResolver extends TypeResolverBase {
   private extractGoSigParams(paramList: SyntaxNode): GoParam[] {
     const params: GoParam[] = [];
     for (let i = 0; i < paramList.childCount; i++) {
-      const child = paramList.child(i);
-      /* v8 ignore next -- @preserve -- index is bounded by childCount */
-      if (!child) continue;
+      const child = paramList.child(i)!;
 
       const typeNode = this.findTypeNode(child);
       // Skip anonymous tokens (parens, commas) — they carry no type node.
@@ -828,9 +795,8 @@ export class GoResolver extends TypeResolverBase {
     for (let i = 0; i < tpList.childCount; i++) {
       const child = tpList.child(i);
       if (child && child.type === 'type_parameter_declaration') {
-        const name = this.childText(child, 'identifier');
-        /* v8 ignore next -- @preserve -- type_parameter_declaration always has an identifier */
-        if (name) result.push(name);
+        // A type_parameter_declaration always carries its name as `identifier`.
+        result.push(this.childText(child, 'identifier')!);
       }
     }
   }
@@ -842,9 +808,8 @@ export class GoResolver extends TypeResolverBase {
     for (let i = 0; i < tpList.childCount; i++) {
       const child = tpList.child(i);
       if (child && child.type === 'type_parameter_declaration') {
-        const name = this.childText(child, 'identifier');
-        /* v8 ignore next -- @preserve -- type_parameter_declaration always has an identifier */
-        if (name) params.push(name);
+        // A type_parameter_declaration always carries its name as `identifier`.
+        params.push(this.childText(child, 'identifier')!);
       }
     }
     return params;
@@ -856,9 +821,8 @@ export class GoResolver extends TypeResolverBase {
     for (let i = 0; i < interfaceNode.childCount; i++) {
       const c = interfaceNode.child(i);
       if (c && c.type === 'type_elem') {
-        const typeNode = this.findTypeNode(c);
-        /* v8 ignore next -- @preserve -- type_elem always carries a type node */
-        if (typeNode) embedded.push(typeNode.text);
+        // A type_elem always wraps a type (qualified_type for embedded interfaces).
+        embedded.push(this.findTypeNode(c)!.text);
       }
     }
     return embedded;
