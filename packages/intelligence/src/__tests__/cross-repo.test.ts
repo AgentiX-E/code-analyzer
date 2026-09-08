@@ -459,6 +459,168 @@ describe('RepoGroupManager', () => {
       const second = manager.getGroup('g1')!.indexedAt;
       expect(second).not.toBeNull();
     });
+
+    it('coerces non-string group fields and non-array collections to safe defaults', () => {
+      const configPath = join(tmpDir, 'coerce-group.json');
+      writeFileSync(
+        configPath,
+        JSON.stringify([
+          {
+            id: 123,
+            name: 456,
+            description: 789,
+            repos: 'not-array',
+            contracts: 'not-array',
+            indexedAt: 42,
+          },
+        ]),
+        'utf-8',
+      );
+      const mgr = new RepoGroupManager();
+      mgr.loadConfig(configPath);
+
+      const group = mgr.getGroup('')!;
+      expect(group.id).toBe('');
+      expect(group.name).toBe('');
+      expect(group.description).toBe('');
+      expect(group.repos).toEqual([]);
+      expect(group.contracts).toEqual([]);
+      expect(group.indexedAt).toBeNull();
+    });
+
+    it('coerces repo fields and validates role/autoIndex/fullName fallback', () => {
+      const configPath = join(tmpDir, 'coerce-repo.json');
+      writeFileSync(
+        configPath,
+        JSON.stringify([
+          {
+            id: 'g',
+            name: 'G',
+            description: 'D',
+            repos: [
+              // Non-string fields → defaults; fullName falls back to `${owner}/${repo}`
+              // (both truthy here); invalid role → "dependency"; autoIndex false preserved.
+              {
+                owner: 123,
+                repo: 456,
+                fullName: null,
+                localPath: 0,
+                projectId: 123,
+                role: 'invalid',
+                autoIndex: false,
+              },
+              // All fields valid → preserved; role "primary"; projectId string preserved.
+              {
+                owner: 'o',
+                repo: 'r',
+                fullName: 'explicit/full',
+                localPath: '/p',
+                projectId: 'proj',
+                role: 'primary',
+                autoIndex: true,
+              },
+              // role "consumer" preserved; fullName falls back from owner/repo.
+              { owner: 'consumer-owner', repo: 'consumer-repo', role: 'consumer' },
+              // Falsy owner/repo → fullName fallback yields "/".
+              { owner: '', repo: '' },
+            ],
+          },
+        ]),
+        'utf-8',
+      );
+      const mgr = new RepoGroupManager();
+      mgr.loadConfig(configPath);
+
+      const repos = mgr.getGroup('g')!.repos;
+
+      expect(repos[0]!.owner).toBe('');
+      expect(repos[0]!.repo).toBe('');
+      expect(repos[0]!.fullName).toBe('123/456');
+      expect(repos[0]!.localPath).toBe('');
+      expect(repos[0]!.projectId).toBeNull();
+      expect(repos[0]!.role).toBe('dependency');
+      expect(repos[0]!.autoIndex).toBe(false);
+
+      expect(repos[1]!.owner).toBe('o');
+      expect(repos[1]!.repo).toBe('r');
+      expect(repos[1]!.fullName).toBe('explicit/full');
+      expect(repos[1]!.localPath).toBe('/p');
+      expect(repos[1]!.projectId).toBe('proj');
+      expect(repos[1]!.role).toBe('primary');
+      expect(repos[1]!.autoIndex).toBe(true);
+
+      expect(repos[2]!.role).toBe('consumer');
+      expect(repos[2]!.fullName).toBe('consumer-owner/consumer-repo');
+
+      expect(repos[3]!.fullName).toBe('/');
+      expect(repos[3]!.role).toBe('dependency');
+      expect(repos[3]!.autoIndex).toBe(true);
+    });
+
+    it('coerces contract fields to safe defaults', () => {
+      const configPath = join(tmpDir, 'coerce-contract.json');
+      writeFileSync(
+        configPath,
+        JSON.stringify([
+          {
+            id: 'g',
+            name: 'G',
+            description: 'D',
+            contracts: [
+              // All fields valid → preserved; definition object + dependencies array.
+              {
+                id: 'c1',
+                name: 'N',
+                description: 'D',
+                uri: '/u',
+                version: '1.2.3',
+                definition: { k: 'v' },
+                dependencies: ['a', 1],
+              },
+              // Non-string fields → defaults; null definition (typeof null === object,
+              // !== null false) → {}; non-array deps → [].
+              {
+                id: 7,
+                name: null,
+                description: 9,
+                uri: 10,
+                version: null,
+                definition: null,
+                dependencies: 'not-array',
+              },
+              // Non-object (string) definition → {}; missing scalar fields → defaults.
+              { definition: 'string-def' },
+            ],
+          },
+        ]),
+        'utf-8',
+      );
+      const mgr = new RepoGroupManager();
+      mgr.loadConfig(configPath);
+
+      const contracts = mgr.getGroup('g')!.contracts;
+      expect(contracts).toHaveLength(3);
+
+      expect(contracts[0]!.id).toBe('c1');
+      expect(contracts[0]!.name).toBe('N');
+      expect(contracts[0]!.description).toBe('D');
+      expect(contracts[0]!.uri).toBe('/u');
+      expect(contracts[0]!.version).toBe('1.2.3');
+      expect(contracts[0]!.definition).toEqual({ k: 'v' });
+      expect(contracts[0]!.dependencies).toEqual(['a', '1']);
+
+      expect(contracts[1]!.id).toBe('');
+      expect(contracts[1]!.name).toBe('');
+      expect(contracts[1]!.description).toBe('');
+      expect(contracts[1]!.uri).toBe('');
+      expect(contracts[1]!.version).toBe('0.0.0');
+      expect(contracts[1]!.definition).toEqual({});
+      expect(contracts[1]!.dependencies).toEqual([]);
+
+      expect(contracts[2]!.definition).toEqual({});
+      expect(contracts[2]!.id).toBe('');
+      expect(contracts[2]!.version).toBe('0.0.0');
+    });
   });
 });
 

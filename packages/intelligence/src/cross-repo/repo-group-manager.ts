@@ -121,7 +121,6 @@ export class RepoGroupManager {
    * Save all groups configuration to a JSON file.
    */
   saveConfig(filePath: string): void {
-    /* v8 ignore next 3 */
     const data = this.listGroups();
     writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   }
@@ -131,7 +130,6 @@ export class RepoGroupManager {
    * Replaces all current groups.
    */
   loadConfig(filePath: string): void {
-    /* v8 ignore start */
     if (!existsSync(filePath)) {
       throw new Error(`Config file not found: ${filePath}`);
     }
@@ -160,7 +158,9 @@ export class RepoGroupManager {
       const repos = Array.isArray(g['repos']) ? g['repos'] : [];
       const contracts = Array.isArray(g['contracts']) ? g['contracts'] : [];
       const indexedAt =
-        typeof g['indexedAt'] === 'string' ? g['indexedAt'] : g['indexedAt'] === null ? null : null;
+        // A present ISO string is preserved; any missing or non-string value
+        // collapses to null (there is no distinct "non-null non-string" case).
+        typeof g['indexedAt'] === 'string' ? g['indexedAt'] : null;
 
       const group: RepoGroup = {
         id,
@@ -174,12 +174,7 @@ export class RepoGroupManager {
               ? r['fullName']
               : `${r['owner'] || ''}/${r['repo'] || ''}`,
           localPath: typeof r['localPath'] === 'string' ? r['localPath'] : '',
-          projectId:
-            typeof r['projectId'] === 'string'
-              ? r['projectId']
-              : r['projectId'] === null
-                ? null
-                : null,
+          projectId: typeof r['projectId'] === 'string' ? r['projectId'] : null,
           role:
             r['role'] === 'primary' || r['role'] === 'dependency' || r['role'] === 'consumer'
               ? r['role']
@@ -203,7 +198,6 @@ export class RepoGroupManager {
 
       this.groups.set(id, group);
     }
-    /* v8 ignore stop */
   }
 
   /**
