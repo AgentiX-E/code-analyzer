@@ -50,6 +50,9 @@ export interface ArchitectureReportOptions {
 // Helper types
 // ---------------------------------------------------------------------------
 
+/** Merge decision produced for a report summary. */
+type MergeRecommendation = 'approve' | 'approve-with-comments' | 'request-changes' | 'block';
+
 const DEFAULT_METRICS: ReportMetrics = {
   linesChanged: 0,
   filesChanged: 0,
@@ -313,7 +316,7 @@ export class ReportGenerator {
   private computeMergeRecommendation(
     severityCounts: ReturnType<ReportGenerator['countSeverities']>,
     standardsResults: StandardsCheckResult[],
-  ): 'approve' | 'approve-with-comments' | 'request-changes' | 'block' {
+  ): MergeRecommendation {
     const minCompliance =
       standardsResults.length > 0
         ? Math.min(...standardsResults.map((s) => s.complianceScore))
@@ -326,7 +329,7 @@ export class ReportGenerator {
   }
 
   private computeMergeRationale(
-    recommendation: string,
+    recommendation: MergeRecommendation,
     severityCounts: ReturnType<ReportGenerator['countSeverities']>,
   ): string {
     switch (recommendation) {
@@ -338,9 +341,6 @@ export class ReportGenerator {
         return `Approved with comments: ${severityCounts.mediumFindings} minor suggestions.`;
       case 'approve':
         return 'All checks passed. Approved.';
-      /* v8 ignore next 2 */
-      default:
-        return '';
     }
   }
 
@@ -378,15 +378,15 @@ export class ReportGenerator {
   private computeKeyTakeaways(findings: Finding[]): string[] {
     if (findings.length === 0) return ['No issues found.'];
 
-    const takeways: string[] = [];
+    const takeaways: string[] = [];
     const critical = findings.filter((f) => f.severity === 'critical');
     const high = findings.filter((f) => f.severity === 'high');
 
     if (critical.length > 0) {
-      takeways.push(`${critical.length} critical issue(s) found requiring immediate attention.`);
+      takeaways.push(`${critical.length} critical issue(s) found requiring immediate attention.`);
     }
     if (high.length > 0) {
-      takeways.push(`${high.length} high severity issue(s) should be addressed before merge.`);
+      takeaways.push(`${high.length} high severity issue(s) should be addressed before merge.`);
     }
 
     const categories = new Map<string, number>();
@@ -394,28 +394,20 @@ export class ReportGenerator {
       categories.set(f.category, (categories.get(f.category) ?? 0) + 1);
     }
 
-    const topCategory = [...categories.entries()].sort((a, b) => b[1] - a[1])[0];
-    /* v8 ignore start */
-    if (topCategory) {
-      takeways.push(
-        `Most findings are in the "${topCategory[0]}" category (${topCategory[1]} issues).`,
-      );
-    }
-    /* v8 ignore stop */
+    // `findings` is non-empty here, so `categories` has at least one entry and
+    // `entries()[0]` is always defined (provably non-undefined).
+    const topCategory = [...categories.entries()].sort((a, b) => b[1] - a[1])[0]!;
+    takeaways.push(
+      `Most findings are in the "${topCategory[0]}" category (${topCategory[1]} issues).`,
+    );
 
-    /* v8 ignore start */
-    if (takeways.length === 0) {
-      takeways.push(`${findings.length} total finding(s).`);
-    }
-    /* v8 ignore stop */
-
-    return takeways;
+    return takeaways;
   }
 
   private computeStandardsKeyTakeaways(results: StandardsCheckResult[]): string[] {
     if (results.length === 0) return ['No standards checked.'];
 
-    const takeways: string[] = [];
+    const takeaways: string[] = [];
     const totalFiles = results.reduce((sum, r) => sum + r.filesChecked, 0);
     const totalViolations = results.reduce(
       (sum, r) =>
@@ -428,19 +420,19 @@ export class ReportGenerator {
       0,
     );
 
-    takeways.push(`${results.length} standard(s) applied across ${totalFiles} file(s).`);
-    takeways.push(`${totalViolations} total violation(s) found.`);
+    takeaways.push(`${results.length} standard(s) applied across ${totalFiles} file(s).`);
+    takeaways.push(`${totalViolations} total violation(s) found.`);
 
     const bestStandard = [...results].sort((a, b) => b.complianceScore - a.complianceScore)[0];
     const worstStandard = [...results].sort((a, b) => a.complianceScore - b.complianceScore)[0];
 
     if (bestStandard && worstStandard && results.length > 1) {
-      takeways.push(
+      takeaways.push(
         `Best: "${bestStandard.standardId}" (${bestStandard.complianceScore}%). Worst: "${worstStandard.standardId}" (${worstStandard.complianceScore}%).`,
       );
     }
 
-    return takeways;
+    return takeaways;
   }
 
   private findingsToRecommendations(findings: Finding[]): Recommendation[] {
@@ -457,15 +449,20 @@ export class ReportGenerator {
 
     return [...groups.entries()].map(([key, group], idx) => {
       const [severity, category] = key.split(':');
-      const resolvedCategory = /* v8 ignore next */ category ?? 'other';
-      const severityOrder: Record<Severity, number> = {
+      // `key` is always `${severity}:${category}`, where both `Severity` and
+      // `ReviewCategory` literals are colon-free, so `split(':')` provably
+      // yields exactly two elements.
+      const resolvedCategory = category!;
+      const severityOrder: Record<Severity, 1 | 2 | 3> = {
         critical: 1,
         high: 1,
         medium: 2,
         low: 3,
         info: 3,
       };
-      const priority = /* v8 ignore next */ (severityOrder[severity as Severity] ?? 3) as 1 | 2 | 3;
+      // `severity` originates from `f.severity`, which is always a `Severity`
+      // present in `severityOrder`, so the lookup provably returns a value.
+      const priority = severityOrder[severity as Severity]!;
 
       return {
         id: `rec-${idx}`,
