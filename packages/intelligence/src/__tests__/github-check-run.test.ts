@@ -1,14 +1,27 @@
 // @code-analyzer/intelligence — GitHub Check Run Manager Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GitHubCheckRunManager } from '../github/check-run.js';
 import type { CheckRunOptions } from '../github/check-run.js';
 import { GitHubApiClient } from '../github/client.js';
+import type { GitHubCheckRun } from '../github/client.js';
 import type { CrossRepoReviewResult } from '../cross-repo/cross-repo-pr-review.js';
 
 function createManager(options?: Partial<CheckRunOptions>): GitHubCheckRunManager {
   const client = new GitHubApiClient({ token: 'ghp_test' });
   return new GitHubCheckRunManager({ client, ...options });
+}
+
+/** Build a minimal GitHub check run object for stubbed client responses. */
+function makeCheckRun(overrides: Partial<GitHubCheckRun> = {}): GitHubCheckRun {
+  return {
+    id: 12345,
+    name: 'code-analyzer / Cross-Repo Review',
+    head_sha: 'sha123',
+    status: 'completed',
+    conclusion: 'success',
+    ...overrides,
+  };
 }
 
 function mockResult(overrides: Partial<CrossRepoReviewResult> = {}): CrossRepoReviewResult {
@@ -331,6 +344,145 @@ describe('GitHubCheckRunManager', () => {
     it('should handle empty test predictions', () => {
       const text = manager.formatDetailedText(mockResult({ testPredictions: [] }));
       expect(text).not.toContain('Test Impact');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // create — I/O method (stub the injected GitHub API client)
+  // -----------------------------------------------------------------------
+
+  describe('create', () => {
+    it('should build default title and summary when no details are given', async () => {
+      const client = new GitHubApiClient({ token: 'ghp_test' });
+      const createSpy = vi.spyOn(client, 'createCheckRun').mockResolvedValue(makeCheckRun());
+      const manager = new GitHubCheckRunManager({ client });
+
+      const result = await manager.create('org', 'repo', 'sha123');
+
+      expect(result.id).toBe(12345);
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(createSpy).toHaveBeenCalledWith('org', 'repo', {
+        name: 'code-analyzer / Cross-Repo Review',
+        head_sha: 'sha123',
+        status: 'in_progress',
+        output: {
+          title: 'Cross-Repo Code Review',
+          summary: 'Analyzing cross-repository impact...',
+        },
+      });
+    });
+
+    it('should pass custom title and summary through to the client', async () => {
+      const client = new GitHubApiClient({ token: 'ghp_test' });
+      const createSpy = vi.spyOn(client, 'createCheckRun').mockResolvedValue(makeCheckRun());
+      const manager = new GitHubCheckRunManager({ client, name: 'Custom Check' });
+
+      await manager.create('org', 'repo', 'sha123', {
+        title: 'Custom Title',
+        summary: 'Custom Summary',
+      });
+
+      expect(createSpy).toHaveBeenCalledWith('org', 'repo', {
+        name: 'Custom Check',
+        head_sha: 'sha123',
+        status: 'in_progress',
+        output: {
+          title: 'Custom Title',
+          summary: 'Custom Summary',
+        },
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // complete — I/O method (stub the injected GitHub API client)
+  // -----------------------------------------------------------------------
+
+  describe('complete', () => {
+    it('should mark the check run completed with conclusion, summary, text, and annotations', async () => {
+      const client = new GitHubApiClient({ token: 'ghp_test' });
+      const updateSpy = vi.spyOn(client, 'updateCheckRun').mockResolvedValue(makeCheckRun());
+      const manager = new GitHubCheckRunManager({ client });
+      const result = mockResult();
+
+      const out = await manager.complete(12345, 'org', 'repo', result);
+
+      expect(out.checkRun.id).toBe(12345);
+      expect(out.annotationsCount).toBe(manager.formatAnnotations(result).length);
+
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      const call = updateSpy.mock.calls[0]!;
+      expect(call[0]).toBe('org');
+      expect(call[1]).toBe('repo');
+      expect(call[2]).toBe(12345);
+
+      const params = call[3]!;
+      expect(params.status).toBe('completed');
+      expect(params.conclusion).toBe(manager.determineConclusion(result));
+      expect(params.completed_at).toBeDefined();
+      expect(params.output?.title).toContain('Cross-Repo Review');
+      expect(params.output?.summary).toBe(manager.formatSummary(result));
+      expect(params.output?.text).toBe(manager.formatDetailedText(result));
+      expect(params.output?.annotations).toHaveLength(manager.formatAnnotations(result).length);
+    });
+
+    it('should cap the annotations sent to GitHub at 50 while reporting the full count', async () => {
+      const manyComments = Array.from({ length: 60 }, (_, i) => ({
+        id: `${i}`,
+        path: `src/file${i}.ts`,
+        content: `Issue ${i}`,
+        existingCode: '',
+        startLine: i,
+        endLine: i,
+        category: 'style' as const,
+        severity: 'low' as const,
+        filtered: false,
+        createdAt: new Date().toISOString(),
+      }));
+      const client = new GitHubApiClient({ token: 'ghp_test' });
+      const updateSpy = vi.spyOn(client, 'updateCheckRun').mockResolvedValue(makeCheckRun());
+      const manager = new GitHubCheckRunManager({ client });
+      const result = mockResult({
+        prComments: manyComments,
+        apiBreakingChanges: [],
+        crossRepoImpacts: [],
+        testPredictions: [],
+      });
+
+      const out = await manager.complete(1, 'o', 'r', result);
+
+      // annotationsCount reflects the full set, not the capped payload.
+      expect(out.annotationsCount).toBe(60);
+      const params = updateSpy.mock.calls[0]![3]!;
+      expect(params.output?.annotations).toHaveLength(50);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // fail — I/O method (stub the injected GitHub API client)
+  // -----------------------------------------------------------------------
+
+  describe('fail', () => {
+    it('should mark the check run as failed with the error message embedded', async () => {
+      const client = new GitHubApiClient({ token: 'ghp_test' });
+      const updateSpy = vi.spyOn(client, 'updateCheckRun').mockResolvedValue(makeCheckRun());
+      const manager = new GitHubCheckRunManager({ client });
+
+      const result = await manager.fail(12345, 'org', 'repo', 'boom');
+
+      expect(result.id).toBe(12345);
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      const call = updateSpy.mock.calls[0]!;
+      expect(call[0]).toBe('org');
+      expect(call[1]).toBe('repo');
+      expect(call[2]).toBe(12345);
+
+      const params = call[3]!;
+      expect(params.status).toBe('completed');
+      expect(params.conclusion).toBe('failure');
+      expect(params.completed_at).toBeDefined();
+      expect(params.output?.title).toBe('Cross-Repo Review Failed');
+      expect(params.output?.summary).toContain('boom');
     });
   });
 });
