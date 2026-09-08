@@ -16,7 +16,7 @@ import {
   type LensId,
   type EvidenceAnchor,
 } from '../review/review-lenses.js';
-import type { GitDiff, DiffRange } from '@code-analyzer/shared';
+import type { GitDiff, DiffRange, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,6 +39,51 @@ function createSourceMap(files: Record<string, string>): Map<string, string> {
     map.set(path, content);
   }
   return map;
+}
+
+/**
+ * Build a knowledge-graph node for the enrichment tests. The graph enrichment
+ * path (enrichWithGraphContext) queries a hard-coded project id, so nodes must
+ * default to 'default-project'. `insertNode` assigns the real id and ignores
+ * the placeholder `id` below.
+ */
+function makeGraphNode(overrides: Partial<GraphNode> = {}): GraphNode {
+  const name = overrides.name ?? 'node';
+  return {
+    id: 0,
+    projectId: 'default-project',
+    label: 'Function',
+    name,
+    qualifiedName: `${name}.qualified`,
+    filePath: null,
+    startLine: null,
+    endLine: null,
+    language: null,
+    signature: null,
+    docstring: null,
+    complexity: null,
+    isExported: false,
+    fingerprint: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+    properties: { name, ...(overrides.properties ?? {}) },
+  };
+}
+
+/** Build a knowledge-graph edge for the enrichment tests. */
+function makeGraphEdge(overrides: Partial<GraphEdge> = {}): GraphEdge {
+  return {
+    id: 0,
+    projectId: 'default-project',
+    sourceId: 0,
+    targetId: 0,
+    type: 'CALLS',
+    properties: {},
+    weight: 1,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1047,6 +1092,115 @@ function handler(req: any, res: any) {
         (swarm as any).enrichWithGraphContext = originalMethod;
       }
     });
+
+    it('should populate callers, callees, related tests, and cross-repo refs from the graph', async () => {
+      // Build a realistic knowledge graph in 'default-project' (the project id
+      // that enrichWithGraphContext queries).
+      const nearFuncId = store.insertNode(
+        makeGraphNode({
+          name: 'nearFunc',
+          properties: { name: 'nearFunc', filePath: '/src/enrich.ts', lineNumber: 1 },
+        }),
+      );
+      // Same file but far away — exercises the |line - startLine| < 50 false arm.
+      store.insertNode(
+        makeGraphNode({
+          name: 'farFunc',
+          properties: { name: 'farFunc', filePath: '/src/enrich.ts', lineNumber: 100 },
+        }),
+      );
+      // Same file with no lineNumber — exercises the `funcLine` falsy arm.
+      store.insertNode(
+        makeGraphNode({
+          name: 'noLineFunc',
+          properties: { name: 'noLineFunc', filePath: '/src/enrich.ts' },
+        }),
+      );
+      // A different file — exercises the filePath-mismatch arm.
+      const otherFileId = store.insertNode(
+        makeGraphNode({
+          name: 'otherFileFunc',
+          properties: { name: 'otherFileFunc', filePath: '/src/other.ts' },
+        }),
+      );
+      // A Function node without a filePath — exercises the funcPath-falsy arm.
+      store.insertNode(makeGraphNode({ name: 'noPathFunc' }));
+
+      // Caller/callee nodes use a non-Function label so they are not iterated
+      // as candidate functions, only resolved through edge endpoints.
+      const callerAId = store.insertNode(
+        makeGraphNode({ name: 'callerA', label: 'Variable', properties: { name: 'callerA' } }),
+      );
+      const callerBId = store.insertNode(
+        makeGraphNode({ name: 'callerB', label: 'Variable', properties: { name: 'callerB' } }),
+      );
+      const calleeId = store.insertNode(
+        makeGraphNode({ name: 'calleeX', label: 'Variable', properties: { name: 'calleeX' } }),
+      );
+
+      // Test-file nodes exercise the `.test.` and `.spec.` detection arms.
+      const testDotId = store.insertNode(
+        makeGraphNode({
+          name: 'testDot',
+          properties: { name: 'testDot', filePath: '/src/enrich.test.ts' },
+        }),
+      );
+      const specId = store.insertNode(
+        makeGraphNode({
+          name: 'specFunc',
+          properties: { name: 'specFunc', filePath: '/src/enrich.spec.ts' },
+        }),
+      );
+
+      // A cross-repo function (crossRepo truthy) and a plain function (falsy).
+      const crossRepoId = store.insertNode(
+        makeGraphNode({
+          name: 'crossRepoFunc',
+          properties: { name: 'crossRepoFunc', filePath: '/src/cross.ts', crossRepo: '1' },
+        }),
+      );
+      store.insertNode(
+        makeGraphNode({
+          name: 'plainFunc',
+          properties: { name: 'plainFunc', filePath: '/src/plain.ts' },
+        }),
+      );
+
+      // Callers (incoming CALLS) and callees (outgoing CALLS) of nearFunc.
+      store.insertEdge(makeGraphEdge({ sourceId: callerAId, targetId: nearFuncId, type: 'CALLS' }));
+      store.insertEdge(makeGraphEdge({ sourceId: callerBId, targetId: nearFuncId, type: 'CALLS' }));
+      store.insertEdge(makeGraphEdge({ sourceId: nearFuncId, targetId: calleeId, type: 'CALLS' }));
+
+      // Test edges: one matching target and one non-matching target.
+      store.insertEdge(makeGraphEdge({ sourceId: testDotId, targetId: nearFuncId, type: 'TESTS' }));
+      store.insertEdge(
+        makeGraphEdge({ sourceId: testDotId, targetId: otherFileId, type: 'TESTS' }),
+      );
+      store.insertEdge(makeGraphEdge({ sourceId: specId, targetId: nearFuncId, type: 'TESTS' }));
+
+      // Cross-repo call edge.
+      store.insertEdge(
+        makeGraphEdge({ sourceId: crossRepoId, targetId: otherFileId, type: 'CROSS_REPO_CALLS' }),
+      );
+
+      const result = await swarm.reviewWithGraphContext(
+        'test-project',
+        [createDiff({ filePath: '/src/enrich.ts' })],
+        createSourceMap({ '/src/enrich.ts': 'eval("x");\n' }),
+      );
+
+      const secReport = result.lensReports.find((r) => r.lens === 'security');
+      expect(secReport).toBeDefined();
+      const finding = secReport?.findings[0];
+      expect(finding).toBeDefined();
+      expect(finding?.graphContext).toBeDefined();
+      expect(finding?.graphContext?.callers).toContain('callerA');
+      expect(finding?.graphContext?.callers).toContain('callerB');
+      expect(finding?.graphContext?.callees).toContain('calleeX');
+      expect(finding?.graphContext?.relatedTests).toContain('/src/enrich.test.ts');
+      expect(finding?.graphContext?.relatedTests).toContain('/src/enrich.spec.ts');
+      expect(finding?.graphContext?.crossRepoRefs.length).toBeGreaterThan(0);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -1450,6 +1604,79 @@ function handler(req: any, res: any) {
       expect(result.summary.totalFindings).toBe(1);
       // The survivors are the ones that pass IoU dedup first
       expect(result.summary.iouDeduped).toBe(2); // 2 of 3 are duplicates
+    });
+
+    it('should elevate low→medium, medium→high, high→critical and leave info untouched', () => {
+      // Disable IoU dedup (threshold 1.0 → IoU is never strictly greater) so that
+      // multiple findings can accumulate at the same location and trigger the
+      // consensus elevation branch (fs.length >= 3).
+      const swarm = new ReviewSwarm(store, {
+        parallel: false,
+        minSeverity: 'info',
+        iouThreshold: 1.0,
+      });
+
+      const baseEvidence: EvidenceAnchor = {
+        filePath: '/src/consensus.ts',
+        startLine: 10,
+        endLine: 10,
+        codeSnippet: 'code',
+        lens: 'security',
+      };
+      const findings = [
+        createLensFinding('security', 'security', 'low', 'Low', 'D1', baseEvidence),
+        createLensFinding('style', 'style', 'medium', 'Med', 'D2', {
+          ...baseEvidence,
+          lens: 'style',
+        }),
+        createLensFinding('performance', 'performance', 'high', 'High', 'D3', {
+          ...baseEvidence,
+          lens: 'performance',
+        }),
+        createLensFinding('docs', 'documentation', 'info', 'Info', 'D4', {
+          ...baseEvidence,
+          lens: 'docs',
+        }),
+      ];
+
+      const fakeReport = {
+        lens: 'test' as const,
+        name: 'Test',
+        findings,
+        filesScanned: 1,
+        linesAnalyzed: 1,
+        durationMs: 10,
+      };
+      const result = (swarm as any).synthesize?.([fakeReport]);
+
+      expect(result.summary.totalFindings).toBe(4);
+      expect(result.summary.iouDeduped).toBe(0);
+      expect(result.summary.bySeverity).toEqual({
+        critical: 1, // high → critical
+        high: 1, // medium → high
+        medium: 1, // low → medium
+        low: 0,
+        info: 1, // info is never elevated
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // executeLensOnDiff — defensive default arm for the synthesis lens
+  // -----------------------------------------------------------------------
+
+  describe('executeLensOnDiff — defensive default arm', () => {
+    it('returns an empty array for the synthesis lens (the only unhandled LensId)', () => {
+      // The synthesis lens is filtered out before lens execution, but the
+      // switch default still defends against it. Call the private method with a
+      // synthesis profile to exercise the default arm directly.
+      const synthesisProfile = getLensProfile('synthesis');
+      const result = (swarm as any).executeLensOnDiff(
+        synthesisProfile,
+        createDiff({ filePath: '/src/any.ts' }),
+        ['const x = 1;'],
+      );
+      expect(result).toEqual([]);
     });
   });
 

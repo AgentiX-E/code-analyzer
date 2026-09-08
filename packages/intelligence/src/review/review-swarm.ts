@@ -321,10 +321,8 @@ Reason: ${result.decision.reason}`;
 
     try {
       // Find functions in the same file at nearby lines
-      const fileNodes = this.store.queryNodes({ projectId, label: 'File' });
       const funcNodes = this.store.queryNodes({ projectId, label: 'Function' });
 
-      /* v8 ignore start */
       for (const func of funcNodes.items) {
         const funcPath = (func.properties as Record<string, string>)['filePath'];
         if (funcPath === finding.evidence.filePath) {
@@ -333,10 +331,12 @@ Reason: ${result.decision.reason}`;
             // Find callers of this nearby function
             const edges = this.store.queryEdges({ projectId, targetId: func.id, type: EDGE_CALLS });
             for (const edge of edges.items) {
-              const caller = this.store.getNode(edge.sourceId);
-              if (caller) {
-                context.callers.push(caller.name ?? caller.id);
-              }
+              // Invariant: insertEdge rejects edges whose endpoints are missing and
+              // deleteNode cascades to remove connected edges, so `getNode` never
+              // returns null for an edge endpoint. `name` is also a required
+              // non-null string field, so the `?? id` fallback is unreachable.
+              const caller = this.store.getNode(edge.sourceId)!;
+              context.callers.push(caller.name);
             }
 
             // Find what this function calls
@@ -346,10 +346,8 @@ Reason: ${result.decision.reason}`;
               type: EDGE_CALLS,
             });
             for (const edge of outEdges.items) {
-              const callee = this.store.getNode(edge.targetId);
-              if (callee) {
-                context.callees.push(callee.name ?? callee.id);
-              }
+              const callee = this.store.getNode(edge.targetId)!;
+              context.callees.push(callee.name);
             }
           }
         }
@@ -358,12 +356,10 @@ Reason: ${result.decision.reason}`;
         if ((funcPath && funcPath.includes('.test.')) || funcPath?.includes('.spec.')) {
           const testEdges = this.store.queryEdges({ projectId, sourceId: func.id });
           for (const edge of testEdges.items) {
-            const target = this.store.getNode(edge.targetId);
-            if (target) {
-              const targetPath = (target.properties as Record<string, string>)['filePath'];
-              if (targetPath === finding.evidence.filePath) {
-                context.relatedTests.push(funcPath);
-              }
+            const target = this.store.getNode(edge.targetId)!;
+            const targetPath = (target.properties as Record<string, string>)['filePath'];
+            if (targetPath === finding.evidence.filePath) {
+              context.relatedTests.push(funcPath);
             }
           }
         }
@@ -380,7 +376,6 @@ Reason: ${result.decision.reason}`;
           }
         }
       }
-      /* v8 ignore stop */
     } catch {
       // Best-effort enrichment
     }
@@ -483,7 +478,9 @@ Reason: ${result.decision.reason}`;
         return this.runDepsLens(diff, lines);
       case 'contract':
         return this.runContractLens(diff, lines, sourceContents);
-      /* v8 ignore next 2 */
+      // The synthesis lens is filtered out before lens execution, and every
+      // reachable LensId is handled above. This default is a defensive arm for
+      // type exhaustiveness (an unknown future LensId falls through to []).
       default:
         return [];
     }
@@ -661,7 +658,9 @@ Reason: ${result.decision.reason}`;
     const findings: LensFinding[] = [];
 
     // Determine manifest type from file path
-    const fileName = diff.filePath.split('/').pop() ?? '';
+    // `split('/')` on a string always yields a non-empty array, so `pop()` is
+    // always a string here; the `!` only narrows the `string | undefined` type.
+    const fileName = diff.filePath.split('/').pop()!;
     let manifestType: 'npm' | 'pip' | 'cargo' | 'go' | null = null;
 
     if (fileName === 'package.json') manifestType = 'npm';
@@ -798,7 +797,6 @@ Reason: ${result.decision.reason}`;
     }
 
     for (const [key, fs] of locationMap) {
-      /* v8 ignore start */
       if (fs.length >= 3) {
         // Consensus: multiple lenses agree — elevate severity
         for (const f of fs) {
@@ -807,7 +805,6 @@ Reason: ${result.decision.reason}`;
           else if (f.severity === 'high') f.severity = 'critical';
         }
       }
-      /* v8 ignore stop */
     }
 
     // Step 5: Filter by minimum severity
@@ -828,7 +825,10 @@ Reason: ${result.decision.reason}`;
     const byLens: Record<string, number> = {};
 
     for (const f of allFindings) {
-      bySeverity[f.severity] = (bySeverity[f.severity] ?? 0) + 1;
+      // `bySeverity` is pre-initialized with every Severity key, so the value is
+      // always a number; the `?? 0` guards are only needed for the dynamically
+      // keyed `byCategory`/`byLens` records.
+      bySeverity[f.severity] = bySeverity[f.severity] + 1;
       byCategory[f.category] = (byCategory[f.category] ?? 0) + 1;
       byLens[f.lens] = (byLens[f.lens] ?? 0) + 1;
     }
