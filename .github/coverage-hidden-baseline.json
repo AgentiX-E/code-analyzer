@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1210,
-  "totalLines": 128720,
+  "totalHidden": 1201,
+  "totalLines": 128724,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -34,7 +34,6 @@
     "packages/analyzer/src/pipeline/phases/semantic.ts": 10,
     "packages/analyzer/src/languages/kotlin.ts": 9,
     "packages/infra/src/git/git-operations.ts": 9,
-    "packages/intelligence/src/review/dashboard-aggregator.ts": 9,
     "packages/analyzer/src/languages/r.ts": 8,
     "packages/analyzer/src/pipeline/orchestrator.ts": 7,
     "packages/mcp/src/tools/tool-context.ts": 7,

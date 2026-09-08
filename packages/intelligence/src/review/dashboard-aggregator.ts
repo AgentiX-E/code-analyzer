@@ -185,9 +185,9 @@ export class ReviewDashboardAggregator {
 
     return {
       totalReviews,
-      /* v8 ignore next -- @preserve */
-      avgFindingsPerReview:
-        totalReviews > 0 ? Math.round((totalFindings / totalReviews) * 10) / 10 : 0,
+      // `totalReviews` equals `reviews.length`, which is > 0 past the empty
+      // check above, so the division is always defined.
+      avgFindingsPerReview: Math.round((totalFindings / totalReviews) * 10) / 10,
       mostCommonIssues: mostCommon,
       severityDistribution: severityDist,
       categoryDistribution: categoryDist,
@@ -270,12 +270,14 @@ export class ReviewDashboardAggregator {
     let weightedScore = 0;
     let totalWeight = 0;
     for (const [cat, config] of Object.entries(penaltyMap)) {
-      /* v8 ignore next -- @preserve */
-      weightedScore += (categoryScores[cat] ?? 100) * config.weight;
+      // The previous loop assigns `categoryScores[cat]` for every key in
+      // `penaltyMap`, so the lookup is always defined.
+      weightedScore += categoryScores[cat]! * config.weight;
       totalWeight += config.weight;
     }
-    /* v8 ignore next -- @preserve */
-    const overallScore = totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 100;
+    // `penaltyMap` has a fixed set of positive weights, so `totalWeight` is
+    // always > 0 and the division is always defined.
+    const overallScore = Math.round(weightedScore / totalWeight);
 
     // Determine trend based on critical findings in recent vs older reviews
     const sorted = [...reviews].sort(
@@ -296,8 +298,9 @@ export class ReviewDashboardAggregator {
 
     // Normalize by review count
     const recentRate = recent.length > 0 ? recentCriticals / recent.length : 0;
-    /* v8 ignore next -- @preserve */
-    const olderRate = older.length > 0 ? olderCriticals / older.length : 0;
+    // `older` is `sorted.slice(mid)`, which is non-empty whenever the reviews
+    // array is non-empty (past the early return), so the division is defined.
+    const olderRate = olderCriticals / older.length;
 
     const trend: 'improving' | 'stable' | 'degrading' =
       recentRate < olderRate * 0.8
@@ -323,13 +326,13 @@ export class ReviewDashboardAggregator {
     return {
       score: overallScore,
       trend,
+      // Every key below is assigned in the scoring loop above, so the lookups
+      // are always defined.
       byCategory: {
-        /* v8 ignore start -- @preserve */
-        security: categoryScores['security'] ?? 100,
-        bugs: categoryScores['bug'] ?? 100,
-        performance: categoryScores['performance'] ?? 100,
-        maintainability: categoryScores['maintainability'] ?? 100,
-        /* v8 ignore stop -- @preserve */
+        security: categoryScores['security']!,
+        bugs: categoryScores['bug']!,
+        performance: categoryScores['performance']!,
+        maintainability: categoryScores['maintainability']!,
       },
       recommendations: recommendations.slice(0, 5),
     };
@@ -578,9 +581,10 @@ export class ReviewDashboardAggregator {
       lines.push('');
       lines.push('| Category | Count |');
       lines.push('| --- | --- |');
+      // Category counts are always positive (aggregation only ever increments
+      // from a `?? 0` base), so every entry is emitted.
       for (const [cat, count] of Object.entries(report.metrics.categoryDistribution)) {
-        /* v8 ignore next -- @preserve */
-        if (count > 0) lines.push(`| ${cat} | ${count} |`);
+        lines.push(`| ${cat} | ${count} |`);
       }
       lines.push('');
     }
