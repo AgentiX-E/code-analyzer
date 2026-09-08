@@ -46,6 +46,26 @@ export interface EnrichedDiff {
 }
 
 // ---------------------------------------------------------------------------
+// Risk-level mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Map severity counts to a summary risk level.
+ *
+ * Extracted as a pure function so the threshold logic is unit-testable
+ * independently of the swarm pipeline, which may not surface every severity
+ * through its public API when source content is unavailable.
+ */
+export function severityRiskLevel(
+  bySeverity: Record<Severity, number>,
+): PRReviewSummary['riskLevel'] {
+  if (bySeverity.critical > 0) return 'critical';
+  if (bySeverity.high > 3) return 'high';
+  if (bySeverity.medium > 5) return 'medium';
+  return 'low';
+}
+
+// ---------------------------------------------------------------------------
 // PR Review Engine
 // ---------------------------------------------------------------------------
 
@@ -57,7 +77,6 @@ export class PRReviewEngine {
     private store: InMemoryGraphStore,
     sessionStore?: SessionStore,
   ) {
-    /* v8 ignore next -- @preserve */
     this.sessionStore = sessionStore ?? new SessionStore();
   }
 
@@ -89,7 +108,6 @@ export class PRReviewEngine {
     const comments = [...sessionComments, ...standardsComments];
 
     // Compute impact result
-    /* v8 ignore next -- @preserve */
     const impactResult = this.computeImpact(projectId, enrichedDiffs);
 
     // Build summary (now includes standards-derived comments)
@@ -131,8 +149,8 @@ export class PRReviewEngine {
     const swarmResult = await swarm.reviewWithGraphContext(projectId, diffs);
 
     // Phase 3: Generate MCP prompt for Client LLM deep review
-    /* v8 ignore next -- @preserve */
-    const mcpPrompt = swarm.generateMCPPrompt(swarmResult, _pr.title ?? 'PR Review');
+    // Invariant: `PullRequest.title` is a required `string`, so a fallback is unreachable.
+    const mcpPrompt = swarm.generateMCPPrompt(swarmResult, _pr.title);
 
     // Build summary compatible with existing PRReviewResult
     const byCategory = { ...swarmResult.summary.byCategory } as Record<ReviewCategory, number>;
@@ -142,16 +160,7 @@ export class PRReviewEngine {
       totalComments: swarmResult.comments.length,
       byCategory,
       bySeverity,
-      /* v8 ignore start -- @preserve */
-      riskLevel:
-        swarmResult.summary.bySeverity.critical > 0
-          ? 'critical'
-          : swarmResult.summary.bySeverity.high > 3
-            ? 'high'
-            : swarmResult.summary.bySeverity.medium > 5
-              ? 'medium'
-              : 'low',
-      /* v8 ignore stop -- @preserve */
+      riskLevel: severityRiskLevel(swarmResult.summary.bySeverity),
       mergeRecommendation: swarmResult.decision.recommendation,
     };
 
@@ -161,7 +170,6 @@ export class PRReviewEngine {
       standardsResults: [],
       impactResult: {
         riskLevel: summary.riskLevel,
-        /* v8 ignore next -- @preserve */
         affectedFiles: swarmResult.actionPlan.map((a) => a.files).flat(),
         affectedSymbols: [],
         estimatedImpact: swarmResult.summary.totalFindings,
@@ -200,11 +208,10 @@ export class PRReviewEngine {
         if (rr.passed) {
           summary.passed++;
         } else {
-          const severity = rr.severity;
-          /* v8 ignore next -- @preserve */
-          if (severity in summary) {
-            summary[severity as keyof typeof summary]++;
-          }
+          // Invariant: `rr.severity` is typed `Severity`, and `summary` is
+          // pre-initialized with a counter for every Severity value, so the
+          // `severity in summary` guard would always be true.
+          summary[rr.severity]++;
         }
       }
 
@@ -294,7 +301,11 @@ export class PRReviewEngine {
             } else if (!config.forbidden) {
               // For required patterns, check first non-comment, non-empty line
               if (line.trim() && !line.trim().startsWith('//') && !line.trim().startsWith('/*')) {
-                /* v8 ignore next -- @preserve */
+                // Reset lastIndex before `test()`: the shared `g`-flagged regex's
+                // lastIndex is advanced by the preceding `exec()` call, which would
+                // otherwise make `test()` start mid-string and report a false
+                // negative for a line that actually matches the required pattern.
+                pattern.lastIndex = 0;
                 if (!pattern.test(line.trim())) {
                   violations.push({
                     filePath: diff.filePath,
@@ -316,8 +327,9 @@ export class PRReviewEngine {
               filePath: diff.filePath,
               lineNumber: 1,
               message: `${rule.description}: file has ${lines.length} lines (max: ${config.maxLines})`,
-              /* v8 ignore next -- @preserve */
-              codeSnippet: lines[0] ?? '',
+              // Invariant: `lines` is `getDiffContentForCheck(diff).split('\n')`,
+              // which always yields at least one element, so `lines[0]` is defined.
+              codeSnippet: lines[0]!,
               standardRef: `${standard.id}.${rule.id}`,
             });
           }
@@ -325,11 +337,10 @@ export class PRReviewEngine {
           if (config.maxDepth !== undefined) {
             let maxDepth = 0;
             for (const line of lines) {
-              const trimmedStart = line.trimStart();
-              // Skip empty lines and content-comment lines
-              /* v8 ignore next -- @preserve */
-              if (!trimmedStart) continue;
-              const indent = line.length - trimmedStart.length;
+              // Invariant: `lines` comes from `getDiffContentForCheck`, which only
+              // emits non-empty lines (file header + basename), so a blank-line
+              // guard would be unreachable here.
+              const indent = line.length - line.trimStart().length;
               // Each 2 spaces ≈ 1 nesting level; root level = 1
               const depth = Math.floor(indent / 2) + 1;
               if (depth > maxDepth) maxDepth = depth;
@@ -339,8 +350,8 @@ export class PRReviewEngine {
                 filePath: diff.filePath,
                 lineNumber: 1,
                 message: `${rule.description}: maximum nesting depth is ${maxDepth} (max: ${config.maxDepth})`,
-                /* v8 ignore next -- @preserve */
-                codeSnippet: lines[0] ?? '',
+                // Invariant: `lines` is non-empty (see above), so `lines[0]` is defined.
+                codeSnippet: lines[0]!,
                 standardRef: `${standard.id}.${rule.id}`,
               });
             }
@@ -361,16 +372,16 @@ export class PRReviewEngine {
     return ruleResults;
   }
 
-  /* v8 ignore start -- @preserve */
   private computeCompliance(
     ruleResults: Array<{ passed: boolean }>,
     _standard: ProjectStandard,
   ): number {
-    if (ruleResults.length === 0) return 100;
+    // Invariant: `evaluateStandardRules` emits exactly one result per rule and
+    // every built-in standard (DEFAULT_STANDARDS) declares at least one rule,
+    // so `ruleResults` is never empty and the denominator is always non-zero.
     const passedCount = ruleResults.filter((r) => r.passed).length;
     return Math.round((passedCount / ruleResults.length) * 100);
   }
-  /* v8 ignore stop -- @preserve */
 
   /**
    * Convert standards check violations into ReviewComment objects so they
@@ -408,7 +419,6 @@ export class PRReviewEngine {
    */
   private mapStandardCategory(standardId: string): ReviewCategory {
     if (standardId.includes('security')) return 'security';
-    /* v8 ignore next -- @preserve */
     if (standardId.includes('error')) return 'bug';
     if (
       standardId.includes('func-length') ||
@@ -456,7 +466,6 @@ export class PRReviewEngine {
       for (const edge of allEdges) {
         if (fileNodeIds.has(edge.sourceId) && testNodeIds.has(edge.targetId)) {
           const testNode = allNodes.find((n) => n.id === edge.targetId);
-          /* v8 ignore next -- @preserve */
           if (testNode?.filePath && !relatedTests.includes(testNode.filePath)) {
             relatedTests.push(testNode.filePath);
           }
@@ -558,14 +567,13 @@ export class PRReviewEngine {
     };
 
     for (const comment of comments) {
-      /* v8 ignore start -- @preserve */
-      byCategory[comment.category] = (byCategory[comment.category] ?? 0) + 1;
-      bySeverity[comment.severity] = (bySeverity[comment.severity] ?? 0) + 1;
-      /* v8 ignore stop -- @preserve */
+      // Invariant: `byCategory`/`bySeverity` are pre-initialized with every
+      // ReviewCategory/Severity key, so each lookup is always a defined number.
+      byCategory[comment.category] = byCategory[comment.category] + 1;
+      bySeverity[comment.severity] = bySeverity[comment.severity] + 1;
     }
 
     // Determine merge recommendation
-    /* v8 ignore start -- @preserve */
     const riskLevel: 'critical' | 'high' | 'medium' | 'low' =
       impactResult.riskLevel === 'critical'
         ? 'critical'
@@ -578,7 +586,6 @@ export class PRReviewEngine {
               : bySeverity.high > 0
                 ? 'medium'
                 : 'low';
-    /* v8 ignore stop -- @preserve */
 
     let mergeRecommendation: 'approve' | 'approve-with-comments' | 'request-changes' | 'block';
     if (bySeverity.critical > 0) {
@@ -647,13 +654,12 @@ export class PRReviewEngine {
     // Include the file basename (without extension) as a non-comment line
     // so that required-pattern checks (e.g. naming conventions) have
     // real content to match against.
-    /* v8 ignore start -- @preserve */
-    const basename =
-      diff.filePath
-        .split('/')
-        .pop()
-        ?.replace(/\.[^.]+$/, '') ?? 'unknown';
-    /* v8 ignore stop -- @preserve */
+    // Invariant: `split('/')` always yields a non-empty array, so `pop()` is
+    // always a string; `!` narrows the `string | undefined` type.
+    const basename = diff.filePath
+      .split('/')
+      .pop()!
+      .replace(/\.[^.]+$/, '');
     parts.push(basename);
 
     // When the diff spans many ranges, synthesize nesting structure so

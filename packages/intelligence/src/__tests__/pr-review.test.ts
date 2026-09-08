@@ -2,7 +2,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CodeReviewEngine } from '../review/review-engine.js';
-import { PRReviewEngine } from '../review/pr-review.js';
+import { PRReviewEngine, severityRiskLevel } from '../review/pr-review.js';
 import { SessionStore } from '../review/session-store.js';
 import { ReviewSwarm } from '../review/review-swarm.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -1532,6 +1532,138 @@ describe('PR Review Engine', () => {
           /* cleanup */
         }
       }
+    });
+  });
+
+  describe('severityRiskLevel — pure risk-level mapping', () => {
+    it('should return critical when any critical findings exist', () => {
+      expect(severityRiskLevel({ critical: 1, high: 0, medium: 0, low: 0, info: 0 })).toBe(
+        'critical',
+      );
+    });
+
+    it('should return high when more than 3 high findings and no critical', () => {
+      expect(severityRiskLevel({ critical: 0, high: 4, medium: 0, low: 0, info: 0 })).toBe('high');
+    });
+
+    it('should return medium when more than 5 medium findings and no critical/high', () => {
+      expect(severityRiskLevel({ critical: 0, high: 0, medium: 6, low: 0, info: 0 })).toBe(
+        'medium',
+      );
+    });
+
+    it('should return low otherwise', () => {
+      expect(severityRiskLevel({ critical: 0, high: 0, medium: 0, low: 0, info: 0 })).toBe('low');
+    });
+  });
+
+  describe('constructor — sessionStore default', () => {
+    it('should construct with a default SessionStore when none is provided', async () => {
+      const engine = new PRReviewEngine(reviewEngine, store);
+      const result = await engine.reviewPR('test-project', createPR(), [createDiff()]);
+      expect(result.sessionId).toBeTruthy();
+      expect(result.standardsResults.length).toBe(7);
+    });
+  });
+
+  describe('reviewPRSwarm — graph-derived orphan findings', () => {
+    it('should surface medium risk from graph-derived orphan findings', async () => {
+      // Six exported Function nodes with no incoming edges produce six medium
+      // "Orphan Code" findings via the structure lens, which reads the graph
+      // store directly (the structure lens pins projectId to 'default-project').
+      const positions = [
+        { s: 1, e: 5 },
+        { s: 11, e: 15 },
+        { s: 21, e: 25 },
+        { s: 31, e: 35 },
+        { s: 41, e: 45 },
+        { s: 51, e: 55 },
+      ];
+      for (let i = 0; i < positions.length; i++) {
+        createNode(store, {
+          projectId: 'default-project',
+          filePath: '/src/orphans.ts',
+          name: `orphan${i}`,
+          qualifiedName: `pkg.orphan${i}`,
+          startLine: positions[i]!.s,
+          endLine: positions[i]!.e,
+        });
+      }
+
+      const result = await prEngine.reviewPRSwarm('test-project', createPR(), [
+        createDiff({ filePath: '/src/orphans.ts' }),
+      ]);
+
+      expect(result.summary.bySeverity.medium).toBeGreaterThan(5);
+      expect(result.summary.riskLevel).toBe('medium');
+      expect(result.swarmResult.actionPlan.some((a) => a.files.includes('/src/orphans.ts'))).toBe(
+        true,
+      );
+    });
+  });
+
+  describe('buildEnrichedContext — related test dedup', () => {
+    it('should deduplicate related test file paths', async () => {
+      const sourceId = createNode(store, { filePath: '/src/test.ts' });
+      const test1Id = createNode(store, {
+        filePath: '/src/__tests__/test.test.ts',
+        name: 'test_one',
+        qualifiedName: 'pkg.test.one',
+        label: 'Test',
+      });
+      const test2Id = createNode(store, {
+        filePath: '/src/__tests__/test.test.ts',
+        name: 'test_two',
+        qualifiedName: 'pkg.test.two',
+        label: 'Test',
+      });
+      createEdge(store, sourceId, test1Id, { type: 'TESTS' });
+      createEdge(store, sourceId, test2Id, { type: 'TESTS' });
+
+      const result = await prEngine.reviewPR('test-project', createPR(), [
+        createDiff({ filePath: '/src/test.ts' }),
+      ]);
+
+      // One affected symbol (source); the two test edges share one file path,
+      // so relatedTests is deduplicated to a single entry.
+      expect(result.impactResult.changedSymbols.length).toBe(1);
+    });
+  });
+
+  describe('buildSummary — high severity risk branch', () => {
+    it('should return high risk when 3+ high-severity comments and low impact', async () => {
+      // Each diff with 60 ranges triggers both the maxLines (>50) and maxDepth
+      // (>4, via synthesized nesting lines) violations of the nesting-depth
+      // standard (severity: high). Two diffs yield 4 high comments -> high > 2.
+      const ranges = Array.from({ length: 60 }, (_, i) => ({
+        oldStart: i * 2,
+        oldEnd: i * 2 + 1,
+        newStart: i * 2,
+        newEnd: i * 2 + 1,
+        changeType: 'modified' as const,
+      }));
+      const diffs = [
+        createDiff({ filePath: '/src/big1.ts', ranges }),
+        createDiff({ filePath: '/src/big2.ts', ranges }),
+      ];
+
+      const result = await prEngine.reviewPR('test-project', createPR(), diffs);
+
+      expect(result.summary.bySeverity.high).toBeGreaterThan(2);
+      expect(result.summary.riskLevel).toBe('high');
+    });
+  });
+
+  describe('mapStandardCategory — error-handling branch', () => {
+    it('should map an error-handling standard id to the bug category', () => {
+      // `mapStandardCategory` is private; reach it via a cast. The only built-in
+      // standard whose id contains "error" (std-error-handling) uses ast-pattern
+      // rules that produce no violations, so this branch is not reachable through
+      // the public reviewPR pipeline.
+      const category = (
+        prEngine as unknown as { mapStandardCategory: (id: string) => string }
+      ).mapStandardCategory('std-error-handling');
+      expect(category).toBe('bug');
     });
   });
 });

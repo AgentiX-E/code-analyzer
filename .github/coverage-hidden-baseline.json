@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1268,
-  "totalLines": 128717,
+  "totalHidden": 1222,
+  "totalLines": 128723,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -9,7 +9,6 @@
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
     "packages/server/src/middleware/cors.ts": 50,
     "packages/mcp/src/cypher/executor.ts": 48,
-    "packages/intelligence/src/review/pr-review.ts": 46,
     "packages/server/src/middleware/error-handler.ts": 42,
     "packages/infra/src/project/project-detector.ts": 39,
     "packages/analyzer/src/languages/html.ts": 35,
