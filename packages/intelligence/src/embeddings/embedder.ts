@@ -269,10 +269,9 @@ interface NodeEmbedderInstance {
  * Produces semantically meaningful 768-dim L2-normalized embeddings using the
  * BERT-based nomic-embed-code-v1.5 model (137M params, int8 quantized).
  *
- * NOTE: This backend requires the ONNX model file (~137MB) and native ONNX runtime.
- * Coverage is excluded from CI because the model is not checked in.
+ * This class only delegates to a pre-built `NodeEmbedderInstance`; it does not
+ * load the ONNX runtime itself, so it is testable with a typed substitute.
  */
-/* v8 ignore start -- @preserve */
 export class RealEmbeddingBackend implements EmbeddingBackend {
   readonly dimensions: number;
   readonly backendType = 'onnx' as const;
@@ -293,7 +292,6 @@ export class RealEmbeddingBackend implements EmbeddingBackend {
     await this.embedder.dispose();
   }
 }
-/* v8 ignore stop -- @preserve */
 
 // ---------------------------------------------------------------------------
 // Backend Factory
@@ -303,10 +301,7 @@ export class RealEmbeddingBackend implements EmbeddingBackend {
  * Attempt to create a real ONNX backend using @agentix-e/embed-code-node.
  * Returns null if the package is not available, the model is missing,
  * or ONNX runtime fails to load (e.g. missing native libraries).
- *
- * NOTE: Requires native ONNX runtime + model file (~137MB). Excluded from CI coverage.
  */
-/* v8 ignore start -- @preserve */
 async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBackend | null> {
   try {
     const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
@@ -337,7 +332,6 @@ async function createRealBackend(config: EmbeddingConfig): Promise<EmbeddingBack
     return null;
   }
 }
-/* v8 ignore stop -- @preserve */
 
 // ---------------------------------------------------------------------------
 // Embedding Engine
@@ -383,8 +377,6 @@ export class EmbeddingEngine {
     if (this.initialized) return this._initWarning;
 
     const realBackend = await createRealBackend(this.config);
-    // Only reached when ONNX model is available (excluded from CI coverage)
-    /* v8 ignore start -- @preserve */
     if (realBackend) {
       this.backend.dispose();
       this.backend = realBackend;
@@ -396,7 +388,6 @@ export class EmbeddingEngine {
         'Install @agentix-e/embed-code-node and download the model to enable real embeddings. ' +
         'Run: npx embed-code download';
     }
-    /* v8 ignore stop -- @preserve */
 
     this.initialized = true;
     return this._initWarning;
@@ -526,12 +517,11 @@ export class EmbeddingEngine {
 
     const vectors = await this.backend.embedBatch(missingContents);
 
+    // `embedBatch` returns one vector per input code (same length as `missingIds`),
+    // so `vectors[i]` is always defined here. The `!` only narrows the indexed
+    // access type under `noUncheckedIndexedAccess`, matching `missingIds[i]!`.
     for (let i = 0; i < missingIds.length; i++) {
-      const vec = vectors[i];
-      /* v8 ignore next — unreachable when batch returns same-length array -- @preserve */
-      if (vec) {
-        this.embedStore.set(missingIds[i]!, vec);
-      }
+      this.embedStore.set(missingIds[i]!, vectors[i]!);
     }
   }
 

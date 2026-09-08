@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1525,
-  "totalLines": 128739,
+  "totalHidden": 1463,
+  "totalLines": 128729,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -8,7 +8,6 @@
     "packages/server/src/middleware/logging.ts": 80,
     "packages/intelligence/src/cross-repo/repo-group-manager.ts": 74,
     "packages/intelligence/src/review/review-swarm.ts": 65,
-    "packages/intelligence/src/embeddings/embedder.ts": 62,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
     "packages/intelligence/src/github/check-run.ts": 56,
     "packages/server/src/middleware/cors.ts": 50,

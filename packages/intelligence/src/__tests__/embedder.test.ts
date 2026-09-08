@@ -1,6 +1,7 @@
 // @code-analyzer/intelligence — Embedding Engine Tests
 // Comprehensive tests for MockEmbeddingBackend (n-gram based) and EmbeddingEngine.
-// RealEmbeddingBackend tests require ONNX runtime and are excluded from CI coverage.
+// RealEmbeddingBackend and the real-backend upgrade path are covered in
+// embedder-onnx.test.ts (with the @agentix-e/embed-code-node dependency mocked).
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EmbeddingEngine, MockEmbeddingBackend, murmurHash3 } from '../embeddings/embedder.js';
