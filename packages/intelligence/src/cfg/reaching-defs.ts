@@ -79,9 +79,9 @@ interface RawFact {
 // ---------------------------------------------------------------------------
 
 function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
+  // `n > 0` is guaranteed: `computeReachingDefinitions` returns early when
+  // `defCount === 0 || useCount === 0`, and an empty CFG implies both are zero.
   const n = cfg.blocks.length;
-  /* v8 ignore next — guarded upstream: computeReachingDefinitions returns early when def/use counts are zero */
-  if (n === 0) return [];
 
   // Lattice: In[b][bindingIdx] = Set<defKey>
   const inSets: Array<Map<number, Set<number>>> = Array.from({ length: n }, () => new Map());
@@ -147,12 +147,16 @@ function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
     const oldIn = inSets[b]!;
     let changed = false;
 
-    // Check which bindings changed. OUT[b] is monotone (a union of predecessor
-    // IN sets overlaid with GEN), so a binding that is present in the previous
-    // IN set is never removed; the set only grows or is replaced by GEN.
+    // Check which bindings changed. OUT[b] is monotone: each binding's def set
+    // is either a union of predecessor IN sets (which only grows) or replaced
+    // wholesale by the block's fixed GEN set (constant across iterations). In
+    // both cases a binding already present in the previous IN set is never
+    // removed, so growth is detected by cardinality alone — a same-size change
+    // is impossible, and a general set-equality comparison would carry an
+    // unreachable mismatch branch.
     for (const [binding, newDefs] of out) {
       const old = oldIn.get(binding);
-      if (!old || !setsEqual(old, newDefs)) {
+      if (!old || old.size !== newDefs.size) {
         changed = true;
         oldIn.set(binding, new Set(newDefs));
       }
@@ -194,9 +198,9 @@ function computeReachingDefsDense(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
 // testable seam even though both now use the same correct algorithm.
 
 function computeReachingDefsSparse(cfg: FunctionCfg, h: Harvest): DefUseFact[] {
+  // `n > 0` is guaranteed: `computeReachingDefinitions` returns early when
+  // `defCount === 0 || useCount === 0`, and an empty CFG implies both are zero.
   const n = cfg.blocks.length;
-  /* v8 ignore next — guarded upstream: computeReachingDefinitions returns early when def/use counts are zero */
-  if (n === 0) return [];
 
   // entryValue[b][bindingIdx] = Set<defKey> — the set of defs reaching the
   // entry of block b for each binding. It starts empty for every block (the
@@ -414,8 +418,9 @@ function sweepFacts(
             let count = 0;
             for (const defKey of reaching) {
               if (count >= MAX_FACTS_PER_BINDING) break;
-              /* v8 ignore next — every defKey originates from a harvested def site that records its line */
-              const defLine = h.defLines.get(defKey) ?? 0;
+              // Every defKey originates from a harvested def site that records
+              // its line in `defLines`, so the lookup is always defined.
+              const defLine = h.defLines.get(defKey)!;
               const defPoint = decodeDefKey(defKey, defLine);
 
               facts.push({
@@ -489,8 +494,9 @@ function sweepFactsSparse(
             let count = 0;
             for (const defKey of reaching) {
               if (count >= MAX_FACTS_PER_BINDING) break;
-              /* v8 ignore next — every defKey originates from a harvested def site that records its line */
-              const defLine = h.defLines.get(defKey) ?? 0;
+              // Every defKey originates from a harvested def site that records
+              // its line in `defLines`, so the lookup is always defined.
+              const defLine = h.defLines.get(defKey)!;
               const defPoint = decodeDefKey(defKey, defLine);
 
               facts.push({
@@ -565,8 +571,9 @@ function buildReversePostOrder(cfg: FunctionCfg): number[] {
 
   function dfs(b: number): void {
     visited[b] = 1;
-    /* v8 ignore next — succs is sized n and every valid edge target is < n, so succs[b] is always defined */
-    for (const s of succs[b] ?? []) {
+    // `succs` is sized `n` and every valid edge target is `< n`, so `succs[b]`
+    // is always defined for the blocks visited by this DFS.
+    for (const s of succs[b]!) {
       if (!visited[s]) dfs(s);
     }
     postOrder.push(b);
@@ -574,15 +581,6 @@ function buildReversePostOrder(cfg: FunctionCfg): number[] {
 
   dfs(cfg.entryIndex);
   return postOrder.reverse();
-}
-
-function setsEqual(a: Set<number>, b: Set<number>): boolean {
-  if (a.size !== b.size) return false;
-  for (const val of a) {
-    /* v8 ignore next — reaching sets only grow (union) or are replaced by GEN, so a same-size mismatch never occurs */
-    if (!b.has(val)) return false;
-  }
-  return true;
 }
 
 function dedupFacts(facts: RawFact[]): DefUseFact[] {

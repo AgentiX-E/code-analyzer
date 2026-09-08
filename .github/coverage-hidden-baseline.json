@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1201,
-  "totalLines": 128724,
+  "totalHidden": 1195,
+  "totalLines": 128722,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -40,7 +40,6 @@
     "packages/infra/src/performance/memoizer.ts": 6,
     "packages/infra/src/project/auto-watcher.ts": 6,
     "packages/infra/src/workers/supervisor.ts": 6,
-    "packages/intelligence/src/cfg/reaching-defs.ts": 6,
     "packages/intelligence/src/embeddings/embedding-worker.ts": 6,
     "packages/infra/src/storage/in-memory-graph-store.ts": 5,
     "packages/mcp/src/tools/confidence.ts": 5,
