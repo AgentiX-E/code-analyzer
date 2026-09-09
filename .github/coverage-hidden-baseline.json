@@ -1,9 +1,8 @@
 {
-  "totalHidden": 676,
-  "totalLines": 128648,
+  "totalHidden": 618,
+  "totalLines": 128637,
   "files": {
     "packages/core/src/agents/detector.ts": 93,
-    "packages/analyzer/src/pipeline/phases/embed.ts": 58,
     "packages/infra/src/project/project-detector.ts": 39,
     "packages/analyzer/src/languages/html.ts": 35,
     "packages/cli/src/commands/agent.ts": 33,

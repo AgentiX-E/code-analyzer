@@ -2,7 +2,7 @@
 // Uses @agentix-e/embed-code-node (nomic-embed-code ONNX) when available.
 // Falls back to deterministic hash-based embeddings when ONNX is unavailable.
 
-import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext, GraphNode } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
@@ -12,36 +12,43 @@ import { simpleHash } from '../phase-helpers.js';
 // Embed helpers
 // ---------------------------------------------------------------------------
 
-interface EmbeddingResult {
+export interface EmbeddingResult {
   nodeId: number;
   embedding: number[];
 }
 
-async function generateEmbeddings(
-  nodes: Map<number, unknown>,
-  _graph: KnowledgeGraph,
+/** The ONNX embedder contract consumed by `generateEmbeddings`. */
+export interface Embedder {
+  embed: (text: string) => Promise<Float32Array>;
+  embedBatch: (texts: string[]) => Promise<Float32Array[]>;
+  dispose: () => Promise<void>;
+}
+
+/**
+ * Generate embeddings for every embeddable graph node.
+ *
+ * The ONNX backend is loaded through the injectable `loadEmbedder` factory
+ * (defaulting to `loadRealEmbedder`). When the backend is unavailable — the
+ * ~137MB model is not bundled in CI — the factory resolves to null and a
+ * deterministic hash-based fallback is used instead.
+ */
+export async function generateEmbeddings(
+  nodes: Map<number, GraphNode>,
+  loadEmbedder: () => Promise<Embedder | null> = loadRealEmbedder,
 ): Promise<EmbeddingResult[]> {
   const results: EmbeddingResult[] = [];
 
   // Collect embeddable nodes
   const embeddable: Array<{ nodeId: number; text: string }> = [];
   for (const [nodeId, node] of nodes) {
-    const n = node as Record<string, unknown>;
-    const label = n?.label as string | undefined;
-    const name = n?.name as string | undefined;
-
     // Skip structural and nameless nodes
-    if (!label || label === 'File' || label === 'Folder' || label === 'Project') continue;
-    /* v8 ignore next -- @preserve -- GraphNode.name is a required field */
-    if (!name) continue;
+    if (node.label === 'File' || node.label === 'Folder' || node.label === 'Project') continue;
+    if (!node.name) continue;
 
     // Build text representation
-    const textParts: string[] = [label, name];
-    /* v8 ignore next -- @preserve -- signature is an optional property on most nodes */
-    const signature = n?.properties
-      ? (n.properties as Record<string, unknown>)?.signature
-      : undefined;
-    if (signature && typeof signature === 'string') textParts.push(signature);
+    const textParts: string[] = [node.label, node.name];
+    const signature = node.properties.signature;
+    if (signature) textParts.push(signature);
 
     embeddable.push({
       nodeId,
@@ -52,18 +59,16 @@ async function generateEmbeddings(
   if (embeddable.length === 0) return results;
 
   // Try the real ONNX backend from @agentix-e/embed-code-node
-  let embedder: Awaited<ReturnType<typeof loadRealEmbedder>> = null;
+  let embedder: Embedder | null = null;
 
   try {
-    embedder = await loadRealEmbedder();
+    embedder = await loadEmbedder();
   } catch {
     // ONNX backend unavailable — use deterministic fallback
   }
 
-  /* v8 ignore start -- @preserve -- ONNX backend requires a ~137MB model not in CI */
   if (embedder) {
     // ONNX backend is active — use real nomic-embed-code embeddings
-    // NOTE: Excluded from CI coverage — requires ~137MB model file
     try {
       // Batch embed for throughput
       const texts = embeddable.map((e) => e.text);
@@ -91,7 +96,6 @@ async function generateEmbeddings(
         // Ignore cleanup errors
       }
     }
-    /* v8 ignore stop */
   } else {
     // Deterministic fallback for every node
     for (const { nodeId, text } of embeddable) {
@@ -105,34 +109,24 @@ async function generateEmbeddings(
 /**
  * Dynamically load the real ONNX embedder.
  * Uses `createFromPackage()` which loads the model bundled with the npm package.
- * Returns null if the package, model, or ONNX runtime is unavailable.
+ * Returns null if the model or ONNX runtime is unavailable.
  *
  * NOTE: Requires @agentix-e/embed-code-node with bundled ONNX model (~137MB).
- * Excluded from CI coverage as the model file is not checked into the repository.
+ * When the model file is not checked into the repository, `createFromPackage()`
+ * throws and this resolves to null so callers fall back deterministically.
  */
-/* v8 ignore start -- @preserve -- requires @agentix-e/embed-code-node not in CI */
-async function loadRealEmbedder(): Promise<{
-  embed: (text: string) => Promise<Float32Array>;
-  embedBatch: (texts: string[]) => Promise<Float32Array[]>;
-  dispose: () => Promise<void>;
-} | null> {
+export async function loadRealEmbedder(): Promise<Embedder | null> {
   const { NodeEmbedder } = await import('@agentix-e/embed-code-node');
 
   // Try createFromPackage first (bundled model), fall back to create({ modelPath })
   try {
-    type CreateFromPackageFn = () => Promise<{
-      embed(text: string): Promise<Float32Array>;
-      embedBatch(texts: string[]): Promise<Float32Array[]>;
-      dispose(): Promise<void>;
-    }>;
-    const nodeEmbedder = NodeEmbedder as unknown as { createFromPackage: CreateFromPackageFn };
+    const nodeEmbedder = NodeEmbedder as unknown as { createFromPackage: () => Promise<Embedder> };
     return await nodeEmbedder.createFromPackage();
   } catch {
     // createFromPackage not available — model not bundled
     return null;
   }
 }
-/* v8 ignore stop */
 
 function deterministicEmbed(text: string, dimension: number = 768): number[] {
   const embedding = new Array<number>(dimension);
@@ -146,13 +140,12 @@ function deterministicEmbed(text: string, dimension: number = 768): number[] {
     embedding[i] = ((state >>> 0) / 0xffffffff) * 2 - 1; // Map to [-1, 1]
   }
 
-  // Normalize to unit length
+  // Normalize to unit length. The LCG output above is never exactly zero
+  // (0.5 maps to a non-integer state), so the norm is always > 0 — the
+  // guard would be dead and is omitted.
   const norm = Math.sqrt(embedding.reduce((sum, v) => sum + v * v, 0));
-  /* v8 ignore next -- @preserve -- norm is always > 0 for a seeded embedding */
-  if (norm > 0) {
-    for (let i = 0; i < dimension; i++) {
-      embedding[i] = embedding[i]! / norm;
-    }
+  for (let i = 0; i < dimension; i++) {
+    embedding[i] = embedding[i]! / norm;
   }
 
   return embedding;
@@ -175,18 +168,17 @@ export class EmbedPhase implements ExecutablePhase {
         return { phaseId: this.id, status: 'success', output: { embeddingsGenerated: 0 } };
       }
 
-      const embeddings = await generateEmbeddings(ctx.graph.nodes, ctx.graph);
+      const embeddings = await generateEmbeddings(ctx.graph.nodes);
 
       // Store embeddings in node properties
       for (const { nodeId, embedding } of embeddings) {
-        const node = ctx.graph.nodes.get(nodeId);
-        /* v8 ignore next -- @preserve -- nodeId came from a nodes iteration, so get() is always defined */
-        if (node) {
-          node.properties = {
-            ...node.properties,
-            embedding,
-          };
-        }
+        // nodeId came from the nodes iteration inside generateEmbeddings and the
+        // graph is not mutated in between, so get() always returns the node.
+        const node = ctx.graph.nodes.get(nodeId)!;
+        node.properties = {
+          ...node.properties,
+          embedding,
+        };
       }
 
       ctx.phaseData.set('embed', { embeddingsGenerated: embeddings.length });
@@ -196,15 +188,12 @@ export class EmbedPhase implements ExecutablePhase {
         output: { embeddingsGenerated: embeddings.length },
       };
     } catch (err) {
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       this.logger.error(
         'Phase execution failed',
         err instanceof Error ? err : new Error(String(err)),
         { phaseId: this.id, filePath: ctx?.rootPath },
       );
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       const message = err instanceof Error ? err.message : String(err);
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
       return { phaseId: this.id, status: 'failed', error: message };
     }
   }
