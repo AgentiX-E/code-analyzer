@@ -1,6 +1,6 @@
 // @code-analyzer/server — Routes Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 
@@ -282,6 +282,36 @@ describe('registerToolRoutes', () => {
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body);
       expect(body.tool).toBe('echo');
+    });
+
+    it('returns 500 when the registry itself rejects with an Error', async () => {
+      // ToolRegistry.execute swallows tool-handler errors internally, so the
+      // route's try/catch only triggers when execute itself rejects — a
+      // contract-level failure worth defending against.
+      vi.spyOn(registry, 'execute').mockRejectedValue(new Error('registry exploded'));
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/tools/call',
+        payload: { tool: 'hello', args: {} },
+      });
+      expect(res.statusCode).toBe(500);
+      const body = JSON.parse(res.body);
+      expect(body.error).toBe('TOOL_EXECUTION_FAILED');
+      expect(body.message).toBe('registry exploded');
+      expect(body.tool).toBe('hello');
+    });
+
+    it('stringifies a non-Error rejection from the registry', async () => {
+      vi.spyOn(registry, 'execute').mockRejectedValue('non-error rejection');
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/tools/call',
+        payload: { tool: 'hello', args: {} },
+      });
+      expect(res.statusCode).toBe(500);
+      const body = JSON.parse(res.body);
+      expect(body.error).toBe('TOOL_EXECUTION_FAILED');
+      expect(body.message).toBe('non-error rejection');
     });
   });
 });

@@ -6,8 +6,6 @@ import type { ServerConfig } from '../server-config.js';
 import type { ToolRegistry } from '@code-analyzer/mcp';
 
 /** Schema for tool call request body. */
-/* v8 ignore start */
-
 interface ToolCallBody {
   tool: string;
   args?: Record<string, unknown>;
@@ -92,4 +90,3 @@ export function registerToolRoutes(
     }
   });
 }
-/* v8 ignore stop */
