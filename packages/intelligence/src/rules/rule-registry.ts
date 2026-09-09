@@ -115,7 +115,6 @@ export class RuleRegistry {
     return {
       id: template.id,
       name: template.name,
-      /* v8 ignore next -- @preserve */
       category: (template.tags[0] ?? 'code-quality') as ProjectStandard['category'],
       description: template.description,
       version: template.version,
