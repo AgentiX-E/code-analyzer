@@ -13,9 +13,7 @@ import { Command } from 'commander';
 import type { SupportedAgent } from '../agent-setup.js';
 import { AgentSetupManager } from '../agent-setup.js';
 
-export function createAgentCommand(): Command {
-  const manager = new AgentSetupManager();
-
+export function createAgentCommand(manager: AgentSetupManager = new AgentSetupManager()): Command {
   const agent = new Command('agent').description(
     'Detect and configure AI coding agent integrations',
   );
@@ -66,14 +64,12 @@ export function createAgentCommand(): Command {
         agents = manager.detectInstalled();
       }
 
-      /* v8 ignore next 3 */
       if (agents.length === 0) {
         console.log('No agents to configure. Run `code-analyzer agent detect` first.');
         return;
       }
 
       if (options.dryRun) {
-        /* v8 ignore next 5 */
         console.log('[DRY RUN] Would configure the following agents:');
         for (const id of agents) {
           const config = manager.getConfig(id);
@@ -82,7 +78,6 @@ export function createAgentCommand(): Command {
         return;
       }
 
-      /* v8 ignore next 12 */
       console.log(`Configuring ${agents.length} agent(s)...`);
       const results = manager.configureAgents(agents);
 
@@ -112,7 +107,6 @@ export function createAgentCommand(): Command {
     .action(() => {
       const configs = manager.getAllConfigs();
 
-      /* v8 ignore next 12 */
       console.log('Supported AI Coding Agent Integrations');
       console.log('======================================');
       console.log('');
@@ -143,7 +137,6 @@ export function createAgentCommand(): Command {
     .command('status')
     .description('Show configuration status for all agents')
     .action(() => {
-      /* v8 ignore next 1 */
       console.log(manager.getStatusReport());
     });
 

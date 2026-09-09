@@ -1,8 +1,7 @@
 {
-  "totalHidden": 453,
-  "totalLines": 128612,
+  "totalHidden": 420,
+  "totalLines": 128605,
   "files": {
-    "packages/cli/src/commands/agent.ts": 33,
     "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
     "packages/infra/src/project/auto-indexer.ts": 25,

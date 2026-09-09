@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/cli — Agent Command Tests
 
 import * as fs from 'node:fs';
@@ -123,8 +122,8 @@ describe('Agent Command — configure', () => {
     const results = manager.configureAgents(manager.detectInstalled());
 
     expect(results.length).toBe(1);
-    expect(results[0].configured).toBe(true);
-    expect(results[0].agent).toBe('cursor');
+    expect(results[0]!.configured).toBe(true);
+    expect(results[0]!.agent).toBe('cursor');
   });
 
   it('should configure all agents with configureAll', () => {
@@ -279,194 +278,141 @@ describe('Agent Command — status', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Command execution via Commander (integration tests)
+// Command execution via Commander (injected temp-home manager)
 // ---------------------------------------------------------------------------
 
 describe('Agent Command — Commander execution', () => {
-  it('should execute detect command without crashing', () => {
-    const cmd = createAgentCommand();
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  let tempHome: string;
+  let manager: AgentSetupManager;
 
-    const detectCmd = cmd.commands.find((c) => c.name() === 'detect');
-    expect(detectCmd).toBeDefined();
-
-    // Should not throw
-    expect(() => detectCmd!.parse(['node', 'test', 'detect'])).not.toThrow();
-
-    consoleSpy.mockRestore();
+  beforeEach(() => {
+    tempHome = createTempHome();
+    manager = new AgentSetupManager(tempHome);
   });
 
-  it('should print message when detect finds no agents', () => {
-    vi.spyOn(AgentSetupManager.prototype, 'detectInstalled').mockReturnValue([]);
-
-    const cmd = createAgentCommand();
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    const detectCmd = cmd.commands.find((c) => c.name() === 'detect');
-    expect(detectCmd).toBeDefined();
-    expect(() => detectCmd!.parse(['node', 'test', 'detect'])).not.toThrow();
-
-    expect(logSpy).toHaveBeenCalledWith('No supported AI coding agents detected.');
-
-    logSpy.mockRestore();
+  afterEach(() => {
+    fs.rmSync(tempHome, { recursive: true, force: true });
     vi.restoreAllMocks();
   });
 
-  it('should print detected agents when detect finds agents', () => {
-    vi.spyOn(AgentSetupManager.prototype, 'detectInstalled').mockReturnValue(['cursor']);
-    vi.spyOn(AgentSetupManager.prototype, 'getConfig').mockReturnValue({
-      name: 'cursor',
-      displayName: 'Cursor',
-      configPath: '.cursor/mcp.json',
-      configFormat: 'json',
-      detectionPaths: ['.cursor'],
-    });
-    vi.spyOn(AgentSetupManager.prototype, 'isConfigured').mockReturnValue(false);
+  function findSubcommand(cmd: Command, name: string): Command {
+    const sub = cmd.commands.find((c) => c.name() === name);
+    expect(sub).toBeDefined();
+    return sub!;
+  }
 
-    const cmd = createAgentCommand();
+  it('detect: prints a message when no agents are installed', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'detect').parse(['node', 'test', 'detect']);
+    expect(logSpy).toHaveBeenCalledWith('No supported AI coding agents detected.');
+  });
 
-    const detectCmd = cmd.commands.find((c) => c.name() === 'detect');
-    expect(detectCmd).toBeDefined();
-    expect(() => detectCmd!.parse(['node', 'test', 'detect'])).not.toThrow();
-
+  it('detect: lists an installed agent with its configured status', () => {
+    fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'detect').parse(['node', 'test', 'detect']);
     expect(logSpy).toHaveBeenCalledWith('Detected 1 agent(s):');
     expect(logSpy).toHaveBeenCalledWith('  - Cursor (not configured)');
-
-    logSpy.mockRestore();
-    vi.restoreAllMocks();
   });
 
-  it('should execute list command without crashing', () => {
-    const cmd = createAgentCommand();
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    const listCmd = cmd.commands.find((c) => c.name() === 'list');
-    expect(listCmd).toBeDefined();
-    expect(() => listCmd!.parse(['node', 'test', 'list'])).not.toThrow();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should execute status command without crashing', () => {
-    const cmd = createAgentCommand();
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    const statusCmd = cmd.commands.find((c) => c.name() === 'status');
-    expect(statusCmd).toBeDefined();
-    expect(() => statusCmd!.parse(['node', 'test', 'status'])).not.toThrow();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should execute configure command with --dry-run without crashing', () => {
-    const cmd = createAgentCommand();
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
-    expect(configCmd).toBeDefined();
-    expect(() => configCmd!.parse(['node', 'test', 'configure', '--dry-run'])).not.toThrow();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should execute configure command with --all without crashing', () => {
-    const cmd = createAgentCommand();
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
-    expect(configCmd).toBeDefined();
-    expect(() => configCmd!.parse(['node', 'test', 'configure', '--all'])).not.toThrow();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should print message when no agents to configure', () => {
-    // Mock detectInstalled to return empty — simulates no agents detected
-    vi.spyOn(AgentSetupManager.prototype, 'detectInstalled').mockReturnValue([]);
-
-    const cmd = createAgentCommand();
+  it('detect: marks an installed agent as configured when its config exists', () => {
+    fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempHome, '.cursor', 'mcp.json'),
+      JSON.stringify({ mcpServers: { 'code-analyzer': { command: 'npx' } } }),
+      'utf-8',
+    );
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'detect').parse(['node', 'test', 'detect']);
+    expect(logSpy).toHaveBeenCalledWith('Detected 1 agent(s):');
+    expect(logSpy).toHaveBeenCalledWith('  - Cursor (configured)');
+  });
 
-    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
-    expect(configCmd).toBeDefined();
-
-    // No --all and no --target, falls through to detectInstalled which returns []
-    expect(() => configCmd!.parse(['node', 'test', 'configure'])).not.toThrow();
+  it('configure: prints a message when no agents are detected', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure']);
     expect(logSpy).toHaveBeenCalledWith(
       'No agents to configure. Run `code-analyzer agent detect` first.',
     );
-
-    logSpy.mockRestore();
-    vi.restoreAllMocks();
   });
 
-  it('should handle failed configuration result in configure action', () => {
-    // Mock getAllConfigs so --all returns agents; mock configureAgents to return a failure
-    vi.spyOn(AgentSetupManager.prototype, 'getAllConfigs').mockReturnValue([
-      {
-        name: 'cursor',
-        displayName: 'Cursor',
-        configPath: '.cursor/mcp.json',
-        configFormat: 'json',
-        detectionPaths: ['.cursor'],
-      },
-    ]);
-    vi.spyOn(AgentSetupManager.prototype, 'configureAgents').mockReturnValue([
-      {
-        agent: 'cursor',
-        detected: false,
-        configured: false,
-        configPath: '/tmp/.cursor/mcp.json',
-        message: 'Failed to configure Cursor: permission denied',
-      },
-    ]);
-
-    const cmd = createAgentCommand();
+  it('configure --dry-run: previews agents without writing any config', () => {
+    fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
-    expect(configCmd).toBeDefined();
-
-    expect(() => configCmd!.parse(['node', 'test', 'configure', '--all'])).not.toThrow();
-
-    // Should have printed the failure via console.error
-    expect(errorSpy).toHaveBeenCalledWith('  FAIL Failed to configure Cursor: permission denied');
-
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
-    vi.restoreAllMocks();
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--dry-run']);
+    expect(logSpy).toHaveBeenCalledWith('[DRY RUN] Would configure the following agents:');
+    expect(logSpy).toHaveBeenCalledWith('  - Cursor → .cursor/mcp.json');
+    expect(fs.existsSync(path.join(tempHome, '.cursor', 'mcp.json'))).toBe(false);
   });
 
-  it('should execute configure command with --target option', () => {
-    vi.spyOn(AgentSetupManager.prototype, 'configureAgents').mockReturnValue([
-      {
-        agent: 'cursor',
-        detected: false,
-        configured: true,
-        configPath: '/tmp/.cursor/mcp.json',
-        message: 'Configured Cursor',
-      },
-    ]);
-
-    const cmd = createAgentCommand();
+  it('configure --all: configures every supported agent and reports success', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    const configCmd = cmd.commands.find((c) => c.name() === 'configure');
-    expect(configCmd).toBeDefined();
-
-    expect(() =>
-      configCmd!.parse(['node', 'test', 'configure', '--target', 'cursor']),
-    ).not.toThrow();
-
-    // Should show configuring and success messages
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--all']);
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Configuring'));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('OK'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('configured'));
+  });
 
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
-    vi.restoreAllMocks();
+  it('configure --target: configures a named agent', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--target', 'cursor']);
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Configuring'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('OK'));
+  });
+
+  it('configure: reports a failed configuration via stderr', () => {
+    // A directory named like the config file makes the write fail.
+    fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
+    fs.mkdirSync(path.join(tempHome, '.cursor', 'mcp.json'), { recursive: true });
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'configure').parse(['node', 'test', 'configure', '--target', 'cursor']);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('FAIL'));
+  });
+
+  it('list: shows every supported agent as not installed', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'list').parse(['node', 'test', 'list']);
+    expect(logSpy).toHaveBeenCalledWith('Supported AI Coding Agent Integrations');
+    expect(logSpy).toHaveBeenCalledWith('    Status:      not installed');
+  });
+
+  it('list: shows installed (not configured) status', () => {
+    fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'list').parse(['node', 'test', 'list']);
+    expect(logSpy).toHaveBeenCalledWith('    Status:      installed');
+  });
+
+  it('list: shows installed + configured status for a set-up agent', () => {
+    fs.mkdirSync(path.join(tempHome, '.cursor'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tempHome, '.cursor', 'mcp.json'),
+      JSON.stringify({ mcpServers: { 'code-analyzer': { command: 'npx' } } }),
+      'utf-8',
+    );
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'list').parse(['node', 'test', 'list']);
+    expect(logSpy).toHaveBeenCalledWith('    Status:      installed + configured');
+  });
+
+  it('status: prints the status report', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const cmd = createAgentCommand(manager);
+    findSubcommand(cmd, 'status').parse(['node', 'test', 'status']);
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Code Analyzer — Agent Integration Status'),
+    );
   });
 });
