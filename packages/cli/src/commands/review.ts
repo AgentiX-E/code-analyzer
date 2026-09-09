@@ -96,6 +96,33 @@ async function collectFiles(dir: string, maxFiles: number): Promise<string[]> {
 // ---------------------------------------------------------------------------
 
 /**
+ * Build the failure result for an unexpected error raised while reviewing.
+ *
+ * Exported for testing — through the public `reviewCode` entry point every
+ * throwing branch requires `options.target`, and Node only ever throws
+ * `Error` instances, so the `target === undefined` fallback and the non-Error
+ * message branch cannot be reached without a direct unit test.
+ */
+export function buildReviewError(
+  err: unknown,
+  target: string | undefined,
+  mode: string,
+  startTime: number,
+): ReviewOutput {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    success: false,
+    target: target ?? 'unknown',
+    mode,
+    issues: [],
+    totalIssues: 0,
+    summary: { critical: 0, error: 0, warning: 0, info: 0 },
+    duration: Date.now() - startTime,
+    error: message,
+  };
+}
+
+/**
  * Review code for quality issues using deterministic rules.
  *
  * Supports three modes:
@@ -186,7 +213,9 @@ export async function reviewCode(options: ReviewOptions = {}): Promise<ReviewOut
           if (issues.length >= maxIssues) break;
           if (severityWeight(rule.severity) < severityWeight(severity)) continue;
 
-          const match = rule.pattern.test(lines[i] ?? '');
+          // `i` is bounded by `lines.length` and `split` yields a dense array,
+          // so `lines[i]` is always defined; the `?? ''` fallback was dead.
+          const match = rule.pattern.test(lines[i]!);
           if (match) {
             issues.push({
               ruleId: rule.id,
@@ -236,18 +265,7 @@ export async function reviewCode(options: ReviewOptions = {}): Promise<ReviewOut
       duration: Date.now() - startTime,
     };
   } catch (err) {
-    /* v8 ignore next -- defensive non-Error catch, rare in practice */
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      success: false,
-      target: options.target ?? 'unknown',
-      mode,
-      issues: [],
-      totalIssues: 0,
-      summary: { critical: 0, error: 0, warning: 0, info: 0 },
-      duration: Date.now() - startTime,
-      error: message,
-    };
+    return buildReviewError(err, options.target, mode, startTime);
   }
 }
 
@@ -337,7 +355,14 @@ function loadRules(): Rule[] {
   return BUILT_IN_RULES;
 }
 
-function severityWeight(severity: string): number {
+/**
+ * Map a severity label to a comparable weight.
+ *
+ * Exported for testing — an unrecognized label degrades to 0 instead of being
+ * rejected, and that fallback cannot be exercised through `reviewCode` without
+ * an out-of-contract cast.
+ */
+export function severityWeight(severity: string): number {
   const weights: Record<string, number> = {
     info: 0,
     warning: 1,

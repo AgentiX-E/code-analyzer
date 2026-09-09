@@ -3,11 +3,17 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
-import { reviewCode, formatReviewResult, type ReviewOutput } from '../commands/review.js';
+import {
+  reviewCode,
+  formatReviewResult,
+  buildReviewError,
+  severityWeight,
+  type ReviewOutput,
+} from '../commands/review.js';
 
 describe('reviewCode — file mode', () => {
   let testDir: string;
@@ -501,5 +507,201 @@ describe('reviewCode — error handling', () => {
     const result = await reviewCode({ mode: 'dir' });
     // Should not crash when target is missing
     expect(result).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Coverage backfill — paths that the happy-path suites cannot reach
+// ---------------------------------------------------------------------------
+
+describe('reviewCode — defaults and collection limits', () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    testDir = resolve(
+      tmpdir(),
+      `ca-review-cov-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
+  });
+
+  it('should apply every default option when called without arguments', async () => {
+    const result = await reviewCode();
+    expect(result.success).toBe(true);
+    expect(result.mode).toBe('file');
+    expect(result.totalIssues).toBe(0);
+  });
+
+  it('should stop collecting files once the maxFiles limit is reached', async () => {
+    // Three files, but maxIssues is 2 — collectFiles must break after two.
+    writeFileSync(join(testDir, 'a.js'), 'eval(x);\ndebugger;\n');
+    writeFileSync(join(testDir, 'b.js'), 'debugger;\n');
+    writeFileSync(join(testDir, 'c.js'), 'const c = 1;\n');
+    const result = await reviewCode({ target: testDir, mode: 'dir', maxIssues: 2 });
+    expect(result.success).toBe(true);
+    expect(result.totalIssues).toBe(2);
+  });
+
+  it('should break out of the per-file loop once maxIssues is reached', async () => {
+    // The first file alone yields two issues, so the second is never reviewed.
+    writeFileSync(join(testDir, 'a.js'), 'eval(x);\ndebugger;\n');
+    writeFileSync(join(testDir, 'b.js'), 'eval(y);\ndebugger;\n');
+    const result = await reviewCode({ target: testDir, mode: 'dir', maxIssues: 2 });
+    expect(result.success).toBe(true);
+    expect(result.totalIssues).toBe(2);
+  });
+
+  it('should skip entries that are neither files nor directories', async () => {
+    writeFileSync(join(testDir, 'real.js'), 'debugger;\n');
+    symlinkSync(join(testDir, 'real.js'), join(testDir, 'link.js'));
+    const result = await reviewCode({ target: testDir, mode: 'dir' });
+    expect(result.success).toBe(true);
+    expect(result.totalIssues).toBeGreaterThan(0);
+  });
+
+  it('should return a failure result when the directory cannot be read', async () => {
+    const result = await reviewCode({
+      target: join(testDir, 'missing-directory'),
+      mode: 'dir',
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+});
+
+describe('reviewCode — diff mode severity filtering', () => {
+  let repoDir: string;
+  let previousCwd: string;
+
+  beforeEach(() => {
+    repoDir = resolve(
+      tmpdir(),
+      `ca-review-diff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    mkdirSync(repoDir, { recursive: true });
+    const gitEnv = '-c user.email=test@example.com -c user.name=test';
+    execSync('git init -q', { cwd: repoDir });
+    execSync(`git ${gitEnv} commit -q --allow-empty -m init`, { cwd: repoDir });
+    writeFileSync(join(repoDir, 'a.js'), 'const a = 1;\n');
+    execSync('git add a.js', { cwd: repoDir });
+    execSync(`git ${gitEnv} commit -q -m first`, { cwd: repoDir });
+    // Stage a change that trips both a critical (eval) and an error (debugger) rule.
+    writeFileSync(join(repoDir, 'a.js'), 'const a = 1;\neval(x);\ndebugger;\n');
+    execSync('git add a.js', { cwd: repoDir });
+    previousCwd = process.cwd();
+    process.chdir(repoDir);
+  });
+
+  afterEach(() => {
+    process.chdir(previousCwd);
+    try {
+      rmSync(repoDir, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
+  });
+
+  it('should skip rules below the requested severity threshold', async () => {
+    const result = await reviewCode({ mode: 'diff', severity: 'critical' });
+    expect(result.success).toBe(true);
+    expect(result.issues.map((i) => i.severity)).toEqual(['critical']);
+  });
+
+  it('should stop the rule scan once maxIssues is reached', async () => {
+    // The first `+` line yields the only allowed issue, so the inner rule
+    // loop must break on the next rule instead of evaluating it.
+    const result = await reviewCode({ mode: 'diff', maxIssues: 1 });
+    expect(result.success).toBe(true);
+    expect(result.totalIssues).toBe(1);
+    expect(result.issues[0]!.severity).toBe('critical');
+  });
+});
+
+describe('severityWeight', () => {
+  it('should map the known severity labels', () => {
+    expect(severityWeight('info')).toBe(0);
+    expect(severityWeight('warning')).toBe(1);
+    expect(severityWeight('error')).toBe(2);
+    expect(severityWeight('critical')).toBe(3);
+  });
+
+  it('should degrade an unrecognized label to 0', () => {
+    expect(severityWeight('verbose')).toBe(0);
+  });
+});
+
+describe('buildReviewError', () => {
+  const startTime = Date.now();
+
+  it('should use the Error message when an Error is thrown', () => {
+    const result = buildReviewError(new Error('boom'), 'some/file.ts', 'file', startTime);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('boom');
+    expect(result.target).toBe('some/file.ts');
+    expect(result.mode).toBe('file');
+    expect(result.duration).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should stringify a non-Error thrown value', () => {
+    const result = buildReviewError('plain string', 'some/file.ts', 'file', startTime);
+    expect(result.error).toBe('plain string');
+  });
+
+  it('should fall back to "unknown" when no target is supplied', () => {
+    const result = buildReviewError(new Error('boom'), undefined, 'file', startTime);
+    expect(result.target).toBe('unknown');
+  });
+});
+
+describe('formatReviewResult — markdown severity icons', () => {
+  it('should render an icon for every severity level', () => {
+    const output: ReviewOutput = {
+      success: true,
+      target: 'demo',
+      mode: 'file',
+      issues: [
+        {
+          ruleId: 'a',
+          category: 'security',
+          severity: 'critical',
+          file: 'a.ts',
+          line: 1,
+          message: 'm',
+        },
+        {
+          ruleId: 'b',
+          category: 'quality',
+          severity: 'error',
+          file: 'b.ts',
+          line: 2,
+          message: 'm',
+        },
+        {
+          ruleId: 'c',
+          category: 'quality',
+          severity: 'warning',
+          file: 'c.ts',
+          line: 3,
+          message: 'm',
+        },
+        { ruleId: 'd', category: 'quality', severity: 'info', file: 'd.ts', line: 4, message: 'm' },
+      ],
+      totalIssues: 4,
+      summary: { critical: 1, error: 1, warning: 1, info: 1 },
+      duration: 0,
+    };
+    const markdown = formatReviewResult(output, 'markdown');
+    expect(markdown).toContain('\u{1F534}');
+    expect(markdown).toContain('\u{1F7E0}');
+    expect(markdown).toContain('\u{1F7E1}');
+    expect(markdown).toContain('\u{1F535}');
   });
 });

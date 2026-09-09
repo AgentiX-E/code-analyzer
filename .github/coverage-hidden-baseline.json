@@ -1,6 +1,6 @@
 {
-  "totalHidden": 316,
-  "totalLines": 128524,
+  "totalHidden": 312,
+  "totalLines": 128548,
   "files": {
     "packages/analyzer/src/languages/tree-sitter-base.ts": 22,
     "packages/vscode/src/views/status-bar.ts": 18,
@@ -30,7 +30,6 @@
     "packages/analyzer/src/languages/groovy.ts": 3,
     "packages/analyzer/src/pipeline/phases/parse.ts": 3,
     "packages/analyzer/src/pipeline/phases/prune-local-symbols.ts": 3,
-    "packages/cli/src/commands/init.ts": 3,
     "packages/server/src/graphql/context.ts": 3,
     "packages/analyzer/src/cfg/dataflow.ts": 2,
     "packages/analyzer/src/cfg/dominators.ts": 2,
@@ -62,7 +61,6 @@
     "packages/analyzer/src/resolution/type-registry.ts": 1,
     "packages/analyzer/src/resolution/typescript-resolver-advanced.ts": 1,
     "packages/analyzer/src/resolution/typescript-resolver.ts": 1,
-    "packages/cli/src/commands/review.ts": 1,
     "packages/core/src/operations/health-check.ts": 1,
     "packages/core/src/operations/resilience.ts": 1,
     "packages/core/src/security/rbac.ts": 1,

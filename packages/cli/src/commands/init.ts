@@ -127,15 +127,14 @@ export function initProject(options: InitOptions = {}): InitResult {
     const existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf-8') : '';
     if (!existing.includes('.code-analyzer/data/')) {
       writeFileSync(gitignorePath, (existing.trimEnd() + GITIGNORE_ENTRY).trimEnd() + '\n');
-      if (!filesCreated.includes('.gitignore')) {
-        filesCreated.push('.gitignore (updated)');
-      }
+      // `filesCreated` only ever holds 'standards.json', 'config.json' and
+      // '.gitignore (updated)', none of which equals '.gitignore', so the
+      // containment check that used to guard this push was always true.
+      filesCreated.push('.gitignore (updated)');
     }
-    /* v8 ignore start */ // .gitignore write failure requires filesystem error
   } catch {
     // .gitignore write failed — non-critical
   }
-  /* v8 ignore stop */
 
   const allCreated = filesCreated.length;
 

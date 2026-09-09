@@ -133,3 +133,34 @@ describe('initProject', () => {
     expect(matches).toBe(1);
   });
 });
+
+describe('initProject — .gitignore write failure', () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    testDir = resolve(
+      tmpdir(),
+      `code-analyzer-init-gitignore-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* cleanup */
+    }
+  });
+
+  it('should still succeed when .gitignore cannot be written', () => {
+    // A directory named .gitignore makes readFileSync throw EISDIR, which
+    // drives the non-critical catch around the .gitignore update.
+    mkdirSync(join(testDir, '.gitignore'));
+    const result = initProject({ directory: testDir });
+    expect(result.success).toBe(true);
+    expect(result.filesCreated).toContain('standards.json');
+    expect(result.filesCreated).toContain('config.json');
+    expect(result.filesCreated).not.toContain('.gitignore (updated)');
+  });
+});
