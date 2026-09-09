@@ -1,12 +1,12 @@
 // @code-analyzer/server — Middleware Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 
 import { registerCors } from '../middleware/cors.js';
 import { registerAuth } from '../middleware/auth.js';
-import { registerLogging, shouldLog } from '../middleware/logging.js';
+import { registerLogging, shouldLog, logStructured, logPretty } from '../middleware/logging.js';
 import { registerErrorHandler } from '../middleware/error-handler.js';
 import type { CorsConfig, AuthConfig, LoggingConfig } from '../server-config.js';
 import type { ErrorResponse } from '../middleware/error-handler.js';
@@ -388,6 +388,72 @@ describe('registerLogging', () => {
     const res = await app.inject({ method: 'GET', url: '/test' });
     expect(res.statusCode).toBe(200);
   });
+
+  it('logs in pretty format when pretty is enabled', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      registerLogging(app, {
+        enabled: true,
+        level: 'info',
+        includeBody: false,
+        pretty: true,
+      });
+      app.get('/test', async (_req, reply) => reply.send({}));
+      await app.ready();
+
+      const res = await app.inject({ method: 'GET', url: '/test' });
+      expect(res.statusCode).toBe(200);
+      expect(logSpy).toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('includes body size when includeBody is enabled and a body is present', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      registerLogging(app, {
+        enabled: true,
+        level: 'info',
+        includeBody: true,
+        pretty: false,
+      });
+      app.post('/echo', async (_req, reply) => reply.send({}));
+      await app.ready();
+
+      const res = await app.inject({ method: 'POST', url: '/echo', payload: { a: 1 } });
+      expect(res.statusCode).toBe(200);
+      const logged = logSpy.mock.calls[0]?.[0] as string | undefined;
+      expect(logged).toContain('"bodySize"');
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('falls back to "unknown" user-agent when the header is absent', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      registerLogging(app, {
+        enabled: true,
+        level: 'info',
+        includeBody: false,
+        pretty: false,
+      });
+      app.get('/test', async (_req, reply) => reply.send({}));
+      await app.ready();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/test',
+        headers: { 'user-agent': undefined as unknown as string },
+      });
+      expect(res.statusCode).toBe(200);
+      const logged = logSpy.mock.calls[0]?.[0] as string | undefined;
+      expect(logged).toContain('"userAgent":"unknown"');
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -422,6 +488,105 @@ describe('shouldLog', () => {
     expect(shouldLog('info', 200)).toBe(true);
     expect(shouldLog('info', 404)).toBe(true);
     expect(shouldLog('info', 500)).toBe(true);
+  });
+
+  it('treats unknown levels as info via the ?? 3 fallback', () => {
+    expect(shouldLog('unknown', 200)).toBe(true);
+    expect(shouldLog('unknown', 404)).toBe(true);
+    expect(shouldLog('unknown', 500)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// logStructured / logPretty — direct unit tests (console side-effects spied)
+// ---------------------------------------------------------------------------
+
+describe('logStructured', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not log when shouldLog returns false', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logStructured({ statusCode: 200 }, 'silent', 200);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('logs at error level for 5xx', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logStructured({ statusCode: 500 }, 'info', 500);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('logs at warn level for 4xx', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logStructured({ statusCode: 404 }, 'info', 404);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('logs at info level for 2xx', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logStructured({ statusCode: 200 }, 'info', 200);
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('logPretty', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('does not log when shouldLog returns false', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logPretty(
+      { statusCode: 200, timestamp: 't', method: 'GET', url: '/', responseTimeMs: 1 },
+      'silent',
+    );
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('uses red for 5xx', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logPretty(
+      { statusCode: 500, timestamp: 't', method: 'GET', url: '/', responseTimeMs: 1 },
+      'info',
+    );
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(logSpy.mock.calls[0]![0]).toContain('\x1b[31m');
+  });
+
+  it('uses yellow for 4xx', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logPretty(
+      { statusCode: 404, timestamp: 't', method: 'GET', url: '/', responseTimeMs: 1 },
+      'info',
+    );
+    expect(logSpy.mock.calls[0]![0]).toContain('\x1b[33m');
+  });
+
+  it('uses green for 2xx', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    logPretty(
+      { statusCode: 200, timestamp: 't', method: 'GET', url: '/', responseTimeMs: 1 },
+      'info',
+    );
+    expect(logSpy.mock.calls[0]![0]).toContain('\x1b[32m');
   });
 });
 

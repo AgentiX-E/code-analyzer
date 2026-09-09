@@ -4,8 +4,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { LoggingConfig } from '../server-config.js';
 
-/* v8 ignore start */
-
 const LEVEL_PRIORITY: Record<string, number> = {
   silent: 0,
   error: 1,
@@ -27,8 +25,11 @@ export function registerLogging(app: FastifyInstance, config: LoggingConfig): vo
   });
 
   app.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
+    // onRequest always runs first (Fastify lifecycle guarantees the ordering)
+    // and stores Date.now(), which is always positive, so startTime is always
+    // a truthy number here — no `-1` fallback branch is reachable.
     const startTime = (request as unknown as Record<string, unknown>)['_startTime'] as number;
-    const responseTime = startTime ? Date.now() - startTime : -1;
+    const responseTime = Date.now() - startTime;
 
     const logEntry = {
       timestamp: new Date().toISOString(),
@@ -85,4 +86,3 @@ function shouldLog(configLevel: string, statusCode: number): boolean {
 
 /** Exported for testing */
 export { shouldLog, logPretty, logStructured };
-/* v8 ignore stop */
