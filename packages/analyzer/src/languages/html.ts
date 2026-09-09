@@ -68,15 +68,12 @@ export class HtmlProvider extends TreeSitterBaseProvider {
           if (sub.type === 'attribute') {
             const attrName = this.getAttrName(sub);
             const attrVal = this.getAttrValue(sub);
-            /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
             if (attrName === 'id') id = attrVal ?? '';
-            /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
             if (attrName === 'class') cls = attrVal ?? '';
           }
         }
       }
     }
-    /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
     if (tagName) {
       captures.push(
         this.makeCapture(
@@ -92,13 +89,11 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   private captureTag(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const tagNameNode = this.findChildOfType(node, 'tag_name');
-    /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
     if (!tagNameNode) return;
 
     const tagText = tagNameNode.text;
     if (tagText === 'script') {
       const srcAttr = this.findAttribute(node, 'src');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (srcAttr) {
         captures.push(
           this.makeCapture(node, CAPTURE_TAGS.IMPORT, srcAttr, srcAttr, { importType: 'script' }),
@@ -106,7 +101,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       }
     } else if (tagText === 'link') {
       const hrefAttr = this.findAttribute(node, 'href');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (hrefAttr) {
         captures.push(
           this.makeCapture(node, CAPTURE_TAGS.IMPORT, hrefAttr, hrefAttr, { importType: 'link' }),
@@ -114,7 +108,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       }
     } else if (tagText === 'img') {
       const srcAttr = this.findAttribute(node, 'src');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (srcAttr) {
         captures.push(
           this.makeCapture(node, CAPTURE_TAGS.IMPORT, srcAttr, srcAttr, { importType: 'img' }),
@@ -125,7 +118,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   private captureComment(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const text = node.text.replace('<!--', '').replace('-->', '').trim();
-    /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
     if (text) {
       captures.push(
         this.makeCapture(node, CAPTURE_TAGS.DOCSTRING, '[comment]', text, { isComment: 'true' }),
@@ -143,7 +135,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       node.type === 'start_tag'
     ) {
       let tagNameNode = this.findTagName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (!tagNameNode) {
         // Recursively walk children even if no tag_name found
         for (let i = 0; i < node.childCount; i++) {
@@ -165,10 +156,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         return;
       }
       // Scripts with src from external sources
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (tag === 'script') {
         const src = this.findAttribute(node, 'src');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
         if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
           sources.push({
             name: src,
@@ -193,7 +182,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       node.type === 'style_element'
     ) {
       const tagNameNode = this.findTagName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (!tagNameNode) {
         for (let i = 0; i < node.childCount; i++) {
           this.walkForTaintSinks(node.child(i), sinks);
@@ -214,7 +202,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         return;
       }
       // HTML injection via innerHTML/document.write
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (tag === 'div' || tag === 'span') {
         const attrs = this.collectAttributes(node);
         if (
@@ -259,7 +246,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
           return;
         }
       }
-      /* v8 ignore next -- @preserve -- non-matching / fallthrough return */
       return;
     }
     for (let i = 0; i < node.childCount; i++) {
@@ -277,7 +263,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       node.type === 'style_element'
     ) {
       const tagNameNode = this.findTagName(node);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (!tagNameNode) {
         for (let i = 0; i < node.childCount; i++) {
           this.walkForSanitizers(node.child(i), sanitizers);
@@ -286,10 +271,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       }
       const tag = tagNameNode.text.toLowerCase();
       // CSP meta tags are sanitizers
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (tag === 'meta') {
         const httpEquiv = this.findAttribute(node, 'http-equiv');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
         if (httpEquiv && httpEquiv.toLowerCase().includes('content-security-policy')) {
           sanitizers.push({
             name: 'csp',
@@ -301,7 +284,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         }
         return;
       }
-      /* v8 ignore next -- @preserve -- non-matching / fallthrough return */
       return;
     }
     for (let i = 0; i < node.childCount; i++) {
@@ -312,27 +294,22 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   // ---- Attribute Helpers ----
 
   private findTagName(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
-    /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
     if (
       node.type === 'element' ||
       node.type === 'script_element' ||
       node.type === 'style_element'
     ) {
       const startTag = this.findChildOfType(node, 'start_tag');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       return startTag ? this.findChildOfType(startTag, 'tag_name') : null;
     }
-    /* v8 ignore next -- @preserve -- non-matching / fallthrough return */
     return this.findChildOfType(node, 'tag_name');
   }
 
   private getAttrName(attrNode: TreeSitterSyntaxNode): string {
     for (let i = 0; i < attrNode.childCount; i++) {
       const child = attrNode.child(i);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
       if (child.type === 'attribute_name') return child.text;
     }
-    /* v8 ignore next -- @preserve -- attribute always has an attribute_name */
     return '';
   }
 
@@ -341,7 +318,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       const child = attrNode.child(i);
       if (child.type === 'attribute_value' || child.type === 'quoted_attribute_value') {
         let val = child.text;
-        /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
         if (
           (val.startsWith('"') && val.endsWith('"')) ||
           (val.startsWith("'") && val.endsWith("'"))
@@ -351,7 +327,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         return val;
       }
     }
-    /* v8 ignore next -- @preserve -- attribute always has a value node */
     return undefined;
   }
 
@@ -359,7 +334,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     for (let i = 0; i < node.childCount; i++) {
       if (node.child(i).type === type) return node.child(i);
     }
-    /* v8 ignore next -- @preserve -- node traversal covers all cases */
     return null;
   }
 
@@ -367,10 +341,11 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     // Attributes live inside the start_tag child of an element node, so descend
     // into it first (mirrors collectAttributes); start_tag/self_closing_tag call
     // sites already pass a node whose direct children are attributes.
+    // findAttribute is only reached after findTagName has confirmed the element
+    // carries a start_tag, so findChildOfType never returns null here.
     const container =
       node.type === 'element' || node.type === 'script_element' || node.type === 'style_element'
-        ? /* v8 ignore next -- @preserve -- defensive null / non-matching taint branch */
-          (this.findChildOfType(node, 'start_tag') ?? node)
+        ? this.findChildOfType(node, 'start_tag')!
         : node;
     for (let i = 0; i < container.childCount; i++) {
       const child = container.child(i);
@@ -418,7 +393,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback ----
 
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -479,16 +453,13 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(_source: string): ParsedImport[] {
     return [];
   }
-  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -506,7 +477,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     return sources;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
@@ -518,7 +488,6 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     return sinks;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }

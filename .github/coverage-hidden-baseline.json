@@ -1,8 +1,7 @@
 {
-  "totalHidden": 486,
-  "totalLines": 128643,
+  "totalHidden": 453,
+  "totalLines": 128612,
   "files": {
-    "packages/analyzer/src/languages/html.ts": 35,
     "packages/cli/src/commands/agent.ts": 33,
     "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
@@ -42,6 +41,7 @@
     "packages/analyzer/src/cfg/dominators.ts": 2,
     "packages/analyzer/src/languages/dockerfile.ts": 2,
     "packages/analyzer/src/languages/go.ts": 2,
+    "packages/analyzer/src/languages/html.ts": 2,
     "packages/analyzer/src/languages/ruby.ts": 2,
     "packages/analyzer/src/languages/typescript.ts": 2,
     "packages/analyzer/src/pipeline/phases/dump.ts": 2,
