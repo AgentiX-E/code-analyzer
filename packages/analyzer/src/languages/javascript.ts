@@ -34,7 +34,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     if (nodeType === 'function_declaration') {
       const nameNode = this.findNamedChild(node, 'identifier');
       const isAsync = node.text.includes('async');
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -49,10 +48,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'arrow_function') {
       const parent = node.parent;
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (parent?.type === 'variable_declarator') {
         const nameNode = this.findNamedChild(parent, 'identifier');
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (nameNode) {
           captures.push({
             tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -72,7 +69,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'class_declaration') {
       const nameNode = this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (nameNode) {
         const baseClasses = this.extractExtends(node);
         captures.push({
@@ -88,14 +84,11 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'method_definition') {
       const nameNode = this.findNamedChild(node, 'property_identifier');
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (nameNode) {
         const container = this.findContainerNode(node);
         let containerName: string | undefined;
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (container) {
           const cn = this.findNamedChild(container, 'identifier');
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
           if (cn) containerName = cn.text;
         }
 
@@ -116,7 +109,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     } else if (nodeType === 'lexical_declaration') {
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (child.type === 'variable_declarator') {
           const nameNode = this.findNamedChild(child, 'identifier');
           const valueChild = child.namedChild(1);
@@ -137,7 +129,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         }
       }
     } else if (nodeType === 'comment') {
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (node.text.startsWith('/**')) {
         captures.push({
           tag: CAPTURE_TAGS.DOCSTRING,
@@ -175,7 +166,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     if (nodeType === 'arrow_function' || nodeType === 'function_declaration') {
       const hasJSX =
         node.text.includes('<') && (node.text.includes('/>') || node.text.includes('</'));
-      /* v8 ignore next -- @preserve -- arrow functions are always assigned to a variable_declarator here */
       const nameNode =
         node.type === 'function_declaration'
           ? this.findNamedChild(node, 'identifier')
@@ -221,26 +211,24 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         if (child.type === 'import_clause') {
           for (let j = 0; j < child.childCount; j++) {
             const sub = child.child(j);
-            /* v8 ignore next -- @preserve -- import_clause children are namespace_import/named_imports/identifier */
             if (sub.type === 'namespace_import') {
               importType = 'namespace';
               const id = this.findDeepChild(sub, 'identifier');
-              /* v8 ignore next -- @preserve -- defensive null / boundary branch */
               if (id) names.push(id.text);
             } else if (sub.type === 'named_imports') {
               importType = 'named';
               for (let k = 0; k < sub.childCount; k++) {
                 const spec = sub.child(k);
                 if (spec.type === 'import_specifier') {
-                  /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                   const id =
                     this.findDeepChild(spec, 'identifier') ||
                     this.findDeepChild(spec, 'property_identifier');
-                  /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                   if (id) names.push(id.text);
                 }
               }
-            } else if (sub.type === 'identifier') {
+            } else {
+              // The only remaining import_clause child type is `identifier`
+              // (default import); namespace and named imports are handled above.
               importType = 'default';
               names.push(sub.text);
             }
@@ -248,7 +236,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         }
       }
 
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (sourcePath && names.length > 0) {
         imports.push({
           source: sourcePath,
@@ -268,18 +255,14 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
             const arg = node.child(j);
             if (arg.type === 'arguments') {
               const strNode = this.findDeepChild(arg, 'string');
-              /* v8 ignore next -- @preserve -- defensive null / boundary branch */
               if (strNode) {
                 const path = strNode.text.slice(1, -1);
                 const parent = node.parent;
                 const names: string[] = [];
-                /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                 if (parent?.type === 'variable_declarator') {
                   const id = this.findNamedChild(parent, 'identifier');
-                  /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                   if (id) names.push(id.text);
                 }
-                /* v8 ignore next -- @preserve -- defensive null / boundary branch */
                 imports.push({
                   source: path,
                   names: names.length > 0 ? names : [path],
@@ -313,7 +296,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         }
         if (child.type === 'function_declaration' || child.type === 'class_declaration') {
           const id = this.findNamedChild(child, 'identifier');
-          /* v8 ignore next -- @preserve -- defensive null / boundary branch */
           if (id?.text === symbolName) return true;
         }
       }
@@ -327,7 +309,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const funcRegex = /(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+(\w+)/g;
@@ -399,7 +380,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex = /import\s+(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
@@ -414,7 +394,11 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         let n: RegExpExecArray | null;
         while ((n = nr.exec(m[3]))) nm.push(n[1]!);
         imports.push({ source: p, names: nm, type: 'named', lineNumber: l });
-      } else if (m[4]) imports.push({ source: p, names: [m[4]], type: 'default', lineNumber: l });
+      } else {
+        // The regex alternation always captures exactly one of groups 2 (namespace),
+        // 3 (named), or 4 (default); the remaining case is the default import.
+        imports.push({ source: p, names: [m[4]!], type: 'default', lineNumber: l });
+      }
     }
     // require()
     const rqRx =
@@ -428,12 +412,15 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         let n: RegExpExecArray | null;
         while ((n = nr.exec(m[1]))) nm.push(n[1]!);
         imports.push({ source: p, names: nm, type: 'named', lineNumber: l });
-      } else if (m[2]) imports.push({ source: p, names: [m[2]], type: 'default', lineNumber: l });
+      } else {
+        // The regex alternation always captures exactly one of groups 1 (destructured
+        // named) or 2 (default); the remaining case is the default require binding.
+        imports.push({ source: p, names: [m[2]!], type: 'default', lineNumber: l });
+      }
     }
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(
@@ -449,7 +436,6 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       const heritage = node.child(i);
       if (heritage.type === 'class_heritage') {
         const id = this.findDeepChild(heritage, 'identifier');
-        /* v8 ignore next -- @preserve -- defensive null / boundary branch */
         if (id) return id.text;
       }
     }
@@ -458,10 +444,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
 
   private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (node.namedChild(i).type === type) return node.namedChild(i);
     }
-    /* v8 ignore next -- @preserve -- every node type passed here has an identifier */
     return null;
   }
 
@@ -469,14 +453,11 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     if (node.type === type) return node;
     for (let i = 0; i < node.namedChildCount; i++) {
       const r = this.findDeepChild(node.namedChild(i), type);
-      /* v8 ignore next -- @preserve -- defensive null / boundary branch */
       if (r) return r;
     }
-    /* v8 ignore next -- @preserve -- every node type passed here has an identifier */
     return null;
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private lineOff(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }

@@ -1,8 +1,7 @@
 {
-  "totalHidden": 395,
-  "totalLines": 128588,
+  "totalHidden": 366,
+  "totalLines": 128569,
   "files": {
-    "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
     "packages/analyzer/src/languages/python.ts": 23,
     "packages/analyzer/src/languages/tree-sitter-base.ts": 22,
@@ -40,6 +39,7 @@
     "packages/analyzer/src/languages/dockerfile.ts": 2,
     "packages/analyzer/src/languages/go.ts": 2,
     "packages/analyzer/src/languages/html.ts": 2,
+    "packages/analyzer/src/languages/javascript.ts": 2,
     "packages/analyzer/src/languages/ruby.ts": 2,
     "packages/analyzer/src/languages/typescript.ts": 2,
     "packages/analyzer/src/pipeline/phases/dump.ts": 2,
