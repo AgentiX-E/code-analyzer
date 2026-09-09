@@ -1,10 +1,9 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cypher Planner Tests
 
 import { describe, it, expect } from 'vitest';
 import { tokenize } from '../cypher/lexer.js';
 import { parse } from '../cypher/parser.js';
-import { plan, _DEFAULT_SCHEMA, buildFilterPredicate } from '../cypher/planner.js';
+import { plan, buildFilterPredicate } from '../cypher/planner.js';
 import type { GraphNode } from '@code-analyzer/shared';
 
 function makeNode(overrides: Partial<GraphNode> = {}): GraphNode {
@@ -97,7 +96,7 @@ describe('Cypher Planner', () => {
 
       expect(queryPlan.columns).toHaveLength(2);
       expect(queryPlan.columns[0]!.name).toBe('name');
-      expect(queryPlan.columns[1].name).toBe('cx');
+      expect(queryPlan.columns[1]!.name).toBe('cx');
     });
 
     it('should generate params for property filters', () => {
@@ -250,6 +249,52 @@ describe('Cypher Planner', () => {
       const queryPlan = plan(ast);
 
       expect(queryPlan.steps.some((s) => s.kind === 'filter')).toBe(true);
+    });
+
+    it('should render a CONTAINS binary expression in a RETURN column', () => {
+      const tokens = tokenize('MATCH (n) RETURN n.name CONTAINS "test" AS c');
+      const ast = parse(tokens);
+      const queryPlan = plan(ast);
+
+      expect(queryPlan.columns[0]!.expression).toBe('n.name CONTAINS "test"');
+      expect(queryPlan.columns[0]!.type).toBe('computed');
+    });
+
+    it('should render an ORDER BY clause into orderBy expressions', () => {
+      const tokens = tokenize('MATCH (n) RETURN n ORDER BY n.complexity DESC');
+      const ast = parse(tokens);
+      const queryPlan = plan(ast);
+
+      expect(queryPlan.orderBy).toEqual([{ expression: 'n.complexity', direction: 'desc' }]);
+    });
+
+    it('should resolve a variable property value to its name', () => {
+      const tokens = tokenize('MATCH (n {name: other}) RETURN n');
+      const ast = parse(tokens);
+      const queryPlan = plan(ast);
+
+      expect(queryPlan.params['prop_1']).toBe('other');
+    });
+
+    it('should resolve a property-typed property value to object.property', () => {
+      const tokens = tokenize('MATCH (n {name: m.name}) RETURN n');
+      const ast = parse(tokens);
+      const queryPlan = plan(ast);
+
+      expect(queryPlan.params['prop_1']).toBe('m.name');
+    });
+
+    it('should pass through non-expression property values unchanged', () => {
+      const tokens = tokenize('MATCH (n) RETURN n');
+      const ast = parse(tokens);
+      ast.match[0]!.patterns[0]!.properties = {
+        raw: 'plain',
+        fn: { type: 'function', name: 'COUNT', args: [] },
+      };
+      const queryPlan = plan(ast);
+
+      expect(queryPlan.params['prop_1']).toBe('plain');
+      expect(queryPlan.params['prop_2']).toEqual({ type: 'function', name: 'COUNT', args: [] });
     });
   });
 
@@ -634,6 +679,50 @@ describe('Cypher Planner', () => {
 
     it('should return true for unknown expression type', () => {
       const expr = { type: 'unknown_type' as const } as any;
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
+    });
+
+    it('should return "*" for a wildcard variable operand', () => {
+      const expr = {
+        type: 'binary' as const,
+        operator: '=',
+        left: { type: 'variable' as const, name: '*' },
+        right: { type: 'literal' as const, value: '*' },
+      };
+      // evaluateBinaryOperand(variable '*') === '*', literal '*' === '*' → true
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
+    });
+
+    it('should return null for an unknown variable operand', () => {
+      const expr = {
+        type: 'binary' as const,
+        operator: 'IS',
+        left: { type: 'variable' as const, name: 'unknown' },
+        right: { type: 'literal' as const, value: null },
+      };
+      // evaluateBinaryOperand(variable 'unknown') → null; null IS null → true
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
+    });
+
+    it('should return 1 for a COUNT function operand', () => {
+      const expr = {
+        type: 'binary' as const,
+        operator: '>',
+        left: { type: 'function' as const, name: 'COUNT', args: [] },
+        right: { type: 'literal' as const, value: 0 },
+      };
+      // evaluateBinaryOperand(function COUNT) → 1; 1 > 0 → true
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
+    });
+
+    it('should return null for a non-COUNT function operand', () => {
+      const expr = {
+        type: 'binary' as const,
+        operator: 'IS',
+        left: { type: 'function' as const, name: 'SUM', args: [] },
+        right: { type: 'literal' as const, value: null },
+      };
+      // evaluateBinaryOperand(function SUM) → null; null IS null → true
       expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
   });

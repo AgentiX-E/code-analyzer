@@ -243,45 +243,29 @@ function exprToString(expr: CypherExpression): string {
       const left = exprToString(expr.left);
       const right = exprToString(expr.right);
       const op = expr.operator;
-      /* v8 ignore start -- @preserve */
       if (op === 'CONTAINS') return `${left} CONTAINS ${right}`;
-      /* v8 ignore stop */
       return `(${left} ${op} ${right})`;
     }
     case 'unary':
       return `${expr.operator} ${exprToString(expr.operand)}`;
-    /* v8 ignore start -- @preserve */
-    default:
-      return '?';
-    /* v8 ignore stop */
   }
 }
 
 /** Infer the column type from a Cypher expression. */
 function inferColumnType(expr: CypherExpression): 'node' | 'edge' | 'property' | 'computed' {
-  switch (expr.type) {
-    case 'variable':
-      return expr.name === '*' ? 'computed' : 'node';
-    case 'property':
-      return 'property';
-    case 'literal':
-      return 'computed';
-    case 'function':
-      return 'computed';
-    case 'binary':
-      return 'computed';
-    case 'unary':
-      return 'computed';
-    /* v8 ignore start -- @preserve */
-    default:
-      return 'computed';
-    /* v8 ignore stop */
+  if (expr.type === 'variable') {
+    return expr.name === '*' ? 'computed' : 'node';
   }
+  if (expr.type === 'property') {
+    return 'property';
+  }
+  // Literal, function, binary, and unary expressions always produce a computed
+  // column — none of them carry node/edge/property identity to infer from.
+  return 'computed';
 }
 
 /** Resolve a Cypher expression (possibly from pattern properties) to its concrete value. */
 function resolveConcreteValue(expr: unknown): unknown {
-  /* v8 ignore start -- @preserve */
   if (typeof expr === 'object' && expr !== null && 'type' in expr) {
     const e = expr as {
       type: string;
@@ -295,7 +279,6 @@ function resolveConcreteValue(expr: unknown): unknown {
     if (e.type === 'property') return `${e.object}.${e.property}`;
   }
   return expr;
-  /* v8 ignore stop */
 }
 
 /** Create a filter predicate string from an expression for execution. */
@@ -403,21 +386,14 @@ function evaluateBinaryOperand(expr: CypherExpression, nodeVars: Map<string, Gra
       return propMap[expr.property] ?? null;
     }
     case 'variable': {
-      /* v8 ignore start -- @preserve */
       if (expr.name === '*') return '*';
-      /* v8 ignore stop */
-      /* v8 ignore next -- @preserve */
       return nodeVars.get(expr.name) ?? null;
     }
     case 'literal':
       return expr.value;
-    /* v8 ignore start -- @preserve */
     case 'function': {
       if (expr.name === 'COUNT') return 1;
       return null;
     }
-    default:
-      return null;
-    /* v8 ignore stop */
   }
 }

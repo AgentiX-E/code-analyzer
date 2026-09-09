@@ -580,10 +580,7 @@ function parseExpression(state: ParserState, minPrecedence = 0): CypherExpressio
           type: 'binary',
           operator: not ? 'IS NOT' : 'IS',
           left,
-          right: {
-            type: 'literal' as const,
-            value: null as unknown as string | number | boolean,
-          } as CypherExpression,
+          right: { type: 'literal', value: null },
         };
       } else {
         const right = parsePrimary(state);
@@ -642,10 +639,7 @@ function parsePrimary(state: ParserState): CypherExpression {
   }
   if (state.isKeyword('NULL')) {
     state.advance();
-    return {
-      type: 'literal',
-      value: null as unknown as string | number | boolean,
-    } as CypherExpression;
+    return { type: 'literal', value: null };
   }
 
   // Function calls: COUNT(expr), SUM(expr), etc.
@@ -713,10 +707,7 @@ function parsePrimary(state: ParserState): CypherExpression {
       if (state.current()?.value === ',') state.advance();
     }
     state.expect('PUNCTUATION', ']');
-    return {
-      type: 'literal',
-      value: items as unknown as string | number | boolean,
-    } as CypherExpression;
+    return { type: 'literal', value: items };
   }
 
   // Nested expression with dot access on function result

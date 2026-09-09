@@ -1,6 +1,6 @@
 {
-  "totalHidden": 755,
-  "totalLines": 128691,
+  "totalHidden": 729,
+  "totalLines": 128662,
   "files": {
     "packages/core/src/agents/detector.ts": 93,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
@@ -10,7 +10,6 @@
     "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
     "packages/mcp/src/tools/smart-response.ts": 30,
-    "packages/mcp/src/cypher/planner.ts": 26,
     "packages/infra/src/project/auto-indexer.ts": 25,
     "packages/analyzer/src/languages/python.ts": 23,
     "packages/analyzer/src/languages/tree-sitter-base.ts": 22,

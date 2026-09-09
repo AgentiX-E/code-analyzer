@@ -1113,7 +1113,11 @@ export interface OrderByItem {
 export type CypherExpression =
   | { type: 'property'; object: string; property: string }
   | { type: 'variable'; name: string }
-  | { type: 'literal'; value: string | number | boolean }
+  // A literal can hold a scalar, a NULL marker, or a list literal. The parser
+  // emits all four shapes; the narrow `string | number | boolean` union was a
+  // type-lie that forced `as unknown as` casts in the parser's NULL and array
+  // branches.
+  | { type: 'literal'; value: string | number | boolean | null | unknown[] }
   | { type: 'function'; name: string; args: CypherExpression[] }
   | { type: 'binary'; operator: string; left: CypherExpression; right: CypherExpression }
   | { type: 'unary'; operator: string; operand: CypherExpression };
