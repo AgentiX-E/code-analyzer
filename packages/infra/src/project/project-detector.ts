@@ -35,13 +35,11 @@ const MARKERS: Array<{
     packageManagerFn: (content: string, fullPath: string): string | undefined => {
       try {
         const pkg = JSON.parse(content);
-        /* v8 ignore next 2 */ // pnpm/yarn detection requires specific lock files in test fixtures
         if (pkg.packageManager?.startsWith('pnpm')) return 'pnpm';
         if (pkg.packageManager?.startsWith('yarn')) return 'yarn';
         const dir = path.dirname(fullPath);
         if (fs.existsSync(path.join(dir, 'pnpm-lock.yaml'))) return 'pnpm';
         if (fs.existsSync(path.join(dir, 'yarn.lock'))) return 'yarn';
-        /* v8 ignore next */ // npm lock file detection requires specific fixture
         if (fs.existsSync(path.join(dir, 'package-lock.json'))) return 'npm';
         return 'npm';
       } catch {
@@ -123,24 +121,21 @@ export function detectProject(rootPath: string): ProjectInfo {
       const fullPath = path.join(resolved, marker.file);
       try {
         const stat = fs.statSync(fullPath);
-        /* v8 ignore next -- @preserve */
         if (!stat.isFile()) continue;
-        /* v8 ignore start */
       } catch {
+        // Marker entry is a dangling symlink or otherwise unreadable — skip it.
         continue;
       }
-      /* v8 ignore stop */
 
       markerCount++;
 
-      /* v8 ignore next 7 -- @preserve */
-      if (marker.type !== 'unknown') {
-        if (markerCount === 1) {
-          detectedType = marker.type;
-        } else if (detectedType !== marker.type) {
-          // Multiple project types detected — monorepo or polyglot
-          detectedType = 'monorepo';
-        }
+      // Every MARKERS entry carries a concrete project type (never 'unknown'),
+      // so no type guard is needed here.
+      if (markerCount === 1) {
+        detectedType = marker.type;
+      } else if (detectedType !== marker.type) {
+        // Multiple project types detected — monorepo or polyglot
+        detectedType = 'monorepo';
       }
 
       languages.add(marker.language);
@@ -186,7 +181,6 @@ export function detectProject(rootPath: string): ProjectInfo {
         // Only add if it's a file, not a directory
         try {
           const stat = fs.statSync(path.join(resolved, entry));
-          /* v8 ignore next 2 -- @preserve */
           if (stat.isFile()) {
             languages.add(lang);
           }
@@ -219,30 +213,18 @@ export function detectProject(rootPath: string): ProjectInfo {
   // Also check for k8s directory
   const k8sDir = path.join(resolved, 'k8s');
   const hasK8sDir = (() => {
-    /* v8 ignore start */
     try {
       return fs.statSync(k8sDir).isDirectory();
     } catch {
       return false;
     }
-    /* v8 ignore stop */
   })();
 
-  // Add common languages for the detected type
-  /* v8 ignore start -- @preserve */
-  if (languages.size === 0 && detectedType !== 'unknown') {
-    // Infer language from type
-    const typeToLang: Record<string, string> = {
-      node: 'typescript',
-      python: 'python',
-      rust: 'rust',
-      go: 'go',
-      java: 'java',
-    };
-    const lang = typeToLang[detectedType];
-    if (lang) languages.add(lang);
-  }
-  /* v8 ignore stop */
+  // Note: there is no "infer language from type" fallback here. Every marker
+  // that sets `detectedType` (all MARKERS entries carry a concrete type) also
+  // adds its language via `languages.add(marker.language)`, so `languages` is
+  // never empty whenever `detectedType !== 'unknown'` — a fallback would be
+  // unreachable.
 
   return {
     type: detectedType,
@@ -271,7 +253,6 @@ function hasMarker(rootPath: string, names: string[]): boolean {
             const stat = fs.statSync(fullEntry);
             if (stat.isDirectory()) {
               const sub = fs.readdirSync(fullEntry);
-              /* v8 ignore next -- @preserve */
               if (sub.some((f) => f === name)) return true;
             }
           } catch {
@@ -281,11 +262,9 @@ function hasMarker(rootPath: string, names: string[]): boolean {
       }
     }
     return false;
-    /* v8 ignore start */
   } catch {
     return false;
   }
-  /* v8 ignore stop */
 }
 
 /**
@@ -299,8 +278,9 @@ export function detectToolVersion(rootPath: string, tool: string): string | null
     try {
       const content = fs.readFileSync(modPath, 'utf-8');
       const match = content.match(/^go\s+(\d+\.\d+)/m);
-      /* v8 ignore next -- @preserve */
-      if (match) return match[1] ?? null;
+      // The capture group is mandatory for the regex to match, so `match[1]`
+      // is always defined when `match` is non-null.
+      if (match) return match[1]!;
     } catch {
       // No go.mod
     }
@@ -312,8 +292,9 @@ export function detectToolVersion(rootPath: string, tool: string): string | null
     try {
       const content = fs.readFileSync(toolchainPath, 'utf-8');
       const match = content.match(/channel\s*=\s*"(.+)"/);
-      /* v8 ignore next -- @preserve */
-      if (match) return match[1] ?? null;
+      // The capture group is mandatory for the regex to match, so `match[1]`
+      // is always defined when `match` is non-null.
+      if (match) return match[1]!;
     } catch {
       // No toolchain file
     }

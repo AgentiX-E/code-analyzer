@@ -1,8 +1,7 @@
 {
-  "totalHidden": 525,
-  "totalLines": 128662,
+  "totalHidden": 486,
+  "totalLines": 128643,
   "files": {
-    "packages/infra/src/project/project-detector.ts": 39,
     "packages/analyzer/src/languages/html.ts": 35,
     "packages/cli/src/commands/agent.ts": 33,
     "packages/analyzer/src/languages/javascript.ts": 31,

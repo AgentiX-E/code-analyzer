@@ -74,6 +74,37 @@ describe('ProjectDetector', () => {
     expect(info.type).toBe('node');
   });
 
+  it('detects pnpm from the packageManager field', () => {
+    rootPath = setup([], {
+      'package.json': JSON.stringify({ name: 'pnpm-project', packageManager: 'pnpm@8.15.0' }),
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.type).toBe('node');
+    expect(info.packageManager).toBe('pnpm');
+  });
+
+  it('detects yarn from the packageManager field', () => {
+    rootPath = setup([], {
+      'package.json': JSON.stringify({ name: 'yarn-project', packageManager: 'yarn@1.22.19' }),
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.type).toBe('node');
+    expect(info.packageManager).toBe('yarn');
+  });
+
+  it('detects npm from package-lock.json', () => {
+    rootPath = setup([], {
+      'package.json': JSON.stringify({ name: 'npm-project' }),
+      'package-lock.json': '{}',
+    });
+
+    const info = detectProject(rootPath);
+    expect(info.type).toBe('node');
+    expect(info.packageManager).toBe('npm');
+  });
+
   // -------------------------------------------------------------------------
   // Python projects
   // -------------------------------------------------------------------------
@@ -178,6 +209,18 @@ describe('ProjectDetector', () => {
     const info = detectProject(rootPath);
     expect(info.type).toBe('java');
     expect(info.languages).toContain('kotlin');
+  });
+
+  it('keeps the type when multiple markers share the same project type', () => {
+    rootPath = setup([], {
+      'pom.xml': '<project></project>',
+      'build.gradle': '',
+    });
+
+    const info = detectProject(rootPath);
+    // Both markers are Java — the type must stay 'java', not become 'monorepo'.
+    expect(info.type).toBe('java');
+    expect(info.languages).toContain('java');
   });
 
   // -------------------------------------------------------------------------
@@ -391,6 +434,28 @@ describe('ProjectDetector', () => {
     expect(info.type).toBe('unknown');
   });
 
+  it('skips a marker entry that is actually a directory', () => {
+    rootPath = setup(['package.json'], {
+      'README.md': '# docs',
+    });
+
+    const info = detectProject(rootPath);
+    // The directory named package.json is not a file, so it must be skipped.
+    expect(info.type).toBe('unknown');
+    expect(info.languages).toEqual([]);
+  });
+
+  it('skips a marker entry that is a dangling symlink', () => {
+    rootPath = setup([], {
+      'README.md': '# docs',
+    });
+    fs.symlinkSync('/nonexistent-ca-projdet-target', path.join(rootPath, 'package.json'));
+
+    const info = detectProject(rootPath);
+    // statSync follows the symlink and throws ENOENT — the marker is skipped.
+    expect(info.type).toBe('unknown');
+  });
+
   // -------------------------------------------------------------------------
   // detectToolVersion
   // -------------------------------------------------------------------------
@@ -410,6 +475,15 @@ describe('ProjectDetector', () => {
     expect(version).toBeNull();
   });
 
+  it('returns null for Go module without a version directive', () => {
+    rootPath = setup([], {
+      'go.mod': 'module example.com/foo\n',
+    });
+
+    const version = detectToolVersion(rootPath, 'go');
+    expect(version).toBeNull();
+  });
+
   it('detects Rust toolchain version from rust-toolchain.toml', () => {
     rootPath = setup([], {
       'rust-toolchain.toml': '[toolchain]\nchannel = "stable-2024-01-01"',
@@ -423,6 +497,15 @@ describe('ProjectDetector', () => {
     rootPath = setup([], {
       'Cargo.toml': '[package]\nname = "test"',
     });
+    const version = detectToolVersion(rootPath, 'rust');
+    expect(version).toBeNull();
+  });
+
+  it('returns null for Rust toolchain without a channel directive', () => {
+    rootPath = setup([], {
+      'rust-toolchain.toml': '[toolchain]\n# no channel\n',
+    });
+
     const version = detectToolVersion(rootPath, 'rust');
     expect(version).toBeNull();
   });
@@ -646,6 +729,19 @@ describe('ProjectDetector', () => {
     const info = detectProject(rootPath);
     // Should only have typescript once (from index.ts, not from types.ts dir)
     expect(info.languages).toContain('typescript');
+  });
+
+  it('skips a dangling symlink with a known extension during language detection', () => {
+    rootPath = setup([], {
+      'package.json': JSON.stringify({ name: 'test' }),
+    });
+    fs.symlinkSync('/nonexistent-ca-projdet-py', path.join(rootPath, 'main.py'));
+
+    const info = detectProject(rootPath);
+    // statSync on the dangling main.py symlink throws and is caught, so the
+    // python language must not be contributed by the broken entry.
+    expect(info.type).toBe('node');
+    expect(info.languages).not.toContain('python');
   });
 
   // -------------------------------------------------------------------------
