@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 
-import { registerCors } from '../middleware/cors.js';
+import { registerCors, resolveAllowedOrigin } from '../middleware/cors.js';
 import { registerAuth } from '../middleware/auth.js';
 import { registerLogging, shouldLog, logStructured, logPretty } from '../middleware/logging.js';
 import { registerErrorHandler } from '../middleware/error-handler.js';
@@ -112,6 +112,134 @@ describe('registerCors', () => {
     });
 
     expect(res.headers['vary']).toBe('Origin');
+  });
+
+  it('skips origin header when no origin is sent and a specific origin is configured', async () => {
+    registerCors(app, {
+      origin: 'https://example.com',
+      methods: ['GET'],
+      allowedHeaders: [],
+      exposedHeaders: [],
+      credentials: false,
+      maxAge: 3600,
+    });
+    app.get('/test', async (_req, reply) => reply.send({}));
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/test' });
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('echoes a matching specific origin', async () => {
+    registerCors(app, {
+      origin: 'https://example.com',
+      methods: ['GET'],
+      allowedHeaders: [],
+      exposedHeaders: [],
+      credentials: false,
+      maxAge: 3600,
+    });
+    app.get('/test', async (_req, reply) => reply.send({}));
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { origin: 'https://example.com' },
+    });
+    expect(res.headers['access-control-allow-origin']).toBe('https://example.com');
+  });
+
+  it('echoes a matching origin from an allowlist array', async () => {
+    registerCors(app, {
+      origin: ['https://a.com', 'https://b.com'],
+      methods: ['GET'],
+      allowedHeaders: [],
+      exposedHeaders: [],
+      credentials: false,
+      maxAge: 3600,
+    });
+    app.get('/test', async (_req, reply) => reply.send({}));
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { origin: 'https://b.com' },
+    });
+    expect(res.headers['access-control-allow-origin']).toBe('https://b.com');
+  });
+
+  it('echoes origin when the allowlist contains a wildcard', async () => {
+    registerCors(app, {
+      origin: ['*'],
+      methods: ['GET'],
+      allowedHeaders: [],
+      exposedHeaders: [],
+      credentials: false,
+      maxAge: 3600,
+    });
+    app.get('/test', async (_req, reply) => reply.send({}));
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { origin: 'https://any.com' },
+    });
+    expect(res.headers['access-control-allow-origin']).toBe('https://any.com');
+  });
+
+  it('omits the allow-origin header for a non-matching origin', async () => {
+    registerCors(app, {
+      origin: 'https://example.com',
+      methods: ['GET'],
+      allowedHeaders: [],
+      exposedHeaders: [],
+      credentials: false,
+      maxAge: 3600,
+    });
+    app.get('/test', async (_req, reply) => reply.send({}));
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { origin: 'https://evil.com' },
+    });
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveAllowedOrigin — direct unit tests (pure function)
+// ---------------------------------------------------------------------------
+
+describe('resolveAllowedOrigin', () => {
+  it('returns * for a wildcard allow config', () => {
+    expect(resolveAllowedOrigin('https://x.com', '*')).toBe('*');
+  });
+
+  it('returns null when no origin is provided and allow is not a wildcard', () => {
+    expect(resolveAllowedOrigin(undefined, 'https://x.com')).toBeNull();
+  });
+
+  it('echoes the origin when it exactly matches a single string allow', () => {
+    expect(resolveAllowedOrigin('https://x.com', 'https://x.com')).toBe('https://x.com');
+  });
+
+  it('echoes the origin when it is in the allowlist array', () => {
+    expect(resolveAllowedOrigin('https://x.com', ['https://x.com', 'https://y.com'])).toBe(
+      'https://x.com',
+    );
+  });
+
+  it('echoes the origin when the allowlist array contains a wildcard', () => {
+    expect(resolveAllowedOrigin('https://x.com', ['*'])).toBe('https://x.com');
+  });
+
+  it('returns null for a non-matching origin', () => {
+    expect(resolveAllowedOrigin('https://x.com', 'https://y.com')).toBeNull();
   });
 });
 

@@ -1,12 +1,11 @@
 {
-  "totalHidden": 1052,
+  "totalHidden": 1002,
   "totalLines": 128763,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
     "packages/server/src/routes/tools.ts": 85,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
-    "packages/server/src/middleware/cors.ts": 50,
     "packages/mcp/src/cypher/executor.ts": 48,
     "packages/infra/src/project/project-detector.ts": 39,
     "packages/analyzer/src/languages/html.ts": 35,
