@@ -1,8 +1,7 @@
 {
-  "totalHidden": 917,
-  "totalLines": 128760,
+  "totalHidden": 803,
+  "totalLines": 128737,
   "files": {
-    "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
     "packages/mcp/src/cypher/executor.ts": 48,

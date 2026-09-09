@@ -114,12 +114,27 @@ export function tokenize(query: string): CypherToken[] {
       continue;
     }
 
-    // Numbers
-    if (/[0-9]/.test(ch) || (ch === '.' && pos + 1 < len && /[0-9]/.test(query[pos + 1]!))) {
+    // Numbers — a '.' is only a decimal point when it is NOT part of the
+    // '..' hop-range separator (e.g. "*1..3" must lex as "1", ".", ".", "3").
+    if (
+      /[0-9]/.test(ch) ||
+      (ch === '.' &&
+        pos + 1 < len &&
+        /[0-9]/.test(query[pos + 1]!) &&
+        (pos === 0 || query[pos - 1] !== '.'))
+    ) {
       let value = '';
-      while (pos < len && /[0-9.]/.test(query[pos]!)) {
-        value += query[pos]!;
-        pos++;
+      while (pos < len) {
+        const c = query[pos]!;
+        if (/[0-9]/.test(c)) {
+          value += c;
+          pos++;
+        } else if (c === '.' && (pos + 1 >= len || query[pos + 1] !== '.')) {
+          value += c;
+          pos++;
+        } else {
+          break;
+        }
       }
       tokens.push({ type: 'NUMBER', value, position: pos - value.length });
       continue;

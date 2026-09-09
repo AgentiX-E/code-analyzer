@@ -53,6 +53,49 @@ describe('Cypher Lexer', () => {
       expect(numbers.map((t) => t.value)).toEqual(['42', '3.14', '0', '100']);
     });
 
+    it('should tokenize a hop-range separator as two dots', () => {
+      // '*1..3' must NOT collapse into the single decimal token '1..3'.
+      const tokens = tokenize('(a)-[r:CALLS*1..3]->(b)');
+      expect(tokens.filter((t) => t.value === '.')).toHaveLength(2);
+      expect(tokens.filter((t) => t.type === 'NUMBER').map((t) => t.value)).toEqual(['1', '3']);
+    });
+
+    it('should tokenize a leading hop-range separator without a decimal', () => {
+      // '*..3' must lex as '.', '.', '3' — not '.', '.3'.
+      const tokens = tokenize('(a)-[r:CALLS*..3]->(b)');
+      expect(tokens.filter((t) => t.value === '.')).toHaveLength(2);
+      expect(tokens.filter((t) => t.type === 'NUMBER').map((t) => t.value)).toEqual(['3']);
+    });
+
+    it('should tokenize a leading decimal', () => {
+      const tokens = tokenize('.5');
+      expect(tokens.map((t) => ({ type: t.type, value: t.value }))).toEqual([
+        { type: 'NUMBER', value: '.5' },
+      ]);
+    });
+
+    it('should tokenize a decimal after a non-dot character', () => {
+      const tokens = tokenize('a .5');
+      expect(tokens.map((t) => ({ type: t.type, value: t.value }))).toEqual([
+        { type: 'IDENTIFIER', value: 'a' },
+        { type: 'NUMBER', value: '.5' },
+      ]);
+    });
+
+    it('should tokenize a trailing-decimal number', () => {
+      const tokens = tokenize('1.');
+      expect(tokens.map((t) => ({ type: t.type, value: t.value }))).toEqual([
+        { type: 'NUMBER', value: '1.' },
+      ]);
+    });
+
+    it('should tokenize a standalone dot at end of input as punctuation', () => {
+      const tokens = tokenize('RETURN n.');
+      const last = tokens[tokens.length - 1]!;
+      expect(last.type).toBe('PUNCTUATION');
+      expect(last.value).toBe('.');
+    });
+
     it('should tokenize operators', () => {
       const tokens = tokenize('= <> < <= > >=');
       const ops = tokens.filter((t) => t.type === 'OPERATOR');

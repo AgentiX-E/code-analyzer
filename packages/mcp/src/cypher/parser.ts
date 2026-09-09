@@ -52,11 +52,9 @@ class ParserState {
     return this.tokens[this.pos];
   }
 
-  /* v8 ignore start */
   advance(): CypherToken | undefined {
     return this.tokens[this.pos++];
   }
-  /* v8 ignore stop */
 
   peek(): CypherToken | undefined {
     return this.tokens[this.pos + 1];
@@ -64,9 +62,7 @@ class ParserState {
 
   expect(type: CypherToken['type'], value?: string): CypherToken {
     const tok = this.advance();
-    /* v8 ignore start */
     if (!tok) throw new Error(`Expected ${type}${value ? ` "${value}"` : ''} but got end of input`);
-    /* v8 ignore stop */
     if (tok.type !== type) {
       throw new Error(
         `Expected ${type} but got ${tok.type} "${tok.value}" at position ${tok.position}`,
@@ -83,15 +79,8 @@ class ParserState {
     return tok?.type === 'KEYWORD' && tok.value.toUpperCase() === value.toUpperCase();
   }
 
-  /* v8 ignore start */
   isType(value: CypherToken['type']): boolean {
     return this.current()?.type === value;
-  }
-  /* v8 ignore stop */
-
-  /* v8 ignore next 3 */
-  isEOF(): boolean {
-    return this.pos >= this.tokens.length;
   }
 }
 
@@ -152,9 +141,7 @@ function parseQuery(state: ParserState): CypherQuery {
   let union: CypherQuery | undefined;
   if (state.isKeyword('UNION')) {
     state.advance();
-    /* v8 ignore start */
     if (state.isKeyword('ALL')) state.advance();
-    /* v8 ignore stop */
     union = parseQuery(state);
   }
 
@@ -209,7 +196,6 @@ function parseNodePattern(state: ParserState): NodePattern {
     if (state.current()?.value === ':') {
       state.advance();
       // Collect labels separated by : or |
-      /* v8 ignore start */
       while (state.isType('IDENTIFIER') || state.isType('KEYWORD')) {
         labels.push(state.advance()!.value);
         if (state.current()?.value === '|') {
@@ -220,14 +206,12 @@ function parseNodePattern(state: ParserState): NodePattern {
           break;
         }
       }
-      /* v8 ignore stop */
     }
 
     // Properties block { key: value }
     if (state.current()?.value === '{') {
       properties = parsePropertyBlock(state);
     }
-    /* v8 ignore start */
   } else if (state.current()?.value === ':') {
     // Anonymous node with label
     state.advance();
@@ -244,7 +228,6 @@ function parseNodePattern(state: ParserState): NodePattern {
     if (state.current()?.value === '{') {
       properties = parsePropertyBlock(state);
     }
-    /* v8 ignore stop */
   }
 
   state.expect('PUNCTUATION', ')');
@@ -274,25 +257,26 @@ function parseRelationship(state: ParserState): RelationshipPattern {
       const target = parseNodePattern(state);
       return { types: [], direction: 'left', target };
     }
-  } else if (state.current()?.type === 'OPERATOR' && state.current()?.value === '-') {
+  } else {
+    // Invariant: the only caller (parseNodePattern's relationship loop)
+    // invokes this with current token '-' or '<'; '<' is handled above, so
+    // the current token here is '-'.
     state.advance(); // consume -
     if (state.current()?.value === '[') {
       state.advance();
-      /* v8 ignore start */
     } else if (state.current()?.value === '>') {
-      // Simple forward: -->(b)
+      // Simple forward: ->(b)
       state.advance();
       const target = parseNodePattern(state);
       return { types: [], direction: 'right', target };
     } else {
-      // Simple: --(b)
+      // Simple undirected: -(b)
       const target = parseNodePattern(state);
       return { types: [], direction: 'both', target };
     }
-  } else {
-    throw new Error(`Expected relationship pattern, got ${state.current()?.value ?? 'EOF'}`);
-    /* v8 ignore stop */
   }
+  // Invariant: the bracketed-detail path below is only reached after
+  // consuming a '[' (either '<-[…' or '-[…').
 
   // Parse relationship details inside [...]
   let types: string[] = [];
@@ -300,8 +284,12 @@ function parseRelationship(state: ParserState): RelationshipPattern {
   let minHops: number | undefined;
   let maxHops: number | undefined;
 
+  // Variable binding (e.g. [r:CALLS*..]) — the variable precedes the colon
+  if (state.isType('IDENTIFIER')) {
+    variable = state.advance()!.value;
+  }
+
   // Colon + relationship type
-  /* v8 ignore start */
   if (state.current()?.value === ':') {
     state.advance();
     while (state.isType('IDENTIFIER') || state.isType('KEYWORD')) {
@@ -312,13 +300,6 @@ function parseRelationship(state: ParserState): RelationshipPattern {
         break;
       }
     }
-  }
-  /* v8 ignore stop */
-
-  // Variable binding (after type, e.g. [r:CALLS*..])
-  /* v8 ignore start */
-  if (state.isType('IDENTIFIER') && types.length > 0) {
-    variable = state.advance()!.value;
   }
 
   // Hop range *min..max
@@ -341,7 +322,6 @@ function parseRelationship(state: ParserState): RelationshipPattern {
       }
     }
   }
-  /* v8 ignore stop */
 
   // Properties inside relationship
   if (state.current()?.value === '{') {
@@ -357,28 +337,22 @@ function parseRelationship(state: ParserState): RelationshipPattern {
       state.current()?.value === '-' &&
       state.peek()?.value === '>')
   ) {
-    /* v8 ignore start */
     if (state.current()?.value === '-') state.advance();
     if (direction === 'left') direction = 'both';
     else direction = 'right';
     state.advance(); // consume >
-    /* v8 ignore stop */
-    /* v8 ignore start */
   } else if (state.current()?.type === 'OPERATOR' && state.current()?.value === '-') {
     // Just -- without arrow: keep initial direction; if no initial, it's bidirectional
     if (direction === 'right') direction = 'both';
     state.advance();
-    /* v8 ignore stop */
   }
 
   const target = parseNodePattern(state);
 
   const rel: RelationshipPattern = { types, direction, target };
-  /* v8 ignore start */
   if (variable) rel.variable = variable;
   if (minHops !== undefined) rel.minHops = minHops;
   if (maxHops !== undefined) rel.maxHops = maxHops;
-  /* v8 ignore stop */
   return rel;
 }
 
@@ -503,14 +477,12 @@ function parseOrderByItem(state: ParserState): OrderByItem {
   const expr = parseExpression(state);
   let direction: 'asc' | 'desc' = 'asc';
 
-  /* v8 ignore start */
   if (state.isKeyword('ASC')) {
     state.advance();
   } else if (state.isKeyword('DESC')) {
     direction = 'desc';
     state.advance();
   }
-  /* v8 ignore stop */
 
   return { expression: expr, direction };
 }
@@ -548,13 +520,11 @@ function precedence(op: string): number {
     case '+':
     case '-':
       return 4;
-    /* v8 ignore next */
     case '*':
       return 5;
     case '/':
     case '%':
       return 5;
-    /* v8 ignore next 3 */
     default:
       return 0;
   }
@@ -625,15 +595,11 @@ function parseExpression(state: ParserState, minPrecedence = 0): CypherExpressio
     // Handle multi-word operators (STARTS WITH, ENDS WITH)
     if (opValue === 'STARTS' && state.peek()?.value.toUpperCase() === 'WITH') {
       state.advance(); // consume STARTS
-      /* v8 ignore start */
-      if (state.isKeyword('WITH')) state.advance(); // consume WITH
-      /* v8 ignore stop */
+      state.advance(); // consume WITH (peek() above already confirmed the next token is WITH)
       opValue = 'STARTS WITH';
     } else if (opValue === 'ENDS' && state.peek()?.value.toUpperCase() === 'WITH') {
       state.advance(); // consume ENDS
-      /* v8 ignore start */
-      if (state.isKeyword('WITH')) state.advance(); // consume WITH
-      /* v8 ignore stop */
+      state.advance(); // consume WITH (peek() above already confirmed the next token is WITH)
       opValue = 'ENDS WITH';
     } else {
       state.advance(); // consume the operator token
@@ -720,12 +686,10 @@ function parsePrimary(state: ParserState): CypherExpression {
   }
 
   // Wildcard
-  /* v8 ignore start */
   if (state.current()?.value === '*') {
     state.advance();
     return { type: 'variable', name: '*' };
   }
-  /* v8 ignore stop */
 
   // Array literal: ["val1", "val2"]
   if (state.current()?.value === '[') {
@@ -760,11 +724,9 @@ function parsePrimary(state: ParserState): CypherExpression {
     throw new Error(`Unexpected "." at position ${state.current()!.position}`);
   }
 
-  /* v8 ignore start */
   throw new Error(
     `Unexpected token: ${state.current()?.value ?? 'EOF'} at position ${state.current()?.position ?? 'end'}`,
   );
-  /* v8 ignore stop */
 }
 
 // ---------------------------------------------------------------------------

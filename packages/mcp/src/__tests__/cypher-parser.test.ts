@@ -433,5 +433,185 @@ describe('Cypher Parser', () => {
       expect(condition.type).toBe('binary');
       expect((condition as { operator: string }).operator).toBe('IS');
     });
+
+    it('should throw end-of-input when expect has no expected value', () => {
+      // "RETURN n AS" leaves expect('IDENTIFIER') at end of input, exercising
+      // the "but got end of input" message with no value suffix.
+      const tokens = tokenize('MATCH (n) RETURN n AS');
+      expect(() => parse(tokens)).toThrow('Expected IDENTIFIER but got end of input');
+    });
+
+    it('should parse UNION without ALL', () => {
+      const tokens = tokenize('MATCH (n:Class) RETURN n UNION MATCH (n:Function) RETURN n');
+      const ast = parse(tokens);
+      expect(ast.union).toBeDefined();
+      expect(ast.union!.match[0]!.patterns[0]!.labels).toContain('Function');
+    });
+
+    it('should parse a keyword label on a variable node', () => {
+      // CALLS is an edge-type keyword, exercising the KEYWORD side of the
+      // label-collection while loop.
+      const tokens = tokenize('MATCH (n:CALLS) RETURN n');
+      const ast = parse(tokens);
+      expect(ast.match[0]!.patterns[0]!.labels).toContain('CALLS');
+    });
+
+    it('should parse a keyword label on an anonymous node', () => {
+      const tokens = tokenize('MATCH (:CALLS) RETURN *');
+      const ast = parse(tokens);
+      expect(ast.match[0]!.patterns[0]!.labels).toContain('CALLS');
+    });
+
+    it('should parse an empty node', () => {
+      const tokens = tokenize('MATCH () RETURN *');
+      const ast = parse(tokens);
+      expect(ast.match[0]!.patterns[0]!.variable).toBe('');
+      expect(ast.match[0]!.patterns[0]!.labels).toEqual([]);
+    });
+
+    it('should parse a simple forward relationship', () => {
+      const tokens = tokenize('MATCH (a)->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.direction).toBe('right');
+      expect(rel.types).toEqual([]);
+      expect(rel.target.variable).toBe('b');
+    });
+
+    it('should parse a simple bidirectional relationship without brackets', () => {
+      const tokens = tokenize('MATCH (a)-(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.direction).toBe('both');
+      expect(rel.types).toEqual([]);
+    });
+
+    it('should parse a relationship variable', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.variable).toBe('r');
+      expect(rel.types).toContain('CALLS');
+    });
+
+    it('should parse a relationship variable without a type', () => {
+      const tokens = tokenize('MATCH (a)-[r]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.variable).toBe('r');
+      expect(rel.types).toEqual([]);
+    });
+
+    it('should parse a hop range with min and max', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS*1..3]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.minHops).toBe(1);
+      expect(rel.maxHops).toBe(3);
+    });
+
+    it('should parse an exact hop count', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS*1]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.minHops).toBe(1);
+      expect(rel.maxHops).toBeUndefined();
+    });
+
+    it('should parse a hop range with only a max', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS*..3]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.minHops).toBeUndefined();
+      expect(rel.maxHops).toBe(3);
+    });
+
+    it('should parse a hop range with only a min', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS*1..]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.minHops).toBe(1);
+      expect(rel.maxHops).toBeUndefined();
+    });
+
+    it('should parse a bare hop wildcard', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS*]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.minHops).toBeUndefined();
+      expect(rel.maxHops).toBeUndefined();
+    });
+
+    it('should parse a hop range with no bounds', () => {
+      const tokens = tokenize('MATCH (a)-[r:CALLS*..]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.minHops).toBeUndefined();
+      expect(rel.maxHops).toBeUndefined();
+    });
+
+    it('should parse a left relationship resolved to both directions', () => {
+      const tokens = tokenize('MATCH (a)<-[r:CALLS]->(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.direction).toBe('both');
+    });
+
+    it('should parse an arrow directly after the relationship details', () => {
+      const tokens = tokenize('MATCH (a)-[:CALLS]>(b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.direction).toBe('right');
+      expect(rel.types).toContain('CALLS');
+    });
+
+    it('should parse a relationship with no trailing direction marker', () => {
+      const tokens = tokenize('MATCH (a)-[:CALLS](b) RETURN a');
+      const ast = parse(tokens);
+      const rel = ast.match[0]!.patterns[0]!.relationships![0]!;
+      expect(rel.direction).toBe('right');
+      expect(rel.target.variable).toBe('b');
+    });
+
+    it('should parse a multiplication operator', () => {
+      // With no whitespace, '*' is lexed as an OPERATOR (multiplication);
+      // with surrounding whitespace it is lexed as the KEYWORD wildcard.
+      const tokens = tokenize('MATCH (n) WHERE n.complexity*2 > 5 RETURN n');
+      const ast = parse(tokens);
+      const condition = ast.where!.condition as { left: { operator: string } };
+      expect(condition.left.operator).toBe('*');
+    });
+
+    it('should treat an unrecognized operator with the lowest precedence', () => {
+      // '&' is lexed as an OPERATOR but is absent from precedence(), so it hits
+      // the default branch (precedence 0) and still parses as a binary node.
+      const tokens = tokenize('MATCH (n) WHERE n.a & n.b = TRUE RETURN n');
+      const ast = parse(tokens);
+      expect((ast.where!.condition as { operator: string }).operator).toBe('&');
+    });
+
+    it('should parse COUNT with a wildcard argument', () => {
+      const tokens = tokenize('MATCH (n) RETURN COUNT(*)');
+      const ast = parse(tokens);
+      const expr = ast.returnClause.items[0]!.expression as {
+        type: string;
+        args: { name: string }[];
+      };
+      expect(expr.type).toBe('function');
+      expect(expr.args).toHaveLength(1);
+      expect(expr.args[0]!.name).toBe('*');
+    });
+
+    it('should parse ORDER BY without an explicit direction', () => {
+      // Neither ASC nor DESC defaults the direction to ascending.
+      const tokens = tokenize('MATCH (n) RETURN n ORDER BY n.name');
+      const ast = parse(tokens);
+      expect(ast.orderBy![0]!.direction).toBe('asc');
+    });
+
+    it('should throw unexpected token at end of input', () => {
+      const tokens = tokenize('MATCH (n) WHERE');
+      expect(() => parse(tokens)).toThrow('Unexpected token');
+    });
   });
 });
