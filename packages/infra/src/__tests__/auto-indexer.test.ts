@@ -5,10 +5,37 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { AutoIndexer } from '../project/auto-indexer.js';
-import type { AutoIndexerOptions, IndexResult } from '../project/auto-indexer.js';
 import { createFileDiscoverer } from '../filesystem/discoverer.js';
 import type { FileDiscoverer } from '../filesystem/discoverer.js';
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
+import type { DiscoveredFile } from '@code-analyzer/shared';
+import { EDGE_IMPORTS } from '@code-analyzer/shared';
+
+/** Build a minimal DiscoveredFile for a fake discoverer. */
+function makeDiscoveredFile(filePath: string): DiscoveredFile {
+  return {
+    filePath,
+    language: 'typescript',
+    content: 'export const x = 1;',
+    hash: 'h_00000001',
+    size: 18,
+  };
+}
+
+/** A hand-written discoverer double that returns a fixed file list. */
+function createFakeDiscoverer(files: DiscoveredFile[]): FileDiscoverer {
+  return {
+    async discover(): Promise<DiscoveredFile[]> {
+      return files;
+    },
+    detectLanguage(filePath: string) {
+      return filePath.endsWith('.ts') ? 'typescript' : null;
+    },
+    matchGitignore() {
+      return false;
+    },
+  };
+}
 
 describe('AutoIndexer', () => {
   let rootPath: string;
@@ -242,6 +269,66 @@ describe('AutoIndexer', () => {
     indexer.removeProject('/unknown/path');
   });
 
+  it('removeProject leaves other projects untouched', async () => {
+    rootPath = setup([], { 'package.json': '{}', 'a.ts': 'export const a = 1;' });
+    const root2 = setup([], { 'go.mod': 'module b', 'b.go': 'package b' });
+
+    const r1 = await indexer.onProjectOpen(rootPath);
+    await indexer.onProjectOpen(root2);
+
+    indexer.removeProject(rootPath);
+
+    const remaining = store.getAllNodes();
+    expect(remaining.some((n) => n.projectId === r1.projectId)).toBe(false);
+    expect(remaining.some((n) => n.projectId !== r1.projectId)).toBe(true);
+    expect(indexer.isIndexed(rootPath)).toBe(false);
+    expect(indexer.isIndexed(root2)).toBe(true);
+
+    fs.rmSync(root2, { recursive: true, force: true });
+  });
+
+  it('removeProject deletes connected edges via deleteNode cascade', async () => {
+    rootPath = setup([], {
+      'package.json': '{}',
+      'src/a.ts': 'export const a = 1;',
+      'src/b.ts': 'import { a } from "./a";',
+    });
+
+    const result = await indexer.onProjectOpen(rootPath);
+    const nodes = store.getAllNodes().filter((n) => n.projectId === result.projectId);
+    expect(nodes.length).toBeGreaterThanOrEqual(2);
+
+    store.insertEdge({
+      id: 0,
+      projectId: result.projectId,
+      sourceId: nodes[0]!.id,
+      targetId: nodes[1]!.id,
+      type: EDGE_IMPORTS,
+      properties: {},
+      weight: 1,
+      createdAt: new Date().toISOString(),
+    });
+    expect(store.getEdgeCount()).toBe(1);
+
+    indexer.removeProject(rootPath);
+
+    // deleteNode cascades to connected edges, so nothing is left dangling.
+    expect(store.getNodeCount()).toBe(0);
+    expect(store.getEdgeCount()).toBe(0);
+  });
+
+  it('removeProject untracks a project that had no nodes indexed', async () => {
+    rootPath = setup([], { 'package.json': '{}' });
+
+    const noIndex = new AutoIndexer(discoverer, store, { indexOnConnect: false });
+    await noIndex.onProjectOpen(rootPath);
+    expect(noIndex.getIndexedProjects()).toContain(rootPath);
+
+    noIndex.removeProject(rootPath);
+    expect(noIndex.getIndexedProjects()).not.toContain(rootPath);
+    expect(noIndex.isIndexed(rootPath)).toBe(false);
+  });
+
   // -------------------------------------------------------------------------
   // getStatus
   // -------------------------------------------------------------------------
@@ -268,6 +355,39 @@ describe('AutoIndexer', () => {
     expect(status.indexedAt).toBeTruthy();
     expect(status.projectInfo).toBeTruthy();
     expect(status.projectInfo!.type).toBe('node');
+  });
+
+  it('returns null indexedAt for a tracked project with no indexed nodes', async () => {
+    rootPath = setup([], { 'package.json': '{}', 'src/app.ts': 'const x = 1;' });
+
+    // indexOnConnect=false still tracks the project but indexes nothing.
+    const noIndex = new AutoIndexer(discoverer, store, { indexOnConnect: false });
+    await noIndex.onProjectOpen(rootPath);
+
+    const status = noIndex.getStatus(rootPath);
+    expect(status.projectId).toBeTruthy();
+    expect(status.nodeCount).toBe(0);
+    expect(status.indexedAt).toBeNull();
+  });
+
+  it('returns the most recent updatedAt across project nodes', async () => {
+    rootPath = setup([], {
+      'package.json': '{}',
+      'src/a.ts': 'export const a = 1;',
+      'src/b.ts': 'export const b = 2;',
+    });
+
+    await indexer.onProjectOpen(rootPath);
+    const nodes = store.getAllNodes();
+    const lastId = nodes[nodes.length - 1]!.id;
+
+    // Refresh the last node's updatedAt after a small delay so it is strictly
+    // later than the others; the reduce must then surface it as the latest.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    store.updateNode(lastId, {});
+
+    const status = indexer.getStatus(rootPath);
+    expect(status.indexedAt).toBe(store.getNode(lastId)!.updatedAt);
   });
 
   // -------------------------------------------------------------------------
@@ -331,21 +451,19 @@ describe('AutoIndexer', () => {
   // Resilience: insertNodes fails, falls back to individual inserts
   // -------------------------------------------------------------------------
 
-  it('falls back to individual inserts when batch insert encounters duplicates', async () => {
-    rootPath = setup([], {
-      'package.json': '{}',
-      'src/app.ts': 'const x = 1;',
-    });
+  it('falls back to one-by-one inserts when bulk insert hits a duplicate', async () => {
+    // A fake discoverer returning the same path twice makes the bulk insert
+    // throw on the duplicate qualifiedName; the fallback then inserts the
+    // first node and skips the second.
+    const dupDiscoverer = createFakeDiscoverer([
+      makeDiscoveredFile('src/app.ts'),
+      makeDiscoveredFile('src/app.ts'),
+    ]);
+    const idx = new AutoIndexer(dupDiscoverer, store);
 
-    // First open indexes the files
-    await indexer.onProjectOpen(rootPath);
+    const result = await idx.onProjectOpen('/project/root');
 
-    // Create a new AutoIndexer with the same store to trigger duplicate qname path
-    const indexer2 = new AutoIndexer(discoverer, store);
-    const result2 = await indexer2.onProjectOpen(rootPath);
-
-    // All nodes should still be indexed (individually due to duplicates)
-    expect(result2.nodesIndexed).toBeGreaterThanOrEqual(0);
-    expect(result2.filesDiscovered).toBeGreaterThanOrEqual(0);
+    expect(result.filesDiscovered).toBe(2);
+    expect(result.nodesIndexed).toBe(1);
   });
 });

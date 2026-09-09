@@ -122,7 +122,6 @@ export class AutoIndexer {
       try {
         const ids = this.store.insertNodes(graphNodes);
         nodesIndexed = ids.length;
-        /* v8 ignore start -- @preserve */
       } catch {
         // Some nodes may already exist; insert one by one for resilience
         for (const node of graphNodes) {
@@ -134,7 +133,6 @@ export class AutoIndexer {
           }
         }
       }
-      /* v8 ignore stop */
     }
 
     // Track this project
@@ -193,7 +191,6 @@ export class AutoIndexer {
 
     // Get the most recent updatedAt from project nodes
     let indexedAt: string | null = null;
-    /* v8 ignore next 4 -- @preserve */
     if (projectNodes.length > 0) {
       indexedAt = projectNodes.reduce(
         (latest, n) => (n.updatedAt > latest ? n.updatedAt : latest),
@@ -217,28 +214,14 @@ export class AutoIndexer {
     const projectId = this.indexedProjects.get(rootPath);
     if (!projectId) return;
 
-    // Delete all nodes belonging to this project
+    // Invariant: InMemoryGraphStore.deleteNode cascades to every connected
+    // edge (source + target adjacency), so deleting each project node removes
+    // the whole subgraph. deleteNode/deleteEdge are idempotent (never throw on
+    // a missing entry), so an explicit edge sweep + try/catch here is redundant.
     const allNodes = this.store.getAllNodes();
-    /* v8 ignore next 3 -- @preserve */
     for (const node of allNodes) {
       if (node.projectId === projectId) {
-        // Delete edges first
-        const outgoingEdges = this.store.getEdgesForNode(node.id, undefined, 'out');
-        const incomingEdges = this.store.getEdgesForNode(node.id, undefined, 'in');
-        /* v8 ignore start -- @preserve */
-        for (const edge of [...outgoingEdges, ...incomingEdges]) {
-          try {
-            this.store.deleteEdge(edge.id);
-          } catch {
-            // Edge may have been already deleted
-          }
-        }
-        /* v8 ignore stop */
-        try {
-          this.store.deleteNode(node.id);
-        } catch {
-          // Node may have been already deleted
-        }
+        this.store.deleteNode(node.id);
       }
     }
 

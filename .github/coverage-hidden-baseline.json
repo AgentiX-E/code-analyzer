@@ -1,10 +1,9 @@
 {
-  "totalHidden": 420,
-  "totalLines": 128605,
+  "totalHidden": 395,
+  "totalLines": 128588,
   "files": {
     "packages/analyzer/src/languages/javascript.ts": 31,
     "packages/analyzer/src/languages/swift.ts": 31,
-    "packages/infra/src/project/auto-indexer.ts": 25,
     "packages/analyzer/src/languages/python.ts": 23,
     "packages/analyzer/src/languages/tree-sitter-base.ts": 22,
     "packages/vscode/src/views/status-bar.ts": 18,
