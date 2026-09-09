@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cypher Lexer Tests
 
 import { describe, it, expect } from 'vitest';
@@ -149,18 +148,24 @@ describe('Cypher Lexer', () => {
 
     it('should skip single-line comments', () => {
       const tokens = tokenize('// This is a comment\nMATCH (n)');
-      expect(tokens[0]!!.value).toBe('MATCH');
+      expect(tokens[0]!.value).toBe('MATCH');
     });
 
     it('should skip block comments', () => {
       const tokens = tokenize('/* block comment */ MATCH (n)');
-      expect(tokens[0]!!.value).toBe('MATCH');
+      expect(tokens[0]!.value).toBe('MATCH');
+    });
+
+    it('should discard an unterminated block comment', () => {
+      // `/*` opens a block comment that is never closed; the lexer discards it
+      // without emitting a token (the `if (pos + 1 < len)` guard is skipped).
+      expect(tokenize('/*')).toEqual([]);
     });
 
     it('should set correct positions', () => {
       const tokens = tokenize('MATCH (n)');
-      expect(tokens[0]!!.position).toBe(0);
-      expect(tokens[1].position).toBe(6);
+      expect(tokens[0]!.position).toBe(0);
+      expect(tokens[1]!.position).toBe(6);
     });
 
     it('should handle UNION keyword', () => {
@@ -178,8 +183,8 @@ describe('Cypher Lexer', () => {
         'MATCH (n:Function) WHERE n.complexity > 10 RETURN n.name, n.complexity ORDER BY n.complexity DESC LIMIT 5';
       const tokens = tokenize(query);
       expect(tokens.length).toBeGreaterThan(15);
-      expect(tokens[0]!!.value).toBe('MATCH');
-      expect(tokens[tokens.length - 1].value).toBe('5');
+      expect(tokens[0]!.value).toBe('MATCH');
+      expect(tokens[tokens.length - 1]!.value).toBe('5');
     });
 
     it('should handle empty queries', () => {
@@ -229,8 +234,19 @@ describe('Cypher Lexer', () => {
 
     it('should tokenize backtick-quoted keyword as keyword', () => {
       const tokens = tokenize('`MATCH`');
-      expect(tokens[0]!!.type).toBe('KEYWORD');
-      expect(tokens[0]!!.value).toBe('MATCH');
+      expect(tokens[0]!.type).toBe('KEYWORD');
+      expect(tokens[0]!.value).toBe('MATCH');
+    });
+
+    it('should skip unknown characters', () => {
+      // `#` is neither an operator nor punctuation; the lexer silently drops it.
+      const tokens = tokenize('MATCH # (n)');
+      expect(tokens.map((t) => ({ type: t.type, value: t.value }))).toEqual([
+        { type: 'KEYWORD', value: 'MATCH' },
+        { type: 'PUNCTUATION', value: '(' },
+        { type: 'IDENTIFIER', value: 'n' },
+        { type: 'PUNCTUATION', value: ')' },
+      ]);
     });
   });
 

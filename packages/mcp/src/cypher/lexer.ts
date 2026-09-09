@@ -89,9 +89,9 @@ export function tokenize(query: string): CypherToken[] {
     if (ch === '/' && pos + 1 < len && query[pos + 1] === '*') {
       pos += 2;
       while (pos + 1 < len && !(query[pos]! === '*' && query[pos + 1]! === '/')) pos++;
-      /* v8 ignore start */
+      // Skip the closing `*/` only when the block comment is actually
+      // terminated; an unterminated comment runs to EOF and is discarded.
       if (pos + 1 < len) pos += 2;
-      /* v8 ignore stop */
       continue;
     }
 
@@ -169,13 +169,11 @@ export function tokenize(query: string): CypherToken[] {
     }
 
     // Wildcard asterisk (tokenize as KEYWORD for RETURN * etc.)
-    /* v8 ignore start */
     if (ch === '*' && (pos + 1 >= len || /\s/.test(query[pos + 1]!) || query[pos + 1] === ',')) {
       tokens.push({ type: 'KEYWORD', value: '*', position: pos });
       pos++;
       continue;
     }
-    /* v8 ignore stop */
 
     // Operators and punctuation
     if ('=<>!+-*/%|&'.includes(ch)) {
@@ -195,18 +193,14 @@ export function tokenize(query: string): CypherToken[] {
     }
 
     // Punctuation
-    /* v8 ignore start */
     if ('.,:;()[]{}'.includes(ch)) {
       tokens.push({ type: 'PUNCTUATION', value: ch, position: pos });
       pos++;
       continue;
     }
-    /* v8 ignore stop */
 
     // Unknown character — skip
-    /* v8 ignore start */
     pos++;
-    /* v8 ignore stop */
   }
 
   return tokens;
