@@ -6,6 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import { CHECKER_MAP, RulesEngine, runRules, getFileLanguage } from '../rules/rule-runner.js';
 import type { RuleContext } from '../rules/rule-runner.js';
+import { RulesRegistry } from '../rules/rules-registry.js';
+import type { RuleDefinition } from '../rules/rule-definitions.js';
 
 function run(ruleId: string, source: string, filePath = 'test.ts', language = 'typescript') {
   const c = CHECKER_MAP[ruleId];
@@ -48,6 +50,18 @@ describe('no-unreachable-code branches', () => {
   it('does not flag a return statement containing a ternary', () => {
     expect(run('no-unreachable-code', 'function f() {\n  return x ? a : b;\n}')).toHaveLength(0);
   });
+
+  it('does not flag a return on the absolute last line of the file', () => {
+    // `i + 1 < src.length` is false for the final line, so no next line exists.
+    expect(run('no-unreachable-code', 'return x;')).toHaveLength(0);
+  });
+
+  it('does not flag a ternary return when the next line is not a closing brace', () => {
+    // The ternary guard (!trimmed.includes('?')) is only reached when the next
+    // line is real code rather than `}`.
+    const src = 'function f() {\n  return x ? a : b;\n  doMore();\n}';
+    expect(run('no-unreachable-code', src)).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -79,6 +93,25 @@ describe('max-function-lines branches', () => {
     const src = ['function big() {'];
     for (let i = 0; i < 55; i++) src.push(`  line${i}();`);
     expect(run('max-function-lines', src.join('\n'))).toHaveLength(1);
+  });
+
+  it('does not flag a short unclosed function at end of file', () => {
+    // The unclosed-function guard's under-threshold branch (funcLines <= 50).
+    const src = 'function small() {\n  return 1;';
+    expect(run('max-function-lines', src)).toHaveLength(0);
+  });
+
+  it('detects an arrow-function declaration name', () => {
+    // funcMatch is null here, so the name resolves via arrowMatch.
+    const src = 'const handle = (x) => {\n  return x;\n};';
+    expect(() => run('max-function-lines', src)).not.toThrow();
+  });
+
+  it('detects a method declaration name', () => {
+    // Both funcMatch and arrowMatch are null here, so the name resolves via
+    // methodMatch.
+    const src = 'class A {\n  doSomething() {\n    return 1;\n  }\n}';
+    expect(() => run('max-function-lines', src)).not.toThrow();
   });
 });
 
@@ -129,6 +162,12 @@ describe('no-magic-numbers branches', () => {
 
   it('skips comment lines', () => {
     expect(run('no-magic-numbers', '// 1234 is a placeholder')).toHaveLength(0);
+  });
+
+  it('does not flag a leading-zero number that evaluates to an allowed literal', () => {
+    // Number("0000") === 0, which is in the allow-list, so the allower branch
+    // (not the flag branch) is taken.
+    expect(run('no-magic-numbers', 'x = 0000;')).toHaveLength(0);
   });
 });
 
@@ -258,6 +297,16 @@ describe('no-layer-violation branches', () => {
     );
     expect(r.length).toBeGreaterThan(0);
   });
+
+  it('ignores non-import lines while scanning for layer violations', () => {
+    // The importMatch falsy branch — a comment/blank line is not an import.
+    const r = run(
+      'no-layer-violation',
+      "import { User } from '../domain/models/user';\n// plain comment\n",
+      'src/data/repositories/user-repo.ts',
+    );
+    expect(r.length).toBeGreaterThan(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -316,6 +365,30 @@ describe('RulesEngine branches', () => {
     expect(r.summary.totalViolations).toBeGreaterThan(0);
     expect(Object.keys(r.summary.byCategory).length).toBeGreaterThan(0);
     expect(Object.keys(r.summary.bySeverity).length).toBeGreaterThan(0);
+  });
+
+  it('keeps an unregistered rule id through the severity filter and skips it in the summary', () => {
+    // A checker emitting a ruleId absent from the registry exercises both
+    // defensive fallbacks: the severity filter keeps the violation, while
+    // buildResult skips it when tallying the summary.
+    const registry = new RulesRegistry();
+    const ghostDef: RuleDefinition = {
+      id: 'ghost-rule',
+      category: 'correctness',
+      severity: 'high',
+      title: 'Ghost',
+      description: 'A rule whose checker emits an unregistered rule id.',
+    };
+    registry.register(ghostDef, () => [{ ruleId: 'phantom-rule', line: 1, message: 'phantom' }]);
+
+    const engine = new RulesEngine(registry);
+    const r = engine.analyze('test.ts', ['x'], { severities: ['high'] });
+
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0]!.ruleId).toBe('phantom-rule');
+    expect(r.summary.byCategory).toEqual({});
+    expect(r.summary.bySeverity).toEqual({});
+    expect(r.summary.totalViolations).toBe(1);
   });
 });
 

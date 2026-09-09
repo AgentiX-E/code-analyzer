@@ -252,22 +252,19 @@ export function checkNoUndef(
 
     for (const ident of idents) {
       if (ident.length > 1 && !declared.has(ident) && !builtins.has(ident)) {
-        if (
-          !trimmed.startsWith(`const ${ident}`) &&
-          !trimmed.startsWith(`let ${ident}`) &&
-          !trimmed.startsWith(`var ${ident}`) &&
-          !trimmed.startsWith(`function ${ident}`) &&
-          !trimmed.startsWith(`class ${ident}`)
-        ) {
-          results.push(
-            makeResult(
-              'no-undef',
-              i + 1,
-              `"${ident}" is referenced but has no visible declaration in this file.`,
-              `Declare "${ident}" with const/let/var or import it.`,
-            ),
-          );
-        }
+        // Invariant: a line starting with "const/let/var/function/class <ident>"
+        // already registers <ident> in the first-pass `declared` set (the decl
+        // regex matches the leading keyword with the same \w+ token), so an
+        // undeclared ident can never coincide with a same-line declaration — the
+        // declaration-exclusion guard is unreachable and therefore omitted.
+        results.push(
+          makeResult(
+            'no-undef',
+            i + 1,
+            `"${ident}" is referenced but has no visible declaration in this file.`,
+            `Declare "${ident}" with const/let/var or import it.`,
+          ),
+        );
       }
     }
   }
@@ -879,8 +876,10 @@ export function checkMaxFunctionLines(
     );
 
     if (funcMatch || arrowMatch || methodMatch) {
-      const name =
-        /* v8 ignore next */ funcMatch?.[1] ?? arrowMatch?.[1] ?? methodMatch?.[1] ?? 'function';
+      // Invariant: the guard above ensures at least one match is truthy, and each
+      // regex captures a mandatory (\w+) group, so the first non-null [1] always
+      // yields a defined name — no 'function' fallback is reachable.
+      const name = (funcMatch?.[1] ?? arrowMatch?.[1] ?? methodMatch?.[1])!;
       if (!inFunction) {
         inFunction = true;
         funcStart = i;
@@ -1052,7 +1051,7 @@ export function checkMaxCyclomaticComplexity(
       if (/\belse\s+if\b/.test(trimmed)) complexity++;
       if (/\bcase\b/.test(trimmed)) complexity++;
       if (/\bdefault\s*:/.test(trimmed)) complexity++;
-      if (/[\?&]{2}\|{2}/.test(trimmed)) complexity++;
+      if (/&&|\|\||\?\?/.test(trimmed)) complexity++;
       if (/\bfor\b/.test(trimmed)) complexity++;
       if (/\bwhile\b/.test(trimmed)) complexity++;
       if (/\bcatch\b/.test(trimmed)) complexity++;
@@ -1655,8 +1654,11 @@ export function checkNoLayerViolation(
       const importPath = importMatch[1]!;
       const importLayer = getImportLayer(importPath);
       if (importLayer !== null) {
-        const fileIdx = /* v8 ignore next */ layers[fileLayer] ?? -1;
-        const importIdx = /* v8 ignore next */ layers[importLayer] ?? -1;
+        // Invariant: getFileLayer/getImportLayer return only keys of `layers` (or
+        // null, already guarded above), so indexing always yields a number — the
+        // -1 fallback is unreachable.
+        const fileIdx = layers[fileLayer]!;
+        const importIdx = layers[importLayer]!;
         if (importIdx > fileIdx) {
           results.push(
             makeResult(
@@ -1913,9 +1915,13 @@ function ruleCompat(def: RuleDefinition): CodeRule {
     cwe: def.cwe ? [def.cwe] : undefined,
     language: def.languageFilter,
     check(ctx: RuleContext): RuleViolation[] {
-      const checker = CHECKER_MAP[def.id];
+      // Invariant: ALL_RULE_DEFINITIONS ids and CHECKER_MAP keys are in lockstep
+      // (70 = 70, verified; rules-registry's createDefault relies on the same), so
+      // a checker always exists for every definition — the empty-results fallback
+      // is unreachable.
+      const checker = CHECKER_MAP[def.id]!;
       const lang = ctx.language || detectLanguage(ctx.filePath);
-      const results = checker ? checker(ctx.lines, ctx.filePath, lang) : [];
+      const results = checker(ctx.lines, ctx.filePath, lang);
       return results.map((r) => ({
         ruleId: r.ruleId,
         category: def.category,

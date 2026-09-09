@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1182,
-  "totalLines": 128766,
+  "totalHidden": 1180,
+  "totalLines": 128772,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -61,7 +61,6 @@
     "packages/analyzer/src/pipeline/phases/processes.ts": 2,
     "packages/analyzer/src/pipeline/phases/scan.ts": 2,
     "packages/analyzer/src/resolution/scope-resolver.ts": 2,
-    "packages/intelligence/src/rules/rule-runner.ts": 2,
     "packages/intelligence/src/similarity/lsh.ts": 2,
     "packages/analyzer/src/languages/bash.ts": 1,
     "packages/analyzer/src/languages/c.ts": 1,
