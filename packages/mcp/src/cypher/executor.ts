@@ -96,7 +96,6 @@ export function execute(
 
 /** Execute a single plan step against the execution context. */
 function executeStep(step: PlanStep, ctx: ExecContext): void {
-  /* v8 ignore next -- @preserve */
   switch (step.kind) {
     case 'scan':
       executeScan(step, ctx);
@@ -115,10 +114,8 @@ function executeStep(step: PlanStep, ctx: ExecContext): void {
       break;
     case 'limit':
     case 'skip':
-      /* v8 ignore start -- @preserve */
       // Limit/skip handled at output building
       break;
-    /* v8 ignore stop */
   }
 }
 
@@ -144,14 +141,12 @@ function executeScan(step: PlanStep, ctx: ExecContext): void {
     offset: 0,
   });
 
+  // The store's queryNodes already filters by projectId, so re-checking the
+  // project on every node here is redundant.
   const nodes = result.items.filter((node) => {
-    /* v8 ignore start -- @preserve */
-    if (ctx.projectId && node.projectId !== ctx.projectId) return false;
-    /* v8 ignore stop */
-
     // Filter by properties
     for (const [key, value] of Object.entries(pattern.properties)) {
-      const nodeVal = getNodeProperty(node, key);
+      const nodeVal = getProperty(node, key);
       if (nodeVal !== value) return false;
     }
     return true;
@@ -171,12 +166,9 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
 
     // For each bound variable, apply the filter
     const boundVars = Array.from(nodeVars.keys());
-    /* v8 ignore start -- @preserve */
     if (boundVars.length === 0) return;
-    /* v8 ignore stop */
 
     // Apply predicate to each row combination
-    /* v8 ignore start -- @preserve */
     for (const varName of boundVars) {
       const nodes = ctx.nodes.get(varName);
       if (!nodes || nodes.length === 0) continue;
@@ -185,12 +177,11 @@ function executeFilter(step: PlanStep, ctx: ExecContext): void {
         // Set up node vars with current node
         const localVars = new Map(nodeVars);
         localVars.set(varName, node);
-        return buildFilterPredicate(predicate, (v) => localVars.get(v) ?? null, localVars);
+        return buildFilterPredicate(predicate, localVars);
       });
 
       ctx.nodes.set(varName, filtered);
     }
-    /* v8 ignore stop */
   }
 
   // Handle label-based filters (already applied during scan)
@@ -241,12 +232,10 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
 
       for (const edge of edges) {
         const targetNode = ctx.store.getNode(edge.targetId);
-        /* v8 ignore start -- @preserve */
         if (targetNode) {
           targetNodes.push(targetNode);
           edgeNodes.push(edge);
         }
-        /* v8 ignore stop */
       }
     }
 
@@ -258,12 +247,10 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
 
       for (const edge of edges) {
         const targetNode = ctx.store.getNode(edge.sourceId); // reversed
-        /* v8 ignore start -- @preserve */
         if (targetNode) {
           targetNodes.push(targetNode);
           edgeNodes.push(edge);
         }
-        /* v8 ignore stop */
       }
     }
   }
@@ -275,12 +262,9 @@ function executeTraverse(step: PlanStep, ctx: ExecContext): void {
     ctx.edges.set(rel.variable, edgeNodes);
   }
 
-  // Update node vars for found nodes
-  /* v8 ignore next -- @preserve */
-  if (sourceNodes.length > 0 && sourceNodes[0]) {
-    ctx.nodeVars.set(sourceVar, sourceNodes[0]!);
-  }
-  /* v8 ignore next */
+  // Update node vars for found nodes.
+  // Invariant: sourceNodes is non-empty — guarded by the early return above.
+  ctx.nodeVars.set(sourceVar, sourceNodes[0]!);
   if (targetNodes.length > 0 && targetVar && targetNodes[0]) {
     ctx.nodeVars.set(targetVar, targetNodes[0]!);
   }
@@ -312,9 +296,9 @@ function applySort(
 
   sorted.sort((a, b) => {
     for (const col of orderBy) {
-      const colName = col.expression.includes('.')
-        ? (col.expression.split('.')[1] ?? col.expression)
-        : col.expression;
+      // Invariant: when the expression contains '.', split('.') yields at
+      // least two parts, so the part after the first '.' is always defined.
+      const colName = col.expression.includes('.') ? col.expression.split('.')[1]! : col.expression;
 
       const aVal = a[colName] ?? a[col.expression];
       const bVal = b[colName] ?? b[col.expression];
@@ -353,15 +337,12 @@ function compareValues(a: unknown, b: unknown): number {
 // ---------------------------------------------------------------------------
 
 function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string, unknown>[] {
-  // Find all bound node variables across all variable sets
-  const allVarNames = new Set<string>();
-  for (const varName of ctx.nodes.keys()) allVarNames.add(varName);
-  for (const varName of ctx.edges.keys()) allVarNames.add(varName);
-
-  // Get the set of nodes/edges for each column
-  // Build rows by cartesian product of node sets
-
-  if (allVarNames.size === 0) {
+  // Invariant: node variables are always bound before any edge (relationship)
+  // variable. A traverse step requires a prior scan to bind its source node, so
+  // the first bound variable is always a node variable. Edge variables are only
+  // produced by traverse and therefore never precede the source node variable.
+  const varNames = Array.from(ctx.nodes.keys());
+  if (varNames.length === 0) {
     return [];
   }
 
@@ -369,16 +350,8 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
   // For properties like n.name, extract from the node
 
   // For a single MATCH, return one row per node
-  const varNames = Array.from(allVarNames);
-  const primaryVar = varNames[0];
-  /* v8 ignore start -- @preserve */
-  if (!primaryVar) return [];
-  /* v8 ignore stop */
-  /* v8 ignore next -- @preserve */
-  const primaryNodes = ctx.nodes.get(primaryVar) ?? [];
-  /* v8 ignore start -- @preserve */
-  const primaryEdges = ctx.edges.get(primaryVar) ?? [];
-  /* v8 ignore stop */
+  const primaryVar = varNames[0]!;
+  const primaryNodes = ctx.nodes.get(primaryVar)!;
 
   if (columns.length === 0) {
     return [];
@@ -386,17 +359,12 @@ function buildResultRows(columns: ColumnDef[], ctx: ExecContext): Record<string,
 
   if (columns[0] && columns[0].expression === '*') {
     // Return all node data
-    /* v8 ignore start -- @preserve */
-    return [...primaryNodes.map((n) => ({ node: n })), ...primaryEdges.map((e) => ({ edge: e }))];
-    /* v8 ignore stop */
+    return primaryNodes.map((n) => ({ node: n }));
   }
 
   const rows: Record<string, unknown>[] = [];
 
-  // Determine the data source for building rows
-  const dataSource = primaryNodes.length > 0 ? primaryNodes : primaryEdges;
-
-  for (const item of dataSource) {
+  for (const item of primaryNodes) {
     const row: Record<string, unknown> = {};
 
     for (const col of columns) {
@@ -417,23 +385,9 @@ function resolveColumnValue(
 ): unknown {
   const expr = col.expression;
 
-  // Property access: n.propertyName
-  if (expr.includes('.')) {
-    const parts = expr.split('.');
-    const prop = parts[1];
-    if (!prop) return null;
-    /* v8 ignore start -- @preserve */
-    const node = 'id' in item ? (item as GraphNode) : null;
-    /* v8 ignore stop */
-
-    if (node) {
-      return getNodeProperty(node, prop);
-    }
-    /* v8 ignore next */
-    // Edge item — properties accessed differently
-  }
-
-  // Function call: COUNT(*), SUM(x), etc.
+  // Function call: COUNT(*), SUM(x), etc. — checked before property access
+  // because aggregate arguments (e.g. SUM(n.complexity)) contain a '.', which
+  // must not be mistaken for a property access on the item itself.
   if (expr.includes('(') && expr.includes(')')) {
     const match = expr.match(/^(\w+)\(/);
     if (match) {
@@ -444,7 +398,6 @@ function resolveColumnValue(
       switch (funcName) {
         case 'COUNT':
           return allNodes.length + allEdges.length;
-        /* v8 ignore start -- @preserve */
         case 'SUM':
         case 'AVG':
         case 'MIN':
@@ -452,28 +405,36 @@ function resolveColumnValue(
           return 0; // Aggregate placeholder
         default:
           return 0;
-        /* v8 ignore stop */
       }
     }
   }
 
+  // Property access: n.propertyName
+  if (expr.includes('.')) {
+    const parts = expr.split('.');
+    const prop = parts[1];
+    if (!prop) return null;
+    // getProperty handles both nodes and edges (both expose a `properties` bag
+    // and direct fields), so no node/edge discrimination is required here.
+    return getProperty(item, prop);
+  }
+
   // Direct variable: return the node or edge
-  /* v8 ignore start -- @preserve */
   if (expr === '*') {
     return item;
   }
-  /* v8 ignore stop */
 
   return item;
 }
 
-function getNodeProperty(node: GraphNode, prop: string): unknown {
-  const direct = (node as unknown as Record<string, unknown>)[prop];
+/** Extract a property from a node or edge by checking direct fields first, then the properties bag. */
+function getProperty(item: GraphNode | GraphEdge, prop: string): unknown {
+  const direct = (item as unknown as Record<string, unknown>)[prop];
   if (direct !== undefined) return direct;
 
   // Check properties bag
-  if (node.properties && prop in node.properties) {
-    return node.properties[prop];
+  if (item.properties && prop in item.properties) {
+    return item.properties[prop];
   }
 
   return null;
@@ -485,12 +446,10 @@ function deduplicateRows(rows: Record<string, unknown>[]): Record<string, unknow
 
   for (const row of rows) {
     const key = JSON.stringify(row);
-    /* v8 ignore start -- @preserve */
     if (!seen.has(key)) {
       seen.add(key);
       result.push(row);
     }
-    /* v8 ignore stop */
   }
 
   return result;

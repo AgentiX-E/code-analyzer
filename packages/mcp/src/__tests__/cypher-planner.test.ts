@@ -256,7 +256,6 @@ describe('Cypher Planner', () => {
   describe('buildFilterPredicate', () => {
     const node = makeNode({ name: 'test', complexity: 5 });
     const nodeVars = new Map<string, GraphNode>([['n', node]]);
-    const getNode = (_v: string) => null;
 
     it('should evaluate property comparison correctly', () => {
       // n.name = "test"
@@ -266,7 +265,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'test' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate false comparison correctly', () => {
@@ -276,7 +275,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'other' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate not-equal correctly', () => {
@@ -286,7 +285,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'other' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate greater than correctly', () => {
@@ -296,7 +295,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'complexity' },
         right: { type: 'literal' as const, value: 3 },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate AND correctly', () => {
@@ -316,7 +315,7 @@ describe('Cypher Planner', () => {
           right: { type: 'literal' as const, value: 3 },
         },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate OR correctly', () => {
@@ -336,7 +335,7 @@ describe('Cypher Planner', () => {
           right: { type: 'literal' as const, value: 'test' },
         },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate CONTAINS correctly', () => {
@@ -346,7 +345,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'es' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate NOT correctly', () => {
@@ -360,17 +359,17 @@ describe('Cypher Planner', () => {
           right: { type: 'literal' as const, value: 'wrong' },
         },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should return true for wildcard variable', () => {
       const expr = { type: 'variable' as const, name: '*' };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should return false for unknown variable', () => {
       const expr = { type: 'variable' as const, name: 'unknown' };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate IS NULL correctly', () => {
@@ -380,7 +379,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'signature' },
         right: { type: 'literal' as const, value: null },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false); // signature is not null
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false); // signature is not null
     });
 
     it('should handle unknown property gracefully', () => {
@@ -390,7 +389,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'unknownProp' },
         right: { type: 'literal' as const, value: 'x' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     // --- Additional binary operator coverage ---
@@ -402,7 +401,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'test' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate <> operator', () => {
@@ -412,7 +411,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'other' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate < operator', () => {
@@ -422,7 +421,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'complexity' },
         right: { type: 'literal' as const, value: 10 },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate <= operator', () => {
@@ -432,7 +431,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'complexity' },
         right: { type: 'literal' as const, value: 5 },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate >= operator', () => {
@@ -442,7 +441,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'complexity' },
         right: { type: 'literal' as const, value: 5 },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate IS NOT NULL', () => {
@@ -452,7 +451,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'signature' },
         right: { type: 'literal' as const, value: null },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate IS NOT with value', () => {
@@ -462,7 +461,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'test' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate IS with value match', () => {
@@ -472,7 +471,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'test' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate IN operator', () => {
@@ -482,7 +481,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: ['test', 'other'] },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate IN operator with non-array right', () => {
@@ -492,7 +491,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'not-an-array' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate CONTAINS (case insensitive)', () => {
@@ -502,7 +501,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'TEST' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate CONTAINS with non-string inputs', () => {
@@ -512,7 +511,7 @@ describe('Cypher Planner', () => {
         left: { type: 'literal' as const, value: 123 },
         right: { type: 'literal' as const, value: 'abc' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate STARTS WITH operator', () => {
@@ -522,7 +521,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'te' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate STARTS operator', () => {
@@ -532,7 +531,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'te' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate ENDS WITH operator', () => {
@@ -542,7 +541,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'st' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate ENDS operator', () => {
@@ -552,7 +551,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'st' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate REGEX operator', () => {
@@ -562,7 +561,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: '^te' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate =~ operator', () => {
@@ -572,7 +571,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: 'st$' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should evaluate REGEX with invalid pattern', () => {
@@ -582,7 +581,7 @@ describe('Cypher Planner', () => {
         left: { type: 'literal' as const, value: 'test' },
         right: { type: 'literal' as const, value: '[' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate REGEX with non-string inputs', () => {
@@ -592,7 +591,7 @@ describe('Cypher Planner', () => {
         left: { type: 'literal' as const, value: 123 },
         right: { type: 'literal' as const, value: 'pattern' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate unary NOT nested binary', () => {
@@ -606,7 +605,7 @@ describe('Cypher Planner', () => {
           right: { type: 'literal' as const, value: 'test' },
         },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should return false for unknown binary operator', () => {
@@ -616,7 +615,7 @@ describe('Cypher Planner', () => {
         left: { type: 'literal' as const, value: 1 },
         right: { type: 'literal' as const, value: 1 },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should return false for unary operator other than NOT', () => {
@@ -625,24 +624,23 @@ describe('Cypher Planner', () => {
         operator: 'OTHER',
         operand: { type: 'literal' as const, value: true },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should return true for existing variable', () => {
       const expr = { type: 'variable' as const, name: 'n' };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
 
     it('should return true for unknown expression type', () => {
       const expr = { type: 'unknown_type' as const } as any;
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(true);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(true);
     });
   });
 
   describe('buildFilterPredicate with relationships', () => {
     const node = makeNode({ name: 'test', complexity: 5 });
     const nodeVars = new Map<string, GraphNode>([['n', node]]);
-    const getNode = (_v: string) => null;
 
     it('should evaluate STARTS WITH with non-string left', () => {
       const expr = {
@@ -651,7 +649,7 @@ describe('Cypher Planner', () => {
         left: { type: 'literal' as const, value: 123 },
         right: { type: 'literal' as const, value: 'abc' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate ENDS WITH with non-string left', () => {
@@ -661,7 +659,7 @@ describe('Cypher Planner', () => {
         left: { type: 'literal' as const, value: 123 },
         right: { type: 'literal' as const, value: 'abc' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate IN with missing value in array', () => {
@@ -671,7 +669,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'name' },
         right: { type: 'literal' as const, value: ['other'] },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate COUNT function operand', () => {
@@ -688,7 +686,7 @@ describe('Cypher Planner', () => {
         right: { type: 'variable' as const, name: 'a' },
       };
       // left=test, right=a=node, not equal as different types
-      const result = buildFilterPredicate(expr, getNode, allVars);
+      const result = buildFilterPredicate(expr, allVars);
       expect(result).toBe(false);
     });
 
@@ -699,7 +697,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'unknown', property: 'name' },
         right: { type: 'literal' as const, value: 'test' },
       };
-      expect(buildFilterPredicate(expr, getNode, nodeVars)).toBe(false);
+      expect(buildFilterPredicate(expr, nodeVars)).toBe(false);
     });
 
     it('should evaluate property access with null result', () => {
@@ -712,7 +710,7 @@ describe('Cypher Planner', () => {
         left: { type: 'property' as const, object: 'n', property: 'complexity' },
         right: { type: 'literal' as const, value: null },
       };
-      expect(buildFilterPredicate(expr, getNode, vars)).toBe(false);
+      expect(buildFilterPredicate(expr, vars)).toBe(false);
     });
   });
 });

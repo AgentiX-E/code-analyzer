@@ -1,11 +1,10 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cypher Executor Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 import { execute } from '../cypher/executor.js';
-import type { QueryPlan, PlanStep, ColumnDef } from '../cypher/planner.js';
+import type { QueryPlan } from '../cypher/planner.js';
 import { plan } from '../cypher/planner.js';
 import { tokenize } from '../cypher/lexer.js';
 import { parse } from '../cypher/parser.js';
@@ -71,7 +70,6 @@ function setupStore(projectId: string = 'test-project'): InMemoryGraphStore {
   const b = allNodes.find((n) => n.name === 'funcB');
   const c = allNodes.find((n) => n.name === 'MyClass');
   const d = allNodes.find((n) => n.name === 'funcC');
-  const e = allNodes.find((n) => n.name === 'handler');
 
   // Create edges: a calls b, a calls d, b calls c, c has method
   if (a && b) {
@@ -182,7 +180,7 @@ describe('Cypher Executor — MATCH nodes', () => {
     expect(result.rows.length).toBeGreaterThan(0);
     // Each row should have a 'node' key (wildcard expansion)
     for (const row of result.rows) {
-      expect(row.node).toBeDefined();
+      expect(row['node']).toBeDefined();
     }
   });
 
@@ -282,7 +280,7 @@ describe('Cypher Executor — RETURN projection', () => {
     expect(result.rows.length).toBeGreaterThan(0);
     // Each row should have the 'name' column
     for (const row of result.rows) {
-      expect(row.name).toBeDefined();
+      expect(row['name']).toBeDefined();
     }
   });
 
@@ -382,7 +380,7 @@ describe('Cypher Executor — ORDER BY', () => {
       orderBy: [{ expression: 'n.name', direction: 'asc' }],
     };
     const result = execute(planWithOrder, store, 'test-project');
-    const names = result.rows.map((r) => r.name as string);
+    const names = result.rows.map((r) => r['name'] as string);
     const sorted = [...names].sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }),
     );
@@ -402,7 +400,7 @@ describe('Cypher Executor — ORDER BY', () => {
       orderBy: [{ expression: 'n.complexity', direction: 'desc' }],
     };
     const result = execute(planWithOrder, store, 'test-project');
-    const vals = result.rows.map((r) => r.complexity as number);
+    const vals = result.rows.map((r) => r['complexity'] as number);
     for (let i = 1; i < vals.length; i++) {
       expect(vals[i - 1]!).toBeGreaterThanOrEqual(vals[i]!);
     }
@@ -424,7 +422,7 @@ describe('Cypher Executor — ORDER BY', () => {
     const result = execute(planWithOrder, store, 'test-project');
     expect(result.rows.length).toBeGreaterThan(0);
     for (const row of result.rows) {
-      expect(row.missing).toBeNull();
+      expect(row['missing']).toBeNull();
     }
   });
 
@@ -479,7 +477,7 @@ describe('Cypher Executor — DISTINCT', () => {
     expect(result.rows.length).toBeGreaterThan(0);
 
     // Verify no duplicate names
-    const names = result.rows.map((r) => r.name);
+    const names = result.rows.map((r) => r['name']);
     const uniqueNames = new Set(names);
     expect(names.length).toBe(uniqueNames.size);
   });
@@ -745,7 +743,7 @@ describe('Cypher Executor — Coverage fillers', () => {
     const result = execute(planWithStar, store, 'test-project');
     expect(result.rows.length).toBeGreaterThan(0);
     // '*' column expression returns the full node/edge item via the wildcard path
-    expect(result.rows[0]!.node).toBeDefined();
+    expect(result.rows[0]!['node']).toBeDefined();
   });
 
   it('should handle project step in executeStep', () => {
@@ -922,7 +920,7 @@ describe('Cypher Executor — Coverage fillers', () => {
     const result = execute(planWithDuplicates, store, 'test-project');
     expect(result.rows).toBeDefined();
     // Verify rows are deduplicated
-    const names = result.rows.map((r) => r.a);
+    const names = result.rows.map((r) => r['a']);
     const uniqueNames = new Set(names);
     expect(names.length).toBe(uniqueNames.size);
   });
@@ -1346,5 +1344,348 @@ describe('Cypher Executor — Full pipeline', () => {
     const result = execute(queryPlan, store, 'test-project');
 
     expect(result.rows.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// De-gamification coverage
+// ---------------------------------------------------------------------------
+
+describe('Cypher Executor — De-gamification coverage', () => {
+  it('should treat limit and skip plan steps as no-ops', () => {
+    const store = setupStore();
+    const planWithLimitSkip: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+        { kind: 'limit', details: {} },
+        { kind: 'skip', details: {} },
+      ],
+      columns: [{ name: 'n', expression: 'n', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(planWithLimitSkip, store, 'test-project');
+    // limit/skip steps are no-ops at the step layer; the plan carries no
+    // top-level limit/skip, so every scanned row is returned unchanged.
+    expect(result.rows.length).toBeGreaterThan(0);
+  });
+
+  it('should apply an expression filter after traversal binds node variables', () => {
+    const store = setupStore();
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
+        {
+          kind: 'filter',
+          details: {
+            expression: {
+              type: 'binary',
+              operator: '>',
+              left: { type: 'property', object: 'a', property: 'complexity' },
+              right: { type: 'literal', value: 5 },
+            },
+          },
+        },
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should skip a bound variable whose nodes were emptied by a prior filter', () => {
+    const store = setupStore();
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'a', labels: ['Function'], properties: {} } },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
+        // First filter empties 'a' (no Function has complexity > 999).
+        {
+          kind: 'filter',
+          details: {
+            expression: {
+              type: 'binary',
+              operator: '>',
+              left: { type: 'property', object: 'a', property: 'complexity' },
+              right: { type: 'literal', value: 999 },
+            },
+          },
+        },
+        // Second filter iterates bound vars and must skip the now-empty 'a'.
+        {
+          kind: 'filter',
+          details: {
+            expression: {
+              type: 'binary',
+              operator: '>',
+              left: { type: 'property', object: 'a', property: 'complexity' },
+              right: { type: 'literal', value: 5 },
+            },
+          },
+        },
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows).toBeDefined();
+  });
+
+  it('should return empty rows when applySort receives no rows', () => {
+    const store = new InMemoryGraphStore();
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Route'], properties: {} } },
+        },
+      ],
+      columns: [{ name: 'n', expression: 'n', type: 'node' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'n.name', direction: 'asc' }],
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows).toHaveLength(0);
+  });
+
+  it('should sort by an order-by expression without a dot', () => {
+    const store = setupStore();
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
+      ],
+      columns: [{ name: 'name', expression: 'n.name', type: 'property' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'name', direction: 'asc' }],
+    };
+    const result = execute(plan, store, 'test-project');
+    const names = result.rows.map((r) => r['name'] as string);
+    expect(names.length).toBeGreaterThan(0);
+  });
+
+  it('should sort mixed null and non-null values with nulls last', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNodes([
+      makeNode({ name: 'alpha', complexity: 5, qualifiedName: 'pkg.alpha' }),
+      makeNode({ name: 'beta', complexity: null, qualifiedName: 'pkg.beta' }),
+      makeNode({ name: 'gamma', complexity: 15, qualifiedName: 'pkg.gamma' }),
+      makeNode({ name: 'delta', complexity: null, qualifiedName: 'pkg.delta' }),
+    ]);
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        { kind: 'scan', details: { pattern: { variable: 'n', labels: [], properties: {} } } },
+      ],
+      columns: [{ name: 'complexity', expression: 'n.complexity', type: 'property' }],
+      params: {},
+      distinct: false,
+      orderBy: [{ expression: 'n.complexity', direction: 'asc' }],
+    };
+    const result = execute(plan, store, 'test-project');
+    const vals = result.rows.map((r) => r['complexity']);
+    // Non-null values sort first in ascending order; nulls sort last.
+    expect(vals[0]).toBe(5);
+    expect(vals[1]).toBe(15);
+    expect(vals[vals.length - 1]).toBeNull();
+    expect(vals[vals.length - 2]).toBeNull();
+  });
+
+  it('should skip dangling edge targets when traversing out', () => {
+    const store = new InMemoryGraphStore();
+    const aId = store.insertNode(makeNode({ name: 'src', qualifiedName: 'pkg.src' }));
+    const bId = store.insertNode(makeNode({ name: 'dst', qualifiedName: 'pkg.dst' }));
+    store.insertEdge({
+      id: 0,
+      projectId: 'test-project',
+      sourceId: aId,
+      targetId: bId,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
+    });
+    // Remove the target node directly, leaving a dangling edge reference that
+    // getEdgesForNode still reports but getNode can no longer resolve.
+    store.nodes.delete(bId);
+
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'a', labels: ['Function'], properties: { name: 'src' } },
+          },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'a',
+            relationship: { types: ['CALLS'], direction: 'right' },
+            target: 'b',
+          },
+        },
+      ],
+      columns: [{ name: 'a', expression: 'a', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it('should skip dangling edge sources when traversing in', () => {
+    const store = new InMemoryGraphStore();
+    const srcId = store.insertNode(makeNode({ name: 'src', qualifiedName: 'pkg.src' }));
+    const dstId = store.insertNode(makeNode({ name: 'dst', qualifiedName: 'pkg.dst' }));
+    store.insertEdge({
+      id: 0,
+      projectId: 'test-project',
+      sourceId: srcId,
+      targetId: dstId,
+      type: 'CALLS',
+      properties: {},
+      weight: 1.0,
+      createdAt: new Date().toISOString(),
+    });
+    // Remove the source node directly, leaving a dangling edge on the 'in' side.
+    store.nodes.delete(srcId);
+
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: {
+            pattern: { variable: 'b', labels: ['Function'], properties: { name: 'dst' } },
+          },
+        },
+        {
+          kind: 'traverse',
+          details: {
+            source: 'b',
+            relationship: { types: ['CALLS'], direction: 'left' },
+            target: 'a',
+          },
+        },
+      ],
+      columns: [{ name: 'b', expression: 'b', type: 'node' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it('should return 0 for an unknown aggregate function', () => {
+    const store = setupStore();
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
+      ],
+      columns: [{ name: 'val', expression: 'FOO(n)', type: 'computed' }],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+    for (const row of result.rows) {
+      expect(row['val']).toBe(0);
+    }
+  });
+
+  it('should route SUM(property) to the aggregate branch, not property access', () => {
+    const store = setupStore();
+    // The '.' inside SUM(n.complexity) must not be treated as a property
+    // access on the row item; it is part of the aggregate argument.
+    const queryPlan = buildPlanFromQuery('MATCH (n) RETURN SUM(n.complexity) AS total');
+    const result = execute(queryPlan, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+    for (const row of result.rows) {
+      expect(row['total']).toBe(0);
+    }
+  });
+
+  it('should resolve a wildcard column expression that is not the first column', () => {
+    const store = setupStore();
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
+      ],
+      columns: [
+        { name: 'name', expression: 'n.name', type: 'property' },
+        { name: 'star', expression: '*', type: 'computed' },
+      ],
+      params: {},
+      distinct: false,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows.length).toBeGreaterThan(0);
+    expect(result.rows[0]!['star']).toBeDefined();
+  });
+
+  it('should deduplicate identical rows when DISTINCT is set', () => {
+    const store = new InMemoryGraphStore();
+    store.insertNodes([
+      makeNode({ name: 'dup', qualifiedName: 'pkg.dup1' }),
+      makeNode({ name: 'dup', qualifiedName: 'pkg.dup2' }),
+    ]);
+    const plan: QueryPlan = {
+      source: 'code_analyzer_graph',
+      steps: [
+        {
+          kind: 'scan',
+          details: { pattern: { variable: 'n', labels: ['Function'], properties: {} } },
+        },
+      ],
+      columns: [{ name: 'name', expression: 'n.name', type: 'property' }],
+      params: {},
+      distinct: true,
+    };
+    const result = execute(plan, store, 'test-project');
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!['name']).toBe('dup');
   });
 });

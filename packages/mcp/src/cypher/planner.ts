@@ -301,13 +301,12 @@ function resolveConcreteValue(expr: unknown): unknown {
 /** Create a filter predicate string from an expression for execution. */
 export function buildFilterPredicate(
   expr: CypherExpression,
-  getNode: (varName: string) => GraphNode | null,
   nodeVars: Map<string, GraphNode>,
 ): boolean {
   switch (expr.type) {
     case 'binary': {
-      const leftVal = evaluateBinaryOperand(expr.left, getNode, nodeVars);
-      const rightVal = evaluateBinaryOperand(expr.right, getNode, nodeVars);
+      const leftVal = evaluateBinaryOperand(expr.left, nodeVars);
+      const rightVal = evaluateBinaryOperand(expr.right, nodeVars);
       const op = expr.operator;
 
       switch (op) {
@@ -365,7 +364,7 @@ export function buildFilterPredicate(
     }
     case 'unary': {
       if (expr.operator === 'NOT') {
-        return !buildFilterPredicate(expr.operand, getNode, nodeVars);
+        return !buildFilterPredicate(expr.operand, nodeVars);
       }
       return false;
     }
@@ -379,14 +378,10 @@ export function buildFilterPredicate(
   }
 }
 
-function evaluateBinaryOperand(
-  expr: CypherExpression,
-  getNode: (varName: string) => GraphNode | null,
-  nodeVars: Map<string, GraphNode>,
-): unknown {
+function evaluateBinaryOperand(expr: CypherExpression, nodeVars: Map<string, GraphNode>): unknown {
   switch (expr.type) {
     case 'binary':
-      return buildFilterPredicate(expr, getNode, nodeVars);
+      return buildFilterPredicate(expr, nodeVars);
     case 'property': {
       const node = nodeVars.get(expr.object);
       if (!node) return null;
