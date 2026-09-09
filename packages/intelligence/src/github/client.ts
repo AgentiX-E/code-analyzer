@@ -273,13 +273,9 @@ export class GitHubApiClient {
     const payloadB64 = base64UrlEncode(JSON.stringify(payload));
     const signingInput = `${headerB64}.${payloadB64}`;
 
-    // Sign with the private key using Node.js crypto
-    /* v8 ignore start */
-    const cryptoModule = await import('node:crypto');
-    const _subtle: unknown =
-      (cryptoModule as unknown as { webcrypto?: { subtle: unknown } }).webcrypto?.subtle ?? null;
-    /* v8 ignore stop */
-
+    // Sign with the private key using Node.js crypto.
+    // Invariant: signWithNode performs the actual RS256 signing via node:crypto; a
+    // separate webcrypto import here would be dead code since its result is never read.
     const sig = await signWithNode(signingInput, privateKeyPem);
 
     return `${headerB64}.${payloadB64}.${sig}`;
@@ -529,12 +525,13 @@ export class GitHubApiClient {
   /**
    * Make an authenticated request returning raw text.
    */
-  private async requestText(path: string, options?: { Accept?: string }): Promise<string> {
+  private async requestText(path: string, options: { Accept: string }): Promise<string> {
     const url = `${API_BASE}${path}`;
 
+    // Invariant: getPRDiff is the sole caller and always supplies an explicit Accept
+    // header, so the parameter is required and no default fallback is reachable.
     const res = await this.authFetch(url, {
-      /* v8 ignore next */
-      acceptHeader: options?.Accept ?? 'application/vnd.github.v3.diff',
+      acceptHeader: options.Accept,
     });
 
     return res.text();
