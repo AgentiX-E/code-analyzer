@@ -10,11 +10,7 @@ import {
   type EnrichedTraceResult,
   type EnrichedSearchResult,
 } from '../tools/smart-response.js';
-import {
-  computeConfidence,
-  getConfidenceLabel,
-  type ConfidenceScore,
-} from '../tools/confidence.js';
+import { computeConfidence, getConfidenceLabel } from '../tools/confidence.js';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -448,12 +444,10 @@ describe('getConfidenceLabel', () => {
 
 describe('buildImpactResponse', () => {
   let store: InMemoryGraphStore;
-  let nodes: TestGraphNodes;
 
   beforeEach(() => {
     const graph = createTestGraph();
     store = graph.store;
-    nodes = graph.nodes;
   });
 
   it('should compute direct and indirect callers', () => {

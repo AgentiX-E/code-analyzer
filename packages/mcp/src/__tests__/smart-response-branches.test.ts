@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Smart Response builder branch coverage (utility helpers
 // and edge cases not exercised by smart-response.test.ts).
 
@@ -9,7 +8,7 @@ import {
   buildTraceResponse,
   buildSearchResponse,
 } from '../tools/smart-response.js';
-import type { GraphNode } from '@code-analyzer/shared';
+import type { GraphNode, RelationshipType } from '@code-analyzer/shared';
 
 let nodeId = 1000;
 let edgeId = 1000;
@@ -25,7 +24,7 @@ function addNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {}):
     startLine: 1,
     endLine: 2,
     language: 'typescript',
-    properties: {},
+    properties: { name: `f${nodeId}` },
     signature: `f${nodeId}(): void`,
     docstring: null,
     complexity: 1,
@@ -38,7 +37,12 @@ function addNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {}):
   return id;
 }
 
-function addEdge(store: InMemoryGraphStore, sourceId: number, targetId: number, type = 'CALLS') {
+function addEdge(
+  store: InMemoryGraphStore,
+  sourceId: number,
+  targetId: number,
+  type: RelationshipType = 'CALLS',
+) {
   store.insertEdge({
     id: edgeId++,
     projectId: 'test-project',
@@ -76,7 +80,7 @@ describe('buildImpactResponse — empty changedSymbols / null filePath', () => {
       store,
     );
     expect(result.summary.projectId).toBe('unknown');
-    expect(result.directCallers[0].filePath).toBeNull();
+    expect(result.directCallers[0]!.filePath).toBeNull();
   });
 
   it('dedupes callers that share a qualified name from graph edges', () => {
@@ -98,7 +102,7 @@ describe('buildImpactResponse — empty changedSymbols / null filePath', () => {
     const many = Array.from({ length: 12 }, (_, i) => `/src/feature/f${i}.ts`);
     const result = buildImpactResponse(emptyImpactResult({ changedFiles: many }), store);
     expect(result.changeClusters.length).toBe(1);
-    expect(result.changeClusters[0].estimatedEffort).toBe('high');
+    expect(result.changeClusters[0]!.estimatedEffort).toBe('high');
   });
 });
 
@@ -138,7 +142,7 @@ describe('buildTraceResponse — edge-derived callType and prev-node resolution'
       },
       store,
     );
-    expect(result.path[1].callType).toBe('IMPLEMENTS');
+    expect(result.path[1]!.callType).toBe('IMPLEMENTS');
   });
 
   it('marks in-cycle hops when the path revisits a symbol', () => {
@@ -157,7 +161,7 @@ describe('buildTraceResponse — edge-derived callType and prev-node resolution'
       store,
     );
     expect(result.cyclesDetected.length).toBe(1);
-    expect(result.path[0].isInCycle).toBe(true);
+    expect(result.path[0]!.isInCycle).toBe(true);
   });
 });
 
@@ -168,7 +172,7 @@ describe('buildSearchResponse — single-part qualifiedName and path', () => {
       [{ nodeId: 99999, name: 'bareName', qualifiedName: 'bareName', filePath: 'single.ts' }],
       store,
     );
-    const item = result.items[0];
+    const item = result.items[0]!;
     expect(item.moduleContext.moduleName).toBeNull();
     expect(item.moduleContext.packageName).toBeNull();
     expect(item.name).toBe('bareName');

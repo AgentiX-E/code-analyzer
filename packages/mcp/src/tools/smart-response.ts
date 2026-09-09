@@ -168,7 +168,8 @@ function isTestFile(filePath: string | null): boolean {
 function getModuleName(qualifiedName: string): string | null {
   const parts = qualifiedName.split(/[.#/]/);
   if (parts.length <= 1) return null;
-  return parts[0] ?? null;
+  // parts.length > 1 guarantees parts[0] is defined.
+  return parts[0]!;
 }
 
 /** Get the package name from a file path (e.g., "src/pkg/file.ts" → "src/pkg") */
@@ -199,14 +200,12 @@ function detectSideEffect(name: string, signature: string | null): string | null
   if (/\b(fs\.|readFile|writeFile|open|read|write|mkdir|unlink|stat)\b/i.test(lower)) {
     return 'file_io';
   }
-  /* v8 ignore start */ // system_call / network side-effect patterns (tested via integration)
   if (/\b(os\.|exec|spawn|fork|subprocess|shell)\b/i.test(lower)) {
     return 'system_call';
   }
   if (/\b(socket|tcp|udp|http\.|listen|connect)\b/i.test(lower)) {
     return 'network';
   }
-  /* v8 ignore stop */
 
   return null;
 }
@@ -320,7 +319,8 @@ export function buildImpactResponse(
       qualifiedName: (node['symbolQname'] as string) ?? 'unknown',
       filePath: (node['filePath'] as string) ?? null,
       label: (node['label'] as string) ?? 'unknown',
-      callType: (impactType as string) ?? EDGE_CALLS,
+      // impactType is already coerced to a non-null string above.
+      callType: impactType,
       confidence: computeConfidence(
         {
           qualifiedName: node['symbolQname'] as string | null,
@@ -516,7 +516,6 @@ export function buildTraceResponse(
       const callees = getCallees(node, store);
       for (const [, { callee }] of callees) {
         const calleeSe = detectSideEffect(callee.name, callee.signature);
-        /* v8 ignore next */ // calleeSe detection: side-effect pattern matching (tested via integration)
         if (calleeSe) {
           sideEffectTypes.push(`calls:${calleeSe}`);
           sideEffects.push({
@@ -531,7 +530,9 @@ export function buildTraceResponse(
     }
 
     hops.push({
-      name: node?.name ?? step.symbol.split('.').pop() ?? step.symbol,
+      // String.split never returns an empty array, so .pop() always yields a
+      // string; the trailing `?? step.symbol` fallback is therefore unreachable.
+      name: node?.name ?? step.symbol.split('.').pop()!,
       qualifiedName: step.symbol,
       filePath: node?.filePath ?? step.filePath,
       startLine: node?.startLine ?? null,
@@ -554,11 +555,10 @@ export function buildTraceResponse(
       const cycle = path.path.slice(prevIdx, i + 1).map((s) => s.symbol);
       cyclesDetected.push(cycle);
 
-      // Mark hops in the cycle
+      // Mark hops in the cycle. hops.length === path.path.length (one hop per
+      // step), and j <= i < path.path.length, so the index is always in range.
       for (let j = prevIdx; j <= i; j++) {
-        if (j < hops.length) {
-          hops[j] = { ...hops[j]!, isInCycle: true };
-        }
+        hops[j] = { ...hops[j]!, isInCycle: true };
       }
     }
     visitedSymbols.set(sym, i);
@@ -597,11 +597,11 @@ export function buildTraceResponse(
                 intermediateNodes.push(node);
               }
             }
-            /* v8 ignore start */ // alternative path sorting: complex graph traversal tested via integration
+            // Every intermediate node was admitted via pathLengths.has(), so
+            // the `?? 0` fallbacks below are unreachable.
             const sortedIntermediate = intermediateNodes
-              .filter((n) => (pathLengths.get(n.id) ?? 0) <= altLength)
-              .sort((a, b) => (pathLengths.get(a.id) ?? 0) - (pathLengths.get(b.id) ?? 0));
-            /* v8 ignore stop */
+              .filter((n) => pathLengths.get(n.id)! <= altLength)
+              .sort((a, b) => pathLengths.get(a.id)! - pathLengths.get(b.id)!);
 
             for (const n of sortedIntermediate.slice(0, 3)) {
               altHops.push(n.qualifiedName);
@@ -694,14 +694,12 @@ export function buildSearchResponse(
 
       // Collect imports
       const importEdges = store.getEdgesForNode(node.id, EDGE_IMPORTS, 'out');
-      /* v8 ignore start */ // import resolution via graph store (tested via integration)
-      imports = importEdges
-        .map((e) => {
-          const target = store.getNode(e.targetId);
-          return target?.qualifiedName ?? null;
-        })
-        .filter((v): v is string => v !== null);
-      /* v8 ignore stop */
+      imports = importEdges.map((e) => {
+        // The store guarantees referential integrity: insertEdge validates the
+        // target exists and deleteNode cascades, so the target is always present.
+        const target = store.getNode(e.targetId)!;
+        return target.qualifiedName;
+      });
     }
 
     // Module context
@@ -720,18 +718,17 @@ export function buildSearchResponse(
     repoDistribution[repo] = (repoDistribution[repo] ?? 0) + 1;
 
     // Cross-repo references
-    /* v8 ignore start */ // cross-repo reference resolution: tested via integration/e2e
     const crossRepoRefs: string[] = [];
     if (node) {
       const crossRepoEdges = store.getEdgesForNode(node.id, EDGE_CROSS_REPO_CALLS, 'out');
       crossRepoEdges.forEach((e) => {
-        const target = store.getNode(e.targetId);
-        if (target && target.projectId !== node.projectId) {
+        // The store guarantees referential integrity, so the target always exists.
+        const target = store.getNode(e.targetId)!;
+        if (target.projectId !== node.projectId) {
           crossRepoRefs.push(`${target.projectId}:${target.qualifiedName}`);
         }
       });
     }
-    /* v8 ignore stop */
 
     items.push({
       name: node?.name ?? result.name,
@@ -790,12 +787,10 @@ function buildRiskAssessment(
     rationaleParts.push(`Large transitive dependency network (${indirectCount})`);
     criticalPaths.push('transitive-closure');
   }
-  /* v8 ignore start */ // defensive: test file count threshold edge (not triggered in unit tests)
   if (testFileCount >= 5) {
     rationaleParts.push(`${testFileCount} test files may need updates`);
     criticalPaths.push('test-coverage');
   }
-  /* v8 ignore stop */
   if (processCount > 0) {
     rationaleParts.push(`${processCount} business processes affected`);
     criticalPaths.push('business-processes');
@@ -876,7 +871,9 @@ function buildChangeClusters(impactTree: unknown[], changedFiles: string[]): Cha
     clusters.push({
       name: `cluster-${index + 1}`,
       rootSymbol,
-      relatedSymbols: files.slice(0, 10).map((f) => f.split('/').pop() ?? f),
+      // String.split never returns an empty array, so .pop() always yields a
+      // string; the `?? f` fallback is unreachable.
+      relatedSymbols: files.slice(0, 10).map((f) => f.split('/').pop()!),
       affectedFiles: files,
       estimatedEffort: files.length > 10 ? 'high' : files.length > 5 ? 'medium' : 'low',
     });
