@@ -503,6 +503,57 @@ describe('registerErrorHandler', () => {
     const body = JSON.parse(res.body) as ErrorResponse;
     expect(body.requestId).toBeDefined();
   });
+
+  it('omits requestId when the generated request id is empty', async () => {
+    // genReqId returning an empty string makes request.id falsy, exercising
+    // the `...(requestId ? { requestId } : {})` empty-spread branch.
+    const emptyIdApp = Fastify({ logger: false, genReqId: () => '' });
+    try {
+      registerErrorHandler(emptyIdApp);
+      emptyIdApp.get('/error', async () => {
+        throw new Error('boom');
+      });
+      await emptyIdApp.ready();
+
+      const res = await emptyIdApp.inject({ method: 'GET', url: '/error' });
+      const body = JSON.parse(res.body) as ErrorResponse;
+      expect(body.requestId).toBeUndefined();
+    } finally {
+      await emptyIdApp.close();
+    }
+  });
+
+  it('includes validation details when NODE_ENV is development', async () => {
+    const prevNodeEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'development';
+    try {
+      registerErrorHandler(app);
+      app.get(
+        '/validated',
+        {
+          schema: {
+            querystring: {
+              type: 'object',
+              required: ['q'],
+              properties: { q: { type: 'string' } },
+            },
+          },
+        },
+        async (_req, reply) => reply.send({ ok: true }),
+      );
+      await app.ready();
+
+      // Missing required querystring `q` → Fastify validation error carrying `.validation`.
+      const res = await app.inject({ method: 'GET', url: '/validated' });
+      expect(res.statusCode).toBe(400);
+
+      const body = JSON.parse(res.body) as ErrorResponse;
+      expect(body.details).toBeDefined();
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env['NODE_ENV'];
+      else process.env['NODE_ENV'] = prevNodeEnv;
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

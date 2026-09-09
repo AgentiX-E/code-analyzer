@@ -12,8 +12,6 @@ export interface ErrorResponse {
   details?: unknown;
 }
 
-/* v8 ignore start */
-
 /**
  * Register global error handler on a Fastify instance.
  * Catches all unhandled errors and returns a consistent JSON response.
@@ -55,4 +53,3 @@ export function registerErrorHandler(app: FastifyInstance): void {
     } satisfies ErrorResponse);
   });
 }
-/* v8 ignore stop */
