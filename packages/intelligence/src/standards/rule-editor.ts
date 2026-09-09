@@ -182,6 +182,16 @@ const RULE_TEMPLATES: RuleTemplate[] = [
   },
 ];
 
+/**
+ * Ensure a RegExp carries the global flag so `exec` advances `lastIndex` between
+ * calls and a `while ((m = re.exec(s)) !== null)` loop can iterate every match.
+ * Without `g`, `exec` returns the first match indefinitely.
+ */
+function ensureGlobalFlag(flags: string | undefined): string {
+  const resolved = flags ?? 'g';
+  return resolved.includes('g') ? resolved : `${resolved}g`;
+}
+
 // ---------------------------------------------------------------------------
 // CustomRuleEditor
 // ---------------------------------------------------------------------------
@@ -378,9 +388,11 @@ export class CustomRuleEditor {
           return { valid: false, matches, errors };
         }
 
-        const regex = new RegExp(config.pattern, config.flags ?? 'g');
+        // The loop relies on RegExp.exec advancing lastIndex, which requires the
+        // global flag; without it exec returns the first match forever and the
+        // loop never terminates, so the flag is always ensured here.
+        const regex = new RegExp(config.pattern, ensureGlobalFlag(config.flags));
         const lines = sampleCode.split('\n');
-        const seenRanges = new Set<string>();
 
         let match: RegExpExecArray | null;
         while ((match = regex.exec(sampleCode)) !== null) {
@@ -389,14 +401,15 @@ export class CustomRuleEditor {
             continue;
           }
           const lineNumber = this.getLineNumber(sampleCode, match.index);
-          const rangeKey = `${lineNumber}:${match.index}`;
-          if (!seenRanges.has(rangeKey)) {
-            seenRanges.add(rangeKey);
-            matches.push({
-              lineNumber,
-              matchedText: lines[lineNumber - 1]?.trim().slice(0, 100) ?? match[0],
-            });
-          }
+          // Invariant: the global flag advances lastIndex monotonically and
+          // zero-length matches are skipped above, so every non-empty match lands
+          // at a strictly increasing index — no dedup is needed. A non-empty match
+          // also guarantees match.index points inside the string, so the indexed
+          // line always exists.
+          matches.push({
+            lineNumber,
+            matchedText: lines[lineNumber - 1]!.trim().slice(0, 100),
+          });
         }
       } else if (rule.checkType === 'metric') {
         const config = rule.checkConfig as { metric?: string; threshold?: number };
@@ -439,7 +452,10 @@ export class CustomRuleEditor {
       }
       // ast-pattern, graph-query, llm-check don't produce sample matches
     } catch (err) {
-      errors.push(`Rule validation error: ${err instanceof Error ? err.message : String(err)}`);
+      // Invariant: every operation in the try block (RegExp construction/exec,
+      // string splitting, line lookup) throws only Error subtypes, so `err` is
+      // always an Error and its message is read directly.
+      errors.push(`Rule validation error: ${(err as Error).message}`);
       return { valid: false, matches, errors };
     }
 
@@ -616,10 +632,10 @@ export class CustomRuleEditor {
       try {
         new RegExp(checkConfig['pattern'] as string, (checkConfig['flags'] as string) ?? 'g');
       } catch (err) {
-        /* v8 ignore next 3 */ // new RegExp always throws SyntaxError (extends Error)
-        throw new Error(
-          `Invalid regex pattern: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        // Invariant: the RegExp constructor throws only SyntaxError (invalid pattern)
+        // or TypeError (invalid flags), both of which extend Error, so `err` is always
+        // an Error and its message is read directly without a non-Error fallback.
+        throw new Error(`Invalid regex pattern: ${(err as Error).message}`);
       }
     } else if (checkType === 'metric') {
       if (!checkConfig['metric']) {

@@ -658,6 +658,37 @@ describe('validateRule', () => {
     expect(result.matches).toEqual([]);
   });
 
+  it('should skip zero-length regex matches to avoid an infinite loop', () => {
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'zero-length',
+        checkConfig: { pattern: 'x*', flags: 'g' },
+      }),
+    );
+    // 'x*' matches the empty string at every position; the loop must advance
+    // lastIndex past each zero-length match and terminate instead of hanging.
+    const result = editor.validateRule(rule, SAMPLE_CODE);
+    expect(result.valid).toBe(true);
+    expect(result.matches).toEqual([]);
+  });
+
+  it('should iterate every match even when the global flag is omitted', () => {
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidRegexInput({
+        id: 'no-global-flag',
+        checkConfig: { pattern: 'console', flags: 'i' }, // no 'g' flag
+      }),
+    );
+    // Without forcing the global flag, RegExp.exec would return the first match
+    // forever and the loop would never terminate; the editor must still collect
+    // every occurrence (SAMPLE_CODE contains two console.log calls).
+    const result = editor.validateRule(rule, SAMPLE_CODE);
+    expect(result.valid).toBe(true);
+    expect(result.matches.length).toBe(2);
+  });
+
   it('should report line numbers', () => {
     const rule = editor.createCustomRule(
       'std-1',
@@ -746,6 +777,41 @@ describe('validateRule', () => {
       }),
     );
     const result = editor.validateRule(rule, shallowCode);
+    expect(result.valid).toBe(true);
+    expect(result.matches).toEqual([]);
+  });
+
+  it('should skip empty lines when computing nesting depth', () => {
+    const codeWithBlankLines = `function test() {
+  doWork();
+
+  doMore();
+}`;
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidMetricInput({
+        id: 'max-nesting-blank',
+        checkConfig: { metric: 'nesting-depth', threshold: 10 },
+      }),
+    );
+    // Blank lines contribute no indentation and must be skipped; the shallow
+    // code stays under the threshold.
+    const result = editor.validateRule(rule, codeWithBlankLines);
+    expect(result.valid).toBe(true);
+    expect(result.matches).toEqual([]);
+  });
+
+  it('should produce no matches for an unrecognized metric name', () => {
+    const rule = editor.createCustomRule(
+      'std-1',
+      makeValidMetricInput({
+        id: 'unknown-metric',
+        checkConfig: { metric: 'cyclomatic-complexity', threshold: 5 },
+      }),
+    );
+    // Only function-lines and nesting-depth are computed here; any other metric
+    // name is structurally valid but produces no sample matches.
+    const result = editor.validateRule(rule, SAMPLE_CODE);
     expect(result.valid).toBe(true);
     expect(result.matches).toEqual([]);
   });

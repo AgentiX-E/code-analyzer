@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1185,
-  "totalLines": 128750,
+  "totalHidden": 1182,
+  "totalLines": 128766,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -50,7 +50,6 @@
     "packages/analyzer/src/pipeline/phases/parse.ts": 3,
     "packages/analyzer/src/pipeline/phases/prune-local-symbols.ts": 3,
     "packages/cli/src/commands/init.ts": 3,
-    "packages/intelligence/src/standards/rule-editor.ts": 3,
     "packages/server/src/graphql/context.ts": 3,
     "packages/analyzer/src/cfg/dataflow.ts": 2,
     "packages/analyzer/src/cfg/dominators.ts": 2,
