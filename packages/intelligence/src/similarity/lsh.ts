@@ -172,10 +172,9 @@ export class LSHSearcher {
 
     try {
       store.insertEdge(graphEdge);
-      /* v8 ignore start */ // defensive: edge already exists
     } catch {
-      // Edge may already exist - skip duplicate
-      /* v8 ignore stop */
+      // Non-fatal: the edge may reference nodes that no longer exist, or the
+      // underlying store may reject a duplicate edge — skip it silently.
     }
   }
 

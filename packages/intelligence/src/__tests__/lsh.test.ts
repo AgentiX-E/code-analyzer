@@ -366,6 +366,25 @@ describe('LSHSearcher.buildSimilarityEdges', () => {
 
     expect(Array.isArray(edges)).toBe(true);
   });
+
+  it('should skip stale candidates absent from the fingerprint map', () => {
+    const lsh = new LSHSearcher(8);
+    const store = new InMemoryGraphStore();
+    const mh = new MinHashSimilarity(128);
+
+    const fp = mh.computeFingerprint(tokenizeCode('function shared() { return 1; }'));
+
+    // Populate the buckets with node 2 (id > 1) so it becomes a stale candidate
+    // whose fingerprint is NOT in the map built for the [1] query below.
+    lsh.insert(2, fp);
+
+    const edges = lsh.buildSimilarityEdges(store, [1], (id) => (id === 1 ? fp : []), 0.5);
+
+    // Node 2 collides with node 1 but has no fingerprint in the map, so it must
+    // be skipped without throwing.
+    expect(Array.isArray(edges)).toBe(true);
+    expect(edges).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
