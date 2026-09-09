@@ -1,11 +1,13 @@
 // @code-analyzer/server — mTLS Middleware Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import Fastify from 'fastify';
-import type { FastifyInstance } from 'fastify';
+import { createHash } from 'node:crypto';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   registerMtls,
   computeCertFingerprint,
+  getClientCert,
   isMtlsAuthenticated,
   getClientFingerprint,
   DEFAULT_MTLS_CONFIG,
@@ -36,9 +38,6 @@ kWFnBEBcTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBm
 TXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBmTXBm
 TXBmTXBmTXBmTXBmTXBmg==
 -----END CERTIFICATE-----`;
-
-// A valid SHA-256 fingerprint for testing
-const TEST_FINGERPRINT = 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899';
 
 // ---------------------------------------------------------------------------
 // computeCertFingerprint
@@ -77,6 +76,40 @@ Y2FsaG9zdDAeFw0yNDAxMDEwMDAwMDBaFw0yNTAxMDEwMDAwMDBaMBQxEjAQBgNV
 BAMMCWxvY2FsaG9zdDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA0UJieT8z
 -----END CERTIFICATE-----`;
     expect(computeCertFingerprint(pem)).toBe(computeCertFingerprint(pem));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getClientCert — TLS socket path
+// ---------------------------------------------------------------------------
+
+describe('getClientCert', () => {
+  function mockRequest(socket: unknown): FastifyRequest {
+    return { raw: { socket } } as unknown as FastifyRequest;
+  }
+
+  it('extracts a fingerprint from the TLS peer certificate', () => {
+    const raw = Buffer.from('socket-cert-data');
+    const req = mockRequest({ getPeerCertificate: () => ({ raw }) });
+    const result = getClientCert(req, { ...DEFAULT_MTLS_CONFIG });
+    expect(result).not.toBeNull();
+    expect(result!.fingerprint).toBe(createHash('sha256').update(raw).digest('hex'));
+    expect(result!.raw).toEqual(raw);
+  });
+
+  it('returns null when the peer certificate has no raw body', () => {
+    const req = mockRequest({ getPeerCertificate: () => ({}) });
+    expect(getClientCert(req, { ...DEFAULT_MTLS_CONFIG })).toBeNull();
+  });
+
+  it('returns null when getPeerCertificate returns null', () => {
+    const req = mockRequest({ getPeerCertificate: () => null });
+    expect(getClientCert(req, { ...DEFAULT_MTLS_CONFIG })).toBeNull();
+  });
+
+  it('returns null when the socket has no getPeerCertificate method', () => {
+    const req = mockRequest({});
+    expect(getClientCert(req, { ...DEFAULT_MTLS_CONFIG })).toBeNull();
   });
 });
 
@@ -124,6 +157,7 @@ describe('registerMtls', () => {
       caCerts: TEST_CA_PEM,
       requireCert: true,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
     });
     app.options('/test', async (_req, reply) => reply.status(204).send());
     await app.ready();
@@ -139,6 +173,7 @@ describe('registerMtls', () => {
       caCerts: TEST_CA_PEM,
       requireCert: false,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
     });
     app.get('/test', async (_req, reply) => reply.send({ ok: true }));
     await app.ready();
@@ -154,6 +189,7 @@ describe('registerMtls', () => {
       caCerts: TEST_CA_PEM,
       requireCert: true,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
       bypassPaths: ['/public', '/api/v1/public'],
     });
     app.get('/public', async (_req, reply) => reply.send({ ok: true }));
@@ -192,6 +228,7 @@ describe('registerMtls — warn mode', () => {
       caCerts: TEST_CA_PEM,
       requireCert: true,
       failureMode: 'warn',
+      skipHealthEndpoints: true,
     });
     app.get('/test', async (_req, reply) => reply.send({ ok: true }));
     await app.ready();
@@ -220,6 +257,7 @@ describe('registerMtls — pinned fingerprints', () => {
       caCerts: TEST_CA_PEM,
       requireCert: false,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
       pinnedFingerprints: ['abc123'],
       clientCertHeader: 'x-client-cert',
     });
@@ -245,6 +283,7 @@ describe('registerMtls — pinned fingerprints', () => {
       caCerts: TEST_CA_PEM,
       requireCert: false,
       failureMode: 'warn',
+      skipHealthEndpoints: true,
       pinnedFingerprints: ['abc123'],
       clientCertHeader: 'x-client-cert',
     });
@@ -270,6 +309,7 @@ describe('registerMtls — pinned fingerprints', () => {
       caCerts: TEST_CA_PEM,
       requireCert: false,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
       pinnedFingerprints: [matchingFingerprint],
       clientCertHeader: 'x-client-cert',
     });
@@ -351,6 +391,7 @@ describe('registerMtls — clientCertHeader', () => {
       caCerts: TEST_CA_PEM,
       requireCert: false,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
       clientCertHeader: 'x-forwarded-client-cert',
     });
     app.get('/test', async (req, reply) => {
@@ -381,6 +422,7 @@ describe('registerMtls — clientCertHeader', () => {
       caCerts: TEST_CA_PEM,
       requireCert: false,
       failureMode: 'reject',
+      skipHealthEndpoints: true,
       clientCertHeader: 'x-client-cert',
     });
     app.get('/test', async (_req, reply) => reply.send({ ok: true }));

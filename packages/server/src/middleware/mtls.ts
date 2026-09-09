@@ -61,7 +61,8 @@ export function computeCertFingerprint(pem: string): string {
  * Fastify provides req.socket.getPeerCertificate() when TLS is enabled.
  * For reverse proxy setups, checks the configured header.
  */
-function getClientCert(
+/** Exported for testing — resolves the cert fingerprint from header or TLS socket. */
+export function getClientCert(
   request: FastifyRequest,
   config: MtlsConfig,
 ): { fingerprint: string; raw: Buffer } | null {
@@ -69,22 +70,17 @@ function getClientCert(
   if (config.clientCertHeader) {
     const headerVal = request.headers[config.clientCertHeader] as string | undefined;
     if (headerVal) {
-      try {
-        const decoded = Buffer.from(headerVal, 'base64');
-        return {
-          fingerprint: createHash('sha256').update(decoded).digest('hex'),
-          raw: decoded,
-        };
-        /* v8 ignore start -- @preserve Buffer.from with invalid base64 does not throw in Node.js */
-      } catch {
-        return null;
-      }
-      /* v8 ignore stop */
+      // Buffer.from(_, 'base64') never throws in Node.js — invalid characters
+      // are silently ignored — so no try/catch is needed here.
+      const decoded = Buffer.from(headerVal, 'base64');
+      return {
+        fingerprint: createHash('sha256').update(decoded).digest('hex'),
+        raw: decoded,
+      };
     }
   }
 
   // Check TLS socket
-  /* v8 ignore start -- @preserve TLS socket not available via Fastify.inject(), tested in integration */
   const socket = request.raw.socket as unknown as { getPeerCertificate?: () => { raw: Buffer } };
   if (typeof socket.getPeerCertificate === 'function') {
     const cert = socket.getPeerCertificate();
@@ -93,7 +89,6 @@ function getClientCert(
       return { fingerprint, raw: cert.raw };
     }
   }
-  /* v8 ignore stop */
 
   return null;
 }

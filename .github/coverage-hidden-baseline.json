@@ -1,6 +1,6 @@
 {
-  "totalHidden": 687,
-  "totalLines": 128653,
+  "totalHidden": 676,
+  "totalLines": 128648,
   "files": {
     "packages/core/src/agents/detector.ts": 93,
     "packages/analyzer/src/pipeline/phases/embed.ts": 58,
@@ -19,7 +19,6 @@
     "packages/server/src/http-server.ts": 16,
     "packages/analyzer/src/languages/rust.ts": 13,
     "packages/infra/src/filesystem/discoverer.ts": 12,
-    "packages/server/src/middleware/mtls.ts": 11,
     "packages/shared/src/utils/lru-cache.ts": 11,
     "packages/analyzer/src/languages/hcl.ts": 10,
     "packages/analyzer/src/pipeline/phases/semantic.ts": 10,
