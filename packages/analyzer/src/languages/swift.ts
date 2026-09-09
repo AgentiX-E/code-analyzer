@@ -52,10 +52,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
           }
         }
         // Direct access_modifier children (some tree-sitter versions)
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (child.type === 'access_modifier' || child.type === 'access_control_modifier') {
           const modText = child.text;
-          /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
           if (modText === 'public' || modText === 'open') {
             hasPublicModifier = true;
           }
@@ -67,7 +65,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
           this.findNamedChild(node, 'type_identifier') ??
           this.findNamedChild(node, 'identifier') ??
           this.findNamedChild(node, 'simple_identifier');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (nameNode && nameNode.text === symbolName) return true;
       }
     }
@@ -87,7 +84,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     if (nodeType === 'class_declaration') {
       if (sourceText.startsWith('struct ')) {
         const nameNode = this.findNamedChild(node, 'type_identifier');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (nameNode) {
           captures.push({
             tag: CAPTURE_TAGS.STRUCT_DEF,
@@ -102,7 +98,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
         }
       } else if (sourceText.startsWith('enum ')) {
         const nameNode = this.findNamedChild(node, 'type_identifier');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (nameNode) {
           captures.push({
             tag: CAPTURE_TAGS.ENUM_DEF,
@@ -117,9 +112,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
         }
       } else if (sourceText.startsWith('extension ')) {
         const userType = this.findNamedChild(node, 'user_type');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         const nameNode = userType ? this.findNamedChild(userType, 'type_identifier') : null;
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (nameNode) {
           captures.push({
             tag: CAPTURE_TAGS.CLASS_DEF,
@@ -135,7 +128,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       } else if (sourceText.startsWith('actor ')) {
         // Actor (Swift 5.5+ concurrency) — tree-sitter-swift lumps actor into class_declaration
         const nameNode = this.findNamedChild(node, 'type_identifier');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (nameNode) {
           captures.push({
             tag: CAPTURE_TAGS.CLASS_DEF,
@@ -151,7 +143,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       } else {
         // Regular class
         const nameNode = this.findNamedChild(node, 'type_identifier');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (nameNode) {
           captures.push({
             tag: CAPTURE_TAGS.CLASS_DEF,
@@ -170,14 +161,13 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     // Function declarations — handle async/throws modifiers
     else if (nodeType === 'function_declaration') {
       let nameNode = this.findNamedChild(node, 'simple_identifier');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       if (!nameNode) nameNode = this.findNamedChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       if (nameNode) {
         // Detect async, throws, and modifier keywords
         const hasAsync = node.text.includes('async');
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
-        const hasThrows = node.text.includes('throws') || node.text.includes('rethrows');
+        // "rethrows" contains "throws" as a substring, so a single
+        // `includes('throws')` check already covers both keywords.
+        const hasThrows = node.text.includes('throws');
         captures.push({
           tag: CAPTURE_TAGS.FUNCTION_DEF,
           text: sourceText,
@@ -197,19 +187,15 @@ export class SwiftProvider extends TreeSitterBaseProvider {
 
     // Result builder attribute (@resultBuilder)
     else if (nodeType === 'attribute') {
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       if (sourceText.includes('resultBuilder')) {
         // tree-sitter-swift nests the attribute inside the declaration's modifiers,
         // so the attributed declaration is the attribute's grandparent.
         const decl = node.parent?.parent;
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         if (decl && decl.type === 'class_declaration') {
-          /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
           const sibName =
             this.findNamedChild(decl, 'type_identifier') ??
             this.findNamedChild(decl, 'identifier') ??
             this.findNamedChild(decl, 'simple_identifier');
-          /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
           if (sibName) {
             captures.push({
               tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -229,7 +215,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     // Protocol declarations
     else if (nodeType === 'protocol_declaration') {
       const nameNode = this.findNamedChild(node, 'type_identifier');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       if (nameNode) {
         captures.push({
           tag: CAPTURE_TAGS.INTERFACE_DEF,
@@ -255,7 +240,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
         }
         if (child.type === 'pattern') {
           for (let j = 0; j < child.namedChildCount; j++) {
-            /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
             if (child.namedChild(j).type === 'simple_identifier') {
               nameNode = child.namedChild(j);
               break;
@@ -263,7 +247,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
           }
         }
       }
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       if (nameNode) {
         captures.push({
           tag: isLet ? CAPTURE_TAGS.CONSTANT_DEF : CAPTURE_TAGS.VARIABLE_DEF,
@@ -280,10 +263,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
 
     // Import declarations
     else if (nodeType === 'import_declaration') {
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       const nameNode =
         this.findNamedChild(node, 'identifier') ?? this.findNamedChild(node, 'type_identifier');
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       const importName = nameNode ? nameNode.text : sourceText.replace(/^import\s+/, '');
       captures.push({
         tag: CAPTURE_TAGS.IMPORT,
@@ -314,7 +295,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
    *   import class UIKit.UIView              // scoped class import
    *   import func Darwin.sqrt                // scoped function import
    */
-  /* v8 ignore next */
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_declaration') {
       this.extractSwiftImport(node, imports);
@@ -338,9 +318,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     const parts: string[] = [];
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
-      /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
       if (
-        /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
         child.type === 'type_identifier' ||
         child.type === 'identifier' ||
         child.type === 'simple_identifier'
@@ -349,7 +327,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       }
     }
 
-    /* v8 ignore next -- @preserve -- defensive null / non-matching branch */
     if (parts.length === 0) return;
 
     const sourcePath = parts.join('.');
@@ -360,7 +337,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -489,7 +465,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -511,7 +486,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     // Swift: public/internal modifiers; top-level declarations are internal by default
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -519,7 +493,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       `(?:public|open)\\s+func\\s+${s}\\b|(?:public|open)\\s+class\\s+${s}\\b|(?:public|open)\\s+struct\\s+${s}\\b|(?:public|open)\\s+var\\s+${s}\\b|(?:public|open)\\s+let\\s+${s}\\b`,
     ).test(source);
   }
-  /* v8 ignore stop */
 
   // ---- Utility helpers ----
 
@@ -533,7 +506,6 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     return null;
   }
 
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }
