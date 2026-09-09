@@ -161,25 +161,28 @@ const AGENTS: AgentMetadata[] = [
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────
+//
+// The signal helpers below are exported so they can be exercised directly in
+// unit tests. The platform- and filesystem-sensitive ones accept injectable
+// defaults (home directory, PATH, platform, /proc root, extension dirs) so the
+// environment-specific branches are testable without real OS state.
 
 const homeDir = os.homedir();
 
 /**
  * Check whether an environment variable is set (non-empty).
  */
-function hasEnv(name: string): boolean {
+export function hasEnv(name: string): boolean {
   const val = process.env[name];
-  /* v8 ignore next */ // defensive: env var set to empty string is equivalent to unset
   return val !== undefined && val !== '';
 }
 
 /**
  * Check whether a file or directory exists at the given path.
- * Supports ~-prefixed paths.
+ * Supports ~-prefixed paths resolved against `home`.
  */
-function hasPath(filePath: string): boolean {
-  /* v8 ignore next */
-  const resolved = filePath.startsWith('~') ? path.join(homeDir, filePath.slice(1)) : filePath;
+export function hasPath(filePath: string, home: string = homeDir): boolean {
+  const resolved = filePath.startsWith('~') ? path.join(home, filePath.slice(1)) : filePath;
   try {
     fs.accessSync(resolved, fs.constants.R_OK);
     return true;
@@ -189,11 +192,13 @@ function hasPath(filePath: string): boolean {
 }
 
 /**
- * Look for a binary in PATH.
+ * Look for a binary in the colon-delimited `pathEnv`.
  */
-/* v8 ignore start */
-function hasBinary(name: string): boolean {
-  const pathDirs = (process.env['PATH'] ?? '/usr/bin').split(path.delimiter);
+export function hasBinary(
+  name: string,
+  pathEnv: string = process.env['PATH'] ?? '/usr/bin',
+): boolean {
+  const pathDirs = pathEnv.split(path.delimiter);
   for (const dir of pathDirs) {
     const full = path.join(dir, name);
     try {
@@ -205,22 +210,119 @@ function hasBinary(name: string): boolean {
   }
   return false;
 }
-/* v8 ignore stop */
+
+/**
+ * Aggregate individual signal confidences into overall confidence.
+ */
+export function aggregateConfidence(signals: DetectionSignal[]): DetectionConfidence {
+  if (signals.length === 0) return 'low';
+  const highCount = signals.filter((s) => s.confidence === 'high').length;
+  const mediumCount = signals.filter((s) => s.confidence === 'medium').length;
+
+  if (highCount >= 2 || (highCount >= 1 && mediumCount >= 2)) return 'high';
+  if (highCount >= 1 || mediumCount >= 2) return 'medium';
+  return 'low';
+}
+
+/**
+ * Check if a process with the given name is running.
+ * Scans the Linux /proc filesystem (injectable `procRoot` for tests);
+ * returns false on other platforms or when /proc is unavailable.
+ */
+export function checkProcess(
+  name: string,
+  platform: NodeJS.Platform = process.platform,
+  procRoot: string = '/proc',
+): boolean {
+  try {
+    // Linux: scan /proc/*/comm
+    if (platform === 'linux') {
+      const procDirs = fs.readdirSync(procRoot).filter((d) => /^\d+$/.test(d));
+      for (const pid of procDirs.slice(0, 200)) {
+        // limit scan to first 200
+        try {
+          const comm = fs.readFileSync(path.join(procRoot, pid, 'comm'), 'utf-8').trim();
+          if (comm.toLowerCase().includes(name.toLowerCase())) {
+            return true;
+          }
+        } catch {}
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the VS Code extension directories to scan for `platform`.
+ * macOS additionally includes the Code app's user directory.
+ */
+export function getVSCodeExtDirs(platform: NodeJS.Platform = process.platform): string[] {
+  const dirs = [path.join(homeDir, '.vscode', 'extensions')];
+  if (platform === 'darwin') {
+    dirs.push(path.join(homeDir, 'Library', 'Application Support', 'Code', 'User'));
+  }
+  return dirs;
+}
+
+const VSCODE_EXT_DIRS: string[] = getVSCodeExtDirs();
+
+/**
+ * Check if a VS Code extension is installed by scanning the given
+ * extension directories for a matching `publisher.extension-version` dir.
+ */
+export function checkVSCodeExtension(extId: string, dirs: string[] = VSCODE_EXT_DIRS): boolean {
+  for (const dir of dirs) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        // Extension directories are named like "publisher.extension-version"
+        if (entry.isDirectory() && entry.name.toLowerCase().startsWith(extId.toLowerCase())) {
+          return true;
+        }
+      }
+    } catch {}
+  }
+  return false;
+}
 
 // ── Detector ─────────────────────────────────────────────────────
 
 /**
+ * Injectable environment overrides for `detectAgent`, mirroring the
+ * module-level defaults consumed by the signal helpers.
+ */
+export interface DetectorEnv {
+  /** Home directory used for the home config-signal check. */
+  home?: string;
+  /** Working directory used for the cwd config-signal check. */
+  cwd?: string;
+  /** Colon-delimited PATH used for the binary-signal check. */
+  pathEnv?: string;
+  /** Process platform used for /proc process detection. */
+  platform?: NodeJS.Platform;
+  /** Root of the proc filesystem (Linux process detection). */
+  procRoot?: string;
+  /** VS Code extension directories to scan. */
+  extDirs?: string[];
+}
+
+/**
  * Detect a single agent by scanning all signal types.
  */
-function detectAgent(meta: AgentMetadata): AgentDetection {
+export function detectAgent(meta: AgentMetadata, env: DetectorEnv = {}): AgentDetection {
   const signals: DetectionSignal[] = [];
+  const home = env.home ?? homeDir;
+  const cwd = env.cwd ?? process.cwd();
 
   // Environment variable signals
-  for (const env of meta.envSignals) {
-    if (hasEnv(env)) {
+  for (const envVar of meta.envSignals) {
+    if (hasEnv(envVar)) {
       signals.push({
         type: 'env',
-        detail: `$${env} is set`,
+        detail: `$${envVar} is set`,
         confidence: 'medium',
       });
     }
@@ -228,24 +330,21 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
 
   // Config file signals (check relative to home + cwd)
   for (const cfg of meta.configSignals) {
-    const homePath = path.join(homeDir, cfg);
-    const cwdPath = path.join(process.cwd(), cfg);
+    const homePath = path.join(home, cfg);
+    const cwdPath = path.join(cwd, cfg);
     if (hasPath(homePath)) {
       signals.push({ type: 'config', detail: `Config found: ~/${cfg}`, confidence: 'high' });
       break;
     }
-    /* v8 ignore start */ // cwd config path coverage requires specific repo setup
     if (hasPath(cwdPath)) {
       signals.push({ type: 'config', detail: `Config found: ./${cfg}`, confidence: 'high' });
       break;
     }
-    /* v8 ignore stop */
   }
 
-  /* v8 ignore start */
   // Binary signals
   for (const bin of meta.binarySignals) {
-    if (hasBinary(bin)) {
+    if (hasBinary(bin, env.pathEnv)) {
       signals.push({
         type: 'binary',
         detail: `Binary found in PATH: ${bin}`,
@@ -255,9 +354,9 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
     }
   }
 
-  // Process signals — using /proc on Linux, pgrep on macOS
+  // Process signals — using /proc on Linux
   for (const proc of meta.processSignals) {
-    if (checkProcess(proc)) {
+    if (checkProcess(proc, env.platform, env.procRoot)) {
       signals.push({
         type: 'process',
         detail: `Process running: ${proc}`,
@@ -269,7 +368,7 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
 
   // VS Code extension signals
   for (const ext of meta.extensionSignals) {
-    if (checkVSCodeExtension(ext)) {
+    if (checkVSCodeExtension(ext, env.extDirs)) {
       signals.push({
         type: 'extension',
         detail: `VS Code extension installed: ${ext}`,
@@ -278,7 +377,6 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
       break;
     }
   }
-  /* v8 ignore stop */
 
   const confidence = aggregateConfidence(signals);
   const detected = signals.length > 0;
@@ -293,79 +391,6 @@ function detectAgent(meta: AgentMetadata): AgentDetection {
   };
 }
 
-/**
- * Aggregate individual signal confidences into overall confidence.
- */
-function aggregateConfidence(signals: DetectionSignal[]): DetectionConfidence {
-  if (signals.length === 0) return 'low';
-  const highCount = signals.filter((s) => s.confidence === 'high').length;
-  const mediumCount = signals.filter((s) => s.confidence === 'medium').length;
-
-  /* v8 ignore next */
-  if (highCount >= 2 || (highCount >= 1 && mediumCount >= 2)) return 'high';
-  if (highCount >= 1 || mediumCount >= 2) return 'medium';
-  return 'low';
-}
-
-/**
- * Check if a process with the given name is running.
- * Uses /proc filesystem on Linux, falls back gracefully.
- */
-/* v8 ignore start */
-function checkProcess(name: string): boolean {
-  try {
-    // Linux: scan /proc/*/comm
-    if (process.platform === 'linux') {
-      const procDirs = fs.readdirSync('/proc').filter((d) => /^\d+$/.test(d));
-      for (const pid of procDirs.slice(0, 200)) {
-        // limit scan to first 200
-        try {
-          const comm = fs.readFileSync(`/proc/${pid}/comm`, 'utf-8').trim();
-          if (comm.toLowerCase().includes(name.toLowerCase())) {
-            return true;
-          }
-        } catch {}
-      }
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-/* v8 ignore stop */
-
-/**
- * Check if a VS Code extension is installed.
- * Scans ~/.vscode/extensions/ and ~/.cursor/extensions/.
- */
-const VSCODE_EXT_DIRS: string[] = (() => {
-  const dirs = [path.join(homeDir, '.vscode', 'extensions')];
-  /* v8 ignore start */ // macOS-specific VSCode path
-  if (process.platform === 'darwin') {
-    dirs.push(path.join(homeDir, 'Library', 'Application Support', 'Code', 'User'));
-  }
-  /* v8 ignore stop */
-  return dirs;
-})();
-
-/* v8 ignore start */
-function checkVSCodeExtension(extId: string): boolean {
-  for (const dir of VSCODE_EXT_DIRS) {
-    try {
-      if (!fs.existsSync(dir)) continue;
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        // Extension directories are named like "publisher.extension-version"
-        if (entry.isDirectory() && entry.name.startsWith(extId.toLowerCase())) {
-          return true;
-        }
-      }
-    } catch {}
-  }
-  return false;
-}
-/* v8 ignore stop */
-
 // ── Public API ───────────────────────────────────────────────────
 
 /**
@@ -374,8 +399,8 @@ function checkVSCodeExtension(extId: string): boolean {
  * Returns a sorted list (detected first, by confidence) plus a primary
  * recommendation for the agent most likely being used.
  */
-export function detectAllAgents(): AgentDetectionResult {
-  const agents = AGENTS.map(detectAgent);
+export function detectAllAgents(env: DetectorEnv = {}): AgentDetectionResult {
+  const agents = AGENTS.map((meta) => detectAgent(meta, env));
 
   // Sort: detected first, then by confidence (high → low)
   agents.sort((a, b) => {
