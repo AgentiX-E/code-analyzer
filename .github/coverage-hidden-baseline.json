@@ -1,6 +1,6 @@
 {
-  "totalHidden": 1176,
-  "totalLines": 128768,
+  "totalHidden": 1175,
+  "totalLines": 128767,
   "files": {
     "packages/mcp/src/cypher/parser.ts": 114,
     "packages/core/src/agents/detector.ts": 93,
@@ -87,7 +87,6 @@
     "packages/infra/src/cache/parse-cache.ts": 1,
     "packages/infra/src/generated-detector.ts": 1,
     "packages/infra/src/workers/pool.ts": 1,
-    "packages/intelligence/src/review/session-manager.ts": 1,
     "packages/intelligence/src/rules/rule-registry.ts": 1,
     "packages/server/src/routes/webhook.ts": 1
   }

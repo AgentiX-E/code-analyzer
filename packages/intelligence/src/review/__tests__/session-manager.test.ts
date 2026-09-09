@@ -144,6 +144,22 @@ describe('ReviewSessionManager', () => {
     expect(resumed!.completedFiles.has('src/c.ts')).toBe(true);
   });
 
+  it('does not re-add a file that is already reviewed', () => {
+    const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
+      repository: 'org/repo',
+      branch: 'main',
+      mode: 'diff',
+    });
+
+    manager.checkpoint(session.sessionId, [], ['src/a.ts']);
+    // Re-checkpointing an already-reviewed file hits the `includes` false branch.
+    manager.checkpoint(session.sessionId, [], ['src/a.ts', 'src/b.ts']);
+
+    const resumed = manager.resume(session.sessionId);
+    expect(resumed!.completedFiles.size).toBe(2);
+    expect(resumed!.session.filesReviewed).toEqual(['src/a.ts', 'src/b.ts']);
+  });
+
   it('should remove checked off files from remaining', () => {
     const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
       repository: 'org/repo',
@@ -279,13 +295,15 @@ describe('ReviewSessionManager', () => {
     expect(() => manager.setRemainingFiles('nonexistent', [])).toThrow('Session not found');
   });
 
-  it('should handle corrupted JSON in session file gracefully', () => {
-    // Write invalid JSON to simulate disk corruption
-    const corruptedPath = path.join(testDir, 'corrupted.json');
-    fs.writeFileSync(corruptedPath, '{broken json!!', 'utf-8');
+  it('returns null when loading a session file with corrupted JSON', () => {
+    // Write invalid JSON to a real session file to simulate disk corruption.
+    // The file must live under .code-analyzer/sessions/<id>.json — the previous
+    // version wrote to the repo root, so loadSession never reached JSON.parse.
+    const sessionsDir = path.join(testDir, '.code-analyzer', 'sessions');
+    fs.mkdirSync(sessionsDir, { recursive: true });
+    fs.writeFileSync(path.join(sessionsDir, 'corrupted.json'), '{broken json!!', 'utf-8');
 
-    // Create a new manager pointing at this dir, then try to load the corrupted file
-    // getProgress and resumeSession should return null, not throw
+    // getProgress → loadSession → JSON.parse throws → catch returns null (no throw).
     const progress = manager.getProgress('corrupted');
     expect(progress).toBeNull();
   });
@@ -309,21 +327,20 @@ describe('ReviewSessionManager', () => {
     expect(sessions.some((s) => s.sessionId === 'bad')).toBe(false);
   });
 
-  it('should return 100% progress when no files set (total=0 branch)', () => {
+  it('reports 100% progress for an empty session (no files set)', () => {
     const session = manager.createSession('https://github.com/org/repo/pull/1', testDir, {
       repository: 'org/repo',
       branch: 'main',
       mode: 'diff',
     });
-    // No setRemainingFiles called → filesRemaining=[], filesReviewed=[]
+    // No setRemainingFiles call → filesReviewed=[], filesRemaining=[] → total === 0.
     const progress = manager.getProgress(session.sessionId);
     expect(progress).not.toBeNull();
-    expect(progress!.total).toBe(1); // fallback: total = 0 || 1
-    expect(progress!.percent).toBe(100); // total === 0 → 100
-    // Actually: total = filesReviewed.length + filesRemaining.length = 0
-    // total || 1 → 1, done = 0, percent = total === 0 ? 100 : round(0/1 * 100) = 0
-    // So the percent might be 0
-    expect(progress!.percent).toBeGreaterThanOrEqual(0);
+    expect(progress!.done).toBe(0);
+    // `total || 1` normalizes the empty-session denominator to 1 for display.
+    expect(progress!.total).toBe(1);
+    // `total === 0 ? 100 : ...` treats an empty session as vacuously complete.
+    expect(progress!.percent).toBe(100);
   });
 
   // ---------------------------------------------------------------------------
