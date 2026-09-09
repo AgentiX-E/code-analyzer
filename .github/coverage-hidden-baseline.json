@@ -1,8 +1,7 @@
 {
-  "totalHidden": 337,
-  "totalLines": 128541,
+  "totalHidden": 316,
+  "totalLines": 128524,
   "files": {
-    "packages/analyzer/src/languages/python.ts": 23,
     "packages/analyzer/src/languages/tree-sitter-base.ts": 22,
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/analyzer/src/languages/json.ts": 17,
@@ -39,6 +38,7 @@
     "packages/analyzer/src/languages/go.ts": 2,
     "packages/analyzer/src/languages/html.ts": 2,
     "packages/analyzer/src/languages/javascript.ts": 2,
+    "packages/analyzer/src/languages/python.ts": 2,
     "packages/analyzer/src/languages/ruby.ts": 2,
     "packages/analyzer/src/languages/swift.ts": 2,
     "packages/analyzer/src/languages/typescript.ts": 2,
