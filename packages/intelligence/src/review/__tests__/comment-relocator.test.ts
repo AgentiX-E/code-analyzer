@@ -262,6 +262,32 @@ describe('CommentRelocator', () => {
     }
   });
 
+  it('should relocate with low confidence when fuzzy score is between 0.3 and 0.6', () => {
+    // Two of five context lines match exactly; the other three share no tokens,
+    // yielding a fuzzy score of 2/5 = 0.4, which falls in [0.3, 0.6) -> low.
+    const original = [
+      'keepLine1 tokenAlpha tokenBeta',
+      'keepLine2 tokenGamma tokenDelta',
+      'targetLine tokenEpsilon tokenZeta',
+      'keepLine3 tokenEta tokenTheta',
+      'keepLine4 tokenIota tokenKappa',
+    ].join('\n');
+
+    const modified = [
+      'keepLine1 tokenAlpha tokenBeta',
+      'keepLine2 tokenGamma tokenDelta',
+      'completelyDifferent1 qqq rrr',
+      'completelyDifferent2 sss ttt',
+      'completelyDifferent3 uuu vvv',
+    ].join('\n');
+
+    const comment = makeComment({ path: 'low.ts', startLine: 3 });
+    const result = relocator.relocateFromDiff([comment], 'low.ts', original, modified);
+
+    expect(result.relocated.size).toBe(1);
+    expect(result.relocated.get(comment.id)!.confidence).toBe('low');
+  });
+
   it('should mark comment as lost when all strategies fail completely', () => {
     const filePath = 'src/nomatch.ts';
     // Content with completely different tokens — no overlap possible
