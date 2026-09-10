@@ -165,6 +165,10 @@ describe('RProvider', () => {
       expect(imports.length).toBe(0);
     });
 
+    it('should ignore ordinary (non-import) calls', () => {
+      expect(provider.extractImports('mean(1)')).toEqual([]);
+    });
+
     it('should extract source imports', () => {
       const imports = provider.extractImports('source("utils.R")');
       expect(imports.some((i) => i.source === 'utils.R')).toBe(true);
@@ -288,6 +292,26 @@ describe('RProvider', () => {
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.some((c) => c.name === 'MyClass')).toBe(true);
     });
+
+    it('getCallName should resolve to undefined for namespace operands without an identifier', () => {
+      // ..1::..2(1) — both namespace operands are dots, so there is no identifier
+      // to resolve and the call emits no FUNCTION_CALL capture.
+      const caps = provider.parse('..1::..2(1)', 'test.R');
+      const calls = caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
+      expect(calls).toEqual([]);
+    });
+    it('getCallArgs should leave raw string literals intact', () => {
+      const caps = provider.parse('library(r"(raw)")', 'test.R');
+      const imports = caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      // r"(raw)" is not quote-delimited, so getCallArgs skips the strip and the
+      // library capture strips only the inner quotes, yielding r(raw).
+      expect(imports.some((c) => c.name === 'r(raw)')).toBe(true);
+    });
+    it('getCallArgs should strip single-quoted string literals', () => {
+      const caps = provider.parse("library('dplyr')", 'test.R');
+      const imports = caps.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports.some((c) => c.name === 'dplyr')).toBe(true);
+    });
   });
 
   describe('special operators', () => {
@@ -365,6 +389,13 @@ describe('RProvider', () => {
       expect(provider.extractTaintSinks('mean(x)')).toEqual([]);
       expect(provider.extractSanitizers('mean(x)')).toEqual([]);
     });
+
+    it('should ignore calls whose callee is an anonymous function', () => {
+      const code = '(function(x) x)(1)';
+      expect(provider.extractTaintSources(code)).toEqual([]);
+      expect(provider.extractTaintSinks(code)).toEqual([]);
+      expect(provider.extractSanitizers(code)).toEqual([]);
+    });
     it('should detect read.table, scan, url, file as file_read', () => {
       for (const fn of ['read.table', 'scan', 'url', 'file']) {
         expect(provider.extractTaintSources(`${fn}("d")`).some((s) => s.name === fn)).toBe(true);
@@ -438,6 +469,15 @@ describe('RProvider', () => {
       const caps = provider.parse('function(x) { x }', 'test.R');
       const funcs = caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should handle subset assignment to a call target', () => {
+      // f(x) <- function(y) y assigns through a call target, so the assignment's
+      // first named child is a call (not an identifier) and the function stays
+      // anonymous — it falls back to fn_<line>.
+      const caps = provider.parse('f(x) <- function(y) y', 'test.R');
+      const funcs = caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((c) => c.name.startsWith('fn_'))).toBe(true);
     });
     it('should handle calls with no arguments', () => {
       expect(Array.isArray(provider.parse('library()', 'test.R'))).toBe(true);

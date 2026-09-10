@@ -1,13 +1,12 @@
 // @code-analyzer/analyzer — R Provider (tree-sitter AST walker)
-// Full tree-sitter AST walker: 15+ node mappings, functions, assignments,
-// S3/S4 classes, pipe operators, library imports, formula parsing.
+// Full tree-sitter AST walker: functions, assignments, S3/S4 classes,
+// pipe operators, library imports, formula parsing.
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
-  NodeTypeMapping,
   TreeSitterLanguage,
   TreeSitterSyntaxNode,
   TaintSource,
@@ -23,54 +22,17 @@ export class RProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const m = require('@eagleoutice/tree-sitter-r') as TreeSitterLanguage;
-      return m;
-    } catch {
-      /* v8 ignore next -- @preserve */
-      return null;
-    }
-  }
-
-  protected override getNodeMappings(): NodeTypeMapping[] {
-    return [
-      {
-        nodeType: 'function_definition',
-        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
-        nameChildType: 'identifier',
-      },
-      { nodeType: 'call', captureTag: CAPTURE_TAGS.FUNCTION_CALL, useFirstNamedChild: true },
-      {
-        nodeType: 'binary_operator',
-        captureTag: CAPTURE_TAGS.VARIABLE_DEF,
-        useFirstNamedChild: true,
-      },
-      { nodeType: 'assignment', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      {
-        nodeType: 'identifier',
-        captureTag: CAPTURE_TAGS.VARIABLE_ACCESS,
-        useFirstNamedChild: true,
-      },
-      { nodeType: 'special', captureTag: CAPTURE_TAGS.FUNCTION_CALL, useFirstNamedChild: true },
-      { nodeType: 'string', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'integer', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'float', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'complex', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'logical', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'null', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'arguments', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      { nodeType: 'argument', captureTag: CAPTURE_TAGS.VARIABLE_DEF, useFirstNamedChild: true },
-      {
-        nodeType: 'namespace_get',
-        captureTag: CAPTURE_TAGS.FUNCTION_CALL,
-        useFirstNamedChild: true,
-      },
-      { nodeType: 'comment', captureTag: CAPTURE_TAGS.COMMENT, useFirstNamedChild: true },
-    ];
+    // @eagleoutice/tree-sitter-r is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@eagleoutice/tree-sitter-r') as TreeSitterLanguage;
   }
 
   // ---- AST Walking ----
+  //
+  // RProvider overrides walkAndCapture directly instead of driving the base
+  // class's node-type→capture mappings, so it does not override getNodeMappings
+  // (the base class documents that direct walkers need no mappings).
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
     const nt = node.type;
@@ -127,9 +89,9 @@ export class RProvider extends TreeSitterBaseProvider {
         captures.push(
           this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, '%in%', node.text, { operator: 'in' }),
         );
-        /* special nodes always contain '%' (or are '%>%'/'|>') */
-        /* v8 ignore next -- @preserve */
-      } else if (node.text.includes('%')) {
+      } else {
+        // A `special` node is only produced for a `%…%` infix operator, so anything
+        // that is not `%>%`/`%in%` here is a custom `%…%` operator.
         captures.push(
           this.makeCapture(node, CAPTURE_TAGS.FUNCTION_CALL, node.text, node.text, {
             customOperator: 'true',
@@ -190,8 +152,8 @@ export class RProvider extends TreeSitterBaseProvider {
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
     if (node.type === 'call') {
       const fn = this.getCallName(node);
-      /* tree-sitter-r call nodes always carry an identifier */
-      /* v8 ignore next -- @preserve */
+      // A call whose callee is neither an identifier nor a namespace operator
+      // (e.g. `(function(x) x)(1)`) has no callable name.
       if (!fn) return;
       const line = node.startPosition.row + 1;
       // read.csv, read.table, readRDS are taint sources
@@ -232,8 +194,8 @@ export class RProvider extends TreeSitterBaseProvider {
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     if (node.type === 'call') {
       const fn = this.getCallName(node);
-      /* tree-sitter-r call nodes always carry an identifier */
-      /* v8 ignore next -- @preserve */
+      // A call whose callee is neither an identifier nor a namespace operator
+      // (e.g. `(function(x) x)(1)`) has no callable name.
       if (!fn) return;
       const line = node.startPosition.row + 1;
       // system, system2, shell are command injection sinks
@@ -264,8 +226,8 @@ export class RProvider extends TreeSitterBaseProvider {
   ): void {
     if (node.type === 'call') {
       const fn = this.getCallName(node);
-      /* tree-sitter-r call nodes always carry an identifier */
-      /* v8 ignore next -- @preserve */
+      // A call whose callee is neither an identifier nor a namespace operator
+      // (e.g. `(function(x) x)(1)`) has no callable name.
       if (!fn) return;
       // Validation/sanitization functions
       if (
@@ -305,8 +267,8 @@ export class RProvider extends TreeSitterBaseProvider {
         for (let j = 0; j < child.childCount; j++) {
           if (child.child(j).type === 'identifier') funcName = child.child(j).text;
         }
-        /* namespace_operator always yields a function name */
-        /* v8 ignore next -- @preserve */
+        // A namespace operand may be a string or dots (`"pkg"::`, `..1::..2`),
+        // which carries no identifier; in that case fall through to undefined.
         if (funcName) return funcName;
       }
     }
@@ -328,8 +290,8 @@ export class RProvider extends TreeSitterBaseProvider {
                 args.push(sub.text);
               } else if (sub.type === 'string') {
                 let t = sub.text;
-                /* tree-sitter string nodes are always quoted */
-                /* v8 ignore next -- @preserve */
+                // A raw string literal (`r"(…)"`) is not quote-delimited, so only
+                // strip surrounding quotes when the text is actually quoted.
                 if (
                   (t.startsWith('"') && t.endsWith('"')) ||
                   (t.startsWith("'") && t.endsWith("'"))
@@ -339,9 +301,8 @@ export class RProvider extends TreeSitterBaseProvider {
                 args.push(t);
               }
             }
-            /* empty argument slots produce no argument node */
-            /* v8 ignore next -- @preserve */
-            if (arg.childCount === 0) args.push(arg.text);
+            // An `argument` always wraps its value (or a named `name =` pair), so it
+            // never has zero children; empty slots yield only a `comma` node.
           }
         }
       }
