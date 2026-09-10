@@ -132,20 +132,16 @@ interface TreeSitterParserClass {
 
 let treeSitterParserClass: TreeSitterParserClass | null = null;
 
-function getTreeSitter(): TreeSitterParserClass | null {
+function getTreeSitter(): TreeSitterParserClass {
   if (treeSitterParserClass) return treeSitterParserClass;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Parser = require('tree-sitter') as TreeSitterParserClass & {
-      Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery;
-    };
-    treeSitterParserClass = Parser;
-    return Parser;
-  } catch {
-    /* v8 ignore start -- @preserve -- require('tree-sitter') never throws in the bundled runtime */
-    return null;
-  }
-  /* v8 ignore stop */
+  // tree-sitter is a direct dependency of the analyzer, so this require never
+  // throws in the bundled runtime.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const Parser = require('tree-sitter') as TreeSitterParserClass & {
+    Query: new (language: TreeSitterLanguage, query: string) => TreeSitterQuery;
+  };
+  treeSitterParserClass = Parser;
+  return Parser;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,24 +177,19 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   constructor() {
     const ParserClass = getTreeSitter();
-    /* v8 ignore next -- @preserve -- getTreeSitter always returns a parser in the bundled runtime */
-    if (ParserClass) {
-      this.parser = new ParserClass();
-      const grammar = this.loadGrammar();
-      if (grammar) {
-        this.languageGrammar = grammar;
-        try {
-          this.parser.setLanguage(grammar);
-          /* v8 ignore start -- @preserve -- bundled grammar never fails setLanguage */
-        } catch {
-          // Grammar failed to load — fall back to regex
-          this.parser = null;
-          this.languageGrammar = null;
-        }
-        /* v8 ignore stop */
-      } else {
+    this.parser = new ParserClass();
+    const grammar = this.loadGrammar();
+    if (grammar) {
+      this.languageGrammar = grammar;
+      try {
+        this.parser.setLanguage(grammar);
+      } catch {
+        // Grammar failed to load — fall back to regex
         this.parser = null;
+        this.languageGrammar = null;
       }
+    } else {
+      this.parser = null;
     }
   }
 
@@ -228,25 +219,19 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackParse(sanitized, filePath);
     }
 
-    try {
-      const captures: UnifiedCapture[] = [];
+    const captures: UnifiedCapture[] = [];
 
-      const tree = this.parser.parse(sanitized);
-      const rootNode = tree.rootNode;
+    const tree = this.parser.parse(sanitized);
+    const rootNode = tree.rootNode;
 
-      if (rootNode.hasError) {
-        // If the AST has parse errors, fall back to regex
-        return this.fallbackParse(sanitized, filePath);
-      }
-
-      this.walkAndCapture(rootNode, captures);
-
-      return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
-    } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
+    if (rootNode.hasError) {
+      // If the AST has parse errors, fall back to regex
       return this.fallbackParse(sanitized, filePath);
     }
-    /* v8 ignore stop */
+
+    this.walkAndCapture(rootNode, captures);
+
+    return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
   /**
@@ -276,19 +261,13 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractImports(source);
     }
 
-    try {
-      const tree = this.parser.parse(source);
-      const rootNode = tree.rootNode;
-      const imports: ParsedImport[] = [];
+    const tree = this.parser.parse(source);
+    const rootNode = tree.rootNode;
+    const imports: ParsedImport[] = [];
 
-      this.walkForImports(rootNode, imports);
+    this.walkForImports(rootNode, imports);
 
-      return imports;
-    } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
-      return this.fallbackExtractImports(source);
-    }
-    /* v8 ignore stop */
+    return imports;
   }
 
   // -----------------------------------------------------------------------
@@ -302,15 +281,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackIsExported(source, symbolName);
     }
 
-    try {
-      const tree = this.parser.parse(source);
-      const rootNode = tree.rootNode;
-      return this.checkExported(rootNode, symbolName);
-    } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
-      return this.fallbackIsExported(source, symbolName);
-    }
-    /* v8 ignore stop */
+    const tree = this.parser.parse(source);
+    const rootNode = tree.rootNode;
+    return this.checkExported(rootNode, symbolName);
   }
 
   // -----------------------------------------------------------------------
@@ -481,8 +454,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       ) {
         const parts: string[] = [];
         this.collectIdentifiers(child, parts);
-        /* v8 ignore next -- @preserve -- a heritage clause always contains at least one identifier */
-        if (parts.length > 0) return parts.join(',');
+        // A heritage clause always carries at least one identifier, so `parts`
+        // is never empty here.
+        return parts.join(',');
       }
     }
     return undefined;
@@ -498,8 +472,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
           if (clause.type === 'implements_clause') {
             const parts: string[] = [];
             this.collectIdentifiers(clause, parts);
-            /* v8 ignore next -- @preserve -- an implements_clause always contains at least one identifier */
-            if (parts.length > 0) return parts.join(',');
+            // An implements_clause always carries at least one identifier, so
+            // `parts` is never empty here.
+            return parts.join(',');
           }
         }
       }
@@ -684,16 +659,10 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractTaintSources(source);
     }
 
-    try {
-      const tree = this.parser.parse(source);
-      const sources: TaintSource[] = [];
-      this.walkForTaintSources(tree.rootNode, sources);
-      return sources;
-    } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
-      return this.fallbackExtractTaintSources(source);
-    }
-    /* v8 ignore stop */
+    const tree = this.parser.parse(source);
+    const sources: TaintSource[] = [];
+    this.walkForTaintSources(tree.rootNode, sources);
+    return sources;
   }
 
   /** Walk the AST to find taint sources */
@@ -711,16 +680,10 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractTaintSinks(source);
     }
 
-    try {
-      const tree = this.parser.parse(source);
-      const sinks: TaintSink[] = [];
-      this.walkForTaintSinks(tree.rootNode, sinks);
-      return sinks;
-    } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
-      return this.fallbackExtractTaintSinks(source);
-    }
-    /* v8 ignore stop */
+    const tree = this.parser.parse(source);
+    const sinks: TaintSink[] = [];
+    this.walkForTaintSinks(tree.rootNode, sinks);
+    return sinks;
   }
 
   /** Walk the AST to find taint sinks */
@@ -738,16 +701,10 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       return this.fallbackExtractSanitizers(source);
     }
 
-    try {
-      const tree = this.parser.parse(source);
-      const sanitizers: TaintSanitizer[] = [];
-      this.walkForSanitizers(tree.rootNode, sanitizers);
-      return sanitizers;
-    } catch {
-      /* v8 ignore start -- @preserve -- parser.parse never throws for a valid grammar */
-      return this.fallbackExtractSanitizers(source);
-    }
-    /* v8 ignore stop */
+    const tree = this.parser.parse(source);
+    const sanitizers: TaintSanitizer[] = [];
+    this.walkForSanitizers(tree.rootNode, sanitizers);
+    return sanitizers;
   }
 
   /** Walk the AST to find taint sanitizers */

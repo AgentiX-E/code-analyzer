@@ -20,6 +20,46 @@ import { TreeSitterBaseProvider } from '../languages/tree-sitter-base.js';
 import { TypeScriptProvider } from '../languages/typescript.js';
 import { JavaScriptProvider } from '../languages/javascript.js';
 
+// ---------------------------------------------------------------------------
+// Test doubles
+// ---------------------------------------------------------------------------
+
+// A minimal in-memory TreeSitterSyntaxNode. Used to exercise defensive branches
+// that real tree-sitter TypeScript cannot produce from valid input (a node with
+// no identifier child, etc.).
+function makeNode(
+  type: string,
+  children: TreeSitterSyntaxNode[] = [],
+  text?: string,
+  parent: TreeSitterSyntaxNode | null = null,
+): TreeSitterSyntaxNode {
+  return {
+    type,
+    text: text ?? children.map((c) => c.text).join(''),
+    startIndex: 0,
+    endIndex: 0,
+    startPosition: { row: 0, column: 0 },
+    endPosition: { row: 0, column: 0 },
+    childCount: children.length,
+    namedChildCount: children.length,
+    hasError: false,
+    child: (i: number) => children[i],
+    namedChild: (i: number) => children[i],
+    childForFieldName: () => null,
+    parent,
+    walk: () => ({
+      nodeType: type,
+      startIndex: 0,
+      endIndex: 0,
+      startPosition: { row: 0, column: 0 },
+      endPosition: { row: 0, column: 0 },
+      gotoFirstChild: () => false,
+      gotoNextSibling: () => false,
+      gotoParent: () => false,
+    }),
+  };
+}
+
 // Create a minimal concrete implementation for testing the base class
 class TestProvider extends TreeSitterBaseProvider {
   readonly language = 'test';
@@ -136,6 +176,99 @@ class GenericProvider extends TreeSitterBaseProvider {
 
   protected fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
+  }
+}
+
+// A provider whose grammar object is structurally invalid, so `setLanguage`
+// throws a TypeError in the constructor and the instance falls back to regex.
+class InvalidGrammarProvider extends TreeSitterBaseProvider {
+  readonly language = 'invalid';
+  readonly displayName = 'Invalid';
+  readonly extensions = ['.invalid'];
+  readonly globs = ['**/*.invalid'];
+  readonly importSemantics: ImportSemantics = 'named';
+
+  protected loadGrammar(): TreeSitterLanguage | null {
+    // A non-null object whose `language` field is not a real grammar: tree-sitter
+    // rejects it and throws, which the base constructor catches to fall back.
+    return { name: 'fake', language: {} };
+  }
+
+  protected fallbackParse(_source: string, _filePath: string): UnifiedCapture[] {
+    return [];
+  }
+
+  protected fallbackExtractImports(_source: string): ParsedImport[] {
+    return [];
+  }
+
+  protected fallbackIsExported(_source: string, _symbolName: string): boolean {
+    return false;
+  }
+}
+
+// A provider that relies on the base-class `walkAndCapture` template method (it
+// does NOT override walkAndCapture) with non-empty node mappings over a real
+// grammar. This exercises the base mapping-match loop, the emitCapture name
+// fallback, and the parse-error fallback.
+class BaseWalkProvider extends TreeSitterBaseProvider {
+  readonly language = 'basewalk';
+  readonly displayName = 'BaseWalk';
+  readonly extensions = ['.basewalk'];
+  readonly globs = ['**/*.basewalk'];
+  readonly importSemantics: ImportSemantics = 'named';
+
+  protected loadGrammar(): TreeSitterLanguage | null {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const tsGrammar = require('tree-sitter-typescript') as {
+      typescript: TreeSitterLanguage;
+      tsx: TreeSitterLanguage;
+    };
+    return tsGrammar.typescript;
+  }
+
+  protected getNodeMappings(): NodeTypeMapping[] {
+    return [
+      {
+        nodeType: 'function_declaration',
+        captureTag: CAPTURE_TAGS.FUNCTION_DEF,
+        nameChildType: 'identifier',
+      },
+      // No nameChildType and no useFirstNamedChild: emitCapture must fall back
+      // to using the node's full text as the name.
+      { nodeType: 'class_declaration', captureTag: CAPTURE_TAGS.CLASS_DEF },
+    ];
+  }
+
+  protected fallbackParse(_source: string, filePath: string): UnifiedCapture[] {
+    return [
+      {
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: 'FALLBACK',
+        startLine: 1,
+        endLine: 1,
+        startByte: 0,
+        endByte: 0,
+        name: 'FALLBACK',
+        properties: { filePath },
+      },
+    ];
+  }
+
+  protected fallbackExtractImports(_source: string): ParsedImport[] {
+    return [];
+  }
+
+  protected fallbackIsExported(_source: string, _symbolName: string): boolean {
+    return false;
+  }
+}
+
+// Exposes the protected name-extraction helper so its defensive branch (a node
+// with no identifier-like child) can be exercised with a synthetic node.
+class TestableGenericProvider extends GenericProvider {
+  public extractNameFromNodeForTest(node: TreeSitterSyntaxNode): string | undefined {
+    return this.extractNameFromNode(node);
   }
 }
 
@@ -770,6 +903,93 @@ describe('TreeSitterBaseProvider', () => {
 
     it('extractSanitizers falls back to empty', () => {
       expect(provider.extractSanitizers('escape(x)')).toEqual([]);
+    });
+  });
+
+  describe('grammar load failure (invalid grammar object)', () => {
+    const invalid = new InvalidGrammarProvider();
+
+    it('parse falls back to regex when setLanguage rejects the grammar', () => {
+      expect(invalid.parse('function foo() {}', 'test.invalid')).toEqual([]);
+    });
+
+    it('extractImports falls back when setLanguage rejects the grammar', () => {
+      expect(invalid.extractImports('import Foo')).toEqual([]);
+    });
+
+    it('isExported falls back when setLanguage rejects the grammar', () => {
+      expect(invalid.isExported('export function foo() {}', 'foo')).toBe(false);
+    });
+
+    it('taint extraction falls back when setLanguage rejects the grammar', () => {
+      expect(invalid.extractTaintSources('readline()')).toEqual([]);
+      expect(invalid.extractTaintSinks('eval(x)')).toEqual([]);
+      expect(invalid.extractSanitizers('escape(x)')).toEqual([]);
+    });
+
+    it('queryTree returns empty and walkTree is a no-op without a parser', () => {
+      expect(invalid.queryTree('x', '(x)')).toEqual([]);
+      expect(() => invalid.walkTree('x', () => {})).not.toThrow();
+    });
+  });
+
+  describe('parse error fallback (real grammar)', () => {
+    const baseWalk = new BaseWalkProvider();
+
+    it('parse falls back to fallbackParse when the AST reports a syntax error', () => {
+      // `const x = ;` parses to a root node with hasError === true.
+      const captures = baseWalk.parse('const x = ;', 'test.basewalk');
+      expect(captures).toHaveLength(1);
+      expect(captures[0]!.name).toBe('FALLBACK');
+    });
+  });
+
+  describe('base walkAndCapture through real grammar', () => {
+    const baseWalk = new BaseWalkProvider();
+
+    it('matches mapped nodes and falls back to node text for unnamed mappings', () => {
+      const captures = baseWalk.parse('class Foo {}\nfunction bar() {}', 'test.basewalk');
+
+      // function_declaration mapping carries a nameChildType → name = 'bar'
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.some((f) => f.name === 'bar')).toBe(true);
+
+      // class_declaration mapping has no nameChildType → name falls back to text
+      const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
+      expect(classes).toHaveLength(1);
+      expect(classes[0]!.name).toBe('class Foo {}');
+      // nameNode is undefined, so byte spans fall back to the node's own bounds
+      expect(classes[0]!.startByte).toBe(0);
+      expect(classes[0]!.endByte).toBe('class Foo {}'.length);
+    });
+  });
+
+  describe('extractNameFromNode defensive branch', () => {
+    const testable = new TestableGenericProvider();
+
+    it('returns undefined for a node with no identifier-like child', () => {
+      const bare = makeNode('mystery_node', [makeNode('integer', [], '42')]);
+      expect(testable.extractNameFromNodeForTest(bare)).toBeUndefined();
+    });
+
+    it('returns the first identifier-like child text when present', () => {
+      const named = makeNode('declaration', [
+        makeNode('identifier', [], 'alpha'),
+        makeNode('type_identifier', [], 'Beta'),
+      ]);
+      expect(testable.extractNameFromNodeForTest(named)).toBe('alpha');
+    });
+  });
+
+  describe('emitCallCapture skips unnamed call expressions', () => {
+    const tsProvider = new TypeScriptProvider();
+
+    it('a subscript-expression call (arr[0]()) has no name and is skipped', () => {
+      // arr[0]() parses to a call_expression whose callee is a subscript_expression,
+      // not an identifier or member_expression, so extractCallName returns undefined
+      // and emitCallCapture bails out without emitting a spurious capture.
+      const captures = tsProvider.parse('arr[0]();', 'test.ts');
+      expect(captures).toEqual([]);
     });
   });
 });

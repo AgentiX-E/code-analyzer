@@ -1,8 +1,7 @@
 {
-  "totalHidden": 312,
-  "totalLines": 128548,
+  "totalHidden": 290,
+  "totalLines": 128505,
   "files": {
-    "packages/analyzer/src/languages/tree-sitter-base.ts": 22,
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/analyzer/src/languages/json.ts": 17,
     "packages/core/src/security/supply-chain-integrity.ts": 17,
