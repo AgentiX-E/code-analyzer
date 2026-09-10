@@ -19,14 +19,10 @@ export class HclProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('@tree-sitter-grammars/tree-sitter-hcl') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
-    /* v8 ignore stop */
+    // tree-sitter-hcl is a direct dependency of the analyzer, so this require
+    // never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@tree-sitter-grammars/tree-sitter-hcl') as TreeSitterLanguage;
   }
 
   // -----------------------------------------------------------------------
@@ -59,107 +55,105 @@ export class HclProvider extends TreeSitterBaseProvider {
         }
       }
 
-      // Need at least a block-type identifier
-      /* v8 ignore next -- @preserve -- tree-sitter-hcl always emits these child nodes */
-      if (identifiers.length >= 1) {
-        const blockType = identifiers[0]!;
-        // Labels come from string_lit children; for single-label blocks
-        // (variable, output, provider, module) use the first label.
-        // For resource/data: labels[0] = type, labels[1] = name
-        const blockLabel =
-          labels.length >= 2
-            ? `${labels[0]!}.${labels[1]!}`
-            : (labels[0] ?? identifiers.slice(1).join('.'));
+      // A block always begins with a block-type identifier
+      // (grammar: seq(identifier, repeat(choice(string_lit, identifier)), ...)).
+      const blockType = identifiers[0]!;
+      // Labels come from string_lit children; for single-label blocks
+      // (variable, output, provider, module) use the first label.
+      // For resource/data: labels[0] = type, labels[1] = name
+      const blockLabel =
+        labels.length >= 2
+          ? `${labels[0]!}.${labels[1]!}`
+          : (labels[0] ?? identifiers.slice(1).join('.'));
 
-        if (blockType === 'resource') {
-          captures.push({
-            tag: CAPTURE_TAGS.FUNCTION_DEF,
-            text: `resource ${blockLabel}`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: blockLabel,
-            properties: {
-              resourceType: labels[0] ?? '',
-              resourceName: labels[1] ?? blockLabel,
-              isIaC: 'true',
-              iaCType: 'TerraformResource',
-              filePath: this.filePath,
-            },
-          });
-        } else if (blockType === 'data') {
-          captures.push({
-            tag: CAPTURE_TAGS.FUNCTION_DEF,
-            text: `data ${blockLabel}`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: blockLabel,
-            properties: {
-              dataSource: labels[0] ?? '',
-              dataName: labels[1] ?? blockLabel,
-              isIaC: 'true',
-              filePath: this.filePath,
-            },
-          });
-        } else if (blockType === 'variable') {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: `variable ${blockLabel}`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: blockLabel,
-            properties: { isIaC: 'true', filePath: this.filePath },
-          });
-        } else if (blockType === 'output') {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: `output ${blockLabel}`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: blockLabel,
-            properties: { isIaC: 'true', isOutput: 'true', filePath: this.filePath },
-          });
-        } else if (blockType === 'provider') {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: `provider ${blockLabel}`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: blockLabel,
-            properties: { isIaC: 'true', isProvider: 'true', filePath: this.filePath },
-          });
-        } else if (blockType === 'module') {
-          captures.push({
-            tag: CAPTURE_TAGS.FUNCTION_DEF,
-            text: `module ${blockLabel}`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: blockLabel,
-            properties: { isIaC: 'true', isModule: 'true', filePath: this.filePath },
-          });
-        } else if (blockType === 'locals') {
-          captures.push({
-            tag: CAPTURE_TAGS.VARIABLE_DEF,
-            text: `locals`,
-            startLine: node.startPosition.row + 1,
-            endLine: node.endPosition.row + 1,
-            startByte: node.startIndex,
-            endByte: node.endIndex,
-            name: 'locals',
-            properties: { isIaC: 'true', isLocals: 'true', filePath: this.filePath },
-          });
-        }
+      if (blockType === 'resource') {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: `resource ${blockLabel}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: blockLabel,
+          properties: {
+            resourceType: labels[0] ?? '',
+            resourceName: labels[1] ?? blockLabel,
+            isIaC: 'true',
+            iaCType: 'TerraformResource',
+            filePath: this.filePath,
+          },
+        });
+      } else if (blockType === 'data') {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: `data ${blockLabel}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: blockLabel,
+          properties: {
+            dataSource: labels[0] ?? '',
+            dataName: labels[1] ?? blockLabel,
+            isIaC: 'true',
+            filePath: this.filePath,
+          },
+        });
+      } else if (blockType === 'variable') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: `variable ${blockLabel}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: blockLabel,
+          properties: { isIaC: 'true', filePath: this.filePath },
+        });
+      } else if (blockType === 'output') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: `output ${blockLabel}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: blockLabel,
+          properties: { isIaC: 'true', isOutput: 'true', filePath: this.filePath },
+        });
+      } else if (blockType === 'provider') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: `provider ${blockLabel}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: blockLabel,
+          properties: { isIaC: 'true', isProvider: 'true', filePath: this.filePath },
+        });
+      } else if (blockType === 'module') {
+        captures.push({
+          tag: CAPTURE_TAGS.FUNCTION_DEF,
+          text: `module ${blockLabel}`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: blockLabel,
+          properties: { isIaC: 'true', isModule: 'true', filePath: this.filePath },
+        });
+      } else if (blockType === 'locals') {
+        captures.push({
+          tag: CAPTURE_TAGS.VARIABLE_DEF,
+          text: `locals`,
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          startByte: node.startIndex,
+          endByte: node.endIndex,
+          name: 'locals',
+          properties: { isIaC: 'true', isLocals: 'true', filePath: this.filePath },
+        });
       }
     }
 
@@ -199,18 +193,18 @@ export class HclProvider extends TreeSitterBaseProvider {
       if (child.type === 'attribute') {
         const attrName = this.findFirstNamedChild(child, 'identifier');
         if (attrName?.text === 'source') {
+          // An attribute always carries an expression child
+          // (grammar: seq(identifier, "=", expression)), so the lookup never
+          // returns null.
           const expr = this.findFirstNamedChild(child, 'expression');
-          /* v8 ignore next -- @preserve -- tree-sitter-hcl always emits these child nodes */
-          if (expr) {
-            const value = this.extractExpressionValue(expr);
-            if (value) {
-              imports.push({
-                source: value,
-                names: [value],
-                type: 'named',
-                lineNumber: child.startPosition.row + 1,
-              });
-            }
+          const value = this.extractExpressionValue(expr);
+          if (value) {
+            imports.push({
+              source: value,
+              names: [value],
+              type: 'named',
+              lineNumber: child.startPosition.row + 1,
+            });
           }
         }
       } else if (child.type === 'block') {
@@ -242,7 +236,8 @@ export class HclProvider extends TreeSitterBaseProvider {
         return node.namedChild(i).text;
       }
     }
-    /* v8 ignore next -- @preserve -- string_lit always has a template_literal child */
+    // An empty string (`""`) carries only quoted_template_start/end and no
+    // template_literal child, so strip the surrounding quotes from the raw text.
     return node.text.replace(/^["']|["']$/g, '');
   }
 
@@ -267,17 +262,13 @@ export class HclProvider extends TreeSitterBaseProvider {
         return this.extractStringLitValue(strLit);
       }
     }
-    // Direct string_lit under expression
-    const strLit = this.findFirstNamedChild(exprNode, 'string_lit');
-    /* v8 ignore next -- @preserve -- string literals always nest under literal_value */
-    if (strLit) {
-      return this.extractStringLitValue(strLit);
-    }
+    // An expression never carries string_lit as a direct named child:
+    // literal_value is the only wrapper for a string
+    // (`choice(numeric_lit, bool_lit, null_lit, string_lit)`).
     return null;
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -386,7 +377,6 @@ export class HclProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     // HCL doesn't have traditional imports, but module source references
@@ -403,13 +393,11 @@ export class HclProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return true;
   }
 
   // Helpers
-  /* v8 ignore next -- @preserve -- only used by regex fallback */
   private ln(source: string, offset: number): number {
     return source.slice(0, offset).split('\n').length;
   }

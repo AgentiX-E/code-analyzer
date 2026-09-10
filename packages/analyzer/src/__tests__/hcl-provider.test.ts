@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { HclProvider } from '../languages/hcl.js';
+import type { TreeSitterLanguage } from '../languages/tree-sitter-base.js';
+
+// A provider with no grammar, forcing every method onto its regex-based
+// fallback implementation.
+class NoGrammarHclProvider extends HclProvider {
+  protected override loadGrammar(): TreeSitterLanguage | null {
+    return null;
+  }
+}
 
 describe('HclProvider', () => {
   const provider = new HclProvider();
@@ -154,6 +163,115 @@ describe('HclProvider', () => {
   describe('isExported', () => {
     it('should report IaC resources as always exported', () => {
       expect(provider.isExported('resource "aws_vpc" "main" {}', 'aws_vpc.main')).toBe(true);
+    });
+  });
+
+  describe('parse — empty-string values', () => {
+    it('should ignore a module source that is an empty string', () => {
+      // An empty `""` string_lit has no template_literal child, so the value
+      // extractor must fall through to stripping the surrounding quotes.
+      const code = 'module "vpc" {\n  source = ""\n}';
+      const imports = provider.extractImports(code, 'main.tf');
+      expect(imports.length).toBe(0);
+    });
+
+    it('should still emit a capture for a block whose label is an empty string', () => {
+      const code = 'variable "" {\n  default = "us-east-1"\n}';
+      const captures = provider.parse(code, 'vars.tf');
+      const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
+      expect(vars.some((c) => c.name === '')).toBe(true);
+    });
+  });
+
+  describe('parse — blocks with no labels', () => {
+    it('should gracefully degrade a resource block with no string labels', () => {
+      const captures = provider.parse('resource {}', 'main.tf');
+      const res = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(res).toBeDefined();
+      expect(res?.properties?.resourceType).toBe('');
+      expect(res?.properties?.resourceName).toBe('');
+    });
+
+    it('should gracefully degrade a data block with no string labels', () => {
+      const captures = provider.parse('data {}', 'main.tf');
+      const data = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(data).toBeDefined();
+      expect(data?.properties?.dataSource).toBe('');
+      expect(data?.properties?.dataName).toBe('');
+    });
+  });
+
+  describe('fallback (grammar unavailable)', () => {
+    const fb = new NoGrammarHclProvider();
+
+    it('fallbackParse extracts resource, data, variable, output, provider, and module blocks', () => {
+      const code = [
+        'resource "aws_vpc" "main" {',
+        '  cidr_block = "10.0.0.0/16"',
+        '}',
+        'data "aws_ami" "ubuntu" {}',
+        'variable "region" {}',
+        'output "vpc_id" {}',
+        'provider "aws" {}',
+        'module "vpc" {}',
+      ].join('\n');
+      const captures = fb.parse(code, 'main.tf');
+      expect(
+        captures.some((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'aws_vpc.main'),
+      ).toBe(true);
+      expect(
+        captures.some((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'aws_ami.ubuntu'),
+      ).toBe(true);
+      expect(captures.some((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.name === 'region')).toBe(
+        true,
+      );
+      expect(
+        captures.some(
+          (c) =>
+            c.tag === CAPTURE_TAGS.VARIABLE_DEF &&
+            c.name === 'vpc_id' &&
+            c.properties?.isOutput === 'true',
+        ),
+      ).toBe(true);
+      expect(
+        captures.some(
+          (c) =>
+            c.tag === CAPTURE_TAGS.VARIABLE_DEF &&
+            c.name === 'aws' &&
+            c.properties?.isProvider === 'true',
+        ),
+      ).toBe(true);
+      expect(
+        captures.some(
+          (c) =>
+            c.tag === CAPTURE_TAGS.FUNCTION_DEF &&
+            c.name === 'vpc' &&
+            c.properties?.isModule === 'true',
+        ),
+      ).toBe(true);
+    });
+
+    it('fallbackParse sorts same-line captures by byte offset', () => {
+      // Two resources on one line share a startLine, forcing the sort
+      // comparator onto its startByte tie-breaker arm.
+      const code = 'resource "a" "b" {} resource "c" "d" {}';
+      const captures = fb.parse(code, 't.tf');
+      const resources = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(resources.map((c) => c.name)).toEqual(['a.b', 'c.d']);
+    });
+
+    it('fallbackExtractImports extracts module source', () => {
+      const code = 'module "vpc" {\n  source = "terraform-aws-modules/vpc/aws"\n}';
+      const imports = fb.extractImports(code, 'main.tf');
+      expect(imports.some((i) => i.source === 'terraform-aws-modules/vpc/aws')).toBe(true);
+    });
+
+    it('fallbackExtractImports returns empty when no module source is present', () => {
+      expect(fb.extractImports('resource "aws_vpc" "main" {}')).toEqual([]);
+    });
+
+    it('fallbackIsExported reports resources as always exported', () => {
+      expect(fb.isExported('resource "aws_vpc" "main" {}', 'aws_vpc.main')).toBe(true);
     });
   });
 });

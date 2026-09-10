@@ -1,6 +1,6 @@
 {
-  "totalHidden": 260,
-  "totalLines": 128474,
+  "totalHidden": 250,
+  "totalLines": 128531,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/core/src/security/supply-chain-integrity.ts": 17,
@@ -8,7 +8,6 @@
     "packages/server/src/http-server.ts": 16,
     "packages/infra/src/filesystem/discoverer.ts": 12,
     "packages/shared/src/utils/lru-cache.ts": 11,
-    "packages/analyzer/src/languages/hcl.ts": 10,
     "packages/analyzer/src/pipeline/phases/semantic.ts": 10,
     "packages/analyzer/src/languages/kotlin.ts": 9,
     "packages/infra/src/git/git-operations.ts": 9,
