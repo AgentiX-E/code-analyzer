@@ -18,13 +18,10 @@ export class ElixirProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-elixir') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
+    // tree-sitter-elixir is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-elixir') as TreeSitterLanguage;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {

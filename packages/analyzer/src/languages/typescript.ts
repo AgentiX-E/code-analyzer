@@ -23,18 +23,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const tsGrammar = require('tree-sitter-typescript') as {
-        typescript: TreeSitterLanguage;
-        tsx: TreeSitterLanguage;
-      };
-      return tsGrammar.typescript;
-    } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
-    /* v8 ignore stop */
+    // tree-sitter-typescript is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const tsGrammar = require('tree-sitter-typescript') as {
+      typescript: TreeSitterLanguage;
+      tsx: TreeSitterLanguage;
+    };
+    return tsGrammar.typescript;
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {

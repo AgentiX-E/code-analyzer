@@ -22,15 +22,11 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const m = require('tree-sitter-groovy') as TreeSitterLanguage;
-      return m;
-    } catch {
-      /* v8 ignore start -- @preserve -- bundled grammar never fails to require */
-      return null;
-    }
-    /* v8 ignore stop */
+    // tree-sitter-groovy is a direct dependency of the analyzer, so this require
+    // never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const m = require('tree-sitter-groovy') as TreeSitterLanguage;
+    return m;
   }
 
   // ---- AST Walking ----
@@ -303,16 +299,15 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     return parts.length > 1 ? parts.join('.') : null;
   }
 
-  private findIdent(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
-    // The declared name is always the `identifier` named child (method_declaration
-    // also carries a leading type_identifier "def"/return-type keyword, which is
-    // skipped here).
+  private findIdent(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
+    // The declared name is always an `identifier` named child. A method_declaration
+    // also carries a leading type_identifier ("def"/return-type keyword), which is
+    // skipped here. Every call site passes a declaration node that carries an
+    // `identifier` in an error-free parse, so this loop always returns.
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
       if (child.type === 'identifier') return child;
     }
-    /* v8 ignore next -- @preserve -- every declaration passed here has an identifier */
-    return null;
   }
 
   private extractGroovyBases(node: TreeSitterSyntaxNode): string {

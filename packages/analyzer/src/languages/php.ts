@@ -22,18 +22,15 @@ export class PhpProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const php = require('tree-sitter-php') as {
-        php: TreeSitterLanguage;
-        php_only: TreeSitterLanguage;
-      };
-      // tree-sitter-php always exports both grammars; `.php` is the primary.
-      return php.php;
-    } catch {
-      /* v8 ignore next -- @preserve -- native module load failure is untestable */
-      return null;
-    }
+    // tree-sitter-php is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const php = require('tree-sitter-php') as {
+      php: TreeSitterLanguage;
+      php_only: TreeSitterLanguage;
+    };
+    // tree-sitter-php always exports both grammars; `.php` is the primary.
+    return php.php;
   }
 
   override parse(source: string, filePath: string): UnifiedCapture[] {
@@ -264,7 +261,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
       nt === 'enum_declaration'
     ) {
       const nameNode = this.findPhpName(node);
-      if (nameNode && nameNode.text === symbolName) {
+      if (nameNode.text === symbolName) {
         // private/protected members are not exported; public (the default) is.
         for (let i = 0; i < node.childCount; i++) {
           const c = node.child(i);
@@ -285,11 +282,16 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return false;
   }
 
-  private findPhpName(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode | null {
+  private findPhpName(node: TreeSitterSyntaxNode): TreeSitterSyntaxNode {
+    // A method_declaration may carry a leading visibility_modifier, so scan for
+    // the `name` child instead of assuming it sits at index 0. checkExported only
+    // passes method/function/class/interface/trait/enum declarations, each of which
+    // always carries a `name` named child in an error-free parse (anonymous
+    // functions/classes are distinct node types), so this loop always returns.
     for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === 'name') return node.namedChild(i);
+      const child = node.namedChild(i);
+      if (child.type === 'name') return child;
     }
-    return null;
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)

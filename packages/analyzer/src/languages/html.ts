@@ -22,15 +22,11 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'none' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const m = require('tree-sitter-html') as TreeSitterLanguage;
-      return m;
-    } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
-    /* v8 ignore stop */
+    // tree-sitter-html is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const m = require('tree-sitter-html') as TreeSitterLanguage;
+    return m;
   }
 
   // ---- AST Walking ----

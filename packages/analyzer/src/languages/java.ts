@@ -18,13 +18,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-java') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore next -- @preserve -- native grammar module load failure is untestable */
-      return null;
-    }
+    // tree-sitter-java is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-java') as TreeSitterLanguage;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {

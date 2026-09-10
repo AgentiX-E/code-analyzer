@@ -251,13 +251,9 @@ export class DockerfileProvider implements LanguageProvider {
     }
 
     return captures.sort((a, b) => {
-      // Each instruction line emits at most one capture, so startLine is unique;
-      // the startByte tiebreaker below is unreachable
-      const byLine = a.startLine - b.startLine;
-      /* v8 ignore start */
-      if (byLine !== 0) return byLine;
-      return a.startByte - b.startByte;
-      /* v8 ignore stop */
+      // Each instruction line emits at most one capture, so startLine is unique
+      // and the byte-offset tiebreaker is unreachable.
+      return a.startLine - b.startLine;
     });
   }
 

@@ -18,13 +18,10 @@ export class CSharpProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-c-sharp') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
+    // tree-sitter-c-sharp is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-c-sharp') as TreeSitterLanguage;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {

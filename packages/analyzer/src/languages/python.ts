@@ -18,15 +18,11 @@ export class PythonProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'wildcard-leaf' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const py = require('tree-sitter-python') as { python: TreeSitterLanguage };
-      return py.python || (py as unknown as TreeSitterLanguage);
-    } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
-    /* v8 ignore stop */
+    // tree-sitter-python is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const py = require('tree-sitter-python') as { python: TreeSitterLanguage };
+    return py.python || (py as unknown as TreeSitterLanguage);
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {

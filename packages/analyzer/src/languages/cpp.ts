@@ -18,13 +18,10 @@ export class CppProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-cpp') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore next -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
+    // tree-sitter-cpp is a direct dependency of the analyzer, so this
+    // require never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-cpp') as TreeSitterLanguage;
   }
 
   protected override walkAndCapture(node: TreeSitterSyntaxNode, captures: UnifiedCapture[]): void {
