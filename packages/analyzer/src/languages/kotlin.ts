@@ -18,13 +18,10 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-kotlin') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore next -- @preserve -- native grammar module load failure is untestable */
-      return null;
-    }
+    // tree-sitter-kotlin is a direct dependency of the analyzer, so this require
+    // never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-kotlin') as TreeSitterLanguage;
   }
 
   // When tree-sitter grammar is available, use AST walking
@@ -33,81 +30,76 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     const nodeType = node.type;
 
     if (nodeType === 'class_declaration' || nodeType === 'object_declaration') {
-      // tree-sitter-kotlin uses 'type_identifier' for class/object names
+      // A class/object declaration always carries its name as a direct
+      // `type_identifier` child (grammar: alias(simple_identifier, type_identifier)).
       const nameNode = this.findChild(node, 'type_identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries a name child */
-      if (nameNode) {
-        // Check if this is an enum class (has enum_class_body child)
-        let isEnum = false;
-        for (let c = 0; c < node.namedChildCount; c++) {
-          if (node.namedChild(c).type === 'enum_class_body') {
-            isEnum = true;
-            break;
-          }
+      // Check if this is an enum class (has enum_class_body child)
+      let isEnum = false;
+      for (let c = 0; c < node.namedChildCount; c++) {
+        if (node.namedChild(c).type === 'enum_class_body') {
+          isEnum = true;
+          break;
         }
-        // tree-sitter-kotlin represents interfaces as class_declaration with an
-        // 'interface' keyword; distinguish them so they are not mislabeled CLASS_DEF
-        let isInterface = false;
-        for (let c = 0; c < node.childCount; c++) {
-          if (node.child(c).type === 'interface') {
-            isInterface = true;
-            break;
-          }
-        }
-        const isObject = nodeType === 'object_declaration';
-        const tag = isEnum
-          ? CAPTURE_TAGS.ENUM_DEF
-          : isInterface
-            ? CAPTURE_TAGS.INTERFACE_DEF
-            : CAPTURE_TAGS.CLASS_DEF;
-        captures.push({
-          tag,
-          text: isEnum
-            ? `enum class ${nameNode.text}`
-            : `${isInterface ? 'interface' : isObject ? 'object' : 'class'} ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath, ...(isObject ? { isObject: 'true' } : {}) },
-        });
       }
+      // tree-sitter-kotlin represents interfaces as class_declaration with an
+      // 'interface' keyword; distinguish them so they are not mislabeled CLASS_DEF
+      let isInterface = false;
+      for (let c = 0; c < node.childCount; c++) {
+        if (node.child(c).type === 'interface') {
+          isInterface = true;
+          break;
+        }
+      }
+      const isObject = nodeType === 'object_declaration';
+      const tag = isEnum
+        ? CAPTURE_TAGS.ENUM_DEF
+        : isInterface
+          ? CAPTURE_TAGS.INTERFACE_DEF
+          : CAPTURE_TAGS.CLASS_DEF;
+      captures.push({
+        tag,
+        text: isEnum
+          ? `enum class ${nameNode.text}`
+          : `${isInterface ? 'interface' : isObject ? 'object' : 'class'} ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath, ...(isObject ? { isObject: 'true' } : {}) },
+      });
     } else if (nodeType === 'function_declaration') {
-      // tree-sitter-kotlin uses 'simple_identifier' for function names
+      // A function declaration always carries its name as a direct
+      // `simple_identifier` child.
       const nameNode = this.findChild(node, 'simple_identifier');
-      /* v8 ignore next -- @preserve -- a declaration node always carries a name child */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.FUNCTION_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     }
 
     // Capture import statements in the unified capture stream
     if (nodeType === 'import_header') {
       const parts = this.collectImportPathParts(node);
       const sourcePath = parts.join('.');
-      /* v8 ignore next -- @preserve -- an import_header always carries a path */
-      if (sourcePath) {
-        captures.push({
-          tag: CAPTURE_TAGS.IMPORT,
-          text: sourcePath,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: sourcePath,
-          properties: { filePath: this.filePath },
-        });
-      }
+      // An import_header always carries an identifier path, so the joined
+      // source path is never empty.
+      captures.push({
+        tag: CAPTURE_TAGS.IMPORT,
+        text: sourcePath,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: sourcePath,
+        properties: { filePath: this.filePath },
+      });
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -191,18 +183,17 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     for (let i = 0; i < node.namedChildCount; i++) {
       const child = node.namedChild(i);
       if (child.type === 'import_alias') {
+        // An import_alias is `seq("as", alias(simple_identifier, type_identifier))`,
+        // so it always carries the alias name as a direct `type_identifier` child.
         const aliasNode = this.findChild(child, 'type_identifier');
-        /* v8 ignore next -- @preserve -- an import_alias always carries a type_identifier */
-        if (aliasNode) {
-          aliasName = aliasNode.text;
-        }
+        aliasName = aliasNode.text;
         break;
       }
     }
 
+    // An import_header always carries an identifier path, so the joined source
+    // path is never empty.
     const sourcePath = parts.join('.');
-    /* v8 ignore next -- @preserve -- an import_header always carries an identifier path */
-    if (!sourcePath) return;
 
     // Build the import name list:
     // - Aliased imports use the alias name
@@ -227,7 +218,6 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -358,7 +348,6 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -383,7 +372,6 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(?:class|interface|object|fun|val|var)\\s+${s}\\b`).test(source);
