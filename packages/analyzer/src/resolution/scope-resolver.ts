@@ -142,7 +142,8 @@ export class ScopeResolver {
     for (const file of files) {
       for (const sym of file.symbols) {
         const files = nameToFile.get(sym.name) ?? [];
-        /* v8 ignore else -- @preserve defensive dedup, same file cannot appear twice per symbol */
+        // A single file can define several symbols sharing a name (e.g.
+        // overloads); deduplicate so the candidate list stays unambiguous.
         if (!files.includes(file.filePath)) {
           files.push(file.filePath);
         }
@@ -192,12 +193,12 @@ export class ScopeResolver {
     // Build file path index
     const fileIndex = new Map<string, string>();
     for (const file of files) {
-      /* v8 ignore next -- @preserve .pop() on split always returns an element, ?? '' is unreachable */
-      const fileName =
-        file.filePath
-          .split('/')
-          .pop()
-          ?.replace(/\.[^.]+$/, '') ?? '';
+      // split('/') always yields at least one segment, so pop() never returns
+      // undefined here and the `?? ''` fallback is unreachable.
+      const fileName = file.filePath
+        .split('/')
+        .pop()!
+        .replace(/\.[^.]+$/, '');
       fileIndex.set(fileName, file.filePath);
       fileIndex.set(file.filePath, file.filePath);
     }
@@ -242,23 +243,22 @@ export class ScopeResolver {
     _model: SemanticModel,
   ): ResolvedReference {
     // Try same-file resolution
-    const sameFile = allFiles.find((f) => f.filePath === sourceFile);
-    /* v8 ignore else -- @preserve sameFile always truthy when sourceFile is in the file list */
-    if (sameFile) {
-      const found = sameFile.symbols.find(
-        (s) => s.name === ref.targetName || s.qualifiedName === ref.targetQname,
-      );
-      if (found) {
-        return {
-          sourceFile,
-          sourceLine: ref.sourceLine,
-          sourceSymbol: ref.targetName,
-          targetFile: sourceFile,
-          targetSymbol: found.qualifiedName,
-          isResolved: true,
-          resolutionType: 'same-file',
-        };
-      }
+    // sourceFile always comes from the same `files` list being resolved, so
+    // `find` always returns a match here.
+    const sameFile = allFiles.find((f) => f.filePath === sourceFile)!;
+    const found = sameFile.symbols.find(
+      (s) => s.name === ref.targetName || s.qualifiedName === ref.targetQname,
+    );
+    if (found) {
+      return {
+        sourceFile,
+        sourceLine: ref.sourceLine,
+        sourceSymbol: ref.targetName,
+        targetFile: sourceFile,
+        targetSymbol: found.qualifiedName,
+        isResolved: true,
+        resolutionType: 'same-file',
+      };
     }
 
     // Try cross-file resolution via import
@@ -272,8 +272,9 @@ export class ScopeResolver {
         targetFile: file,
         targetSymbol: ref.targetName,
         isResolved: true,
-        /* v8 ignore next */
-        resolutionType: file === sourceFile ? 'same-file' : 'import',
+        // Reaching here means the same-file search above found no match, so
+        // the single candidate file is always a different file (cross-file).
+        resolutionType: 'import',
       };
     }
 

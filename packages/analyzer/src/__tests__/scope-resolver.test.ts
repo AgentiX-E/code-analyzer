@@ -518,5 +518,44 @@ describe('ScopeResolver', () => {
       expect(cRef!.isResolved).toBe(false);
       expect(cRef!.resolutionType).toBe('unresolved');
     });
+
+    it('deduplicates a file that defines several symbols sharing a name', () => {
+      // Two overloads in a.ts share the name 'overloaded'; without the dedup
+      // in resolveReferences they would count as two candidate files and the
+      // reference would be flagged ambiguous instead of resolving.
+      const symbolsA: SymbolDefinition[] = [
+        createSymbol('overloaded', 'Function', 'a.ts', { qualifiedName: 'a.ts::overloaded#1' }),
+        createSymbol('overloaded', 'Function', 'a.ts', { qualifiedName: 'a.ts::overloaded#2' }),
+      ];
+
+      const fileA: ParsedFile = {
+        filePath: 'a.ts',
+        language: 'typescript',
+        symbols: symbolsA,
+        references: [],
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+      const fileB: ParsedFile = {
+        filePath: 'b.ts',
+        language: 'typescript',
+        symbols: [],
+        references: [createReference('b.ts', 10, 'overloaded', { referenceKind: 'call' })],
+        scopeTree: {} as ScopeTree,
+        ast: null,
+      };
+
+      const trees = resolver.buildScopeTrees([fileA, fileB]);
+      const model = createSemanticModel();
+      const resolved = resolver.resolveReferences([fileA, fileB], trees, model);
+
+      const bRef = resolved.find((r) => r.sourceFile === 'b.ts');
+      expect(bRef).toBeDefined();
+      // The two overloads collapse to a single candidate file (a.ts), so the
+      // cross-file reference resolves instead of being reported as ambiguous.
+      expect(bRef!.isResolved).toBe(true);
+      expect(bRef!.targetFile).toBe('a.ts');
+      expect(bRef!.resolutionType).toBe('import');
+    });
   });
 });

@@ -167,15 +167,16 @@ export class TypeRegistry {
     if (fileImports) {
       const resolvedQname = fileImports.get(name);
       if (resolvedQname) {
-        const resolved = this.types.get(resolvedQname);
-        /* v8 ignore next -- @preserve -- the import map only references registered qnames */
-        if (resolved) {
-          return {
-            typeInfo: resolved,
-            isResolved: true,
-            resolutionPath: ['import', resolvedQname],
-          };
-        }
+        // The import map only stores qualified names of types that were
+        // registered when the map was built; TypeRegistry never deletes an
+        // individual entry (clear() empties both maps together), so this
+        // lookup always hits and `resolved` is never undefined.
+        const resolved = this.types.get(resolvedQname)!;
+        return {
+          typeInfo: resolved,
+          isResolved: true,
+          resolutionPath: ['import', resolvedQname],
+        };
       }
     }
 

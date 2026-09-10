@@ -23,20 +23,18 @@ import {
 let JavaLanguage: unknown;
 
 /**
- * Lazily load the tree-sitter-java grammar. Returns the grammar language
- * object, or null if the native binding fails to load (e.g. binary
- * incompatibility). Callers fall back to regex extraction in that case.
+ * Lazily load the tree-sitter-java grammar. The grammar is a direct dependency
+ * of the analyzer, so the require never throws and this always returns
+ * a truthy grammar object. A falsy result is only reachable through the
+ * injectable grammar loader (test seam).
  */
 function loadJavaLanguage(): unknown {
   if (JavaLanguage) return JavaLanguage;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    JavaLanguage = require('tree-sitter-java');
-    return JavaLanguage;
-  } catch {
-    /* v8 ignore next -- @preserve native module load failure is untestable */
-    return null;
-  }
+  // tree-sitter-java is a direct dependency of the analyzer, so this
+  // require never throws in the bundled runtime.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  JavaLanguage = require('tree-sitter-java');
+  return JavaLanguage;
 }
 
 // ---------------------------------------------------------------------------
