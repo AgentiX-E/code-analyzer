@@ -458,6 +458,21 @@ describe('HealthCheckRegistry', () => {
       expect(result.status).toBe('warn');
     });
 
+    it('should warn disk-space when the check rejects with a non-Error value', async () => {
+      const r = new HealthCheckRegistry({
+        diskCheck: async () => {
+          // A rejected promise may carry any value; the catch block must coerce it
+          // into an Error before logging instead of assuming an Error instance.
+          throw 'disk unavailable';
+        },
+        memoryThreshold: 100,
+      });
+
+      const result = await r.runOne('disk-space');
+      expect(result.status).toBe('warn');
+      expect(result.message).toBe('Unable to check disk space');
+    });
+
     it('should pass worker-pool by default', async () => {
       const result = await registry.runOne('worker-pool');
       expect(result.status).toBe('pass');

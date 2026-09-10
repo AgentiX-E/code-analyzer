@@ -8,6 +8,8 @@ import v8 from 'node:v8';
 
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
+import { withTimeout } from '../utils/with-timeout.js';
+
 // Module-level logger for standalone health check functions
 const moduleLogger: PhaseLogger = createNoopPhaseLogger();
 
@@ -57,30 +59,6 @@ export interface HealthCheckRegistryOptions {
   diskCheck?: () => Promise<number>;
   /** Minimum available disk space in bytes (default: 100 * 1024 * 1024, i.e. 100MB). */
   minDiskSpace?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Execute a promise with a timeout.
- * Rejects if the promise doesn't settle in time.
- */
-async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
-  });
-
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    /* v8 ignore start */ // timer always assigned in setTimeout callback before use
-    if (timer) clearTimeout(timer);
-    /* v8 ignore stop */
-  }
 }
 
 // ---------------------------------------------------------------------------

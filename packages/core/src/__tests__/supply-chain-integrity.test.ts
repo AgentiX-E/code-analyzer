@@ -1,11 +1,17 @@
 // @code-analyzer/core — Supply Chain Integrity Tests
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { generateKeyPairSync } from 'node:crypto';
 import {
   IntegrityVerifier,
   isRestrictedLicense,
   scanForSecrets,
   SECRET_PATTERNS,
+  signPayload,
+  verifySignature,
 } from '../security/supply-chain-integrity.js';
 import type { IntegrityManifest } from '../security/supply-chain-integrity.js';
 
@@ -272,5 +278,90 @@ describe('SECRET_PATTERNS', () => {
     const r1 = scanForSecrets(content, 'a.ts');
     const r2 = scanForSecrets(content, 'b.ts');
     expect(r1.length).toBe(r2.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Manifest file loading
+// ---------------------------------------------------------------------------
+
+describe('loadManifestFromFile', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'integrity-manifest-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('should load a manifest written to disk and make it usable', () => {
+    const manifest = makeManifest();
+    const filePath = join(dir, 'integrity.json');
+    writeFileSync(filePath, JSON.stringify(manifest), 'utf-8');
+
+    const verifier = new IntegrityVerifier();
+    verifier.loadManifestFromFile(filePath);
+
+    expect(verifier.getManifest()).toEqual(manifest);
+    // The fixture hash is the SHA-256 of the empty string, so the loaded
+    // manifest verifies real content straight away.
+    expect(verifier.verifyFile('src/index.ts', '')).toBe(true);
+  });
+
+  it('should reject a manifest file whose contents are not JSON', () => {
+    const filePath = join(dir, 'broken.json');
+    writeFileSync(filePath, '{not json', 'utf-8');
+
+    expect(() => new IntegrityVerifier().loadManifestFromFile(filePath)).toThrow();
+  });
+
+  it('should validate the manifest loaded from disk', () => {
+    const filePath = join(dir, 'outdated.json');
+    writeFileSync(filePath, JSON.stringify({ ...makeManifest(), version: '2.0' }), 'utf-8');
+
+    expect(() => new IntegrityVerifier().loadManifestFromFile(filePath)).toThrow(
+      'Unsupported manifest version',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Payload signing
+// ---------------------------------------------------------------------------
+
+describe('signPayload / verifySignature', () => {
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+
+  it('should produce a signature that verifies against the matching public key', () => {
+    const signature = signPayload('artifact-v1', privateKeyPem);
+
+    expect(verifySignature('artifact-v1', signature, publicKeyPem)).toBe(true);
+  });
+
+  it('should reject a payload that was modified after signing', () => {
+    const signature = signPayload('artifact-v1', privateKeyPem);
+
+    expect(verifySignature('artifact-v2', signature, publicKeyPem)).toBe(false);
+  });
+
+  it('should reject a signature produced by a different key', () => {
+    const other = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const otherPrivatePem = other.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    const signature = signPayload('artifact-v1', otherPrivatePem);
+
+    expect(verifySignature('artifact-v1', signature, publicKeyPem)).toBe(false);
+  });
+
+  it('should return false for a malformed signature instead of throwing', () => {
+    expect(verifySignature('artifact-v1', 'not-base64-signature', publicKeyPem)).toBe(false);
+  });
+
+  it('should return false for a malformed public key instead of throwing', () => {
+    // Node's verifier raises ERR_OSSL_UNSUPPORTED for a PEM that is not a key.
+    expect(verifySignature('artifact-v1', 'AAAA', 'not-a-pem')).toBe(false);
   });
 });

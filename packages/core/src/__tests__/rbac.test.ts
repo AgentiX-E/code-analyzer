@@ -572,4 +572,27 @@ describe('RBACEngine', () => {
       expect(engine.hasPermission('user-1', 'impact:read')).toBe(false);
     });
   });
+
+  describe('roles without definitions', () => {
+    it('should ignore an assigned role that was never defined', () => {
+      engine.defineRole('developer', { name: 'developer', permissions: ['analysis:read'] });
+      engine.assignRole('user-1', 'developer');
+      // assignRole accepts any Role without requiring it to be defined first.
+      engine.assignRole('user-1', 'viewer');
+
+      expect(engine.getPermissions('user-1')).toEqual(['analysis:read']);
+    });
+
+    it('should ignore an inherited role that was never defined', () => {
+      engine.defineRole('admin', {
+        name: 'admin',
+        permissions: ['admin:*'],
+        inherits: ['viewer'],
+      });
+      engine.assignRole('user-1', 'admin');
+
+      // The undefined inherited role contributes no permissions instead of throwing.
+      expect(engine.getPermissions('user-1')).toEqual(['admin:*']);
+    });
+  });
 });

@@ -4,6 +4,8 @@
 
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
+import { withTimeout } from '../utils/with-timeout.js';
+
 /**
  * A managed component with init and shutdown phases.
  */
@@ -239,22 +241,5 @@ export class LifecycleManager {
       }
     }
     return result;
-  }
-}
-
-/**
- * Execute a promise with a timeout. Rejects if the promise doesn't settle in time.
- */
-async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
-  });
-
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timer) clearTimeout(timer);
   }
 }

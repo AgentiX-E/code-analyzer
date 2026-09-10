@@ -138,9 +138,9 @@ export class RBACEngine {
     visited.add(role);
 
     const definition = this.roleDefinitions.get(role);
-    /* v8 ignore start */ // defensive: inherited role without definition (data inconsistency)
+    // assignRole/defineRole accept any role string, so a user can hold a role
+    // that was never defined (or one inherited from a role defined elsewhere).
     if (!definition) return;
-    /* v8 ignore stop */
 
     for (const perm of definition.permissions) {
       permissions.add(perm);

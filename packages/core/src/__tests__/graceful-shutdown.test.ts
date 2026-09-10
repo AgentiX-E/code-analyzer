@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { GracefulShutdown } from '../operations/graceful-shutdown.js';
 
-import type { ShutdownHandler, ShutdownSignal } from '../operations/graceful-shutdown.js';
+import type {
+  ShutdownHandler,
+  ShutdownSignal,
+  ShutdownResult,
+} from '../operations/graceful-shutdown.js';
 
 describe('GracefulShutdown', () => {
   let gs: GracefulShutdown;
@@ -301,11 +305,62 @@ describe('GracefulShutdown', () => {
   });
 
   describe('signal handling', () => {
-    it('should call shutdown on signal', async () => {
-      // We can't easily test actual process.on, but we verify the listen method
-      // doesn't throw
+    it('should install listeners through process.on by default', () => {
+      // The default registrar must be wired to process.on; spying on it keeps the
+      // test process free of real signal listeners.
+      const onSpy = vi.spyOn(process, 'on').mockImplementation((() => process) as never);
+
       const g = new GracefulShutdown({ signals: ['SIGTERM'] });
-      expect(() => g.listen()).not.toThrow();
+      g.listen();
+
+      expect(onSpy).toHaveBeenCalledTimes(1);
+      expect(onSpy.mock.calls[0]![0]).toBe('SIGTERM');
+      expect(typeof onSpy.mock.calls[0]![1]).toBe('function');
+
+      onSpy.mockRestore();
+    });
+
+    it('should register a listener for every configured signal', () => {
+      const registered: Array<[ShutdownSignal, () => void]> = [];
+      const g = new GracefulShutdown({ signals: ['SIGTERM', 'SIGQUIT'] });
+
+      g.listen((signal, listener) => registered.push([signal, listener]));
+
+      expect(registered.map(([signal]) => signal)).toEqual(['SIGTERM', 'SIGQUIT']);
+      expect(registered.every(([, listener]) => typeof listener === 'function')).toBe(true);
+    });
+
+    it('should run the shutdown sequence when a captured signal listener fires', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const listeners = new Map<ShutdownSignal, () => void>();
+      const results: ShutdownResult[] = [];
+      let handlerRuns = 0;
+
+      const g = new GracefulShutdown();
+      g.register({
+        name: 'db',
+        priority: 10,
+        timeout: 1000,
+        shutdown: async () => {
+          handlerRuns++;
+        },
+      });
+      g.onAfterShutdown((result) => results.push(result));
+      // Capture the installed listeners instead of emitting a real OS signal.
+      g.listen((signal, listener) => listeners.set(signal, listener));
+
+      listeners.get('SIGTERM')!();
+      // The listener delegates with `void`, so let the async sequence settle.
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(handlerRuns).toBe(1);
+      expect(results).toHaveLength(1);
+      expect(results[0]!.signal).toBe('SIGTERM');
+      expect(results[0]!.success).toBe(true);
+      // A successful non-manual shutdown completes the force-exit path.
+      expect(exitSpy).toHaveBeenCalledWith(0);
+
+      exitSpy.mockRestore();
     });
 
     it('should handle manual shutdown with all signal types', async () => {

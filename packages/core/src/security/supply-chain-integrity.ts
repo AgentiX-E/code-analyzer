@@ -71,13 +71,11 @@ export class IntegrityVerifier {
   /**
    * Load a manifest from a file path.
    */
-  /* v8 ignore start -- @preserve */
   loadManifestFromFile(filePath: string): void {
     const content = readFileSync(filePath, 'utf-8');
     const manifest = JSON.parse(content) as IntegrityManifest;
     this.loadManifest(manifest);
   }
-  /* v8 ignore stop -- @preserve */
 
   /**
    * Verify a single file against the manifest.
@@ -207,7 +205,6 @@ export class IntegrityVerifier {
  * Supports RSA-SHA256 signatures.
  */
 export function verifySignature(payload: string, signature: string, publicKeyPem: string): boolean {
-  /* v8 ignore start -- @preserve */
   try {
     const verify = createVerify('RSA-SHA256');
     verify.update(payload);
@@ -216,19 +213,16 @@ export function verifySignature(payload: string, signature: string, publicKeyPem
   } catch {
     return false;
   }
-  /* v8 ignore stop -- @preserve */
 }
 
 /**
  * Sign a payload with a private key.
  */
 export function signPayload(payload: string, privateKeyPem: string): string {
-  /* v8 ignore start -- @preserve */
   const sign = createSign('RSA-SHA256');
   sign.update(payload);
   sign.end();
   return sign.sign(privateKeyPem, 'base64');
-  /* v8 ignore stop -- @preserve */
 }
 
 // ---------------------------------------------------------------------------

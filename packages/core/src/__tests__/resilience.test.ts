@@ -431,7 +431,7 @@ describe('DeadLetterQueue', () => {
       expect(result.failed).toBe(0);
     });
 
-    it('should skip entries removed by concurrent removal during retry (line 213)', async () => {
+    it('should skip entries removed by concurrent removal during retry', async () => {
       const id1 = dlq.enqueue({ operation: 'op1', payload: 'data1', error: 'e1', attempts: 1 });
       const id2 = dlq.enqueue({ operation: 'op2', payload: 'data2', error: 'e2', attempts: 1 });
       const id3 = dlq.enqueue({ operation: 'op3', payload: 'data3', error: 'e3', attempts: 1 });

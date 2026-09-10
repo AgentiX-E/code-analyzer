@@ -205,7 +205,8 @@ export class DeadLetterQueue {
     const toProcess = [...this.entries];
 
     for (const entry of toProcess) {
-      /* v8 ignore next */ // defensive: entry may have been removed by a concurrent processor
+      // dequeue() is public, so a processor running for an earlier entry can
+      // remove an entry that has not been visited yet.
       if (!this.entries.find((e) => e.id === entry.id)) continue;
 
       try {

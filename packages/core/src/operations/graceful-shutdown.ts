@@ -3,6 +3,8 @@
  * Supports handler priorities, timeouts, pre/post hooks, and forced exit.
  */
 
+import { withTimeout } from '../utils/with-timeout.js';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -41,27 +43,18 @@ export interface GracefulShutdownOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Signal registration
 // ---------------------------------------------------------------------------
 
 /**
- * Execute a promise with a timeout. Rejects if not settled in time.
+ * Installs a listener for an OS signal. Defaults to `process.on`; injectable so
+ * that a test can capture the installed listener without emitting a real signal.
  */
-async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+export type SignalRegistrar = (signal: ShutdownSignal, listener: () => void) => void;
 
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
-  });
-
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    /* v8 ignore start */
-    if (timer) clearTimeout(timer);
-    /* v8 ignore stop */
-  }
-}
+const defaultSignalRegistrar: SignalRegistrar = (signal, listener) => {
+  process.on(signal, listener);
+};
 
 // ---------------------------------------------------------------------------
 // GracefulShutdown
@@ -97,15 +90,16 @@ export class GracefulShutdown {
   /**
    * Start listening for OS shutdown signals.
    * When a signal is received, the shutdown sequence begins automatically.
+   *
+   * @param register - Signal registrar, defaulting to `process.on`. Injecting a
+   *   registrar lets a test capture the installed listener without emitting a
+   *   real OS signal.
    */
-  listen(): void {
+  listen(register: SignalRegistrar = defaultSignalRegistrar): void {
     for (const sig of this.signals) {
-      process.on(
-        sig,
-        /* v8 ignore next 3 */ () => {
-          void this.shutdown(sig);
-        },
-      );
+      register(sig, () => {
+        void this.shutdown(sig);
+      });
     }
   }
 

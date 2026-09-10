@@ -217,10 +217,8 @@ export class SecretScanner {
   // -----------------------------------------------------------------------
 
   private calculateEntropy(text: string): number {
-    /* v8 ignore start */ // guarded by isLikelySecret length >= 8 check; empty never reaches here
-    if (text.length === 0) return 0;
-    /* v8 ignore stop */
-
+    // Every caller reaches this through isLikelySecret, which rejects any input
+    // shorter than 8 characters, so `text` is never empty here.
     const frequencies = new Map<string, number>();
     for (const char of text) {
       frequencies.set(char, (frequencies.get(char) || 0) + 1);
