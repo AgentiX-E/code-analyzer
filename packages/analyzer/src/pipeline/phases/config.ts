@@ -7,6 +7,7 @@ import { PhaseLogger, createNoopPhaseLogger, EDGE_CONFIGURES } from '@code-analy
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import { toPhaseFailure } from '../phase-helpers.js';
 import { GraphBuilder } from '../../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
@@ -177,8 +178,10 @@ function findLineNumber(lines: string[], charIndex: number): number {
     accumulated += lines[i].length + 1; // +1 for newline
     if (accumulated > charIndex) return i + 1;
   }
-  /* v8 ignore next -- @preserve -- charIndex always lies within the content */
-  return lines.length;
+  // Accumulating every line's length (plus newline) yields content.length + 1,
+  // which always exceeds a `charIndex` produced by a regex match inside the
+  // content, so the loop always returns before exhausting `lines`. No trailing
+  // return is reachable.
 }
 
 function isConfigFile(fileName: string, ext: string): boolean {
@@ -252,13 +255,7 @@ export class ConfigPhase implements ExecutablePhase {
       ctx.phaseData.set('config', { configFiles, totalEntries: configFiles });
       return { phaseId: this.id, status: 'success', output: { configFiles } };
     } catch (err) {
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      const message = err instanceof Error ? err.message : String(err);
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }

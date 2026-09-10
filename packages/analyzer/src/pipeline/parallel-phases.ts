@@ -30,6 +30,7 @@ import {
 import { InMemoryGraphStore, createFileDiscoverer } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from './phases/index.js';
+import { toPhaseFailure } from './phase-helpers.js';
 import type { LanguageProvider } from '../languages/provider.js';
 import { GraphBuilder } from '../graph/graph-builder.js';
 
@@ -290,23 +291,9 @@ export function groupCaptures(
 // Shared phase-failure result
 // ---------------------------------------------------------------------------
 
-/**
- * Build a failed PhaseExecutionResult for a thrown error. Coerces non-Error
- * throws (e.g. a thrown string) into a message and normalizes the logger input.
- */
-export function toPhaseFailure(
-  err: unknown,
-  phaseId: PipelinePhaseId,
-  logger: PhaseLogger,
-  rootPath?: string,
-): PhaseExecutionResult {
-  const message = err instanceof Error ? err.message : String(err);
-  logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), {
-    phaseId,
-    filePath: rootPath,
-  });
-  return { phaseId, status: 'failed', error: message };
-}
+// Defined in phase-helpers so sequential and parallel phases share one
+// implementation; re-exported here to preserve this module's public surface.
+export { toPhaseFailure };
 
 // ---------------------------------------------------------------------------
 // ParallelScanPhase
@@ -443,16 +430,14 @@ export class ParallelParsePhase implements ExecutablePhase {
         const batch = files.slice(i, i + concurrency);
         const batchPromises = batch.map((file) => this.parseFile(file, ctx));
 
-        const results = await Promise.allSettled(batchPromises);
+        // parseFile never throws (providers never throw and groupCaptures never
+        // throws), so Promise.all is safe and needs no rejection branch.
+        const results = await Promise.all(batchPromises);
 
-        for (const result of results) {
-          if (result.status === 'fulfilled') {
-            if (result.value) {
-              parsedFiles.push(result.value);
-              successCount++;
-            } else {
-              failCount++;
-            }
+        for (const parsed of results) {
+          if (parsed) {
+            parsedFiles.push(parsed);
+            successCount++;
           } else {
             failCount++;
           }
@@ -474,7 +459,7 @@ export class ParallelParsePhase implements ExecutablePhase {
   /**
    * Parse a single file and build its graph nodes.
    * Extracted to a separate method to enable concurrent execution
-   * via Promise.allSettled in execute().
+   * via Promise.all in execute().
    */
   private async parseFile(file: DiscoveredFile, ctx: PipelineContext): Promise<ParsedFile | null> {
     const lang = file.language;
@@ -485,13 +470,13 @@ export class ParallelParsePhase implements ExecutablePhase {
 
     const captures = provider.parse(file.content, file.filePath);
 
-    // Determine export status
+    // Determine export status. Providers may emit captures without a `name`
+    // (e.g. regex docstring/decorator captures), which cannot be export-checked.
     for (const capture of captures) {
       if (capture.name) {
         const isExported = provider.isExported(file.content, capture.name);
-        if (capture.properties) {
-          capture.properties['exported'] = String(isExported);
-        }
+        // Every named capture carries a `properties` bag.
+        capture.properties['exported'] = String(isExported);
       }
     }
 

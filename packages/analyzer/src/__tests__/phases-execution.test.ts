@@ -585,6 +585,39 @@ describe('ParsePhase', () => {
     );
     expect(hasMethodEdges.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('stamps export status only on captures that carry a name', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    // A Python module docstring is emitted as a nameless DOCSTRING capture,
+    // exercising the guard that skips captures without a `name`.
+    ctx.phaseData.set('scan', {
+      discoveredFiles: [
+        {
+          filePath: join(fixture.rootPath, 'src', 'module.py'),
+          language: 'python',
+          content: '"""Module docstring."""\n\n\ndef f():\n    return 1\n',
+          hash: 'hash',
+          size: 52,
+        },
+      ],
+    });
+
+    const result = await parsePhase.execute(ctx);
+    expect(result.status).toBe('success');
+
+    const output = result.output as { filesParsed: number; filesFailed: number };
+    expect(output.filesParsed).toBe(1);
+    expect(output.filesFailed).toBe(0);
+
+    const parseData = ctx.phaseData.get('parse') as {
+      parsedFiles: Array<{ ast: Array<{ tag: string; name?: string }> }>;
+    };
+    const captures = parseData.parsedFiles[0]!.ast;
+    // The nameless docstring capture survives untouched, while the named
+    // function capture is present (and therefore export-stamped).
+    expect(captures.some((c) => c.tag === 'docstring' && c.name === undefined)).toBe(true);
+    expect(captures.some((c) => c.tag === 'function.def' && c.name === 'f')).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1830,6 +1863,23 @@ describe('TypeResolutionPhase', () => {
     const result = await typeResolutionPhase.execute(ctx);
     expect(result.status).toBe('success');
   });
+
+  it('should handle an error thrown while iterating the parsed files', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    // Force the per-file loop to throw so the phase-level catch is exercised.
+    ctx.phaseData.set('parse', {
+      parsedFiles: {
+        length: 1,
+        *[Symbol.iterator]() {
+          throw new Error('TypeResolution phase forced error');
+        },
+      },
+    });
+
+    const result = await typeResolutionPhase.execute(ctx);
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('TypeResolution phase forced error');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2343,6 +2393,79 @@ describe('SemanticPhase', () => {
     expect(result.status).toBe('success');
     const output = result.output as { semanticRelations: number };
     expect(output.semanticRelations).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SemanticPhase — guarded heuristic edge cases
+// ---------------------------------------------------------------------------
+
+describe('SemanticPhase - guard branches', () => {
+  let fixture: FixtureDir;
+  let semanticPhase: SemanticPhase;
+
+  beforeEach(() => {
+    fixture = createFixtureDir();
+    semanticPhase = new SemanticPhase();
+  });
+
+  afterEach(() => {
+    fixture.cleanup();
+  });
+
+  it('ignores HAS_METHOD edges whose target node is absent', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+    const classA = builder.addNode(g, 'Class', 'A', { name: 'A' }, 'A');
+    builder.addEdge(g, classA.id, 999999, 'HAS_METHOD', 'test-proj');
+
+    const result = await semanticPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    expect((result.output as { semanticRelations: number }).semanticRelations).toBe(0);
+  });
+
+  it('treats classes without methods as having an empty method set', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+    // Two classes, neither of which has captured methods: the overlap
+    // denominator collapses to zero.
+    builder.addNode(g, 'Class', 'A', { name: 'A' }, 'A');
+    builder.addNode(g, 'Class', 'B', { name: 'B' }, 'B');
+
+    const result = await semanticPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    expect((result.output as { semanticRelations: number }).semanticRelations).toBe(0);
+  });
+
+  it('includes Method nodes, not only Functions, in caller-sharing analysis', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+    const method = builder.addNode(g, 'Method', 'run', { name: 'run' }, 'run');
+    const caller = builder.addNode(g, 'Function', 'caller', { name: 'caller' }, 'caller');
+    builder.addEdge(g, caller.id, method.id, 'CALLS', 'test-proj');
+
+    const result = await semanticPhase.execute(ctx);
+    expect(result.status).toBe('success');
+  });
+
+  it('counts only shared callers and skips pairs below the similarity threshold', async () => {
+    const ctx = createContext('test-proj', fixture.rootPath);
+    const builder = new GraphBuilder(new InMemoryGraphStore());
+    const g = ctx.graph!;
+    const f1 = builder.addNode(g, 'Function', 'foo', { name: 'foo' }, 'foo');
+    const f2 = builder.addNode(g, 'Function', 'bar', { name: 'bar' }, 'bar');
+    const c1 = builder.addNode(g, 'Function', 'caller1', { name: 'caller1' }, 'caller1');
+    const c2 = builder.addNode(g, 'Function', 'caller2', { name: 'caller2' }, 'caller2');
+    // foo is called only by caller1; bar only by caller2 — no shared callers.
+    builder.addEdge(g, c1.id, f1.id, 'CALLS', 'test-proj');
+    builder.addEdge(g, c2.id, f2.id, 'CALLS', 'test-proj');
+
+    const result = await semanticPhase.execute(ctx);
+    expect(result.status).toBe('success');
+    expect((result.output as { semanticRelations: number }).semanticRelations).toBe(0);
   });
 });
 

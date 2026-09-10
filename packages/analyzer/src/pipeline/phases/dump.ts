@@ -5,6 +5,7 @@ import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import { toPhaseFailure } from '../phase-helpers.js';
 import { GraphBuilder } from '../../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
@@ -55,15 +56,7 @@ export class DumpPhase implements ExecutablePhase {
         },
       };
     } catch (err) {
-      /* v8 ignore next -- @preserve -- errors thrown here are always Error instances */
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      /* v8 ignore next -- @preserve -- errors thrown here are always Error instances */
-      const message = err instanceof Error ? err.message : String(err);
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }

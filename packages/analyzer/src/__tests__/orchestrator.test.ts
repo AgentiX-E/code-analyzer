@@ -493,12 +493,12 @@ describe('PipelineOrchestrator', () => {
   // Branch coverage hardening - wave 2
   // ============================================================================
 
-  describe('validate duplicate IDs via validatePipeline', () => {
-    it('should detect duplicate phase IDs when called via validatePipeline (L194-199)', () => {
+  describe('validatePipeline on the full phase set', () => {
+    it('reports the registered pipeline as valid with no errors', () => {
       const orchestrator = new PipelineOrchestrator(createAllPhases());
       const result = orchestrator.validatePipeline();
       expect(result.valid).toBe(true);
-      expect(result.errors.filter((e) => e.type === 'duplicate_id')).toHaveLength(0);
+      expect(result.errors).toEqual([]);
     });
   });
 
@@ -627,13 +627,6 @@ describe('PipelineOrchestrator', () => {
       expect(['complete', 'partial']).toContain(result.status);
     });
 
-    it('should handle duplicate phase ID detection in validate (L194)', () => {
-      const orchestrator = new PipelineOrchestrator(createAllPhases());
-      const result = orchestrator.validatePipeline();
-      expect(result.valid).toBe(true);
-      expect(result.errors.every((e) => e.type !== 'duplicate_id')).toBe(true);
-    });
-
     it('should handle adjacency get for dependency with no neighbors (L254)', () => {
       const phase = {
         id: 'solo' as PipelinePhaseId,
@@ -721,12 +714,6 @@ describe('PipelineOrchestrator', () => {
       const ctx = createMockContext();
       const result = await orchestrator.execute(ctx);
       expect(result.status).toBe('failed');
-    });
-
-    it('should have duplicate_id detection path covered in validatePipeline (L194-199)', () => {
-      const orchestrator = new PipelineOrchestrator(createAllPhases());
-      const result = orchestrator.validatePipeline();
-      expect(result.errors.filter((e) => e.type === 'duplicate_id')).toHaveLength(0);
     });
   });
 

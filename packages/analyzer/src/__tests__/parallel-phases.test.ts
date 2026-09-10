@@ -334,6 +334,28 @@ describe('ParallelParsePhase', () => {
       expect(output.filesParsed).toBeGreaterThanOrEqual(0);
       expect(output).toHaveProperty('filesFailed');
     });
+
+    it('skips export-stamping for captures that have no name', async () => {
+      const phase = new ParallelParsePhase();
+      const ctx = makeCtx();
+      // A Python module docstring is emitted as a nameless capture, exercising
+      // the guard that skips captures without a `name`.
+      ctx.phaseData.set('scan', {
+        discoveredFiles: [
+          makeDiscoveredFile({
+            filePath: '/fake/project/src/module.py',
+            language: 'python',
+            content: '"""Module docstring."""\n\n\ndef f():\n    return 1\n',
+          }),
+        ],
+      });
+
+      const result = await phase.execute(ctx);
+      expect(result.status).toBe('success');
+      const output = result.output as { filesParsed: number; filesFailed: number };
+      expect(output.filesParsed).toBe(1);
+      expect(output.filesFailed).toBe(0);
+    });
   });
 
   describe('execute — with graph', () => {

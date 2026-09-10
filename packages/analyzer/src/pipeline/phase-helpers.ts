@@ -53,6 +53,28 @@ export interface PhaseExecutionResult {
 }
 
 // ---------------------------------------------------------------------------
+// Shared phase-failure result
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a failed PhaseExecutionResult for a thrown error. Coerces non-Error
+ * throws (e.g. a thrown string) into a message and normalizes the logger input.
+ */
+export function toPhaseFailure(
+  err: unknown,
+  phaseId: PipelinePhaseId,
+  logger: PhaseLogger,
+  rootPath?: string,
+): PhaseExecutionResult {
+  const message = err instanceof Error ? err.message : String(err);
+  logger.error('Phase execution failed', err instanceof Error ? err : new Error(String(err)), {
+    phaseId,
+    filePath: rootPath,
+  });
+  return { phaseId, status: 'failed', error: message };
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 

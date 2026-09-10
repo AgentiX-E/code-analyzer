@@ -4,6 +4,7 @@ import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import { toPhaseFailure } from '../phase-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Phase 11: pruneLocalSymbols — Prune local-only symbols from the graph
@@ -55,16 +56,14 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
 
       // Remove nodes
       for (const nodeId of nodesToPrune) {
-        // Remove node from indexes
-        const node = ctx.graph.nodes.get(nodeId);
-        /* v8 ignore next -- @preserve -- nodeId came from a nodes iteration, so get() is always defined */
-        if (node) {
-          ctx.graph.qnameIndex.delete(node.qualifiedName);
-          if (node.properties?.filePath) {
-            ctx.graph.fileIndex.delete(node.properties.filePath);
-          }
-          ctx.graph.nodes.delete(nodeId);
+        // Remove node from indexes. Every id in nodesToPrune was collected by
+        // iterating graph.nodes, so the lookup always resolves.
+        const node = ctx.graph.nodes.get(nodeId)!;
+        ctx.graph.qnameIndex.delete(node.qualifiedName);
+        if (node.properties?.filePath) {
+          ctx.graph.fileIndex.delete(node.properties.filePath);
         }
+        ctx.graph.nodes.delete(nodeId);
       }
 
       ctx.phaseData.set('pruneLocalSymbols', { symbolsPruned: nodesToPrune.length });
@@ -74,15 +73,7 @@ export class PruneLocalSymbolsPhase implements ExecutablePhase {
         output: { symbolsPruned: nodesToPrune.length },
       };
     } catch (err) {
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances in this codebase */
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances in this codebase */
-      const message = err instanceof Error ? err.message : String(err);
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }

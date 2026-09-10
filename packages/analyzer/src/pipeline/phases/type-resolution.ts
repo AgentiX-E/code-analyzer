@@ -7,6 +7,7 @@ import type { PipelinePhaseId, PipelineContext, ParsedFile } from '@code-analyze
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import { toPhaseFailure } from '../phase-helpers.js';
 import { TypeRegistry } from '../../resolution/type-registry.js';
 import { TypeScriptAdvancedResolver } from '../../resolution/typescript-resolver-advanced.js';
 import { PythonAdvancedResolver } from '../../resolution/python-resolver-advanced.js';
@@ -110,12 +111,11 @@ export class TypeResolutionPhase implements ExecutablePhase {
         }
 
         // Register module paths for import resolution
-        /* v8 ignore next -- @preserve -- filePath always has a final path segment */
-        const moduleName =
-          file.filePath
-            .split('/')
-            .pop()
-            ?.replace(/\.[^.]+$/, '') ?? '';
+        // String.split never returns an empty array, so .pop() always resolves
+        const moduleName = file.filePath
+          .split('/')
+          .pop()!
+          .replace(/\.[^.]+$/, '');
         registry.registerModule(moduleName, file.filePath);
         registry.registerModule(file.filePath, file.filePath);
       }
@@ -130,16 +130,7 @@ export class TypeResolutionPhase implements ExecutablePhase {
         output: { typesRegistered, typesByLanguage },
       };
     } catch (err) {
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      const message = err instanceof Error ? err.message : String(err);
-      /* v8 ignore next -- @preserve -- thrown values are always Error instances */
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }

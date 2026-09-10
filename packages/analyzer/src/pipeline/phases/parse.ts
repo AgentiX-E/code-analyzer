@@ -17,7 +17,7 @@ import {
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { getOrLoadProvider, groupCaptures } from '../phase-helpers.js';
+import { getOrLoadProvider, groupCaptures, toPhaseFailure } from '../phase-helpers.js';
 import { GraphBuilder } from '../../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
@@ -42,116 +42,109 @@ export class ParsePhase implements ExecutablePhase {
 
       const parsedFiles: ParsedFile[] = [];
       let successCount = 0;
-      let failCount = 0;
 
       for (const file of scanData.discoveredFiles) {
         const lang = file.language;
         if (!lang) continue;
 
-        try {
-          const provider = await getOrLoadProvider(lang);
-          if (!provider) continue;
+        const provider = await getOrLoadProvider(lang);
+        if (!provider) continue;
 
-          const captures = provider.parse(file.content, file.filePath);
+        const captures = provider.parse(file.content, file.filePath);
 
-          // Determine if items are exported
-          for (const capture of captures) {
-            /* v8 ignore next -- @preserve -- every provider emits captures with a name */
-            if (capture.name) {
-              const isExported = provider.isExported(file.content, capture.name);
-              /* v8 ignore next -- @preserve -- every provider emits captures with properties */
-              if (capture.properties) {
-                capture.properties.exported = String(isExported);
-              }
-            }
+        // Determine if items are exported. Providers may emit captures
+        // without a `name` (e.g. regex docstring/decorator captures), which
+        // cannot be export-checked and are skipped.
+        for (const capture of captures) {
+          if (capture.name) {
+            const isExported = provider.isExported(file.content, capture.name);
+            // Every named capture carries a `properties` bag.
+            capture.properties.exported = String(isExported);
           }
+        }
 
-          const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
+        const { symbols, references, scopeTree } = groupCaptures(captures, file.filePath);
 
-          parsedFiles.push({
-            filePath: file.filePath,
-            language: lang as SupportedLanguage,
-            symbols,
-            references,
-            scopeTree,
-            ast: captures, // Use capture array as AST representation
-          });
+        parsedFiles.push({
+          filePath: file.filePath,
+          language: lang as SupportedLanguage,
+          symbols,
+          references,
+          scopeTree,
+          ast: captures, // Use capture array as AST representation
+        });
 
-          // Add symbol nodes to the graph
-          if (ctx.graph) {
-            const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
-            const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
+        // Add symbol nodes to the graph
+        if (ctx.graph) {
+          const builder = new GraphBuilder(null as unknown as InMemoryGraphStore);
+          const fileNodeId = ctx.graph.fileIndex.get(file.filePath);
 
-            if (fileNodeId) {
-              let currentClassNodeId: number | null = null;
+          if (fileNodeId) {
+            let currentClassNodeId: number | null = null;
 
-              for (const symbol of symbols) {
-                const label = symbol.kind;
-                const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
+            for (const symbol of symbols) {
+              const label = symbol.kind;
+              const qualifiedName = `project:${ctx.projectId}:${symbol.qualifiedName}`;
 
-                const properties: NodeProperties = {
-                  name: symbol.name,
-                  filePath: file.filePath,
-                  startLine: symbol.startLine,
-                  endLine: symbol.endLine,
-                  language: lang,
-                  isExported: symbol.isExported,
-                  signature: symbol.signature,
-                  returnType: symbol.returnType,
-                  docstring: symbol.docstring,
-                  ...symbol.properties,
-                };
+              const properties: NodeProperties = {
+                name: symbol.name,
+                filePath: file.filePath,
+                startLine: symbol.startLine,
+                endLine: symbol.endLine,
+                language: lang,
+                isExported: symbol.isExported,
+                signature: symbol.signature,
+                returnType: symbol.returnType,
+                docstring: symbol.docstring,
+                ...symbol.properties,
+              };
 
-                const node = builder.addNode(
-                  ctx.graph,
-                  label,
-                  symbol.name,
-                  properties,
-                  qualifiedName,
-                );
+              const node = builder.addNode(
+                ctx.graph,
+                label,
+                symbol.name,
+                properties,
+                qualifiedName,
+              );
 
-                // Create appropriate edges
-                if (label === 'Method' || label === 'Constructor') {
-                  // Method within its parent class
-                  if (currentClassNodeId) {
-                    builder.addEdge(
-                      ctx.graph,
-                      currentClassNodeId,
-                      node.id,
-                      EDGE_HAS_METHOD,
-                      ctx.projectId,
-                    );
-                  } else {
-                    builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                  }
-                } else if (label === 'Class') {
-                  currentClassNodeId = node.id;
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-
-                  // EXTENDS edge for base classes
-                  const baseClasses = symbol.properties.baseClasses as string | undefined;
-                  if (baseClasses) {
-                    // Will be resolved in scopeResolution phase — store for now
-                    if (symbol.properties.interfaces) {
-                      // Store implements info for later resolution
-                    }
-                  }
-                } else if (label === 'Interface') {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
-                } else if (label === 'Function') {
-                  builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
+              // Create appropriate edges
+              if (label === 'Method' || label === 'Constructor') {
+                // Method within its parent class
+                if (currentClassNodeId) {
+                  builder.addEdge(
+                    ctx.graph,
+                    currentClassNodeId,
+                    node.id,
+                    EDGE_HAS_METHOD,
+                    ctx.projectId,
+                  );
                 } else {
                   builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
                 }
+              } else if (label === 'Class') {
+                currentClassNodeId = node.id;
+                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
+
+                // EXTENDS edge for base classes
+                const baseClasses = symbol.properties.baseClasses as string | undefined;
+                if (baseClasses) {
+                  // Will be resolved in scopeResolution phase — store for now
+                  if (symbol.properties.interfaces) {
+                    // Store implements info for later resolution
+                  }
+                }
+              } else if (label === 'Interface') {
+                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
+              } else if (label === 'Function') {
+                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
+              } else {
+                builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
               }
             }
           }
-
-          successCount++;
-        } catch {
-          /* v8 ignore next -- @preserve -- providers handle their own errors (tree-sitter falls back to regex, JSON.parse is caught), so per-file parse failures are unreachable via the public API */
-          failCount++;
         }
+
+        successCount++;
       }
 
       ctx.phaseData.set('parse', { parsedFiles });
@@ -159,16 +152,10 @@ export class ParsePhase implements ExecutablePhase {
       return {
         phaseId: this.id,
         status: 'success',
-        output: { filesParsed: successCount, filesFailed: failCount },
+        output: { filesParsed: successCount, filesFailed: 0 },
       };
     } catch (err) {
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      const message = err instanceof Error ? err.message : String(err);
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }

@@ -8,7 +8,7 @@ import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyze
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
-import { parseGitignore, walkDirectory } from '../phase-helpers.js';
+import { parseGitignore, toPhaseFailure, walkDirectory } from '../phase-helpers.js';
 import { GraphBuilder } from '../../graph/graph-builder.js';
 
 // ---------------------------------------------------------------------------
@@ -123,15 +123,7 @@ export class ScanPhase implements ExecutablePhase {
         output: { filesDiscovered: discoveredFiles.length },
       };
     } catch (err) {
-      /* v8 ignore next -- @preserve -- errors thrown here are always Error instances */
-      const message = err instanceof Error ? err.message : String(err);
-      /* v8 ignore next -- @preserve -- errors thrown here are always Error instances */
-      this.logger.error(
-        'Phase execution failed',
-        err instanceof Error ? err : new Error(String(err)),
-        { phaseId: this.id, filePath: ctx?.rootPath },
-      );
-      return { phaseId: this.id, status: 'failed', error: message };
+      return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
     }
   }
 }
