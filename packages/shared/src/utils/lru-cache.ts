@@ -152,8 +152,6 @@ export class LRUCache<K = string, V = unknown> {
    * Returns a fresh snapshot each call.
    */
   getStats(): CacheStats & { hitRate: number; evictionCount: number } {
-    /* v8 ignore start -- @preserve */ // defensive: total===0 on fresh cache, tested via 'stats' getter
-    const total = this._hits + this._misses;
     return {
       hits: this._hits,
       misses: this._misses,
@@ -161,9 +159,8 @@ export class LRUCache<K = string, V = unknown> {
       evictionCount: this._evictions,
       size: this.map.size,
       capacity: this._capacity,
-      hitRate: total === 0 ? 0 : this._hits / total,
+      hitRate: this.hitRate,
     };
-    /* v8 ignore stop -- @preserve */
   }
 
   /**
@@ -171,7 +168,9 @@ export class LRUCache<K = string, V = unknown> {
    * double the cache capacity. Returns true if resize occurred.
    */
   autoResize(hitRateThreshold = 0.5): boolean {
-    if (this.hitRate < hitRateThreshold && this._capacity > 0) {
+    // The capacity is always > 0: the constructor rejects non-positive values
+    // and autoResize only ever doubles it, so no capacity guard is needed.
+    if (this.hitRate < hitRateThreshold) {
       this._capacity *= 2;
       return true;
     }
@@ -251,9 +250,10 @@ export class LRUCache<K = string, V = unknown> {
   }
 
   private evictLRU(): void {
-    /* v8 ignore next */ // tail===null is defensive (only called when size>=capacity>0)
-    if (!this.tail) return;
-    const lru = this.tail;
+    // evictLRU is only reachable from set() once map.size >= capacity, and the
+    // constructor guarantees capacity > 0; the map is therefore never empty
+    // here and `tail` always points at the least recently used entry.
+    const lru = this.tail!;
     this.map.delete(lru.key);
     this.removeNode(lru);
     this._evictions++;

@@ -259,15 +259,63 @@ describe('LRUCache', () => {
       expect(resized).toBe(false);
     });
 
-    it('should not resize when capacity is 0', () => {
-      // LRU cache with minimum capacity
-      const c = new LRUCache<string, number>(1);
+    it('should double the capacity when it resizes', () => {
+      const c = new LRUCache<string, number>(2);
+      c.get('missing'); // records a miss, so the hit rate is 0 < 0.5
+      expect(c.autoResize(0.5)).toBe(true);
+      expect(c.capacity).toBe(4);
+      // A second resize doubles again and keeps the entries intact.
+      expect(c.autoResize(0.5)).toBe(true);
+      expect(c.capacity).toBe(8);
+    });
+  });
+
+  describe('getStats', () => {
+    it('should report a zero hit rate on a fresh cache', () => {
+      expect(cache.getStats()).toEqual({
+        hits: 0,
+        misses: 0,
+        evictions: 0,
+        evictionCount: 0,
+        size: 0,
+        capacity: 5,
+        hitRate: 0,
+      });
+    });
+
+    it('should compute the hit rate from recorded hits and misses', () => {
+      cache.set('a', 1);
+      cache.get('a'); // hit
+      cache.get('a'); // hit
+      cache.get('b'); // miss
+
+      const stats = cache.getStats();
+      expect(stats.hits).toBe(2);
+      expect(stats.misses).toBe(1);
+      expect(stats.hitRate).toBeCloseTo(2 / 3);
+      expect(stats.size).toBe(1);
+      expect(stats.capacity).toBe(5);
+    });
+
+    it('should mirror the eviction counter', () => {
+      const c = new LRUCache<string, number>(2);
       c.set('a', 1);
-      // All hits, hit rate = 1.0
-      c.get('a');
-      const resized = c.autoResize(0.1);
-      // hit rate 1.0 > 0.1, so no resize
-      expect(resized).toBe(false);
+      c.set('b', 2);
+      c.set('c', 3); // evicts 'a'
+
+      expect(c.getStats().evictionCount).toBe(1);
+      expect(c.getStats().evictions).toBe(1);
+      expect(c.stats.evictions).toBe(1);
+    });
+
+    it('should return a fresh snapshot on each call', () => {
+      const before = cache.getStats();
+      cache.get('missing'); // records a miss after the snapshot was taken
+      const after = cache.getStats();
+
+      expect(before.misses).toBe(0);
+      expect(after.misses).toBe(1);
+      expect(after).not.toBe(before);
     });
   });
 });

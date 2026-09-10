@@ -1,5 +1,5 @@
 {
-  "totalHidden": 156,
+  "totalHidden": 145,
   "totalLines": 128276,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
@@ -7,7 +7,6 @@
     "packages/infra/src/storage/sqlite-graph-store.ts": 17,
     "packages/server/src/http-server.ts": 16,
     "packages/infra/src/filesystem/discoverer.ts": 12,
-    "packages/shared/src/utils/lru-cache.ts": 11,
     "packages/infra/src/git/git-operations.ts": 9,
     "packages/mcp/src/tools/tool-context.ts": 7,
     "packages/infra/src/performance/memoizer.ts": 6,
