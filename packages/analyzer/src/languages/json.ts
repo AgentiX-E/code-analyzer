@@ -22,15 +22,10 @@ export class JsonProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'none' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const m = require('tree-sitter-json') as TreeSitterLanguage;
-      return m;
-    } catch {
-      /* v8 ignore start -- @preserve -- grammar is bundled, require never throws */
-      return null;
-    }
-    /* v8 ignore stop */
+    // tree-sitter-json is a direct dependency of the analyzer, so this require
+    // never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-json') as TreeSitterLanguage;
   }
 
   // ---- AST Walking ----
@@ -86,7 +81,9 @@ export class JsonProvider extends TreeSitterBaseProvider {
           valueType = 'string';
           valueText = child.text.slice(1, -1);
         }
-      } else if (child.type === 'number' || child.type === 'negative_number') {
+      } else if (child.type === 'number') {
+        // tree-sitter-json emits negative numbers as `number` (e.g. "-5"),
+        // never as a separate `negative_number` node.
         valueType = 'number';
         valueText = child.text;
       } else if (child.type === 'true' || child.type === 'false') {
@@ -98,20 +95,19 @@ export class JsonProvider extends TreeSitterBaseProvider {
       } else if (child.type === 'object') {
         valueType = 'object';
         valueText = `{${child.namedChildCount} keys}`;
-        /* v8 ignore next -- @preserve -- defensive null / fallthrough branch */
-      } else if (child.type === 'array') {
+      } else {
+        // JSON values are a closed set of {string, number, true/false, null,
+        // object, array}; array is the only remaining type here.
         valueType = 'array';
         valueText = `[${child.namedChildCount} items]`;
       }
     }
-    /* v8 ignore next -- @preserve -- defensive null / fallthrough branch */
     if (keyName) {
       captures.push(
         this.makeCapture(
           node,
           CAPTURE_TAGS.VARIABLE_DEF,
           keyName,
-          /* v8 ignore next -- @preserve -- defensive null / fallthrough branch */
           valueText ? `${keyName}: ${valueText}` : keyName,
           { valueType },
         ),
@@ -123,16 +119,8 @@ export class JsonProvider extends TreeSitterBaseProvider {
 
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
     if (node.type === 'pair') {
-      let keyName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- JSON5-extension node type / defensive null branch */
-        if (child.type === 'string') {
-          keyName = child.text.slice(1, -1).toLowerCase();
-          break;
-        }
-      }
-      /* v8 ignore next -- @preserve -- JSON5-extension node type / defensive null branch */
+      // In tree-sitter-json a pair's first named child is always its string key.
+      const keyName = node.namedChild(0).text.slice(1, -1).toLowerCase();
       if (keyName) {
         const secretKeys = [
           'password',
@@ -148,7 +136,6 @@ export class JsonProvider extends TreeSitterBaseProvider {
           'access_key',
           'accesskey',
         ];
-        /* v8 ignore next -- @preserve -- JSON5-extension node type / defensive null branch */
         if (secretKeys.some((k) => keyName.includes(k))) {
           sources.push({
             name: keyName,
@@ -178,16 +165,8 @@ export class JsonProvider extends TreeSitterBaseProvider {
     sanitizers: TaintSanitizer[],
   ): void {
     if (node.type === 'pair') {
-      let keyName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        /* v8 ignore next -- @preserve -- JSON5-extension node type / defensive null branch */
-        if (child.type === 'string') {
-          keyName = child.text.slice(1, -1).toLowerCase();
-          break;
-        }
-      }
-      /* v8 ignore next -- @preserve -- JSON5-extension node type / defensive null branch */
+      // In tree-sitter-json a pair's first named child is always its string key.
+      const keyName = node.namedChild(0).text.slice(1, -1).toLowerCase();
       if (
         keyName &&
         (keyName.includes('allowed') ||
@@ -215,7 +194,6 @@ export class JsonProvider extends TreeSitterBaseProvider {
   private countChildren(node: TreeSitterSyntaxNode, type: string): number {
     let count = 0;
     for (let i = 0; i < node.namedChildCount; i++) {
-      /* v8 ignore next -- @preserve -- JSON5-extension node type / defensive null branch */
       if (node.namedChild(i).type === type) count++;
     }
     return count;
@@ -240,9 +218,22 @@ export class JsonProvider extends TreeSitterBaseProvider {
     };
   }
 
+  /** Describe a parsed JSON value for the regex fallback capture. */
+  private describeValue(value: unknown): { text: string; valueType: string } {
+    // `typeof null === 'object'`, so null must be handled before the object
+    // branch or it would be mislabeled as an object.
+    if (value === null) return { text: 'null', valueType: 'null' };
+    if (typeof value === 'object') {
+      return {
+        text: `[${typeof value}]`,
+        valueType: Array.isArray(value) ? 'array' : 'object',
+      };
+    }
+    return { text: String(value), valueType: typeof value };
+  }
+
   // ---- Fallback ----
 
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     try {
@@ -260,21 +251,24 @@ export class JsonProvider extends TreeSitterBaseProvider {
             properties: { keyCount: String(Object.keys(value).length), filePath },
           });
           for (const [k, v] of Object.entries(value)) {
+            const { text, valueType } = this.describeValue(v);
             captures.push({
               tag: CAPTURE_TAGS.VARIABLE_DEF,
-              text: `${k}: ${typeof v === 'object' ? `[${typeof v}]` : String(v)}`,
+              text: `${k}: ${text}`,
               startLine: line,
               endLine: line,
               startByte: 0,
               endByte: 0,
               name: k,
               properties: {
-                valueType:
-                  typeof v === 'object' ? (Array.isArray(v) ? 'array' : 'object') : typeof v,
+                valueType,
                 filePath,
               },
             });
-            if (v && typeof v === 'object') walkJson(v, `${path}.${k}`, line);
+            if (v && typeof v === 'object') {
+              // Build the child path without a leading dot: the root path is ''.
+              walkJson(v, path ? `${path}.${k}` : k, line);
+            }
           }
         }
       };
@@ -285,16 +279,13 @@ export class JsonProvider extends TreeSitterBaseProvider {
     return captures;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(_source: string): ParsedImport[] {
     return [];
   }
-  /* v8 ignore next */
   protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
     try {
@@ -333,11 +324,9 @@ export class JsonProvider extends TreeSitterBaseProvider {
     return sources;
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractTaintSinks(_source: string): TaintSink[] {
     return [];
   }
-  /* v8 ignore next */
   protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }

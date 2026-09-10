@@ -1,9 +1,8 @@
 {
-  "totalHidden": 290,
-  "totalLines": 128505,
+  "totalHidden": 273,
+  "totalLines": 128494,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
-    "packages/analyzer/src/languages/json.ts": 17,
     "packages/core/src/security/supply-chain-integrity.ts": 17,
     "packages/infra/src/storage/sqlite-graph-store.ts": 17,
     "packages/server/src/http-server.ts": 16,
