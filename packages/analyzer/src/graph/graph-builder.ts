@@ -84,11 +84,11 @@ export class GraphBuilder {
       this.store.insertEdge({
         ...edge,
         projectId,
-        // Every edge endpoint has a node entry (validate() flags orphans),
-        // so the idMap lookup below always resolves
-        /* v8 ignore next */
+        // Re-map the graph-local ids into the store's own id space. An orphan
+        // edge (an endpoint with no node entry) keeps its original id and is
+        // then rejected by the store; validate() reports the same condition as
+        // an integrity issue for callers that want to check before dumping.
         sourceId: idMap.get(edge.sourceId) ?? edge.sourceId,
-        /* v8 ignore next */
         targetId: idMap.get(edge.targetId) ?? edge.targetId,
       });
     }
@@ -112,11 +112,11 @@ export class GraphBuilder {
       }
     }
 
-    // Check for duplicate qualified names
+    // Check for duplicate qualified names. A node created without a name has an
+    // empty qualifiedName (createNode falls back to the name) and cannot collide
+    // with anything, so it is skipped here.
     const qnameSet = new Map<string, number[]>();
     for (const [, node] of graph.nodes) {
-      // createNode always assigns a non-empty qualifiedName (name fallback)
-      /* v8 ignore next -- @preserve -- every node carries a non-empty qualifiedName */
       if (node.qualifiedName) {
         const ids = qnameSet.get(node.qualifiedName) ?? [];
         ids.push(node.id);

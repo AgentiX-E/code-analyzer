@@ -1,5 +1,5 @@
 {
-  "totalHidden": 159,
+  "totalHidden": 156,
   "totalLines": 128276,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
@@ -17,7 +17,6 @@
     "packages/mcp/src/tools/confidence.ts": 5,
     "packages/core/src/operations/graceful-shutdown.ts": 4,
     "packages/vscode/src/participant/code-analyzer-participant.ts": 4,
-    "packages/analyzer/src/graph/graph-builder.ts": 3,
     "packages/server/src/graphql/context.ts": 3,
     "packages/core/src/operations/health-check.ts": 1,
     "packages/core/src/operations/resilience.ts": 1,

@@ -394,6 +394,27 @@ describe('phase error handling (catch paths)', () => {
     const result = await phase.execute(ctx);
     expect(result.status).toBe('failed');
     expect(result.error).toContain('not found');
+    // The store rejects the ORIGINAL source id, which proves dumpToStore fell
+    // back to `edge.sourceId` instead of forwarding an unmapped id.
+    expect(result.error).toContain('source node id=999');
+  });
+
+  it('build forwards the original target id when only the target is an orphan', async () => {
+    const phase = new ParallelBuildPhase();
+    const store = new InMemoryGraphStore();
+    const builder = new GraphBuilder(store);
+    const graph = makeGraph();
+    // A real node so the source id resolves through the store id map, plus an
+    // edge whose target node was never added: dumpToStore must fall back to
+    // `edge.targetId` and let the store reject the forwarded id.
+    const source = builder.addNode(graph, 'Project', 'test', { name: 'test' });
+    builder.addEdge(graph, source.id, 7777, EDGE_CALLS, 'test');
+
+    const ctx = makeCtx({ graph });
+    const result = await phase.execute(ctx);
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('target node id=7777 not found');
   });
 });
 

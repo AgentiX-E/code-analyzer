@@ -315,18 +315,26 @@ describe('GraphBuilder', () => {
   });
 
   describe('validate', () => {
-    it('ignores nodes without a qualified name in duplicate detection', () => {
+    it('ignores nodes with an empty qualified name in duplicate detection', () => {
       const store = new InMemoryGraphStore();
       const builder = new GraphBuilder(store);
       const ctx = createMockContext();
       const graph = builder.build(ctx);
 
-      // Add two nodes without qualified names — they must not be flagged
-      builder.addNode(graph, 'Function', 'a', { name: 'a' });
-      builder.addNode(graph, 'Function', 'b', { name: 'b' });
+      // createNode falls back to the node name for qualifiedName, so an
+      // unnamed symbol (e.g. an anonymous declaration captured without a name)
+      // ends up with an empty qualifiedName. Such a node cannot collide with
+      // anything and must be skipped by duplicate detection.
+      const firstUnnamed = builder.addNode(graph, 'Function', '', { name: '' });
+      const secondUnnamed = builder.addNode(graph, 'Function', '', { name: '' });
+      expect(firstUnnamed.qualifiedName).toBe('');
+      expect(secondUnnamed.qualifiedName).toBe('');
 
       const report = builder.validate(graph);
       expect(report.duplicateQnames).toBe(0);
+      expect(report.issues).toHaveLength(0);
+      // Both unnamed nodes are still part of the graph.
+      expect(report.nodeCount).toBe(4);
     });
   });
 });
