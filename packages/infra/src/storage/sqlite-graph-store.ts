@@ -4,22 +4,11 @@
 import { existsSync, unlinkSync } from 'node:fs';
 import type { Database as DatabaseType, Statement } from 'better-sqlite3';
 import type { GraphNode, GraphEdge, NodeLabel, RelationshipType } from '@code-analyzer/shared';
-
-// ---------------------------------------------------------------------------
-// Lazy import of better-sqlite3 (optional dependency)
-// ---------------------------------------------------------------------------
-
-let BetterSqlite3: typeof import('better-sqlite3') | null = null;
-
-try {
-  // Dynamic require for optional better-sqlite3 dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  BetterSqlite3 = require('better-sqlite3') as typeof import('better-sqlite3');
-  /* v8 ignore start */
-} catch {
-  // better-sqlite3 is optional; SqliteGraphStore throws a clear error on use.
-}
-/* v8 ignore stop */
+import {
+  loadBetterSqlite3,
+  loadDefaultBetterSqlite3,
+  type Sqlite3Loader,
+} from './sqlite-loader.js';
 
 // ---------------------------------------------------------------------------
 // SQL Schema
@@ -178,8 +167,14 @@ export class SqliteGraphStore {
   // Constructor
   // -----------------------------------------------------------------------
 
-  constructor(dbPath: string) {
-    /* v8 ignore next 2 */
+  /**
+   * @param dbPath - SQLite file path, or `:memory:` for an in-memory database.
+   * @param loader - Resolver for the optional `better-sqlite3` dependency,
+   *   defaulting to `loadDefaultBetterSqlite3`. Injecting a loader lets a test
+   *   exercise the missing-dependency path without uninstalling the package.
+   */
+  constructor(dbPath: string, loader: Sqlite3Loader = loadDefaultBetterSqlite3) {
+    const BetterSqlite3 = loadBetterSqlite3(loader);
     if (!BetterSqlite3) {
       throw new Error(
         'SqliteGraphStore requires better-sqlite3. Install it with:\n' +
@@ -523,13 +518,15 @@ export class SqliteGraphStore {
       missing_side: string;
       node_id: number;
     }[];
-    /* v8 ignore start */
+    // insertEdge/updateEdge reject dangling endpoints and deleting a node
+    // cascades to its edges, so a database written solely through this store
+    // never yields rows here. The report exists for databases that were written
+    // by another tool, or before foreign keys were enforced.
     for (const row of orphanRows) {
       issues.push(
         `Edge id=${row.edge_id} references missing ${row.missing_side} node id=${row.node_id}`,
       );
     }
-    /* v8 ignore stop */
 
     // Check for duplicate qualified names (per project)
     const dupRows = this.stmtDuplicateQnames.all() as {
@@ -538,13 +535,15 @@ export class SqliteGraphStore {
       cnt: number;
       ids: string;
     }[];
-    /* v8 ignore start */
+    // The unique index on (project_id, qualified_name) prevents duplicates in a
+    // database created by this store — creating that index on an already
+    // duplicated table fails outright. A legacy file that predates the index, or
+    // had it dropped, can still hold duplicates, which is what this reports.
     for (const row of dupRows) {
       issues.push(
         `Qualified name "${row.qualified_name}" in project "${row.project_id}" has ${row.cnt} nodes: ${row.ids}`,
       );
     }
-    /* v8 ignore stop */
 
     // Check for missing qualified names
     const missingQnameRows = this.stmtMissingQnames.all() as { id: number; name: string }[];
@@ -594,8 +593,8 @@ export class SqliteGraphStore {
       try {
         this.db.pragma('wal_checkpoint(TRUNCATE)');
       } catch {
-        /* v8 ignore next 2 */
-        // Ignore checkpoint errors during close
+        // A failed checkpoint (for example SQLITE_BUSY when another connection
+        // is active) must not prevent the database from being closed.
       }
       this.db.close();
       this.closed = true;

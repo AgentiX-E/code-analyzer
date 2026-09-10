@@ -104,4 +104,45 @@ describe('InMemoryGraphStore — branch coverage', () => {
       expect(store.getNodeByQualifiedName('pkg.B')).not.toBeNull();
     });
   });
+
+  describe('searchFts snippet window', () => {
+    // The snippet keeps a 40-character window on each side of the match and
+    // marks with an ellipsis only the sides that were actually trimmed.
+    it('omits the leading ellipsis when the match starts the text', () => {
+      store.insertNode(
+        createTestNode({ name: 'needle' + 'x'.repeat(80), qualifiedName: 'pkg.head' }),
+      );
+      const results = store.searchFts('needle');
+      expect(results.length).toBe(1);
+      const snippet = results[0]!.snippet;
+      expect(snippet.startsWith('<<needle>>')).toBe(true);
+      expect(snippet.endsWith('...')).toBe(true);
+    });
+
+    it('adds both ellipses when the match is surrounded by text', () => {
+      store.insertNode(
+        createTestNode({
+          name: 'y'.repeat(60) + 'needle' + 'z'.repeat(60),
+          qualifiedName: 'pkg.middle',
+        }),
+      );
+      const results = store.searchFts('needle');
+      expect(results.length).toBe(1);
+      const snippet = results[0]!.snippet;
+      expect(snippet.startsWith('...')).toBe(true);
+      expect(snippet.endsWith('...')).toBe(true);
+      expect(snippet).toContain('<<needle>>');
+    });
+
+    it('omits the trailing ellipsis when the match ends the text', () => {
+      store.insertNode(
+        createTestNode({ name: 'a'.repeat(50) + 'needle', qualifiedName: 'pkg.tail' }),
+      );
+      const results = store.searchFts('needle');
+      expect(results.length).toBe(1);
+      const snippet = results[0]!.snippet;
+      expect(snippet.startsWith('...')).toBe(true);
+      expect(snippet.endsWith('>>')).toBe(true);
+    });
+  });
 });

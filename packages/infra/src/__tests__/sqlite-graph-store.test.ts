@@ -2,10 +2,11 @@
 // Comprehensive tests for CRUD, bulk ops, FTS5 search, BFS, integrity, and stats.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, unlinkSync, mkdtempSync } from 'node:fs';
+import { existsSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SqliteGraphStore, deleteDatabase } from '../storage/sqlite-graph-store.js';
+import { loadDefaultBetterSqlite3 } from '../storage/sqlite-loader.js';
 import { createTestNode, createTestEdge, resetCounters } from './helpers.js';
 import type { GraphNode, GraphEdge, NodeLabel, EdgeProperties } from '@code-analyzer/shared';
 
@@ -1032,6 +1033,155 @@ describe('SqliteGraphStore', () => {
       // So orphan detection is mostly for integrity checking of manually-corrupted data
       const result = store.validate();
       expect(result.valid).toBe(true);
+    });
+  });
+
+  // ==========================================================================
+  // Integrity reporting on databases not written by this store
+  // ==========================================================================
+
+  describe('validate on a database written by another tool', () => {
+    let dir: string;
+    let file: string;
+    let fileStore: SqliteGraphStore;
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'sqlite-external-'));
+      file = join(dir, 'external.db');
+      fileStore = new SqliteGraphStore(file);
+    });
+
+    afterEach(() => {
+      fileStore.close();
+      deleteDatabase(file);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('reports edges whose source or target node is missing', () => {
+      const nodeId = fileStore.insertNode(createTestNode({ qualifiedName: 'ext.node' }));
+
+      // A second connection models a database written without foreign-key
+      // enforcement — exactly the corruption validate() exists to report.
+      const raw = new (loadDefaultBetterSqlite3())(file);
+      raw.pragma('foreign_keys = OFF');
+      const insertEdgeRow = raw.prepare(
+        'INSERT INTO edges (project_id, source_id, target_id, type, properties, weight, created_at) VALUES (?,?,?,?,?,?,?)',
+      );
+      const now = new Date().toISOString();
+      insertEdgeRow.run('test-project', nodeId, 900001, 'CALLS', '{}', 1.0, now);
+      insertEdgeRow.run('test-project', 900002, nodeId, 'CALLS', '{}', 1.0, now);
+      raw.close();
+
+      const result = fileStore.validate();
+      expect(result.valid).toBe(false);
+      expect(result.issues).toContain('Edge id=1 references missing target node id=900001');
+      expect(result.issues).toContain('Edge id=2 references missing source node id=900002');
+    });
+
+    it('reports duplicate qualified names when the unique index is absent', () => {
+      fileStore.insertNode(createTestNode({ qualifiedName: 'ext.dup', projectId: 'p1' }));
+
+      const raw = new (loadDefaultBetterSqlite3())(file);
+      raw.pragma('foreign_keys = OFF');
+      // A legacy database may predate the unique index, or have had it dropped.
+      raw.exec('DROP INDEX IF EXISTS idx_nodes_project_qname');
+      const now = new Date().toISOString();
+      raw
+        .prepare(
+          'INSERT INTO nodes (project_id, label, name, qualified_name, properties, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
+        )
+        .run('p1', 'Function', 'dup', 'ext.dup', '{}', now, now);
+      raw.close();
+
+      const result = fileStore.validate();
+      expect(result.valid).toBe(false);
+      expect(
+        result.issues.some((issue) => issue.includes('"ext.dup"') && issue.includes('has 2 nodes')),
+      ).toBe(true);
+    });
+
+    it('bfs skips neighbours whose node row is missing', () => {
+      const startId = fileStore.insertNode(createTestNode({ qualifiedName: 'ext.bfs' }));
+      const raw = new (loadDefaultBetterSqlite3())(file);
+      raw.pragma('foreign_keys = OFF');
+      raw
+        .prepare(
+          'INSERT INTO edges (project_id, source_id, target_id, type, properties, weight, created_at) VALUES (?,?,?,?,?,?,?)',
+        )
+        .run('test-project', startId, 910001, 'CALLS', '{}', 1.0, new Date().toISOString());
+      raw.close();
+
+      // The dangling edge must not add a phantom node to the traversal.
+      expect(fileStore.bfs(startId).map((node) => node.id)).toEqual([startId]);
+    });
+
+    it('getNeighbors skips edges whose target node row is missing', () => {
+      const nodeId = fileStore.insertNode(createTestNode({ qualifiedName: 'ext.neigh' }));
+      const raw = new (loadDefaultBetterSqlite3())(file);
+      raw.pragma('foreign_keys = OFF');
+      raw
+        .prepare(
+          'INSERT INTO edges (project_id, source_id, target_id, type, properties, weight, created_at) VALUES (?,?,?,?,?,?,?)',
+        )
+        .run('test-project', nodeId, 920001, 'CALLS', '{}', 1.0, new Date().toISOString());
+      raw.close();
+
+      expect(fileStore.getNeighbors(nodeId)).toEqual([]);
+    });
+  });
+
+  describe('construction without the optional dependency', () => {
+    it('throws an actionable error when better-sqlite3 cannot be resolved', () => {
+      expect(
+        () =>
+          new SqliteGraphStore(':memory:', () => {
+            throw new Error("Cannot find module 'better-sqlite3'");
+          }),
+      ).toThrow(/requires better-sqlite3/);
+    });
+  });
+
+  describe('default timestamps', () => {
+    it('stamps createdAt and updatedAt when the node omits them', () => {
+      const node: Partial<GraphNode> = createTestNode({ qualifiedName: 'ts.omit' });
+      delete node.createdAt;
+      delete node.updatedAt;
+      const id = store.insertNode(node as GraphNode);
+
+      const stored = store.getNode(id)!;
+      expect(stored.createdAt).toBeTruthy();
+      expect(stored.updatedAt).toBeTruthy();
+      expect(Number.isNaN(Date.parse(stored.createdAt))).toBe(false);
+    });
+
+    it('stamps createdAt when the edge omits it', () => {
+      const a = store.insertNode(createTestNode({ qualifiedName: 'ts.a' }));
+      const b = store.insertNode(createTestNode({ qualifiedName: 'ts.b' }));
+      const edge: Partial<GraphEdge> = createTestEdge({ sourceId: a, targetId: b });
+      delete edge.createdAt;
+      const id = store.insertEdge(edge as GraphEdge);
+
+      const stored = store.getEdge(id)!;
+      expect(stored.createdAt).toBeTruthy();
+      expect(Number.isNaN(Date.parse(stored.createdAt))).toBe(false);
+    });
+  });
+
+  describe('updateNode with optional fields', () => {
+    it('applies language and fingerprint when present in the update', () => {
+      const id = store.insertNode(
+        createTestNode({
+          qualifiedName: 'upd.fields',
+          language: 'typescript',
+          fingerprint: 'before',
+        }),
+      );
+
+      store.updateNode(id, { language: 'python', fingerprint: 'after' });
+
+      const updated = store.getNode(id)!;
+      expect(updated.language).toBe('python');
+      expect(updated.fingerprint).toBe('after');
     });
   });
 

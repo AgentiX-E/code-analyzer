@@ -1,9 +1,8 @@
 {
-  "totalHidden": 120,
-  "totalLines": 128260,
+  "totalHidden": 98,
+  "totalLines": 128302,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
-    "packages/infra/src/storage/sqlite-graph-store.ts": 17,
     "packages/server/src/http-server.ts": 16,
     "packages/infra/src/filesystem/discoverer.ts": 12,
     "packages/infra/src/git/git-operations.ts": 9,
@@ -11,7 +10,6 @@
     "packages/infra/src/performance/memoizer.ts": 6,
     "packages/infra/src/project/auto-watcher.ts": 6,
     "packages/infra/src/workers/supervisor.ts": 6,
-    "packages/infra/src/storage/in-memory-graph-store.ts": 5,
     "packages/mcp/src/tools/confidence.ts": 5,
     "packages/vscode/src/participant/code-analyzer-participant.ts": 4,
     "packages/server/src/graphql/context.ts": 3,

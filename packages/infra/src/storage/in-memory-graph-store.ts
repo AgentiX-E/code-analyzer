@@ -1226,16 +1226,16 @@ export class InMemoryGraphStore {
   }
 
   private highlightTerm(text: string, term: string): string {
+    // Invariant: every caller reaches this only after confirming that the
+    // lowercased text contains the term, and `searchFts` lowercases every term
+    // before matching. The term is therefore always present and a not-found
+    // fallback would be unreachable.
     const idx = text.toLowerCase().indexOf(term.toLowerCase());
-    /* v8 ignore next */ // highlightTerm tested via search integration; branch coverage of text slices is cosmetic
-    if (idx === -1) return text.slice(0, 100);
 
-    /* v8 ignore start */ // Text-slicing edge cases covered by search integration tests
     const start = Math.max(0, idx - 40);
     const end = Math.min(text.length, idx + term.length + 40);
     const prefix = start > 0 ? '...' : '';
     const suffix = end < text.length ? '...' : '';
-    /* v8 ignore stop */
     const body = text.slice(start, end);
     const termStart = idx - start;
     const termEnd = termStart + term.length;
