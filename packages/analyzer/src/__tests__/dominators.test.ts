@@ -103,6 +103,67 @@ describe('findNaturalLoops — multi back-edge loops', () => {
   });
 });
 
+describe('findNaturalLoops — natural-loop dominance invariant', () => {
+  it('includes only blocks dominated by the loop header', () => {
+    // findBackEdges defines a back edge as an edge whose target dominates its
+    // source, and the loop walk only expands blocks it has already proven to be
+    // dominated by the header. Every predecessor it reaches is therefore
+    // dominated by the header too, which is why findNaturalLoops needs no
+    // per-predecessor dominance check (and no second dominator computation).
+    const cfgs: ControlFlowGraph[] = [
+      // Single loop closed by a back edge to the entry block.
+      makeCfg('simple_loop', [makeBlock(0, [1]), makeBlock(1, [0, 2]), makeBlock(2, [])]),
+      // Nested loops sharing the outer loop body.
+      makeCfg('nested_loops', [
+        makeBlock(0, [1]),
+        makeBlock(1, [2]),
+        makeBlock(2, [1, 3, 4]),
+        makeBlock(3, [2]),
+        makeBlock(4, [5]),
+        makeBlock(5, [4, 6]),
+        makeBlock(6, []),
+      ]),
+      // Diamond mesh with a back edge to the entry block.
+      makeCfg('diamond_loop', [
+        makeBlock(0, [1, 2]),
+        makeBlock(1, [3]),
+        makeBlock(2, [3]),
+        makeBlock(3, [4]),
+        makeBlock(4, [0, 5]),
+        makeBlock(5, []),
+      ]),
+      // Two sequential loops: the walk must not leak into the earlier loop.
+      makeCfg('sequential_loops', [
+        makeBlock(0, [1]),
+        makeBlock(1, [2]),
+        makeBlock(2, [1, 3]),
+        makeBlock(3, [4]),
+        makeBlock(4, [3, 5]),
+        makeBlock(5, []),
+      ]),
+    ];
+
+    let headersSeen = 0;
+    for (const cfg of cfgs) {
+      const dominators = computeDominators(cfg);
+      const backEdges = findBackEdges(cfg);
+      const loops = findNaturalLoops(cfg);
+
+      // Exactly one natural loop per distinct back-edge header.
+      expect(loops.size).toBe(new Set(backEdges.map(([, target]) => target)).size);
+
+      for (const [headerId, members] of loops) {
+        headersSeen++;
+        expect(members).toContain(headerId);
+        for (const memberId of members) {
+          expect(dominators.get(memberId)!.has(headerId)).toBe(true);
+        }
+      }
+    }
+    expect(headersSeen).toBeGreaterThanOrEqual(5);
+  });
+});
+
 describe('intersectSets — size swap', () => {
   it('swaps the smaller set when the running intersection is larger', () => {
     // Block 4 has predecessors 2 ({0,1,2}) and 3 ({0,3}); intersecting the

@@ -6,6 +6,7 @@
 // and immediate dominators in O(N²) worst-case, O(N log N) typical.
 
 import type { ControlFlowGraph } from './cfg-types.js';
+import { intersectSets, setEquals } from './set-utils.js';
 
 /**
  * Compute the set of dominators for each block in the CFG.
@@ -254,41 +255,22 @@ export function findNaturalLoops(cfg: ControlFlowGraph): Map<number, number[]> {
         if (!visited.has(pred.id)) {
           visited.add(pred.id);
 
-          // Check if pred is dominated by the loop header
-          const predDoms = dominators.get(pred.id)!;
-          /* v8 ignore next -- @preserve -- every predecessor reachable from a back-edge source is dominated by the loop header (natural-loop invariant), so this is always true */
-          if (predDoms.has(targetId)) {
-            if (!loop!.includes(pred.id)) {
-              loop!.push(pred.id);
-            }
-            stack.push(pred.id);
+          // Natural-loop invariant: `targetId` (the header) dominates `sourceId`
+          // — that is exactly how findBackEdges defines a back edge — and the
+          // walk only ever expands blocks it has already proven to be dominated
+          // by the header. For such a block c, any predecessor p != header is
+          // also dominated by the header: otherwise a path entry -> p avoiding
+          // the header, plus the edge p -> c, would reach c without passing the
+          // header. Hence every predecessor reached here is dominated by the
+          // header and a dominance check would always succeed.
+          if (!loop!.includes(pred.id)) {
+            loop!.push(pred.id);
           }
+          stack.push(pred.id);
         }
       }
     }
   }
 
   return loops;
-}
-
-// ---------------------------------------------------------------------------
-// Set utilities
-// ---------------------------------------------------------------------------
-
-function intersectSets(a: Set<number>, b: Set<number>): Set<number> {
-  const result = new Set<number>();
-  const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
-  for (const val of smaller) {
-    if (larger.has(val)) result.add(val);
-  }
-  return result;
-}
-
-function setEquals(a: Set<number>, b: Set<number>): boolean {
-  if (a.size !== b.size) return false;
-  for (const val of a) {
-    /* v8 ignore next -- @preserve -- dominator sets converge monotonically, so equal sizes imply equal contents at this call site */
-    if (!b.has(val)) return false;
-  }
-  return true;
 }

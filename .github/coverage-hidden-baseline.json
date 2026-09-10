@@ -1,6 +1,6 @@
 {
-  "totalHidden": 163,
-  "totalLines": 128273,
+  "totalHidden": 159,
+  "totalLines": 128276,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/core/src/security/supply-chain-integrity.ts": 17,
@@ -19,8 +19,6 @@
     "packages/vscode/src/participant/code-analyzer-participant.ts": 4,
     "packages/analyzer/src/graph/graph-builder.ts": 3,
     "packages/server/src/graphql/context.ts": 3,
-    "packages/analyzer/src/cfg/dataflow.ts": 2,
-    "packages/analyzer/src/cfg/dominators.ts": 2,
     "packages/core/src/operations/health-check.ts": 1,
     "packages/core/src/operations/resilience.ts": 1,
     "packages/core/src/security/rbac.ts": 1,

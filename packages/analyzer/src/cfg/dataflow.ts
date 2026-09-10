@@ -6,6 +6,7 @@
 //   - Dead Store Detection
 
 import type { ControlFlowGraph } from './cfg-types.js';
+import { intersectSets, setEquals } from './set-utils.js';
 
 // ---------------------------------------------------------------------------
 // Reaching Definitions
@@ -313,10 +314,10 @@ function checkVariableUsed(
   const visited = new Set<number>();
   const stack: number[] = [];
 
-  // Start from successors of the defining block
-  const startBlock = cfg.blocks.find((b) => b.id === startBlockId);
-  /* v8 ignore next -- @preserve -- startBlockId always references a block in cfg.blocks */
-  if (!startBlock) return false;
+  // Start from successors of the defining block. The only caller passes an id
+  // taken from `cfg.blocks` (detectDeadStores iterates that same array), so the
+  // lookup always resolves and no missing-block guard is needed.
+  const startBlock = cfg.blocks.find((b) => b.id === startBlockId)!;
 
   for (const succId of startBlock.successors) {
     stack.push(succId);
@@ -461,26 +462,4 @@ export function computeAvailableExpressions(
   }
 
   return availIn;
-}
-
-// ---------------------------------------------------------------------------
-// Set utilities
-// ---------------------------------------------------------------------------
-
-function intersectSets(a: Set<string>, b: Set<string>): Set<string> {
-  const result = new Set<string>();
-  const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
-  for (const val of smaller) {
-    if (larger.has(val)) result.add(val);
-  }
-  return result;
-}
-
-function setEquals(a: Set<string>, b: Set<string>): boolean {
-  if (a.size !== b.size) return false;
-  /* v8 ignore next -- @preserve -- the analyses are monotonic, so equal-size sets are always equal */
-  for (const val of a) {
-    if (!b.has(val)) return false;
-  }
-  return true;
 }
