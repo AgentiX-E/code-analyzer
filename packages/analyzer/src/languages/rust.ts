@@ -22,13 +22,10 @@ export class RustProvider extends TreeSitterBaseProvider {
   readonly importSemantics = 'named' as const;
 
   protected override loadGrammar(): TreeSitterLanguage | null {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('tree-sitter-rust') as TreeSitterLanguage;
-    } catch {
-      /* v8 ignore next -- @preserve -- native grammar module load failure is untestable */
-      return null;
-    }
+    // tree-sitter-rust is a direct dependency of the analyzer, so this require
+    // never throws in the bundled runtime.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('tree-sitter-rust') as TreeSitterLanguage;
   }
 
   protected override getNodeMappings(): NodeTypeMapping[] {
@@ -61,68 +58,60 @@ export class RustProvider extends TreeSitterBaseProvider {
     const nodeType = node.type;
 
     if (nodeType === 'function_item') {
+      // A function_item always carries its name as a direct `identifier` child.
       const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a function_item always carries an identifier */
-      if (nameNode) {
-        const isPublic = this.source
-          .slice(Math.max(0, node.startIndex - 5), node.startIndex)
-          .includes('pub');
-        captures.push({
-          tag: CAPTURE_TAGS.FUNCTION_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { isPublic: String(isPublic), filePath: this.filePath },
-        });
-      }
+      const isPublic = this.source
+        .slice(Math.max(0, node.startIndex - 5), node.startIndex)
+        .includes('pub');
+      captures.push({
+        tag: CAPTURE_TAGS.FUNCTION_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { isPublic: String(isPublic), filePath: this.filePath },
+      });
     } else if (nodeType === 'struct_item') {
+      // A struct_item always carries its name as a direct `type_identifier` child.
       const nameNode = this.findChild(node, 'type_identifier');
-      /* v8 ignore next -- @preserve -- a struct_item always carries a type_identifier */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.CLASS_DEF,
-          text: `struct ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      captures.push({
+        tag: CAPTURE_TAGS.CLASS_DEF,
+        text: `struct ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'trait_item') {
+      // A trait_item always carries its name as a direct `type_identifier` child.
       const nameNode = this.findChild(node, 'type_identifier');
-      /* v8 ignore next -- @preserve -- a trait_item always carries a type_identifier */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.INTERFACE_DEF,
-          text: `trait ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      captures.push({
+        tag: CAPTURE_TAGS.INTERFACE_DEF,
+        text: `trait ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'enum_item') {
+      // An enum_item always carries its name as a direct `type_identifier` child.
       const nameNode = this.findChild(node, 'type_identifier');
-      /* v8 ignore next -- @preserve -- an enum_item always carries a type_identifier */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.ENUM_DEF,
-          text: `enum ${nameNode.text}`,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      captures.push({
+        tag: CAPTURE_TAGS.ENUM_DEF,
+        text: `enum ${nameNode.text}`,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'impl_item') {
       // impl block - extract type name
       const typeNode = this.findChild(node, 'type_identifier');
@@ -139,20 +128,18 @@ export class RustProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'const_item' || nodeType === 'static_item') {
+      // A const/static item always carries its name as a direct `identifier` child.
       const nameNode = this.findChild(node, 'identifier');
-      /* v8 ignore next -- @preserve -- a const/static item always carries an identifier */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.CONSTANT_DEF,
-          text: nameNode.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: nameNode.startIndex,
-          endByte: nameNode.endIndex,
-          name: nameNode.text,
-          properties: { filePath: this.filePath },
-        });
-      }
+      captures.push({
+        tag: CAPTURE_TAGS.CONSTANT_DEF,
+        text: nameNode.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: nameNode.startIndex,
+        endByte: nameNode.endIndex,
+        name: nameNode.text,
+        properties: { filePath: this.filePath },
+      });
     } else if (nodeType === 'use_declaration') {
       // use_declaration wraps a scoped_identifier (named), use_wildcard (glob),
       // or use_as_clause (aliased); resolve the scoped path in each shape
@@ -163,7 +150,6 @@ export class RustProvider extends TreeSitterBaseProvider {
         : asClause
           ? this.findChild(asClause, 'scoped_identifier')
           : this.findChild(node, 'scoped_identifier');
-      /* v8 ignore next -- @preserve -- a use_declaration always carries a scoped path */
       if (scopedId) {
         const path = wildcard ? `${scopedId.text}::*` : scopedId.text;
         captures.push({
@@ -179,23 +165,21 @@ export class RustProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'attribute_item') {
       // #[derive(Debug)] — the attribute name is an identifier nested inside
-      // the 'attribute' child, not a direct identifier of the attribute_item
+      // the 'attribute' child, not a direct identifier of the attribute_item.
+      // An attribute_item always carries an `attribute` child whose first named
+      // child is the attribute's identifier name.
       const attrNode = this.findChild(node, 'attribute');
-      /* v8 ignore next -- @preserve -- an attribute_item always carries an attribute child */
-      const nameNode = attrNode ? this.findChild(attrNode, 'identifier') : null;
-      /* v8 ignore next -- @preserve -- an attribute always carries an identifier */
-      if (nameNode) {
-        captures.push({
-          tag: CAPTURE_TAGS.DECORATOR,
-          text: node.text,
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          startByte: node.startIndex,
-          endByte: node.endIndex,
-          name: nameNode.text,
-          properties: { decorator: nameNode.text, filePath: this.filePath },
-        });
-      }
+      const nameNode = this.findChild(attrNode, 'identifier');
+      captures.push({
+        tag: CAPTURE_TAGS.DECORATOR,
+        text: node.text,
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+        startByte: node.startIndex,
+        endByte: node.endIndex,
+        name: nameNode.text,
+        properties: { decorator: nameNode.text, filePath: this.filePath },
+      });
     }
 
     for (let i = 0; i < node.childCount; i++) {
@@ -215,7 +199,6 @@ export class RustProvider extends TreeSitterBaseProvider {
         : asClause
           ? this.findChild(asClause, 'scoped_identifier')
           : this.findChild(node, 'scoped_identifier');
-      /* v8 ignore next -- @preserve -- a use_declaration always carries a scoped path */
       if (scopedId) {
         const path = scopedId.text;
         const isWildcard = wildcard !== null;
@@ -264,7 +247,6 @@ export class RustProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  /* v8 ignore next */
   protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
@@ -323,7 +305,6 @@ export class RustProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  /* v8 ignore next */
   protected override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
@@ -341,7 +322,6 @@ export class RustProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  /* v8 ignore next */
   protected override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(

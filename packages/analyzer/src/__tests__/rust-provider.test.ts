@@ -138,6 +138,13 @@ describe('RustProvider', () => {
       expect(imports.some((c) => c.name === 'std::collections::HashMap')).toBe(true);
     });
 
+    it('should skip scoped_use_list imports (no direct scoped_identifier child)', () => {
+      const code = 'use std::collections::{HashMap, BTreeMap};\npub fn main() { }';
+      const captures = provider.parse(code, 'main.rs');
+      const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
+      expect(imports).toHaveLength(0);
+    });
+
     it('should handle empty files', () => {
       const captures = provider.parse('', 'Empty.rs');
       expect(Array.isArray(captures)).toBe(true);
@@ -408,6 +415,12 @@ describe('RustProvider', () => {
       const captures = provider.fallbackParse(code, 'test.rs');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('fallbackParse should sort same-line captures by byte offset', () => {
+      const captures = provider.fallbackParse('fn a() {} fn b() {}', 'test.rs');
+      const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
+      expect(funcs.map((c) => c.name)).toEqual(['a', 'b']);
     });
 
     it('fallbackParse should handle empty files', () => {
