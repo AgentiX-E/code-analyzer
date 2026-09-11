@@ -23,6 +23,22 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # Native toolchain for node-gyp: `tree-sitter-toml` (prod dep of @code-analyzer/analyzer)
 # ships a NAN binding with no prebuilt binaries, so it must compile C++ on install.
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && rm -rf /var/lib/apt/lists/*
+
+# Seed the shared node-gyp header cache in one serialized step.
+#
+# node-gyp takes no cross-process lock on its devdir (~/.cache/node-gyp/<version>).
+# `pnpm install` builds native dependencies concurrently, and tree-sitter-toml,
+# tree-sitter-yaml and the tree-sitter core all run `node-gyp rebuild` against the same
+# Node version, so each one downloads and unpacks the identical headers tarball into
+# that shared directory. When two unpacks overlap, whichever compiler reads a header
+# mid-write sees a truncated file and the build dies with nonsense C++ diagnostics
+# (e.g. "unterminated #ifndef" inside v8-callbacks.h). Installing the headers here,
+# before any of that parallelism exists, makes every later node-gyp invocation take its
+# "already installed" fast path and removes the race entirely.
+#
+# node-gyp is pinned to the exact version pnpm bundles so that the install marker the
+# bundled node-gyp looks for matches the one written here.
+RUN npm install -g node-gyp@10.2.0 && node-gyp install
 WORKDIR /app
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -68,7 +84,9 @@ RUN pnpm turbo build
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Runner (MCP Server) — minimal production image
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-bookworm-slim AS runner
+# Inherits `base` for the C++ toolchain and the pre-seeded node-gyp header cache: the
+# production install below recompiles tree-sitter-toml's NAN binding and needs both.
+FROM base AS runner
 
 # ── OCI labels (image.created set via --label in CI) ─────────────────────────
 LABEL org.opencontainers.image.title="Code Analyzer"
@@ -82,11 +100,6 @@ LABEL org.opencontainers.image.documentation="https://github.com/Lambertyan/code
 # Add: --label "org.opencontainers.image.revision=$GITHUB_SHA"
 
 ENV NODE_ENV=production
-ARG PNPM_VERSION
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-# Same native toolchain as `base`: the production `pnpm install` below recompiles
-# `tree-sitter-toml`'s NAN binding, which needs a C++ toolchain.
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user (fixed UID/GID for host volume compatibility)
 RUN groupadd -g 1001 code-analyzer && \
@@ -150,7 +163,9 @@ CMD ["node", "packages/mcp/dist/start.js"]
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3: CLI — standalone CLI binary image
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:${NODE_VERSION}-bookworm-slim AS cli
+# Inherits `base` for the C++ toolchain and the pre-seeded node-gyp header cache, for
+# the same reason as `runner`: the production install recompiles tree-sitter-toml.
+FROM base AS cli
 
 LABEL org.opencontainers.image.title="Code Analyzer CLI"
 LABEL org.opencontainers.image.description="Code Analyzer command-line interface"
@@ -159,11 +174,6 @@ LABEL org.opencontainers.image.authors="Lambertyan"
 LABEL org.opencontainers.image.licenses="MIT"
 
 ENV NODE_ENV=production
-ARG PNPM_VERSION
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-# Native toolchain for node-gyp (see `base`): the production install recompiles
-# `tree-sitter-toml`'s NAN binding.
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential python3 && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -g 1001 cli && \
     useradd -u 1001 -g cli -m -s /bin/sh cli
