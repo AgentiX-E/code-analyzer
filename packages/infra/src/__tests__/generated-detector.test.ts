@@ -151,5 +151,55 @@ describe('GeneratedFileDetector', () => {
       ]);
       expect(d.detectByPath('codegen-output/models.ts').isGenerated).toBe(true);
     });
+
+    it('falls back to the basename when the regex rejects the full path', () => {
+      // Anchored at the start, so it can only ever match the basename.
+      const d = new GeneratedFileDetector([
+        {
+          pattern: '^service\\.gen\\.ts$',
+          isRegex: true,
+          description: 'Codegen by basename',
+          priority: 99,
+        },
+      ]);
+      expect(d.detectByPath('src/api/service.gen.ts')).toEqual({
+        isGenerated: true,
+        reason: 'Codegen by basename',
+      });
+    });
+
+    it('continues past a regex pattern that matches neither path nor basename', () => {
+      const d = new GeneratedFileDetector([
+        {
+          pattern: '^nothing-matches$',
+          isRegex: true,
+          description: 'Unmatched regex',
+          priority: 99,
+        },
+      ]);
+      expect(d.detectByPath('src/api/service.gen.ts')).toEqual({ isGenerated: false });
+    });
+  });
+
+  describe('Custom Patterns — priority ordering', () => {
+    it('prefers a custom pattern whose priority beats the defaults', () => {
+      const d = new GeneratedFileDetector([
+        { pattern: '**/*.min.js', description: 'High priority override', priority: 200 },
+      ]);
+      expect(d.detectByPath('dist/bundle.min.js')).toEqual({
+        isGenerated: true,
+        reason: 'High priority override',
+      });
+    });
+
+    it('keeps a higher-priority default ahead of a lower-priority custom pattern', () => {
+      const d = new GeneratedFileDetector([
+        { pattern: '**/*.min.js', description: 'Low priority override', priority: 10 },
+      ]);
+      expect(d.detectByPath('dist/bundle.min.js')).toEqual({
+        isGenerated: true,
+        reason: 'Minified JavaScript',
+      });
+    });
   });
 });

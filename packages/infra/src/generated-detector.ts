@@ -87,18 +87,20 @@ export class GeneratedFileDetector {
   constructor(customPatterns?: GeneratedPattern[]) {
     this.patterns = [...DEFAULT_PATTERNS];
     if (customPatterns) {
-      // Sort all patterns by priority (highest first)
-      this.patterns = [...this.patterns, ...customPatterns].sort(
-        (a, b) => (b.priority ?? 0) - (a.priority ?? 0),
-      );
+      // Sort all patterns by priority (highest first). Invariant: `priority` is
+      // a required field of the exported GeneratedPattern interface, so it is
+      // always a number here; a `?? 0` fallback would be unreachable for every
+      // type-correct caller.
+      this.patterns = [...this.patterns, ...customPatterns].sort((a, b) => b.priority - a.priority);
     }
   }
 
   detectByPath(filePath: string): GeneratedDetectionResult {
     // Normalize path: use forward slashes
     const normalized = filePath.replace(/\\/g, '/');
-    /* v8 ignore next */ // defensive: split always returns at least one element for valid paths
-    const base = normalized.split('/').pop() ?? normalized;
+    // Invariant: split always yields at least one element (the empty string
+    // still yields one), so pop() is never undefined.
+    const base = normalized.split('/').pop()!;
 
     for (const p of this.patterns) {
       if (p.isRegex) {

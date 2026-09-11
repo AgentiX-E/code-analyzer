@@ -189,7 +189,9 @@ describe('IncrementalIndexer', () => {
       // Pre-populate the cache
       cache.set('src/a.ts', 'const a = 1;');
 
-      // Artificially generate hits and misses via has() calls
+      // Artificially generate hits and misses via has() calls:
+      // 3 hits and 2 misses, an asymmetric split so the ratio is unambiguous.
+      cache.has('src/a.ts', 'const a = 1;'); // hit
       cache.has('src/a.ts', 'const a = 1;'); // hit
       cache.has('src/a.ts', 'const a = 1;'); // hit
       cache.has('nonexistent.ts', 'blah'); // miss
@@ -198,8 +200,8 @@ describe('IncrementalIndexer', () => {
       const files = [createDiscoveredFile('src/a.ts', 'const a = 1;')];
       const { stats } = indexer.detectChangesWithStats(files);
 
-      expect(stats.cacheHitRate).toBeGreaterThan(0);
-      expect(stats.cacheHitRate).toBeLessThan(1);
+      // detectChanges() reads through get(), which does not touch the counters.
+      expect(stats.cacheHitRate).toBe(0.6);
     });
   });
 
@@ -399,6 +401,8 @@ describe('IncrementalIndexer empty input', () => {
     expect(stats.unchangedCount).toBe(0);
     expect(stats.changedCount).toBe(0);
     expect(stats.removedCount).toBe(0);
+    // No file was looked up, so the hit rate is defined as zero rather than 0/0.
+    expect(stats.cacheHitRate).toBe(0);
     expect(result.changed).toHaveLength(0);
   });
 });

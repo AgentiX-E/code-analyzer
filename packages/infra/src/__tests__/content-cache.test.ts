@@ -16,6 +16,25 @@ function createTempFilePath(): string {
   return path.join(dir, 'cache.json');
 }
 
+/**
+ * Rewrite a persisted cache file so its entries carry distinct `parsedAt`
+ * values, oldest first. `set()` stamps every entry with the same `Date.now()`
+ * inside a tight loop, so recency has to be imposed after saving for the
+ * "most recent first" reload contract to be observable.
+ */
+function stampDistinctRecency(persistencePath: string): void {
+  const serialized: { entries: Array<[string, ContentCacheEntry]> } = JSON.parse(
+    fs.readFileSync(persistencePath, 'utf-8'),
+  );
+  serialized.entries = serialized.entries.map(
+    ([entryPath, entry], i): [string, ContentCacheEntry] => [
+      entryPath,
+      { ...entry, parsedAt: 1000 + i },
+    ],
+  );
+  fs.writeFileSync(persistencePath, JSON.stringify(serialized), 'utf-8');
+}
+
 // ---------------------------------------------------------------------------
 // computeSha256
 // ---------------------------------------------------------------------------
@@ -487,12 +506,20 @@ describe('ContentCache persistence', () => {
       }
       large.saveSync();
 
+      // Impose recency so the "most recent first" contract is observable.
+      stampDistinctRecency(tempPath);
+
       // Reload with smaller max
       const small = new ContentCache(3, tempPath);
       small.loadSync();
 
-      // Only 3 most recent should survive (sorted by parsedAt desc)
+      // Only the 3 most recent should survive (sorted by parsedAt desc)
       expect(small.size).toBe(3);
+      expect(small.get('file4.ts')).not.toBeNull();
+      expect(small.get('file3.ts')).not.toBeNull();
+      expect(small.get('file2.ts')).not.toBeNull();
+      expect(small.get('file1.ts')).toBeNull();
+      expect(small.get('file0.ts')).toBeNull();
     });
 
     it('creates parent directory if needed', () => {
@@ -548,6 +575,28 @@ describe('ContentCache persistence', () => {
     it('returns false when file does not exist', async () => {
       const empty = new ContentCache(100, '/nonexistent/async/cache.json');
       expect(await empty.load()).toBe(false);
+    });
+
+    it('respects maxEntries on reload, keeping the most recently parsed entries', async () => {
+      // Save 5 entries with a large max
+      const large = new ContentCache(1000, tempPath);
+      for (let i = 0; i < 5; i++) {
+        large.set(`file${i}.ts`, `content${i}`);
+      }
+      await large.save();
+
+      // Impose recency so the "most recent first" contract is observable.
+      stampDistinctRecency(tempPath);
+
+      // Reload with a smaller max — the surplus, older entries must be dropped
+      const small = new ContentCache(3, tempPath);
+      expect(await small.load()).toBe(true);
+      expect(small.size).toBe(3);
+      expect(small.get('file4.ts')).not.toBeNull();
+      expect(small.get('file3.ts')).not.toBeNull();
+      expect(small.get('file2.ts')).not.toBeNull();
+      expect(small.get('file1.ts')).toBeNull();
+      expect(small.get('file0.ts')).toBeNull();
     });
 
     it('throws if no persistencePath', async () => {
@@ -611,6 +660,32 @@ describe('ContentCache persistence', () => {
       expect(() => cache.loadSync()).toThrow();
       // Cache should be empty after failed load
       expect(cache.size).toBe(0);
+    });
+  });
+
+  describe('persistence with a duplicated entry', () => {
+    it('does not count a stale LRU slot as an eviction', async () => {
+      // A persistence file is external, unvalidated input. A duplicated entry
+      // makes load() queue the same path twice while the cache holds it once,
+      // so eviction later encounters an LRU slot whose key is already gone.
+      // Such a slot must be skipped without inflating evictionCount.
+      cache.set('dup.ts', 'dup');
+      cache.saveSync();
+      const serialized = JSON.parse(fs.readFileSync(tempPath, 'utf-8'));
+      serialized.entries = [...serialized.entries, ...serialized.entries];
+      fs.writeFileSync(tempPath, JSON.stringify(serialized), 'utf-8');
+
+      const restored = new ContentCache(2, tempPath);
+      expect(await restored.load()).toBe(true);
+      expect(restored.size).toBe(1);
+
+      restored.set('b.ts', 'b');
+      restored.set('c.ts', 'c');
+      restored.set('d.ts', 'd');
+
+      const stats = restored.getStats();
+      expect(stats.entries).toBe(2);
+      expect(stats.evictionCount).toBe(2);
     });
   });
 });

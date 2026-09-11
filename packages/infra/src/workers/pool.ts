@@ -41,7 +41,10 @@ export function createWorkerPool(concurrency: number = 4): WorkerPool {
   }
 
   async function executeTask<T>(task: WorkerTask<T>): Promise<T> {
-    const maxRetries = task.retries ?? 0;
+    // Clamp the retry budget: a negative value would skip the loop entirely and
+    // report a nonsensical attempt count. `retries` is an unvalidated public
+    // option, so clamping here is what makes the invariant below hold.
+    const maxRetries = Math.max(0, task.retries ?? 0);
     const timeout = task.timeout ?? 30000;
     let lastError: Error | undefined;
 
@@ -66,9 +69,10 @@ export function createWorkerPool(concurrency: number = 4): WorkerPool {
       }
     }
 
-    /* v8 ignore start */ // lastError always set by catch block; ?? is defensive only
-    throw lastError ?? new Error(`Task "${task.id}" failed after ${maxRetries + 1} attempts`);
-    /* v8 ignore stop */
+    // Invariant: maxRetries >= 0, so the loop runs at least once, and every
+    // iteration either returns the result or assigns lastError in its catch
+    // block. Reaching this line therefore means lastError is always set.
+    throw lastError!;
   }
 
   return {

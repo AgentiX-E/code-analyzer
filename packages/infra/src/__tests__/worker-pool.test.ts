@@ -154,6 +154,39 @@ describe('WorkerPool', () => {
     ).rejects.toThrow('always fails');
   });
 
+  it('treats a negative retries value as zero attempts-to-retry', async () => {
+    pool = createWorkerPool(1);
+    let calls = 0;
+    await expect(
+      pool.execute<string>({
+        id: 'negative-retries',
+        execute: async () => {
+          calls++;
+          throw new Error('inner failure');
+        },
+        retries: -1,
+      }),
+    ).rejects.toThrow('inner failure');
+    // The task must still run once, and its own error must propagate rather
+    // than a synthetic "failed after N attempts" message.
+    expect(calls).toBe(1);
+  });
+
+  it('runs a task exactly once when retries is omitted', async () => {
+    pool = createWorkerPool(1);
+    let calls = 0;
+    await expect(
+      pool.execute<string>({
+        id: 'no-retries',
+        execute: async () => {
+          calls++;
+          throw new Error('one shot');
+        },
+      }),
+    ).rejects.toThrow('one shot');
+    expect(calls).toBe(1);
+  });
+
   it('rejects new tasks after shutdown', async () => {
     pool = createWorkerPool(1);
     pool.shutdown();
