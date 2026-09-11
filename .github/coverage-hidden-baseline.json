@@ -1,7 +1,5 @@
 {
-  "totalHidden": 4,
-  "totalLines": 128320,
-  "files": {
-    "packages/vscode/src/participant/code-analyzer-participant.ts": 4
-  }
+  "totalHidden": 0,
+  "totalLines": 128401,
+  "files": {}
 }

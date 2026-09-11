@@ -101,6 +101,20 @@ export interface ClassifiedIntent {
 // Analysis Context
 // ---------------------------------------------------------------------------
 
+/**
+ * An AnalysisContext whose named fields are guaranteed present.
+ *
+ * Most handlers fetch every field they render in one unconditional pass, so their
+ * builders receive a context that is fully populated by construction. Declaring the
+ * handler-local context with this type keeps those guarantees in the type system and
+ * removes the `field &&` probes that the builders would otherwise need — probes that
+ * could never take their false branch and only disguised unreachable code as
+ * defensive coding. Handlers that tolerate a failing engine (/review, /impact) keep
+ * handing over a plain AnalysisContext and keep their genuine guards.
+ */
+type ResolvedContext<K extends keyof AnalysisContext> = AnalysisContext &
+  Required<Pick<AnalysisContext, K>>;
+
 export interface ComplexityMetrics {
   cyclomaticComplexity: number;
   linesOfCode: number;
@@ -170,6 +184,23 @@ export interface AnalysisContext {
     coverageGaps: string[];
   };
 }
+
+// ---------------------------------------------------------------------------
+// API Surface Labels
+// ---------------------------------------------------------------------------
+
+/**
+ * Node labels that form a package's public API surface. `/check-contract` reports
+ * these, and the graph keeps the kind in `label` while `name` holds the bare
+ * identifier (never prefixed with `class `/`function `/`interface `).
+ */
+const CONTRACT_SYMBOL_LABELS: ReadonlySet<string> = new Set([
+  'Class',
+  'Interface',
+  'Function',
+  'TypeAlias',
+  'Enum',
+]);
 
 // ---------------------------------------------------------------------------
 // Intent Classification Patterns
@@ -372,13 +403,13 @@ export class CodeAnalyzerChatParticipant {
     const ctx: AnalysisContext = {};
 
     try {
-      ctx.changedFiles = await this.engine.getChangedFiles();
+      const changedFiles = await this.engine.getChangedFiles();
+      ctx.changedFiles = changedFiles;
       ctx.reviewComments = await this.engine.reviewWorkspace();
 
       // Also gather standards violations
-      const files = ctx.changedFiles ?? [];
       ctx.standardsViolations = [];
-      for (const f of files.slice(0, 5)) {
+      for (const f of changedFiles.slice(0, 5)) {
         const violations = await this.engine.checkStandards(f.path);
         ctx.standardsViolations.push(
           ...violations.map((v) => ({
@@ -424,11 +455,12 @@ export class CodeAnalyzerChatParticipant {
       return { metadata: { command: 'explain', error: 'missing_params' } };
     }
 
-    const ctx: AnalysisContext = {};
-    ctx.symbolDetail = await this.engine.getSymbolDetail(params);
-    ctx.searchResults = await this.engine.search(params);
-    ctx.callers = await this.engine.findCallers(params);
-    ctx.calleeList = await this.engine.findCallees(params);
+    const ctx: ResolvedContext<'searchResults' | 'callers' | 'calleeList'> = {
+      symbolDetail: await this.engine.getSymbolDetail(params),
+      searchResults: await this.engine.search(params),
+      callers: await this.engine.findCallers(params),
+      calleeList: await this.engine.findCallees(params),
+    };
 
     if (token.isCancellationRequested) {
       return { metadata: { cancelled: true } };
@@ -509,10 +541,13 @@ export class CodeAnalyzerChatParticipant {
       return { metadata: { command: 'find', error: 'missing_params' } };
     }
 
-    const ctx: AnalysisContext = {};
-    ctx.searchResults = await this.engine.search(params);
-    ctx.searchQuery = params;
-    ctx.symbols = await this.engine.findRelatedSymbols(params);
+    const searchResults = await this.engine.search(params);
+    const symbols = await this.engine.findRelatedSymbols(params);
+    const ctx: ResolvedContext<'searchResults' | 'symbols' | 'searchQuery'> = {
+      searchResults,
+      symbols,
+      searchQuery: params,
+    };
 
     if (token.isCancellationRequested) {
       return { metadata: { cancelled: true } };
@@ -525,7 +560,7 @@ export class CodeAnalyzerChatParticipant {
       metadata: {
         command: 'find',
         query: params,
-        resultCount: ctx.searchResults?.length ?? 0,
+        resultCount: searchResults.length,
       },
     };
   }
@@ -545,21 +580,25 @@ export class CodeAnalyzerChatParticipant {
       return { metadata: { command: 'deps', error: 'missing_params' } };
     }
 
-    const ctx: AnalysisContext = {};
-    ctx.callers = await this.engine.findCallers(params);
-    ctx.calleeList = await this.engine.findCallees(params);
-    ctx.symbols = await this.engine.findRelatedSymbols(params);
-    ctx.dependencyGraph = {
-      upstream: (ctx.callers ?? []).map((c) => ({
-        name: c.name,
-        filePath: c.filePath,
-        relationship: EDGE_CALLS,
-      })),
-      downstream: (ctx.calleeList ?? []).map((c) => ({
-        name: c.name,
-        filePath: c.filePath,
-        relationship: EDGE_CALLS,
-      })),
+    const callers = await this.engine.findCallers(params);
+    const calleeList = await this.engine.findCallees(params);
+    const symbols = await this.engine.findRelatedSymbols(params);
+    const ctx: ResolvedContext<'dependencyGraph' | 'symbols'> = {
+      callers,
+      calleeList,
+      symbols,
+      dependencyGraph: {
+        upstream: callers.map((c) => ({
+          name: c.name,
+          filePath: c.filePath,
+          relationship: EDGE_CALLS,
+        })),
+        downstream: calleeList.map((c) => ({
+          name: c.name,
+          filePath: c.filePath,
+          relationship: EDGE_CALLS,
+        })),
+      },
     };
 
     if (token.isCancellationRequested) {
@@ -573,8 +612,8 @@ export class CodeAnalyzerChatParticipant {
       metadata: {
         command: 'deps',
         symbol: params,
-        upstreamCount: ctx.dependencyGraph.upstream.length,
-        downstreamCount: ctx.dependencyGraph.downstream.length,
+        upstreamCount: callers.length,
+        downstreamCount: calleeList.length,
       },
     };
   }
@@ -594,31 +633,51 @@ export class CodeAnalyzerChatParticipant {
       return { metadata: { command: 'refactor', error: 'missing_params' } };
     }
 
-    const ctx: AnalysisContext = {};
-    ctx.symbolDetail = await this.engine.getSymbolDetail(params);
-    ctx.callers = await this.engine.findCallers(params);
-    ctx.implementations = await this.engine.findImplementations(params);
-    ctx.computedComplexity = await this.engine.getComplexityMetrics(params);
+    const symbolDetail = await this.engine.getSymbolDetail(params);
+    const callers = await this.engine.findCallers(params);
+    const implementations = await this.engine.findImplementations(params);
+    const computedComplexity = await this.engine.getComplexityMetrics(params);
 
     // Find code smells via standards
-    if (ctx.symbolDetail?.filePath) {
-      ctx.standardsViolations = [];
+    let standardsViolations: AnalysisContext['standardsViolations'];
+    if (symbolDetail?.filePath) {
+      standardsViolations = [];
       try {
-        const violations = await this.engine.checkStandards(ctx.symbolDetail.filePath);
-        ctx.standardsViolations = violations
-          .filter((v) => !v.passed)
-          .map((v) => ({
-            ruleId: v.passed ? 'passed' : 'failed',
-            message: v.message,
-            severity: 'warning',
-          }));
+        const violations = await this.engine.checkStandards(symbolDetail.filePath);
+        standardsViolations.push(
+          ...violations
+            .filter((v) => !v.passed)
+            // Invariant: the filter above retains only failed checks, so the
+            // `? 'passed'` arm that used to sit here was unreachable.
+            .map((v) => ({
+              ruleId: 'failed',
+              message: v.message,
+              severity: 'warning',
+            })),
+        );
       } catch {
         // No standards available
       }
     }
 
     // Derive refactoring opportunities
-    ctx.refactoringOpportunities = this.deriveRefactoringOpportunities(ctx);
+    const refactoringOpportunities = this.deriveRefactoringOpportunities({
+      symbolDetail,
+      callers,
+      computedComplexity,
+      standardsViolations,
+    });
+
+    const ctx: ResolvedContext<
+      'refactoringOpportunities' | 'computedComplexity' | 'callers' | 'implementations'
+    > = {
+      symbolDetail,
+      callers,
+      implementations,
+      computedComplexity,
+      standardsViolations,
+      refactoringOpportunities,
+    };
 
     if (token.isCancellationRequested) {
       return { metadata: { cancelled: true } };
@@ -631,7 +690,7 @@ export class CodeAnalyzerChatParticipant {
       metadata: {
         command: 'refactor',
         symbol: params,
-        opportunitiesCount: ctx.refactoringOpportunities?.length ?? 0,
+        opportunitiesCount: refactoringOpportunities.length,
       },
     };
   }
@@ -651,27 +710,30 @@ export class CodeAnalyzerChatParticipant {
       return { metadata: { command: 'test', error: 'missing_params' } };
     }
 
-    const ctx: AnalysisContext = {};
-    ctx.relatedTests = await this.engine.findRelatedTests(params);
-    ctx.symbols = await this.engine.findRelatedSymbols(params);
-    ctx.callers = await this.engine.findCallers(params);
-
-    // Analyze test coverage gaps
-    ctx.testCoverage = {
-      existingTests: (ctx.relatedTests ?? []).map((t) => ({
-        name: t.name,
-        filePath: t.filePath,
-      })),
-      coverageGaps: [],
-    };
+    const relatedTests = await this.engine.findRelatedTests(params);
+    const symbols = await this.engine.findRelatedSymbols(params);
 
     // Identify coverage gaps: related symbols without tests
-    const testedSymbols = new Set((ctx.relatedTests ?? []).map((t) => t.name.toLowerCase()));
-    for (const sym of ctx.symbols ?? []) {
+    const testedSymbols = new Set(relatedTests.map((t) => t.name.toLowerCase()));
+    const coverageGaps: string[] = [];
+    for (const sym of symbols) {
       if (!testedSymbols.has(sym.name.toLowerCase())) {
-        ctx.testCoverage.coverageGaps.push(sym.name);
+        coverageGaps.push(sym.name);
       }
     }
+
+    const ctx: ResolvedContext<'relatedTests' | 'symbols' | 'callers' | 'testCoverage'> = {
+      relatedTests,
+      symbols,
+      callers: await this.engine.findCallers(params),
+      testCoverage: {
+        existingTests: relatedTests.map((t) => ({
+          name: t.name,
+          filePath: t.filePath,
+        })),
+        coverageGaps,
+      },
+    };
 
     if (token.isCancellationRequested) {
       return { metadata: { cancelled: true } };
@@ -684,8 +746,8 @@ export class CodeAnalyzerChatParticipant {
       metadata: {
         command: 'test',
         symbol: params,
-        testCount: ctx.relatedTests?.length ?? 0,
-        gapsCount: ctx.testCoverage.coverageGaps.length,
+        testCount: relatedTests.length,
+        gapsCount: coverageGaps.length,
       },
     };
   }
@@ -705,17 +767,17 @@ export class CodeAnalyzerChatParticipant {
     }
 
     try {
-      // Trigger workspace indexing
-      const symbolCount = await this.engine.indexWorkspace('');
+      // Trigger workspace indexing. indexWorkspace() resolves void, so the symbol
+      // count is read back from the indexing state the same call publishes — the
+      // previous `const symbolCount = await this.engine.indexWorkspace('')` was
+      // always undefined and the report printed "Symbols Indexed | undefined".
+      await this.engine.indexWorkspace('');
+      const symbolCount = this.engine.getIndexingState().symbolCount;
       const changedFiles = await this.engine.getChangedFiles();
+      const searchResults = await this.engine.search('');
 
-      const ctx: AnalysisContext = {
-        changedFiles,
-        searchResults: await this.engine.search(''),
-      };
-
-      const resultCount = ctx.searchResults?.length ?? 0;
-      const fileCount = changedFiles?.length ?? 0;
+      const resultCount = searchResults.length;
+      const fileCount = changedFiles.length;
 
       stream.markdown(
         `## /analyze — Results\n\n` +
@@ -764,15 +826,13 @@ export class CodeAnalyzerChatParticipant {
       return { metadata: { cancelled: true } };
     }
 
-    const ctx: AnalysisContext = {};
-    ctx.relatedTests = await this.engine.findRelatedTests(params);
-    ctx.symbols = await this.engine.findRelatedSymbols(params);
-    ctx.callers = await this.engine.findCallers(params);
+    // The report below is built from tests + symbols alone. The findCallers() query
+    // that used to sit here fed an AnalysisContext field nothing ever read, so it was
+    // a redundant round trip into the graph store.
+    const tests = await this.engine.findRelatedTests(params);
+    const symbols = await this.engine.findRelatedSymbols(params);
 
     // Build coverage analysis
-    const tests = ctx.relatedTests ?? [];
-    const symbols = ctx.symbols ?? [];
-
     const testedSymbols = new Set(tests.map((t) => t.name.toLowerCase()));
     const untested: string[] = [];
     for (const s of symbols) {
@@ -845,9 +905,12 @@ export class CodeAnalyzerChatParticipant {
     }
 
     try {
-      const files = params
-        ? [params]
-        : ((await this.engine.getChangedFiles())?.map((f) => f.path).slice(0, 10) ?? []);
+      let files: string[];
+      if (params) {
+        files = [params];
+      } else {
+        files = (await this.engine.getChangedFiles()).map((f) => f.path).slice(0, 10);
+      }
 
       if (files.length === 0) {
         stream.markdown(
@@ -856,28 +919,29 @@ export class CodeAnalyzerChatParticipant {
         return { metadata: { command: 'standards', fileCount: 0 } };
       }
 
-      let allViolations: Array<{ ruleId: string; message: string; severity: string }> = [];
+      const allViolations: Array<{ ruleId: string; message: string; severity: string }> = [];
       for (const filePath of files) {
         const violations = await this.engine.checkStandards(filePath);
         allViolations.push(
           ...violations
             .filter((v) => !v.passed)
+            // Invariant: only failed checks survive the filter above, so the
+            // `? 'passed'` arm that used to sit here was unreachable.
             .map((v) => ({
-              ruleId: v.passed ? 'passed' : 'failed',
+              ruleId: 'failed',
               message: v.message,
               severity: 'warning',
             })),
         );
       }
 
-      // Compliance ratio
-      const complianceRatio =
-        files.length > 0
-          ? Math.max(
-              0,
-              100 - Math.min(100, Math.round((allViolations.length / files.length) * 100)),
-            )
-          : 100;
+      // Compliance ratio: one point is lost per violation per checked file, clamped
+      // to 0..100. `files` is non-empty here — the empty case returned above — so the
+      // `: 100` fallback that used to guard this division was unreachable.
+      const complianceRatio = Math.max(
+        0,
+        100 - Math.min(100, Math.round((allViolations.length / files.length) * 100)),
+      );
 
       let msg = '## /standards — Compliance Report\n\n';
       msg += `### Summary\n`;
@@ -931,8 +995,8 @@ export class CodeAnalyzerChatParticipant {
       let msg = '## /review-deps — Dependency Health\n\n';
       msg += '### Summary\n';
       msg += '| Metric | Value |\n|--------|-------|\n';
-      msg += `| Files Scanned | ${changedFiles?.length ?? 0} |\n`;
-      msg += `| Symbols Found | ${symbols?.length ?? 0} |\n\n`;
+      msg += `| Files Scanned | ${changedFiles.length} |\n`;
+      msg += `| Symbols Found | ${symbols.length} |\n\n`;
 
       msg += '### Recommendations\n';
       msg += '- **Pin dependency versions**: Use exact versions instead of ranges\n';
@@ -940,7 +1004,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '- **License compliance**: Verify all dependencies use compatible licenses\n';
 
       stream.markdown(msg);
-      return { metadata: { command: 'review-deps', fileCount: changedFiles?.length ?? 0 } };
+      return { metadata: { command: 'review-deps', fileCount: changedFiles.length } };
     } catch {
       stream.markdown(
         '## /review-deps\n\n⚠️ Unable to analyze dependencies. Run codebase analysis first.\n',
@@ -962,34 +1026,36 @@ export class CodeAnalyzerChatParticipant {
     if (token.isCancellationRequested) return { metadata: { cancelled: true } };
 
     try {
-      const symbols = params
-        ? await this.engine.findRelatedSymbols(params)
-        : await this.engine.search('export class function');
+      // search() runs the very same query as findRelatedSymbols() but keeps each
+      // hit's `label`, which is the only place the symbol kind is recorded.
+      const symbols = await this.engine.search(params || 'export class function');
 
       let msg = '## /check-contract — API Contract Compliance\n\n';
-      if (symbols && symbols.length > 0) {
-        const exported = symbols.filter(
-          (s) =>
-            s.name &&
-            (s.name.startsWith('class ') ||
-              s.name.startsWith('function ') ||
-              s.name.startsWith('interface ')),
-        );
+      if (symbols.length === 0) {
+        msg += 'No symbols found. Specify a file path to check.\n';
+      } else {
+        // Invariant: the graph stores the symbol kind in `label` and the bare
+        // identifier in `name` — a node is never called "class Foo". The filter that
+        // used to sit here tested `name.startsWith('class ' | 'function ' |
+        // 'interface ')`, so it never matched and /check-contract reported an empty
+        // API surface for every single query.
+        const exported = symbols.filter((s) => CONTRACT_SYMBOL_LABELS.has(s.label));
         msg += `### Exported Symbols (${exported.length})\n`;
+        if (exported.length === 0) {
+          msg += 'None of the matching symbols expose a class, interface or function.\n';
+        }
         for (const s of exported.slice(0, 15)) {
-          msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
+          msg += `- \`${s.name}\` (${s.label}) in \`${s.filePath}\`\n`;
         }
         msg += '\n### Contract Checks\n';
         msg += '- ✅ Verify all public APIs have JSDoc documentation\n';
         msg += '- ✅ Check for breaking changes in signatures\n';
         msg += '- ✅ Ensure @deprecated annotations on old APIs\n';
         msg += '- ✅ Validate semver version bumps\n';
-      } else {
-        msg += 'No exported symbols found. Specify a file path to check.\n';
       }
 
       stream.markdown(msg);
-      return { metadata: { command: 'check-contract', symbolsFound: symbols?.length ?? 0 } };
+      return { metadata: { command: 'check-contract', symbolsFound: symbols.length } };
     } catch {
       stream.markdown('## /check-contract\n\n⚠️ Contract check failed. Run analysis first.\n');
       return { metadata: { command: 'check-contract', error: 'check_failed' } };
@@ -1013,25 +1079,25 @@ export class CodeAnalyzerChatParticipant {
       const symbols = params ? await this.engine.findRelatedSymbols(params) : [];
 
       let msg = '## /trace-dataflow — Data Flow Analysis\n\n';
-      if (traces && traces.length > 0) {
+      if (traces.length > 0) {
         msg += `### Call Path (${traces.length} hops)\n`;
         for (const t of traces.slice(0, 20)) {
           msg += `- \`${t.name}\` → \`${t.filePath}\`\n`;
         }
         msg += '\n';
       }
-      if (symbols && symbols.length > 0) {
+      if (symbols.length > 0) {
         msg += `### Data Flow Nodes (${symbols.length})\n`;
         for (const s of symbols.slice(0, 10)) {
           msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
         }
       }
-      if (!traces?.length && !symbols?.length) {
+      if (traces.length === 0 && symbols.length === 0) {
         msg += 'No dataflow path found. The symbol may be isolated or not indexed.\n';
       }
 
       stream.markdown(msg);
-      return { metadata: { command: 'trace-dataflow', traceHops: traces?.length ?? 0 } };
+      return { metadata: { command: 'trace-dataflow', traceHops: traces.length } };
     } catch {
       stream.markdown('## /trace-dataflow\n\n⚠️ Dataflow trace failed.\n');
       return { metadata: { command: 'trace-dataflow', error: 'trace_failed' } };
@@ -1056,7 +1122,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '### Hotspot Detection\n';
       msg += 'Hotspots are files/functions with high complexity AND high change frequency.\n\n';
 
-      if (changedFiles && changedFiles.length > 0) {
+      if (changedFiles.length > 0) {
         msg += `### Recently Changed Files (${changedFiles.length})\n`;
         const highChurn = changedFiles.filter(
           (f) => f.status === 'modified' || f.status === 'added',
@@ -1074,7 +1140,7 @@ export class CodeAnalyzerChatParticipant {
 
       stream.markdown(msg);
       return {
-        metadata: { command: 'find-hotspots', changedFileCount: changedFiles?.length ?? 0 },
+        metadata: { command: 'find-hotspots', changedFileCount: changedFiles.length },
       };
     } catch {
       stream.markdown('## /find-hotspots\n\n⚠️ Hotspot detection failed.\n');
@@ -1095,8 +1161,9 @@ export class CodeAnalyzerChatParticipant {
 
     try {
       const reviewComments = await this.engine.reviewWorkspace();
-      const securityIssues =
-        reviewComments?.filter((c) => c.severity === 'critical' || c.severity === 'high') ?? [];
+      const securityIssues = reviewComments.filter(
+        (c) => c.severity === 'critical' || c.severity === 'high',
+      );
 
       let msg = '## /audit-security — Security Audit\n\n';
       msg += `### Results (${securityIssues.length} issues)\n`;
@@ -1148,9 +1215,11 @@ export class CodeAnalyzerChatParticipant {
       const critical = ctx.reviewComments.filter(
         (c) => c.severity === 'critical' || c.severity === 'high',
       );
-      const warnings = ctx.reviewComments.filter(
-        (c) => c.severity === 'medium' || c.severity === 'warning',
-      );
+      // Invariant: review comments come from EngineBridge.reviewWorkspace(), which
+      // forwards ReviewComment.severity — a value drawn from SEVERITY_LEVELS
+      // (critical|high|medium|low|info). 'warning' is not a member of that union, so
+      // the alternative that used to sit in this filter could never match.
+      const warnings = ctx.reviewComments.filter((c) => c.severity === 'medium');
       const info = ctx.reviewComments.filter((c) => c.severity === 'low' || c.severity === 'info');
 
       msg += `### Review Findings (${ctx.reviewComments.length} issues)\n`;
@@ -1198,7 +1267,9 @@ export class CodeAnalyzerChatParticipant {
     return msg;
   }
 
-  private buildExplainContext(ctx: AnalysisContext): string {
+  private buildExplainContext(
+    ctx: ResolvedContext<'searchResults' | 'callers' | 'calleeList'>,
+  ): string {
     let msg = '## Symbol Explanation\n\n';
 
     if (ctx.symbolDetail) {
@@ -1223,7 +1294,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (ctx.searchResults && ctx.searchResults.length > 0) {
+    if (ctx.searchResults.length > 0) {
       msg += '### Related Symbols\n';
       for (const r of ctx.searchResults.slice(0, 10)) {
         msg += `- \`${r.name}\` in \`${r.filePath}\` (${r.label})\n`;
@@ -1231,7 +1302,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (ctx.callers && ctx.callers.length > 0) {
+    if (ctx.callers.length > 0) {
       msg += '### Called By (Upstream)\n';
       for (const c of ctx.callers.slice(0, 10)) {
         msg += `- \`${c.name}\` in \`${c.filePath}\`\n`;
@@ -1239,7 +1310,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (ctx.calleeList && ctx.calleeList.length > 0) {
+    if (ctx.calleeList.length > 0) {
       msg += '### Calls To (Downstream)\n';
       for (const c of ctx.calleeList.slice(0, 10)) {
         msg += `- \`${c.name}\` in \`${c.filePath}\`\n`;
@@ -1301,10 +1372,12 @@ export class CodeAnalyzerChatParticipant {
     return msg;
   }
 
-  private buildFindContext(ctx: AnalysisContext): string {
-    let msg = `## Search Results: "${ctx.searchQuery ?? ''}"\n\n`;
+  private buildFindContext(
+    ctx: ResolvedContext<'searchResults' | 'symbols' | 'searchQuery'>,
+  ): string {
+    let msg = `## Search Results: "${ctx.searchQuery}"\n\n`;
 
-    if (!ctx.searchResults || ctx.searchResults.length === 0) {
+    if (ctx.searchResults.length === 0) {
       msg += 'No results found. Try a different query.\n';
       msg += '\nThe search engine uses BM25 + vector semantic search.\n';
       msg += 'Tips: try partial names, camelCase fragments, or descriptive keywords.\n';
@@ -1322,7 +1395,7 @@ export class CodeAnalyzerChatParticipant {
     }
     msg += '\n';
 
-    if (ctx.symbols && ctx.symbols.length > 0) {
+    if (ctx.symbols.length > 0) {
       msg += '### Related Context\n';
       for (const s of ctx.symbols.slice(0, 5)) {
         msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
@@ -1333,44 +1406,39 @@ export class CodeAnalyzerChatParticipant {
     return msg;
   }
 
-  private buildDepsContext(ctx: AnalysisContext): string {
+  private buildDepsContext(ctx: ResolvedContext<'dependencyGraph' | 'symbols'>): string {
     let msg = '## Dependency Graph\n\n';
+    const g = ctx.dependencyGraph;
 
-    if (ctx.dependencyGraph) {
-      const g = ctx.dependencyGraph;
-
-      if (g.upstream.length > 0) {
-        msg += `### Upstream Dependencies (${g.upstream.length})\n`;
-        msg += 'Symbols that depend on this one:\n';
-        for (const u of g.upstream.slice(0, 15)) {
-          msg += `- \`${u.name}\` in \`${u.filePath}\` (${u.relationship})\n`;
-        }
-        if (g.upstream.length > 15) {
-          msg += `- ... and ${g.upstream.length - 15} more\n`;
-        }
-        msg += '\n';
-      } else {
-        msg += '### Upstream Dependencies\nNo symbols depend on this one.\n\n';
+    if (g.upstream.length > 0) {
+      msg += `### Upstream Dependencies (${g.upstream.length})\n`;
+      msg += 'Symbols that depend on this one:\n';
+      for (const u of g.upstream.slice(0, 15)) {
+        msg += `- \`${u.name}\` in \`${u.filePath}\` (${u.relationship})\n`;
       }
-
-      if (g.downstream.length > 0) {
-        msg += `### Downstream Dependencies (${g.downstream.length})\n`;
-        msg += 'Symbols this one depends on:\n';
-        for (const d of g.downstream.slice(0, 15)) {
-          msg += `- \`${d.name}\` in \`${d.filePath}\` (${d.relationship})\n`;
-        }
-        if (g.downstream.length > 15) {
-          msg += `- ... and ${g.downstream.length - 15} more\n`;
-        }
-        msg += '\n';
-      } else {
-        msg += '### Downstream Dependencies\nNo dependencies found.\n\n';
+      if (g.upstream.length > 15) {
+        msg += `- ... and ${g.upstream.length - 15} more\n`;
       }
+      msg += '\n';
     } else {
-      msg += 'No dependency data available. The symbol may not exist in the knowledge graph.\n\n';
+      msg += '### Upstream Dependencies\nNo symbols depend on this one.\n\n';
     }
 
-    if (ctx.symbols && ctx.symbols.length > 0) {
+    if (g.downstream.length > 0) {
+      msg += `### Downstream Dependencies (${g.downstream.length})\n`;
+      msg += 'Symbols this one depends on:\n';
+      for (const d of g.downstream.slice(0, 15)) {
+        msg += `- \`${d.name}\` in \`${d.filePath}\` (${d.relationship})\n`;
+      }
+      if (g.downstream.length > 15) {
+        msg += `- ... and ${g.downstream.length - 15} more\n`;
+      }
+      msg += '\n';
+    } else {
+      msg += '### Downstream Dependencies\nNo dependencies found.\n\n';
+    }
+
+    if (ctx.symbols.length > 0) {
       msg += '### Related Symbols\n';
       for (const s of ctx.symbols.slice(0, 5)) {
         msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
@@ -1381,10 +1449,14 @@ export class CodeAnalyzerChatParticipant {
     return msg;
   }
 
-  private buildRefactorContext(ctx: AnalysisContext): string {
+  private buildRefactorContext(
+    ctx: ResolvedContext<
+      'refactoringOpportunities' | 'computedComplexity' | 'callers' | 'implementations'
+    >,
+  ): string {
     let msg = '## Refactoring Analysis\n\n';
 
-    if (ctx.refactoringOpportunities && ctx.refactoringOpportunities.length > 0) {
+    if (ctx.refactoringOpportunities.length > 0) {
       msg += `### Opportunities Found (${ctx.refactoringOpportunities.length})\n\n`;
       for (const r of ctx.refactoringOpportunities.slice(0, 10)) {
         msg += `**${r.title}**\n`;
@@ -1393,14 +1465,14 @@ export class CodeAnalyzerChatParticipant {
       }
     }
 
-    if (ctx.computedComplexity) {
-      msg += '### Complexity Metrics\n';
-      msg += `- Cyclomatic Complexity: ${ctx.computedComplexity.cyclomaticComplexity}\n`;
-      msg += `- Lines of Code: ${ctx.computedComplexity.linesOfCode}\n`;
-      msg += `- Parameters: ${ctx.computedComplexity.parameterCount}\n`;
-      msg += `- Nesting Depth: ${ctx.computedComplexity.nestingDepth}\n`;
-      msg += '\n';
-    }
+    // Metrics come from EngineBridge.getComplexityMetrics(), which always resolves a
+    // metrics object, so this section is emitted for every /refactor call.
+    msg += '### Complexity Metrics\n';
+    msg += `- Cyclomatic Complexity: ${ctx.computedComplexity.cyclomaticComplexity}\n`;
+    msg += `- Lines of Code: ${ctx.computedComplexity.linesOfCode}\n`;
+    msg += `- Parameters: ${ctx.computedComplexity.parameterCount}\n`;
+    msg += `- Nesting Depth: ${ctx.computedComplexity.nestingDepth}\n`;
+    msg += '\n';
 
     if (ctx.symbolDetail) {
       const d = ctx.symbolDetail;
@@ -1408,7 +1480,7 @@ export class CodeAnalyzerChatParticipant {
       msg += `- \`${d.name}\` (${d.label}) in \`${d.filePath}\`\n\n`;
     }
 
-    if (ctx.callers && ctx.callers.length > 0) {
+    if (ctx.callers.length > 0) {
       msg += `### Callers (${ctx.callers.length})\n`;
       for (const c of ctx.callers.slice(0, 5)) {
         msg += `- \`${c.name}\` in \`${c.filePath}\`\n`;
@@ -1416,7 +1488,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (ctx.implementations && ctx.implementations.length > 0) {
+    if (ctx.implementations.length > 0) {
       msg += `### Implementations (${ctx.implementations.length})\n`;
       for (const i of ctx.implementations.slice(0, 5)) {
         msg += `- \`${i.name}\` in \`${i.filePath}\`\n`;
@@ -1432,17 +1504,15 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (!ctx.refactoringOpportunities?.length && !ctx.computedComplexity && !ctx.symbolDetail) {
-      msg += 'No analysis data available. The symbol may not exist in the knowledge graph.\n';
-    }
-
     return msg;
   }
 
-  private buildTestContext(ctx: AnalysisContext): string {
+  private buildTestContext(
+    ctx: ResolvedContext<'relatedTests' | 'symbols' | 'callers' | 'testCoverage'>,
+  ): string {
     let msg = '## Test Coverage Analysis\n\n';
 
-    if (ctx.relatedTests && ctx.relatedTests.length > 0) {
+    if (ctx.relatedTests.length > 0) {
       msg += `### Existing Tests (${ctx.relatedTests.length})\n`;
       for (const t of ctx.relatedTests.slice(0, 15)) {
         msg += `- \`${t.name}\` in \`${t.filePath}\`\n`;
@@ -1455,7 +1525,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '### Existing Tests\nNo tests found for this symbol.\n\n';
     }
 
-    if (ctx.testCoverage && ctx.testCoverage.coverageGaps.length > 0) {
+    if (ctx.testCoverage.coverageGaps.length > 0) {
       msg += `### Coverage Gaps (${ctx.testCoverage.coverageGaps.length})\n`;
       msg += 'These related symbols lack test coverage:\n';
       for (const gap of ctx.testCoverage.coverageGaps.slice(0, 10)) {
@@ -1464,7 +1534,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (ctx.symbols && ctx.symbols.length > 0) {
+    if (ctx.symbols.length > 0) {
       msg += '### Related Symbols\n';
       for (const s of ctx.symbols.slice(0, 5)) {
         msg += `- \`${s.name}\` in \`${s.filePath}\`\n`;
@@ -1472,7 +1542,7 @@ export class CodeAnalyzerChatParticipant {
       msg += '\n';
     }
 
-    if (ctx.callers && ctx.callers.length > 0) {
+    if (ctx.callers.length > 0) {
       msg += '### Callers (Test Impact)\n';
       msg += 'These symbols are called by the target and may need tests:\n';
       for (const c of ctx.callers.slice(0, 5)) {
@@ -1490,8 +1560,13 @@ export class CodeAnalyzerChatParticipant {
 
   /**
    * Derive refactoring opportunities from complexity and analysis context.
+   *
+   * The context comes straight from handleRefactorCommand, which always populates
+   * the complexity metrics and the caller list, so neither is re-tested here.
    */
-  private deriveRefactoringOpportunities(ctx: AnalysisContext): Array<{
+  private deriveRefactoringOpportunities(
+    ctx: ResolvedContext<'computedComplexity' | 'callers'>,
+  ): Array<{
     title: string;
     description: string;
     filePath: string;
@@ -1504,47 +1579,49 @@ export class CodeAnalyzerChatParticipant {
       lineNumber: number;
     }> = [];
 
-    if (ctx.computedComplexity) {
-      const cc = ctx.computedComplexity;
-      if (cc.cyclomaticComplexity > 10) {
-        opportunities.push({
-          title: 'High Cyclomatic Complexity',
-          description: `Cyclomatic complexity is ${cc.cyclomaticComplexity}. Consider splitting into smaller functions to improve testability.`,
-          filePath: ctx.symbolDetail?.filePath ?? '',
-          lineNumber: 1,
-        });
-      }
-      if (cc.linesOfCode > 50) {
-        opportunities.push({
-          title: 'Function Too Long',
-          description: `Function is ${cc.linesOfCode} lines. Consider extracting helper functions to improve readability.`,
-          filePath: ctx.symbolDetail?.filePath ?? '',
-          lineNumber: 1,
-        });
-      }
-      if (cc.nestingDepth > 4) {
-        opportunities.push({
-          title: 'Deep Nesting',
-          description: `Nesting depth is ${cc.nestingDepth}. Extract nested logic into helper functions or use early returns.`,
-          filePath: ctx.symbolDetail?.filePath ?? '',
-          lineNumber: 1,
-        });
-      }
-      if (cc.parameterCount > 5) {
-        opportunities.push({
-          title: 'Too Many Parameters',
-          description: `Function has ${cc.parameterCount} parameters. Consider using a parameter object.`,
-          filePath: ctx.symbolDetail?.filePath ?? '',
-          lineNumber: 1,
-        });
-      }
+    // Every opportunity is reported against the analysed symbol's file, which is
+    // absent when the graph has no file on record for it.
+    const filePath = ctx.symbolDetail?.filePath ?? '';
+    const cc = ctx.computedComplexity;
+
+    if (cc.cyclomaticComplexity > 10) {
+      opportunities.push({
+        title: 'High Cyclomatic Complexity',
+        description: `Cyclomatic complexity is ${cc.cyclomaticComplexity}. Consider splitting into smaller functions to improve testability.`,
+        filePath,
+        lineNumber: 1,
+      });
+    }
+    if (cc.linesOfCode > 50) {
+      opportunities.push({
+        title: 'Function Too Long',
+        description: `Function is ${cc.linesOfCode} lines. Consider extracting helper functions to improve readability.`,
+        filePath,
+        lineNumber: 1,
+      });
+    }
+    if (cc.nestingDepth > 4) {
+      opportunities.push({
+        title: 'Deep Nesting',
+        description: `Nesting depth is ${cc.nestingDepth}. Extract nested logic into helper functions or use early returns.`,
+        filePath,
+        lineNumber: 1,
+      });
+    }
+    if (cc.parameterCount > 5) {
+      opportunities.push({
+        title: 'Too Many Parameters',
+        description: `Function has ${cc.parameterCount} parameters. Consider using a parameter object.`,
+        filePath,
+        lineNumber: 1,
+      });
     }
 
-    if (ctx.callers && ctx.callers.length > 10) {
+    if (ctx.callers.length > 10) {
       opportunities.push({
         title: 'Hot Code Path',
         description: `This symbol has ${ctx.callers.length} callers. Consider optimizing performance and adding caching.`,
-        filePath: ctx.symbolDetail?.filePath ?? '',
+        filePath,
         lineNumber: 1,
       });
     }
@@ -1554,7 +1631,7 @@ export class CodeAnalyzerChatParticipant {
         opportunities.push({
           title: 'Standards Violation',
           description: v.message,
-          filePath: ctx.symbolDetail?.filePath ?? '',
+          filePath,
           lineNumber: 1,
         });
       }
@@ -1678,7 +1755,11 @@ export class CodeAnalyzerChatParticipant {
           callers: await this.engine.findCallers(entity),
         };
       }
-      /* v8 ignore next 4 */
+      // Invariant: this arm is contract-reachable, not dead. IntentType has 13
+      // members while INTENT_PATTERNS only ever yields 6 of them, and both
+      // gatherAnalysisContext() and ClassifiedIntent are public API (re-exported from
+      // the package entry point), so a caller may hand in an intent such as 'explain'
+      // that the classifier never produces. It then falls back to a plain search.
       default:
         return {
           searchResults: await this.engine.search(request.prompt),
