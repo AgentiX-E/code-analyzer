@@ -33,6 +33,11 @@
     "packages/*/package.json"
   ],
   "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "browserslist": "^4.28.9"
+    }
+  },
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
