@@ -164,14 +164,17 @@ export class AutoWatcher {
   private flushChanges(): void {
     this.debounceTimer = null;
 
-    /* v8 ignore next 3 -- @preserve */
-    if (this.pendingChanges.length === 0 || !this.rootPath) return;
-
+    // Invariant: flushChanges() is reachable only from the debounce timer, and
+    // the timer is armed only by the watcher callback, after that callback has
+    // populated pendingChanges for a watched root. unwatch() clears the timer,
+    // the pending batch and rootPath together, so an empty batch and a null root
+    // are both impossible here -- an early-return guard would be unreachable.
+    const rootPath = this.rootPath!;
     const changes = [...this.pendingChanges];
     this.pendingChanges = [];
 
     const reindexEvent: ReindexEvent = {
-      rootPath: this.rootPath,
+      rootPath,
       changes,
       fileCount: changes.length,
       timestamp: new Date().toISOString(),
@@ -187,10 +190,12 @@ export class AutoWatcher {
    * simple path matching.
    */
   private isSourceFile(filePath: string, _rootPath: string): boolean {
-    // Skip directories
-    /* v8 ignore next 2 -- @preserve */
-    if (filePath.endsWith('/')) return false;
-
+    // Invariant: every FileChangeEvent.filePath is produced by the watcher via
+    // path.relative(), which never terminates in a path separator, so a trailing
+    // "/" is impossible here. Directory-shaped entries are rejected anyway: a
+    // path ending in "/" matches no source extension and its basename is empty,
+    // so it falls through to the final `return false`. A separate
+    // `endsWith('/')` guard was therefore both unreachable and redundant.
     // Skip common patterns
     const skipPatterns = [
       /^\.git\//,
@@ -261,8 +266,8 @@ export class AutoWatcher {
     // Also check special files (no extension but are source configs)
     const specialFiles = ['Dockerfile', 'Makefile', '.env.example', '.env.sample'];
 
-    /* v8 ignore next -- @preserve */
-    const basename = filePath.split('/').pop() ?? '';
+    // `split` always yields at least one element, so the basename always exists.
+    const basename = filePath.split('/').pop()!;
     if (specialFiles.includes(basename)) {
       return true;
     }

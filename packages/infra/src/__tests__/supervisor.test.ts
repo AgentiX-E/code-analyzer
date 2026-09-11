@@ -543,8 +543,10 @@ describe('IndexSupervisor', () => {
   });
 
   it('triggers global timeout when total duration exceeds 2x config timeout', async () => {
-    // timeout=50, maxRetries=10. Each attempt takes ~20ms (no timeout error thrown).
-    // After several retries, total duration will exceed 2 * 50ms = 100ms.
+    // timeout=200ms, maxRetries=20; every attempt sleeps 30ms and then fails with a
+    // non-timeout error, so the per-attempt race never fires. The elapsed-time
+    // guard must trip at ~14 attempts (14 * 30ms > 2 * 200ms), long before
+    // maxRetries is exhausted at attempt 21.
     const supervisor = new IndexSupervisor({ timeout: 200, maxRetries: 20 });
     let attempts = 0;
 
@@ -555,8 +557,11 @@ describe('IndexSupervisor', () => {
       throw new Error('non-timeout failure');
     });
 
-    // Either crashed from max retries or timeout from global timeout
-    expect(['crashed', 'timeout']).toContain(result.status);
-    expect(attempts).toBeGreaterThan(1);
+    expect(result.status).toBe('timeout');
+    expect(result.filesFailed).toBe(attempts);
+    expect(result.crashReports.length).toBeGreaterThan(1);
+    // Without the elapsed-time guard the loop would exhaust all 21 attempts and
+    // report 'crashed', so this bound is what makes the guard load-bearing.
+    expect(attempts).toBeLessThan(20);
   });
 });

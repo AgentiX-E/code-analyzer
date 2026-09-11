@@ -141,6 +141,26 @@ describe('AsyncMemoizer', () => {
     expect(stats.size).toBe(3);
   });
 
+  it('should tolerate a zero capacity without evicting anything', async () => {
+    // `maxSize` is a public option with no validation, so a zero capacity is
+    // reachable: the eviction branch is entered but the LRU list is empty, so
+    // there is no victim and the new entry is stored regardless.
+    // The function type is spelled out rather than reusing TestFn because the
+    // memoizer's generic constraint requires a signature accepting unknown args.
+    const memo = new AsyncMemoizer<(...args: unknown[]) => Promise<number>>({
+      ttlMs: 60000,
+      maxSize: 0,
+    });
+    const fn = async (...args: unknown[]): Promise<number> => (args[0] as number) * 2;
+
+    await expect(memo.call(fn, 1)).resolves.toBe(2);
+
+    const stats = memo.getStats();
+    expect(stats.size).toBe(1);
+    expect(stats.capacity).toBe(0);
+    expect(stats.evictions).toBe(0);
+  });
+
   // -------------------------------------------------------------------
   // Statistics
   // -------------------------------------------------------------------
@@ -211,7 +231,11 @@ describe('AsyncMemoizer', () => {
       })(),
     ]);
 
-    expect(stats.hits).toBeGreaterThanOrEqual(1);
+    // Exactly one miss (the first call) and one coalesced hit (the second),
+    // so an increment lost on the in-flight path cannot hide behind a range.
+    expect(stats.hits).toBe(1);
+    expect(stats.misses).toBe(1);
+    expect(stats.hitRate).toBeCloseTo(0.5, 5);
   });
 
   it('should not coalesce different keys', async () => {

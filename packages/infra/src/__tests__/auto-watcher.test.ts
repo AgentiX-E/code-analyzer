@@ -426,6 +426,24 @@ describe('AutoWatcher', () => {
     expect(reindexEvents.length).toBe(1);
   });
 
+  it('detects a special file nested below the root', async () => {
+    rootPath = setup([], {});
+    const reindexEvents: ReindexEvent[] = [];
+    const aw = new AutoWatcher(mockWatcher, {
+      debounceMs: 50,
+      onReindex: (evt) => reindexEvents.push(evt),
+    });
+
+    aw.watch(rootPath);
+    mockWatcher.triggerChanges([{ type: 'modify', filePath: 'services/Dockerfile' }]);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The basename decides, not the first path segment: a nested Dockerfile has
+    // no source extension yet must still be tracked.
+    expect(reindexEvents.length).toBe(1);
+    expect(reindexEvents[0]!.changes.map((c) => c.filePath)).toEqual(['services/Dockerfile']);
+  });
+
   it('detects Markdown file changes', async () => {
     rootPath = setup([], {});
     const reindexEvents: ReindexEvent[] = [];
