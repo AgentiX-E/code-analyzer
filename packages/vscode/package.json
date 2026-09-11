@@ -445,7 +445,7 @@
     "tree-sitter-css": "^0.25.0",
     "tree-sitter-dart": "^1.0.0",
     "tree-sitter-elixir": "^0.3.0",
-    "tree-sitter-go": "^0.21.0",
+    "tree-sitter-go": "^0.25.0",
     "tree-sitter-groovy": "^0.1.2",
     "tree-sitter-html": "^0.23.2",
     "tree-sitter-java": "^0.23.5",
