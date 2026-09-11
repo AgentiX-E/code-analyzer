@@ -54,7 +54,7 @@
     "@code-analyzer/infra": "workspace:*",
     "@code-analyzer/analyzer": "workspace:*",
     "@code-analyzer/intelligence": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
