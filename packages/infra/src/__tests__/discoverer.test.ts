@@ -1,6 +1,6 @@
 // @code-analyzer/infra — FileDiscoverer Tests
 
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -613,5 +613,79 @@ describe('FileDiscoverer', () => {
 
     const files = await discoverer.discover(rootPath);
     expect(files.length).toBeGreaterThanOrEqual(6);
+  });
+
+  describe('non-regular directory entries', () => {
+    it('skips symlinks, which are neither files nor directories', async () => {
+      const base = setup([], { 'ok.ts': 'export const a = 1;' });
+      try {
+        // readdirSync({ withFileTypes: true }) reports a symlink as
+        // isSymbolicLink(), so neither isDirectory() nor isFile() matches it.
+        fs.symlinkSync(path.join(base, 'ok.ts'), path.join(base, 'link.ts'));
+
+        const files = await discoverer.discover(base);
+        expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
+      } finally {
+        fs.rmSync(base, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('unreadable filesystem entries', () => {
+    let base: string;
+
+    afterEach(() => {
+      if (base) {
+        fs.rmSync(base, { recursive: true, force: true });
+      }
+    });
+
+    it('skips directories that cannot be read', async () => {
+      base = setup([], { 'src/index.ts': 'export const x = 1;' });
+      const locked = path.join(base, 'locked');
+      fs.mkdirSync(locked);
+      fs.writeFileSync(path.join(locked, 'hidden.ts'), 'export const y = 2;');
+
+      // Drop read permission so readdirSync() fails with EACCES.
+      fs.chmodSync(locked, 0o000);
+      try {
+        const files = await discoverer.discover(base);
+        expect(files.map((f) => f.filePath)).toEqual([path.join('src', 'index.ts')]);
+      } finally {
+        fs.chmodSync(locked, 0o755);
+      }
+    });
+
+    it('skips files that cannot be read', async () => {
+      base = setup([], { 'ok.ts': 'export const a = 1;', 'secret.ts': 'export const b = 2;' });
+      const secret = path.join(base, 'secret.ts');
+
+      // statSync() still succeeds without read permission, so the failure only
+      // surfaces in readFileSync().
+      fs.chmodSync(secret, 0o000);
+      try {
+        const files = await discoverer.discover(base);
+        expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
+      } finally {
+        fs.chmodSync(secret, 0o644);
+      }
+    });
+
+    it('skips files whose stat fails', async () => {
+      base = setup([], { 'ok.ts': 'export const a = 1;' });
+      const noExec = path.join(base, 'noexec');
+      fs.mkdirSync(noExec);
+      fs.writeFileSync(path.join(noExec, 'inner.ts'), 'export const c = 3;');
+
+      // Remove search (execute) permission: readdirSync() still lists the entry,
+      // but statSync() on the child fails with EACCES.
+      fs.chmodSync(noExec, 0o400);
+      try {
+        const files = await discoverer.discover(base);
+        expect(files.map((f) => f.filePath)).toEqual(['ok.ts']);
+      } finally {
+        fs.chmodSync(noExec, 0o755);
+      }
+    });
   });
 });

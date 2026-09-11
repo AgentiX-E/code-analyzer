@@ -138,12 +138,11 @@ export function createFileDiscoverer(): FileDiscoverer {
 
       try {
         entries = fs.readdirSync(currentDir, { withFileTypes: true });
-        /* v8 ignore start */
       } catch {
-        // Permission denied or directory removed — skip
+        // Unreadable directory (no read permission) or one removed while the
+        // walk is in progress; skip it instead of aborting the discovery.
         continue;
       }
-      /* v8 ignore stop */
 
       for (const entry of entries) {
         const fullPath = path.join(currentDir, entry.name);
@@ -164,16 +163,7 @@ export function createFileDiscoverer(): FileDiscoverer {
 
             const language = getLanguageFromFilename(entry.name);
 
-            let content = '';
-            try {
-              content = fs.readFileSync(fullPath, 'utf-8');
-              /* v8 ignore start */
-            } catch {
-              // Binary or unreadable — skip
-              continue;
-            }
-            /* v8 ignore stop */
-
+            const content = fs.readFileSync(fullPath, 'utf-8');
             const hash = computeSimpleHash(content);
 
             results.push({
@@ -183,12 +173,13 @@ export function createFileDiscoverer(): FileDiscoverer {
               hash,
               size: stat.size,
             });
-            /* v8 ignore start */
           } catch {
-            // Permission denied or file removed — skip
+            // statSync() fails when the file was removed after readdirSync()
+            // listed it, or when the parent directory is not searchable;
+            // readFileSync() fails when the file is unreadable (statSync()
+            // still succeeds without read permission).
             continue;
           }
-          /* v8 ignore stop */
         }
       }
     }

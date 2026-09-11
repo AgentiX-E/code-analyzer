@@ -1,10 +1,9 @@
 {
-  "totalHidden": 98,
-  "totalLines": 128302,
+  "totalHidden": 86,
+  "totalLines": 128293,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
     "packages/server/src/http-server.ts": 16,
-    "packages/infra/src/filesystem/discoverer.ts": 12,
     "packages/infra/src/git/git-operations.ts": 9,
     "packages/mcp/src/tools/tool-context.ts": 7,
     "packages/infra/src/performance/memoizer.ts": 6,
