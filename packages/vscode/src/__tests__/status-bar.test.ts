@@ -3,6 +3,8 @@
 import { describe, it, expect } from 'vitest';
 import { StatusBarManager, createStatusBarManager } from '../views/status-bar.js';
 import { EngineBridge } from '../services/engine-bridge.js';
+import type { IndexingState } from '../services/engine-bridge.js';
+import { StatusBarAlignment } from '../services/vscode-api.js';
 import type { StatusBarItem } from '../services/vscode-api.js';
 
 function createMockItem(): StatusBarItem {
@@ -43,6 +45,36 @@ function createMockItem(): StatusBarItem {
     },
     _state: state,
   };
+}
+
+/**
+ * An EngineBridge double that records the listeners a consumer registers and
+ * answers getIndexingState() with a fixed non-zero symbol count.
+ *
+ * Only the engine is doubled here — the module under test (createStatusBarManager)
+ * and the StatusBarManager it builds are the real implementations.
+ */
+function recordingEngine() {
+  const progress: Array<(state: IndexingState) => void> = [];
+  const complete: Array<() => void> = [];
+  const factoryCalls: Array<[number, number]> = [];
+
+  const engine = {
+    onIndexingProgress: (fn: (state: IndexingState) => void) => {
+      progress.push(fn);
+    },
+    onIndexingComplete: (fn: () => void) => {
+      complete.push(fn);
+    },
+    getIndexingState: (): IndexingState => ({ status: 'ready', symbolCount: 7, progress: 100 }),
+  } as unknown as EngineBridge;
+
+  const createStatusBarItem = (alignment: number, priority: number): StatusBarItem => {
+    factoryCalls.push([alignment, priority]);
+    return createMockItem();
+  };
+
+  return { engine, progress, complete, factoryCalls, createStatusBarItem };
 }
 
 describe('StatusBarManager', () => {
@@ -386,6 +418,68 @@ describe('StatusBarManager', () => {
 
       manager.dispose();
       engine.dispose();
+    });
+
+    it('drives the status bar from the real engine indexing lifecycle', async () => {
+      const engine = new EngineBridge();
+      const item = createMockItem();
+      const manager = createStatusBarManager({ createStatusBarItem: () => item }, engine);
+      expect(manager.getState()).toBe('idle');
+
+      // indexWorkspace() is the call the extension makes. The status bar only
+      // learns about it through the listener registered above, so reaching
+      // 'ready' here proves the wiring rather than the manager's own setters.
+      await engine.indexWorkspace('/tmp/status-bar-workspace');
+
+      expect(manager.getState()).toBe('ready');
+      expect(manager.getProgress()).toBe(100);
+      expect(manager.getSymbolCount()).toBe(engine.getIndexingState().symbolCount);
+      expect(item.text).toBe('$(check) Code Analyzer');
+
+      manager.dispose();
+      engine.dispose();
+    });
+
+    it('maps every indexing status onto the matching status bar state', () => {
+      const { engine, progress, factoryCalls, createStatusBarItem } = recordingEngine();
+      const manager = createStatusBarManager({ createStatusBarItem }, engine);
+
+      expect(factoryCalls).toEqual([[StatusBarAlignment.Right, 100]]);
+      expect(progress).toHaveLength(1);
+
+      // IndexingState.status is a four-member union and onIndexingProgress is a
+      // public API, so the registered listener has to handle every member.
+      progress[0]!({ status: 'indexing', symbolCount: 0, progress: 40 });
+      expect(manager.getState()).toBe('indexing');
+      expect(manager.getProgress()).toBe(40);
+
+      progress[0]!({ status: 'ready', symbolCount: 12, progress: 100 });
+      expect(manager.getState()).toBe('ready');
+      expect(manager.getSymbolCount()).toBe(12);
+
+      progress[0]!({ status: 'error', symbolCount: 0, progress: 0 });
+      expect(manager.getState()).toBe('error');
+
+      progress[0]!({ status: 'idle', symbolCount: 0, progress: 0 });
+      expect(manager.getState()).toBe('idle');
+      expect(manager.getProgress()).toBe(0);
+
+      manager.dispose();
+    });
+
+    it('reads the symbol count back from the engine on the legacy completion event', () => {
+      const { engine, complete, createStatusBarItem } = recordingEngine();
+      const manager = createStatusBarManager({ createStatusBarItem }, engine);
+
+      expect(complete).toHaveLength(1);
+      complete[0]!();
+
+      // The legacy event carries no payload, so the handler has to query the
+      // engine; defaulting to zero would silently blank the symbol count.
+      expect(manager.getState()).toBe('ready');
+      expect(manager.getSymbolCount()).toBe(7);
+
+      manager.dispose();
     });
   });
 });

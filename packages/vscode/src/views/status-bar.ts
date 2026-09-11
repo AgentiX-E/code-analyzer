@@ -258,8 +258,6 @@ export function createStatusBarManager(
   manager.setItem(item);
 
   // Listen for indexing progress updates
-  // These callbacks are tested via integration tests that trigger engine events
-  /* v8 ignore next 14 */
   engine.onIndexingProgress((state) => {
     switch (state.status) {
       case 'indexing':
@@ -278,7 +276,6 @@ export function createStatusBarManager(
   });
 
   // Listen for indexing completion (backward compat)
-  /* v8 ignore next 4 */
   engine.onIndexingComplete(() => {
     const indexState = engine.getIndexingState();
     manager.setReady(indexState.symbolCount);
