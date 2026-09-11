@@ -127,7 +127,19 @@ describe('GitOperations', () => {
 
   it('gets file hash', async () => {
     const hash = await git.getFileHash('HEAD', 'file1.ts');
-    expect(hash).toBeTruthy();
+    // The hash is the third field of the `ls-tree` record; compare it against
+    // git itself so that returning the mode or the object type cannot pass.
+    const expected = execSync('git rev-parse HEAD:file1.ts', {
+      cwd: repoPath,
+      encoding: 'utf-8',
+    }).trim();
+    expect(hash).toBe(expected);
+  });
+
+  it('returns an empty hash for a path absent from the tree', async () => {
+    // `git ls-tree` exits 0 with empty output for an unknown path, so the record
+    // has no third field and there is nothing to report.
+    await expect(git.getFileHash('HEAD', 'not-in-tree.ts')).resolves.toBe('');
   });
 
   it('lists branches', async () => {
@@ -242,7 +254,11 @@ describe('GitOperations — Error Handling', () => {
   it('throws for git operations on non-existent directory', async () => {
     const gitOps = createGitOperations(invalidPath);
 
-    await expect(gitOps.getLastCommit()).rejects.toThrow('Git command failed');
+    // The message stitches the failing subcommand together with git's own stderr,
+    // which is what lets a caller diagnose a bad repository path.
+    await expect(gitOps.getLastCommit()).rejects.toThrow(
+      /Git command failed: git rev-parse HEAD\nfatal: cannot change to/,
+    );
   });
 
   it('throws for getDiff on non-existent repo', async () => {
@@ -290,6 +306,20 @@ describe('GitOperations — Error Handling', () => {
   it('throws for getFileHash on non-existent repo', async () => {
     const gitOps = createGitOperations(invalidPath);
     await expect(gitOps.getFileHash('HEAD', 'file.ts')).rejects.toThrow('Git command failed');
+  });
+
+  it('surfaces exec argument validation for a path containing a NUL byte', async () => {
+    const gitOps = createGitOperations(invalidPath);
+    // exec() rejects NUL bytes synchronously, before any process is spawned, so
+    // the rejection never reaches the `git()` handler and the raw validation
+    // message is surfaced instead of the "Git command failed" wrapper. This is
+    // the invariant that makes an `err.stderr ?? err.message` fallback dead.
+    await expect(gitOps.getFileHash('HEAD', 'a\u0000b.ts')).rejects.toThrow(
+      /must be a string without null bytes/,
+    );
+    await expect(gitOps.getFileHash('HEAD', 'a\u0000b.ts')).rejects.not.toThrow(
+      /Git command failed/,
+    );
   });
 
   it('throws for listBranches on non-existent repo', async () => {
@@ -431,6 +461,14 @@ describe('parseDiff hunk parsing edge cases', () => {
     expect(diffs.length).toBe(1);
     expect(diffs[0]!.filePath).toBe('file.ts');
     expect(diffs[0]!.ranges.length).toBe(1);
+    // The omitted old count means a single line; the new count of 3 spans 20-22.
+    expect(diffs[0]!.ranges[0]).toEqual({
+      oldStart: 10,
+      oldEnd: 10,
+      newStart: 20,
+      newEnd: 22,
+      changeType: 'modified',
+    });
   });
 
   it('parses diff with implicit new count (no comma)', () => {
@@ -444,6 +482,14 @@ describe('parseDiff hunk parsing edge cases', () => {
     const diffs = gitOps.parseDiff(output);
     expect(diffs.length).toBe(1);
     expect(diffs[0]!.ranges.length).toBe(1);
+    // The old count of 3 spans 10-12; the omitted new count means a single line.
+    expect(diffs[0]!.ranges[0]).toEqual({
+      oldStart: 10,
+      oldEnd: 12,
+      newStart: 20,
+      newEnd: 20,
+      changeType: 'modified',
+    });
   });
 
   it('detects renamed file in diff headers', () => {
@@ -552,6 +598,14 @@ describe('parseDiff hunk parsing edge cases', () => {
     const diffs = gitOps.parseDiff(output);
     expect(diffs.length).toBe(1);
     expect(diffs[0]!.ranges.length).toBe(1);
+    // Both counts are omitted, so both sides cover exactly one line.
+    expect(diffs[0]!.ranges[0]).toEqual({
+      oldStart: 1,
+      oldEnd: 1,
+      newStart: 1,
+      newEnd: 1,
+      changeType: 'modified',
+    });
   });
 
   it('parses diff with similarity index (copy/rename)', () => {

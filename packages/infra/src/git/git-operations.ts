@@ -33,11 +33,14 @@ export function createGitOperations(repoPath: string): GitOperations {
       maxBuffer: 50 * 1024 * 1024, // 50MB
     })
       .then(({ stdout }) => stdout.trim())
-      .catch((err: Error & { stderr?: string; code?: number }) => {
-        /* v8 ignore start */
-        const message = err.stderr ?? err.message;
-        throw new Error(`Git command failed: git ${args}\n${message}`);
-        /* v8 ignore stop */
+      .catch((err: Error & { stderr: string }) => {
+        // Invariant: every rejection raised by a spawned process carries
+        // `stderr` as a string -- non-zero exit, signal death, timeout and
+        // maxBuffer overflow all do, even when the captured text is empty. The
+        // single failure mode without it (ERR_INVALID_ARG_VALUE, for a NUL byte
+        // in the command) is thrown synchronously by exec() itself and therefore
+        // never reaches this handler. An `err.message` fallback would be dead.
+        throw new Error(`Git command failed: git ${args}\n${err.stderr}`);
       });
   }
 
@@ -48,23 +51,22 @@ export function createGitOperations(repoPath: string): GitOperations {
 
     for (const section of fileSections) {
       const lines = section.split('\n');
-      /* v8 ignore start */
-      const headerLine = lines[0] ?? '';
-      /* v8 ignore stop */
+      // `section` survived `.filter(Boolean)`, so it is never the empty string
+      // and `split` therefore always yields at least one element.
+      const headerLine = lines[0]!;
       const pathMatch = headerLine.match(/^a\/(.+?)\s+b\/(.+)$/);
       if (!pathMatch) continue;
 
-      /* v8 ignore start */
-      const filePath = pathMatch[2] ?? pathMatch[1] ?? '';
-      /* v8 ignore stop */
+      // Both capture groups are mandatory `(.+)`, so they always participate and
+      // the destination path is always present.
+      const filePath = pathMatch[2]!;
       let changeType: GitDiff['changeType'] = 'modified';
       let oldPath: string | undefined;
 
       // Detect change type from subsequent headers
       for (let i = 1; i < Math.min(lines.length, 10); i++) {
-        /* v8 ignore start */
-        const line = lines[i] ?? '';
-        /* v8 ignore stop */
+        // The index is bounded by `lines.length`, so it always resolves.
+        const line = lines[i]!;
         if (line.startsWith('new file mode')) changeType = 'added';
         else if (line.startsWith('deleted file mode')) changeType = 'deleted';
         else if (line.startsWith('rename from ')) {
@@ -76,18 +78,15 @@ export function createGitOperations(repoPath: string): GitOperations {
       // Parse hunks
       const ranges: DiffRange[] = [];
       for (let i = 1; i < lines.length; i++) {
-        /* v8 ignore start */
-        const line = lines[i] ?? '';
-        /* v8 ignore stop */
+        // The index is bounded by `lines.length`, so it always resolves.
+        const line = lines[i]!;
         const hunkMatch = line.match(/^@@ -(\d+),?(\d*)\s+\+(\d+),?(\d*)\s+@@/);
         if (hunkMatch) {
-          /* v8 ignore start */
-          const oldStart = parseInt(hunkMatch[1] ?? '0', 10);
-          /* v8 ignore stop */
+          // The two start offsets are mandatory `(\d+)` groups and therefore
+          // always capture a digit string; only the counts may be omitted.
+          const oldStart = parseInt(hunkMatch[1]!, 10);
           const oldLines = parseInt(hunkMatch[2] || '1', 10);
-          /* v8 ignore start */
-          const newStart = parseInt(hunkMatch[3] ?? '0', 10);
-          /* v8 ignore stop */
+          const newStart = parseInt(hunkMatch[3]!, 10);
           const newLines = parseInt(hunkMatch[4] || '1', 10);
 
           ranges.push({
@@ -183,11 +182,11 @@ export function createGitOperations(repoPath: string): GitOperations {
 
     async getFileHash(ref: string, filePath: string): Promise<string> {
       const output = await git(`ls-tree ${ref} "${filePath}"`);
-      // Output format: <mode> <type> <hash>\t<path>
+      // Output format: <mode> <type> <hash>\t<path>. `git ls-tree` exits 0 with
+      // empty output when the path is absent from the tree, in which case there
+      // is no third field and the empty hash is returned.
       const parts = output.split(/\s+/);
-      /* v8 ignore start */
       return parts[2] ?? '';
-      /* v8 ignore stop */
     },
 
     async listBranches(): Promise<string[]> {
