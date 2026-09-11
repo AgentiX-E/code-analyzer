@@ -157,6 +157,16 @@ describe('PluginRegistry', () => {
       registry.register(makeLensPlugin('p2', 'dup'));
       expect(registry.getLenses()).toHaveLength(1);
     });
+
+    it('contributes nothing for a plugin with no lenses', () => {
+      // `lenses` is optional on the interface, so a plugin that reviews nothing
+      // has to be skipped rather than break the aggregation. Every other plugin in
+      // this suite defines it, which is why the skip had never run.
+      registry.register(makeLensPlugin('p1', 'lens-1'));
+      registry.register(makePlugin({ name: 'no-lenses' }));
+
+      expect(registry.getLenses()).toHaveLength(1);
+    });
   });
 
   describe('getStandards', () => {
@@ -176,6 +186,18 @@ describe('PluginRegistry', () => {
       registry.register(makePlugin({ name: 'b', standards: [std] }));
       expect(registry.getStandards()).toHaveLength(1);
     });
+
+    it('contributes nothing for a plugin with no standards', () => {
+      registry.register(
+        makePlugin({
+          name: 'std-plugin',
+          standards: [{ id: 'std-1', name: 'Standard 1', category: 'security', rules: [] }],
+        }),
+      );
+      registry.register(makePlugin({ name: 'no-standards' }));
+
+      expect(registry.getStandards()).toHaveLength(1);
+    });
   });
 
   describe('getMCPTools', () => {
@@ -188,6 +210,13 @@ describe('PluginRegistry', () => {
     it('should deduplicate tools by name', () => {
       registry.register(makeToolPlugin('p1', 'dup-tool'));
       registry.register(makeToolPlugin('p2', 'dup-tool'));
+      expect(registry.getMCPTools()).toHaveLength(1);
+    });
+
+    it('contributes nothing for a plugin with no MCP tools', () => {
+      registry.register(makeToolPlugin('p1', 'tool-1'));
+      registry.register(makePlugin({ name: 'no-tools' }));
+
       expect(registry.getMCPTools()).toHaveLength(1);
     });
   });

@@ -242,8 +242,13 @@ class HistogramMetricImpl implements HistogramMetric {
     }
     for (const entry of this.entries.values()) {
       for (let i = 0; i < this.buckets.length; i++) {
-        result[String(this.buckets[i]!)] =
-          (result[String(this.buckets[i]!)] ?? 0) + (entry.bucketCounts[i]! ?? 0);
+        const bucket = String(this.buckets[i]!);
+        // Invariant: `bucket` is seeded to 0 in the loop above, and `observe()`
+        // builds `bucketCounts` as `new Array(buckets.length).fill(0)` — a dense
+        // array indexed by this same `i`. Both `?? 0` fallbacks were therefore
+        // unreachable, and nothing outside the class can put a hole in either
+        // container. The assertion states the seeding rather than re-testing it.
+        result[bucket]! += entry.bucketCounts[i]!;
       }
     }
     return result;
@@ -284,14 +289,17 @@ class HistogramMetricImpl implements HistogramMetric {
 /** Parse a stable key like {method="GET",status="200"} back to a labels map. */
 function parseLabelsFromKey(key: string): Record<string, string> {
   const labels: Record<string, string> = {};
-  if (!key.startsWith('{')) return labels;
 
   const inner = key.slice(1, -1); // Remove braces
   // Match key="value" pairs (value may contain escaped quotes)
   const parts = inner.split(',');
   for (const part of parts) {
+    // Invariant: `labelsKey()` is the only producer of a key and emits `k="v"`
+    // pairs, while the only caller (`exportEntries`) already skips the empty key.
+    // So the string always starts with `{` and every part carries an `=`. Guards
+    // for both cases were unreachable, and this module has no path that rehydrates
+    // a key from a string it did not produce.
     const eqIdx = part.indexOf('=');
-    if (eqIdx === -1) continue;
     const k = part.slice(0, eqIdx).trim();
     let v = part.slice(eqIdx + 1).trim();
     if (v.startsWith('"') && v.endsWith('"')) {

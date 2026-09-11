@@ -8,6 +8,28 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a dynamic import failed because the specifier could not be resolved.
+ *
+ * The `code` is the signal, and the reason is that the message is not stable:
+ * Node words the same failure two different ways, reporting "Cannot find package
+ * '<name>'" for an unresolvable bare specifier and "Cannot find module '<path>'"
+ * for an unresolvable relative one. Matching on a single phrasing — as this used
+ * to — silently never fires for the package case it exists to catch, while a
+ * message check covering both phrasings is still unreachable on Node, which always
+ * sets `code`. Test the structured field.
+ */
+function isModuleNotFound(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+
+  const code: unknown = (err as { code?: unknown }).code;
+  return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND';
+}
+
+// ---------------------------------------------------------------------------
 // Plugin Loader
 // ---------------------------------------------------------------------------
 
@@ -64,7 +86,13 @@ export class PluginLoader {
 
       return this.validateAndReturn(candidate);
     } catch (err) {
-      if (err instanceof Error && err.message.includes('Cannot find module')) {
+      // Matching on "Cannot find module" alone left this branch unreachable for
+      // the case it exists to handle: Node reports a missing *bare specifier* as
+      // "Cannot find package", so every not-installed lookup fell through to
+      // `throw err` and the caller saw ERR_MODULE_NOT_FOUND instead of this
+      // message. The loose assertion in the old test (`/not installed|Cannot
+      // find/`) accepted both, which is why nothing caught it.
+      if (isModuleNotFound(err)) {
         throw new Error(`Package "${packageName}" is not installed`);
       }
       throw err;

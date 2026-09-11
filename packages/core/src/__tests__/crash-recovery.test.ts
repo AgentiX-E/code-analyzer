@@ -165,6 +165,66 @@ describe('CheckpointStore', () => {
     const loaded = store.load();
     expect(loaded!.metadata).toEqual(largeMetadata);
   });
+
+  it('treats a zero timestamp as absent when saving', () => {
+    // `save()` persists `checkpoint.timestamp || Date.now()`, so a falsy value is
+    // replaced rather than stored. Epoch 0 is what reaches it: the checkpoint that
+    // comes back is stamped "now", never 0.
+    store.save(makeCheckpoint({ timestamp: 0 }));
+
+    expect(store.load()!.timestamp).toBeGreaterThan(0);
+  });
+
+  it('defaults the timestamp and metadata of a checkpoint file that omits them', () => {
+    // A file written by an earlier format carries only the four required fields;
+    // the two optional ones are filled in on read rather than rejected.
+    fs.mkdirSync(tempDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'checkpoint.json'),
+      JSON.stringify({
+        phaseId: 'resolve',
+        processedFiles: ['x.ts'],
+        nodeCount: 7,
+        edgeCount: 3,
+      }),
+    );
+
+    const loaded = store.load();
+    expect(loaded!.phaseId).toBe('resolve');
+    expect(loaded!.processedFiles).toEqual(['x.ts']);
+    expect(loaded!.nodeCount).toBe(7);
+    expect(loaded!.edgeCount).toBe(3);
+    expect(loaded!.timestamp).toBeGreaterThan(0);
+    expect(loaded!.metadata).toEqual({});
+  });
+
+  it('clears a leftover temp file along with the checkpoint', () => {
+    // A crash between the temp write and the rename leaves `checkpoint.json.tmp`
+    // on disk. The checkpoint is the obvious half of `clear()`; the temp file is
+    // the half that only a test can catch, and leaving it behind would keep the
+    // crashed run's bytes around.
+    store.save(makeCheckpoint());
+    const tmpPath = path.join(tempDir, 'checkpoint.json.tmp');
+    fs.writeFileSync(tmpPath, 'partial write from a crashed run');
+
+    store.clear();
+
+    expect(fs.existsSync(tmpPath)).toBe(false);
+    expect(store.exists()).toBe(false);
+  });
+
+  it('creates its cache directory on demand', () => {
+    // The directory is created when it is missing, so a store pointed at a path
+    // nobody has made yet still saves. Every other test here is handed an
+    // already-existing temp dir, which is why this arm had never run.
+    const nested = path.join(tempDir, 'deep', 'nested');
+    const fresh = new CheckpointStore(nested);
+
+    fresh.save(makeCheckpoint({ phaseId: 'fresh' }));
+
+    expect(fs.existsSync(nested)).toBe(true);
+    expect(fresh.load()!.phaseId).toBe('fresh');
+  });
 });
 
 // ===========================================================================
@@ -296,6 +356,32 @@ describe('QuarantineManager', () => {
     expect(manager2.isQuarantined('x.ts')).toBe(true);
   });
 
+  it('returns no entries when the quarantine file is valid JSON that is not a list', () => {
+    // A quarantine file can be unusable in two distinct ways: unparseable, which
+    // the surrounding try/catch handles, and parseable-but-not-an-array, which is
+    // this guard. Only the first was covered.
+    fs.mkdirSync(tempDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(tempDir, 'quarantine.json'),
+      JSON.stringify({ filePath: 'not-a-list.ts' }),
+    );
+
+    expect(manager.getQuarantined()).toEqual([]);
+    expect(manager.getCount()).toBe(0);
+  });
+
+  it('creates its cache directory on demand', () => {
+    // `saveList()` makes the directory when it is missing. Every other test here
+    // is handed a temp dir that already exists, which is why this arm never ran.
+    const nested = path.join(tempDir, 'deep', 'nested');
+    const fresh = new QuarantineManager(nested);
+
+    fresh.quarantine({ filePath: 'x.ts', error: 'e', phaseId: 'p', retryCount: 1 });
+
+    expect(fs.existsSync(nested)).toBe(true);
+    expect(fresh.isQuarantined('x.ts')).toBe(true);
+  });
+
   it('should handle null in filePath gracefully', () => {
     manager.quarantine({ filePath: 'valid.ts', error: 'e', phaseId: 'p', retryCount: 1 });
     // Attempting to query non-existent file should not error
@@ -387,6 +473,27 @@ describe('RecoveryManager', () => {
 
     const state = recoveryManager.loadRecoveryState();
     expect(state.lastCheckpoint!.metadata).toEqual({ customKey: 'customValue' });
+  });
+
+  it('auto-saves by default when constructed without options', () => {
+    // `autoSave` defaults to true and `minCheckpointInterval` to 30s, so a manager
+    // built with no options persists on the very first save. Every other case here
+    // passes an options object, which is why the defaults were never exercised.
+    const defaulted = new RecoveryManager(checkpointStore, quarantineManager);
+
+    defaulted.saveCheckpoint('parse', ['a.ts'], 10, 5);
+
+    expect(defaulted.loadRecoveryState().lastCheckpoint?.phaseId).toBe('parse');
+  });
+
+  it('honours an explicit autoSave of false', () => {
+    // The other side of the same default, asserted so the fallback cannot be
+    // flipped to `false` without a failure.
+    const manual = new RecoveryManager(checkpointStore, quarantineManager, { autoSave: false });
+
+    manual.saveCheckpoint('parse', ['a.ts'], 10, 5);
+
+    expect(manual.loadRecoveryState().lastCheckpoint).toBeNull();
   });
 
   it('should respect minCheckpointInterval', () => {

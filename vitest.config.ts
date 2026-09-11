@@ -69,19 +69,25 @@ export default defineConfig({
       // Honest exclusion set — only genuinely non-functional files.
       // Every production source file is counted toward coverage.
       //
-      // Each pattern below is a CLAIM ABOUT THE FILE'S CONTENT, not a licence to
-      // skip a filename. `**/types.ts` only holds while the match really is
-      // type-only: a module that also exports values is executable code and
-      // belongs under the gate, whatever it is called. `cross-service/types.ts`
-      // is the standing counter-example — it carries ~400 lines of library
-      // detection tables and is reachable from five production modules.
+      // There is deliberately NO `**/types.ts` entry. That pattern is a claim
+      // about a file's contents rather than a licence to skip a filename, and
+      // nothing enforces it: it was matching
+      // `intelligence/src/cross-service/types.ts`, which carries `ServiceEdgeType`
+      // and ~400 lines of library-detection tables reached by five production
+      // modules. Coverage had been silently ignoring that file.
+      //
+      // The three remaining pure-type `types.ts` files are simply counted. A file
+      // with no executable statements reports 0/0, which the summary renders as
+      // 100%, so counting one costs nothing and cannot hide anything — whereas a
+      // pattern that matches by name can, and did. Adding a per-file exclusion
+      // here would reintroduce exactly the review problem: a reviewer cannot tell
+      // from a path whether the file still holds only declarations.
       exclude: [
         '**/*.test.ts',
         '**/*.spec.ts',
         '**/index.ts', // Barrel files — re-export only, exercised via consumer tests
         '**/provider.ts', // Pure interface definitions (no executable code)
         '**/fixtures/**', // Test fixtures (no executable code)
-        '**/types.ts', // Pure type definitions (no executable code) — see the claim above
         '**/start.ts', // Process entry points — exercised via integration/e2e
         '**/benchmark-data.ts', // Static benchmark datasets (no executable code)
         '**/benchmarks/**', // Benchmark harnesses, not production logic

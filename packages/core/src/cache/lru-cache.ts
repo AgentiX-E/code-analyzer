@@ -147,8 +147,19 @@ export class LRUCache<K = string, V = unknown> {
       existing.value = value;
       const ttlMs = ttlOverride ?? this.ttl;
       existing.expiresAt = ttlMs > 0 ? Date.now() + ttlMs : Infinity;
-      existing.size = this.estimateSize(value);
+
+      // Re-account the byte total. An entry's size follows its value, and the
+      // running total has to move by the difference. It used to be left at the old
+      // size, so the cache under-reported its own memory: a cache configured with
+      // `maxBytes` believed it was smaller than it was and stopped evicting after
+      // any overwrite grew a value. `evictIfNeeded()` therefore has to run here
+      // too — the new-entry path below already calls it for the same reason.
+      const nextSize = this.estimateSize(value);
+      this._currentBytes += nextSize - existing.size;
+      existing.size = nextSize;
+
       this.moveToHead(existing);
+      this.evictIfNeeded();
       return;
     }
 
@@ -345,7 +356,10 @@ export class LRUCache<K = string, V = unknown> {
     if (this.head) this.head.prev = entry;
     this.head = entry;
 
-    if (!this.tail) this.tail = entry;
+    // Invariant: `tail` cannot be null here. It only becomes null when the entry
+    // leaving the list is the tail with no predecessor — a single-entry list — and
+    // that entry is the head, which the guard at the top of this method already
+    // returned on. So there is no tail to reinstate.
   }
 
   private removeEntry(entry: CacheEntry<K, V>): void {
@@ -359,8 +373,12 @@ export class LRUCache<K = string, V = unknown> {
     this.store.delete(entry.key);
 
     // Track memory
+    // Invariant: every entry adds its size once, in `set()`, and `set()` re-accounts
+    // the delta when it replaces one — so the running total is exact and this
+    // subtraction cannot go below zero. A clamp to 0 used to sit here; it was
+    // unreachable, and worse, it silently hid the under-counting that made the old
+    // total wrong in the first place.
     this._currentBytes -= entry.size;
-    if (this._currentBytes < 0) this._currentBytes = 0;
 
     // Eviction callback
     if (this.onEvict) this.onEvict(entry.key, entry.value);
@@ -378,8 +396,11 @@ export class LRUCache<K = string, V = unknown> {
 
     // Then, evict LRU entries until within limits
     while (this.shouldEvict()) {
-      if (!this.tail) break; // safety
-      const entry = this.tail;
+      // Invariant: `shouldEvict()` is only true when the store is non-empty or the
+      // tracked bytes exceed the budget, and the two are maintained together — so
+      // a non-empty store always has a tail. A `if (!this.tail) break` safety net
+      // here was unreachable; the assertion states the narrowing instead.
+      const entry = this.tail!;
       this.removeEntry(entry);
       this._evictions++;
     }

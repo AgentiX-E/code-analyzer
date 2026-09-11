@@ -87,6 +87,25 @@ describe('getDefaultConfig', () => {
     const config = getDefaultConfig();
     expect(config.includePatterns).toEqual([]);
   });
+
+  it('falls back to the CPU count when availableParallelism is unavailable', () => {
+    // `os.availableParallelism` was added in Node 18.14; on a runtime without it
+    // the default has to come from `os.cpus().length`. Removing the API is the
+    // only way to reach that operand, and it is what the `??` exists for.
+    const originalParallelism = os.availableParallelism;
+    const originalCpus = os.cpus;
+    // Six CPUs, deliberately not the host's own count: on a 16-core machine the
+    // real fallback happens to produce 8, which is also what a hardcoded `?? 8`
+    // produces, and that coincidence made the assertion unable to tell them apart.
+    Reflect.set(os, 'cpus', () => new Array(6).fill({ model: 'test', speed: 0, times: {} }));
+    Reflect.set(os, 'availableParallelism', undefined);
+    try {
+      expect(getDefaultConfig().parseWorkers).toBe(3);
+    } finally {
+      Reflect.set(os, 'availableParallelism', originalParallelism);
+      Reflect.set(os, 'cpus', originalCpus);
+    }
+  });
 });
 
 describe('deepMerge', () => {

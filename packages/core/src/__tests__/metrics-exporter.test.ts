@@ -91,6 +91,25 @@ describe('MetricsRegistry', () => {
       expect(g.get()).toBe(6);
     });
 
+    it('increments from zero for a label set that was never written', () => {
+      // `inc` reads the current value with `?? 0`, which is what lets a gauge be
+      // adjusted before anything sets it. Every other case here adjusts a key that
+      // `set()` or an earlier `inc()` already created, so the fallback never ran.
+      const g = registry.gauge('connections', 'Active connections', ['host']);
+
+      g.inc(1, { host: 'a' });
+
+      expect(g.get({ host: 'a' })).toBe(1);
+    });
+
+    it('decrements from zero for a label set that was never written', () => {
+      const g = registry.gauge('connections', 'Active connections', ['host']);
+
+      g.dec(2, { host: 'b' });
+
+      expect(g.get({ host: 'b' })).toBe(-2);
+    });
+
     it('should support labels', () => {
       const g = registry.gauge('temperature', 'Temperature', ['location']);
       g.set(25, { location: 'room1' });

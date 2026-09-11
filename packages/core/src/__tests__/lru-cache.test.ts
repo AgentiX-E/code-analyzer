@@ -335,6 +335,53 @@ describe('LRUCache', () => {
       const stats = cache.stats;
       expect(stats.estimatedBytes).toBeGreaterThan(0);
     });
+
+    it('re-accounts the byte total when an existing key changes size', () => {
+      // A string costs `length * 2 + 32`. Overwriting a key replaces the entry, so
+      // the running total has to move by the difference. Asserting the exact number
+      // is the point: the old code updated `entry.size` but left the total alone,
+      // and the only existing assertion (`toBeGreaterThan(0)`) cannot see that.
+      const cache = new LRUCache<string, string>({ maxBytes: 10000 });
+      cache.set('k', 'ab'); // 36
+      cache.set('k', 'a much longer value'); // 70
+
+      expect(cache.stats.estimatedBytes).toBe(70);
+    });
+
+    it('returns the byte total to zero when an overwritten entry is removed', () => {
+      // The removal subtracts the entry's *current* size. With the total left at
+      // the original size, this went negative and a clamp in the removal path
+      // silently rewrote it to 0 — which is why the under-counting stayed hidden.
+      const cache = new LRUCache<string, string>({ maxBytes: 10000 });
+      cache.set('k', 'ab');
+      cache.set('k', 'a much longer value');
+
+      cache.delete('k');
+
+      expect(cache.stats.estimatedBytes).toBe(0);
+    });
+
+    it('counts an overwrite against the memory budget', () => {
+      // The observable consequence of the under-count: a cache with a byte budget
+      // believed it was far under it after overwriting with a much larger value.
+      const cache = new LRUCache<string, string>({ maxBytes: 100, maxSize: 100 });
+
+      cache.set('k', 'x'.repeat(10)); // 52
+      cache.set('k', 'x'.repeat(200)); // 432 — now well over the 100-byte budget
+
+      expect(cache.size).toBe(0);
+    });
+
+    it('estimates a plain object at the conservative default', () => {
+      // Values that are not strings, numbers, booleans or views fall through to the
+      // 64-byte estimate. Every other case in this suite caches a primitive, so the
+      // fallthrough had never run.
+      const cache = new LRUCache<string, { a: number }>({ maxSize: 10 });
+
+      cache.set('obj', { a: 1 });
+
+      expect(cache.stats.estimatedBytes).toBe(64);
+    });
   });
 
   describe('Edge cases', () => {

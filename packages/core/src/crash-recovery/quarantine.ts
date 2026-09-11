@@ -65,7 +65,12 @@ export class QuarantineManager {
         error: file.error,
         phaseId: file.phaseId,
         timestamp: Date.now(),
-        retryCount: file.retryCount ?? 1,
+        // Invariant: `retryCount` is required by the parameter type, so it is
+        // always present for a type-correct caller, and the only production
+        // caller (RecoveryManager.quarantineFile) passes 1 explicitly. A `?? 1`
+        // fallback here was unreachable — the default belongs at the call site,
+        // where a reader can see it.
+        retryCount: file.retryCount,
       });
     }
 

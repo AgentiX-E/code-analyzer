@@ -144,10 +144,51 @@ describe('PluginLoader', () => {
   });
 
   describe('loadFromNpm', () => {
-    it('should throw for not-installed package', async () => {
+    it('reports a missing package as not installed', async () => {
+      // Node reports an unresolvable bare specifier as ERR_MODULE_NOT_FOUND with
+      // the text "Cannot find package '<name>'" — "Cannot find module" is what it
+      // says for a missing *relative* path. Asserting the exact message is the
+      // point: a looser matcher (`/not installed|Cannot find/`) accepts the raw
+      // ERR_MODULE_NOT_FOUND too, which is precisely what the caller used to get.
       await expect(
         loader.loadFromNpm('this-package-definitely-does-not-exist-xyz'),
-      ).rejects.toThrow(/not installed|Cannot find/);
+      ).rejects.toThrow('Package "this-package-definitely-does-not-exist-xyz" is not installed');
+    });
+
+    it('loads a package that exports the plugin as its default', async () => {
+      // A relative specifier resolves against this module, so a fixture beside the
+      // loader exercises the same path a real package would.
+      const plugin = await loader.loadFromNpm('./fixtures/plugin-with-default.js');
+
+      expect(plugin.name).toBe('fixture-default');
+      expect(plugin.version).toBe('1.0.0');
+    });
+
+    it("loads a package that exports the plugin as a named 'plugin'", async () => {
+      const plugin = await loader.loadFromNpm('./fixtures/plugin-with-named.js');
+
+      expect(plugin.name).toBe('fixture-named');
+    });
+
+    it('rejects a package that exports no plugin at all', async () => {
+      await expect(loader.loadFromNpm('./fixtures/plugin-with-neither.js')).rejects.toThrow(
+        'does not export a default or named "plugin" export',
+      );
+    });
+
+    it('rethrows a failure that is not an Error untouched', async () => {
+      // A module body can throw anything. A non-Error has no `code` and no
+      // `message` to match on, so it must not be classified as "not installed" —
+      // the plugin initialised and failed, which is a different problem.
+      await expect(loader.loadFromNpm('./fixtures/plugin-throws-string.js')).rejects.toBe(
+        'fixture: a plugin that throws a string',
+      );
+    });
+
+    it('rethrows an object carrying neither a known code nor a message', async () => {
+      await expect(loader.loadFromNpm('./fixtures/plugin-throws-object.js')).rejects.toEqual({
+        code: 'SOMETHING_ELSE',
+      });
     });
   });
 });
