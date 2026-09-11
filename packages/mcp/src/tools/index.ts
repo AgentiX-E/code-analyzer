@@ -1,5 +1,5 @@
 // @code-analyzer/mcp — Tools Index
-// Registers all 44 MCP tools into the ToolRegistry.
+// Registers all 48 MCP tools into the ToolRegistry.
 
 import { ToolRegistry } from './registry.js';
 
@@ -119,12 +119,15 @@ import { hotspotDetectionTool } from './hotspot-detection.js';
 import { refactorSuggestionTool } from './refactor-suggestion.js';
 import { testGenerationTool } from './test-generation.js';
 import { docGenerationTool } from './doc-generation.js';
+import { codeSuggestionTool } from './code-suggestion.js';
+import { hallucinationDetectionTool } from './hallucination-detection.js';
+import { reportGenerationTool } from './report-generation.js';
 
 // ---------------------------------------------------------------------------
 // Register All Tools
 // ---------------------------------------------------------------------------
 
-/** Create and configure a ToolRegistry with all 45 tools. */
+/** Create and configure a ToolRegistry with all 48 tools. */
 export function createToolRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
 
@@ -460,6 +463,33 @@ export function createToolRegistry(): ToolRegistry {
     docGenerationTool.description,
     docGenerationTool.inputSchema,
     docGenerationTool.handler,
+    'analysis',
+  );
+
+  // These three were implemented and covered by their own suites but never
+  // imported here, so the registry never saw them and no client could invoke
+  // them. Their definitions are the source of truth for the registered name --
+  // `register()` takes the name as a separate argument, so reading it off the
+  // definition is what keeps the two from drifting apart.
+  registry.register(
+    codeSuggestionTool.name,
+    codeSuggestionTool.description,
+    codeSuggestionTool.inputSchema,
+    codeSuggestionTool.handler,
+    'analysis',
+  );
+  registry.register(
+    hallucinationDetectionTool.name,
+    hallucinationDetectionTool.description,
+    hallucinationDetectionTool.inputSchema,
+    hallucinationDetectionTool.handler,
+    'analysis',
+  );
+  registry.register(
+    reportGenerationTool.name,
+    reportGenerationTool.description,
+    reportGenerationTool.inputSchema,
+    reportGenerationTool.handler,
     'analysis',
   );
 
