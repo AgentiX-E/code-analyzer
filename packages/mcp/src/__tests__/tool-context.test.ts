@@ -113,6 +113,74 @@ describe('ToolContextImpl', () => {
       const tree = ctx.getDependencyTree('test', 'nonexistent.Symbol');
       expect(tree).toBeNull();
     });
+
+    it('should build a depth-annotated tree rooted at the queried symbol', () => {
+      const store = new InMemoryGraphStore();
+      const projectId = 'org/repo-a';
+      const timestamp = '2026-01-01T00:00:00.000Z';
+      const nodeBase = {
+        projectId,
+        label: 'Method',
+        filePath: 'src/a.ts',
+        startLine: 1,
+        endLine: 2,
+        language: 'typescript',
+        properties: {},
+        signature: 'fn()',
+        docstring: '',
+        complexity: 1,
+        isExported: true,
+        fingerprint: 'fp',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      // pkg.root -> pkg.child -> pkg.grandchild, plus a second direct child.
+      // The store assigns its own node ids on insert, starting at 1.
+      const ids = new Map<string, number>();
+      for (const qualifiedName of ['pkg.root', 'pkg.child', 'pkg.grandchild', 'pkg.other']) {
+        ids.set(
+          qualifiedName,
+          store.insertNode({ ...nodeBase, id: 0, name: qualifiedName, qualifiedName }),
+        );
+      }
+
+      const edge = (sourceId: number, targetId: number) => ({
+        id: 0,
+        projectId,
+        sourceId,
+        targetId,
+        type: 'CALLS' as const,
+        properties: {},
+        weight: 1,
+        createdAt: timestamp,
+      });
+      store.insertEdges([
+        edge(ids.get('pkg.root')!, ids.get('pkg.child')!),
+        edge(ids.get('pkg.child')!, ids.get('pkg.grandchild')!),
+        edge(ids.get('pkg.root')!, ids.get('pkg.other')!),
+      ]);
+
+      const ctx = new ToolContextImpl(store);
+      const tree = ctx.getDependencyTree(projectId, 'pkg.root', 3);
+
+      // The queried symbol is the root — not whichever node BFS happened to visit last.
+      expect(tree).not.toBeNull();
+      expect(tree!.node.qualifiedName).toBe('pkg.root');
+      expect(tree!.depth).toBe(0);
+
+      // Depth is the BFS path length: root 0, direct callee 1, transitive callee 2.
+      expect(tree!.children.map((c) => [c.node.qualifiedName, c.depth])).toEqual([
+        ['pkg.child', 1],
+        ['pkg.other', 1],
+      ]);
+
+      // Edges link source -> target, so the grandchild hangs off pkg.child only.
+      expect(tree!.children[0]!.children.map((c) => [c.node.qualifiedName, c.depth])).toEqual([
+        ['pkg.grandchild', 2],
+      ]);
+      expect(tree!.children[1]!.children).toEqual([]);
+    });
   });
 
   // -------------------------------------------------------------------------

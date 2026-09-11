@@ -4,6 +4,7 @@
 
 import { createYoga } from 'graphql-yoga';
 import { makeExecutableSchema } from '@graphql-tools/schema';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { typeDefs } from './schema.js';
 import { resolvers } from './resolvers.js';
 import type { GraphQLContext } from './context.js';
@@ -30,16 +31,17 @@ export interface GraphQLServerOptions {
  * - GraphiQL playground in non-production environments
  * - Request-scoped context with store/config/startTime
  *
+ * Attach it to Fastify with {@link mountGraphQLOnFastify} rather than by hand: the
+ * mounting helper rebuilds the request as a WHATWG `Request` and materialises the
+ * response body, neither of which the raw node adapter can do once Fastify's
+ * content-type parsers have drained the request stream.
+ *
  * @example
  * ```ts
- * import { createGraphQLServer } from './graphql/server.js';
- * const yoga = createGraphQLServer({ store, config, startTime: Date.now() });
- * // Mount on Fastify:
- * app.route({ url: '/graphql', method: ['GET', 'POST', 'OPTIONS'], handler: async (req, reply) => {
- *   const response = await yoga.handleNodeRequestAndResponse(req, reply);
- *   response.headers.forEach((value, key) => reply.header(key, value));
- *   reply.status(response.status).send(response.body);
- * }});
+ * import { mountGraphQLOnFastify } from './graphql/server.js';
+ *
+ * mountGraphQLOnFastify(app, { store, config, startTime: Date.now() }, '/api/v1');
+ * // Serves GET, POST and OPTIONS on `${apiPrefix}/graphql`.
  * ```
  */
 export function createGraphQLServer(options: GraphQLServerOptions) {
@@ -77,6 +79,30 @@ export function createGraphQLServer(options: GraphQLServerOptions) {
 }
 
 /**
+ * Build a WHATWG Request for Yoga out of a Fastify request.
+ *
+ * Fastify's content-type parsers consume the request stream before the route
+ * handler runs, so the raw `IncomingMessage` is already drained by then. Handing
+ * that drained stream to Yoga's node adapter leaves the adapter waiting for an
+ * `end` event that has already fired, which hangs the request forever. The parsed
+ * payload is re-serialised here so Yoga receives a self-contained body.
+ */
+function toYogaRequest(req: FastifyRequest): Request {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (typeof value === 'string') headers.set(key, value);
+    else if (Array.isArray(value)) headers.set(key, value.join(', '));
+  }
+
+  const method = req.method.toUpperCase();
+  return new Request(new URL(req.url, `http://${req.headers.host ?? 'localhost'}`), {
+    method,
+    headers,
+    body: method === 'POST' ? JSON.stringify(req.body ?? {}) : undefined,
+  });
+}
+
+/**
  * Register the GraphQL Yoga server on a Fastify instance.
  * Mounts the /graphql endpoint for GET, POST, and OPTIONS methods.
  */
@@ -91,16 +117,19 @@ export function mountGraphQLOnFastify(
   app.route({
     url: endpoint,
     method: ['GET', 'POST', 'OPTIONS'],
-    handler: async (req: any, reply: any) => {
-      // Yoga v5 uses the node Request/Response pair
-      const response = await yoga.handleNodeRequestAndResponse(req.raw || req, reply.raw || reply);
+    handler: async (req: FastifyRequest, reply: FastifyReply) => {
+      const response = await yoga.fetch(toYogaRequest(req));
 
-      // Copy response headers
+      // Copy response headers, except the framing ones: Fastify derives those from
+      // the body materialised below, and a stale content-length would truncate it.
       for (const [key, value] of response.headers.entries()) {
+        const name = key.toLowerCase();
+        if (name === 'content-length' || name === 'transfer-encoding') continue;
         reply.header(key, value);
       }
 
-      reply.status(response.status).send(response.body);
+      // `response.body` is a web ReadableStream, which Fastify cannot serialise.
+      reply.status(response.status).send(await response.text());
     },
   });
 

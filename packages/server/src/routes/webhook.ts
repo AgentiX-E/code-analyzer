@@ -84,7 +84,7 @@ export function registerWebhookRoutes(
         // Log but don't fail — response already sent
         if (config.logging.enabled) {
           console.error(
-            `[code-analyzer] Webhook processing error: ${err instanceof Error ? err.message : /* v8 ignore next */ String(err)}`,
+            `[code-analyzer] Webhook processing error: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
       }

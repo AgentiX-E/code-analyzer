@@ -1,11 +1,8 @@
 {
-  "totalHidden": 46,
-  "totalLines": 128290,
+  "totalHidden": 22,
+  "totalLines": 128322,
   "files": {
     "packages/vscode/src/views/status-bar.ts": 18,
-    "packages/server/src/http-server.ts": 16,
-    "packages/mcp/src/tools/tool-context.ts": 7,
-    "packages/vscode/src/participant/code-analyzer-participant.ts": 4,
-    "packages/server/src/routes/webhook.ts": 1
+    "packages/vscode/src/participant/code-analyzer-participant.ts": 4
   }
 }

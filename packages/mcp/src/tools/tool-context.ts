@@ -265,8 +265,12 @@ export class ToolContextImpl implements ToolContext {
     const nodeMap = new Map<number, DependencyTreeNode>();
 
     for (const bfsNode of bfs.nodes) {
-      /* v8 ignore next 3 — BFS always sets pathLengths for all visited nodes */
-      const depth = bfs.pathLengths.get(bfsNode.id) ?? 0;
+      // Invariant: bfs() adds an id to `visited` and writes its `pathLengths` entry
+      // together at both insertion sites (the source node and every newly discovered
+      // neighbour), and it filters `nodes` out of that same `visited` set. Every
+      // reported node therefore carries a path length and the `?? 0` fallback that
+      // used to sit here was unreachable.
+      const depth = bfs.pathLengths.get(bfsNode.id)!;
       nodeMap.set(bfsNode.id, {
         node: {
           id: bfsNode.id,
@@ -282,17 +286,21 @@ export class ToolContextImpl implements ToolContext {
 
     // Link parent-child relationships based on edges
     for (const bfsEdge of bfs.edges) {
-      const parent = nodeMap.get(bfsEdge.sourceId);
-      const child = nodeMap.get(bfsEdge.targetId);
-      /* v8 ignore next 3 — BFS only returns edges where both endpoints were visited and exist */
-      if (parent && child) {
-        parent.children.push(child);
-      }
+      // Invariant: bfs() records only the edge that discovered each node, and only
+      // after both of its endpoints are in `visited`. insertEdge() rejects edges whose
+      // endpoints are absent and deleteNode() cascades to every connected edge, so both
+      // endpoints are always present in `nodeMap` and the `if (parent && child)` guard
+      // that used to sit here could never take its false branch.
+      const parent = nodeMap.get(bfsEdge.sourceId)!;
+      const child = nodeMap.get(bfsEdge.targetId)!;
+      parent.children.push(child);
     }
 
     // Return the root
-    /* v8 ignore next — BFS always includes the start node in the result nodes */
-    return nodeMap.get(node.id) ?? null;
+    // Invariant: the queried node was resolved from this store and bfs() was handed its
+    // own id, so bfs() visits it and reports it in `nodes`; no await separates the two
+    // calls, so the node cannot be deleted in between.
+    return nodeMap.get(node.id)!;
   }
 
   // -------------------------------------------------------------------------

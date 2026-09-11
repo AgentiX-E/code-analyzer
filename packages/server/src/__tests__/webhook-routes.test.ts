@@ -1,6 +1,6 @@
 // @code-analyzer/server — Webhook Routes Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { registerWebhookRoutes, verifySignature } from '../routes/webhook.js';
@@ -306,7 +306,7 @@ describe('registerWebhookRoutes', () => {
     expect(res.statusCode).toBe(200);
   });
 
-  it('should log processing errors when logging is enabled', async () => {
+  it('should log the Error message when the handler rejects with an Error', async () => {
     const handler: WebhookHandler & { processed: unknown[] } = {
       processed: [],
       async process(_payload: unknown) {
@@ -322,23 +322,74 @@ describe('registerWebhookRoutes', () => {
     });
     registerWebhookRoutes(app, customConfig, { handler });
 
-    await app.ready();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await app.ready();
 
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/v1/webhook/github',
-      headers: {
-        'content-type': 'application/json',
-        'x-github-event': 'pull_request',
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/webhook/github',
+        headers: {
+          'content-type': 'application/json',
+          'x-github-event': 'pull_request',
+        },
+        payload: { action: 'opened' },
+      });
+
+      // Response should still be 200
+      expect(res.statusCode).toBe(200);
+
+      await vi.waitFor(() => {
+        expect(errorSpy).toHaveBeenCalledWith(
+          '[code-analyzer] Webhook processing error: Processing failed!',
+        );
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('should stringify a non-Error rejection when logging the processing error', async () => {
+    // The handler is injected by the caller, so a non-Error rejection is a real
+    // input: `String(err)` is the robustness arm, not dead code.
+    const failure: unknown = 'webhook handler exploded';
+    const handler: WebhookHandler = {
+      async process(_payload: unknown) {
+        throw failure;
       },
-      payload: { action: 'opened' },
+    };
+
+    app = Fastify({ logger: false });
+
+    const customConfig = resolveConfig({
+      logging: { enabled: true, level: 'info', includeBody: false, pretty: false },
     });
+    registerWebhookRoutes(app, customConfig, { handler });
 
-    // Response should still be 200
-    expect(res.statusCode).toBe(200);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await app.ready();
 
-    // Wait for async processing to trigger the error
-    await new Promise((r) => setTimeout(r, 100));
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/webhook/github',
+        headers: {
+          'content-type': 'application/json',
+          'x-github-event': 'pull_request',
+        },
+        payload: { action: 'opened' },
+      });
+
+      expect(res.statusCode).toBe(200);
+
+      await vi.waitFor(() => {
+        expect(errorSpy).toHaveBeenCalledWith(
+          '[code-analyzer] Webhook processing error: webhook handler exploded',
+        );
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('should use "unknown" delivery ID when x-github-delivery header is missing', async () => {

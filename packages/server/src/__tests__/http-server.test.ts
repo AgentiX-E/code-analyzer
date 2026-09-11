@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { createServer } from '../http-server.js';
 import type { ServerInstance } from '../http-server.js';
 import { ToolRegistry } from '@code-analyzer/mcp';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { resolveConfig } from '../server-config.js';
 
 // ---------------------------------------------------------------------------
@@ -378,6 +379,44 @@ describe('createServer', () => {
     expect(server.app.server.listening).toBe(false);
   });
 
+  it('should report which shutdown handler failed and why', async () => {
+    const registry = createTestRegistry();
+    const instance = await createServer({
+      registry,
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
+    });
+    server = instance;
+
+    // Shutdown handlers are registered by callers, so a rejecting handler is a
+    // real input rather than a contrived one: `stop()` must name the offending
+    // handler and its message instead of swallowing the failure.
+    instance.shutdown.register({
+      name: 'exploding-handler',
+      priority: 200,
+      timeout: 1000,
+      shutdown: async () => {
+        throw new Error('exploding-handler failed');
+      },
+    });
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await instance.stop();
+
+      await vi.waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          '[code-analyzer] Shutdown errors:',
+          'exploding-handler failed',
+        ),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('should wait for in-flight connections to complete during shutdown', async () => {
     const registry = createTestRegistry();
 
@@ -572,6 +611,112 @@ describe('createServer with auth', () => {
       headers: { 'x-api-key': 'my-secret-key' },
     });
     expect(res.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Graph / GraphQL wiring
+// ---------------------------------------------------------------------------
+
+function createStoreWithNode(): InMemoryGraphStore {
+  const store = new InMemoryGraphStore();
+  store.insertNode({
+    id: 0,
+    projectId: 'org/repo-a',
+    label: 'Class',
+    name: 'UserService',
+    qualifiedName: 'org.repo-a.UserService',
+    filePath: 'src/services/user.ts',
+    startLine: 10,
+    endLine: 50,
+    language: 'typescript',
+    properties: {},
+    signature: 'class UserService',
+    docstring: 'Handles user operations',
+    complexity: 12,
+    isExported: true,
+    fingerprint: 'abc123',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  return store;
+}
+
+describe('createServer graph and GraphQL wiring', () => {
+  let server: ServerInstance | null = null;
+
+  afterEach(async () => {
+    if (server) {
+      await server.stop();
+      server = null;
+    }
+  });
+
+  async function listen(instance: ServerInstance): Promise<number> {
+    await instance.start();
+    const address = instance.app.server.address();
+    return typeof address === 'object' && address ? address.port : instance.config.port;
+  }
+
+  it('should serve the graph page and data when a graph store is provided', async () => {
+    server = await createServer({
+      registry: createTestRegistry(),
+      graphStore: createStoreWithNode(),
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
+    });
+
+    const port = await listen(server);
+
+    // The HTML page is a static template and carries no store data.
+    const page = await fetch(`http://127.0.0.1:${port}/graph`);
+    expect(page.status).toBe(200);
+    expect(page.headers.get('content-type')).toContain('text/html');
+    expect(await page.text()).toContain('Code Analyzer');
+
+    // The JSON endpoint reads through the injected store, so a non-empty result
+    // proves the store reached registerGraphRoutes.
+    const data = await fetch(`http://127.0.0.1:${port}/graph/data?projectId=org%2Frepo-a`);
+    expect(data.status).toBe(200);
+    const body = (await data.json()) as {
+      nodes: Array<{ name: string }>;
+      stats: { totalNodes: number; filteredNodes: number };
+    };
+    expect(body.stats.totalNodes).toBe(1);
+    expect(body.stats.filteredNodes).toBe(1);
+    expect(body.nodes.map((n) => n.name)).toEqual(['UserService']);
+  });
+
+  it('should mount the GraphQL endpoint when graphql is enabled', async () => {
+    server = await createServer({
+      registry: createTestRegistry(),
+      graphStore: createStoreWithNode(),
+      graphql: true,
+      config: {
+        port: 0,
+        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+      },
+    });
+
+    const port = await listen(server);
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/graphql`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: '{ projects { id } }' }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data?: { projects: Array<{ id: string }> };
+      errors?: unknown;
+    };
+    expect(body.errors).toBeUndefined();
+    // Resolving the project from the store proves the store reached the GraphQL
+    // context, not merely that the endpoint is mounted.
+    expect(body.data?.projects).toEqual([{ id: 'org/repo-a' }]);
   });
 });
 

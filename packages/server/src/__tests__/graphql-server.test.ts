@@ -7,7 +7,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { resolveConfig } from '../server-config.js';
 
 const createYogaMock = vi.hoisted(() => vi.fn());
-const handleSpy = vi.hoisted(() => vi.fn());
+const fetchSpy = vi.hoisted(() => vi.fn());
 
 vi.mock('graphql-yoga', () => ({
   createYoga: createYogaMock,
@@ -28,11 +28,23 @@ function makeOptions(logging?: {
   };
 }
 
+/** A yoga-looking response whose framing headers must not be forwarded. */
+function yogaResponse(body = '{"ok":true}', status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      'x-test': 'yes',
+      'content-length': String(body.length),
+      'transfer-encoding': 'chunked',
+    },
+  });
+}
+
 describe('createGraphQLServer', () => {
   beforeEach(() => {
     createYogaMock.mockReset();
-    handleSpy.mockReset();
-    createYogaMock.mockReturnValue({ handleNodeRequestAndResponse: handleSpy });
+    fetchSpy.mockReset();
+    createYogaMock.mockReturnValue({ fetch: fetchSpy });
   });
 
   afterEach(() => {
@@ -43,7 +55,7 @@ describe('createGraphQLServer', () => {
   it('returns a yoga instance', () => {
     const yoga = createGraphQLServer(makeOptions());
     expect(yoga).toBeDefined();
-    expect(yoga.handleNodeRequestAndResponse).toBe(handleSpy);
+    expect(yoga.fetch).toBe(fetchSpy);
   });
 
   it('provides request-scoped context from store, config and startTime', () => {
@@ -95,13 +107,9 @@ describe('createGraphQLServer', () => {
 describe('mountGraphQLOnFastify', () => {
   beforeEach(() => {
     createYogaMock.mockReset();
-    handleSpy.mockReset();
-    handleSpy.mockResolvedValue({
-      headers: new Headers({ 'x-test': 'yes' }),
-      status: 200,
-      body: '{"ok":true}',
-    });
-    createYogaMock.mockReturnValue({ handleNodeRequestAndResponse: handleSpy });
+    fetchSpy.mockReset();
+    fetchSpy.mockResolvedValue(yogaResponse());
+    createYogaMock.mockReturnValue({ fetch: fetchSpy });
   });
 
   afterEach(() => {
@@ -156,44 +164,88 @@ describe('mountGraphQLOnFastify', () => {
     logSpy.mockRestore();
   });
 
-  it('passes the raw request/response pair to yoga', async () => {
-    const { routes } = mount();
-    const handler = routes[0].handler as (
-      req: Record<string, unknown>,
-      reply: Record<string, unknown>,
-    ) => Promise<void>;
+  type Handler = (req: unknown, reply: unknown) => Promise<void>;
 
-    const rawReq = { url: '/graphql', method: 'POST' };
-    const rawReply = {};
-    const req = { raw: rawReq, headers: {} };
-    const reply = {
-      raw: rawReply,
-      header: vi.fn(),
-      status: vi.fn().mockReturnValue({ send: vi.fn() }),
+  function handler(): Handler {
+    const { routes } = mount();
+    return routes[0].handler as Handler;
+  }
+
+  function makeReply() {
+    const send = vi.fn();
+    return { header: vi.fn(), status: vi.fn().mockReturnValue({ send }), send };
+  }
+
+  it('forwards a self-contained request built from the Fastify request', async () => {
+    const reply = makeReply();
+    const req = {
+      method: 'POST',
+      url: '/api/v1/graphql?trace=1',
+      headers: { host: 'example.test', 'content-type': 'application/json' },
+      body: { query: '{ __typename }' },
     };
 
-    await handler(req, reply);
+    await handler()(req, reply);
 
-    expect(handleSpy).toHaveBeenCalledWith(rawReq, rawReply);
-    expect(reply.header).toHaveBeenCalledWith('x-test', 'yes');
+    const forwarded = fetchSpy.mock.calls[0]![0] as Request;
+    expect(forwarded).toBeInstanceOf(Request);
+    expect(forwarded.method).toBe('POST');
+    expect(forwarded.url).toBe('http://example.test/api/v1/graphql?trace=1');
+    expect(forwarded.headers.get('content-type')).toBe('application/json');
+    // Fastify has already drained the raw stream, so the payload must be
+    // re-serialised; a forwarded read would hang yoga forever.
+    await expect(forwarded.text()).resolves.toBe('{"query":"{ __typename }"}');
   });
 
-  it('falls back to the wrapper objects when raw is absent', async () => {
-    const { routes } = mount();
-    const handler = routes[0].handler as (
-      req: Record<string, unknown>,
-      reply: Record<string, unknown>,
-    ) => Promise<void>;
-
-    const req = { url: '/graphql', method: 'POST' };
-    const reply = {
-      header: vi.fn(),
-      status: vi.fn().mockReturnValue({ send: vi.fn() }),
+  it('joins repeated headers and skips valueless ones', async () => {
+    const reply = makeReply();
+    const req = {
+      method: 'GET',
+      url: '/api/v1/graphql',
+      headers: { 'x-forwarded-for': ['10.0.0.1', '10.0.0.2'], 'x-absent': undefined },
+      body: undefined,
     };
 
-    await handler(req, reply);
+    await handler()(req, reply);
 
-    expect(handleSpy).toHaveBeenCalledWith(req, reply);
+    const forwarded = fetchSpy.mock.calls[0]![0] as Request;
+    expect(forwarded.method).toBe('GET');
+    expect(forwarded.headers.get('x-forwarded-for')).toBe('10.0.0.1, 10.0.0.2');
+    expect(forwarded.headers.has('x-absent')).toBe(false);
+    // A GET must carry no body at all, and no Host header means a local fallback.
+    expect(forwarded.body).toBeNull();
+    expect(forwarded.url).toBe('http://localhost/api/v1/graphql');
+  });
+
+  it('sends the materialised body and forwards the status without framing headers', async () => {
+    const reply = makeReply();
+    const req = { method: 'POST', url: '/api/v1/graphql', headers: {}, body: undefined };
+
+    await handler()(req, reply);
+
+    // `?? {}` keeps yoga from receiving the string "undefined" as its body.
+    const forwarded = fetchSpy.mock.calls[0]![0] as Request;
+    await expect(forwarded.text()).resolves.toBe('{}');
+
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith('{"ok":true}');
     expect(reply.header).toHaveBeenCalledWith('x-test', 'yes');
+    // Fastify derives framing from the body it materialises; forwarding yoga's
+    // stale content-length (or a transfer-encoding) would corrupt the response.
+    expect(reply.header).not.toHaveBeenCalledWith('content-length', expect.anything());
+    expect(reply.header).not.toHaveBeenCalledWith('transfer-encoding', expect.anything());
+  });
+
+  it('forwards a non-200 status from yoga verbatim', async () => {
+    fetchSpy.mockResolvedValue(yogaResponse('{"errors":[{"message":"nope"}]}', 418));
+    const reply = makeReply();
+    const req = { method: 'POST', url: '/api/v1/graphql', headers: {}, body: { query: '{ x }' } };
+
+    await handler()(req, reply);
+
+    // A hard-coded 200 would silently turn every GraphQL error response into a
+    // success, so the status has to survive the hop unchanged.
+    expect(reply.status).toHaveBeenCalledWith(418);
+    expect(reply.send).toHaveBeenCalledWith('{"errors":[{"message":"nope"}]}');
   });
 });
