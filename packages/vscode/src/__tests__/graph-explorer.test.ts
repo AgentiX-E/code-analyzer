@@ -1,9 +1,18 @@
 // @code-analyzer/vscode — Graph Explorer Tests
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphExplorerLogic } from '../providers/graph-explorer.js';
 import type { GraphNodeData, GraphEdgeData, GraphData } from '../providers/graph-explorer.js';
 import { EngineBridge } from '../services/engine-bridge.js';
+import {
+  OTHER_PROJECT,
+  PROJECT,
+  insertEdge,
+  makeNode,
+  seedGraph,
+} from './fixtures/seeded-graph.js';
+import type { SeededGraph } from './fixtures/seeded-graph.js';
 
 describe('GraphExplorerLogic', () => {
   let engine: EngineBridge;
@@ -206,7 +215,7 @@ describe('GraphExplorerLogic', () => {
       expect(data.edges).toEqual([]);
     });
 
-    it('returns empty graph for uninitialized project', async () => {
+    it('returns an empty graph when the project has no symbols yet', async () => {
       engine.setProjectId('test-project');
       const data = await logic.getGraphData();
       expect(data.nodes).toEqual([]);
@@ -220,64 +229,178 @@ describe('GraphExplorerLogic', () => {
       expect(data.edges).toEqual([]);
     });
 
-    it('returns graph data with correct shape', async () => {
-      engine.setProjectId('test-project');
-      const data = await logic.getGraphData();
-      expect(data).toHaveProperty('nodes');
-      expect(data).toHaveProperty('edges');
-      expect(Array.isArray(data.nodes)).toBe(true);
-      expect(Array.isArray(data.edges)).toBe(true);
+    it('returns empty graph instead of throwing when the graph is unusable', async () => {
+      // The store this bridge reads was closed underneath it, so the summary query
+      // rejects. Losing the graph must not take the webview down with it.
+      const store = new InMemoryGraphStore();
+      const brokenEngine = new EngineBridge({ store });
+      brokenEngine.setProjectId('test-project');
+      store.close();
+
+      const brokenLogic = new GraphExplorerLogic(brokenEngine);
+      expect(await brokenLogic.getGraphData()).toEqual({ nodes: [], edges: [] });
+
+      brokenEngine.dispose();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getGraphData against a populated graph
+  // -------------------------------------------------------------------------
+
+  describe('getGraphData over a populated graph', () => {
+    let seeded: SeededGraph;
+    let seededLogic: GraphExplorerLogic;
+
+    beforeEach(async () => {
+      seeded = await seedGraph();
+      seededLogic = new GraphExplorerLogic(seeded.bridge);
     });
 
-    it('builds call graph when rootSymbol is provided', async () => {
-      engine.setProjectId('test-project');
-      const traceSpy = vi.spyOn(engine, 'traceCallPath').mockResolvedValue([
-        { name: 'main', filePath: 'src/main.ts' },
-        { name: 'helper', filePath: 'src/helper.ts' },
+    afterEach(() => {
+      seeded.bridge.dispose();
+    });
+
+    it('draws every catalogued symbol and the call edges between them', async () => {
+      const data = await seededLogic.getGraphData();
+
+      expect(data.nodes).toEqual([
+        {
+          id: 0,
+          name: 'AlphaService',
+          qualifiedName: `${PROJECT}.AlphaService`,
+          label: 'Class',
+          filePath: 'src/a.ts',
+        },
+        {
+          id: 1,
+          name: 'BetaService',
+          qualifiedName: `${PROJECT}.BetaService`,
+          label: 'Class',
+          filePath: 'src/b.ts',
+        },
+        {
+          id: 2,
+          name: 'AlphaServiceTest',
+          qualifiedName: `${PROJECT}.AlphaServiceTest`,
+          label: 'Function',
+          filePath: 'src/a.test.ts',
+        },
+        {
+          id: 3,
+          name: 'BareSymbol',
+          qualifiedName: `${PROJECT}.BareSymbol`,
+          label: 'Class',
+          filePath: '',
+        },
+        {
+          id: 4,
+          name: 'UnfiledCaller',
+          qualifiedName: `${PROJECT}.UnfiledCaller`,
+          label: 'Function',
+          filePath: '',
+        },
+        {
+          id: 5,
+          name: 'UnfiledTest',
+          qualifiedName: `${PROJECT}.UnfiledTest`,
+          label: 'Function',
+          filePath: '',
+        },
       ]);
-
-      const data = await logic.getGraphData('main');
-
-      expect(traceSpy).toHaveBeenCalledWith('main');
-      expect(data.nodes).toHaveLength(2);
-      expect(data.nodes[0].name).toBe('main');
-      expect(data.nodes[0].label).toBe('Function');
-      expect(data.nodes[0].filePath).toBe('src/main.ts');
-      expect(data.nodes[1].name).toBe('helper');
-      expect(data.nodes[1].label).toBe('Function');
-      expect(data.edges).toHaveLength(1);
-      expect(data.edges[0].type).toBe('CALLS');
-      expect(data.edges[0].sourceId).toBe(1);
-      expect(data.edges[0].targetId).toBe(2);
-
-      traceSpy.mockRestore();
+      // Both edges hang off a symbol that has a callee. The previous build passed
+      // the bare name to findCallees(), which resolves through the graph-qualified
+      // name, so no callee ever resolved and this list was always empty.
+      expect(data.edges).toEqual([
+        { sourceId: 0, targetId: 1, type: 'call' },
+        { sourceId: 4, targetId: 3, type: 'call' },
+      ]);
     });
 
-    it('builds call graph with single node and no edges', async () => {
-      engine.setProjectId('test-project');
-      const traceSpy = vi
-        .spyOn(engine, 'traceCallPath')
-        .mockResolvedValue([{ name: 'singleFunc', filePath: 'src/single.ts' }]);
+    it('skips a callee that belongs to another project', async () => {
+      const store = new InMemoryGraphStore();
+      const home = store.insertNode(makeNode('Home', `${PROJECT}.Home`));
+      const foreign = store.insertNode(
+        makeNode('Foreign', `${OTHER_PROJECT}.Foreign`, { projectId: OTHER_PROJECT }),
+      );
+      // A store handed to the bridge can hold several indexed projects, so an edge
+      // may point at a node this view does not draw.
+      insertEdge(store, home, foreign, 'CALLS');
 
-      const data = await logic.getGraphData('singleFunc');
+      const bridge = new EngineBridge({ store });
+      await bridge.initialize();
+      await bridge.indexWorkspace(PROJECT);
 
-      expect(data.nodes).toHaveLength(1);
-      expect(data.nodes[0].name).toBe('singleFunc');
-      expect(data.edges).toHaveLength(0);
+      const data = await new GraphExplorerLogic(bridge).getGraphData();
 
-      traceSpy.mockRestore();
-    });
-
-    it('handles search error in buildSummaryGraph gracefully', async () => {
-      engine.setProjectId('test-project');
-      const searchSpy = vi.spyOn(engine, 'search').mockRejectedValue(new Error('search failed'));
-
-      const data = await logic.getGraphData();
-
-      expect(data.nodes).toEqual([]);
+      expect(data.nodes).toEqual([
+        {
+          id: 0,
+          name: 'Home',
+          qualifiedName: `${PROJECT}.Home`,
+          label: 'Class',
+          filePath: 'src/a.ts',
+        },
+      ]);
       expect(data.edges).toEqual([]);
 
-      searchSpy.mockRestore();
+      bridge.dispose();
+    });
+
+    it('builds a call graph from the traced path of the requested symbol', async () => {
+      const data = await seededLogic.getGraphData(`${PROJECT}.AlphaService`);
+
+      expect(data.nodes).toEqual([
+        {
+          id: 1,
+          name: 'AlphaService',
+          qualifiedName: `${PROJECT}.AlphaService`,
+          label: 'Function',
+          filePath: 'src/a.ts',
+        },
+        {
+          id: 2,
+          name: 'BetaService',
+          qualifiedName: `${PROJECT}.BetaService`,
+          label: 'Function',
+          filePath: 'src/b.ts',
+        },
+      ]);
+      expect(data.edges).toEqual([{ sourceId: 1, targetId: 2, type: 'CALLS' }]);
+    });
+
+    it('builds a call graph with a single node and no edges', async () => {
+      const data = await seededLogic.getGraphData(`${PROJECT}.BareSymbol`);
+
+      expect(data.nodes).toEqual([
+        {
+          id: 1,
+          name: 'BareSymbol',
+          qualifiedName: `${PROJECT}.BareSymbol`,
+          label: 'Function',
+          filePath: '',
+        },
+      ]);
+      expect(data.edges).toEqual([]);
+    });
+
+    it('returns no call graph for a symbol the graph does not know', async () => {
+      expect(await seededLogic.getGraphData(`${PROJECT}.Missing`)).toEqual({
+        nodes: [],
+        edges: [],
+      });
+    });
+
+    it('resolves a node detail through the symbol the summary graph drew', async () => {
+      expect(await seededLogic.getNodeDetail(0)).toEqual({
+        name: 'AlphaService',
+        qualifiedName: `${PROJECT}.AlphaService`,
+        filePath: 'src/a.ts',
+        signature: 'function AlphaService()',
+        docstring: 'Documentation for AlphaService',
+        label: 'Class',
+        isExported: true,
+      });
     });
   });
 

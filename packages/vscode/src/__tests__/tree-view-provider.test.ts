@@ -1,10 +1,12 @@
 // @code-analyzer/vscode — Tree View Provider Tests
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { GraphTreeDataProviderLogic } from '../providers/tree-view-provider.js';
 import type { TreeItemData } from '../providers/tree-view-provider.js';
 import { EngineBridge } from '../services/engine-bridge.js';
-import type { SearchResultItem } from '../services/engine-bridge.js';
+import { PROJECT, seedGraph } from './fixtures/seeded-graph.js';
+import type { SeededGraph } from './fixtures/seeded-graph.js';
 
 describe('GraphTreeDataProviderLogic', () => {
   let engine: EngineBridge;
@@ -101,100 +103,132 @@ describe('GraphTreeDataProviderLogic', () => {
       expect(children).toEqual([]);
     });
 
-    it('returns module children for project parent', async () => {
-      engine.setProjectId('/test');
-      const children = await logic.getChildren('project:/test');
-      expect(Array.isArray(children)).toBe(true);
-    });
-
-    it('module children have correct context value', async () => {
-      engine.setProjectId('/test');
-      const children = await logic.getChildren('project:/test');
-      if (children.length > 0) {
-        expect(children[0].contextValue).toBe('module');
-      }
-    });
-
-    it('module children are collapsed by default', async () => {
-      engine.setProjectId('/test');
-      const children = await logic.getChildren('project:/test');
-      if (children.length > 0) {
-        expect(children[0].collapsibleState).toBe('collapsed');
-      }
-    });
-
     it('handles unknown parent ID format', async () => {
       const children = await logic.getChildren('unknown:something');
       expect(children).toEqual([]);
     });
 
-    it('returns module children grouped by directory when search returns results', async () => {
-      const mockResults: SearchResultItem[] = [
-        { name: 'MyFunction', filePath: 'src/utils/helpers.ts', label: 'Function' },
-        { name: 'MyClass', filePath: 'src/models/types.ts', label: 'Class' },
-        { name: 'helperFunc', filePath: 'src/utils/helpers.ts', label: 'Function' },
-      ];
-      vi.spyOn(engine, 'search').mockResolvedValue(mockResults);
-
-      const children = await logic.getChildren('project:/test');
-      expect(children.length).toBe(2);
-      expect(children[0].contextValue).toBe('module');
-      expect(children[0].collapsibleState).toBe('collapsed');
-      expect(children[0].iconPath).toBe('folder');
-      // IDs should contain the module path
-      expect(children.every((c) => c.id.startsWith('module:/test:'))).toBe(true);
-    });
-
-    it('returns symbol children when search returns matching results', async () => {
-      const mockResults: SearchResultItem[] = [
-        { name: 'MyFunction', filePath: 'src/utils/helpers.ts', label: 'Function' },
-        { name: 'helperFunc', filePath: 'src/utils/helpers.ts', label: 'Function' },
-      ];
-      vi.spyOn(engine, 'search').mockResolvedValue(mockResults);
-
-      const children = await logic.getChildren('module:/test:src/utils');
-      expect(children.length).toBe(2);
-      expect(children[0].contextValue).toBe('symbol');
-      expect(children[0].collapsibleState).toBe('none');
-      expect(children[0].id).toContain('symbol:');
-      expect(children[0].command).toBeDefined();
-    });
-
-    it('returns empty array when module search throws (catch block)', async () => {
-      vi.spyOn(engine, 'search').mockRejectedValue(new Error('search failed'));
-
+    it('returns no module children while no project is loaded', async () => {
       const children = await logic.getChildren('project:/test');
       expect(children).toEqual([]);
     });
 
-    it('returns empty array when symbol search throws (catch block)', async () => {
-      vi.spyOn(engine, 'search').mockRejectedValue(new Error('search failed'));
+    it('returns no module children when the graph is unusable', async () => {
+      // The store the bridge reads was closed underneath it. Losing the graph must
+      // not take the tree view down with it.
+      const store = new InMemoryGraphStore();
+      const brokenEngine = new EngineBridge({ store });
+      brokenEngine.setProjectId('/test');
+      store.close();
 
-      const children = await logic.getChildren('module:/test:src');
+      const children = await new GraphTreeDataProviderLogic(brokenEngine).getChildren(
+        'project:/test',
+      );
       expect(children).toEqual([]);
+
+      brokenEngine.dispose();
     });
 
-    it('handles root-level files in module children (dir pop fallback)', async () => {
-      const mockResults: SearchResultItem[] = [
-        { name: 'RootFile', filePath: 'root.ts', label: 'Function' },
-      ];
-      vi.spyOn(engine, 'search').mockResolvedValue(mockResults);
+    it('returns no symbol children when the graph is unusable', async () => {
+      const store = new InMemoryGraphStore();
+      const brokenEngine = new EngineBridge({ store });
+      brokenEngine.setProjectId('/test');
+      store.close();
 
-      const children = await logic.getChildren('project:/test');
-      expect(children.length).toBe(1);
-      // Root file dir is '(root)', description should be undefined per the ternary
-      expect(children[0].description).toBeUndefined();
-      // dirName is '(root)' since dir is '(root)', so pop() gives truthy
-      expect(children[0].label).toBe('(root)');
+      const children = await new GraphTreeDataProviderLogic(brokenEngine).getChildren(
+        'module:/test:src',
+      );
+      expect(children).toEqual([]);
+
+      brokenEngine.dispose();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getChildren against a populated graph
+  // -------------------------------------------------------------------------
+
+  describe('getChildren over a populated graph', () => {
+    let seeded: SeededGraph;
+    let seededLogic: GraphTreeDataProviderLogic;
+
+    beforeEach(async () => {
+      seeded = await seedGraph();
+      seededLogic = new GraphTreeDataProviderLogic(seeded.bridge);
     });
 
-    it('handles symbol children with empty filePath', async () => {
-      const mockResults: SearchResultItem[] = [{ name: 'NoFile', filePath: '', label: 'Function' }];
-      vi.spyOn(engine, 'search').mockResolvedValue(mockResults);
+    afterEach(() => {
+      seeded.bridge.dispose();
+    });
 
-      const children = await logic.getChildren('module:/test:');
-      expect(children.length).toBe(1);
-      expect(children[0].resourceUri).toBeUndefined();
+    it('groups the project symbols into one module per directory', async () => {
+      // An empty search query matches no term, so this list was always empty and
+      // the tree never showed a single module.
+      expect(await seededLogic.getChildren(`project:${PROJECT}`)).toEqual([
+        {
+          id: `module:${PROJECT}:src`,
+          label: 'src',
+          description: 'src',
+          iconPath: 'folder',
+          collapsibleState: 'collapsed',
+          contextValue: 'module',
+        },
+        {
+          id: `module:${PROJECT}:(root)`,
+          label: '(root)',
+          description: undefined,
+          iconPath: 'folder',
+          collapsibleState: 'collapsed',
+          contextValue: 'module',
+        },
+      ]);
+    });
+
+    it('lists exactly the symbols of the requested module', async () => {
+      const children = await seededLogic.getChildren(`module:${PROJECT}:src`);
+
+      expect(children.map((c) => c.label)).toEqual([
+        'AlphaService',
+        'BetaService',
+        'AlphaServiceTest',
+      ]);
+    });
+
+    it('keeps a symbol the graph has no file for out of every directory module', async () => {
+      const children = await seededLogic.getChildren(`module:${PROJECT}:src`);
+
+      // A project-root symbol's directory is the empty string, and
+      // `modulePath.endsWith('')` is true for every string — so a bare-`endsWith`
+      // match leaked those symbols into `src`, and into every other module.
+      expect(children.map((c) => c.label)).not.toContain('BareSymbol');
+    });
+
+    it('lists the project-root symbols under the root module', async () => {
+      const children = await seededLogic.getChildren(`module:${PROJECT}:(root)`);
+
+      expect(children.map((c) => c.label)).toEqual(['BareSymbol', 'UnfiledCaller', 'UnfiledTest']);
+      // No file to open, so the item carries no resource to reveal.
+      expect(children.every((c) => c.resourceUri === undefined)).toBe(true);
+    });
+
+    it('builds a symbol item that addresses the graph by qualified name', async () => {
+      const [first] = await seededLogic.getChildren(`module:${PROJECT}:src`);
+
+      expect(first).toEqual({
+        id: `symbol:${PROJECT}:src:AlphaService`,
+        label: 'AlphaService',
+        description: 'Class',
+        iconPath: 'symbol-class',
+        collapsibleState: 'none',
+        contextValue: 'symbol',
+        command: {
+          command: 'code-analyzer.showSymbolDetail',
+          title: 'Show Symbol Detail',
+          // The command re-queries the graph, which resolves by qualified name.
+          arguments: [`${PROJECT}.AlphaService`],
+        },
+        resourceUri: { fsPath: 'src/a.ts' },
+      });
     });
   });
 
@@ -220,6 +254,13 @@ describe('GraphTreeDataProviderLogic', () => {
     it('returns undefined for project item', () => {
       engine.setProjectId('/test');
       const parent = logic.getParent('project:/test');
+      expect(parent).toBeUndefined();
+    });
+
+    it('returns undefined for a symbol item without a module segment', () => {
+      // `symbol:<name>` has no module between the prefix and the name, so there
+      // is no parent module to build.
+      const parent = logic.getParent('symbol:someSymbol');
       expect(parent).toBeUndefined();
     });
 
@@ -420,9 +461,40 @@ describe('GraphTreeDataProviderLogic', () => {
       expect(results).toEqual([]);
     });
 
+    it('returns empty array for a whitespace-only query', async () => {
+      const results = await logic.searchItems('   ');
+      expect(results).toEqual([]);
+    });
+
     it('returns array for non-empty query', async () => {
       const results = await logic.searchItems('function');
       expect(Array.isArray(results)).toBe(true);
+    });
+
+    it('returns no results when the graph is unusable', async () => {
+      // The search index is built from the graph on first use, so a graph that is
+      // already closed makes the very first search reject.
+      const store = new InMemoryGraphStore();
+      const brokenEngine = new EngineBridge({ store });
+      brokenEngine.setProjectId('/test');
+      store.close();
+
+      const results = await new GraphTreeDataProviderLogic(brokenEngine).searchItems('anything');
+      expect(results).toEqual([]);
+
+      brokenEngine.dispose();
+    });
+
+    it('addresses a search hit by the symbol qualified name', async () => {
+      const seeded = await seedGraph();
+
+      const results = await new GraphTreeDataProviderLogic(seeded.bridge).searchItems('Alpha');
+
+      expect(results.map((r) => r.label)).toEqual(['AlphaService', 'AlphaServiceTest']);
+      expect(results[0]!.command!.arguments).toEqual([`${PROJECT}.AlphaService`]);
+      expect(results[0]!.contextValue).toBe('symbol');
+
+      seeded.bridge.dispose();
     });
   });
 

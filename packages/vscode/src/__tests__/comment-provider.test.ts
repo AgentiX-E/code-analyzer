@@ -1,8 +1,39 @@
 // @code-analyzer/vscode — Comment Provider Tests
 
 import { describe, it, expect } from 'vitest';
+import { execSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { CommentLogic } from '../providers/comment-provider.js';
 import { EngineBridge } from '../services/engine-bridge.js';
+
+function run(cwd: string, command: string): void {
+  execSync(command, { cwd, stdio: 'pipe' });
+}
+
+/** A git repository with one commit, built from the given files. */
+function createRepo(files: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), 'vscode-comment-'));
+  run(dir, 'git init -q');
+  run(dir, 'git config user.email tester@example.com');
+  run(dir, 'git config user.name Tester');
+  for (const [relative, content] of Object.entries(files)) {
+    const absolute = join(dir, relative);
+    mkdirSync(join(absolute, '..'), { recursive: true });
+    writeFileSync(absolute, content);
+  }
+  run(dir, 'git add -A');
+  run(dir, 'git commit -qm init');
+  return dir;
+}
+
+/** Source with a function long enough to trip the >50-line heuristic. */
+function longFunction(name: string, bodyLines: number): string {
+  const body = Array.from({ length: bodyLines }, (_, i) => `  const v${i} = ${i};`).join('\n');
+  return `export function ${name}() {\n${body}\n  return 0;\n}\n`;
+}
 
 describe('CommentLogic', () => {
   const logic = new CommentLogic(new EngineBridge());
@@ -214,6 +245,50 @@ describe('CommentLogic', () => {
       ];
       const groups = logic.groupByFile(diagnostics);
       expect(groups.size).toBe(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getDecoratedDiagnostics — the engine-backed entry point
+  // -------------------------------------------------------------------------
+
+  describe('getDecoratedDiagnostics', () => {
+    it('returns nothing when there is no workspace to review', async () => {
+      const empty = new CommentLogic(new EngineBridge({ workspaceRoot: '' }));
+
+      expect(await empty.getDecoratedDiagnostics()).toEqual([]);
+    });
+
+    it('maps the review of the working tree onto editor diagnostics', async () => {
+      const dir = createRepo({ 'src/svc.ts': 'export function short() {\n  return 1;\n}\n' });
+      writeFileSync(join(dir, 'src/svc.ts'), longFunction('longOne', 60));
+
+      const engine = new EngineBridge({ workspaceRoot: dir, store: new InMemoryGraphStore() });
+      await engine.initialize();
+
+      const diagnostics = await new CommentLogic(engine).getDecoratedDiagnostics();
+
+      // Line 1 of the file is reported as the zero-based line 0 of the buffer,
+      // and the engine's severity is mapped onto the editor's.
+      expect(diagnostics).toEqual([
+        {
+          range: { startLine: 0, startCharacter: 0, endLine: 62, endCharacter: 0 },
+          message: '[Code Analyzer] Long function: longOne',
+          severity: 'information',
+          source: 'Code Analyzer',
+          filePath: 'src/svc.ts',
+        },
+        {
+          range: { startLine: 0, startCharacter: 0, endLine: 0, endCharacter: 0 },
+          message: '[Code Analyzer] Missing return type annotation',
+          severity: 'hint',
+          source: 'Code Analyzer',
+          filePath: 'src/svc.ts',
+        },
+      ]);
+
+      engine.dispose();
+      rmSync(dir, { recursive: true, force: true });
     });
   });
 });

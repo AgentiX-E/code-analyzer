@@ -1,7 +1,8 @@
 // @code-analyzer/vscode — Config Service Tests
 
 import { describe, it, expect } from 'vitest';
-import { ConfigService } from '../services/config-service.js';
+import { ConfigService, PROFILES } from '../services/config-service.js';
+import type { CodeAnalyzerConfig } from '../services/config-service.js';
 import type { WorkspaceConfiguration } from '../services/vscode-api.js';
 
 function createMockConfig(overrides?: Record<string, unknown>): WorkspaceConfiguration {
@@ -140,6 +141,67 @@ describe('ConfigService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // getCurrentProfile
+  // -------------------------------------------------------------------------
+
+  describe('getCurrentProfile', () => {
+    it('returns the balanced profile by default', () => {
+      const svc = new ConfigService(createMockConfig());
+
+      expect(svc.getCurrentProfile()).toEqual(PROFILES.balanced);
+      expect(svc.getCurrentProfile().label).toBe('Balanced');
+    });
+
+    it('returns the profile the user selected', () => {
+      const svc = new ConfigService(createMockConfig({ profile: 'strict' }));
+
+      expect(svc.getCurrentProfile().label).toBe('Strict');
+      expect(svc.getCurrentProfile().overrides.reviewOnSave).toBe(true);
+    });
+
+    it('falls back to the service default profile when none is configured', () => {
+      const svc = new ConfigService(createMockConfig(), {
+        ...ConfigService.getDefaults(),
+        profile: 'relaxed',
+      });
+
+      expect(svc.getCurrentProfile().label).toBe('Relaxed');
+    });
+
+    it('falls back to balanced for a profile the union does not contain', () => {
+      // `profile` is read out of settings.json, which is untyped JSON: VS Code
+      // validates it against the enum it declares, but a hand-edited file — or a
+      // future setting name — can still deliver something outside the union, and
+      // the lookup must not hand back undefined for it.
+      const svc = new ConfigService(createMockConfig({ profile: 'turbo' }));
+
+      expect(svc.getCurrentProfile()).toEqual(PROFILES.balanced);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getProfiles (static)
+  // -------------------------------------------------------------------------
+
+  describe('getProfiles', () => {
+    it('lists every built-in profile', () => {
+      const profiles = ConfigService.getProfiles();
+
+      expect(Object.keys(profiles).sort()).toEqual(['balanced', 'relaxed', 'strict']);
+      expect(profiles['strict']!.overrides.maxSearchResults).toBe(100);
+      expect(profiles['relaxed']!.overrides.indexMode).toBe('fast');
+      expect(profiles['relaxed']!.overrides.autoIndex).toBe(false);
+    });
+
+    it('returns a copy that cannot mutate the built-ins', () => {
+      const profiles = ConfigService.getProfiles();
+      delete profiles['balanced'];
+
+      expect(ConfigService.getProfiles()).toHaveProperty('balanced');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // validate (static)
   // -------------------------------------------------------------------------
 
@@ -212,11 +274,29 @@ describe('ConfigService', () => {
 
     it('returns multiple errors for multiple invalid values', () => {
       const errors = ConfigService.validate({
-        indexMode: 'invalid' as any,
+        indexMode: 'invalid' as CodeAnalyzerConfig['indexMode'],
         maxFileSize: -1,
         maxSearchResults: 999,
       });
       expect(errors.length).toBe(3);
+    });
+
+    it('accepts every known profile', () => {
+      expect(ConfigService.validate({ profile: 'strict' })).toEqual([]);
+      expect(ConfigService.validate({ profile: 'balanced' })).toEqual([]);
+      expect(ConfigService.validate({ profile: 'relaxed' })).toEqual([]);
+    });
+
+    it('rejects an unknown profile', () => {
+      // Settings are untyped at the source, so a value outside the union is a
+      // legal input to validate() even though the type says otherwise.
+      const errors = ConfigService.validate({
+        profile: 'turbo',
+      } as Partial<CodeAnalyzerConfig>);
+
+      expect(errors).toEqual([
+        'Invalid profile: "turbo". Must be "strict", "balanced", or "relaxed".',
+      ]);
     });
   });
 

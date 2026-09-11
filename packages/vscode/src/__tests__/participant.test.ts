@@ -22,6 +22,7 @@ import type {
   SearchResultItem,
   StandardsResultItem,
   SymbolDetailItem,
+  SymbolRefItem,
   TraceResultItem,
 } from '../services/engine-bridge.js';
 
@@ -1315,6 +1316,10 @@ interface EngineScript {
   complexity?: ComplexityMetricsItem;
   standards?: StandardsResultItem[];
   indexingSymbolCount?: number;
+  /** Active project id, as published by indexWorkspace(). */
+  projectId?: string;
+  /** Symbols catalogued for the active project. */
+  projectSymbols?: SymbolRefItem[];
   /** Method names that reject, to drive the handlers' failure paths. */
   failing?: string[];
 }
@@ -1366,6 +1371,11 @@ function scriptedEngine(script: EngineScript = {}) {
     checkStandards: (filePath: string) =>
       resolve('checkStandards', [filePath], script.standards ?? []),
     indexWorkspace: (rootPath: string) => resolve('indexWorkspace', [rootPath], undefined),
+    listProjectSymbols: () => resolve('listProjectSymbols', [], script.projectSymbols ?? []),
+    getProjectId: (): string | null => {
+      calls.push({ method: 'getProjectId', args: [] });
+      return script.projectId ?? null;
+    },
     getIndexingState: (): IndexingState => ({
       status: 'ready',
       symbolCount: script.indexingSymbolCount ?? 0,
@@ -1382,11 +1392,15 @@ function scriptedParticipant(script: EngineScript = {}) {
 }
 
 function hit(name: string, label: string, filePath = `src/${name}.ts`): SearchHit {
-  return { name, filePath, label };
+  return { name, qualifiedName: `/test/workspace.${name}`, filePath, label };
 }
 
 function ref(name: string, filePath = `src/${name}.ts`): TraceResultItem {
-  return { name, filePath };
+  return { name, qualifiedName: `/test/workspace.${name}`, filePath };
+}
+
+function symbolRef(name: string, filePath = `src/${name}.ts`): SymbolRefItem {
+  return { name, qualifiedName: `/test/workspace.${name}`, filePath, label: 'Class' };
 }
 
 function comment(severity: string, title: string, startLine = 1): ReviewCommentItem {
@@ -1877,7 +1891,15 @@ describe('CodeAnalyzerChatParticipant — /analyze', () => {
     // Regression guard: indexWorkspace() resolves void, and the handler used to treat
     // its result as the symbol count, so the report always printed
     // "Symbols Indexed | undefined".
-    const { participant, calls } = scriptedParticipant({ indexingSymbolCount: 42 });
+    const { participant, calls } = scriptedParticipant({
+      indexingSymbolCount: 42,
+      projectId: '/test/workspace',
+      projectSymbols: [
+        symbolRef('AlphaService'),
+        symbolRef('BetaService'),
+        symbolRef('GammaService'),
+      ],
+    });
     const stream = makeStream();
 
     const result = await participant.handleSlashCommand('analyze', '', stream, makeToken(false));
@@ -1886,15 +1908,36 @@ describe('CodeAnalyzerChatParticipant — /analyze', () => {
       command: 'analyze',
       symbolCount: 42,
       fileCount: 0,
-      resultCount: 0,
+      resultCount: 3,
     });
     expect(stream.content).toContain('| Symbols Indexed | 42 |');
+    expect(stream.content).toContain('| Results Found | 3 |');
     expect(stream.content).not.toContain('undefined');
-    expect(calls).toContainEqual({ method: 'indexWorkspace', args: [''] });
+    // Regression guard: the handler used to pass '' as the root, which published ''
+    // as the active project id and disabled every project-scoped query afterwards.
+    expect(calls).toContainEqual({ method: 'indexWorkspace', args: ['/test/workspace'] });
+  });
+
+  it('skips re-indexing when no project has been indexed yet', async () => {
+    const { participant, calls } = scriptedParticipant({ indexingSymbolCount: 7 });
+    const stream = makeStream();
+
+    const result = await participant.handleSlashCommand('analyze', '', stream, makeToken(false));
+
+    expect(result.metadata).toEqual({
+      command: 'analyze',
+      symbolCount: 7,
+      fileCount: 0,
+      resultCount: 0,
+    });
+    expect(calls.every((c) => c.method !== 'indexWorkspace')).toBe(true);
   });
 
   it('reports a failure when indexing throws', async () => {
-    const { participant } = scriptedParticipant({ failing: ['indexWorkspace'] });
+    const { participant } = scriptedParticipant({
+      projectId: '/test/workspace',
+      failing: ['indexWorkspace'],
+    });
     const stream = makeStream();
 
     const result = await participant.handleSlashCommand('analyze', '', stream, makeToken(false));

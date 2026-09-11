@@ -199,9 +199,11 @@ export class FileWatcherService {
    * Flush all pending changes and trigger incremental re-indexing.
    */
   private async flushPendingChanges(): Promise<void> {
+    // Invariant: the debounce callback below is the only caller, and it is only
+    // ever scheduled after a path has been added to the set; the only thing that
+    // empties the set — stop() — also cancels the timer. So there is no flush to
+    // make with nothing pending, and no empty-run guard to carry.
     const changes = [...this.pendingChanges];
-    if (changes.length === 0) return;
-
     this.pendingChanges.clear();
 
     try {

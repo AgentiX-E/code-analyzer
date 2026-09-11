@@ -168,8 +168,12 @@ export class ReviewDecorationLogic {
     comments: ReviewCommentItem[],
     minSeverity: DecorationSeverity,
   ): ReviewCommentItem[] {
-    const minRank = SEVERITY_RANK[minSeverity] ?? 0;
+    // SEVERITY_RANK is a Record over the whole DecorationSeverity union, so a
+    // lookup by that type always resolves and there is no rank to default.
+    const minRank = SEVERITY_RANK[minSeverity];
     return comments.filter((c) => {
+      // `c.severity` is a raw string from the review engine, not a
+      // DecorationSeverity, so it may fall outside the union.
       const rank = SEVERITY_RANK[c.severity as DecorationSeverity] ?? 0;
       return rank >= minRank;
     });
@@ -252,7 +256,9 @@ export class ReviewDecorationLogic {
   // -------------------------------------------------------------------------
 
   private deriveSuggestion(comment: ReviewCommentItem): string | undefined {
-    const msg = (comment.message || '').toLowerCase();
+    // `message` is a required string field, so `message || ''` would be a no-op
+    // for every value it can hold.
+    const msg = comment.message.toLowerCase();
     if (msg.includes('complexity') || msg.includes('cyclomatic')) {
       return 'Consider extracting nested logic into smaller functions.';
     }
@@ -275,7 +281,7 @@ export class ReviewDecorationLogic {
   }
 
   private categorizeIssue(comment: ReviewCommentItem): string {
-    const msg = (comment.message || '').toLowerCase();
+    const msg = comment.message.toLowerCase();
     if (msg.includes('complexity') || msg.includes('cyclomatic')) return 'maintainability';
     if (msg.includes('security') || msg.includes('injection') || msg.includes('xss'))
       return 'security';

@@ -36,6 +36,7 @@ function createMockEngine(overrides?: Partial<EngineBridge>): EngineBridge {
       nestingDepth: 1,
     }),
     searchWithScores: vi.fn().mockResolvedValue([]),
+    listProjectSymbols: vi.fn().mockResolvedValue([]),
     setProjectId: vi.fn(),
     getProjectId: vi.fn().mockReturnValue('test-proj'),
     initialize: vi.fn().mockResolvedValue(undefined),
@@ -347,11 +348,13 @@ describe('GraphExplorerLogic', () => {
   beforeEach(() => {
     engine = createMockEngine({
       getProjectId: vi.fn().mockReturnValue('proj-1'),
-      search: vi.fn().mockResolvedValue([
-        { name: 'funcA', filePath: 'a.ts', label: 'function' },
-        { name: 'funcB', filePath: 'b.ts', label: 'function' },
+      listProjectSymbols: vi.fn().mockResolvedValue([
+        { name: 'funcA', qualifiedName: 'proj-1.funcA', filePath: 'a.ts', label: 'function' },
+        { name: 'funcB', qualifiedName: 'proj-1.funcB', filePath: 'b.ts', label: 'function' },
       ]),
-      findCallees: vi.fn().mockResolvedValue([{ name: 'funcB', filePath: 'b.ts' }]),
+      findCallees: vi
+        .fn()
+        .mockResolvedValue([{ name: 'funcB', qualifiedName: 'proj-1.funcB', filePath: 'b.ts' }]),
     });
     logic = new GraphExplorerLogic(engine);
   });
@@ -370,17 +373,21 @@ describe('GraphExplorerLogic', () => {
   });
 
   it('gets node detail', async () => {
-    engine.getSymbolDetail = vi.fn().mockResolvedValue({
+    const getSymbolDetail = vi.fn().mockResolvedValue({
       name: 'funcA',
-      qualifiedName: 'funcA',
+      qualifiedName: 'proj-1.funcA',
       filePath: 'a.ts',
       label: 'function',
       isExported: false,
       signature: 'funcA()',
     });
+    engine.getSymbolDetail = getSymbolDetail;
     const detail = await logic.getNodeDetail(0);
     expect(detail).toBeDefined();
     expect(detail!.name).toBe('funcA');
+    // The graph resolves a symbol by its qualified name, so the lookup must not
+    // fall back to the bare identifier the node is displayed under.
+    expect(getSymbolDetail).toHaveBeenCalledWith('proj-1.funcA');
   });
 
   it('gets node color for known label', () => {

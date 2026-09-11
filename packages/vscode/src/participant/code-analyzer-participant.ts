@@ -767,16 +767,25 @@ export class CodeAnalyzerChatParticipant {
     }
 
     try {
-      // Trigger workspace indexing. indexWorkspace() resolves void, so the symbol
-      // count is read back from the indexing state the same call publishes — the
-      // previous `const symbolCount = await this.engine.indexWorkspace('')` was
-      // always undefined and the report printed "Symbols Indexed | undefined".
-      await this.engine.indexWorkspace('');
+      // Re-index the project that is already loaded. This used to pass '' as the
+      // root, which published '' as the active project id — `''` is falsy — and
+      // silently disabled every project-scoped query (/find, /impact, /review)
+      // until the next real index. indexWorkspace() rebuilds the search index for
+      // whatever project is loaded, so it takes the loaded id and is skipped when
+      // nothing has been indexed yet.
+      const projectId = this.engine.getProjectId();
+      if (projectId) {
+        await this.engine.indexWorkspace(projectId);
+      }
+      // indexWorkspace() resolves void, so the symbol count is read back from the
+      // indexing state the same call publishes — the previous
+      // `const symbolCount = await this.engine.indexWorkspace('')` was always
+      // undefined and the report printed "Symbols Indexed | undefined".
       const symbolCount = this.engine.getIndexingState().symbolCount;
       const changedFiles = await this.engine.getChangedFiles();
-      const searchResults = await this.engine.search('');
-
-      const resultCount = searchResults.length;
+      // An empty search query matches no term, so this count was always 0.
+      // The catalogued symbols are what "Results Found" reports.
+      const resultCount = (await this.engine.listProjectSymbols()).length;
       const fileCount = changedFiles.length;
 
       stream.markdown(

@@ -59,6 +59,31 @@ describe('ConfigLogic', () => {
       expect(defaults.autoIndex).toBe(true);
     });
   });
+
+  describe('getCurrentProfile', () => {
+    it('returns the balanced profile by default', () => {
+      const logic = new ConfigLogic(new ConfigService(mockConfig()));
+
+      expect(logic.getCurrentProfile().label).toBe('Balanced');
+      expect(logic.getCurrentProfile().overrides.maxSearchResults).toBe(20);
+    });
+
+    it('returns the profile the user selected', () => {
+      const logic = new ConfigLogic(new ConfigService(mockConfig({ profile: 'strict' })));
+
+      expect(logic.getCurrentProfile().label).toBe('Strict');
+      expect(logic.getCurrentProfile().description).toContain('Maximum analysis depth');
+    });
+  });
+
+  describe('getProfiles', () => {
+    it('lists every built-in profile the webview can offer', () => {
+      const logic = new ConfigLogic(new ConfigService(mockConfig()));
+
+      expect(Object.keys(logic.getProfiles()).sort()).toEqual(['balanced', 'relaxed', 'strict']);
+      expect(logic.getProfiles()['relaxed']!.overrides.indexMode).toBe('fast');
+    });
+  });
 });
 
 describe('generateConfigHtml', () => {
@@ -155,5 +180,27 @@ describe('generateConfigHtml', () => {
     const html = generateConfigHtml(custom);
     expect(html).toContain('value="0"');
     expect(html).toContain('0 Bytes');
+  });
+
+  it('selects the strict profile option and no other', () => {
+    const html = generateConfigHtml(ConfigService.withDefaults({ profile: 'strict' }));
+
+    expect(html).toContain('<option value="strict" selected>');
+    expect(html).not.toContain('<option value="balanced" selected>');
+    expect(html).not.toContain('<option value="relaxed" selected>');
+  });
+
+  it('selects the relaxed profile option and no other', () => {
+    const html = generateConfigHtml(ConfigService.withDefaults({ profile: 'relaxed' }));
+
+    expect(html).toContain('<option value="relaxed" selected>');
+    expect(html).not.toContain('<option value="strict" selected>');
+    expect(html).not.toContain('<option value="balanced" selected>');
+  });
+
+  it('checks the review-on-save box when the setting is on', () => {
+    const html = generateConfigHtml(ConfigService.withDefaults({ reviewOnSave: true }));
+
+    expect(html).toContain('<input type="checkbox" id="reviewOnSave" checked />');
   });
 });

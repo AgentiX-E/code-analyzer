@@ -12,6 +12,11 @@ import { EDGE_CALLS } from '@code-analyzer/shared';
 export interface GraphNodeData {
   id: number;
   name: string;
+  /**
+   * Graph-qualified name. The webview addresses a node by its numeric id, but the
+   * graph does not — every lookup below goes back through the qualified name.
+   */
+  qualifiedName: string;
   label: string;
   filePath: string;
   signature?: string;
@@ -111,8 +116,8 @@ export class GraphExplorerLogic {
    * Get detailed information for a specific node.
    */
   async getNodeDetail(nodeId: number): Promise<SymbolDetailItem | undefined> {
-    // The nodeId here corresponds to store node IDs
-    // We need a name to look up — use trace-based approach
+    // The nodeId here corresponds to the position of the symbol in the summary
+    // graph, which is the only graph getGraphData() returns without a root symbol.
     const projectId = this.engine.getProjectId();
     if (!projectId) return undefined;
 
@@ -121,7 +126,9 @@ export class GraphExplorerLogic {
     const node = allData.nodes.find((n) => n.id === nodeId);
     if (!node) return undefined;
 
-    return this.engine.getSymbolDetail(node.name);
+    // Through the qualified name: the graph does not resolve bare identifiers, so
+    // passing `node.name` made every detail lookup report "symbol not found".
+    return this.engine.getSymbolDetail(node.qualifiedName);
   }
 
   /**
@@ -148,6 +155,7 @@ export class GraphExplorerLogic {
     const nodes: GraphNodeData[] = trace.map((t, i) => ({
       id: i + 1,
       name: t.name,
+      qualifiedName: t.qualifiedName,
       label: 'Function',
       filePath: t.filePath,
     }));
@@ -165,42 +173,55 @@ export class GraphExplorerLogic {
   }
 
   private async buildSummaryGraph(): Promise<GraphData> {
-    const projectId = this.engine.getProjectId();
-    if (!projectId) return { nodes: [], edges: [] };
-
+    // Invariant: getGraphData() is the only caller and it already returns an empty
+    // graph when the project id is unset, so there is nothing to re-validate here.
+    //
+    // The whole body reads from one source — the graph — so a single failure
+    // boundary is enough. A per-symbol catch used to sit inside the edge loop, but
+    // it could only ever fire when the graph itself had become unusable, which is
+    // this handler's job; it degraded that case into a node list with silently
+    // missing edges, which misstates the graph more than an empty one does.
     try {
-      const results = await this.engine.search('');
+      const results = await this.engine.listProjectSymbols();
       if (results.length === 0) return { nodes: [], edges: [] };
 
       const nodes: GraphNodeData[] = results.map((r, i) => ({
         id: i,
         name: r.name,
-        label: r.label ?? r.name,
+        qualifiedName: r.qualifiedName,
+        // `label` is a required field of SymbolRefItem, so there is no
+        // unlabelled-symbol case to fall back to.
+        label: r.label,
         filePath: r.filePath,
       }));
 
-      // Build edges by resolving callers/callees
+      // Build edges by resolving callees
       const edges: GraphEdgeData[] = [];
+      // Edges are indexed by the displayed bare name, because that is what
+      // `findCallees` reports for the nodes it returns.
       const nodeIndex = new Map(results.map((r, i) => [r.name, i]));
       const maxSymbols = Math.min(results.length, 5);
 
       for (let i = 0; i < maxSymbols; i++) {
-        const sym = results[i];
-        if (!sym) continue;
-        try {
-          const callees = await this.engine.findCallees(sym.name);
-          for (const callee of callees) {
-            const targetId = nodeIndex.get(callee.name);
-            if (targetId != null) {
-              edges.push({
-                sourceId: i,
-                targetId,
-                type: 'call',
-              });
-            }
+        // Invariant: the loop bound is the length of the array being read and
+        // nothing in the body mutates it, so the slot is always populated.
+        const sym = results[i]!;
+        // `findCallees` resolves the symbol through the graph's qualified name.
+        // This used to pass the bare identifier, which never resolves, so the
+        // explorer's edge list was empty for every project.
+        const callees = await this.engine.findCallees(sym.qualifiedName);
+        for (const callee of callees) {
+          const targetId = nodeIndex.get(callee.name);
+          // A callee can live outside this project — a store handed to the bridge
+          // may hold several indexed projects — and a node this view does not
+          // draw cannot be an edge endpoint.
+          if (targetId != null) {
+            edges.push({
+              sourceId: i,
+              targetId,
+              type: 'call',
+            });
           }
-        } catch {
-          // Skip symbols that fail edge resolution
         }
       }
 

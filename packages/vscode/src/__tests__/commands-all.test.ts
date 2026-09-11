@@ -228,7 +228,12 @@ describe('Core Commands', () => {
     it('shows results in quick pick', async () => {
       api.showInputBox = vi.fn().mockResolvedValue('test query');
       const results: SearchResultItem[] = [
-        { name: 'testFunc', filePath: 'src/test.ts', label: 'function' },
+        {
+          name: 'testFunc',
+          qualifiedName: 'test.testFunc',
+          filePath: 'src/test.ts',
+          label: 'function',
+        },
       ];
       engine.search = vi.fn().mockResolvedValue(results);
 
@@ -266,7 +271,9 @@ describe('Symbol Context Commands', () => {
 
   describe('findCallers', () => {
     it('shows caller results', async () => {
-      const callers: TraceResultItem[] = [{ name: 'callerFunc', filePath: 'src/caller.ts' }];
+      const callers: TraceResultItem[] = [
+        { name: 'callerFunc', qualifiedName: 'test.callerFunc', filePath: 'src/caller.ts' },
+      ];
       engine.findCallers = vi.fn().mockResolvedValue(callers);
 
       const handler = api.registrations.get('code-analyzer.findCallers')!;
@@ -290,7 +297,9 @@ describe('Symbol Context Commands', () => {
 
   describe('findCallees', () => {
     it('finds callees for a symbol', async () => {
-      const callees: TraceResultItem[] = [{ name: 'helper', filePath: 'src/helper.ts' }];
+      const callees: TraceResultItem[] = [
+        { name: 'helper', qualifiedName: 'test.helper', filePath: 'src/helper.ts' },
+      ];
       engine.findCallees = vi.fn().mockResolvedValue(callees);
 
       const handler = api.registrations.get('code-analyzer.findCallees')!;

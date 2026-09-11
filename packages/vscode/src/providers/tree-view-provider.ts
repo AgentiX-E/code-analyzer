@@ -180,13 +180,17 @@ export class GraphTreeDataProviderLogic {
         id: `symbol:${r.filePath}:${r.name}`,
         label: r.name,
         description: r.filePath,
-        iconPath: this.getIconForLabel(r.label ?? r.name),
+        // `label` is a required field of SearchResultItem, so there is no
+        // unlabelled-symbol case to fall back to.
+        iconPath: this.getIconForLabel(r.label),
         collapsibleState: 'none' as const,
         contextValue: 'symbol',
         command: {
           command: 'code-analyzer.showSymbolDetail',
           title: 'Show Symbol Detail',
-          arguments: [r.name],
+          // The handler re-queries the graph, which resolves by qualified name —
+          // a bare identifier came back as "symbol not found".
+          arguments: [r.qualifiedName],
         },
         resourceUri: { fsPath: r.filePath },
       }));
@@ -203,9 +207,11 @@ export class GraphTreeDataProviderLogic {
     // Extract the project path
     const projectPath = projectId.replace('project:', '');
     // In a real implementation, this would query the store for modules.
-    // For now, return related symbols grouped by file path as modules.
+    // For now, group the project's symbols by file path as modules.
     try {
-      const results = await this.engine.search('');
+      // Listing the graph, not searching it: an empty query matches no term, so
+      // the tree had no modules whenever it asked the search engine for "all".
+      const results = await this.engine.listProjectSymbols();
       // Group results by directory
       const moduleMap = new Map<string, string[]>();
       for (const r of results) {
@@ -217,7 +223,10 @@ export class GraphTreeDataProviderLogic {
 
       const items: TreeItemData[] = [];
       for (const [dir] of moduleMap) {
-        const dirName = dir.split('/').pop() || dir;
+        // Invariant: the map key is either the '(root)' literal or the
+        // join of the file path's parent segments, so it never ends in a
+        // separator and the final segment is never empty.
+        const dirName = dir.split('/').pop()!;
         items.push({
           id: `module:${projectPath}:${dir}`,
           label: dirName,
@@ -236,11 +245,17 @@ export class GraphTreeDataProviderLogic {
   private async getSymbolChildren(moduleId: string): Promise<TreeItemData[]> {
     const modulePath = moduleId.replace('module:', '');
     try {
-      const results = await this.engine.search('');
+      // Listing the graph, not searching it — see getModuleChildren().
+      const results = await this.engine.listProjectSymbols();
       const symbols = results
         .filter((r) => {
-          const dir = r.filePath.split('/').slice(0, -1).join('/');
-          return dir === modulePath || modulePath.endsWith(dir);
+          // Symbols are grouped by the same directory key getModuleChildren() used
+          // to build the module id, so a module id is `<projectPath>:<dir>`. A bare
+          // `endsWith(dir)` let a project-root symbol — whose dir is the empty
+          // string — match every module, and let `src` match `src/utils` as well.
+          // Anchoring on the separator keeps the comparison exact.
+          const dir = r.filePath.split('/').slice(0, -1).join('/') || '(root)';
+          return modulePath === dir || modulePath.endsWith(`:${dir}`);
         })
         .map((r) => ({
           id: `symbol:${modulePath}:${r.name}`,
@@ -250,9 +265,12 @@ export class GraphTreeDataProviderLogic {
           collapsibleState: 'none' as const,
           contextValue: 'symbol',
           command: {
-            command: 'code-analyzer.showSidebar',
-            title: 'Navigate to Symbol',
-            arguments: [r.filePath],
+            // `code-analyzer.showSidebar` takes no argument, so the symbol this
+            // item carries was dropped on the floor. showSymbolDetail is the
+            // handler that consumes one.
+            command: 'code-analyzer.showSymbolDetail',
+            title: 'Show Symbol Detail',
+            arguments: [r.qualifiedName],
           },
           resourceUri: r.filePath ? { fsPath: r.filePath } : undefined,
         }));

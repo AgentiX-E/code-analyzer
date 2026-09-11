@@ -112,6 +112,15 @@ describe('ReviewDecorationLogic', () => {
       expect(content.title).toContain('[CRITICAL]');
     });
 
+    it('labels a comment the engine gave no severity as info', () => {
+      // `severity` is a plain string on the engine's comment model, so a value
+      // the decoration union does not contain is a legal input.
+      const content = logic.buildHoverContent(makeComment({ severity: '' }));
+
+      expect(content.title).toContain('[INFO]');
+      expect(content.severity).toBe('info');
+    });
+
     it('uses title as fallback when title is empty', () => {
       const comment = makeComment({ title: '', message: 'only message' });
       const content = logic.buildHoverContent(comment);
@@ -250,6 +259,13 @@ describe('ReviewDecorationLogic', () => {
       expect(actions.some((a) => a.title.includes('Ignore'))).toBe(true);
     });
 
+    it('treats a comment the engine gave no severity as info', () => {
+      const actions = logic.getCodeLensActions(makeComment({ severity: '' }));
+
+      // info ranks below the Fix threshold, so only Ignore and Explain remain.
+      expect(actions.map((a) => a.title)).toEqual(['👁 Ignore', '💡 Explain']);
+    });
+
     it('includes Explain action for all severities', () => {
       const severities: DecorationSeverity[] = ['critical', 'high', 'medium', 'low', 'info'];
       for (const sev of severities) {
@@ -311,6 +327,21 @@ describe('ReviewDecorationLogic', () => {
     it('returns empty array for empty input', () => {
       const filtered = logic.filterByMinSeverity([], 'medium');
       expect(filtered).toEqual([]);
+    });
+
+    it('ranks a comment with an unrecognized severity below every known one', () => {
+      const unranked = [
+        makeComment({ severity: 'bogus', title: 'unranked' }),
+        makeComment({ severity: 'info', title: 'info' }),
+      ];
+
+      // The rank lookup misses for 'bogus', and the filter must compare a number
+      // rather than drop the comment by comparing against undefined.
+      expect(logic.filterByMinSeverity(unranked, 'info').map((c) => c.title)).toEqual([
+        'unranked',
+        'info',
+      ]);
+      expect(logic.filterByMinSeverity(unranked, 'low')).toEqual([]);
     });
   });
 
