@@ -342,7 +342,10 @@ describe('computeConfidence', () => {
       { projectId: 'test-project' },
       { projectId: 'test-project', hasDirectEdge: false },
     );
-    expect(result.score).toBeGreaterThan(0);
+    // Sole inferred signal → 0.5 + 1 * 0.019 = 0.519.
+    expect(result.factors).toEqual(['same project (no direct edge)']);
+    expect(result.score).toBe(0.519);
+    expect(result.label).toBe('low');
   });
 
   it('should handle same file with no edge', () => {
@@ -350,17 +353,25 @@ describe('computeConfidence', () => {
       { filePath: '/src/file.ts' },
       { targetFile: '/src/file.ts', hasDirectEdge: false },
     );
-    expect(result.score).toBeGreaterThan(0);
+    // An identical file path is also a direct match, so the direct tier wins:
+    // 0.9 + 1 * 0.02 = 0.92. Neither multi-signal boost applies because no
+    // heuristic signal fires.
+    expect(result.factors).toEqual(['exact file path match', 'same file (no direct edge)']);
+    expect(result.score).toBe(0.92);
+    expect(result.label).toBe('high');
   });
 
   it('should handle same label type', () => {
     const result = computeConfidence({ label: 'Function' }, { expectedLabel: 'Function' });
-    expect(result.score).toBeGreaterThan(0);
+    expect(result.score).toBe(0.519);
+    expect(result.label).toBe('low');
   });
 
   it('should handle vector similarity', () => {
     const result = computeConfidence({ vectorScore: 0.85 }, {});
-    expect(result.score).toBeGreaterThan(0);
+    expect(result.factors).toEqual(['high vector similarity']);
+    expect(result.score).toBe(0.519);
+    expect(result.label).toBe('low');
   });
 
   it('should boost score with multiple signal types', () => {
@@ -368,7 +379,21 @@ describe('computeConfidence', () => {
       { qualifiedName: 'pkg.Func', filePath: '/src/pkg/main.ts', signature: 'func(): void' },
       { targetSymbol: 'pkg.Func', targetFile: '/src/pkg/main.ts', targetSignature: 'func(): void' },
     );
-    expect(result.score).toBeGreaterThanOrEqual(0.92);
+    // Three direct signals → 0.9 + 3 * 0.02 = 0.96. No heuristic signal fires,
+    // so neither multi-signal boost applies.
+    expect(result.score).toBe(0.96);
+    expect(result.label).toBe('high');
+  });
+
+  it('should apply the direct-plus-heuristic boost exactly once', () => {
+    // Exact qualified name (direct) + a file path that merely contains the
+    // target file (heuristic) → 0.9 + 1 * 0.02 + 0.03 = 0.95.
+    const result = computeConfidence(
+      { qualifiedName: 'pkg.Func', filePath: '/x/src/pkg/main.ts' },
+      { targetSymbol: 'pkg.Func', targetFile: '/src/pkg/main.ts' },
+    );
+    expect(result.factors).toEqual(['exact qualified name match', 'partial file path match']);
+    expect(result.score).toBe(0.95);
     expect(result.label).toBe('high');
   });
 
@@ -385,7 +410,7 @@ describe('computeConfidence', () => {
       { projectId: 'shared-project' },
       { projectId: 'shared-project', hasDirectEdge: false },
     );
-    expect(result.score).toBeGreaterThan(0);
+    expect(result.score).toBe(0.519);
     expect(result.factors).toContain('same project (no direct edge)');
   });
 
@@ -401,7 +426,7 @@ describe('computeConfidence', () => {
 
   it('should handle same label type with expectedLabel (line 141 branch)', () => {
     const result = computeConfidence({ label: 'Class' }, { expectedLabel: 'Class' });
-    expect(result.score).toBeGreaterThan(0);
+    expect(result.score).toBe(0.519);
     expect(result.factors).toContain('same label type');
   });
 
@@ -411,10 +436,70 @@ describe('computeConfidence', () => {
       { startLine: 10, endLine: 10, label: 'Function' },
       { lineNumber: 15, expectedLabel: 'Function' },
     );
-    // Should have both heuristic (proximity) and inferred (label) matches
-    expect(result.score).toBeGreaterThan(0);
-    expect(result.factors).toContain('proximity-based line match');
-    expect(result.factors).toContain('same label type');
+    // Should have both heuristic (proximity) and inferred (label) matches.
+    // One heuristic signal → 0.7 + 1 * 0.019 = 0.719, then the
+    // heuristic-plus-inferred boost adds exactly 0.02.
+    expect(result.factors).toEqual(['proximity-based line match', 'same label type']);
+    expect(result.score).toBe(0.739);
+    expect(result.label).toBe('medium');
+  });
+
+  it('should ignore a file path that neither matches nor contains the target file', () => {
+    const result = computeConfidence(
+      { filePath: '/src/pkg/main.ts' },
+      { targetSymbol: 'unrelated', targetFile: '/src/pkg/other.ts' },
+    );
+    expect(result.factors).toEqual(['no matching signals found']);
+    expect(result.score).toBe(0);
+  });
+
+  it('should ignore a signature that neither matches nor contains the target signature', () => {
+    const result = computeConfidence(
+      { signature: 'targetFunc(a: number): string' },
+      { targetSymbol: 'unrelated', targetSignature: 'otherFunc(b: string)' },
+    );
+    expect(result.factors).toEqual(['no matching signals found']);
+    expect(result.score).toBe(0);
+  });
+
+  it('should ignore a line range that starts more than five lines away', () => {
+    const result = computeConfidence({ startLine: 10, endLine: 12 }, { lineNumber: 30 });
+    expect(result.factors).toEqual(['no matching signals found']);
+    expect(result.score).toBe(0);
+  });
+
+  it('should measure line proximity from the range start', () => {
+    // The range does not contain line 17 and its start is 7 lines away, while
+    // its end sits exactly on the 5-line proximity boundary. Only the start may
+    // decide the heuristic, so no signal may fire here.
+    const result = computeConfidence({ startLine: 10, endLine: 12 }, { lineNumber: 17 });
+    expect(Math.abs(12 - 17)).toBeLessThanOrEqual(5);
+    expect(result.factors).toEqual(['no matching signals found']);
+    expect(result.score).toBe(0);
+  });
+
+  it('should treat an exported target symbol as a heuristic signal', () => {
+    const result = computeConfidence({}, { isExported: true });
+    expect(result.factors).toEqual(['exported symbol (likely public API)']);
+    // Sole heuristic signal → 0.7 + 1 * 0.019 = 0.719.
+    expect(result.score).toBe(0.719);
+    expect(result.label).toBe('medium');
+  });
+
+  it('should not treat a non-exported or unknown target as a signal', () => {
+    // The guard is a strict `=== true`, so the negative and absent forms must
+    // fall through without contributing anything.
+    for (const isExported of [false, null, undefined]) {
+      const result = computeConfidence({}, { isExported });
+      expect(result.factors).toEqual(['no matching signals found']);
+      expect(result.score).toBe(0);
+    }
+  });
+
+  it('should ignore a label that differs from the expected label', () => {
+    const result = computeConfidence({ label: 'Function' }, { expectedLabel: 'Class' });
+    expect(result.factors).toEqual(['no matching signals found']);
+    expect(result.score).toBe(0);
   });
 });
 

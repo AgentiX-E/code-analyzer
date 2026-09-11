@@ -7,7 +7,12 @@ import { createYoga } from 'graphql-yoga';
 import { makeExecutableSchema } from '@graphql-tools/schema';
 import { typeDefs } from '../graphql/schema.js';
 import { resolvers } from '../graphql/resolvers.js';
-import { createGraphQLContext, type GraphQLContext } from '../graphql/context.js';
+import {
+  createGraphQLContext,
+  createTestContext,
+  type GraphQLContext,
+} from '../graphql/context.js';
+import type { ServerConfig } from '../server-config.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 // ---------------------------------------------------------------------------
@@ -115,45 +120,74 @@ function populateStore(): void {
   });
 }
 
+// Minimal but complete server configuration. Shared by the Yoga integration
+// suite and the context factory contract tests below.
+function makeServerConfig(): ServerConfig {
+  return {
+    host: '0.0.0.0',
+    port: 3000,
+    apiPrefix: '/api/v1',
+    cors: {
+      origin: '*',
+      methods: [],
+      allowedHeaders: [],
+      exposedHeaders: [],
+      credentials: false,
+      maxAge: 0,
+    },
+    auth: { enabled: false, apiKeys: [], headerName: '' },
+    logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
+    metadata: { name: 'test', version: '0.0.0', environment: 'test' },
+    rateLimit: { enabled: false, windowMs: 60000, maxRequests: 100, addHeaders: false },
+    mtls: {
+      enabled: false,
+      caCerts: [],
+      requireCert: false,
+      skipHealthEndpoints: true,
+      failureMode: 'reject',
+    },
+    maxBodySize: 1048576,
+    keepAliveTimeout: 61000,
+    sseHeartbeatMs: 15000,
+    maxConnections: 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
+describe('GraphQL context factories', () => {
+  it('should build a context that references the supplied store, config and start time', () => {
+    const store = new InMemoryGraphStore();
+    const config = makeServerConfig();
+    const startTime = 1726000000000;
+    const context = createGraphQLContext(store, config, startTime);
+    expect(context.store).toBe(store);
+    expect(context.config).toBe(config);
+    expect(context.startTime).toBe(startTime);
+  });
+
+  it('should fall back to a fresh store when no store is supplied', () => {
+    const context = createTestContext();
+    expect(context.store).toBeInstanceOf(InMemoryGraphStore);
+    expect(context.store.getNodeCount()).toBe(0);
+    // The factory's defaults are part of its contract: it must hand back the
+    // same minimal, fully-disabled configuration the rest of the suite uses.
+    expect(context.config).toEqual(makeServerConfig());
+    expect(context.startTime).toBeGreaterThan(0);
+  });
+
+  it('should reuse the supplied store when one is given', () => {
+    const store = new InMemoryGraphStore();
+    expect(createTestContext(store).store).toBe(store);
+  });
+});
+
 describe('GraphQL API', () => {
   beforeEach(() => {
     store = new InMemoryGraphStore();
-    ctx = createGraphQLContext(
-      store,
-      {
-        host: '0.0.0.0',
-        port: 3000,
-        apiPrefix: '/api/v1',
-        cors: {
-          origin: '*',
-          methods: [],
-          allowedHeaders: [],
-          exposedHeaders: [],
-          credentials: false,
-          maxAge: 0,
-        },
-        auth: { enabled: false, apiKeys: [], headerName: '' },
-        logging: { enabled: false, level: 'silent', includeBody: false, pretty: false },
-        metadata: { name: 'test', version: '0.0.0', environment: 'test' },
-        rateLimit: { enabled: false, windowMs: 60000, maxRequests: 100, addHeaders: false },
-        mtls: {
-          enabled: false,
-          caCerts: [],
-          requireCert: false,
-          skipHealthEndpoints: true,
-          failureMode: 'reject',
-        },
-        maxBodySize: 1048576,
-        keepAliveTimeout: 61000,
-        sseHeartbeatMs: 15000,
-        maxConnections: 0,
-      },
-      Date.now(),
-    );
+    ctx = createGraphQLContext(store, makeServerConfig(), Date.now());
     const schema = makeExecutableSchema({ typeDefs, resolvers });
     yoga = createYoga({
       schema,

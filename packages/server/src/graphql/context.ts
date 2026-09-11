@@ -22,7 +22,6 @@ export interface GraphQLContext {
  * Create a GraphQL context for a request.
  * Returns a fresh context with shared store and config references.
  */
-/* v8 ignore next 3 */ // Context factory tested via Yoga integration tests
 export function createGraphQLContext(
   store: InMemoryGraphStore,
   config: ServerConfig,

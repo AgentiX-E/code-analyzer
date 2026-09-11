@@ -73,11 +73,10 @@ export function computeConfidence(
     if (finding.filePath === context.targetFile) {
       directMatches++;
       factors.push('exact file path match');
-    } else if (
-      typeof finding.filePath === 'string' &&
-      typeof context.targetFile === 'string' &&
-      finding.filePath.includes(context.targetFile)
-    ) {
+    } else if (finding.filePath.includes(context.targetFile)) {
+      // Invariant: the enclosing `if` already proved both operands are strings,
+      // so re-testing their types here would be a tautology. The sibling
+      // signature and line-range blocks below rely on the same narrowing.
       heuristicMatches++;
       factors.push('partial file path match');
     }
@@ -126,12 +125,10 @@ export function computeConfidence(
     factors.push('extends relationship');
   }
 
-  /* v8 ignore start -- @preserve */
   if (context.isExported === true) {
     heuristicMatches++;
     factors.push('exported symbol (likely public API)');
   }
-  /* v8 ignore stop -- @preserve */
 
   // FTS rank-based heuristic
   if (typeof finding.rank === 'number' && finding.rank > 8) {
@@ -213,7 +210,6 @@ export function computeConfidence(
     score += 0.03;
   }
   if (heuristicMatches > 0 && inferredMatches > 0) {
-    /* v8 ignore next -- @preserve */
     score += 0.02;
   }
 
