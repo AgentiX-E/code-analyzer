@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Cross-Repo Tools Tests
 // Tests for crossRepoSearch, crossRepoTrace, crossRepoImpact,
 // manageRepoGroup, syncContracts, discoverRelatedRepos
@@ -8,7 +7,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createToolRegistry } from '../tools/index.js';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Fixtures: Multi-Repo Graph Data
@@ -31,7 +30,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 20,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'alphaFn' },
       signature: 'alphaFn(): void',
       docstring: 'Alpha function',
       complexity: 5,
@@ -50,7 +49,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 40,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'AlphaService' },
       signature: null,
       docstring: 'Alpha service',
       complexity: 10,
@@ -69,7 +68,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 5,
       endLine: 15,
       language: 'typescript',
-      properties: { routePath: '/api/alpha/items', routeMethod: 'GET' },
+      properties: { name: 'getAlphaItems', routePath: '/api/alpha/items', routeMethod: 'GET' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -89,7 +88,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 15,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'betaFn' },
       signature: 'betaFn(): void',
       docstring: 'Beta function',
       complexity: 3,
@@ -108,7 +107,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 30,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'BetaConsumer' },
       signature: null,
       docstring: 'Consumes alpha data',
       complexity: 7,
@@ -127,7 +126,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 5,
       endLine: 15,
       language: 'typescript',
-      properties: { routePath: '/api/beta/items', routeMethod: 'GET' },
+      properties: { name: 'getBetaItems', routePath: '/api/beta/items', routeMethod: 'GET' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -147,7 +146,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 10,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'gammaFn' },
       signature: 'gammaFn(): void',
       docstring: 'Gamma function',
       complexity: 2,
@@ -166,7 +165,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 5,
       endLine: 15,
       language: 'typescript',
-      properties: { routePath: '/api/gamma/items', routeMethod: 'GET' },
+      properties: { name: 'getGammaItems', routePath: '/api/gamma/items', routeMethod: 'GET' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -186,7 +185,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 8,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'sharedHelper' },
       signature: null,
       docstring: null,
       complexity: 1,
@@ -205,7 +204,7 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
       startLine: 1,
       endLine: 8,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'sharedHelper' },
       signature: null,
       docstring: null,
       complexity: 1,
@@ -227,7 +226,6 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
   // Create cross-repo edges
   if (alphaFn && betaFn) {
     store.insertEdge({
-      id: 0,
       projectId: projectA,
       sourceId: alphaFn.id,
       targetId: betaFn.id,
@@ -239,7 +237,6 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
   }
   if (betaConsumer && alphaFn) {
     store.insertEdge({
-      id: 0,
       projectId: projectB,
       sourceId: betaConsumer.id,
       targetId: alphaFn.id,
@@ -251,7 +248,6 @@ function createMultiRepoGraph(store: InMemoryGraphStore): void {
   }
   if (betaFn && gammaFn) {
     store.insertEdge({
-      id: 0,
       projectId: projectB,
       sourceId: betaFn.id,
       targetId: gammaFn.id,
@@ -291,7 +287,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.query).toBe('alpha');
     expect(data.items).toBeDefined();
     expect(data.items.length).toBeGreaterThan(0);
@@ -303,7 +299,7 @@ describe('crossRepoSearch', () => {
       query: 'anything',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.totalResults).toBe(0);
     expect(data.items).toEqual([]);
   });
@@ -318,7 +314,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // All results should be from repo-alpha
     const nonAlphaResults = data.items.filter((i: any) => i.repo !== 'repo-alpha');
     expect(nonAlphaResults.length).toBe(0);
@@ -334,7 +330,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.repoBreakdown).toBeDefined();
     // Results should only be from specified repos
     for (const item of data.items) {
@@ -352,7 +348,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items.length).toBeLessThanOrEqual(2);
   });
 
@@ -365,7 +361,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     if (data.items.length > 0) {
       expect(data.items[0].relevance).toBeDefined();
       expect(typeof data.items[0].relevance).toBe('number');
@@ -381,7 +377,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     if (data.items.length > 0) {
       expect(data.items[0].snippet).toBeDefined();
     }
@@ -396,7 +392,7 @@ describe('crossRepoSearch', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.totalResults).toBe(0);
     expect(data.items).toEqual([]);
   });
@@ -404,7 +400,7 @@ describe('crossRepoSearch', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('cross_repo_search', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -439,7 +435,7 @@ describe('crossRepoTrace', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.sourceSymbol).toBe('alpha.alphaFn');
     expect(data.groupId).toBe('group-trace');
     expect(data.path).toBeDefined();
@@ -453,7 +449,7 @@ describe('crossRepoTrace', () => {
       groupId: 'ghost-group',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.path).toEqual([]);
     expect(data.crossRepoEdges).toEqual([]);
   });
@@ -476,7 +472,7 @@ describe('crossRepoTrace', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.maxDepth).toBe(1);
     // With depth 1, we should only see the source and immediate neighbors
     expect(data.path.length).toBeGreaterThanOrEqual(1);
@@ -500,7 +496,7 @@ describe('crossRepoTrace', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.crossRepoConnections).toBeDefined();
     expect(typeof data.crossRepoConnections).toBe('number');
     expect(data.reposVisited).toBeDefined();
@@ -524,14 +520,14 @@ describe('crossRepoTrace', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.path).toEqual([]);
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('cross_repo_trace', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -566,7 +562,7 @@ describe('crossRepoImpact', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.symbol).toBe('alpha.alphaFn');
     expect(data.impactedRepos).toBeDefined();
     expect(data.riskLevel).toBeDefined();
@@ -579,7 +575,7 @@ describe('crossRepoImpact', () => {
       groupId: 'no-store-group',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.riskLevel).toBe('low');
     expect(data.impactedRepos).toEqual([]);
     expect(data.totalImpactedRepos).toBe(0);
@@ -603,7 +599,7 @@ describe('crossRepoImpact', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.riskLevel).toBeDefined();
     // With cross-repo callers, risk should not be low
     if (data.totalImpactedRepos > 0) {
@@ -629,7 +625,7 @@ describe('crossRepoImpact', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.totalCallers).toBeDefined();
     expect(typeof data.totalCallers).toBe('number');
     expect(data.includeConsumers).toBe(true);
@@ -653,14 +649,14 @@ describe('crossRepoImpact', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.includeConsumers).toBe(false);
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('cross_repo_impact', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -683,7 +679,7 @@ describe('manageRepoGroup', () => {
       repos: ['service-a', 'service-b'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.action).toBe('create');
     expect(data.created).toBe(true);
     expect(data.name).toBe('Core Services');
@@ -699,7 +695,7 @@ describe('manageRepoGroup', () => {
       repos: ['repo-x'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.groupId).toBe('my-custom-group');
   });
 
@@ -719,7 +715,7 @@ describe('manageRepoGroup', () => {
       action: 'list',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.action).toBe('list');
     // Group store persists across tests, so we assert at least 2
     expect(data.groups.length).toBeGreaterThanOrEqual(2);
@@ -740,7 +736,7 @@ describe('manageRepoGroup', () => {
       groupId: 'get-test-group',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.found).toBe(true);
     expect(data.name).toBe('Get Test');
     expect(data.description).toBe('A test group');
@@ -753,7 +749,7 @@ describe('manageRepoGroup', () => {
       groupId: 'ghost-group',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.found).toBe(false);
   });
 
@@ -773,7 +769,7 @@ describe('manageRepoGroup', () => {
       repos: ['new-repo'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.updated).toBe(true);
 
     // Verify via get
@@ -781,7 +777,7 @@ describe('manageRepoGroup', () => {
       action: 'get',
       groupId: 'update-group',
     });
-    const getData = JSON.parse(getResult.content[0].text);
+    const getData = JSON.parse(getResult.content[0]!.text!);
     expect(getData.name).toBe('New Name');
     expect(getData.description).toBe('Updated description');
     expect(getData.repos).toEqual(['new-repo']);
@@ -794,7 +790,7 @@ describe('manageRepoGroup', () => {
       name: 'Ghost',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.updated).toBe(false);
   });
 
@@ -803,7 +799,7 @@ describe('manageRepoGroup', () => {
       action: 'update',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toBe('groupId is required for update');
   });
 
@@ -820,7 +816,7 @@ describe('manageRepoGroup', () => {
       groupId: 'delete-me',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.deleted).toBe(true);
   });
 
@@ -830,7 +826,7 @@ describe('manageRepoGroup', () => {
       groupId: 'already-gone',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.deleted).toBe(false);
   });
 
@@ -839,7 +835,7 @@ describe('manageRepoGroup', () => {
       action: 'delete',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toBe('groupId is required for delete');
   });
 
@@ -857,7 +853,7 @@ describe('manageRepoGroup', () => {
       repos: ['repo-2', 'repo-3'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.addedRepos).toEqual(['repo-2', 'repo-3']);
     expect(data.totalRepos).toBe(3);
   });
@@ -876,7 +872,7 @@ describe('manageRepoGroup', () => {
       repos: ['existing-repo', 'new-repo'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.addedRepos).toEqual(['new-repo']);
     expect(data.totalRepos).toBe(2);
   });
@@ -887,7 +883,7 @@ describe('manageRepoGroup', () => {
       repos: ['some-repo'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toBe('groupId and repos are required for add_repo');
   });
 
@@ -905,7 +901,7 @@ describe('manageRepoGroup', () => {
       repos: ['remove-me'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.removedRepos).toEqual(['remove-me']);
     expect(data.totalRepos).toBe(2);
   });
@@ -916,14 +912,14 @@ describe('manageRepoGroup', () => {
       repos: ['some-repo'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toBe('groupId and repos are required for remove_repo');
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('manage_repo_group', {}, undefined as any);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -957,7 +953,7 @@ describe('syncContracts', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.groupId).toBe('contract-sync');
     expect(data.synced).toBeDefined();
     expect(data.conflicts).toBeDefined();
@@ -974,7 +970,7 @@ describe('syncContracts', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.status).toBe('no-changes');
     expect(data.synced).toBe(0);
   });
@@ -992,7 +988,7 @@ describe('syncContracts', () => {
       direction: 'upstream',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.direction).toBe('upstream');
   });
 
@@ -1013,7 +1009,7 @@ describe('syncContracts', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.direction).toBe('bidirectional');
   });
 
@@ -1029,7 +1025,7 @@ describe('syncContracts', () => {
       contracts: [{ path: '/api/test', method: 'GET' }],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.synced).toBeGreaterThan(0);
     expect(data.syncDetails.length).toBeGreaterThan(0);
   });
@@ -1037,7 +1033,7 @@ describe('syncContracts', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('sync_contracts', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -1063,7 +1059,7 @@ describe('discoverRelatedRepos', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('repo-alpha');
     expect(data.relatedRepos).toBeDefined();
     expect(data.total).toBeDefined();
@@ -1086,7 +1082,7 @@ describe('discoverRelatedRepos', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.relatedRepos.length).toBeGreaterThan(0);
     // Should find group members
     const groupMembers = data.relatedRepos.filter((r: any) => r.relationType === 'group_member');
@@ -1102,7 +1098,7 @@ describe('discoverRelatedRepos', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.total).toBe(0);
     expect(data.relatedRepos).toEqual([]);
   });
@@ -1125,7 +1121,7 @@ describe('discoverRelatedRepos', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.relatedRepos.length).toBeLessThanOrEqual(1);
   });
 
@@ -1139,11 +1135,8 @@ describe('discoverRelatedRepos', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // If symbol overlap detection works, we should find repo-beta
-    const hasOverlapResult = data.relatedRepos.some(
-      (r: any) => r.repo === 'repo-beta' && r.sharedSymbols.length > 0,
-    );
     // Not asserting this must be true since the data depends on how
     // discoverRelatedRepos traverses, but we verify the structure
     for (const repo of data.relatedRepos) {
@@ -1157,7 +1150,7 @@ describe('discoverRelatedRepos', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('discover_related_repos', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -1177,7 +1170,7 @@ describe('cross_repo_review_pr', () => {
   it('should require groupId and sourceRepoId', async () => {
     const result = await registry.execute('cross_repo_review_pr', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 
   it('should require graph context for review', async () => {
@@ -1185,7 +1178,7 @@ describe('cross_repo_review_pr', () => {
       groupId: 'test-group',
       sourceRepoId: 'repo-alpha',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toContain('graph store');
   });
 
@@ -1201,7 +1194,7 @@ describe('cross_repo_review_pr', () => {
     // The tool should report an error either via isError or in the content
     const hasError =
       result.isError === true ||
-      (typeof result.content?.[0]?.text === 'string' && result.content[0].text.includes('error'));
+      (typeof result.content?.[0]?.text === 'string' && result.content[0]!.text.includes('error'));
     expect(hasError).toBe(true);
   });
 
@@ -1223,7 +1216,7 @@ describe('cross_repo_review_pr', () => {
       },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.sourceRepo).toBe('repo-alpha');
     expect(data.crossRepoRisk).toBe('low');
     expect(data.mergeRecommendation).toBe('approve');
@@ -1252,7 +1245,7 @@ describe('cross_repo_review_pr', () => {
       },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.sourceRepo).toBe('repo-alpha');
     expect(data.breakingChanges).toBeGreaterThanOrEqual(1);
   });
@@ -1282,7 +1275,7 @@ describe('cross_repo_review_pr', () => {
       },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.sourceRepo).toBe('repo-alpha');
     expect(data.mergeRecommendation).toBeDefined();
   });
@@ -1307,7 +1300,7 @@ function makeNode(projectId: string, overrides: Partial<GraphNode>): GraphNode {
     startLine: 1,
     endLine: 10,
     language: 'typescript',
-    properties: {},
+    properties: { name: 'node' },
     signature: null,
     docstring: null,
     complexity: null,
@@ -1326,7 +1319,6 @@ function insertCall(
   projectId: string,
 ): void {
   store.insertEdge({
-    id: 0,
     projectId,
     sourceId,
     targetId,
@@ -1394,7 +1386,7 @@ describe('crossRepoImpact - cross-repo caller paths', () => {
       { symbol: 'target.api', groupId: 'fan-in-high' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.riskLevel).toBe('high');
     expect(data.totalImpactedRepos).toBe(4);
@@ -1418,7 +1410,7 @@ describe('crossRepoImpact - cross-repo caller paths', () => {
       { symbol: 'target.api', groupId: 'fan-in-medium' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.riskLevel).toBe('medium');
     expect(data.totalImpactedRepos).toBe(1);
@@ -1434,7 +1426,7 @@ describe('crossRepoImpact - cross-repo caller paths', () => {
       { symbol: 'target.doesNotExist', groupId: 'fan-in-missing' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.riskLevel).toBe('low');
     expect(data.impactedRepos).toEqual([]);
@@ -1449,7 +1441,7 @@ describe('crossRepoImpact - cross-repo caller paths', () => {
       { symbol: 'target.api', groupId: 'fan-in-low' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.riskLevel).toBe('low');
     expect(data.totalImpactedRepos).toBe(0);
@@ -1473,7 +1465,7 @@ describe('crossRepoSearch - group filter', () => {
       { query: 'Fn', groupId: 'search-filter-group' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     // alphaFn and betaFn exist in the fixture and are excluded by the filter;
     // gammaFn is a member and survives.
@@ -1516,7 +1508,7 @@ describe('nodes without a source location', () => {
     const ctx = new ToolContextImpl(buildUnlocatedGraph());
 
     const result = await registry.execute('cross_repo_search', { query: 'sourceFn' }, ctx);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     const hit = data.items.find((i: any) => i.symbol === 'sourceFn');
 
     expect(hit).toBeDefined();
@@ -1533,7 +1525,7 @@ describe('nodes without a source location', () => {
       { sourceSymbol: 'loc.sourceFn', groupId: 'loc-group' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.path).toHaveLength(2);
     for (const step of data.path) {
@@ -1567,7 +1559,7 @@ describe('crossRepoTrace - graph shapes', () => {
       { sourceSymbol: 'cyc.a', groupId: 'cycle-group' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.path).toHaveLength(2);
     expect(data.crossRepoConnections).toBe(1);
@@ -1589,7 +1581,7 @@ describe('crossRepoTrace - graph shapes', () => {
       { sourceSymbol: 'same.p1', groupId: 'same-group' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.path).toHaveLength(2);
     expect(data.crossRepoEdges).toEqual([]);
@@ -1609,26 +1601,26 @@ describe('manageRepoGroup - optional arguments', () => {
       action: 'create',
       groupId: 'unnamed-group',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.name).toBe('unnamed-group');
 
     const fetched = await registry.execute('manage_repo_group', {
       action: 'get',
       groupId: 'unnamed-group',
     });
-    expect(JSON.parse(fetched.content[0].text).name).toBe('unnamed-group');
+    expect(JSON.parse(fetched.content[0]!.text!).name).toBe('unnamed-group');
   });
 
   it('defaults the group name to the timestamp id when no id is given', async () => {
     const result = await registry.execute('manage_repo_group', { action: 'create' });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.groupId).toMatch(/^group_\d+$/);
     expect(data.name).toBe(data.groupId);
   });
 
   it('reports not found when get is called without a groupId', async () => {
     const result = await registry.execute('manage_repo_group', { action: 'get' });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.found).toBe(false);
     expect(data.groupId).toBeUndefined();
   });
@@ -1645,7 +1637,7 @@ describe('manageRepoGroup - optional arguments', () => {
       groupId: 'desc-only-group',
       description: 'a new description',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.updated).toBe(true);
 
     // Updating without `repos` must leave the repo list untouched.
@@ -1653,7 +1645,7 @@ describe('manageRepoGroup - optional arguments', () => {
       action: 'get',
       groupId: 'desc-only-group',
     });
-    const fetchedData = JSON.parse(fetched.content[0].text);
+    const fetchedData = JSON.parse(fetched.content[0]!.text!);
     expect(fetchedData.name).toBe('Original Name');
     expect(fetchedData.description).toBe('a new description');
   });
@@ -1664,7 +1656,7 @@ describe('manageRepoGroup - optional arguments', () => {
       groupId: 'missing-add-group',
       repos: ['acme/widget'],
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toBe('Group not found');
   });
 
@@ -1674,7 +1666,7 @@ describe('manageRepoGroup - optional arguments', () => {
       groupId: 'missing-remove-group',
       repos: ['acme/widget'],
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.error).toBe('Group not found');
   });
 });
@@ -1698,7 +1690,7 @@ describe('parseRepoRef - reference formats', () => {
       action: 'get',
       groupId: 'ref-slash-group',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.repos).toEqual(['acme/widget']);
   });
 
@@ -1714,7 +1706,7 @@ describe('parseRepoRef - reference formats', () => {
       action: 'get',
       groupId: 'ref-url-group',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.repos).toEqual(['acme/widget']);
   });
 
@@ -1730,7 +1722,7 @@ describe('parseRepoRef - reference formats', () => {
       action: 'get',
       groupId: 'ref-host-group',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.repos).toEqual(['acme/widget']);
   });
 
@@ -1746,7 +1738,7 @@ describe('parseRepoRef - reference formats', () => {
       action: 'get',
       groupId: 'ref-plain-group',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.repos.sort()).toEqual(['acme/widget', 'widget']);
   });
 });
@@ -1768,7 +1760,8 @@ describe('syncContracts - route metadata', () => {
           label: 'Route',
           name: r.name,
           qualifiedName: `${r.projectId}.${r.name}`,
-          properties: r.properties,
+          // `NodeProperties.name` is required; the node's name plus the caller's extras.
+          properties: { name: r.name, ...r.properties },
         }),
       ),
     );
@@ -1787,7 +1780,7 @@ describe('syncContracts - route metadata', () => {
     );
 
     const result = await registry.execute('sync_contracts', { groupId: 'route-bare-group' }, ctx);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.status).toBe('no-changes');
     expect(data.synced).toBe(0);
@@ -1806,18 +1799,18 @@ describe('syncContracts - route metadata', () => {
         {
           projectId: 'route-x',
           name: 'itemsX',
-          properties: { routePath: '/api/items', routeMethod: 'GET' },
+          properties: { name: 'itemsX', routePath: '/api/items', routeMethod: 'GET' },
         },
         {
           projectId: 'route-y',
           name: 'itemsY',
-          properties: { routePath: '/api/items', routeMethod: 'GET' },
+          properties: { name: 'itemsY', routePath: '/api/items', routeMethod: 'GET' },
         },
       ]),
     );
 
     const result = await registry.execute('sync_contracts', { groupId: 'route-shared-group' }, ctx);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.status).toBe('success');
     expect(data.synced).toBe(2);
@@ -1836,18 +1829,18 @@ describe('syncContracts - route metadata', () => {
         {
           projectId: 'route-p',
           name: 'p',
-          properties: { routePath: '/api/x', routeMethod: 'GET' },
+          properties: { name: 'p', routePath: '/api/x', routeMethod: 'GET' },
         },
         {
           projectId: 'route-q',
           name: 'q',
-          properties: { routePath: '/api/x', routeMethod: 'POST' },
+          properties: { name: 'q', routePath: '/api/x', routeMethod: 'POST' },
         },
       ]),
     );
 
     const result = await registry.execute('sync_contracts', { groupId: 'route-method-group' }, ctx);
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.status).toBe('no-changes');
     expect(data.synced).toBe(0);
@@ -1879,7 +1872,7 @@ describe('discoverRelatedRepos - symbol overlap', () => {
     const result = await registry.execute('discover_related_repos', {
       projectId: 'overlap-main',
     });
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.projectId).toBe('overlap-main');
     expect(data.relatedRepos).toEqual([]);
@@ -1893,7 +1886,7 @@ describe('discoverRelatedRepos - symbol overlap', () => {
       { projectId: 'overlap-main' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     const peer = data.relatedRepos.find((r: any) => r.repo === 'overlap-peer');
 
     expect(peer).toBeDefined();
@@ -1908,7 +1901,7 @@ describe('discoverRelatedRepos - symbol overlap', () => {
       { projectId: 'overlap-main' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     const peer = data.relatedRepos.find((r: any) => r.repo === 'overlap-peer');
 
     expect(peer).toBeDefined();
@@ -1932,7 +1925,7 @@ describe('discoverRelatedRepos - symbol overlap', () => {
       { projectId: 'skip-main' },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.relatedRepos.map((r: any) => r.repo)).toEqual(['skip-peer']);
     expect(data.relatedRepos[0].sharedSymbols).toEqual(['shared']);
@@ -1964,7 +1957,7 @@ describe('cross_repo_review_pr - diff defaults', () => {
       },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.error).toBeUndefined();
     expect(data.sourceRepo).toBe('repo-alpha');
@@ -1987,7 +1980,7 @@ describe('cross_repo_review_pr - diff defaults', () => {
       },
       ctx,
     );
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.error).toBeUndefined();
     expect(data.sourceRepo).toBe('repo-alpha');
