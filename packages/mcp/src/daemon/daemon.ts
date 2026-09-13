@@ -273,7 +273,11 @@ export class CodeAnalyzerDaemon extends EventEmitter {
       if (req.url === '/health' || req.url === '/') {
         const status = this.getStatus();
         const healthResponse = {
-          status: this.shuttingDown ? 'shutting_down' : this.running ? 'ok' : 'stopped',
+          // Invariant: the health server is closed before `running` is cleared
+          // (`stopHealthServer()` precedes `this.running = false`), so a request can
+          // only be served while the daemon is running or draining. A `: 'stopped'`
+          // arm for the third combination was unreachable.
+          status: this.shuttingDown ? 'shutting_down' : 'ok',
           timestamp: new Date().toISOString(),
           pid: status.pid,
           uptime: status.uptime,

@@ -255,3 +255,61 @@ describe('trendAnalysisTool — health report edge cases', async () => {
     expect(text).toContain('orphan');
   });
 });
+
+describe('trendAnalysisTool — dependency report', async () => {
+  it('lists the files that carry dependencies', async () => {
+    const store = new InMemoryGraphStore();
+    const caller = insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'caller',
+      qualifiedName: 'caller',
+      filePath: 'a.ts',
+    });
+    const callee = insertNode(store, {
+      projectId: 'p',
+      label: 'Function',
+      name: 'callee',
+      qualifiedName: 'callee',
+      filePath: 'b.ts',
+    });
+    insertEdge(store, { projectId: 'p', type: 'CALLS', sourceId: caller, targetId: callee });
+
+    const text = await run(store, 'p', 'dependencies');
+
+    // Both files carry one edge each, so both survive the `total > 0` filter that
+    // builds the table — with no edges at all the filter body never runs.
+    expect(text).toContain('**Files with dependencies**: 2');
+    expect(text).toContain('a.ts');
+    expect(text).toContain('b.ts');
+  });
+});
+
+describe('trendAnalysisTool — top complexity bucket', async () => {
+  it('buckets a score above 50 into the top bucket', async () => {
+    const store = new InMemoryGraphStore();
+    const hub = insertNode(store, {
+      projectId: 'p',
+      label: 'Class',
+      name: 'hub',
+      qualifiedName: 'hub',
+      filePath: 'hub.ts',
+    });
+    // EXTENDS weighs 3, so 20 of them score 60 — the only way past 50, and the
+    // final `else` of the bucket chain.
+    for (let i = 0; i < 20; i++) {
+      const leaf = insertNode(store, {
+        projectId: 'p',
+        label: 'Class',
+        name: `leaf${i}`,
+        qualifiedName: `leaf${i}`,
+        filePath: `leaf${i}.ts`,
+      });
+      insertEdge(store, { projectId: 'p', type: 'EXTENDS', sourceId: hub, targetId: leaf });
+    }
+
+    const text = await run(store, 'p', 'complexity');
+
+    expect(text).toContain('50+');
+  });
+});

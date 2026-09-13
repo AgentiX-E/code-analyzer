@@ -326,5 +326,258 @@ describe('SSETransport', () => {
 
       await transport.shutdown();
     });
+
+    it('sends nothing when the heartbeat interval is disabled', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      // Zero disables the timer. 700ms is far longer than six beats at the 100ms
+      // interval the positive case above uses, so an interval of `0` and a merely
+      // long one are distinguishable: only the former stays silent.
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 0 });
+      transport.start();
+
+      const response = await fetch(`http://127.0.0.1:${port}/sse`);
+      expect(response.status).toBe(200);
+
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const timeout = setTimeout(() => reader.cancel(), 700);
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+        }
+      } finally {
+        clearTimeout(timeout);
+        reader.cancel();
+      }
+
+      expect(buffer).toContain('event: connected');
+      expect(buffer).not.toContain(': heartbeat');
+    });
+  });
+
+  describe('server supplied to start()', () => {
+    it('attaches to an HTTP server handed to start()', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      // Built with no server, so `start()` is the only thing that can wire one up —
+      // the branch the `httpServer` constructor option never reaches.
+      transport = new SSETransport();
+      transport.start(server);
+
+      const response = await fetch(`http://127.0.0.1:${port}/sse`);
+      expect(response.status).toBe(200);
+      expect(transport.clientCount).toBe(1);
+
+      await response.body?.cancel();
+      await transport.shutdown();
+    });
+  });
+
+  describe('broadcasting to a live client', () => {
+    it('delivers an event to a connected client', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 0 });
+      transport.start();
+
+      const response = await fetch(`http://127.0.0.1:${port}/sse`);
+      expect(response.status).toBe(200);
+
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const timeout = setTimeout(() => reader.cancel(), 2500);
+      try {
+        // Wait for the handshake first: only then is the client registered, and
+        // every existing broadcast test runs with zero clients.
+        while (!buffer.includes('event: connected')) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+        }
+        expect(buffer).toContain('event: connected');
+
+        transport.broadcast({ event: 'greeting', data: 'hello' });
+
+        while (!buffer.includes('greeting')) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+        }
+      } finally {
+        clearTimeout(timeout);
+        reader.cancel();
+      }
+
+      expect(buffer).toContain('event: greeting');
+      expect(buffer).toContain('hello');
+    });
+  });
+
+  describe('sending to a live client', () => {
+    it('delivers a targeted event and reports success', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 0 });
+      transport.start();
+
+      const response = await fetch(`http://127.0.0.1:${port}/sse`);
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const timeout = setTimeout(() => reader.cancel(), 2500);
+      try {
+        while (!buffer.includes('event: connected')) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+        }
+
+        const clientId = transport.getClientIds()[0];
+        expect(clientId).toBeDefined();
+
+        // Every other `send()` case in this suite targets a client that is absent,
+        // disconnected or behind a shutting-down transport — so the success path,
+        // and `sendToClient` underneath it, had never executed at all.
+        expect(transport.send(clientId!, { event: 'targeted', data: { n: 1 } })).toBe(true);
+
+        while (!buffer.includes('targeted')) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+        }
+      } finally {
+        clearTimeout(timeout);
+        reader.cancel();
+      }
+
+      expect(buffer).toContain('event: targeted');
+      expect(buffer).toContain('{"n":1}');
+    });
+  });
+
+  describe('client messages', () => {
+    it('emits client-message for a POST naming a connected client', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 0 });
+      transport.start();
+
+      const received: string[] = [];
+      transport.on('client-message', (id: string) => received.push(id));
+
+      const stream = await fetch(`http://127.0.0.1:${port}/sse`);
+      const reader = stream.body?.getReader();
+      if (!reader) return;
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let clientId = '';
+      const timeout = setTimeout(() => reader.cancel(), 2500);
+      try {
+        while (!buffer.includes('event: connected')) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+        }
+        clientId = transport.getClientIds()[0] ?? '';
+
+        const response = await fetch(`http://127.0.0.1:${port}/sse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, event: 'ping' }),
+        });
+        expect(response.status).toBe(200);
+      } finally {
+        clearTimeout(timeout);
+        reader.cancel();
+      }
+
+      // A POST that names a client the transport knows is forwarded as an event;
+      // one that names a stranger is accepted and dropped.
+      expect(received).toEqual([clientId]);
+    });
+  });
+
+  describe('heartbeat without clients', () => {
+    it('ticks with nothing attached and keeps running', async () => {
+      const { server } = await createTestServer();
+      httpServer = server;
+
+      // A short interval with no client ever attaching: the tick fires and returns
+      // at its guard. The existing heartbeat case connects a client first, so the
+      // empty-tick path had never run.
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 30 });
+      transport.start();
+
+      await tick(150);
+
+      expect(transport.clientCount).toBe(0);
+      expect(transport.isRunning()).toBe(true);
+    });
+  });
+
+  describe('message handling edge cases', () => {
+    it('refuses POST with 503 once shutdown has begun', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 0 });
+      transport.start();
+      await transport.shutdown();
+
+      // The request listener stays attached after shutdown, so a late POST still
+      // reaches the transport and has to be answered rather than left hanging.
+      const response = await fetch(`http://127.0.0.1:${port}/sse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: 'sse-1' }),
+      });
+
+      expect(response.status).toBe(503);
+      await response.body?.cancel();
+    });
+
+    it('destroys a request whose body exceeds the 1MB limit', async () => {
+      const { server, port } = await createTestServer();
+      httpServer = server;
+
+      transport = new SSETransport({ httpServer: server, heartbeatInterval: 0 });
+      transport.start();
+
+      // One byte past the limit: the transport destroys the request mid-stream to
+      // bound how much a single client can buffer, so the upload cannot complete.
+      const oversized = 'x'.repeat(1_048_577);
+      let settled: 'resolved' | 'rejected' = 'resolved';
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/sse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: oversized,
+        });
+        await response.body?.cancel();
+      } catch {
+        settled = 'rejected';
+      }
+
+      expect(settled).toBe('rejected');
+
+      await transport.shutdown();
+    });
   });
 });

@@ -295,8 +295,10 @@ function healthReport(store: InMemoryGraphStore, projectId: string, nodes: Graph
   report += `| Graph Density | ${density}% | ${density < 1 ? '🟢 Healthy' : density < 5 ? '🟡 Moderate' : '🔴 Dense'} |\n`;
   report += `| Files | ${fileNodes.length} | — |\n`;
   report += `| Functions/Methods | ${funcNodes.length} | — |\n`;
-  const isolatedPct =
-    nodes.length > 0 ? Math.round((isolatedNodes.length / nodes.length) * 100) : 0;
+  // Invariant: the handler returns "No data found" before dispatching a report when
+  // the project has no nodes, so `nodes` is never empty here and the `: 0` arm of
+  // the old ternary was unreachable. Dividing directly is safe by that guard.
+  const isolatedPct = Math.round((isolatedNodes.length / nodes.length) * 100);
   report += `| Isolated Nodes | ${isolatedNodes.length} (${isolatedPct}%) | ${isolatedPct < 5 ? '🟢 Healthy' : isolatedPct < 20 ? '🟡 Moderate' : '🔴 High'} |\n`;
 
   const edgeTypes = new Map<string, number>();

@@ -2,11 +2,13 @@
 // Exercises the stale-PID detection, PID file edge cases, shutdown-state health
 // response, and pending-operation drain that the happy-path suite skips.
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { CodeAnalyzerDaemon } from '../daemon/daemon.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as http from 'node:http';
+import type { AddressInfo } from 'node:net';
 
 function tempPidFile(): string {
   return path.join(
@@ -159,5 +161,91 @@ describe('CodeAnalyzerDaemon — branch coverage', () => {
     daemon.decrementPending();
     await daemon.stop();
     expect(daemon.getStatus().pendingOperations).toBe(0);
+  });
+
+  it('rejects when the health port is already taken', async () => {
+    // Occupy a port, then ask the daemon for it: the listen fails asynchronously,
+    // which is the only way the health server's `error` listener ever runs.
+    const blocker = http.createServer();
+    await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', () => resolve()));
+    const taken = (blocker.address() as AddressInfo).port;
+
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({ pidFile, port: taken, host: '127.0.0.1' });
+
+    await expect(daemon.start()).rejects.toThrow(/Health server failed to start/);
+
+    await new Promise<void>((resolve) => blocker.close(() => resolve()));
+  });
+
+  it('stops cleanly when it was never started', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({ pidFile, port: 0 });
+
+    // No health server was ever created, so the stop path has to tolerate that
+    // rather than dereference a null. Every other case here starts first.
+    await expect(daemon.stop()).resolves.toBeUndefined();
+  });
+
+  it('force-closes the health server once the grace period elapses', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({
+      pidFile,
+      port: 0,
+      host: '127.0.0.1',
+      shutdownGracePeriod: 20,
+    });
+    await daemon.start();
+
+    // A kept-alive socket keeps `close()` from completing on its own, so the
+    // grace-period branch is what has to finish the shutdown.
+    const agent = new http.Agent({ keepAlive: true });
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port: daemon.getStatus().port, path: '/health', agent },
+        (res) => {
+          res.resume();
+          res.on('end', () => resolve());
+        },
+      );
+      req.on('error', reject);
+      req.end();
+    });
+
+    await daemon.stop();
+
+    agent.destroy();
+    expect(daemon.getStatus().running).toBe(false);
+  });
+
+  it('stops and exits when a shutdown signal arrives', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({ pidFile, port: 0, shutdownGracePeriod: 50 });
+    await daemon.start();
+
+    const signals: string[] = [];
+    daemon.on('signal', (s: string) => signals.push(s));
+    const exits: number[] = [];
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      exits.push(code ?? 0);
+      return undefined as never;
+    }) as never);
+
+    try {
+      // The handler is a private field; invoking it is the only way to reach the
+      // signal path, and `process.exit` is stubbed so the test process survives.
+      await (
+        daemon as unknown as { handleShutdownSignal: () => Promise<void> }
+      ).handleShutdownSignal();
+    } finally {
+      exitSpy.mockRestore();
+    }
+
+    expect(signals).toEqual(['SIGTERM']);
+    expect(exits).toEqual([0]);
   });
 });
