@@ -1,12 +1,6 @@
-// @ts-nocheck
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CustomRuleEditor } from '../standards/rule-editor.js';
-import type {
-  CreateRuleInput,
-  UpdateRuleInput,
-  RuleValidationResult,
-  RuleTemplate,
-} from '../standards/rule-editor.js';
+import type { CreateRuleInput } from '../standards/rule-editor.js';
 import type { StandardRule, ProjectStandard } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -203,7 +197,7 @@ describe('createCustomRule', () => {
         checkType: 'regex',
         checkConfig: { pattern: 'test' },
         severity: 'medium',
-      } as CreateRuleInput),
+      } as unknown as CreateRuleInput),
     ).toThrow('Rule description is required');
   });
 
@@ -213,7 +207,7 @@ describe('createCustomRule', () => {
         description: 'Test',
         checkConfig: { pattern: 'test' },
         severity: 'medium',
-      } as CreateRuleInput),
+      } as unknown as CreateRuleInput),
     ).toThrow('Rule checkType is required');
   });
 
@@ -234,7 +228,7 @@ describe('createCustomRule', () => {
         description: 'Test',
         checkType: 'regex',
         checkConfig: { pattern: 'test' },
-      } as CreateRuleInput),
+      } as unknown as CreateRuleInput),
     ).toThrow('Rule severity is required');
   });
 
@@ -719,7 +713,7 @@ describe('validateRule', () => {
     const result = editor.validateRule(rule, longCode);
     expect(result.valid).toBe(true);
     expect(result.matches.length).toBe(1);
-    expect(result.matches[0].matchedText).toContain('threshold');
+    expect(result.matches[0]!.matchedText).toContain('threshold');
   });
 
   it('should not match metric:function-lines when under threshold', () => {
@@ -762,7 +756,7 @@ describe('validateRule', () => {
     const result = editor.validateRule(rule, nestedCode);
     expect(result.valid).toBe(true);
     expect(result.matches.length).toBe(1);
-    expect(result.matches[0].matchedText).toContain('nesting depth');
+    expect(result.matches[0]!.matchedText).toContain('nesting depth');
   });
 
   it('should not match metric:nesting-depth when under threshold', () => {
@@ -1057,11 +1051,11 @@ describe('exportCustomRules and importCustomRules', () => {
     const editor2 = makeEditor();
     const imported = editor2.importCustomRules('std-2', exported);
 
-    expect(imported[0].id).toBe('full-rule');
-    expect(imported[0].description).toBe('Full rule');
-    expect(imported[0].fixSuggestion).toBe('Fix it');
-    expect(imported[0].autoFixable).toBe(true);
-    expect(imported[0].severity).toBe('critical');
+    expect(imported[0]!.id).toBe('full-rule');
+    expect(imported[0]!.description).toBe('Full rule');
+    expect(imported[0]!.fixSuggestion).toBe('Fix it');
+    expect(imported[0]!.autoFixable).toBe(true);
+    expect(imported[0]!.severity).toBe('critical');
   });
 
   it('should import rules and replace existing ones in the target', () => {
@@ -1081,7 +1075,7 @@ describe('exportCustomRules and importCustomRules', () => {
     editor.importCustomRules('std-1', importJson);
     const rules = editor.listCustomRules('std-1');
     expect(rules).toHaveLength(1);
-    expect(rules[0].id).toBe('new-rule');
+    expect(rules[0]!.id).toBe('new-rule');
   });
 
   it('should throw for invalid JSON', () => {
@@ -1119,7 +1113,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].id).toBe('valid-rule');
+    expect(imported[0]!.id).toBe('valid-rule');
   });
 
   it('should handle items with non-string id (use undefined)', () => {
@@ -1134,7 +1128,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].id).toMatch(/^custom-std-1-/);
+    expect(imported[0]!.id).toMatch(/^custom-std-1-/);
   });
 
   it('should handle items with non-string description (use empty)', () => {
@@ -1161,7 +1155,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].checkType).toBe('regex');
+    expect(imported[0]!.checkType).toBe('regex');
   });
 
   it('should handle items with null checkConfig (use empty)', () => {
@@ -1175,7 +1169,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].checkConfig).toEqual({});
+    expect(imported[0]!.checkConfig).toEqual({});
   });
 
   it('should handle items with null severity (use default medium)', () => {
@@ -1189,7 +1183,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].severity).toBe('medium');
+    expect(imported[0]!.severity).toBe('medium');
   });
 
   it('should handle non-string fixSuggestion', () => {
@@ -1205,7 +1199,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].fixSuggestion).toBeUndefined();
+    expect(imported[0]!.fixSuggestion).toBeUndefined();
   });
 
   it('should handle missing id field by auto-generating', () => {
@@ -1219,7 +1213,7 @@ describe('exportCustomRules and importCustomRules', () => {
     ]);
     const imported = editor.importCustomRules('std-1', json);
     expect(imported).toHaveLength(1);
-    expect(imported[0].id).toMatch(/^custom-std-1-/);
+    expect(imported[0]!.id).toMatch(/^custom-std-1-/);
   });
 });
 
@@ -1360,7 +1354,7 @@ describe('createRuleFromTemplate', () => {
     });
     expect(rule.severity).toBe('critical');
     expect(rule.description).toBe('Custom max function size');
-    expect(rule.checkConfig.threshold).toBe(100);
+    expect(rule.checkConfig['threshold']).toBe(100);
   });
 
   it('should allow overriding checkType via overrides', () => {
@@ -1413,7 +1407,7 @@ describe('mergeWithStandard', () => {
   it('should return the base standard unchanged when no custom rules exist', () => {
     const merged = editor.mergeWithStandard('std-1', baseStandard);
     expect(merged.rules).toHaveLength(1);
-    expect(merged.rules[0].id).toBe('existing-rule');
+    expect(merged.rules[0]!.id).toBe('existing-rule');
     expect(merged.id).toBe('test-standard');
     expect(merged.name).toBe('Test Standard');
   });
@@ -1436,9 +1430,9 @@ describe('mergeWithStandard', () => {
     );
     const merged = editor.mergeWithStandard('std-1', baseStandard);
     expect(merged.rules).toHaveLength(1);
-    expect(merged.rules[0].id).toBe('existing-rule');
-    expect(merged.rules[0].description).toBe('Replaced');
-    expect(merged.rules[0].severity).toBe('critical');
+    expect(merged.rules[0]!.id).toBe('existing-rule');
+    expect(merged.rules[0]!.description).toBe('Replaced');
+    expect(merged.rules[0]!.severity).toBe('critical');
   });
 
   it('should handle a mix of new and replacement rules', () => {
@@ -1459,9 +1453,9 @@ describe('mergeWithStandard', () => {
 
     const byId = Object.fromEntries(merged.rules.map((r) => [r.id, r]));
     expect(Object.keys(byId).sort()).toEqual(['existing-rule', 'new-metric']);
-    expect(byId['existing-rule'].description).toBe('Updated existing');
-    expect(byId['existing-rule'].severity).toBe('high');
-    expect(byId['new-metric'].checkType).toBe('metric');
+    expect(byId['existing-rule']!.description).toBe('Updated existing');
+    expect(byId['existing-rule']!.severity).toBe('high');
+    expect(byId['new-metric']!.checkType).toBe('metric');
   });
 
   it('should not mutate the base standard', () => {
@@ -1581,7 +1575,7 @@ describe('edge cases', () => {
 
   it('should handle creating and then immediately deleting the only rule', () => {
     const editor = makeEditor();
-    const rule = editor.createCustomRule('std-1', makeValidRegexInput({ id: 'temp' }));
+    editor.createCustomRule('std-1', makeValidRegexInput({ id: 'temp' }));
     expect(editor.hasCustomRules('std-1')).toBe(true);
     editor.deleteCustomRule('std-1', 'temp');
     expect(editor.hasCustomRules('std-1')).toBe(false);

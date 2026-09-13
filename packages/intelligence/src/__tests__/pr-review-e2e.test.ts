@@ -1,10 +1,9 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — E2E PR Review Pipeline Integration Test
 // Exercises the full chain: diff parsing → context enrichment → review →
 // standards checking → impact analysis → report generation.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -78,7 +77,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 4,
-    properties: {},
+    properties: { name: 'PaymentService' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -91,7 +90,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 2,
-    properties: {},
+    properties: { name: 'processPayment' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -104,7 +103,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 5,
-    properties: {},
+    properties: { name: 'createTransaction' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -117,7 +116,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: null,
-    properties: {},
+    properties: { name: 'Transaction' },
   });
 }
 
@@ -233,8 +232,8 @@ describe('PR Review Pipeline — E2E Integration', () => {
 
     it('should extract added and deleted lines', () => {
       const tempDiffs = parseDiffs(REALISTIC_DIFF);
-      const additions = new DiffParser().extractAdditions(tempDiffs[0]);
-      const deletions = new DiffParser().extractDeletions(tempDiffs[0]);
+      const additions = new DiffParser().extractAdditions(tempDiffs[0]!);
+      const deletions = new DiffParser().extractDeletions(tempDiffs[0]!);
 
       expect(additions.length).toBeGreaterThan(0);
       expect(deletions.length).toBeGreaterThan(0);
@@ -314,8 +313,6 @@ function riskyFunction(userInput) {
       const comments = await reviewEngine.reviewFile(PROJECT_ID, 'src/risky.ts', content);
 
       // Filter the comments ourselves to verify at least some exist
-      const critical = comments.filter((c: ReviewComment) => c.severity === 'critical');
-      const high = comments.filter((c: ReviewComment) => c.severity === 'high');
 
       // At minimum, we should have some comments generated
       expect(comments.length).toBeGreaterThanOrEqual(0);
@@ -452,7 +449,7 @@ function riskyFunction(userInput) {
         language: 'typescript',
         isExported: true,
         complexity: null,
-        properties: {},
+        properties: { name: 'Transaction' },
       });
       const consumerId = ifaceStore.insertNode({
         projectId: PROJECT_ID,
@@ -465,7 +462,7 @@ function riskyFunction(userInput) {
         language: 'typescript',
         isExported: true,
         complexity: 3,
-        properties: {},
+        properties: { name: 'OrderProcessor' },
       });
       ifaceStore.insertEdge({
         sourceId: consumerId,
@@ -853,14 +850,6 @@ new file mode 100644
       }
 
       // Total should equal sum of all categories
-      const categoryTotal = Object.values(result.summary.byCategory).reduce(
-        (a: number, b: any) => a + (typeof b === 'number' ? b : 0),
-        0,
-      );
-      const severityTotal = Object.values(result.summary.bySeverity).reduce(
-        (a: number, b: any) => a + (typeof b === 'number' ? b : 0),
-        0,
-      );
 
       expect(result.summary.totalComments).toBeGreaterThanOrEqual(0);
     });
@@ -938,44 +927,40 @@ diff --git a/src/b.ts b/src/b.ts
 
   describe('ReviewPipeline — 5-Stage Processing', () => {
     it('should create a review pipeline instance', () => {
-      const pipeline = new ReviewPipeline(store);
+      const pipeline = new ReviewPipeline();
       expect(pipeline).toBeDefined();
     });
 
     it('should pre-filter diffs (skip generated/binary/config files)', () => {
-      const pipeline = new ReviewPipeline(store);
+      const pipeline = new ReviewPipeline();
       const diffs: GitDiff[] = [
         {
-          id: '1',
-          repositoryId: PROJECT_ID,
           filePath: 'package-lock.json',
           changeType: 'modified',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
         {
-          id: '2',
-          repositoryId: PROJECT_ID,
           filePath: 'src/main.ts',
           changeType: 'modified',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
         {
-          id: '3',
-          repositoryId: PROJECT_ID,
           filePath: 'dist/bundle.js',
           changeType: 'added',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
         {
-          id: '4',
-          repositoryId: PROJECT_ID,
           filePath: 'image.png',
           changeType: 'modified',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
       ];
 
@@ -990,31 +975,28 @@ diff --git a/src/b.ts b/src/b.ts
     });
 
     it('should filter out generated files based on patterns', () => {
-      const pipeline = new ReviewPipeline(store);
+      const pipeline = new ReviewPipeline();
       const diffs: GitDiff[] = [
         {
-          id: '1',
-          repositoryId: PROJECT_ID,
           filePath: 'src/generated/types.ts',
           changeType: 'modified',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
         {
-          id: '2',
-          repositoryId: PROJECT_ID,
           filePath: 'src/min/bundle.min.js',
           changeType: 'modified',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
         {
-          id: '3',
-          repositoryId: PROJECT_ID,
           filePath: 'src/normal.ts',
           changeType: 'modified',
           ranges: [],
-          createdAt: '',
+          oldHash: '',
+          newHash: '',
         },
       ];
 
@@ -1025,7 +1007,7 @@ diff --git a/src/b.ts b/src/b.ts
     });
 
     it('should handle empty diff list', () => {
-      const pipeline = new ReviewPipeline(store);
+      const pipeline = new ReviewPipeline();
       const { included: filtered } = pipeline.preFilter([]);
       expect(filtered).toEqual([]);
     });

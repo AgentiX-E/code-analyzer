@@ -1,10 +1,9 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Structure Lens branch coverage (graph-backed
 // detections + parser edge cases not covered by structure-lens-layers.test.ts).
 
 import { describe, it, expect } from 'vitest';
 import { analyzeStructure } from '../review/lenses/structure-lens.js';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { InMemoryGraphStore, type NewGraphNode } from '@code-analyzer/infra';
 import type { GraphNode, RelationshipType } from '@code-analyzer/shared';
 
 function node(
@@ -12,7 +11,7 @@ function node(
   id: number,
   overrides: Partial<Omit<GraphNode, 'id'>> = {},
 ) {
-  const n = {
+  const n: NewGraphNode = {
     projectId: 'test-project',
     label: 'File',
     name: 'file',
@@ -22,6 +21,10 @@ function node(
     endLine: 1,
     isExported: false,
     ...overrides,
+    // `Partial` would otherwise widen these to `undefined` through the spread.
+    language: overrides.language ?? 'typescript',
+    properties: overrides.properties ?? { name: 'file' },
+    complexity: overrides.complexity ?? 1,
   };
   // The store assigns the id; returning it (rather than the `id` argument, which is
   // only used to build the qualified name) is what callers can actually look up.

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { StandardsEngine } from '../standards/engine.js';
 import { STANDARD_TEMPLATES, getTemplate, listTemplates } from '../standards/templates.js';
@@ -310,7 +309,7 @@ describe('StandardsEngine — regex checking', () => {
     };
     const results = engine.checkSource('test', 'f.ts', standard);
     expect(results).toHaveLength(1);
-    expect(results[0].violations).toHaveLength(0);
+    expect(results[0]!.violations).toHaveLength(0);
   });
 });
 
@@ -588,8 +587,8 @@ describe('StandardsEngine.getAutoFixes', () => {
     ];
     const fixes = engine.getAutoFixes(violations);
     expect(fixes).toHaveLength(1);
-    expect(fixes[0].filePath).toBe('test.ts');
-    expect(fixes[0].replacement).toBe('logger.info("x");');
+    expect(fixes[0]!.filePath).toBe('test.ts');
+    expect(fixes[0]!.replacement).toBe('logger.info("x");');
   });
 
   it('should filter out violations without auto-fixes', () => {
@@ -623,15 +622,15 @@ describe('All 31+ built-in templates — validation', () => {
   for (const id of allIds) {
     it(`${id} should have valid structure`, () => {
       const tmpl = STANDARD_TEMPLATES[id];
-      expect(tmpl.id).toBeTruthy();
-      expect(tmpl.name).toBeTruthy();
-      expect(tmpl.version).toBeTruthy();
-      expect(tmpl.category).toBeTruthy();
-      expect(tmpl.description).toBeTruthy();
-      expect(Array.isArray(tmpl.rules)).toBe(true);
-      expect(tmpl.rules.length).toBeGreaterThan(0);
+      expect(tmpl!.id).toBeTruthy();
+      expect(tmpl!.name).toBeTruthy();
+      expect(tmpl!.version).toBeTruthy();
+      expect(tmpl!.category).toBeTruthy();
+      expect(tmpl!.description).toBeTruthy();
+      expect(Array.isArray(tmpl!.rules)).toBe(true);
+      expect(tmpl!.rules.length).toBeGreaterThan(0);
 
-      for (const rule of tmpl.rules) {
+      for (const rule of tmpl!.rules) {
         expect(rule.id).toBeTruthy();
         expect(rule.description).toBeTruthy();
         expect(['ast-pattern', 'regex', 'graph-query', 'llm-check', 'metric']).toContain(
@@ -670,7 +669,7 @@ describe('StandardsEngine — deferred check types', () => {
       examples: [],
     };
     const results = engine.checkSource('test', 'f.ts', standard);
-    expect(results[0].violations).toHaveLength(0);
+    expect(results[0]!.violations).toHaveLength(0);
   });
 
   it('should return empty violations for llm-check type', () => {
@@ -694,7 +693,7 @@ describe('StandardsEngine — deferred check types', () => {
       examples: [],
     };
     const results = engine.checkSource('test', 'f.ts', standard);
-    expect(results[0].violations).toHaveLength(0);
+    expect(results[0]!.violations).toHaveLength(0);
   });
 });
 
@@ -1070,7 +1069,13 @@ describe('StandardsEngine edge cases', () => {
       version: '1.0',
       category: 'code-style',
       description: 'test',
-      config: { disabledRules: ['rule-a', 'rule-b'] },
+      config: {
+        disabledRules: ['rule-a', 'rule-b'],
+        includePaths: [],
+        excludePaths: [],
+        severityOverrides: {},
+        ruleParams: {},
+      },
       rules: [
         {
           id: 'rule-a',
@@ -1453,7 +1458,13 @@ describe('StandardsEngine — computeDetailedComplianceReport', () => {
       version: '1.0',
       category: 'custom',
       description: 'Test',
-      config: { disabledRules: ['rule-x', 'rule-y'] },
+      config: {
+        disabledRules: ['rule-x', 'rule-y'],
+        includePaths: [],
+        excludePaths: [],
+        severityOverrides: {},
+        ruleParams: {},
+      },
       rules: [
         {
           id: 'rule-x',
@@ -1790,7 +1801,6 @@ describe('StandardsEngine — checkFiles with disabled rules', () => {
         ruleParams: {},
       },
     };
-    const files = [{ path: 'test.ts', content: 'console.log("test"); const x: any = 5;' }];
     // Use checkSource to verify disabled rules
     const results = engine.checkSource(
       'console.log("test"); const x: any = 5;',

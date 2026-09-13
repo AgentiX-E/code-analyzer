@@ -1,10 +1,9 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — E2E Cross-Repo Analysis Integration Test
 // Exercises the full chain: repo group management → version matrix →
 // federated search → cross-repo PR review → dependency compatibility.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -16,7 +15,6 @@ import {
   CrossRepoPRReviewEngine,
   CodeReviewEngine,
 } from '@code-analyzer/intelligence';
-import type { RepoGroup, GroupRepo } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -43,7 +41,7 @@ function populateStoreA(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 8,
-    properties: {},
+    properties: { name: 'OrderService' },
   });
   const placeOrder = store.insertNode({
     projectId: PROJECT_A,
@@ -56,7 +54,7 @@ function populateStoreA(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 5,
-    properties: {},
+    properties: { name: 'placeOrder' },
   });
   const calculateTotal = store.insertNode({
     projectId: PROJECT_A,
@@ -69,7 +67,7 @@ function populateStoreA(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 3,
-    properties: {},
+    properties: { name: 'calculateTotal' },
   });
   store.insertEdge({
     sourceId: serviceA,
@@ -97,7 +95,7 @@ function populateStoreB(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 6,
-    properties: {},
+    properties: { name: 'PaymentService' },
   });
   const processPayment = store.insertNode({
     projectId: PROJECT_B,
@@ -110,7 +108,7 @@ function populateStoreB(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 4,
-    properties: {},
+    properties: { name: 'processPayment' },
   });
   store.insertEdge({
     sourceId: paymentService,
@@ -132,7 +130,7 @@ function populateStoreC(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 12,
-    properties: {},
+    properties: { name: 'CommonLib' },
   });
   const formatDate = store.insertNode({
     projectId: PROJECT_C,
@@ -145,7 +143,7 @@ function populateStoreC(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 2,
-    properties: {},
+    properties: { name: 'formatDate' },
   });
   const parseJson = store.insertNode({
     projectId: PROJECT_C,
@@ -158,7 +156,7 @@ function populateStoreC(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 3,
-    properties: {},
+    properties: { name: 'parseJson' },
   });
   store.insertEdge({
     sourceId: commonLib,
@@ -183,8 +181,6 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
   let storeB: InMemoryGraphStore;
   let storeC: InMemoryGraphStore;
   let manager: RepoGroupManager;
-  let group: RepoGroup;
-
   beforeAll(() => {
     storeA = new InMemoryGraphStore();
     storeB = new InMemoryGraphStore();
@@ -195,11 +191,8 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
     populateStoreC(storeC);
 
     manager = new RepoGroupManager();
-    group = manager.createGroup(
-      GROUP_ID,
-      'E2E Cross-Repo Test Group',
-      'Integration test repo group',
-    );
+    // Registered as a side effect; the handle is never read by an assertion.
+    manager.createGroup(GROUP_ID, 'E2E Cross-Repo Test Group', 'Integration test repo group');
     manager.addRepo(
       GROUP_ID,
       'org',
@@ -366,7 +359,11 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
   describe('VersionCompatibilityMatrix', () => {
     const matrix = new VersionCompatibilityMatrix();
 
-    const repoVersions = [
+    const repoVersions: Array<{
+      repo: string;
+      version?: string;
+      dependencies: Record<string, string>;
+    }> = [
       {
         repo: 'org/service-a',
         dependencies: { typescript: '^5.3.0', lodash: '4.17.21', axios: '^1.6.0' },
@@ -859,6 +856,8 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         repositoryId: PROJECT_A,
         filePath: 'src/order.service.ts',
         changeType: 'modified' as const,
+        oldHash: '',
+        newHash: '',
         ranges: [
           {
             oldStart: 5,
@@ -996,7 +995,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 10,
-        properties: {},
+        properties: { name: 'UserService' },
       });
       const getUser = depStore.insertNode({
         projectId: 'myorg/backend-api',
@@ -1009,7 +1008,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 3,
-        properties: {},
+        properties: { name: 'getUser' },
       });
       depStore.insertEdge({
         sourceId: userService,
@@ -1030,7 +1029,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 2,
-        properties: {},
+        properties: { name: 'User' },
       });
       const userComponent = depStore.insertNode({
         projectId: 'myorg/frontend-app',
@@ -1043,7 +1042,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 5,
-        properties: {},
+        properties: { name: 'UserProfile' },
       });
       depStore.insertEdge({
         sourceId: userComponent,
@@ -1117,7 +1116,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 2,
-        properties: {},
+        properties: { name: 'IUser' },
       });
       contractStore.insertNode({
         projectId: 'myorg/frontend-app',
@@ -1130,7 +1129,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 2,
-        properties: {},
+        properties: { name: 'IUser' },
       });
 
       const cntMgr = new RepoGroupManager();
@@ -1194,7 +1193,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 8,
-        properties: {},
+        properties: { name: 'ApiClient' },
       });
       prStore.insertNode({
         projectId: 'org/api-repo',
@@ -1207,7 +1206,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 3,
-        properties: {},
+        properties: { name: 'getData' },
       });
 
       prIndexer = new CrossRepoIndexer(prStore, prManager);
@@ -1488,7 +1487,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 5,
-        properties: {},
+        properties: { name: 'ApiSchema' },
       });
       contractStore.insertNode({
         projectId: 'org/source-repo',
@@ -1501,7 +1500,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 3,
-        properties: {},
+        properties: { name: 'fetchData' },
       });
 
       // Target repo
@@ -1516,7 +1515,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 8,
-        properties: {},
+        properties: { name: 'AppComponent' },
       });
 
       const cntMgr = new RepoGroupManager();
@@ -1554,7 +1553,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 3,
-        properties: { version: 'v1' },
+        properties: { name: 'calculatePrice', version: 'v1' },
       });
       beforeStore.insertNode({
         projectId: 'org/source-repo',
@@ -1567,7 +1566,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 2,
-        properties: { version: 'v1' },
+        properties: { name: 'applyDiscount', version: 'v1' },
       });
 
       // V2: source repo removed applyDiscount
@@ -1582,7 +1581,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 4,
-        properties: { version: 'v2' },
+        properties: { name: 'calculatePrice', version: 'v2' },
       });
 
       const bMgr = new RepoGroupManager();
@@ -1629,11 +1628,11 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 6,
-        properties: {},
+        properties: { name: 'ServiceA' },
       });
 
       // Repo B (depends on A)
-      const nodeB = impactStore.insertNode({
+      impactStore.insertNode({
         projectId: 'org/repo-b',
         name: 'ServiceB',
         qualifiedName: 'ServiceB',
@@ -1644,7 +1643,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 5,
-        properties: {},
+        properties: { name: 'ServiceB' },
       });
 
       // Repo C (depends on B)
@@ -1659,7 +1658,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 4,
-        properties: {},
+        properties: { name: 'ServiceC' },
       });
 
       const impMgr = new RepoGroupManager();
@@ -1691,7 +1690,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 2,
-        properties: {},
+        properties: { name: 'publicApi' },
       });
       symStore.insertNode({
         projectId: 'org/repo-a',
@@ -1704,7 +1703,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: false,
         complexity: 1,
-        properties: {},
+        properties: { name: 'internalHelper' },
       });
 
       const symMgr = new RepoGroupManager();
@@ -1736,7 +1735,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: false,
         complexity: 3,
-        properties: {},
+        properties: { name: 'StandaloneUtil' },
       });
 
       const isoMgr = new RepoGroupManager();
@@ -1767,7 +1766,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: true,
         complexity: 2,
-        properties: {},
+        properties: { name: 'exportedUtil' },
       });
       const nodeB = traceStore.insertNode({
         projectId: 'org/consumer',
@@ -1780,7 +1779,7 @@ describe('Cross-Repo Analysis — E2E Integration', () => {
         language: 'typescript',
         isExported: false,
         complexity: 4,
-        properties: {},
+        properties: { name: 'consumerComponent' },
       });
 
       // Create cross-repo edge

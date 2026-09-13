@@ -1,8 +1,7 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Rules Engine Tests
 // Comprehensive tests for all 70 rules, registry, and engine.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { RulesRegistry } from '../rules/rules-registry.js';
 import { RulesEngine, getFileLanguage, DEFAULT_RULES, runRules } from '../rules/rule-runner.js';
 import type { RuleCheckResult, RuleChecker } from '../rules/rule-runner.js';
@@ -28,7 +27,7 @@ function runRule(
 
 function checkV(
   sources: string[],
-  ruleId: string,
+  _ruleId: string,
   checker: RuleChecker,
   filePath = 'test.ts',
   language = 'typescript',
@@ -45,7 +44,7 @@ describe('Correctness Rules', () => {
     it('should detect undefined variable reference', () => {
       const results = runRule('no-undef', 'foo;\nbar;');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('no-undef');
+      expect(results[0]!.ruleId).toBe('no-undef');
       // 'foo' or 'bar' should be flagged
       const msgs = results.map((r) => r.message).join(' ');
       expect(msgs).toContain('foo');
@@ -97,7 +96,7 @@ describe('Correctness Rules', () => {
       const source = 'import { foo } from "bar";\nimport { baz } from "bar";';
       const results = runRule('no-duplicate-imports', source);
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('no-duplicate-imports');
+      expect(results[0]!.ruleId).toBe('no-duplicate-imports');
     });
 
     it('should not flag unique imports', () => {
@@ -159,7 +158,7 @@ describe('Correctness Rules', () => {
       const source = 'try {\n  foo();\n} catch(e) {\n\n}';
       const results = runRule('no-empty-catch', source);
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('no-empty-catch');
+      expect(results[0]!.ruleId).toBe('no-empty-catch');
     });
 
     it('should not flag multiline catch with content on a later line', () => {
@@ -220,7 +219,7 @@ describe('Security Rules', () => {
     it('should detect eval() usage', () => {
       const results = runRule('no-eval', 'eval("1 + 1");');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-95');
+      expect(results[0]!.message).toContain('CWE-95');
     });
 
     it('should detect new Function()', () => {
@@ -241,7 +240,7 @@ describe('Security Rules', () => {
         'db.query(`SELECT * FROM users WHERE id = ${userId}`);',
       );
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-89');
+      expect(results[0]!.message).toContain('CWE-89');
     });
 
     it('should not flag parameterized queries', () => {
@@ -265,7 +264,7 @@ describe('Security Rules', () => {
     it('should detect dangerouslySetInnerHTML', () => {
       const results = runRule('no-xss', '<div dangerouslySetInnerHTML={{__html: content}} />');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-79');
+      expect(results[0]!.message).toContain('CWE-79');
     });
 
     it('should detect innerHTML assignment', () => {
@@ -281,7 +280,7 @@ describe('Security Rules', () => {
     it('should detect document.write()', () => {
       const results = runRule('no-xss', 'document.write(userInput);');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('document.write');
+      expect(results[0]!.message).toContain('document.write');
     });
   });
 
@@ -289,7 +288,7 @@ describe('Security Rules', () => {
     it('should detect hardcoded password', () => {
       const results = runRule('no-hardcoded-secrets', 'const password = "secret123";');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-798');
+      expect(results[0]!.message).toContain('CWE-798');
     });
 
     it('should detect hardcoded API key', () => {
@@ -307,7 +306,7 @@ describe('Security Rules', () => {
     it('should detect exec with concatenation', () => {
       const results = runRule('no-command-injection', 'exec("ls " + userInput);');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-78');
+      expect(results[0]!.message).toContain('CWE-78');
     });
 
     it('should not flag exec with safe arguments', () => {
@@ -320,7 +319,7 @@ describe('Security Rules', () => {
     it('should detect path traversal with user input', () => {
       const results = runRule('no-path-traversal', 'fs.readFile(req.query.file, cb);');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-22');
+      expect(results[0]!.message).toContain('CWE-22');
     });
 
     it('should not flag safe file reads', () => {
@@ -334,7 +333,7 @@ describe('Security Rules', () => {
         'const file = path.join(baseDir, req.query.file);',
       );
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-22');
+      expect(results[0]!.message).toContain('CWE-22');
     });
 
     it('should detect path constructed from user input with path.resolve', () => {
@@ -343,7 +342,7 @@ describe('Security Rules', () => {
         'const file = path.resolve(req.params.dir, fileName);',
       );
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-22');
+      expect(results[0]!.message).toContain('CWE-22');
     });
   });
 
@@ -351,7 +350,7 @@ describe('Security Rules', () => {
     it('should detect redirect with user input', () => {
       const results = runRule('no-open-redirect', 'res.redirect(req.query.url);');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-601');
+      expect(results[0]!.message).toContain('CWE-601');
     });
 
     it('should not flag hardcoded redirect', () => {
@@ -364,7 +363,7 @@ describe('Security Rules', () => {
     it('should detect JSON.parse without try/catch', () => {
       const results = runRule('no-unsafe-deserialization', 'const data = JSON.parse(userInput);');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-502');
+      expect(results[0]!.message).toContain('CWE-502');
     });
 
     it('should not flag JSON.parse inside try block', () => {
@@ -378,7 +377,7 @@ describe('Security Rules', () => {
     it('should detect MD5 usage', () => {
       const results = runRule('no-weak-crypto', 'crypto.createHash("md5");');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-327');
+      expect(results[0]!.message).toContain('CWE-327');
     });
 
     it('should detect SHA-1 usage', () => {
@@ -396,7 +395,7 @@ describe('Security Rules', () => {
     it('should detect Math.random in security context', () => {
       const results = runRule('no-insecure-random', 'const token = Math.random().toString();');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-330');
+      expect(results[0]!.message).toContain('CWE-330');
     });
 
     it('should not flag Math.random in non-security context', () => {
@@ -409,7 +408,7 @@ describe('Security Rules', () => {
     it('should detect hardcoded HTTP URL', () => {
       const results = runRule('no-http-url', 'const apiUrl = "http://example.com/api";');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-319');
+      expect(results[0]!.message).toContain('CWE-319');
     });
 
     it('should not flag HTTPS URLs', () => {
@@ -427,7 +426,7 @@ describe('Security Rules', () => {
     it('should detect console.log', () => {
       const results = runRule('no-debug-statement', 'console.log("debug");');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-489');
+      expect(results[0]!.message).toContain('CWE-489');
     });
 
     it('should detect debugger statement', () => {
@@ -438,7 +437,7 @@ describe('Security Rules', () => {
     it('should detect console.debug', () => {
       const results = runRule('no-debug-statement', 'console.debug("test");');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('CWE-489');
+      expect(results[0]!.message).toContain('CWE-489');
     });
 
     it('should not flag console.log in test files', () => {
@@ -488,7 +487,7 @@ describe('Performance Rules', () => {
       const checker = CHECKER_MAP['no-inefficient-regex']!;
       const results = checker(line.split('\n'), 'test.ts', 'typescript');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('no-inefficient-regex');
+      expect(results[0]!.ruleId).toBe('no-inefficient-regex');
     });
 
     it('should not flag simple regex', () => {
@@ -1104,7 +1103,7 @@ describe('RulesRegistry', () => {
       description: 'T',
     };
     let called = false;
-    registry.register(def, (lines, fp, lang) => {
+    registry.register(def, (_lines, _fp, _lang) => {
       called = true;
       return [{ ruleId: 'test', line: 1, message: 'Found' }];
     });
@@ -1423,14 +1422,14 @@ describe('Edge Cases', () => {
   });
 
   it('should handle null lines gracefully for all checkers', () => {
-    for (const [id, checker] of Object.entries(CHECKER_MAP)) {
+    for (const checker of Object.values(CHECKER_MAP)) {
       const results = checker(null as unknown as string[], 'test.ts', 'typescript');
       expect(results).toEqual([]);
     }
   });
 
   it('should handle undefined lines gracefully for all checkers', () => {
-    for (const [id, checker] of Object.entries(CHECKER_MAP)) {
+    for (const checker of Object.values(CHECKER_MAP)) {
       const results = checker(undefined as unknown as string[], 'test.ts', 'typescript');
       expect(results).toEqual([]);
     }
@@ -1936,7 +1935,7 @@ describe('Rule Executor — Edge Cases', () => {
     it('should flag debugger statement', () => {
       const results = runRule('no-debug-statement', 'debugger;');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].message).toContain('debugger');
+      expect(results[0]!.message).toContain('debugger');
     });
   });
 
@@ -1994,7 +1993,7 @@ describe('Rule Executor — Edge Cases', () => {
     it('should flag class with lowercase name', () => {
       const results = runRule('consistent-naming', 'class myClass {}');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('consistent-naming');
+      expect(results[0]!.ruleId).toBe('consistent-naming');
     });
 
     it('should not flag properly cased class', () => {
@@ -2142,7 +2141,7 @@ describe('Rule Executor — Edge Cases', () => {
     it('should flag export * from statement', () => {
       const results = runRule('no-barrel-export', 'export * from "./module";');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('no-barrel-export');
+      expect(results[0]!.ruleId).toBe('no-barrel-export');
     });
   });
 
@@ -2172,7 +2171,7 @@ describe('Rule Executor — Edge Cases', () => {
     it('should flag file without header comment', () => {
       const results = runRule('file-header', 'const x = 1;');
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].ruleId).toBe('file-header');
+      expect(results[0]!.ruleId).toBe('file-header');
     });
 
     it('should not flag file with // header', () => {
