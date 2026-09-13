@@ -3,10 +3,9 @@
 // Each lens runs independently, then findings are merged, deduplicated,
 // and validated through the Synthesis Lens (HARD GATE).
 
-import type { GitDiff, ReviewComment, ReviewCategory, Severity } from '@code-analyzer/shared';
+import type { GitDiff, ReviewComment, Severity } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_CROSS_REPO_CALLS } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { StandardsEngine } from '../standards/engine.js';
 import { IoUOverlapDetector, type CommentRegion } from '../impact/iou-overlap.js';
 import {
   type LensId,
@@ -14,7 +13,6 @@ import {
   type LensFinding,
   type LensReport,
   type EvidenceAnchor,
-  LENS_PROFILES,
   getLensProfiles,
   SECURITY_PATTERNS,
   PERFORMANCE_PATTERNS,
@@ -28,7 +26,6 @@ import { analyzeStructure } from './lenses/structure-lens.js';
 import { analyzeStyle } from './lenses/style-lens.js';
 import { analyzeApi } from './lenses/api-lens.js';
 import { analyzeDocs } from './lenses/docs-lens.js';
-import { synthesizeFindings, generateSynthesisReport } from './lenses/synthesis-lens.js';
 
 // ---------------------------------------------------------------------------
 // Swarm Configuration
@@ -111,7 +108,6 @@ export interface ActionItem {
 // ---------------------------------------------------------------------------
 
 export class ReviewSwarm {
-  private readonly standardsEngine: StandardsEngine;
   private readonly iouDetector: IoUOverlapDetector;
   private readonly config: Required<SwarmConfig>;
 
@@ -119,7 +115,6 @@ export class ReviewSwarm {
     private store: InMemoryGraphStore,
     config?: SwarmConfig,
   ) {
-    this.standardsEngine = new StandardsEngine();
     this.iouDetector = new IoUOverlapDetector();
     this.config = {
       enabledLenses:
@@ -796,7 +791,7 @@ Reason: ${result.decision.reason}`;
       locationMap.get(key)!.push(f);
     }
 
-    for (const [key, fs] of locationMap) {
+    for (const fs of locationMap.values()) {
       if (fs.length >= 3) {
         // Consensus: multiple lenses agree — elevate severity
         for (const f of fs) {

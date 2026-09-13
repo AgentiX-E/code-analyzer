@@ -6,7 +6,7 @@
 // IMPORTANT: DEEPSEEK_API_KEY must be set in .env (NOT committed to git).
 // The provider reads from process.env['DEEPSEEK_API_KEY'].
 
-import { DeepSeekProvider, type LLMProvider } from '../review/llm/provider.js';
+import { type LLMProvider } from '../review/llm/provider.js';
 import { LLMReviewEngine } from '../review/llm/llm-review-engine.js';
 import { CodeReviewEngine, type GitOperations } from '../review/review-engine.js';
 import { BenchmarkRunner } from './code-review-benchmark.js';

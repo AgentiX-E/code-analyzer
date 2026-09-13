@@ -208,8 +208,8 @@ function buildGraph(
   let nextId = 0;
 
   // Sentinel: entry and exit nodes
-  const entryNode = addNode(-1, -1, 'entry', 0);
-  const exitNode = addNode(-2, -2, 'exit', 0);
+  addNode(-1, -1, 'entry', 0);
+  addNode(-2, -2, 'exit', 0);
 
   // --- Collect all unique program points from data facts ---
   for (const f of dataFacts) {

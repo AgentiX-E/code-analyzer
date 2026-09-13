@@ -8,13 +8,7 @@ import type {
   GitHubCheckRun,
   CreateCheckRunParams,
 } from './client.js';
-import type {
-  CrossRepoReviewResult,
-  APIBreakingChange,
-  CrossRepoImpactEntry,
-  TestImpactPrediction,
-} from '../cross-repo/cross-repo-pr-review.js';
-import type { ReviewComment } from '@code-analyzer/shared';
+import type { CrossRepoReviewResult } from '../cross-repo/cross-repo-pr-review.js';
 
 // ---------------------------------------------------------------------------
 // Types

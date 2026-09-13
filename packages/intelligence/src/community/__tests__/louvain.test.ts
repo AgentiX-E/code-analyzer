@@ -155,7 +155,7 @@ describe('LouvainDetector', () => {
 
     const detector = new LouvainDetector();
     const result = detector.detectCommunities(g);
-    for (const [commId, label] of result.communityLabels) {
+    for (const label of result.communityLabels.values()) {
       expect(typeof label).toBe('string');
       expect(label.length).toBeGreaterThan(0);
     }
@@ -253,17 +253,31 @@ describe('LouvainDetector', () => {
     expect(result.modularity).toBeGreaterThan(0);
   });
 
-  it('should handle custom minImprovement threshold', () => {
-    const g = makeGraph();
-    for (let i = 0; i < 4; i++) addNode(g, i, 'Function', `f${i}`);
-    addEdge(g, 0, 0, 1, 'CALLS', 10);
-    addEdge(g, 1, 1, 2, 'CALLS', 10);
-    addEdge(g, 2, 2, 3, 'CALLS', 1);
+  it('should apply minImprovement rather than accepting and ignoring it', () => {
+    // Two tight cliques joined by one weak link: a first pass separates the groups,
+    // and further passes still add modularity. So the threshold is the difference
+    // between converging (small) and stopping after that first pass (large) — the
+    // values below are measured, not assumed.
+    const build = () => {
+      const g = makeGraph();
+      for (let i = 0; i < 8; i++) addNode(g, i, 'Function', `f${i}`);
+      addEdge(g, 0, 0, 1, 'CALLS', 10);
+      addEdge(g, 1, 1, 2, 'CALLS', 10);
+      addEdge(g, 2, 2, 3, 'CALLS', 10);
+      addEdge(g, 3, 4, 5, 'CALLS', 10);
+      addEdge(g, 4, 5, 6, 'CALLS', 10);
+      addEdge(g, 5, 6, 7, 'CALLS', 10);
+      addEdge(g, 6, 3, 4, 'CALLS', 2);
+      return g;
+    };
 
-    const detector = new LouvainDetector(0.01);
-    const result = detector.detectCommunities(g);
-    expect(result.nodeToCommunity.size).toBe(4);
-    expect(result.modularity).toBeGreaterThan(0);
+    const converged = new LouvainDetector(0.01).detectCommunities(build());
+    const stopped = new LouvainDetector(1).detectCommunities(build());
+
+    // A threshold above the pass-level gain stops early, which is strictly worse.
+    expect(converged.communities.size).toBeLessThan(stopped.communities.size);
+    expect(converged.modularity).toBeGreaterThan(stopped.modularity);
+    expect(converged.nodeToCommunity.size).toBe(8);
   });
 
   it('should handle all nodes with same label producing Mixed fallback', () => {
@@ -406,7 +420,7 @@ describe('LouvainDetector', () => {
     const result = detector.detectCommunities(g);
     expect(result.communityLabels.size).toBeGreaterThan(0);
     // Each community should have a label
-    for (const [commId, label] of result.communityLabels) {
+    for (const label of result.communityLabels.values()) {
       expect(typeof label).toBe('string');
       expect(label.length).toBeGreaterThan(0);
     }

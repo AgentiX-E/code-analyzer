@@ -152,7 +152,7 @@ export class ContractValidator {
     const afterMap = new Map(after.symbols.map((s) => [s.name, s]));
 
     // Find removed symbols
-    for (const [name, beforeSym] of beforeMap) {
+    for (const name of beforeMap.keys()) {
       if (!afterMap.has(name)) {
         changes.push({
           type: 'removed',

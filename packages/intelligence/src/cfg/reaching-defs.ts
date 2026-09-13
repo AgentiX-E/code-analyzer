@@ -15,15 +15,7 @@
 //   - Cooper, Harvey & Kennedy. "A Simple, Fast Dominance Algorithm." 2001.
 //   - Tarjan. "Depth-First Search and Linear Graph Algorithms." SICOMP 1972.
 
-import type {
-  FunctionCfg,
-  DefUseFact,
-  ProgramPoint,
-  BindingEntry,
-  DefinitionSite,
-  UseSite,
-} from './types.js';
-import { computePostDominators } from './post-dominators.js';
+import type { FunctionCfg, DefUseFact, UseSite } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -405,7 +397,6 @@ function sweepFacts(
       }
     }
 
-    let useIdx = 0;
     for (let s = 0; s < block.statementCount; s++) {
       const stmtKey = b * STRIDE + s;
 

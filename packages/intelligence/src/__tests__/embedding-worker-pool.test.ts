@@ -2,13 +2,13 @@
 // Covers worker pool management, task queuing, batching, health tracking,
 // worker restart, fallback mode, statistics, and edge cases.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   EmbeddingWorkerPool,
   getEmbeddingWorkerPool,
   shutdownEmbeddingPool,
 } from '../embeddings/worker-pool.js';
-import type { EmbeddingTask, EmbeddingResult, WorkerPoolStats } from '../embeddings/worker-pool.js';
+import type { EmbeddingTask } from '../embeddings/worker-pool.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

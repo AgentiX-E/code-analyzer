@@ -18,18 +18,6 @@ function bundle(files: string[]): FileBundle[] {
   return bundler().bundleFiles(files, ROOT);
 }
 
-function filesOf(bundles: FileBundle[]): string[][] {
-  return bundles.map((b) => b.files.sort());
-}
-
-function categoriesOf(bundles: FileBundle[]): string[] {
-  return bundles.map((b) => b.category);
-}
-
-function primaryFilesOf(bundles: FileBundle[]): string[] {
-  return bundles.map((b) => b.primaryFile);
-}
-
 // ---------------------------------------------------------------------------
 // Mirror / Convention Pairs
 // ---------------------------------------------------------------------------

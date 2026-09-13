@@ -13,7 +13,6 @@
 // Resolving: Foo → proj.bar.Foo → lookup in base registry
 
 import type { TypeRep, LspLanguage } from './type-rep.js';
-import { typeToString } from './type-rep.js';
 
 // ---------------------------------------------------------------------------
 // Registered Type

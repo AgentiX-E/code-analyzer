@@ -1,6 +1,6 @@
 // @code-analyzer/intelligence — Cross-Repo PR Review Tests
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
@@ -11,20 +11,7 @@ import {
 } from '../cross-repo/cross-repo-pr-review.js';
 import { VersionCompatibilityMatrix } from '../cross-repo/version-matrix.js';
 import type { PullRequest, GitDiff, GraphNode } from '@code-analyzer/shared';
-import type {
-  CrossRepoReviewResult,
-  APIBreakingReport,
-  TestImpactReport,
-  CrossRepoReviewSummary,
-  VersionCompatibilityReport,
-  APIBreakingChange,
-} from '../cross-repo/cross-repo-pr-review.js';
-import type {
-  CompatibilityMatrix,
-  VersionConflict,
-  VersionAlignment,
-  UpgradeSafetyReport,
-} from '../cross-repo/version-matrix.js';
+import type { CompatibilityMatrix } from '../cross-repo/version-matrix.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -381,7 +368,6 @@ describe('CrossRepoPRReviewEngine', () => {
 
   describe('reviewPRWithCrossRepoContext', () => {
     it('should validate required parameters', async () => {
-      const pr = createPR();
       await expect(
         engine.reviewPRWithCrossRepoContext(null as never, 'test-group', 'myorg/service-a', []),
       ).rejects.toThrow('required');

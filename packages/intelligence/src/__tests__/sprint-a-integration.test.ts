@@ -6,7 +6,6 @@ import { buildCallGraph } from '../security/taint-pipeline.js';
 import { buildReducedGraph, mapToOriginalNodes } from '../community/aggregation.js';
 import { createAstContext } from '../rules/ast-rule-checker.js';
 import type { FunctionCfg } from '../cfg/types.js';
-import type { CallGraphEdge } from '../security/interproc-solver.js';
 
 // ---------------------------------------------------------------------------
 // Integration: Verify all Sprint A modules work together

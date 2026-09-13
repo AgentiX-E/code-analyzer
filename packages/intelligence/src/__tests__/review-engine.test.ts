@@ -1373,7 +1373,6 @@ describe('Code Review Engine', () => {
 
     it('should use default config when no custom config provided', () => {
       const engine = new CodeReviewEngine(createStore());
-      const diffs = [createDiff({ filePath: '/src/default-config.ts' })];
       // Should not throw when using defaults
       expect(() => engine).not.toThrow();
     });

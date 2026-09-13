@@ -5,7 +5,7 @@
 
 import type { LensFinding, EvidenceAnchor, LensReport } from '../review-lenses.js';
 import { createLensFinding } from '../review-lenses.js';
-import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
+import type { RelationshipType } from '@code-analyzer/shared';
 import { EDGE_CALLS, EDGE_IMPORTS, EDGE_TESTS } from '@code-analyzer/shared';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 
@@ -231,7 +231,7 @@ function detectCircularImports(
   const fileNodeId = fileNodes.items[0]!.id;
 
   // Run BFS on IMPORTS edges to detect cycles back to source
-  const importerNodes = store.queryEdges({
+  store.queryEdges({
     projectId,
     sourceId: fileNodeId,
     type: EDGE_IMPORTS as RelationshipType,

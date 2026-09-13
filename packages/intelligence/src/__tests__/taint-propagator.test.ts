@@ -336,7 +336,6 @@ describe('TaintPropagator', () => {
 
       // The sanitizer at B1 should neutralize the XSS flow
       // Findings that pass through the sanitizer should be marked as sanitized
-      const sanitizedFindings = result.findings.filter((f) => f.sanitized);
       // At minimum, the sanitizer should reduce confidence or mark as sanitized
       expect(result.sanitizerKills).toBeGreaterThan(0);
     });

@@ -17,8 +17,8 @@
 //     - Property access expressions → evaluate on receiver type
 
 import type { TypeRep } from '../lsp/type-rep.js';
-import { t, BUILTINS, typeToString } from '../lsp/type-rep.js';
-import type { TypeRegistry, RegisteredType, RegisteredFunction } from '../lsp/type-registry.js';
+import { t, BUILTINS } from '../lsp/type-rep.js';
+import type { TypeRegistry, RegisteredFunction } from '../lsp/type-registry.js';
 
 // ---------------------------------------------------------------------------
 // Scope

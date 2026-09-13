@@ -6,8 +6,6 @@
 // The mock backend provides reproducible, content-sensitive fallback for environments
 // where the ONNX runtime or model cannot be loaded.
 
-import { createHash } from 'node:crypto';
-
 import { PhaseLogger, createNoopPhaseLogger } from '@code-analyzer/shared';
 
 // Module-level logger for standalone functions

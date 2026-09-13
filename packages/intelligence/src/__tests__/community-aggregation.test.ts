@@ -5,7 +5,6 @@ import {
   buildReducedGraph,
   mapToOriginalNodes,
   louvainWithAggregation,
-  ReducedGraph,
 } from '../community/aggregation.js';
 
 /**

@@ -241,7 +241,6 @@ describe('ImpactGraphBuilder', () => {
       };
 
       const chains = builder.findDependencyChains('org/core', graph);
-      const deepChain = chains.find((c) => c.depth >= 3);
       // At least one chain should have depth > 1
       if (chains.length > 0) {
         expect(chains.some((c) => c.depth >= 1)).toBe(true);

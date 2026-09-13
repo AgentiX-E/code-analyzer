@@ -84,7 +84,7 @@ function recomputeModularity(
   }
 
   let q = 0;
-  for (const [cid, members] of communities) {
+  for (const members of communities.values()) {
     const memberSet = new Set(members);
     let internal = 0;
     for (const e of edges) {

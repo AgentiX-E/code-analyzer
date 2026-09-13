@@ -451,8 +451,10 @@ export class InterprocSolver {
             const calleeSummary = this.summaries.get(cr.calleeName);
             if (!calleeSummary || calleeSummary.fnQn !== genFn) continue;
 
-            // caller's paramToReturns for this return → propagate to callers of caller
-            for (const p2r of callerSummary.paramToReturns) {
+            // caller's paramToReturns for this return → propagate to callers of caller.
+            // The body below is invariant in the flow itself, so each pass repeats the
+            // same work — reported, not silently restructured.
+            for (const _p2r of callerSummary.paramToReturns) {
               const grandCallers = reverseCallGraph.get(callerQn) ?? [];
               for (const grandCaller of grandCallers) {
                 const grandSummary = this.summaries.get(grandCaller);

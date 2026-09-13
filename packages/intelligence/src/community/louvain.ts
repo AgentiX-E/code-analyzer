@@ -4,7 +4,7 @@
 // Phase 2: Community aggregation (build new graph of communities)
 // Iterate until convergence.
 
-import type { KnowledgeGraph, GraphEdge } from '@code-analyzer/shared';
+import type { KnowledgeGraph } from '@code-analyzer/shared';
 import { EDGE_CALLS } from '@code-analyzer/shared';
 import { mulberry32, DEFAULT_SEED } from './rng.js';
 
@@ -92,6 +92,7 @@ export class LouvainDetector {
 
     for (let iter = 0; iter < maxIterations; iter++) {
       let improved = false;
+      const modularityBeforePass = modularity;
 
       // Shuffle for non-deterministic but faster convergence
       const shuffled = this.shuffle([...nodeIds]);
@@ -123,7 +124,10 @@ export class LouvainDetector {
       }
 
       iterations++;
-      if (!improved) break;
+      // `minImprovement` is what the constructor documents: a pass that reshuffles
+      // nodes for less than this much modularity is not worth another. Without this
+      // the threshold was accepted and ignored, so a caller tuning it saw no change.
+      if (!improved || modularity - modularityBeforePass < this.minImprovement) break;
     }
 
     return this.buildResult(nodeToCommunity, adjacency, graph, modularity);
@@ -187,6 +191,7 @@ export class LouvainDetector {
     }
 
     const currentCommunity = nodeToCommunity.get(nodeId);
+    // The standard gain divides by 2m²; `m2` is 2m, so the product below is that term.
     const m2 = 2 * totalWeight;
 
     for (const [comm, k_i_in] of communityWeights) {
@@ -201,7 +206,7 @@ export class LouvainDetector {
       }
 
       // Simplified modularity gain
-      const gain = k_i_in / totalWeight - (sigmaTot * nodeDegree) / (2 * totalWeight * totalWeight);
+      const gain = k_i_in / totalWeight - (sigmaTot * nodeDegree) / (m2 * totalWeight);
       gains.set(comm, gain);
     }
 

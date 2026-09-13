@@ -245,7 +245,7 @@ export class ReviewPipeline {
       const batchDiffs = batch.map((d) => d.diff);
 
       try {
-        const session = await engine.reviewDiff('pipeline-project', batchDiffs);
+        await engine.reviewDiff('pipeline-project', batchDiffs);
         // Gather comments from the review session
         // The comments are stored in the session records
         const batchComments = this.gatherBatchComments(batchDiffs, config);

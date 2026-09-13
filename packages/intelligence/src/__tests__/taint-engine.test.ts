@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { TaintAnalysisEngine } from '../security/taint-engine.js';
 import type { TaintSource, TaintSink, Sanitizer } from '../security/taint-engine.js';
 import type { KnowledgeGraph, GraphNode, GraphEdge } from '@code-analyzer/shared';
-import { EDGE_CALLS, EDGE_DATA_FLOWS, EDGE_IMPORTS } from '@code-analyzer/shared';
+import { EDGE_CALLS, EDGE_DATA_FLOWS } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -482,7 +482,6 @@ describe('TaintAnalysisEngine', () => {
         signature: 'req.query.id',
         language: 'python',
       });
-      const engine = new TaintAnalysisEngine();
       // 'req.query' is not in the python patterns list? Actually it is (request.args etc.)
       // Use a language that is NOT in the source's language list.
       const customSource: TaintSource = {

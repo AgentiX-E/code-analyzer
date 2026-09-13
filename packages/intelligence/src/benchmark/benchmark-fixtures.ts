@@ -9,7 +9,7 @@
 //   - Performance (6 issues): N+1 queries, memory leaks, unnecessary loops
 //   - Maintainability (4 issues): deep nesting, long functions, code duplication
 
-import type { BenchmarkFixture, GroundTruthIssue } from './code-review-benchmark.js';
+import type { BenchmarkFixture } from './code-review-benchmark.js';
 
 // ---------------------------------------------------------------------------
 // TypeScript Fixtures

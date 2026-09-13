@@ -236,12 +236,11 @@ export class CommentReflectionModule {
 
     // Detect duplicates
     const duplicateResults = this.detectDuplicates(results);
-    for (const dup of duplicateResults) {
-      // `detectDuplicates` marks every returned entry `passed = false`, so each
-      // duplicate unconditionally counts as a failure.
-      failedComments++;
-      issueBreakdown['duplicate'] = (issueBreakdown['duplicate'] ?? 0) + 1;
-    }
+    // `detectDuplicates` marks every returned entry `passed = false`, so each
+    // duplicate unconditionally counts as a failure and the per-entry loop only
+    // needed the count.
+    failedComments += duplicateResults.length;
+    issueBreakdown['duplicate'] = (issueBreakdown['duplicate'] ?? 0) + duplicateResults.length;
 
     // Filter low confidence if enabled
     if (this.options.filterLowConfidence) {

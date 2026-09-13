@@ -2,14 +2,9 @@
 // Comprehensive tests for DataflowSearchEngine covering taint analysis,
 // BFS path finding, risk scoring, and default patterns.
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { DataflowSearchEngine } from '../search/dataflow-search.js';
-import type {
-  DataflowNode,
-  DataflowPath,
-  ReachableSink,
-  TaintReport,
-} from '../search/dataflow-search.js';
+import type { ReachableSink, TaintReport } from '../search/dataflow-search.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
 

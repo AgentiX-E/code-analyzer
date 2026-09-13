@@ -1015,8 +1015,6 @@ describe('CrossRepoIndexer', () => {
       // Insert a node directly into store
       const node = createProjectNode('o/repo-a', 'testFn', 'Function', 'src/test.ts', true);
       store.insertNode(node);
-      const allNodes = store.getAllNodes();
-      const id = allNodes[0]!.id;
 
       const nodes = indexer.getRepoNodes('o/repo-a');
       expect(nodes.length).toBeGreaterThanOrEqual(1);
@@ -2310,7 +2308,7 @@ describe('CrossRepoIndexer — branch coverage', () => {
     });
 
     it('should use changedSymbols filter to scope source nodes', async () => {
-      const { allNodes } = setupTwoRepos();
+      setupTwoRepos();
       // Add a second source node that won't match the filter
       const extraNode = createProjectNode(
         'org/repo-a',
@@ -2324,7 +2322,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const allN = store.getAllNodes();
       const idA = allN.find((n) => n.name === 'sourceFn')!.id;
       const idB = allN.find((n) => n.name === 'targetFn')!.id;
-      const idExtra = allN.find((n) => n.name === 'extraFn')!.id;
 
       // Only sourceFn has a CROSS_REPO edge to targetFn
       store.insertEdge({
@@ -2434,7 +2431,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
     it('should count orphan symbols (exported but unreferenced)', async () => {
       setupTwoRepos();
-      const allNodes = store.getAllNodes();
       // All nodes are exported but have no cross-repo edges referencing them
       const report = await indexer.buildCrossRepoGraph('g1');
       // sourceFn and targetFn are both exported and unreferenced cross-repo
@@ -2517,7 +2513,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
     it('should detect import_reference matches', async () => {
       const { allNodes } = setupTwoRepos();
       const sourceFn = allNodes.find((n) => n.name === 'sourceFn')!;
-      const targetFn = allNodes.find((n) => n.name === 'targetFn')!;
 
       // Create a File node for repo-b and an IMPORTS edge from it to sourceFn
       const fileB = createProjectNode('org/repo-b', 'consumer.ts', 'File', 'src/consumer.ts');
@@ -2755,7 +2750,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const matches = await indexer.resolveCrossRepoSymbols('g1');
       // File nodes are not exported and have wrong label, should not be matched
       // But they might appear in the repoSymbols filter; check label filtering works
-      const importRefs = matches.filter((m) => m.matchType === 'import_reference');
       expect(Array.isArray(matches)).toBe(true);
     });
   });

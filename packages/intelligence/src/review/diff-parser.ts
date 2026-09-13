@@ -183,14 +183,6 @@ export class DiffParser {
     } else if (hunks.length === 0) {
       changeType = 'modified';
     } else {
-      // Check if all lines are additions (new file)
-      const allAdditions = hunks.every((h) =>
-        h.lines.every((l) => l.type === 'added' || l.type === 'context'),
-      );
-      const allDeletions = hunks.every((h) =>
-        h.lines.every((l) => l.type === 'removed' || l.type === 'context'),
-      );
-
       const totalLines = hunks.reduce((sum, h) => sum + h.lines.length, 0);
       const addedLines = hunks.reduce(
         (sum, h) => sum + h.lines.filter((l) => l.type === 'added').length,
@@ -350,9 +342,7 @@ export class DiffParser {
     // If diffs have no ranges but we have files, at least count them
     if (totalAdditions === 0 && totalDeletions === 0 && diffs.length > 0) {
       // Fallback: each file counts as at least 1 change
-      for (const diff of diffs) {
-        totalAdditions += 1;
-      }
+      totalAdditions += diffs.length;
     }
 
     return {

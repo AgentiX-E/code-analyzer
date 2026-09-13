@@ -884,7 +884,7 @@ class ApiController {
         edges: new Map(),
       } as any;
 
-      const result = detector.addToGraph(routes, graph, 1);
+      detector.addToGraph(routes, graph, 1);
       const routeNode = graph.nodes.get(1);
       expect(routeNode.properties.controllerName).toBeNull();
     });
@@ -1197,7 +1197,6 @@ export const PATCH = () => new Response('PATCH');`;
   return { props: {} };
 };`;
       const result = detector.detectFile('src/routes/+page.js', code, 'javascript');
-      const routes = result.routes.filter((r: any) => r.framework === 'sveltekit');
       // +page.js is detected as page component
       expect(result.framework).toContain('sveltekit');
     });
@@ -1453,7 +1452,6 @@ public class RootController {
     public String index() { return "root"; }
 }`;
       const result = detector.detectFile('src/RootController.java', code, 'java');
-      const httpRoutes = result.routes.filter((r: any) => r.routeType === 'http');
       // @GetMapping without path won't match the getMapping regex (needs quoted path)
       expect(result.framework).toContain('springboot');
     });

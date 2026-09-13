@@ -5,18 +5,14 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ReviewSwarm } from '../review/review-swarm.js';
 import {
-  LENS_PROFILES,
   getLensProfiles,
   getLensProfile,
   SECURITY_PATTERNS,
-  PERFORMANCE_PATTERNS,
-  TESTING_PATTERNS,
   createLensFinding,
   lensFindingToReviewComment,
-  type LensId,
   type EvidenceAnchor,
 } from '../review/review-lenses.js';
-import type { GitDiff, DiffRange, GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GitDiff, GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -598,9 +594,7 @@ function handler(req: any, res: any) {
       const result = await swarm.review('test-project', diffs, sources);
 
       // Check that no two findings have the exact same filePath + line
-      const seen = new Set<string>();
       for (const c of result.comments) {
-        const key = `${c.path}:${c.startLine}`;
         // Allow multiple findings at same location from different lenses
         // (IoU handles overlapping ranges, not exact duplicates)
         // This checks that we don't have exact duplicates

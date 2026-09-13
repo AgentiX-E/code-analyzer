@@ -64,13 +64,6 @@ function readCacheFile(cacheDir: string, repoId: string): Record<string, unknown
  * Create a source file in a repo directory. Source files must have an extension
  * recognized by scanFiles (.ts, .js, .py, etc.).
  */
-function createSourceFile(repoDir: string, relativePath: string, content: string): void {
-  const fullPath = join(repoDir, relativePath);
-  const dir = join(fullPath, '..');
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(fullPath, content, 'utf-8');
-}
-
 /**
  * Create a repo directory with source files.
  */
@@ -600,7 +593,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/hello.ts': 'export function hello() { return "world"; }',
       });
 
-      const group = groupManager.createGroup('roundtrip-group', 'RT Group', '');
+      groupManager.createGroup('roundtrip-group', 'RT Group', '');
       groupManager.addRepo('roundtrip-group', 'test', 'roundtrip-repo', '', repoDir);
 
       await indexer.incrementalIndex('roundtrip-group');
@@ -628,7 +621,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/old-gone.ts': sha256('export const old = 1;'),
       });
 
-      const group = groupManager.createGroup('stale-group', 'Stale Group', '');
+      groupManager.createGroup('stale-group', 'Stale Group', '');
       groupManager.addRepo('stale-group', 'test', 'stale-entries-repo', '', repoDir);
 
       await indexer.incrementalIndex('stale-group');
@@ -877,7 +870,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/utils.ts': 'export function util() { return true; }',
       });
 
-      const group = groupManager.createGroup('incr-group', 'Incr Group', '');
+      groupManager.createGroup('incr-group', 'Incr Group', '');
       groupManager.addRepo('incr-group', 'test', 'incr-repo', '', repoDir);
 
       const result = await indexer.incrementalIndex('incr-group');
@@ -899,7 +892,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/main.ts': 'export function main() {}',
       });
 
-      const group = groupManager.createGroup('shape-group', 'Shape Group', '');
+      groupManager.createGroup('shape-group', 'Shape Group', '');
       groupManager.addRepo('shape-group', 'test', 'shape-repo', '', repoDir);
 
       const result = await indexer.incrementalIndex('shape-group');
@@ -975,7 +968,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/app.ts': 'export const x = 1;',
       });
 
-      const group = groupManager.createGroup('error-group', 'Error Group', '');
+      groupManager.createGroup('error-group', 'Error Group', '');
       groupManager.addRepo('error-group', 'test', 'error-repo', '', repoDir);
 
       // Spy on indexSingleRepo to simulate an indexing failure
@@ -1002,7 +995,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/stable.ts': content,
       });
 
-      const group = groupManager.createGroup('skip-group', 'Skip Group', '');
+      groupManager.createGroup('skip-group', 'Skip Group', '');
       groupManager.addRepo('skip-group', 'test', 'skip-repo', '', repoDir);
 
       const result = await indexer.incrementalIndex('skip-group');
@@ -1016,7 +1009,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/keep.ts': 'export const keep = 1;',
       });
 
-      const group = groupManager.createGroup('del-group', 'Del Group', '');
+      groupManager.createGroup('del-group', 'Del Group', '');
       groupManager.addRepo('del-group', 'test', 'del-track-repo', '', repoDir);
 
       // Index once so cache has keep.ts
@@ -1044,7 +1037,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/two.ts': 'export const two = 2;',
       });
 
-      const group = groupManager.createGroup('multi-group', 'Multi Group', '');
+      groupManager.createGroup('multi-group', 'Multi Group', '');
       groupManager.addRepo('multi-group', 'test', 'multi-repo-1', '', repo1Dir);
       groupManager.addRepo('multi-group', 'test', 'multi-repo-2', '', repo2Dir);
 
@@ -1066,7 +1059,7 @@ describe('IncrementalCrossRepoIndexer', () => {
         'src/old-name.ts': sha256(content),
       });
 
-      const group = groupManager.createGroup('incr-rename-group', 'Rename Group', '');
+      groupManager.createGroup('incr-rename-group', 'Rename Group', '');
       groupManager.addRepo('incr-rename-group', 'test', 'incr-rename-repo', '', repoDir);
 
       // Should run without errors — the renamed file gets re-indexed
@@ -1091,7 +1084,7 @@ describe('IncrementalCrossRepoIndexer', () => {
       const repoDir = setupRepo(workspaceDir, 'non-error-repo', {
         'src/app.ts': 'export const x = 1;',
       });
-      const group = groupManager.createGroup('non-error-group', 'Non-Error Group', '');
+      groupManager.createGroup('non-error-group', 'Non-Error Group', '');
       groupManager.addRepo('non-error-group', 'test', 'non-error-repo', '', repoDir);
 
       vi.spyOn(crossRepoIndexer as any, 'indexSingleRepo').mockRejectedValue('raw failure');
@@ -1160,7 +1153,7 @@ describe('IncrementalCrossRepoIndexer', () => {
       const goneId = store.insertNode(makeNode('test/rm-filter-repo', 'goneNode', 'src/gone.ts'));
       store.insertEdge(makeEdge('test/rm-filter-repo', goneId, keepId));
 
-      const group = groupManager.createGroup('rm-filter-group', 'RM Filter Group', '');
+      groupManager.createGroup('rm-filter-group', 'RM Filter Group', '');
       groupManager.addRepo('rm-filter-group', 'test', 'rm-filter-repo', '', repoDir);
 
       const result = await indexer.incrementalIndex('rm-filter-group');

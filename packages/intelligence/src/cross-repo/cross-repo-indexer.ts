@@ -15,8 +15,6 @@ import {
   EDGE_CROSS_REPO_CALLS,
   EDGE_CROSS_REPO_IMPLEMENTS,
   EDGE_CROSS_REPO_DEPENDS,
-  EDGE_CROSS_REPO_EXPOSES,
-  EDGE_CROSS_REPO_CONTRACT,
 } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { getLanguageFromFilename } from '@code-analyzer/shared';

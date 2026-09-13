@@ -8,12 +8,7 @@ import {
   GO_TAINT_MODEL,
   TAINT_MODELS,
 } from '../security/taint-models.js';
-import type {
-  TaintModel,
-  TaintSinkDef,
-  TaintSourceDef,
-  SanitizerDef,
-} from '../security/taint-models.js';
+import type { TaintModel } from '../security/taint-models.js';
 
 // =========================================================================
 // Leiden Tests

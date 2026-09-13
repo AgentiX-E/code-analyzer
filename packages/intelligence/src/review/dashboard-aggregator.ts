@@ -7,7 +7,6 @@ import type {
   ReviewCategory,
   Severity,
   StandardsCheckResult,
-  ImpactResult,
   AnalysisReport,
   ReportSummary,
   ReportScope,

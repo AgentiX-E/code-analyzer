@@ -4,13 +4,7 @@
  * and pub/sub channel detection rules.
  */
 
-import type {
-  LibraryPattern,
-  GraphQLOperation,
-  ChannelRecord,
-  ChannelRule,
-  ChannelTransport,
-} from './types.js';
+import type { LibraryPattern, GraphQLOperation, ChannelRecord, ChannelRule } from './types.js';
 
 // ============================================================================
 // GraphQL Library Patterns

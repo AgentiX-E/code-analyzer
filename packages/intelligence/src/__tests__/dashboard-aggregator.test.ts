@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ReviewDashboardAggregator } from '../review/dashboard-aggregator.js';
-import type {
-  ReviewEntry,
-  DashboardMetrics,
-  CodeHealthScore,
-  TeamInsights,
-  DashboardReport,
-} from '../review/dashboard-aggregator.js';
+import type { ReviewEntry } from '../review/dashboard-aggregator.js';
 import type { ReviewComment } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -1375,11 +1369,6 @@ describe('ReviewDashboardAggregator', () => {
 
     it('renders yellow emoji for scores between 60 and 79', () => {
       // One critical = 90-100 range... need to get score in 60-79 range
-      const comments = [
-        createReviewComment({ severity: 'critical', category: 'security' }), // -10 → security 90
-        // Let me think: with 1 critical in security, score = 90*0.4 + 100*0.25+100*0.15+100*0.1+100*0.1 = 96
-        // I need more criticals to get below 80
-      ];
       // Use 4 security criticals: security = max(0, 100-40) = 60
       // score = 60*0.4 + 100*0.6 = 24+60 = 84... still > 80
       // Use 5: security = 50. score = 50*0.4 + 100*0.6 = 20+60 = 80. Score=80 = green

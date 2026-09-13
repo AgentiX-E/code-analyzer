@@ -110,7 +110,7 @@ describe('GitHubRepoSync', () => {
     it('should create cache directory if it does not exist', () => {
       const client = createMockClient();
       const newDir = join(cacheDir, 'nested', 'cache');
-      const sync = new GitHubRepoSync({ client, cacheDir: newDir });
+      new GitHubRepoSync({ client, cacheDir: newDir });
       expect(existsSync(newDir)).toBe(true);
     });
 

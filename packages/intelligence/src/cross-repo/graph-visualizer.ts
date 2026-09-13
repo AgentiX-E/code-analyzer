@@ -7,7 +7,6 @@ import {
   EDGE_CROSS_REPO_CALLS,
   EDGE_CROSS_REPO_DEPENDS,
   EDGE_CROSS_REPO_IMPLEMENTS,
-  EDGE_CROSS_REPO_IMPORTS,
 } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

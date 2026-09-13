@@ -10,7 +10,7 @@ import type { GitHubCheckRunManager } from '../github/check-run.js';
 import type { RepoGroupManager } from '../cross-repo/repo-group-manager.js';
 import type { CrossRepoIndexer } from '../cross-repo/cross-repo-indexer.js';
 import type { CrossRepoPRReviewEngine } from '../cross-repo/cross-repo-pr-review.js';
-import type { RepoGroup, GroupRepo, GitDiff } from '@code-analyzer/shared';
+import type { RepoGroup, GroupRepo } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers

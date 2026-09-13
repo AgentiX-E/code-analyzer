@@ -2,7 +2,7 @@
 // Eight specialized review lenses for the PR Review Swarm.
 // Each lens defines WHAT to check, with deterministic analysis rules.
 
-import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
+import type { ReviewComment, ReviewCategory, Severity } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Lens Types

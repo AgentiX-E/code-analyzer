@@ -5,13 +5,7 @@
 
 import type { RuleCheckResult } from './rule-runner.js';
 import type { AstRuleContext } from './ast-rule-checker.js';
-import {
-  hasCall,
-  findCalls,
-  findStringLiterals,
-  hasAssignment,
-  isTestFile,
-} from './ast-rule-checker.js';
+import { findCalls, isTestFile } from './ast-rule-checker.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

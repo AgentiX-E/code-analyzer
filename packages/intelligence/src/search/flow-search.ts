@@ -5,7 +5,7 @@
 // connected code entities.
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
-import type { GraphNode, GraphEdge, RelationshipType } from '@code-analyzer/shared';
+import type { GraphEdge, RelationshipType } from '@code-analyzer/shared';
 import {
   EDGE_ACCESSES,
   EDGE_CALLS,

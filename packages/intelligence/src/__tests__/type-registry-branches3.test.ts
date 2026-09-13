@@ -12,7 +12,6 @@ import { describe, it, expect } from 'vitest';
 import {
   TypeRegistry,
   createPerFileOverlay,
-  type RegisteredType,
   type RegisteredFunction,
   type FileDefinition,
 } from '../lsp/type-registry.js';

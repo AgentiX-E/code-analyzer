@@ -55,8 +55,6 @@ export interface RouteDetectorOptions {
   frameworks?: (
     'express' | 'fastapi' | 'nestjs' | 'django' | 'sveltekit' | 'springboot' | 'springcloud'
   )[];
-  /** Minimum confidence for AST-based detection (default: 0.7). */
-  minConfidence?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +208,6 @@ const SPRING_PATTERNS = {
 
 export class FrameworkRouteDetector {
   private readonly frameworks: string[];
-  private readonly minConfidence: number;
 
   constructor(options: RouteDetectorOptions = {}) {
     this.frameworks = options.frameworks ?? [
@@ -222,7 +219,6 @@ export class FrameworkRouteDetector {
       'springboot',
       'springcloud',
     ];
-    this.minConfidence = options.minConfidence ?? 0.7;
   }
 
   /**
@@ -1089,7 +1085,6 @@ export class FrameworkRouteDetector {
     let isRestController = false;
     let isFeignClient = false;
     let feignClientName: string | undefined;
-    let feignClientUrl: string | undefined;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
@@ -1146,12 +1141,6 @@ export class FrameworkRouteDetector {
           const nameMatch = SPRING_PATTERNS.feignClientName.exec(clientParams);
           if (nameMatch) {
             feignClientName = nameMatch[1]!;
-          }
-
-          // Extract url
-          const urlMatch = SPRING_PATTERNS.feignClientUrl.exec(clientParams);
-          if (urlMatch) {
-            feignClientUrl = urlMatch[1]!;
           }
         }
       }
@@ -1431,9 +1420,6 @@ export class FrameworkRouteDetector {
   /**
    * Check if the file content indicates a FeignClient interface.
    */
-  private isFeignClientFile(content: string): boolean {
-    return SPRING_PATTERNS.feignClient.test(content);
-  }
 
   // ---------------------------------------------------------------------------
   // Helpers

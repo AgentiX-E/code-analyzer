@@ -5,7 +5,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import type { GitHubApiClient } from './client.js';
 
 // ---------------------------------------------------------------------------

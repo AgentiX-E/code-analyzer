@@ -7,7 +7,6 @@ import { leiden } from '../community/leiden.js';
 import { LeidenCommunityDetector } from '../community/leiden-detector.js';
 import { buildReducedGraph, mapToOriginalNodes } from '../community/aggregation.js';
 import type { KnowledgeGraph, GraphNode, GraphEdge } from '@code-analyzer/shared';
-import type { LeidenCommunityResult } from '../community/leiden.js';
 
 // ---------------------------------------------------------------------------
 // Test Helpers

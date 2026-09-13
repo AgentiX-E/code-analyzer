@@ -106,8 +106,10 @@ export class PRReviewBridge {
     // 5. Run standard review engine on diffs
     let reviewComments: ReviewComment[] = [];
     try {
-      const session = await this.reviewEngine.reviewDiff(sourceRepoId, diffs);
-      // Comments are stored in session — extract if possible
+      // `ReviewSession` reports counts (`filesReviewed`, `commentsGenerated`) and
+      // carries no comment list, so there is nothing to extract here: the review is
+      // run for its side effects and `reviewComments` stays empty.
+      await this.reviewEngine.reviewDiff(sourceRepoId, diffs);
     } catch {
       // Review engine failure is non-fatal in cross-repo context
     }

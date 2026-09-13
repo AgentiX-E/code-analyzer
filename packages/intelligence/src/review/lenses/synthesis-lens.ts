@@ -361,9 +361,7 @@ export function synthesizeFindings(
 
   // 1. Ensemble voting — boost when 3+ lenses agree (before dedup)
   allFindings = ensembleVoting(allFindings);
-  const preEnsembleCount = allFindings.filter((f) =>
-    f.description.includes('[Ensemble Boosted:'),
-  ).length;
+  allFindings.filter((f) => f.description.includes('[Ensemble Boosted:')).length;
 
   // 2. Deduplicate overlapping findings (IoU > 0.5)
   allFindings = deduplicate(allFindings);

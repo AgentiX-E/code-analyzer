@@ -15,7 +15,6 @@ import {
 } from 'node:fs';
 import { join, basename, relative, dirname } from 'node:path';
 
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import type { CrossRepoIndexer, IndexOptions, IndexResult } from './cross-repo-indexer.js';
@@ -262,8 +261,6 @@ export class IncrementalCrossRepoIndexer {
     let totalFilesSkipped = 0;
     let totalNodesRemoved = 0;
     let totalNodesAdded = 0;
-    const allNodesBefore = this.store.getNodeCount();
-    const allEdgesBefore = this.store.getEdgeCount();
 
     for (const repo of group.repos) {
       if (!repo.autoIndex) continue;

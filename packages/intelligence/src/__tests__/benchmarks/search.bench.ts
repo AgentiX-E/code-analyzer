@@ -3,11 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import {
-  HybridSearchEngine,
-  tokenize,
-  cosineSimilarity,
-} from '../../../src/search/hybrid-search.js';
+import { HybridSearchEngine, tokenize } from '../../../src/search/hybrid-search.js';
 import { EmbeddingEngine } from '../../../src/embeddings/embedder.js';
 import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 

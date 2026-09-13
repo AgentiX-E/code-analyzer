@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CrossRepoGraphVisualizer } from '../cross-repo/graph-visualizer.js';
-import type {
-  CrossRepoEdgeRecord,
-  JsonGraphRepoNode,
-  JsonGraphEdge,
-  JsonGraph,
-  RepoMetrics,
-} from '../cross-repo/graph-visualizer.js';
+import type { CrossRepoEdgeRecord } from '../cross-repo/graph-visualizer.js';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------

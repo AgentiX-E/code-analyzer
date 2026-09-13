@@ -454,8 +454,6 @@ export class HybridSearchEngine {
    * Compute signature match score between query and code signature.
    */
   private computeSignatureMatch(query: string, signature: string): number {
-    const queryLower = query.toLowerCase();
-    const sigLower = signature.toLowerCase();
     const queryTokens = new Set(this.tokenize(query));
     const sigTokens = new Set(this.tokenize(signature));
 
@@ -489,7 +487,6 @@ export class HybridSearchEngine {
    * Compute module/file path proximity score.
    */
   private computeModuleProximity(query: string, filePath: string): number {
-    const queryLower = query.toLowerCase();
     const pathLower = filePath.toLowerCase();
 
     // Check if query terms appear in file path

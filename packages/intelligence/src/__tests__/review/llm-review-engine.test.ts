@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LLMReviewEngine } from '../../review/llm/llm-review-engine.js';
-import type { LLMReviewOptions, LLMReviewResult } from '../../review/llm/llm-review-engine.js';
+import type { LLMReviewOptions } from '../../review/llm/llm-review-engine.js';
 import type { LLMProvider, CompletionResult } from '../../review/llm/provider.js';
 import type { GitDiff } from '@code-analyzer/shared';
 import type { ReviewLane } from '../../review/llm/prompts.js';

@@ -3,8 +3,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ReviewComment, ReviewSession } from '@code-analyzer/shared';
-import { SessionStore, type SessionMetadata, type ResumeState } from './session-store.js';
+import type { ReviewComment } from '@code-analyzer/shared';
+import { type SessionMetadata } from './session-store.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,12 +33,10 @@ export interface SessionResumeResult {
 // ---------------------------------------------------------------------------
 
 export class ReviewSessionManager {
-  private sessionStore: SessionStore;
   private sessionsDir: string;
 
   constructor(repoPath: string) {
     this.sessionsDir = path.join(repoPath, '.code-analyzer', 'sessions');
-    this.sessionStore = new SessionStore(path.join(repoPath, '.code-analyzer', 'sessions.db'));
   }
 
   // -------------------------------------------------------------------------

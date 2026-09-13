@@ -19,7 +19,7 @@
 // "From Louvain to Leiden: guaranteeing well-connected communities."
 // Scientific Reports 9, 5233 (2019).
 
-import type { GraphNode, GraphEdge, KnowledgeGraph } from '@code-analyzer/shared';
+import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
 import { mulberry32, DEFAULT_SEED } from './rng.js';
 
 /** Community detection result. */
@@ -83,7 +83,6 @@ export class LeidenCommunityDetector {
    */
   detect(graph: KnowledgeGraph): LeidenResult {
     const n = graph.nodes.size;
-    const m = graph.edges.size;
 
     if (n === 0) {
       return {

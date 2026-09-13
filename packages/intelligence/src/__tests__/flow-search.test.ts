@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { FlowSearchEngine } from '../search/flow-search.js';
-import type { FlowSearchResult, FlowPath } from '../search/flow-search.js';
 import type {
   GraphNode,
   GraphEdge,
@@ -283,8 +282,7 @@ describe('FlowSearchEngine', () => {
   // ── File Pattern Filtering ──
 
   it('should filter results by file pattern', () => {
-    const [mainId, helperId] = createCallChain(store);
-
+    const [mainId] = createCallChain(store);
     const results = engine.search([mainId], {
       maxDepth: 2,
       filePattern: 'helper',
@@ -1228,7 +1226,6 @@ describe('FlowSearchEngine', () => {
   // ==========================================================================
 
   it('should respect maxResults in findCallers', () => {
-    const caller = createNode(store, 'caller', 'Function', '/test/caller.ts', 1);
     const callee = createNode(store, 'callee', 'Function', '/test/callee.ts', 1);
 
     // Create multiple callers

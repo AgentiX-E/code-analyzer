@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computePostDominators, postDominates } from '../cfg/post-dominators.js';
-import type { FunctionCfg, BasicBlock, CfgEdge, CfgEdgeKind } from '../cfg/types.js';
+import type { FunctionCfg, BasicBlock, CfgEdgeKind } from '../cfg/types.js';
 
 /** Build a minimal FunctionCfg from an explicit block list and edge list. */
 function makeCfg(

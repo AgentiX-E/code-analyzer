@@ -13,7 +13,7 @@ import {
   LANE_PRIORITIES,
   parseLLMResponse,
 } from '../../review/llm/prompts.js';
-import type { PromptContext, ReviewLane, LLMFinding } from '../../review/llm/prompts.js';
+import type { PromptContext, ReviewLane } from '../../review/llm/prompts.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

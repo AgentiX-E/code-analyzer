@@ -13,7 +13,7 @@
 // Raw LLM output has ~30% precision due to position drift. The positioner
 // and reflection modules bring it to competitive levels (>70% precision).
 
-import type { ReviewComment, GitDiff } from '@code-analyzer/shared';
+import type { ReviewComment } from '@code-analyzer/shared';
 import { CommentPositioner, type PositionedComment } from './comment-positioner.js';
 import { CommentReflectionModule, type ReflectionReport } from './comment-reflection.js';
 import type { LLMFinding } from './llm/prompts.js';

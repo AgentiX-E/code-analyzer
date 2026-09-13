@@ -1,12 +1,11 @@
 // @code-analyzer/intelligence — Review Pipeline Tests
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ReviewPipeline } from '../review/review-pipeline.js';
 import { CodeReviewEngine } from '../review/review-engine.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-import type { GitDiff, ReviewComment, GraphNode, GraphEdge } from '@code-analyzer/shared';
-import type { PipelineReviewConfig } from '../review/review-pipeline.js';
+import type { GitDiff, ReviewComment, GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,43 +28,6 @@ function createDiff(overrides: Partial<GitDiff> = {}): GitDiff {
     changeType: 'modified',
     ...overrides,
   };
-}
-
-function createNode(store: InMemoryGraphStore, overrides: Partial<GraphNode> = {}): void {
-  store.insertNode({
-    id: 0,
-    projectId: 'test-project',
-    label: 'Function',
-    name: 'testFunc',
-    qualifiedName: 'pkg.testFunc',
-    filePath: 'src/app.ts',
-    startLine: 1,
-    endLine: 20,
-    language: 'typescript',
-    properties: { name: 'testFunc', isExported: true },
-    signature: 'function testFunc(): void',
-    docstring: 'A test function',
-    complexity: 5,
-    isExported: true,
-    fingerprint: 'fp1',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-    ...overrides,
-  });
-}
-
-function createEdge(store: InMemoryGraphStore, overrides: Partial<GraphEdge> = {}): void {
-  store.insertEdge({
-    id: 0,
-    projectId: 'test-project',
-    sourceId: 1,
-    targetId: 2,
-    type: 'CALLS',
-    properties: { confidence: 1 },
-    weight: 1,
-    createdAt: '2024-01-01T00:00:00Z',
-    ...overrides,
-  });
 }
 
 function createReviewComment(
@@ -170,9 +132,9 @@ describe('ReviewPipeline - Pre-filter', () => {
       createDiff({ filePath: 'src/app.ts' }),
     ];
 
-    const { included, excluded } = pipeline.preFilter(diffs);
     // Dockerfile has no extension but we need to be careful — it's not binary
     // File with no extension and no ranges can be binary
+    const { included } = pipeline.preFilter(diffs);
     expect(included).toHaveLength(1);
     expect(included[0]!.filePath).toBe('src/app.ts');
   });
@@ -947,7 +909,6 @@ describe('ReviewPipeline - Edge Cases', () => {
     // Temporarily replace global RegExp to force SyntaxError in testGlobRegex.
     // The method properly escapes all special chars, so this catch block is
     // defensive — we inject a mock to verify it returns false gracefully.
-    const OrigRegExp = globalThis.RegExp;
     try {
       vi.stubGlobal(
         'RegExp',

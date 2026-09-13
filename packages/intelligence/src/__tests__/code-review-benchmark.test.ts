@@ -74,7 +74,6 @@ describe('Benchmark Fixtures', () => {
 
   it('should have content matching filePath language', () => {
     for (const fixture of ALL_BENCHMARK_FIXTURES) {
-      const ext = fixture.filePath.split('.').pop();
       expect(fixture.language).toBeDefined();
       expect(fixture.content.length).toBeGreaterThan(0);
     }

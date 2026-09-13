@@ -11,18 +11,12 @@ import type {
   ServiceEdge,
   DecoratorRoute,
   LibraryPattern,
-  MethodSuffix,
-  ChannelRecord,
-  ChannelRule,
-  CrossProjectMatch,
-  ServiceEdgeType,
 } from './types.js';
 import {
   ROUTE_PREFIX,
   GRPC_PREFIX,
   GRAPHQL_PREFIX,
   TRPC_PREFIX,
-  ServiceEdgeType as SET,
   HTTP_LIBRARIES,
   ASYNC_LIBRARIES,
   CONFIG_LIBRARIES,

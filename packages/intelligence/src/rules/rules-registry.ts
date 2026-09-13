@@ -103,7 +103,7 @@ export class RulesRegistry {
     const results: RuleCheckResult[] = [];
     const applicableRules = this.getByLanguage(language);
 
-    for (const { definition, checker } of applicableRules) {
+    for (const { checker } of applicableRules) {
       try {
         const violations = checker(lines, filePath, language);
         results.push(...violations);
@@ -134,7 +134,7 @@ export class RulesRegistry {
       return r.definition.languageFilter.includes(language);
     });
 
-    for (const { definition, checker } of applicableRules) {
+    for (const { checker } of applicableRules) {
       try {
         const violations = checker(lines, filePath, language);
         results.push(...violations);

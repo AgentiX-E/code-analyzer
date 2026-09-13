@@ -324,7 +324,6 @@ export class CodeReviewEngine {
     };
 
     let totalComments = 0;
-    const startTime = Date.now();
 
     for (const diff of diffs) {
       const fileStartTime = Date.now();
@@ -362,8 +361,6 @@ export class CodeReviewEngine {
         });
       }
     }
-
-    const totalDuration = Date.now() - startTime;
 
     return {
       ...session,

@@ -3,8 +3,8 @@
 // `.codebase-memory/graph.db.zst`). Uses brotli compression with gzip
 // fallback, and SHA-256 checksums for integrity verification.
 
-import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import {
   brotliCompressSync,
   brotliDecompressSync,

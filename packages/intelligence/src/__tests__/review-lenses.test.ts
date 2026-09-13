@@ -2403,7 +2403,6 @@ describe('analyzeStyle', () => {
   it('should flag non-standard naming for variables', () => {
     const content = 'const my_variable_name = 42;\n';
     const findings = analyzeStyle(content, '/src/test.ts');
-    const namingFindings = findings.filter((f) => f.evidence.ruleId === 'style-naming');
     // snake_case is allowed by the lens, so this may not flag
     expect(Array.isArray(findings)).toBe(true);
   });
@@ -2644,7 +2643,6 @@ describe('analyzeStructure', () => {
     const content = lines.join('');
     const findings = analyzeStructure(content, '/src/scattered.ts');
     // Low cohesion may be detected due to high external refs
-    const cohesionFindings = findings.filter((f) => f.evidence.ruleId === 'struct-low-cohesion');
     // This may or may not trigger depending on total lines and ref counts
     expect(Array.isArray(findings)).toBe(true);
   });

@@ -88,16 +88,6 @@ describe('computeControlDependence — branch coverage', () => {
     // B0 branches to a reachable B1 and an unreachable B2 (no path to exit),
     // whose immediate post-dominator is NO_IPDOM. The walk must terminate
     // cleanly instead of emitting a bogus edge.
-    const cfg = makeCfg(
-      3,
-      [
-        { from: 0, to: 1, kind: 'cond-true' },
-        { from: 0, to: 2, kind: 'cond-false' },
-        { from: 1, to: 2, kind: 'seq' },
-        // B2 has no outgoing edge: unreachable from the exit in reverse.
-      ],
-      2,
-    );
     // Adjust exit to a node with a path to it from B1 only.
     // Rebuild so exit is B2 and B1 reaches it, keeping B2 unreachable-forward.
     const cfg2 = makeCfg(

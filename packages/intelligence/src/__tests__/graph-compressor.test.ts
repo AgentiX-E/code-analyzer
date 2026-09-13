@@ -3,16 +3,13 @@
 // checksum integrity, compression, and edge cases.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import * as nodeZlib from 'node:zlib';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
 import { GraphCompressor } from '../cross-repo/graph-compressor.js';
-import type { ArtifactMetadata } from '../cross-repo/graph-compressor.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -205,7 +202,7 @@ describe('GraphCompressor', () => {
 
     it('should preserve node properties after import', () => {
       const sourceStore = new InMemoryGraphStore();
-      const nodeId = sourceStore.insertNode(createTestNode());
+      sourceStore.insertNode(createTestNode());
       compressor.exportArtifact(sourceStore, artifactPath);
 
       const targetStore = new InMemoryGraphStore();
@@ -524,7 +521,7 @@ describe('GraphCompressor', () => {
       const store = new InMemoryGraphStore();
       populateStore(store);
 
-      const metadata = c.exportArtifact(store, artifactPath);
+      c.exportArtifact(store, artifactPath);
       expect(existsSync(artifactPath)).toBe(true);
 
       // Should still be able to import (using gzip)

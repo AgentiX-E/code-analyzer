@@ -5,13 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { computePostDominators, postDominates, NO_IPDOM } from '../cfg/post-dominators.js';
 import { computeControlDependence } from '../cfg/control-dependence.js';
 import { computeReachingDefinitions } from '../cfg/reaching-defs.js';
-import type {
-  FunctionCfg,
-  BasicBlock,
-  CfgEdge,
-  BindingEntry,
-  StatementFacts,
-} from '../cfg/types.js';
+import type { FunctionCfg, BasicBlock, CfgEdge, StatementFacts } from '../cfg/types.js';
 
 // ---------------------------------------------------------------------------
 // Test Fixtures — CFG Builders

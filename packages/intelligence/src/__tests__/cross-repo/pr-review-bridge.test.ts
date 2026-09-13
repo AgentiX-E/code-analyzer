@@ -6,7 +6,7 @@ import { CrossRepoIndexer } from '../../cross-repo/cross-repo-indexer.js';
 import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 import { CodeReviewEngine } from '../../review/review-engine.js';
 import { PRReviewBridge } from '../../cross-repo/pr-review-bridge.js';
-import type { PullRequest, GitDiff, GraphNode } from '@code-analyzer/shared';
+import type { PullRequest, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,14 +122,10 @@ function createSetup() {
 
 describe('PRReviewBridge', () => {
   let bridge: PRReviewBridge;
-  let groupManager: RepoGroupManager;
-  let reviewEngine: CodeReviewEngine;
 
   beforeEach(() => {
     const setup = createSetup();
     bridge = setup.bridge;
-    groupManager = setup.groupManager;
-    reviewEngine = setup.reviewEngine;
   });
 
   describe('reviewPR', () => {
