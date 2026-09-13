@@ -1,7 +1,6 @@
-// @ts-nocheck
 // @code-analyzer/mcp — MCP Server Tests
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { CodeAnalyzerMCPServer } from '../server/mcp-server.js';
 import { ResourceProvider } from '../resources/index.js';
 import { PromptProvider } from '../prompts/index.js';
@@ -147,7 +146,7 @@ describe('CodeAnalyzerMCPServer', () => {
         .getRegistry()
         .execute('get_architecture', { projectId: 'test-project' }, server.getStore());
       expect(result).toBeDefined();
-      expect(result.content[0].text).toContain('test-project');
+      expect(result.content[0]!.text).toContain('test-project');
     });
 
     it('should return error for unknown tool', async () => {
@@ -279,8 +278,8 @@ describe('Middleware', () => {
 
       const logs = logger.getLogs();
       expect(logs).toHaveLength(1);
-      expect(logs[0].toolName).toBe('test');
-      expect(logs[0].duration).toBe(100);
+      expect(logs[0]!.toolName).toBe('test');
+      expect(logs[0]!.duration).toBe(100);
     });
 
     it('should track error entries', () => {
@@ -301,7 +300,7 @@ describe('Middleware', () => {
       logger.log({ toolName: 'c', args: {}, duration: 1, error: false });
 
       expect(logger.getLogs()).toHaveLength(2);
-      expect(logger.getLogs()[0].toolName).toBe('b');
+      expect(logger.getLogs()[0]!.toolName).toBe('b');
     });
 
     it('should clear logs', () => {
@@ -564,7 +563,7 @@ describe('MCP Server Integration Tests', () => {
         language: 'typescript',
         isExported: true,
         complexity: 5,
-        properties: {},
+        properties: { name: 'TestService' },
       });
 
       expect(nodeId).toBeGreaterThan(0);
@@ -589,7 +588,7 @@ describe('MCP Server Integration Tests', () => {
         language: 'typescript',
         isExported: true,
         complexity: 3,
-        properties: {},
+        properties: { name: 'ClassA' },
       });
       const id2 = store.insertNode({
         projectId: 'test-edges',
@@ -602,7 +601,7 @@ describe('MCP Server Integration Tests', () => {
         language: 'typescript',
         isExported: false,
         complexity: 2,
-        properties: {},
+        properties: { name: 'methodB' },
       });
 
       store.insertEdge({
@@ -610,7 +609,7 @@ describe('MCP Server Integration Tests', () => {
         targetId: id2,
         type: 'HAS_METHOD',
         projectId: 'test-edges',
-        properties: {},
+        properties: { name: 'methodB' },
         weight: 1,
       });
 
@@ -634,7 +633,7 @@ describe('MCP Server Integration Tests', () => {
         language: 'typescript',
         isExported: false,
         complexity: 1,
-        properties: {},
+        properties: { name: 'fn' },
       });
 
       const nodes = store.queryNodes({ projectId: 'lifecycle-test', limit: 100, offset: 0 });

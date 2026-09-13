@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/server — GraphQL resolver branch coverage: impactAnalysis
 // effort levels, nullable-field fallbacks, symbolUsage missing-caller/null
 // filePath, dependencyGraph single-segment/cycle branches, and indexProject.
@@ -27,7 +26,7 @@ function insertNode(partial: Partial<GraphNode> & { projectId: string }): number
     startLine: 1,
     endLine: 5,
     language: 'typescript',
-    properties: {},
+    properties: { name: 'Node' },
     signature: null,
     docstring: null,
     complexity: null,
@@ -93,8 +92,8 @@ describe('resolvers — impactAnalysis effort levels', () => {
       { projectId: 'p1', changedFiles: ['f.ts'] },
       ctx,
     );
-    expect(result.changedSymbols[0].startLine).toBe(0);
-    expect(result.changedSymbols[0].endLine).toBe(0);
+    expect(result.changedSymbols[0]!.startLine).toBe(0);
+    expect(result.changedSymbols[0]!.endLine).toBe(0);
   });
 });
 
@@ -122,8 +121,8 @@ describe('resolvers — symbolUsage nullable fallbacks', () => {
       { projectId: 'p1', symbolName: 'orphan' },
       ctx,
     );
-    expect(results[0].filePath).toBe('');
-    expect(results[0].line).toBe(0);
+    expect(results[0]!['filePath']).toBe('');
+    expect(results[0]!['line']).toBe(0);
   });
 });
 

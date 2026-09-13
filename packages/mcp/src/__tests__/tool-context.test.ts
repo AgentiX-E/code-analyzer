@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — ToolContext Tests
 
 import { describe, it, expect } from 'vitest';
@@ -120,7 +119,8 @@ describe('ToolContextImpl', () => {
       const timestamp = '2026-01-01T00:00:00.000Z';
       const nodeBase = {
         projectId,
-        label: 'Method',
+        // `as const` keeps the literal so the store's `NodeLabel` union still accepts it.
+        label: 'Method' as const,
         filePath: 'src/a.ts',
         startLine: 1,
         endLine: 2,
@@ -141,7 +141,13 @@ describe('ToolContextImpl', () => {
       for (const qualifiedName of ['pkg.root', 'pkg.child', 'pkg.grandchild', 'pkg.other']) {
         ids.set(
           qualifiedName,
-          store.insertNode({ ...nodeBase, id: 0, name: qualifiedName, qualifiedName }),
+          store.insertNode({
+            ...nodeBase,
+            name: qualifiedName,
+            qualifiedName,
+            // `NodeProperties.name` is required; the node's own name is the value it means.
+            properties: { name: qualifiedName },
+          }),
         );
       }
 

@@ -1,7 +1,6 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Skill Installer Tests
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { SkillInstaller } from '../skills/installer.js';
 
 describe('SkillInstaller', () => {
@@ -52,9 +51,9 @@ describe('SkillInstaller', () => {
       const results = installer.installSkills(agents, ['exploration']);
 
       expect(results).toHaveLength(2);
-      expect(results[0].skill).toBe('exploration');
-      expect(results[0].success).toBe(true);
-      expect(results[0].path).toContain('code-analyzer-exploration.md');
+      expect(results[0]!.skill).toBe('exploration');
+      expect(results[0]!.success).toBe(true);
+      expect(results[0]!.path).toContain('code-analyzer-exploration.md');
     });
 
     it('should return error for unknown agent', () => {
@@ -62,16 +61,16 @@ describe('SkillInstaller', () => {
         { name: 'unknown-agent', type: 'custom', installPath: '/tmp', skillFormat: 'markdown' },
       ]);
 
-      expect(result[0].success).toBe(false);
-      expect(result[0].error).toContain('Unknown agent');
+      expect(result[0]!.success).toBe(false);
+      expect(result[0]!.error).toContain('Unknown agent');
     });
 
     it('should return error for unknown skill', () => {
       const agents = installer.detectAgents().slice(0, 1);
       const results = installer.installSkills(agents, ['nonexistent-skill']);
 
-      expect(results[0].success).toBe(false);
-      expect(results[0].error).toContain('Unknown skill');
+      expect(results[0]!.success).toBe(false);
+      expect(results[0]!.error).toContain('Unknown skill');
     });
 
     it('should install all skills when no filter is given', () => {
@@ -99,8 +98,8 @@ describe('SkillInstaller', () => {
       const claudeResults = installer.installSkills([claudeAgent], ['exploration']);
       const cursorResults = installer.installSkills([cursorAgent], ['exploration']);
 
-      expect(claudeResults[0].path).toBe('.claude/skills/code-analyzer-exploration.md');
-      expect(cursorResults[0].path).toBe('.cursor/skills/code-analyzer-exploration.md');
+      expect(claudeResults[0]!.path).toBe('.claude/skills/code-analyzer-exploration.md');
+      expect(cursorResults[0]!.path).toBe('.cursor/skills/code-analyzer-exploration.md');
     });
   });
 
@@ -109,7 +108,7 @@ describe('SkillInstaller', () => {
       const skills = installer.generateRepoSKills('test-project');
 
       expect(skills.length).toBeGreaterThan(0);
-      expect(skills[0].name).toContain('code-analyzer');
+      expect(skills[0]!.name).toContain('code-analyzer');
     });
 
     it('should include project ID in content', () => {

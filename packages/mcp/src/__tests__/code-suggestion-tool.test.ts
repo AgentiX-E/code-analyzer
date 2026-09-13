@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Code Suggestion Tool Tests
 
 import { describe, it, expect } from 'vitest';
@@ -47,10 +46,10 @@ describe('codeSuggestionTool definition', () => {
   });
 
   it('should have a valid inputSchema', () => {
-    expect(codeSuggestionTool.inputSchema.type).toBe('object');
-    expect(codeSuggestionTool.inputSchema.properties).toBeDefined();
-    expect(codeSuggestionTool.inputSchema.required).toContain('projectId');
-    expect(codeSuggestionTool.inputSchema.required).toContain('reviewComments');
+    expect(codeSuggestionTool.inputSchema['type']).toBe('object');
+    expect(codeSuggestionTool.inputSchema['properties']).toBeDefined();
+    expect(codeSuggestionTool.inputSchema['required']).toContain('projectId');
+    expect(codeSuggestionTool.inputSchema['required']).toContain('reviewComments');
   });
 
   it('should have a callable handler', () => {
@@ -78,8 +77,8 @@ describe('codeSuggestionTool handler', () => {
       reviewComments: JSON.stringify(comments),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('Code Fix Suggestions');
-    expect(result.metadata.totalFindings).toBe(1);
+    expect(result.content[0]!.text).toContain('Code Fix Suggestions');
+    expect(result.metadata!['totalFindings']).toBe(1);
   });
 
   it('should respect maxSuggestions limit', async () => {
@@ -95,7 +94,7 @@ describe('codeSuggestionTool handler', () => {
       reviewComments: JSON.stringify(comments),
       maxSuggestions: 3,
     });
-    expect(result.metadata.totalSuggestions).toBeLessThanOrEqual(3);
+    expect(result.metadata!['totalSuggestions']).toBeLessThanOrEqual(3);
   });
 
   it('should handle empty comments', async () => {
@@ -104,7 +103,7 @@ describe('codeSuggestionTool handler', () => {
       reviewComments: JSON.stringify([]),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.metadata.totalSuggestions).toBe(0);
+    expect(result.metadata!['totalSuggestions']).toBe(0);
   });
 
   it('should handle reviewComments as object', async () => {
