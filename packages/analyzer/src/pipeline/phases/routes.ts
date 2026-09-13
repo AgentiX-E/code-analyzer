@@ -153,7 +153,6 @@ interface RouteInfo {
 
 function detectRoutes(filePath: string, content: string, fileName: string): RouteInfo[] {
   const routes: RouteInfo[] = [];
-  const lines = content.split('\n');
 
   // Also check for Next.js route file conventions
   if (

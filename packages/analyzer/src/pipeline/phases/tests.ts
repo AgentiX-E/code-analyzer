@@ -30,19 +30,6 @@ const TEST_FILE_PATTERNS = [
   /test\//,
 ];
 
-const TEST_FUNCTION_PATTERNS = [
-  // Jest/Vitest
-  /\b(describe|it|test|beforeEach|afterEach|beforeAll|afterAll)\s*\(/g,
-  // Python unittest/pytest
-  /\bdef\s+test_\w+/g,
-  // Go test
-  /\bfunc\s+Test\w+/g,
-  // Rust test
-  /#\[test\]/g,
-  // Java/Kotlin JUnit
-  /@Test\b/g,
-];
-
 function isTestFile(filePath: string): boolean {
   for (const pattern of TEST_FILE_PATTERNS) {
     if (pattern.test(filePath)) return true;

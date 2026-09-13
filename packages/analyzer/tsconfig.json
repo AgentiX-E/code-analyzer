@@ -6,12 +6,16 @@
     "declarationDir": "./dist",
     "composite": true,
     "noUncheckedIndexedAccess": false,
-    "noPropertyAccessFromIndexSignature": false,
-    "noUnusedLocals": false,
     "strictNullChecks": false
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "src/__tests__"],
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/__tests__"
+  ],
   "references": [
     {
       "path": "../shared"

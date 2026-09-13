@@ -43,7 +43,7 @@ export class SemanticPhase implements ExecutablePhase {
         if (node.label === 'Module') {
           modules.push({ id: nodeId, name: node.name });
         } else if (node.label === 'Class') {
-          const sig = node.properties?.signature as string | undefined;
+          // `signature` is only consumed for Function/Method nodes below.
           classes.push({ id: nodeId, name: node.name, parent: null });
         } else if (node.label === 'Function' || node.label === 'Method') {
           const sig = node.properties?.signature as string | undefined;

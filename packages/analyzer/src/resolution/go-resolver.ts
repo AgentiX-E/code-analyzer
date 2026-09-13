@@ -80,7 +80,6 @@ interface GoParam {
 
 export class GoResolver extends TypeResolverBase {
   readonly language = 'go';
-  private source = '';
   private filePath = '';
   private typeCache = new Map<string, ResolvedType>();
   private interfaceCache = new Map<string, GoInterfaceInfo>();
@@ -165,7 +164,6 @@ export class GoResolver extends TypeResolverBase {
   // -----------------------------------------------------------------------
 
   extractTypes(source: string, filePath: string): TypeInfo[] {
-    this.source = source;
     this.filePath = filePath;
 
     const language = this.loadGrammar();

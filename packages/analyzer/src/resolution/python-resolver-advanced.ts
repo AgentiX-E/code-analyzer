@@ -45,7 +45,6 @@ function loadPythonLanguage(): unknown {
 
 export class PythonAdvancedResolver extends TypeResolverBase {
   readonly language = 'python';
-  private source = '';
   private filePath = '';
   private typeCache = new Map<string, ResolvedType>();
   private readonly loadGrammar: () => unknown;
@@ -130,7 +129,6 @@ export class PythonAdvancedResolver extends TypeResolverBase {
   // -----------------------------------------------------------------------
 
   extractTypes(source: string, filePath: string): TypeInfo[] {
-    this.source = source;
     this.filePath = filePath;
 
     const language = this.loadGrammar();

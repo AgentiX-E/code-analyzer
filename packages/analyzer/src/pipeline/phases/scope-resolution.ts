@@ -187,7 +187,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
         // Process class inheritance (EXTENDS edges)
         for (const symbol of parsedFile.symbols) {
           if (symbol.kind === 'Class') {
-            const baseClasses = symbol.properties.baseClasses as string | undefined;
+            const baseClasses = symbol.properties['baseClasses'] as string | undefined;
             if (baseClasses) {
               for (const baseClass of baseClasses
                 .split(',')
@@ -233,7 +233,7 @@ export class ScopeResolutionPhase implements ExecutablePhase {
             }
 
             // IMPLEMENTS edges for interfaces
-            const interfaces = symbol.properties.interfaces as string | undefined;
+            const interfaces = symbol.properties['interfaces'] as string | undefined;
             if (interfaces) {
               for (const iface of interfaces
                 .split(',')

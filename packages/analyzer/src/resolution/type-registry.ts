@@ -4,7 +4,6 @@
 // Implements a Hybrid LSP approach — structural type resolution without
 // external language server processes.
 
-import type { NodeLabel } from '@code-analyzer/shared';
 import type { ParsedImport } from '../languages/provider.js';
 
 // ---------------------------------------------------------------------------

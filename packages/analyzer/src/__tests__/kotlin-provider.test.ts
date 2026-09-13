@@ -3,6 +3,27 @@ import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { KotlinProvider } from '../languages/kotlin.js';
 
+/**
+ * Locate a descendant node by tree-sitter type.
+ *
+ * The provider no longer exposes a deep search — nothing in its own extraction
+ * used one — so the suite carries the locator it needs to reach fixture nodes.
+ */
+interface SyntaxNodeLike {
+  type: string;
+  namedChildCount: number;
+  namedChild(index: number): SyntaxNodeLike;
+}
+
+function findDeepChild(node: SyntaxNodeLike, type: string): SyntaxNodeLike | null {
+  if (node.type === type) return node;
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const result = findDeepChild(node.namedChild(i), type);
+    if (result) return result;
+  }
+  return null;
+}
+
 describe('KotlinProvider', () => {
   const provider = new KotlinProvider();
 
@@ -537,44 +558,13 @@ describe('KotlinProvider', () => {
   });
 
   describe('internal helpers', () => {
-    it('findDeepChild should find nested node', () => {
-      // parse first to create a tree
-      const code = 'class Foo { fun bar() {} }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.findDeepChild(tree.rootNode, 'function_declaration');
-        expect(result).toBeDefined();
-      }
-    });
-
-    it('findDeepChild should return null for missing type', () => {
-      const code = 'class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.findDeepChild(tree.rootNode, 'nonexistent_type');
-        expect(result).toBeNull();
-      }
-    });
-
-    it('findDeepChild should match the root node itself', () => {
-      const code = 'class Foo { }';
-      const p = provider as any;
-      const tree = p.parser?.parse(code);
-      if (tree) {
-        const result = p.findDeepChild(tree.rootNode, 'source_file');
-        expect(result).toBeDefined();
-      }
-    });
-
     it('collectImportPathParts should collect path parts with wildcard', () => {
       const code = 'import kotlin.collections.*';
       const p = provider as any;
       const tree = p.parser?.parse(code);
       if (tree) {
         // Find import_header node
-        const importNode = p.findDeepChild(tree.rootNode, 'import_header');
+        const importNode = findDeepChild(tree.rootNode, 'import_header');
         if (importNode) {
           const parts = p.collectImportPathParts(importNode);
           expect(Array.isArray(parts)).toBe(true);
@@ -587,7 +577,7 @@ describe('KotlinProvider', () => {
       const p = provider as any;
       const tree = p.parser?.parse(code);
       if (tree) {
-        const classNode = p.findDeepChild(tree.rootNode, 'class_declaration');
+        const classNode = findDeepChild(tree.rootNode, 'class_declaration');
         if (classNode) {
           const result = p.findChild(classNode, 'type_identifier');
           expect(result).toBeDefined();
@@ -600,7 +590,7 @@ describe('KotlinProvider', () => {
       const p = provider as any;
       const tree = p.parser?.parse(code);
       if (tree) {
-        const classNode = p.findDeepChild(tree.rootNode, 'class_declaration');
+        const classNode = findDeepChild(tree.rootNode, 'class_declaration');
         if (classNode) {
           const result = p.findChild(classNode, 'nonexistent');
           expect(result).toBeNull();
@@ -711,7 +701,7 @@ describe('KotlinProvider', () => {
       p.source = code;
       const tree = p.parser?.parse(code);
       if (tree) {
-        const importNode = p.findDeepChild(tree.rootNode, 'import_header');
+        const importNode = findDeepChild(tree.rootNode, 'import_header');
         if (importNode) {
           const imports: any[] = [];
           p.extractKotlinImport(importNode, imports);
@@ -727,7 +717,7 @@ describe('KotlinProvider', () => {
       p.source = code;
       const tree = p.parser?.parse(code);
       if (tree) {
-        const importNode = p.findDeepChild(tree.rootNode, 'import_header');
+        const importNode = findDeepChild(tree.rootNode, 'import_header');
         if (importNode) {
           const imports: any[] = [];
           p.extractKotlinImport(importNode, imports);

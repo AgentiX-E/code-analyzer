@@ -379,18 +379,6 @@ export class KotlinProvider extends TreeSitterBaseProvider {
 
   // ---- Utility helpers ----
 
-  /**
-   * Recursively search for a descendant node with the given type.
-   */
-  private findDeepChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    if (node.type === type) return node;
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const result = this.findDeepChild(node.namedChild(i), type);
-      if (result) return result;
-    }
-    return null;
-  }
-
   private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
     for (let i = 0; i < node.namedChildCount; i++) {
       if (node.namedChild(i).type === type) return node.namedChild(i);

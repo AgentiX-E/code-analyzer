@@ -2,7 +2,7 @@
   "name": "code-analyzer",
   "private": true,
   "version": "0.1.0",
-  "description": "Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
+  "description": "Code intelligence platform \u2014 knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
   "author": "Lambertyan",
   "license": "MIT",
   "keywords": [
@@ -58,7 +58,8 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "turbo build && changeset publish",
-    "publish": "turbo build && pnpm -r publish --access public --no-git-checks"
+    "publish": "turbo build && pnpm -r publish --access public --no-git-checks",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --pretty false"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

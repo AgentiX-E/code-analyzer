@@ -89,17 +89,17 @@ export class CrossFilePhase implements ExecutablePhase {
             if (!importPath || seenSources.has(importPath)) continue;
             seenSources.add(importPath);
 
-            const importedNames = imp.properties?.names
-              ? imp.properties.names.split(',').filter(Boolean)
+            const importedNames = imp.properties?.['names']
+              ? imp.properties['names'].split(',').filter(Boolean)
               : [];
 
             fileImports.push({
               source: importPath,
               names: importedNames,
               type:
-                imp.properties?.importType === 'namespace'
+                imp.properties?.['importType'] === 'namespace'
                   ? 'namespace'
-                  : imp.properties?.importType === 'default'
+                  : imp.properties?.['importType'] === 'default'
                     ? 'default'
                     : 'named',
               lineNumber: imp.startLine,

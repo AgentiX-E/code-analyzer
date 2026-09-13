@@ -174,8 +174,6 @@ export function computeDominanceFrontiers(cfg: ControlFlowGraph): Map<number, Se
   //   dominator of B. Add each block along the way to B's frontier
   //   until we reach idom(B).
   for (const block of cfg.blocks) {
-    const predDom = computeDominators(cfg);
-
     for (const succId of block.successors) {
       // Find all blocks whose frontier should include succId
       let runner = block.id;
@@ -228,7 +226,6 @@ export function findBackEdges(cfg: ControlFlowGraph): Array<[number, number]> {
 export function findNaturalLoops(cfg: ControlFlowGraph): Map<number, number[]> {
   const loops = new Map<number, number[]>();
   const backEdges = findBackEdges(cfg);
-  const dominators = computeDominators(cfg);
 
   for (const [sourceId, targetId] of backEdges) {
     // targetId is the loop header

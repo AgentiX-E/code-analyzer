@@ -358,11 +358,11 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     if (node.type === 'class_declaration' || node.type === 'class_definition') {
       const baseClasses = this.extractBaseClasses(node);
       if (baseClasses) {
-        properties.baseClasses = baseClasses;
+        properties['baseClasses'] = baseClasses;
       }
       const interfaces = this.extractInterfaces(node);
       if (interfaces) {
-        properties.interfaces = interfaces;
+        properties['interfaces'] = interfaces;
       }
     }
 

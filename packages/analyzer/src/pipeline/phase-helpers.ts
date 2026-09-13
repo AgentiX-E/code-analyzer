@@ -2,7 +2,7 @@
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { basename, dirname, extname, relative, resolve, join } from 'node:path';
+import { basename, dirname, relative, resolve, join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 
 import type {
@@ -10,32 +10,15 @@ import type {
   PipelinePhaseId,
   PipelineContext,
   DiscoveredFile,
-  ParsedFile,
   SymbolDefinition,
   ReferenceSite,
   ScopeTree,
   NodeLabel,
-  KnowledgeGraph,
-  SupportedLanguage,
-  ResolvedImport,
-  NodeProperties,
 } from '@code-analyzer/shared';
 
-import {
-  getLanguageFromFilename,
-  CAPTURE_TAGS,
-  PhaseLogger,
-  createNoopPhaseLogger,
-} from '@code-analyzer/shared';
-import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { getLanguageFromFilename, CAPTURE_TAGS, PhaseLogger } from '@code-analyzer/shared';
 import type { LanguageProvider } from '../languages/provider.js';
-import type { ParsedImport } from '../languages/provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
-
-import { GraphBuilder } from '../graph/graph-builder.js';
-import { TypeRegistry } from '../resolution/type-registry.js';
-import { TypeScriptTypeResolver } from '../resolution/typescript-resolver.js';
-import { PythonTypeResolver } from '../resolution/python-resolver.js';
 
 // ---------------------------------------------------------------------------
 // Phase metadata interface
@@ -321,9 +304,9 @@ export function groupCaptures(captures: UnifiedCapture[], filePath: string): Cap
         qualifiedName,
         startLine: capture.startLine,
         endLine: capture.endLine,
-        signature: capture.properties?.signature,
-        returnType: capture.properties?.returnType,
-        docstring: capture.properties?.docstring,
+        signature: capture.properties?.['signature'],
+        returnType: capture.properties?.['returnType'],
+        docstring: capture.properties?.['docstring'],
         containerName,
         isExported: false, // Will be determined by provider
         visibility: 'public',

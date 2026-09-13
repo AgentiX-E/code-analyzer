@@ -3,7 +3,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import type { LanguageProvider, ParsedImport } from './provider.js';
+import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
 
 export function lineNumberAt(source: string, offset: number): number {

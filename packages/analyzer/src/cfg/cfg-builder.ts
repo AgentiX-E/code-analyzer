@@ -197,11 +197,6 @@ export class CfgBuilder {
       lines.add(cap.startLine);
     }
 
-    // Use text content to identify control flow structures
-    const fullText = captures
-      .map((c) => ({ line: c.startLine, text: c.text }))
-      .sort((a, b) => a.line - b.line);
-
     // Track switch boundaries for case/default grouping
     let currentSwitch: BoundaryInfo | null = null;
 
@@ -398,10 +393,6 @@ export class CfgBuilder {
       const current = blocks[i]!;
       const next = blocks[i + 1]!;
 
-      // Check if current block ends with a control flow terminator
-      const currentHasBoundary = boundaries.some(
-        (b) => b.line >= current.startLine && b.line <= current.endLine,
-      );
       const hasReturn = boundaries.some(
         (b) => b.type === 'return' && b.line >= current.startLine && b.line <= current.endLine,
       );

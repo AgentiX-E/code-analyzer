@@ -25,7 +25,6 @@ export function computeReachingDefinitions(
   cfg: ControlFlowGraph,
   defs: Map<string, number[]>,
 ): Map<number, Set<string>> {
-  const blockIds = cfg.blocks.map((b) => b.id);
   const reachOut = new Map<number, Set<string>>();
   const reachIn = new Map<number, Set<string>>();
 

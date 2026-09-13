@@ -19,11 +19,6 @@ import { GraphBuilder } from '../../graph/graph-builder.js';
 // Communities helpers
 // ---------------------------------------------------------------------------
 
-interface CommunityNode {
-  id: number;
-  edges: Array<{ target: number; weight: number }>;
-}
-
 function detectCommunities(graph: KnowledgeGraph): Array<{ members: number[]; name: string }> {
   // Simple modularity-based community detection using the Leiden algorithm
   // Initial assignment: each node is its own community

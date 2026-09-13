@@ -5,7 +5,6 @@
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
 import type { TypeInfo, TypeMember, TypeVisibility } from './type-registry.js';
-import type { UnifiedCapture } from '@code-analyzer/shared';
 
 // Lazy import to avoid crashing when tree-sitter-typescript is not installed
 let TSLanguage: unknown;

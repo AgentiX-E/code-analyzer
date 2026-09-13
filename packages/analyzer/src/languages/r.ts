@@ -115,7 +115,6 @@ export class RProvider extends TreeSitterBaseProvider {
     const funcName = this.getCallName(node);
     if (!funcName) return;
 
-    const line = node.startPosition.row + 1;
     if (funcName === 'library' || funcName === 'require') {
       const args = this.getCallArgs(node);
       const pkgName = args[0]?.replace(/['"]/g, '') ?? funcName;

@@ -59,7 +59,7 @@ export class ParsePhase implements ExecutablePhase {
           if (capture.name) {
             const isExported = provider.isExported(file.content, capture.name);
             // Every named capture carries a `properties` bag.
-            capture.properties.exported = String(isExported);
+            capture.properties['exported'] = String(isExported);
           }
         }
 
@@ -126,10 +126,10 @@ export class ParsePhase implements ExecutablePhase {
                 builder.addEdge(ctx.graph, fileNodeId, node.id, EDGE_DEFINES, ctx.projectId);
 
                 // EXTENDS edge for base classes
-                const baseClasses = symbol.properties.baseClasses as string | undefined;
+                const baseClasses = symbol.properties['baseClasses'] as string | undefined;
                 if (baseClasses) {
                   // Will be resolved in scopeResolution phase — store for now
-                  if (symbol.properties.interfaces) {
+                  if (symbol.properties['interfaces']) {
                     // Store implements info for later resolution
                   }
                 }

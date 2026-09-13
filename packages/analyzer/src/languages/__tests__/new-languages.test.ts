@@ -70,7 +70,7 @@ describe('JSON Provider', () => {
     expect(captures.some((c) => c.name === 'name')).toBe(true);
     expect(captures.some((c) => c.name === 'version')).toBe(true);
     // dependencies object should be captured
-    expect(captures.some((c) => c.properties?.valueType === 'object')).toBe(true);
+    expect(captures.some((c) => c.properties?.['valueType'] === 'object')).toBe(true);
   });
 
   it('should handle empty JSON object', () => {
@@ -222,7 +222,7 @@ describe('Markdown Provider', () => {
     const src =
       'See [the docs](https://example.com/docs) for more info.\n[GitHub](https://github.com)\n';
     const captures = p.parse(src, '/test/links.md');
-    expect(captures.some((c) => c.properties?.linkType === 'markdown')).toBe(true);
+    expect(captures.some((c) => c.properties?.['linkType'] === 'markdown')).toBe(true);
   });
 
   it('should detect code blocks', () => {
