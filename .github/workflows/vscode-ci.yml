@@ -99,8 +99,12 @@ jobs:
       - name: Build all dependencies
         run: pnpm build --filter=...code-analyzer
 
-      - name: Run extension tests
-        run: pnpm --filter code-analyzer test
+      # `test:coverage` runs the same suite and then enforces the package's coverage
+      # thresholds (95 on every dimension), which nothing did before: the thresholds
+      # existed in `packages/vscode/vitest.config.ts` but this job never passed
+      # `--coverage`, so they could not fail.
+      - name: Run extension tests with coverage
+        run: pnpm --filter code-analyzer test:coverage
 
   package:
     name: Package .vsix
