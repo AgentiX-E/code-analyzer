@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — PDG & Taint Analysis Tools Tests
 // Tests for pdgQuery, taintAnalysis, explainTaint
 
@@ -7,7 +6,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createToolRegistry } from '../tools/index.js';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Fixtures
@@ -26,7 +25,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 10,
       endLine: 50,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'processRequest' },
       signature: 'processRequest(input: string): void',
       docstring: 'Process user input',
       complexity: 12,
@@ -46,7 +45,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 15,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'validateInput' },
       signature: 'validateInput(data: unknown): boolean',
       docstring: null,
       complexity: 5,
@@ -66,7 +65,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 20,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'sanitizeData' },
       signature: 'sanitizeData(data: string): string',
       docstring: 'Sanitize input',
       complexity: 3,
@@ -86,7 +85,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 10,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'executeSqlQuery' },
       signature: 'executeSqlQuery(sql: string): void',
       docstring: null,
       complexity: 2,
@@ -106,7 +105,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 5,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'readUserInput' },
       signature: 'readUserInput(): string',
       docstring: 'Read user input',
       complexity: 1,
@@ -126,7 +125,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 5,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'logResult' },
       signature: 'logResult(data: any): void',
       docstring: null,
       complexity: 1,
@@ -146,7 +145,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 30,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'handleRequest' },
       signature: 'handleRequest(): void',
       docstring: null,
       complexity: 8,
@@ -166,7 +165,7 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 10,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'queryDb' },
       signature: 'queryDb(): void',
       docstring: null,
       complexity: 2,
@@ -192,7 +191,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   // CALLS edges
   if (processRequest && validateInput) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: processRequest.id,
       targetId: validateInput.id,
@@ -204,7 +202,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (processRequest && sanitizeData) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: processRequest.id,
       targetId: sanitizeData.id,
@@ -216,7 +213,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (processRequest && executeSqlQuery) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: processRequest.id,
       targetId: executeSqlQuery.id,
@@ -228,7 +224,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (readUserInput && sanitizeData) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: readUserInput.id,
       targetId: sanitizeData.id,
@@ -242,7 +237,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   // Also make readUserInput call executeSqlQuery for taint detection
   if (readUserInput && executeSqlQuery) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: readUserInput.id,
       targetId: executeSqlQuery.id,
@@ -254,7 +248,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (handleRequest && executeSqlQuery) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: handleRequest.id,
       targetId: executeSqlQuery.id,
@@ -266,7 +259,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (handleRequest && queryDb) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: handleRequest.id,
       targetId: queryDb.id,
@@ -278,7 +270,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (processRequest && logResult) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: processRequest.id,
       targetId: logResult.id,
@@ -290,7 +281,6 @@ function createPDGGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (validateInput && logResult) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: validateInput.id,
       targetId: logResult.id,
@@ -323,7 +313,7 @@ function makeNode(projectId: string, overrides: Partial<GraphNode>): GraphNode {
     startLine: 1,
     endLine: 10,
     language: 'typescript',
-    properties: {},
+    properties: { name: 'node' },
     signature: null,
     docstring: null,
     complexity: null,
@@ -337,12 +327,11 @@ function makeNode(projectId: string, overrides: Partial<GraphNode>): GraphNode {
 
 function insertCallEdge(store: InMemoryGraphStore, sourceId: number, targetId: number): void {
   store.insertEdge({
-    id: 0,
     projectId: 'nullable-meta',
     sourceId,
     targetId,
     type: 'CALLS',
-    properties: {},
+    properties: { name: 'node' },
     weight: 1.0,
     createdAt: new Date().toISOString(),
   });
@@ -371,7 +360,7 @@ describe('pdgQuery', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.functionId).toBe('app.processRequest');
     expect(data.projectId).toBe('test-pdg');
     expect(data.nodes.length).toBeGreaterThan(0);
@@ -387,7 +376,7 @@ describe('pdgQuery', () => {
       projectId: 'no-store',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodes).toEqual([]);
     expect(data.edges).toEqual([]);
     expect(data.totalNodes).toBe(0);
@@ -404,7 +393,7 @@ describe('pdgQuery', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodes).toEqual([]);
     expect(data.edges).toEqual([]);
   });
@@ -419,7 +408,7 @@ describe('pdgQuery', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     if (data.edges.length > 0) {
       for (const edge of data.edges) {
         expect(edge.type).toBeDefined();
@@ -440,7 +429,7 @@ describe('pdgQuery', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.note).toBeDefined();
     expect(typeof data.note).toBe('string');
   });
@@ -455,7 +444,7 @@ describe('pdgQuery', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     if (data.nodes.length > 0) {
       const node = data.nodes[0];
       expect(node.name).toBeDefined();
@@ -475,7 +464,7 @@ describe('pdgQuery', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodes.length).toBe(1);
     expect(data.edges).toEqual([]);
     expect(data.totalEdges).toBe(0);
@@ -484,7 +473,7 @@ describe('pdgQuery', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('pdg_query', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -513,7 +502,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-pdg');
     expect(data.sourceKind).toBe('user-input');
     expect(data.sinkKind).toBe('sql-query');
@@ -532,7 +521,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.taintPaths).toBeDefined();
     expect(typeof data.vulnerablePaths).toBe('number');
   });
@@ -542,7 +531,7 @@ describe('taintAnalysis', () => {
       projectId: 'no-store',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.taintPaths).toEqual([]);
     expect(data.vulnerablePaths).toBe(0);
     expect(data.severity).toBe('low');
@@ -560,7 +549,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.filePath).toBe('/app/src/input.ts');
   });
 
@@ -577,7 +566,7 @@ describe('taintAnalysis', () => {
       startLine: 1,
       endLine: 5,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'userInput' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -599,7 +588,7 @@ describe('taintAnalysis', () => {
         startLine: i * 2,
         endLine: i * 2 + 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'sqlExec${i}' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -610,12 +599,11 @@ describe('taintAnalysis', () => {
       };
       const sinkId = store.insertNode(sink);
       store.insertEdge({
-        id: 0,
         projectId: 'many-taints',
         sourceId,
         targetId: sinkId,
         type: 'CALLS',
-        properties: {},
+        properties: { name: 'sqlExec${i}' },
         weight: 1.0,
         createdAt: new Date().toISOString(),
       });
@@ -632,7 +620,7 @@ describe('taintAnalysis', () => {
       manyCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.severity).toBe('high');
     expect(data.vulnerablePaths).toBeGreaterThan(5);
   });
@@ -650,7 +638,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // handleRequest should be detected as a source via its filePath
     expect(data.taintPaths.length).toBeGreaterThan(0);
   });
@@ -664,7 +652,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     for (const path of data.taintPaths) {
       expect(path.source).toBeDefined();
       expect(path.sink).toBeDefined();
@@ -685,7 +673,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.sourceKind).toBe('network');
     expect(data.sinkKind).toBe('network-send');
     expect(data.taintPaths).toBeDefined();
@@ -702,7 +690,7 @@ describe('taintAnalysis', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.sourceKind).toBe('file-read');
     expect(data.sinkKind).toBe('command-exec');
   });
@@ -720,7 +708,7 @@ describe('taintAnalysis', () => {
       startLine: 1,
       endLine: 5,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'readFromEnv' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -741,7 +729,7 @@ describe('taintAnalysis', () => {
       startLine: 1,
       endLine: 5,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'runCommand' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -752,12 +740,11 @@ describe('taintAnalysis', () => {
     };
     const sinkId = store.insertNode(sink);
     store.insertEdge({
-      id: 0,
       projectId: 'few-taints',
       sourceId,
       targetId: sinkId,
       type: 'CALLS',
-      properties: {},
+      properties: { name: 'runCommand' },
       weight: 1.0,
       createdAt: new Date().toISOString(),
     });
@@ -773,7 +760,7 @@ describe('taintAnalysis', () => {
       fewCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.vulnerablePaths).toBe(1);
     expect(data.severity).toBe('medium');
   });
@@ -781,7 +768,7 @@ describe('taintAnalysis', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('taint_analysis', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -808,7 +795,7 @@ describe('explainTaint', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.taintPathId).toBe('app.processRequest');
     expect(data.projectId).toBe('test-pdg');
     expect(data.source).toBeDefined();
@@ -825,7 +812,7 @@ describe('explainTaint', () => {
       projectId: 'no-store',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.taintPathId).toBe('some.path');
     expect(data.source.kind).toBe('user-input');
     expect(data.sink.kind).toBe('command-exec');
@@ -843,7 +830,7 @@ describe('explainTaint', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.source.node).toBe('readUserInput');
     expect(data.source.filePath).toBeDefined();
     expect(data.source.line).toBeGreaterThan(0);
@@ -859,7 +846,7 @@ describe('explainTaint', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.source.node).toBe('unknown');
     expect(data.source.filePath).toBe('');
     expect(data.source.line).toBe(0);
@@ -875,7 +862,7 @@ describe('explainTaint', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.remediation).toBeDefined();
     expect(typeof data.remediation).toBe('string');
     expect(data.remediation.length).toBeGreaterThan(0);
@@ -891,14 +878,14 @@ describe('explainTaint', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.note).toBeDefined();
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('explain_taint', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 
   it('should include path steps for known symbol', async () => {
@@ -911,7 +898,7 @@ describe('explainTaint', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     if (data.path.length > 0) {
       for (const step of data.path) {
         expect(step.nodeId).toBeDefined();
@@ -952,7 +939,7 @@ describe('nodes without source location', () => {
       new ToolContextImpl(store),
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodes).toHaveLength(1);
     expect(data.nodes[0].filePath).toBe('');
     expect(data.nodes[0].startLine).toBe(0);
@@ -988,7 +975,7 @@ describe('nodes without source location', () => {
       new ToolContextImpl(store),
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.vulnerablePaths).toBe(1);
     expect(data.severity).toBe('medium');
     expect(data.taintPaths).toHaveLength(1);
@@ -1015,7 +1002,7 @@ describe('nodes without source location', () => {
       new ToolContextImpl(store),
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.source.node).toBe('locusFree');
     expect(data.source.filePath).toBe('');
     expect(data.source.line).toBe(0);

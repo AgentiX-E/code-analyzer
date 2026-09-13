@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Real Tool Handler Tests
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -7,7 +6,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createToolRegistry } from '../tools/index.js';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Fixtures: Sample Graph Data
@@ -27,7 +26,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: null,
       endLine: null,
       language: null,
-      properties: {},
+      properties: { name: 'core' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -47,7 +46,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 10,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'IService' },
       signature: null,
       docstring: 'Service interface',
       complexity: null,
@@ -67,7 +66,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 50,
       language: 'typescript',
-      properties: { baseClasses: 'ServiceBase' },
+      properties: { name: 'MyService', baseClasses: ['ServiceBase'] },
       signature: null,
       docstring: 'Main service',
       complexity: 15,
@@ -87,7 +86,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 10,
       endLine: 30,
       language: 'typescript',
-      properties: { signature: 'doWork(input: string): Promise<Result>' },
+      properties: { name: 'doWork', signature: 'doWork(input: string): Promise<Result>' },
       signature: 'doWork(input: string): Promise<Result>',
       docstring: 'Processes work items',
       complexity: 8,
@@ -107,7 +106,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 32,
       endLine: 48,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'validate' },
       signature: 'validate(data: unknown): boolean',
       docstring: null,
       complexity: 4,
@@ -127,7 +126,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 25,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'fetchData' },
       signature: 'fetchData(url: string): Promise<Data>',
       docstring: 'Fetches data from API',
       complexity: 5,
@@ -147,7 +146,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 20,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'testDoWork' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -167,7 +166,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 120,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'complexFn' },
       signature: 'complexFn(): void',
       docstring: null,
       complexity: 35,
@@ -187,7 +186,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 5,
       endLine: 15,
       language: 'typescript',
-      properties: { routePath: '/api/items', routeMethod: 'GET' },
+      properties: { name: 'getItems', routePath: '/api/items', routeMethod: 'GET' },
       signature: null,
       docstring: 'Get items endpoint',
       complexity: null,
@@ -207,7 +206,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: null,
       endLine: null,
       language: null,
-      properties: {},
+      properties: { name: 'src' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -237,14 +236,12 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   const doWorkMethod = methods.find((n) => n.name === 'doWork');
   const validateMethod = methods.find((n) => n.name === 'validate');
   const fetchDataFn = functions.find((n) => n.name === 'fetchData');
-  const complexFn = functions.find((n) => n.name === 'complexFn');
   const testNode = tests[0];
   const routeNode = routes[0];
 
   // Create edges
   if (moduleNode && classNode) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: moduleNode.id,
       targetId: classNode.id,
@@ -257,7 +254,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (classNode && ifaceNode) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: classNode.id,
       targetId: ifaceNode.id,
@@ -270,7 +266,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (classNode && doWorkMethod) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: classNode.id,
       targetId: doWorkMethod.id,
@@ -283,7 +278,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (classNode && validateMethod) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: classNode.id,
       targetId: validateMethod.id,
@@ -296,7 +290,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (doWorkMethod && fetchDataFn) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: doWorkMethod.id,
       targetId: fetchDataFn.id,
@@ -309,7 +302,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (validateMethod && doWorkMethod) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: validateMethod.id,
       targetId: doWorkMethod.id,
@@ -322,7 +314,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (testNode && doWorkMethod) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: testNode.id,
       targetId: doWorkMethod.id,
@@ -337,7 +328,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   if (fetchDataFn && routeNode && doWorkMethod) {
     // Route handled by doWork and called by fetchData
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: doWorkMethod.id,
       targetId: routeNode.id,
@@ -350,7 +340,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (moduleNode && fetchDataFn) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: moduleNode.id,
       targetId: fetchDataFn.id,
@@ -389,7 +378,6 @@ describe('ToolContext', () => {
 
       // Add a document and verify it's indexed in the cached engine
       store.insertNode({
-        id: 0,
         projectId: 'test',
         label: 'Function',
         name: 'foo',
@@ -398,7 +386,7 @@ describe('ToolContext', () => {
         startLine: 1,
         endLine: 10,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'foo' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -568,7 +556,6 @@ describe('ToolContext', () => {
     it('findReferences should filter out references from other projects', () => {
       const ctx = createTestContext();
       // Create a node in a different project that references doWork
-      const otherStore = new InMemoryGraphStore();
       // We need to test that nodes with mismatched projectId are filtered
       // Get the doWork node from the context
       const doWorkNode = ctx.store.getNodeByQualifiedName('core.MyService.doWork');
@@ -587,7 +574,6 @@ describe('ToolContext', () => {
       const store = new InMemoryGraphStore();
       // Target node
       store.insertNode({
-        id: 0,
         projectId: 'proj-a',
         label: 'Function',
         name: 'target',
@@ -596,7 +582,7 @@ describe('ToolContext', () => {
         startLine: 1,
         endLine: 10,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'target' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -607,7 +593,6 @@ describe('ToolContext', () => {
       });
       // Source node with DIFFERENT projectId
       store.insertNode({
-        id: 0,
         projectId: 'proj-b',
         label: 'Function',
         name: 'caller',
@@ -616,7 +601,7 @@ describe('ToolContext', () => {
         startLine: 1,
         endLine: 10,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'caller' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -627,7 +612,6 @@ describe('ToolContext', () => {
       });
       // Source node with SAME projectId
       store.insertNode({
-        id: 0,
         projectId: 'proj-a',
         label: 'Function',
         name: 'localCaller',
@@ -636,7 +620,7 @@ describe('ToolContext', () => {
         startLine: 1,
         endLine: 10,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'localCaller' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -650,17 +634,15 @@ describe('ToolContext', () => {
       const localCaller = store.getNodeByQualifiedName('proj.localCaller')!;
       // Both source nodes point to target
       store.insertEdge({
-        id: 0,
         projectId: 'proj-a',
         sourceId: otherCaller.id,
         targetId: targetNode.id,
         type: 'CALLS',
-        properties: {},
+        properties: { name: 'localCaller' },
         weight: 1.0,
         createdAt: new Date().toISOString(),
       });
       store.insertEdge({
-        id: 0,
         projectId: 'proj-a',
         sourceId: localCaller.id,
         targetId: targetNode.id,
@@ -674,7 +656,7 @@ describe('ToolContext', () => {
       // Find references scoped to proj-a — should only return localCaller
       const refs = ctx.findReferences('proj-a', 'proj.target');
       expect(refs.length).toBe(1);
-      expect(refs[0].name).toBe('localCaller');
+      expect(refs[0]!.name).toBe('localCaller');
     });
 
     it('getDependencyTree should use default maxDepth of 3', () => {
@@ -735,7 +717,7 @@ describe('Codebase Analysis Tools', () => {
 
     expect(result).toBeDefined();
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.nodeCount).toBeGreaterThan(0);
     expect(data.edgeCount).toBeGreaterThan(0);
@@ -754,7 +736,7 @@ describe('Codebase Analysis Tools', () => {
       emptyCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodeCount).toBe(0);
     expect(data.edgeCount).toBe(0);
     expect(data.status).toBe('empty');
@@ -769,7 +751,7 @@ describe('Codebase Analysis Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodeLabels).toBeDefined();
     expect(data.nodeLabels.length).toBeGreaterThan(0);
 
@@ -791,7 +773,7 @@ describe('Codebase Analysis Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.nodeCount).toBeGreaterThan(0);
     expect(data.entryPoints).toBeDefined();
@@ -807,7 +789,7 @@ describe('Codebase Analysis Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-analyze');
     expect(data.status).toBeDefined();
   });
@@ -849,7 +831,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items.length).toBeGreaterThan(0);
     expect(data.items.some((item: any) => item.name === 'MyService')).toBe(true);
   });
@@ -864,7 +846,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items).toEqual([]);
     expect(data.total).toBe(0);
   });
@@ -879,7 +861,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items.length).toBeGreaterThan(0);
     const firstItem = data.items[0];
     expect(firstItem.searchMethod).toBeDefined();
@@ -898,7 +880,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.symbol).toBeDefined();
     expect(data.symbol!.name).toBe('doWork');
     expect(data.relationships.length).toBeGreaterThan(0);
@@ -916,7 +898,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.symbol).toBeDefined();
     expect(data.fileSymbols.length).toBeGreaterThan(0);
   });
@@ -931,7 +913,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.interface).toBeDefined();
     expect(data.interface!.name).toBe('IService');
     expect(data.implementations.length).toBeGreaterThan(0);
@@ -948,7 +930,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.path.length).toBeGreaterThan(0);
     expect(data.found).toBe(true);
   });
@@ -963,7 +945,7 @@ describe('Querying & Exploration Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.columns).toBeDefined();
     expect(data.rows.length).toBeGreaterThan(0);
     expect(data.executionTimeMs).toBeDefined();
@@ -979,7 +961,7 @@ describe('Querying & Exploration Tools', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Cypher query error');
+    expect(result.content[0]!.text).toContain('Cypher query error');
   });
 });
 
@@ -1006,7 +988,7 @@ describe('Code Review Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.filePath).toBe('/app/src/core/my-service.ts');
     expect(data.symbolsInFile).toBeGreaterThan(0);
@@ -1048,7 +1030,7 @@ export class BadClass {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.hasContent).toBe(true);
     expect(data.comments).toBeDefined();
     expect(data.reviewMethod).toContain('Heuristics');
@@ -1063,7 +1045,7 @@ export class BadClass {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
 
     expect(data.projectId).toBe('test-project');
     expect(data.hasDiff).toBe(false);
@@ -1080,7 +1062,7 @@ export class BadClass {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // Should find the complex function
     const hasComplexityIssue = data.comments.some(
       (c: any) => c.path === '/app/src/core/complex.ts',
@@ -1114,7 +1096,7 @@ describe('PR Review Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.prNumber).toBe(42);
     expect(data.summary).toBeDefined();
@@ -1147,7 +1129,7 @@ index abc123..def456 100644
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.metrics.filesChanged).toBeGreaterThan(0);
   });
 
@@ -1161,7 +1143,7 @@ index abc123..def456 100644
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.summary).toBeDefined();
     expect(data.results).toBeDefined();
@@ -1195,7 +1177,7 @@ describe('Change & Impact Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.range).toBeDefined();
     expect(data.impactTree.length).toBeGreaterThan(0);
     expect(data.riskLevel).toBeDefined();
@@ -1214,7 +1196,7 @@ describe('Change & Impact Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.range).toBeDefined();
   });
 
@@ -1228,7 +1210,7 @@ describe('Change & Impact Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.summary).toBeDefined();
     expect(data.detectionMethod).toContain('Graph-based');
@@ -1244,7 +1226,7 @@ describe('Change & Impact Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.routeCount).toBeGreaterThan(0);
     expect(data.routes.length).toBeGreaterThan(0);
     data.routes.forEach((r: any) => {
@@ -1262,7 +1244,7 @@ describe('Change & Impact Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.cyclesFound).toBeDefined();
   });
 });
@@ -1283,7 +1265,7 @@ describe('Error Handling', () => {
   it('tools handle missing required arguments gracefully', async () => {
     const result = await registry.execute('analyze_repository', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 
   it('tools handle invalid cypher gracefully', async () => {
@@ -1296,7 +1278,7 @@ describe('Error Handling', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Cypher query error');
+    expect(result.content[0]!.text).toContain('Cypher query error');
   });
 
   it('tools work with empty store (no graph data)', async () => {
@@ -1310,7 +1292,7 @@ describe('Error Handling', () => {
       emptyCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items).toEqual([]);
     expect(data.total).toBe(0);
     expect(result.isError).toBeFalsy();
@@ -1329,7 +1311,7 @@ describe('Error Handling', () => {
       store,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items.length).toBeGreaterThan(0);
   });
 
@@ -1338,7 +1320,7 @@ describe('Error Handling', () => {
       projectId: 'test',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.nodeCount).toBe(0);
     expect(data.message).toContain('No store');
   });
@@ -1366,7 +1348,7 @@ describe('Lifecycle Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items).toBeDefined();
     expect(data.total).toBeGreaterThan(0);
     expect(data.items.length).toBeGreaterThan(0);
@@ -1382,7 +1364,7 @@ describe('Lifecycle Tools', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.deleted).toBe(true);
     expect(data.deletedNodes).toBeGreaterThan(0);
     expect(data.deletedEdges).toBeGreaterThan(0);
@@ -1427,7 +1409,7 @@ describe('MCP Server Integration', () => {
         server.getToolContext(),
       );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.items.length).toBeGreaterThan(0);
   });
 });
