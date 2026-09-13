@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — AST context factory branch coverage: the regex
 // fallback extractors (exercised when tree-sitter reports a syntax error) and
 // grammar-loading branches for tsx/python/cpp.
@@ -56,7 +55,7 @@ describe('createAstContext — regex fallback (syntax error)', () => {
     const ctx = createAstContext(['import { X } from "y";', MALFORMED], 'x.ts', 'typescript');
     expect(ctx.hasAst).toBe(false);
     expect(ctx.imports.length).toBe(1);
-    expect(ctx.imports[0].moduleSpecifier).toBe('y');
+    expect(ctx.imports[0]!.moduleSpecifier).toBe('y');
   });
 });
 
@@ -107,7 +106,7 @@ describe('createAstContext — regex fallback imports and bounds', () => {
     const ctx = createAstContext(['from x import y', 'def ('], 'x.py', 'python');
     expect(ctx.hasAst).toBe(false);
     expect(ctx.imports.length).toBe(1);
-    expect(ctx.imports[0].moduleSpecifier).toBe('x');
+    expect(ctx.imports[0]!.moduleSpecifier).toBe('x');
   });
 
   it('records a zero-parameter arrow function bound via regex fallback', () => {
@@ -162,7 +161,7 @@ describe('createAstContext — tree-sitter walk edge cases', () => {
     const ctx = createAstContext(['function empty() {}', 'const = ;'], 'x.ts', 'typescript');
     expect(ctx.hasAst).toBe(false);
     expect(ctx.functions.length).toBe(1);
-    expect(ctx.functions[0].paramCount).toBe(0);
+    expect(ctx.functions[0]!.paramCount).toBe(0);
   });
 
   it('records a tagged-template call that has no `arguments` node', () => {
@@ -227,7 +226,7 @@ describe('AST helper edge cases', () => {
     );
     const found = findImports(ctx, /lodash/);
     expect(found.length).toBe(1);
-    expect(found[0].moduleSpecifier).toBe('lodash');
+    expect(found[0]!.moduleSpecifier).toBe('lodash');
     expect(findImports(ctx, /missing/)).toEqual([]);
   });
 });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — AST security rule branch coverage: comment-line
 // skipping and negative/edge branches not exercised by the existing suites.
 

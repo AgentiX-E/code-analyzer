@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Review Swarm Branch-Coverage Tests (2)
 // Directly exercises the private `generateMCPPrompt`, `adversarialValidate`,
 // and `synthesize` methods to reach the remaining uncovered branches: the

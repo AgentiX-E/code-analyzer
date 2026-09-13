@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Inter-procedural solver branch coverage (round 2):
 // the guard/mismatch/dead-end branches of the fixpoint and generative-return
 // propagation that round 1 did not exercise.
@@ -8,7 +7,6 @@ import {
   InterprocSolver,
   type FunctionSummary,
   type TaintSourceOccurrence,
-  type TaintSinkOccurrence,
 } from '../security/interproc-solver.js';
 
 function source(line: number, block = 0, stmt = 0): TaintSourceOccurrence {
@@ -19,10 +17,6 @@ function source(line: number, block = 0, stmt = 0): TaintSourceOccurrence {
     description: 'User input',
     line,
   };
-}
-
-function sink(kind: string, line: number): TaintSinkOccurrence {
-  return { point: { blockIndex: 0, stmtIndex: 0, line }, kind, description: `Sink: ${kind}`, line };
 }
 
 function makeSummary(

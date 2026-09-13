@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — MCP server CallTool middleware branch coverage: the
 // auth-denied, rate-limited, and non-Error-throw paths that the happy-path
 // handler tests do not exercise.

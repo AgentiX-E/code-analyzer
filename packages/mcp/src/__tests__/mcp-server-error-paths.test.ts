@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — MCP server error-path and transport-option branch coverage
 //
 // Exercises the remaining defensive branches in mcp-server.ts: the

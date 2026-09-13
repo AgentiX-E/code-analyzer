@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Taint engine branch coverage (round 2): the
 // typed-language mismatch guards, the path-length confidence tiers, the edge-type
 // adjacency filter, and the per-source finding cap.
@@ -18,7 +17,7 @@ function makeNode(partial: Partial<GraphNode> & { id: number }): GraphNode {
     startLine: 1,
     endLine: 1,
     language: 'typescript',
-    properties: {},
+    properties: { name: 'fn' },
     signature: null,
     docstring: null,
     complexity: 1,
@@ -36,7 +35,7 @@ function makeEdge(partial: Partial<GraphEdge> & { id: number }): GraphEdge {
     sourceId: 0,
     targetId: 1,
     type: 'CALLS',
-    properties: {},
+    properties: { name: 'fn' },
     weight: 1,
     createdAt: '2026-01-01',
     ...partial,

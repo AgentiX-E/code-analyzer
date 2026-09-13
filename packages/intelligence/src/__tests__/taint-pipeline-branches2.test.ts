@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Taint pipeline branch coverage (round 2): the
 // buildFunctionSummary source→sink mapping branches, driven by a mocked
 // TaintPropagator that returns controlled intra-procedural findings.

@@ -1,4 +1,4 @@
-// @ts-nocheck — test file assertion patterns may access possibly-undefined
+// @ts-nocheck
 import { describe, it, expect } from 'vitest';
 import { StandardsEngine } from '../standards/engine.js';
 import { STANDARD_TEMPLATES, getTemplate, listTemplates } from '../standards/templates.js';

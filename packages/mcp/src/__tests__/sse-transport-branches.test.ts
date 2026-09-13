@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — SSE transport branch coverage: send/broadcast/disconnect
 // guards and event-formatting edge cases (id, custom event, non-string data,
 // multi-line data).

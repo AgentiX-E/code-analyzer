@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Scientific benchmark branch coverage: empty-result
 // precision/recall/f1 fallbacks, McNemar effect-size classification, and the
 // chi-squared x<=0 survival branch.
@@ -113,9 +112,9 @@ describe('computeCategoryMetrics — missing detections produce fn', () => {
     ];
     const metrics = computeCategoryMetrics(cases, []);
     expect(metrics.length).toBe(1);
-    expect(metrics[0].falseNegatives).toBe(1);
-    expect(metrics[0].precision).toBe(0);
-    expect(metrics[0].recall).toBe(0);
-    expect(metrics[0].f1).toBe(0);
+    expect(metrics[0]!.falseNegatives).toBe(1);
+    expect(metrics[0]!.precision).toBe(0);
+    expect(metrics[0]!.recall).toBe(0);
+    expect(metrics[0]!.f1).toBe(0);
   });
 });

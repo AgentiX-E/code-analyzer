@@ -1,4 +1,4 @@
-// @ts-nocheck — test file assertion patterns may access possibly-undefined
+// @ts-nocheck
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CustomRuleEditor } from '../standards/rule-editor.js';
 import type {

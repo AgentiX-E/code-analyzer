@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Review Quality Benchmark Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -21,7 +20,7 @@ import {
   BENCH_PERF_001,
   BENCH_PERF_002,
 } from '../benchmark/benchmark-data.js';
-import type { BenchmarkCase, GroundTruthIssue } from '../benchmark/benchmark-data.js';
+import type { BenchmarkCase } from '../benchmark/benchmark-data.js';
 import type {
   SingleCaseResult,
   AggregateMetrics,

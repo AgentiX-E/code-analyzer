@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — MCP server transport non-Error fallback coverage
 //
 // The `error instanceof Error ? error.message : String(error)` ternaries in

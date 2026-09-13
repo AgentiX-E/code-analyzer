@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Inter-procedural solver branch coverage: the
 // param→return composition path and the three-level generative-return
 // propagation (source → caller → grand-caller).

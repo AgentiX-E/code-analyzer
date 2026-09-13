@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Taint engine branch coverage: null signature/
 // name/language fallbacks and wildcard-language source/sink/sanitizer matching.
 
@@ -17,7 +16,7 @@ function makeNode(partial: Partial<GraphNode> & { id: number }): GraphNode {
     startLine: 1,
     endLine: 1,
     language: 'typescript',
-    properties: {},
+    properties: { name: 'fn' },
     signature: null,
     docstring: null,
     complexity: 1,

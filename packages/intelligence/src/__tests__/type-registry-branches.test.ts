@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Type registry branch coverage: finalized-seal
 // errors, batch registration default-value fallbacks, namespace-import
 // resolution, and method-index receiver matching.
@@ -82,7 +81,7 @@ describe('TypeRegistry — method index receiver matching', () => {
 
     const methods = r.lookupMethod('User', 'login');
     expect(methods.length).toBe(1);
-    expect(methods[0].qn).toBe('proj.User.login');
+    expect(methods[0]!.qn).toBe('proj.User.login');
   });
 });
 

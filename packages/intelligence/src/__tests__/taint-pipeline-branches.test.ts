@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Taint pipeline branch coverage: the call-graph
 // builder's edge-kind filter, callee self-match skip, and the block-line
 // fallback.

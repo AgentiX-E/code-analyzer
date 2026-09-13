@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — Scientific benchmark branch coverage: the
 // language-metrics zero-detection fallbacks via a full benchmark run with empty
 // detections.
@@ -27,8 +26,8 @@ describe('runScientificBenchmark — language metrics fallbacks', () => {
       () => new Map(),
     );
     expect(result.byLanguage).toHaveLength(1);
-    expect(result.byLanguage[0].precision).toBe(0);
-    expect(result.byLanguage[0].recall).toBe(0);
-    expect(result.byLanguage[0].f1).toBe(0);
+    expect(result.byLanguage[0]!.precision).toBe(0);
+    expect(result.byLanguage[0]!.recall).toBe(0);
+    expect(result.byLanguage[0]!.f1).toBe(0);
   });
 });

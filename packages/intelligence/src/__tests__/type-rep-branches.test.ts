@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/intelligence — typeToString branch coverage for every TypeRep
 // kind, plus optional/readonly modifiers and constrained type parameters.
 

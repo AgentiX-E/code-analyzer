@@ -5,8 +5,13 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeStructure } from '../review/lenses/structure-lens.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import type { GraphNode, RelationshipType } from '@code-analyzer/shared';
 
-function node(store, id, overrides = {}) {
+function node(
+  store: InMemoryGraphStore,
+  id: number,
+  overrides: Partial<Omit<GraphNode, 'id'>> = {},
+) {
   const n = {
     projectId: 'test-project',
     label: 'File',
@@ -18,11 +23,17 @@ function node(store, id, overrides = {}) {
     isExported: false,
     ...overrides,
   };
-  store.insertNode({ id, ...n });
-  return id;
+  // The store assigns the id; returning it (rather than the `id` argument, which is
+  // only used to build the qualified name) is what callers can actually look up.
+  return store.insertNode(n);
 }
 
-function edge(store, sourceId, targetId, type = 'IMPORTS') {
+function edge(
+  store: InMemoryGraphStore,
+  sourceId: number,
+  targetId: number,
+  type: RelationshipType = 'IMPORTS',
+) {
   store.insertEdge({
     projectId: 'test-project',
     sourceId,
@@ -171,7 +182,7 @@ describe('Structure Lens — detectOrphanCode (graph-backed)', () => {
     const findings = analyzeStructure('', 'src/orphan.ts', { store, projectId: 'test-project' });
     const orphans = findings.filter((f) => f.evidence.ruleId === 'struct-orphan-code');
     expect(orphans).toHaveLength(1);
-    expect(orphans[0].title).toContain('orphan');
+    expect(orphans[0]!.title).toContain('orphan');
   });
 
   it('does not flag an exported function that has an incoming CALLS edge', () => {
