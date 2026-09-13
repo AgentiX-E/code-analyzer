@@ -1,8 +1,7 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Reports Tools Tests
 // Tests for generateReport, exportReport, getRecommendations
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,7 +9,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl } from '../tools/tool-context.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { createToolRegistry } from '../tools/index.js';
-import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Test Fixtures
@@ -28,7 +27,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: null,
       endLine: null,
       language: null,
-      properties: {},
+      properties: { name: 'core' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -47,7 +46,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 30,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'doWork' },
       signature: 'doWork(): void',
       docstring: null,
       complexity: 8,
@@ -66,7 +65,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 15,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'validate' },
       signature: 'validate(): void',
       docstring: null,
       complexity: 4,
@@ -85,7 +84,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 50,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'MyService' },
       signature: null,
       docstring: null,
       complexity: 15,
@@ -104,7 +103,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 5,
       endLine: 15,
       language: 'typescript',
-      properties: { routePath: '/api/users', routeMethod: 'GET' },
+      properties: { name: 'getUsers', routePath: '/api/users', routeMethod: 'GET' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -123,7 +122,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 20,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'testDoWork' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -142,7 +141,7 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
       startLine: 1,
       endLine: 120,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'complexFn' },
       signature: 'complexFn(): void',
       docstring: null,
       complexity: 35,
@@ -162,7 +161,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
 
   if (doWorkNode && classNode) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: classNode.id,
       targetId: doWorkNode.id,
@@ -174,7 +172,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (doWorkNode && validateNode) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: doWorkNode.id,
       targetId: validateNode.id,
@@ -186,7 +183,6 @@ function createSampleGraph(store: InMemoryGraphStore, projectId: string): void {
   }
   if (validateNode && complexNode) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: validateNode.id,
       targetId: complexNode.id,
@@ -227,7 +223,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.id).toMatch(/^report_/);
     expect(data.type).toBe('pr-review');
     expect(data.title).toContain('PR Review');
@@ -246,7 +242,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.type).toBe('codebase-audit');
     expect(data.title).toContain('Codebase Audit');
     expect(data.metrics).toBeDefined();
@@ -263,7 +259,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.type).toBe('impact-analysis');
     expect(data.title).toContain('Impact Analysis');
   });
@@ -278,7 +274,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.type).toBe('architecture-review');
     expect(data.title).toContain('Architecture Review');
   });
@@ -293,7 +289,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.type).toBe('standards-compliance');
     expect(data.title).toContain('Standards Compliance');
   });
@@ -304,7 +300,7 @@ describe('generateReport', () => {
       type: 'codebase-audit',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.type).toBe('codebase-audit');
     expect(data.metrics.nodeCount).toBe(0);
     expect(data.metrics.edgeCount).toBe(0);
@@ -321,7 +317,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.metrics).toBeDefined();
     expect(typeof data.metrics.nodeCount).toBe('number');
     expect(typeof data.metrics.edgeCount).toBe('number');
@@ -340,7 +336,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations).toBeDefined();
     expect(Array.isArray(data.recommendations)).toBe(true);
     // With test nodes present, the compliance score should be higher
@@ -359,7 +355,7 @@ describe('generateReport', () => {
       startLine: 1,
       endLine: 10,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'foo' },
       signature: null,
       docstring: null,
       complexity: 5,
@@ -379,10 +375,9 @@ describe('generateReport', () => {
       emptyCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // No tests means no recommendation for testing, compliance lower
     expect(data.metrics.testCount).toBe(0);
-    const testRecs = data.recommendations.filter((r: any) => r.category === 'testing');
     // With the current implementation, the project "no-tests" won't match getGraphStats without projectId...
     // But we verify the structure exists
     expect(data.metrics.complianceScore).toBeGreaterThanOrEqual(0);
@@ -399,7 +394,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.format).toBe('markdown');
   });
 
@@ -414,7 +409,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.format).toBe('json');
   });
 
@@ -429,7 +424,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.format).toBe('html');
   });
 
@@ -443,7 +438,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.summary.keyTakeaways).toBeDefined();
     expect(Array.isArray(data.summary.keyTakeaways)).toBe(true);
     expect(data.summary.keyTakeaways.length).toBeGreaterThan(0);
@@ -459,7 +454,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.findings).toBeDefined();
     expect(Array.isArray(data.findings)).toBe(true);
   });
@@ -474,7 +469,7 @@ describe('generateReport', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.metadata).toBeDefined();
     expect(data.metadata.generatedBy).toBe('code-analyzer');
     expect(data.metadata.generatorVersion).toBe('0.1.0');
@@ -483,7 +478,7 @@ describe('generateReport', () => {
   it('should handle missing required params by returning error', async () => {
     const result = await registry.execute('generate_report', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -505,7 +500,7 @@ describe('exportReport', () => {
       outputPath: '/tmp/test-report.json',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.reportId).toBe('test-123');
     expect(data.format).toBe('json');
     expect(data.exported).toBe(true);
@@ -519,7 +514,7 @@ describe('exportReport', () => {
       format: 'json',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.exported).toBe(true);
     expect(data.outputPath).toContain('report-456');
     expect(data.format).toBe('json');
@@ -532,7 +527,7 @@ describe('exportReport', () => {
       outputPath: '/tmp/report.md',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.format).toBe('markdown');
     expect(data.exported).toBe(true);
   });
@@ -544,7 +539,7 @@ describe('exportReport', () => {
       outputPath: '/tmp/report.html',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.format).toBe('html');
     expect(data.exported).toBe(true);
   });
@@ -557,7 +552,7 @@ describe('exportReport', () => {
       outputPath: '/root/readonly-dir/report.json',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.exported).toBe(false);
     expect(data.message).toContain('Export failed');
   });
@@ -565,7 +560,7 @@ describe('exportReport', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('export_report', {}, undefined as any);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -591,7 +586,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.recommendations).toBeDefined();
     expect(data.recommendations.length).toBeGreaterThan(0);
@@ -603,7 +598,7 @@ describe('getRecommendations', () => {
       projectId: 'no-store',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations).toBeDefined();
     expect(data.recommendations.length).toBe(3);
     expect(data.recommendations[0].category).toBe('maintainability');
@@ -622,7 +617,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('security');
     if (data.recommendations.length > 0) {
       expect(data.recommendations.every((r: any) => r.category === 'security')).toBe(true);
@@ -639,7 +634,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('performance');
     if (data.recommendations.length > 0) {
       expect(data.recommendations.every((r: any) => r.category === 'performance')).toBe(true);
@@ -656,7 +651,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('maintainability');
     if (data.recommendations.length > 0) {
       expect(data.recommendations.every((r: any) => r.category === 'maintainability')).toBe(true);
@@ -673,7 +668,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('architecture');
     if (data.recommendations.length > 0) {
       expect(data.recommendations.every((r: any) => r.category === 'architecture')).toBe(true);
@@ -690,7 +685,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations.length).toBeLessThanOrEqual(1);
     expect(data.total).toBe(data.recommendations.length);
   });
@@ -708,7 +703,7 @@ describe('getRecommendations', () => {
       startLine: 1,
       endLine: 500,
       language: 'typescript',
-      properties: {},
+      properties: { name: 'GodClass' },
       signature: null,
       docstring: null,
       complexity: null,
@@ -731,7 +726,7 @@ describe('getRecommendations', () => {
         startLine: i * 2,
         endLine: i * 2 + 1,
         language: 'typescript',
-        properties: {},
+        properties: { name: 'leaf${i}' },
         signature: null,
         docstring: null,
         complexity: null,
@@ -742,12 +737,11 @@ describe('getRecommendations', () => {
       };
       const leafId = store.insertNode(leaf);
       store.insertEdge({
-        id: 0,
         projectId: 'high-degree',
         sourceId: center.id,
         targetId: leafId,
         type: 'CALLS',
-        properties: {},
+        properties: { name: 'leaf${i}' },
         weight: 1.0,
         createdAt: new Date().toISOString(),
       });
@@ -762,7 +756,7 @@ describe('getRecommendations', () => {
       highDegreeCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // Should find architecture recommendations for high-degree node
     const archRecs = data.recommendations.filter((r: any) => r.category === 'architecture');
     expect(archRecs.length).toBeGreaterThan(0);
@@ -778,7 +772,7 @@ describe('getRecommendations', () => {
       emptyCtx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations).toBeDefined();
     // Should return generic recommendations since graph is empty
     expect(data.recommendations.length).toBeGreaterThan(0);
@@ -794,7 +788,7 @@ describe('getRecommendations', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(typeof data.total).toBe('number');
     expect(data.total).toBe(data.recommendations.length);
   });
@@ -802,7 +796,7 @@ describe('getRecommendations', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('get_recommendations', {}, ctx);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -829,7 +823,7 @@ function makeNode(projectId: string, name: string, overrides: Partial<GraphNode>
     startLine: 1,
     endLine: 10,
     language: 'typescript',
-    properties: {},
+    properties: { name },
     signature: null,
     docstring: null,
     complexity: null,
@@ -881,7 +875,7 @@ describe('generateReport - recommendation and default branches', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.metrics.functionCount).toBe(101);
     expect(data.recommendations).toEqual(
       expect.arrayContaining([
@@ -902,7 +896,7 @@ describe('generateReport - recommendation and default branches', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // Every label lookup misses, so each count falls back to 0.
     expect(data.metrics).toMatchObject({
       nodeCount: 0,
@@ -944,7 +938,7 @@ describe('generateReport - recommendation and default branches', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // getGraphStats() throws on a closed store, so the handler keeps its defaults.
     expect(data.metrics.nodeCount).toBe(0);
     expect(data.metrics.edgeCount).toBe(0);
@@ -969,7 +963,7 @@ describe('exportReport - store-backed exports', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.exported).toBe(true);
     expect(data.outputPath).toBe(path);
 
@@ -994,7 +988,7 @@ describe('exportReport - store-backed exports', () => {
       ctx,
     );
 
-    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+    expect(JSON.parse(result.content[0]!.text!).exported).toBe(true);
 
     const content = readFileSync(path, 'utf-8');
     expect(content).toContain('<!DOCTYPE html>');
@@ -1012,7 +1006,7 @@ describe('exportReport - store-backed exports', () => {
       ctx,
     );
 
-    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+    expect(JSON.parse(result.content[0]!.text!).exported).toBe(true);
 
     const parsed = JSON.parse(readFileSync(path, 'utf-8'));
     expect(parsed.reportId).toBe('report_test-project');
@@ -1039,7 +1033,7 @@ describe('exportReport - store-backed exports', () => {
       ctx,
     );
 
-    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+    expect(JSON.parse(result.content[0]!.text!).exported).toBe(true);
     // Only the store-backed markdown generator emits the distribution section,
     // so its presence proves the switch reached its default arm.
     expect(readFileSync(path, 'utf-8')).toContain('## Node Distribution');
@@ -1123,7 +1117,7 @@ describe('exportReport - store-backed exports', () => {
       closedCtx,
     );
 
-    expect(JSON.parse(result.content[0].text).exported).toBe(true);
+    expect(JSON.parse(result.content[0]!.text!).exported).toBe(true);
     // reportContent stayed empty, so the no-graph-data fallback was used.
     expect(readFileSync(path, 'utf-8')).toContain('No graph data available');
   });
@@ -1141,7 +1135,7 @@ describe('getRecommendations - graph-derived branches', () => {
 
     const result = await registry.execute('get_recommendations', { projectId: 'bigfile' }, ctx);
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1160,7 +1154,6 @@ describe('getRecommendations - graph-derived branches', () => {
       const leaf = makeNode('fanout', `leaf${i}`);
       const leafId = store.insertNode(leaf);
       store.insertEdge({
-        id: 0,
         projectId: 'fanout',
         sourceId: hubId,
         targetId: leafId,
@@ -1177,7 +1170,7 @@ describe('getRecommendations - graph-derived branches', () => {
       new ToolContextImpl(store),
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1200,7 +1193,7 @@ describe('getRecommendations - graph-derived branches', () => {
 
     const result = await registry.execute('get_recommendations', { projectId: 'props-path' }, ctx);
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1216,7 +1209,7 @@ describe('getRecommendations - graph-derived branches', () => {
 
     const result = await registry.execute('get_recommendations', { projectId: 'no-path' }, ctx);
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     // No file was ever counted, so no large-file recommendation was produced.
     expect(
       data.recommendations.some((r: { message: string }) =>
@@ -1237,7 +1230,7 @@ describe('getRecommendations - graph-derived branches', () => {
       ctx,
     );
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.recommendations.map((r: { category: string }) => r.category)).toEqual([
       'maintainability',
       'architecture',

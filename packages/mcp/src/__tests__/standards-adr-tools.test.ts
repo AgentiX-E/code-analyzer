@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Standards, ADR, and Agent Tools Tests
 // Tests for listStandards, createStandard, manageADR, installSkills
 
@@ -22,7 +21,7 @@ describe('listStandards', () => {
       projectId: 'test-project',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('test-project');
     expect(data.standards).toBeDefined();
     expect(data.standards.length).toBe(5);
@@ -37,7 +36,7 @@ describe('listStandards', () => {
       category: 'security',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('security');
     expect(data.standards.length).toBe(1);
     expect(data.standards[0].name).toBe('Security Baseline');
@@ -50,7 +49,7 @@ describe('listStandards', () => {
       category: 'architecture',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('architecture');
     expect(data.standards.length).toBe(1);
     expect(data.standards[0].name).toBe('Architecture Standards');
@@ -62,7 +61,7 @@ describe('listStandards', () => {
       category: 'code-style',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('code-style');
     expect(data.standards.length).toBe(1);
     expect(data.standards[0].name).toBe('Code Style Guide');
@@ -74,7 +73,7 @@ describe('listStandards', () => {
       category: 'performance',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('performance');
     expect(data.standards.length).toBe(1);
     expect(data.standards[0].name).toBe('Performance Standards');
@@ -86,7 +85,7 @@ describe('listStandards', () => {
       category: 'testing',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.category).toBe('testing');
     expect(data.standards.length).toBe(1);
     expect(data.standards[0].name).toBe('Testing Standards');
@@ -106,7 +105,7 @@ describe('listStandards', () => {
       projectId: 'test-project',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.customCount).toBe(1);
     expect(data.total).toBe(6);
   });
@@ -116,7 +115,7 @@ describe('listStandards', () => {
       projectId: 'test-project',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     const categories = data.standards.map((s: any) => s.category);
     expect(categories).toContain('security');
     expect(categories).toContain('architecture');
@@ -131,7 +130,7 @@ describe('listStandards', () => {
       category: 'api-design',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.standards.length).toBe(0);
     expect(data.total).toBe(0);
     expect(data.builtInCount).toBe(0);
@@ -140,7 +139,7 @@ describe('listStandards', () => {
   it('should handle missing required params', async () => {
     const result = await registry.execute('list_standards', {}, undefined as any);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -162,7 +161,7 @@ describe('createStandard', () => {
       category: 'security',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.standardId).toMatch(/^std_/);
     expect(data.name).toBe('Enhanced Security');
     expect(data.category).toBe('security');
@@ -183,7 +182,7 @@ describe('createStandard', () => {
       ],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.created).toBe(true);
     expect(data.ruleCount).toBe(3);
     expect(data.message).toContain('Custom Ruleset');
@@ -197,7 +196,7 @@ describe('createStandard', () => {
       description: 'Rules for microservices',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.created).toBe(true);
     expect(data.category).toBe('architecture');
     expect(data.description).toBe('Rules for microservices');
@@ -210,7 +209,7 @@ describe('createStandard', () => {
       category: 'code-style',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.created).toBe(true);
     expect(data.category).toBe('code-style');
   });
@@ -224,7 +223,7 @@ describe('createStandard', () => {
       rules: [{ id: 'versioning', severity: 'medium', description: 'Use versioned endpoints' }],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.description).toBe('API design guidelines for the team');
     expect(data.ruleCount).toBe(1);
   });
@@ -237,7 +236,7 @@ describe('createStandard', () => {
       rules: [{ severity: 'high', description: 'No ID provided' }],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.created).toBe(true);
     // The rule should have been given an auto-generated ID
     // We verify by creating and then listing standards
@@ -245,7 +244,7 @@ describe('createStandard', () => {
       projectId: 'test-proj',
       category: 'custom',
     });
-    const listData = JSON.parse(listResult.content[0].text);
+    const listData = JSON.parse(listResult.content[0]!.text!);
     const created = listData.standards.find((s: any) => s.name === 'Auto ID Rules');
     expect(created).toBeDefined();
     expect(created.rules[0].id).toBeDefined();
@@ -258,14 +257,14 @@ describe('createStandard', () => {
       category: 'testing',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.message).toBe("Standard 'Testing Rules' created successfully");
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('create_standard', {}, undefined as any);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -288,7 +287,7 @@ describe('manageADR', () => {
       content: '# Decision\n\nWe will use TypeScript for all frontend code.',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.action).toBe('create');
     expect(data.created).toBe(true);
     expect(data.title).toBe('Use TypeScript for frontend');
@@ -317,7 +316,7 @@ describe('manageADR', () => {
       action: 'list',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.action).toBe('list');
     expect(data.adrs).toBeDefined();
     expect(data.adrs.length).toBe(2);
@@ -332,7 +331,7 @@ describe('manageADR', () => {
       title: 'Get Test ADR',
       content: '# Some content',
     });
-    const createData = JSON.parse(createResult.content[0].text);
+    const createData = JSON.parse(createResult.content[0]!.text!);
     const adrId = createData.adrId;
 
     const result = await registry.execute('manage_adr', {
@@ -341,7 +340,7 @@ describe('manageADR', () => {
       adrId,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.found).toBe(true);
     expect(data.title).toBe('Get Test ADR');
     expect(data.content).toBe('# Some content');
@@ -356,7 +355,7 @@ describe('manageADR', () => {
       adrId: 'adr_nonexistent',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.found).toBe(false);
     expect(data.title).toBe('N/A');
     expect(data.content).toBe('');
@@ -368,7 +367,7 @@ describe('manageADR', () => {
       action: 'get',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.found).toBe(false);
     expect(data.error).toBe('adrId is required for get action');
   });
@@ -380,7 +379,7 @@ describe('manageADR', () => {
       title: 'Original Title',
       content: 'Original content',
     });
-    const createData = JSON.parse(createResult.content[0].text);
+    const createData = JSON.parse(createResult.content[0]!.text!);
     const adrId = createData.adrId;
 
     const result = await registry.execute('manage_adr', {
@@ -390,7 +389,7 @@ describe('manageADR', () => {
       title: 'Updated Title',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.updated).toBe(true);
     expect(data.title).toBe('Updated Title');
     expect(data.message).toBe('ADR updated successfully');
@@ -404,7 +403,7 @@ describe('manageADR', () => {
       title: 'Ghost',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.updated).toBe(false);
     expect(data.message).toBe('ADR not found');
   });
@@ -415,7 +414,7 @@ describe('manageADR', () => {
       action: 'update',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.updated).toBe(false);
     expect(data.error).toBe('adrId is required for update action');
   });
@@ -442,7 +441,7 @@ describe('manageADR', () => {
       query: 'Search',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.action).toBe('search');
     expect(data.results).toBeDefined();
     expect(data.results.length).toBeGreaterThanOrEqual(1);
@@ -465,7 +464,7 @@ describe('manageADR', () => {
       query: 'ZZZ_FINDME_ZZZ',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.results.length).toBe(1);
     expect(data.results[0].title).toBe('Content ADR');
   });
@@ -477,7 +476,7 @@ describe('manageADR', () => {
       query: 'nonexistent_term',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.results).toEqual([]);
     expect(data.total).toBe(0);
   });
@@ -489,7 +488,7 @@ describe('manageADR', () => {
       title: 'Auto ID ADR',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.adrId).toMatch(/^adr_\d+$/);
   });
 
@@ -501,7 +500,7 @@ describe('manageADR', () => {
       title: 'Custom ID ADR',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.adrId).toBe('custom-adr-001');
   });
 
@@ -512,7 +511,7 @@ describe('manageADR', () => {
       content: 'A decision recorded without a title',
     });
 
-    const createdData = JSON.parse(created.content[0].text);
+    const createdData = JSON.parse(created.content[0]!.text!);
     expect(createdData.created).toBe(true);
 
     const fetched = await registry.execute('manage_adr', {
@@ -521,7 +520,7 @@ describe('manageADR', () => {
       adrId: createdData.adrId,
     });
 
-    const fetchedData = JSON.parse(fetched.content[0].text);
+    const fetchedData = JSON.parse(fetched.content[0]!.text!);
     expect(fetchedData.found).toBe(true);
     expect(fetchedData.title).toBe('Untitled');
   });
@@ -542,7 +541,7 @@ describe('manageADR', () => {
       content: 'Revised content',
     });
 
-    const updatedData = JSON.parse(updated.content[0].text);
+    const updatedData = JSON.parse(updated.content[0]!.text!);
     expect(updatedData.updated).toBe(true);
     expect(updatedData.title).toBe('Original Title');
   });
@@ -568,15 +567,18 @@ describe('manageADR', () => {
       action: 'search',
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.total).toBe(2);
-    expect(data.results.map((r) => r.adrId).sort()).toEqual(['adr-no-query-1', 'adr-no-query-2']);
+    expect(data.results.map((r: { adrId: string }) => r.adrId).sort()).toEqual([
+      'adr-no-query-1',
+      'adr-no-query-2',
+    ]);
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('manage_adr', {}, undefined as any);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -598,7 +600,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.dryRun).toBe(true);
     expect(data.agents).toEqual(['claude-code']);
     expect(data.message).toContain('Dry run');
@@ -612,7 +614,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.agents.length).toBe(3);
     expect(data.dryRun).toBe(true);
   });
@@ -624,7 +626,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.projectId).toBe('my-special-project');
   });
 
@@ -635,7 +637,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.skills).toEqual(['code-analyzer-exploration', 'code-analyzer-debugging']);
     expect(data.dryRun).toBe(true);
   });
@@ -646,7 +648,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.skills.length).toBeGreaterThan(5);
   });
 
@@ -657,7 +659,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.skills).toEqual(['code-analyzer-exploration']);
   });
 
@@ -667,7 +669,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.agents).toEqual(['windsurf']);
     expect(data.message).toContain('Dry run');
   });
@@ -678,7 +680,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.agents).toContain('aider');
   });
 
@@ -688,7 +690,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.agents).toContain('continue');
   });
 
@@ -698,7 +700,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.agents).toContain('codex');
   });
 
@@ -708,14 +710,14 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.agents).toContain('custom');
   });
 
   it('should handle missing required params', async () => {
     const result = await registry.execute('install_skills', {}, undefined as any);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 
   it('should return both installed and failed arrays', async () => {
@@ -724,7 +726,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.installed).toBeDefined();
     expect(Array.isArray(data.installed)).toBe(true);
     expect(data.failed).toBeDefined();
@@ -736,7 +738,7 @@ describe('installSkills', () => {
       agents: ['claude-code'],
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.dryRun).toBe(false);
     expect(data.message).toContain('Skills installation completed');
     expect(data.installed.length).toBeGreaterThan(0);
@@ -749,7 +751,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.skills).toEqual([]);
     expect(data.installed).toEqual([]);
     expect(data.failed).toEqual(['claude-code:no_matching_config']);
@@ -761,7 +763,7 @@ describe('installSkills', () => {
       dryRun: true,
     });
 
-    const data = JSON.parse(result.content[0].text);
+    const data = JSON.parse(result.content[0]!.text!);
     expect(data.installed).toEqual([]);
     expect(data.failed).toEqual([':all']);
   });
