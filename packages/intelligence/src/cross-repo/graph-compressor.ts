@@ -279,7 +279,6 @@ export class GraphCompressor {
     for (const sn of serialized.nodes) {
       try {
         store.insertNode({
-          id: 0, // Will be assigned by store
           projectId: sn.projectId,
           label: sn.label as GraphNode['label'],
           name: sn.name,
@@ -306,7 +305,6 @@ export class GraphCompressor {
     for (const se of serialized.edges) {
       try {
         store.insertEdge({
-          id: 0,
           projectId: se.projectId,
           sourceId: se.sourceId,
           targetId: se.targetId,

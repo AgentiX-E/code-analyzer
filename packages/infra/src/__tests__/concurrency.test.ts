@@ -80,7 +80,6 @@ describe('InMemoryGraphStore Concurrency', () => {
 
       for (let i = 0; i < 20; i++) {
         store.insertEdge({
-          id: 0,
           projectId: 'concur-test',
           sourceId: a,
           targetId: b,
@@ -220,7 +219,6 @@ describe('InMemoryGraphStore Concurrency', () => {
       // Insert edges synchronously
       for (let i = 0; i < 30; i++) {
         store.insertEdge({
-          id: 0,
           projectId: 'concur-test',
           sourceId: nodeId,
           targetId: nodeId,

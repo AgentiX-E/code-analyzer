@@ -60,7 +60,6 @@ export function insertEdge(
   projectId: string = PROJECT,
 ): void {
   store.insertEdge({
-    id: 0,
     projectId,
     sourceId,
     targetId,

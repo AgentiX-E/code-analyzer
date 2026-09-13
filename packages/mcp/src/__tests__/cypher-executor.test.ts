@@ -74,7 +74,6 @@ function setupStore(projectId: string = 'test-project'): InMemoryGraphStore {
   // Create edges: a calls b, a calls d, b calls c, c has method
   if (a && b) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: a.id,
       targetId: b.id,
@@ -86,7 +85,6 @@ function setupStore(projectId: string = 'test-project'): InMemoryGraphStore {
   }
   if (a && d) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: a.id,
       targetId: d.id,
@@ -98,7 +96,6 @@ function setupStore(projectId: string = 'test-project'): InMemoryGraphStore {
   }
   if (b && c) {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId: b.id,
       targetId: c.id,
@@ -1529,7 +1526,6 @@ describe('Cypher Executor — De-gamification coverage', () => {
     const aId = store.insertNode(makeNode({ name: 'src', qualifiedName: 'pkg.src' }));
     const bId = store.insertNode(makeNode({ name: 'dst', qualifiedName: 'pkg.dst' }));
     store.insertEdge({
-      id: 0,
       projectId: 'test-project',
       sourceId: aId,
       targetId: bId,
@@ -1573,7 +1569,6 @@ describe('Cypher Executor — De-gamification coverage', () => {
     const srcId = store.insertNode(makeNode({ name: 'src', qualifiedName: 'pkg.src' }));
     const dstId = store.insertNode(makeNode({ name: 'dst', qualifiedName: 'pkg.dst' }));
     store.insertEdge({
-      id: 0,
       projectId: 'test-project',
       sourceId: srcId,
       targetId: dstId,

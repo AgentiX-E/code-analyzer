@@ -56,7 +56,6 @@ function insertDefinesEdge(
   projectId: string,
 ): void {
   store.insertEdge({
-    id: 0,
     projectId,
     sourceId: fileId,
     targetId: symbolId,

@@ -116,8 +116,9 @@ export class PerformanceProfiler {
     // Test: insert node
     results.push(
       await this.profileSingleQuery('insertNode', 10, () =>
+        // The store assigns the id; the random one this benchmark passed was
+        // always overwritten.
         store.insertNode({
-          id: Math.floor(Math.random() * 1e9),
           projectId: 'bench',
           name: `benchFn_${Math.random().toString(36).slice(2)}`,
           label: 'Function',

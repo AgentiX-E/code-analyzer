@@ -222,7 +222,6 @@ const REPO_C = 'myorg/service-c';
 
 function insertCrossRepoEdge(store: InMemoryGraphStore, sourceId: number, targetId: number): void {
   store.insertEdge({
-    id: 0,
     projectId: 'cross-repo:test-group',
     sourceId,
     targetId,
@@ -307,7 +306,6 @@ function seedResolveSymbolScenario(store: InMemoryGraphStore): void {
   );
 
   store.insertEdge({
-    id: 0,
     projectId: REPO_B,
     sourceId: importerFile,
     targetId: sharedUtil,

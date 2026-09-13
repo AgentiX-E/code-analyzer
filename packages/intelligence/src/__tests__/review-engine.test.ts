@@ -1921,7 +1921,6 @@ describe('Code Review Engine', () => {
   describe('detectCycles — edge cases (L932-1006)', () => {
     it('detects self-loop cycle (A→A)', async () => {
       const nid = store.insertNode({
-        id: 0,
         projectId: 'test-project',
         label: 'Module',
         name: 'selfA',
@@ -1940,7 +1939,6 @@ describe('Code Review Engine', () => {
         updatedAt: '2024-01-01T00:00:00Z',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: nid,
         targetId: nid,
@@ -1957,7 +1955,6 @@ describe('Code Review Engine', () => {
 
     it('detects multi-node cycle A→B→C→A', async () => {
       const a = store.insertNode({
-        id: 0,
         projectId: 'test-project',
         label: 'Module',
         name: 'cycA',
@@ -1976,7 +1973,6 @@ describe('Code Review Engine', () => {
         updatedAt: '2024-01-01T00:00:00Z',
       });
       const b = store.insertNode({
-        id: 0,
         projectId: 'test-project',
         label: 'Module',
         name: 'cycB',
@@ -1995,7 +1991,6 @@ describe('Code Review Engine', () => {
         updatedAt: '2024-01-01T00:00:00Z',
       });
       const c = store.insertNode({
-        id: 0,
         projectId: 'test-project',
         label: 'Module',
         name: 'cycC',
@@ -2014,7 +2009,6 @@ describe('Code Review Engine', () => {
         updatedAt: '2024-01-01T00:00:00Z',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: a,
         targetId: b,
@@ -2024,7 +2018,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01T00:00:00Z',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: b,
         targetId: c,
@@ -2034,7 +2027,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01T00:00:00Z',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: c,
         targetId: a,
@@ -2273,7 +2265,6 @@ describe('Code Review Engine', () => {
 
       // A -> B -> C -> D (linear chain, plus A -> C creates a shortcut)
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idA,
         targetId: idB,
@@ -2283,7 +2274,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idB,
         targetId: idC,
@@ -2293,7 +2283,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idC,
         targetId: idD,
@@ -2305,7 +2294,6 @@ describe('Code Review Engine', () => {
       // Shortcut: A -> C — when DFS processes C via A->B->C first (BLACK),
       // the A->C edge should skip C entirely
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idA,
         targetId: idC,
@@ -2844,7 +2832,6 @@ describe('Code Review Engine', () => {
       const idD = store.insertNode(nodeD);
 
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idA,
         targetId: idB,
@@ -2854,7 +2841,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idB,
         targetId: idD,
@@ -2864,7 +2850,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idA,
         targetId: idC,
@@ -2874,7 +2859,6 @@ describe('Code Review Engine', () => {
         createdAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: idC,
         targetId: idD,
@@ -3176,7 +3160,6 @@ describe('Code Review Engine', () => {
     it('should skip edges where source or target lacks filePath', async () => {
       const suffix = Date.now();
       const node1 = store.insertNode({
-        id: 0,
         projectId: 'test-project',
         label: 'Function',
         name: 'noPath1',
@@ -3195,7 +3178,6 @@ describe('Code Review Engine', () => {
         updatedAt: '2024-01-01',
       });
       const node2 = store.insertNode({
-        id: 0,
         projectId: 'test-project',
         label: 'Function',
         name: 'noPath2',
@@ -3214,7 +3196,6 @@ describe('Code Review Engine', () => {
         updatedAt: '2024-01-01',
       });
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: node1,
         targetId: node2,

@@ -1265,7 +1265,6 @@ export class CrossRepoIndexer {
     // Invariant: the qualified-name guard above runs synchronously in the same
     // indexing loop, so no duplicate insert can occur and insertNode cannot throw.
     this.store.insertNode({
-      id: 0,
       projectId,
       label: 'File',
       name: basename(filePath),
@@ -1316,7 +1315,6 @@ export class CrossRepoIndexer {
       // Invariant: both endpoint ids come from getRepoNodes above, so insertEdge
       // cannot throw for a missing node (and edges are not de-duplicated).
       this.store.insertEdge({
-        id: 0,
         projectId,
         sourceId: sourceFileNode.id,
         targetId: targetFileNode.id,
@@ -1342,7 +1340,6 @@ export class CrossRepoIndexer {
     // Invariant: the getAllNodes guard above returns on any existing module with
     // the same (repo, edgeType), so a duplicate insert cannot occur here.
     return this.store.insertNode({
-      id: 0,
       projectId: repo,
       label: 'CrossRepoModule',
       name: edgeType,

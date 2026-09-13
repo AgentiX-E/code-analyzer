@@ -598,7 +598,6 @@ export const resolvers = {
 
       // Create a project node to represent the indexing request
       store.insertNode({
-        id: 0,
         projectId,
         label: 'Project',
         name: args.path.split('/').pop() ?? projectId,

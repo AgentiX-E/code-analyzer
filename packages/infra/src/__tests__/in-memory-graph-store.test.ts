@@ -1805,7 +1805,6 @@ describe('InMemoryGraphStore', () => {
         createTestNode({ qualifiedName: 'clean.node2', name: 'cleanNode2' }),
       );
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: n1,
         targetId: n2,
@@ -3453,6 +3452,116 @@ describe('InMemoryGraphStore', () => {
 
       const result = store.queryEdges({ projectId: 'test-project' });
       expect(result.total).toBe(2);
+    });
+  });
+
+  describe('store-owned fields', () => {
+    // `insertNode` used to demand a complete `GraphNode` — including `id`, which it
+    // overwrote, and `createdAt`/`updatedAt`, which it never set. A caller that
+    // omitted the timestamps got `undefined`, and `auto-indexer` compares
+    // `updatedAt` with `>` to pick the most recent node. These tests pin the rule:
+    // identity and time belong to the store.
+    it('stamps createdAt and updatedAt when the caller omits them', () => {
+      const id = store.insertNode({
+        projectId: 'p',
+        label: 'Function',
+        name: 'f',
+        qualifiedName: 'p.f',
+        filePath: null,
+        startLine: null,
+        endLine: null,
+        language: null,
+        properties: { name: 'f' },
+        complexity: null,
+        isExported: false,
+      });
+
+      const node = store.getNode(id)!;
+      expect(typeof node.createdAt).toBe('string');
+      expect(typeof node.updatedAt).toBe('string');
+      expect(Number.isNaN(Date.parse(node.createdAt))).toBe(false);
+      expect(Number.isNaN(Date.parse(node.updatedAt))).toBe(false);
+    });
+
+    it('defaults the nullable descriptive fields to null', () => {
+      const id = store.insertNode({
+        projectId: 'p',
+        label: 'Function',
+        name: 'f',
+        qualifiedName: 'p.f',
+        filePath: null,
+        startLine: null,
+        endLine: null,
+        language: null,
+        properties: { name: 'f' },
+        complexity: null,
+        isExported: false,
+      });
+
+      const node = store.getNode(id)!;
+      expect(node.signature).toBeNull();
+      expect(node.docstring).toBeNull();
+      expect(node.fingerprint).toBeNull();
+    });
+
+    it('keeps timestamps a restore supplies verbatim', () => {
+      const createdAt = '2020-01-01T00:00:00.000Z';
+      const updatedAt = '2020-06-01T00:00:00.000Z';
+      const id = store.insertNode(
+        createTestNode({ qualifiedName: 'restored.fn', createdAt, updatedAt }),
+      );
+
+      const node = store.getNode(id)!;
+      expect(node.createdAt).toBe(createdAt);
+      expect(node.updatedAt).toBe(updatedAt);
+    });
+
+    it('stamps the same way through the batch path', () => {
+      const [id] = store.insertNodes([
+        {
+          projectId: 'p',
+          label: 'Function',
+          name: 'batch',
+          qualifiedName: 'p.batch',
+          filePath: null,
+          startLine: null,
+          endLine: null,
+          language: null,
+          properties: { name: 'batch' },
+          complexity: null,
+          isExported: false,
+        },
+      ]);
+
+      const node = store.getNode(id!)!;
+      expect(typeof node.createdAt).toBe('string');
+      expect(Number.isNaN(Date.parse(node.createdAt))).toBe(false);
+    });
+
+    it('orders freshly inserted nodes by their stamped updatedAt', () => {
+      const first = store.insertNode(createTestNode({ qualifiedName: 'order.a' }));
+      const second = store.insertNode(createTestNode({ qualifiedName: 'order.b' }));
+
+      // What `auto-indexer` relies on: both compare as real times, newest last.
+      const a = store.getNode(first)!.updatedAt;
+      const b = store.getNode(second)!.updatedAt;
+      expect(Date.parse(b)).toBeGreaterThanOrEqual(Date.parse(a));
+    });
+
+    it('defaults edge weight and properties, and stamps createdAt', () => {
+      const n1 = store.insertNode(createTestNode({ qualifiedName: 'edge.a' }));
+      const n2 = store.insertNode(createTestNode({ qualifiedName: 'edge.b' }));
+      const edgeId = store.insertEdge({
+        projectId: 'p',
+        sourceId: n1,
+        targetId: n2,
+        type: 'CALLS',
+      });
+
+      const edge = store.getAllEdges().find((e) => e.id === edgeId)!;
+      expect(edge.weight).toBe(1);
+      expect(edge.properties).toEqual({});
+      expect(Number.isNaN(Date.parse(edge.createdAt))).toBe(false);
     });
   });
 });

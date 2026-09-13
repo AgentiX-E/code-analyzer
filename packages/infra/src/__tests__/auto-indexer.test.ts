@@ -299,7 +299,6 @@ describe('AutoIndexer', () => {
     expect(nodes.length).toBeGreaterThanOrEqual(2);
 
     store.insertEdge({
-      id: 0,
       projectId: result.projectId,
       sourceId: nodes[0]!.id,
       targetId: nodes[1]!.id,

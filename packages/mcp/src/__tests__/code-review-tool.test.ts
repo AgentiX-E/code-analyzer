@@ -108,7 +108,6 @@ function createTestContext(projectId: string = 'test-project'): ToolContextImpl 
     for (const caller of callers) {
       if (simpleFn) {
         store.insertEdge({
-          id: 0,
           projectId,
           sourceId: caller.id,
           targetId: simpleFn.id,
@@ -1090,7 +1089,6 @@ describe('reviewDiff — null fields and fallback', () => {
         makeNode({ name: `caller${i}`, qualifiedName: `pkg.caller${i}`, projectId }),
       );
       store.insertEdge({
-        id: 0,
         projectId,
         sourceId: callerId,
         targetId,

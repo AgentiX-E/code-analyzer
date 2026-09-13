@@ -1058,7 +1058,6 @@ describe('CrossRepoIndexer', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'o/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -1303,7 +1302,6 @@ describe('FederatedSearchEngine', () => {
       // Create DEFINES edges
       const now = new Date().toISOString();
       store.insertEdge({
-        id: 0,
         projectId: 'repo-a',
         sourceId: insertedA,
         targetId: fa1,
@@ -1313,7 +1311,6 @@ describe('FederatedSearchEngine', () => {
         createdAt: now,
       });
       store.insertEdge({
-        id: 0,
         projectId: 'repo-a',
         sourceId: insertedA,
         targetId: fa2,
@@ -1323,7 +1320,6 @@ describe('FederatedSearchEngine', () => {
         createdAt: now,
       });
       store.insertEdge({
-        id: 0,
         projectId: 'repo-b',
         sourceId: insertedB,
         targetId: fb1,
@@ -1333,7 +1329,6 @@ describe('FederatedSearchEngine', () => {
         createdAt: now,
       });
       store.insertEdge({
-        id: 0,
         projectId: 'repo-b',
         sourceId: insertedB,
         targetId: fb2,
@@ -1680,7 +1675,6 @@ describe('Cross-Repo Edge Cases', () => {
     const fB = store.insertNode(funcB);
 
     store.insertEdge({
-      id: 0,
       projectId: 'repo-a',
       sourceId: insertedA,
       targetId: fA,
@@ -1690,7 +1684,6 @@ describe('Cross-Repo Edge Cases', () => {
       createdAt: now,
     });
     store.insertEdge({
-      id: 0,
       projectId: 'repo-b',
       sourceId: insertedB,
       targetId: fB,
@@ -1962,7 +1955,6 @@ describe('Cross-Repo Edge Cases', () => {
 
     const now = new Date().toISOString();
     store.insertEdge({
-      id: 0,
       projectId: 'rx',
       sourceId: faRef,
       targetId: fA,
@@ -1972,7 +1964,6 @@ describe('Cross-Repo Edge Cases', () => {
       createdAt: now,
     });
     store.insertEdge({
-      id: 0,
       projectId: 'ry',
       sourceId: fbRef,
       targetId: fB,
@@ -2265,7 +2256,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2290,7 +2280,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2325,7 +2314,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Only sourceFn has a CROSS_REPO edge to targetFn
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2351,7 +2339,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2373,7 +2360,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2394,7 +2380,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2415,7 +2400,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2446,7 +2430,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Create a cross-repo edge referencing targetFn from another repo's node
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2476,7 +2459,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Cross-repo edge: sourceFn (repo-a) → targetFn (repo-b)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -2488,7 +2470,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Cross-repo edge: targetFn (repo-b) → deepTarget (repo-c)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-b',
         sourceId: idB,
         targetId: idC,
@@ -2519,7 +2500,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idFileB = store.insertNode(fileB);
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-b',
         sourceId: idFileB,
         targetId: sourceFn.id,
@@ -2838,7 +2818,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3020,7 +2999,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // repo-a → repo-b (depth 1)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3031,7 +3009,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       });
       // repo-b → repo-c (depth 2)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-b',
         sourceId: idB,
         targetId: idC,
@@ -3062,7 +3039,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       });
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: nodes['repo-a']!,
         targetId: nodes['repo-b']!,
@@ -3072,7 +3048,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
         createdAt: now,
       });
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-b',
         sourceId: nodes['repo-b']!,
         targetId: nodes['repo-c']!,
@@ -3082,7 +3057,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
         createdAt: now,
       });
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-c',
         sourceId: nodes['repo-c']!,
         targetId: nodes['repo-d']!,
@@ -3110,7 +3084,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = store.insertNode(nodeB);
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3141,7 +3114,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idC = store.insertNode(nodeC);
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3151,7 +3123,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
         createdAt: now,
       });
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-b',
         sourceId: idB,
         targetId: idC,
@@ -3284,7 +3255,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = allNodes.find((n) => n.name === 'targetFn')!.id;
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3362,7 +3332,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idB = store.insertNode(fnB);
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3404,7 +3373,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Create IMPORTS edge from file in repo-a to exported symbol in repo-b
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idFileA,
         targetId: idExported,
@@ -3438,7 +3406,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       const idOut = store.insertNode(outsideNode);
 
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idOut,
@@ -3467,7 +3434,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Direct edge from repo-a to repo-b
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idB,
@@ -3479,7 +3445,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // Self-referencing edge in repo-b (should be skipped in transitive traversal)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-b',
         sourceId: idB,
         targetId: idB,
@@ -3528,7 +3493,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
 
       // repo-a → repo-x (depth 1 direct)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-a',
         sourceId: idA,
         targetId: idX,
@@ -3539,7 +3503,6 @@ describe('CrossRepoIndexer — branch coverage', () => {
       });
       // repo-x → repo-b (depth 2 transitive — getSymbolsInRepo triggered here)
       store.insertEdge({
-        id: 0,
         projectId: 'org/repo-x',
         sourceId: idX,
         targetId: idFnB,
@@ -3615,7 +3578,6 @@ describe('CrossRepoIndexer — de-gamification branch coverage', () => {
 
   function addEdge(sourceId: number, targetId: number, type: string, projectId: string): void {
     store.insertEdge({
-      id: 0,
       projectId,
       sourceId,
       targetId,

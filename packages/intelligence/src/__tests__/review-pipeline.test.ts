@@ -243,7 +243,6 @@ describe('ReviewPipeline - Context Enrichment', () => {
 
     // Add a node in the diff's file
     store.insertNode({
-      id: 0,
       projectId: 'test',
       label: 'Function',
       name: 'myFunc',
@@ -276,7 +275,6 @@ describe('ReviewPipeline - Context Enrichment', () => {
 
     // Source node
     store.insertNode({
-      id: 0,
       projectId: 'test',
       label: 'Function',
       name: 'myFunc',
@@ -297,7 +295,6 @@ describe('ReviewPipeline - Context Enrichment', () => {
 
     // Test node
     store.insertNode({
-      id: 0,
       projectId: 'test',
       label: 'Test',
       name: 'testMyFunc',
@@ -318,7 +315,6 @@ describe('ReviewPipeline - Context Enrichment', () => {
 
     // Edge from source to test
     store.insertEdge({
-      id: 0,
       projectId: 'test',
       sourceId: 1,
       targetId: 2,
@@ -354,7 +350,6 @@ describe('ReviewPipeline - Context Enrichment', () => {
     // Add multiple nodes
     for (let i = 0; i < 5; i++) {
       store.insertNode({
-        id: 0,
         projectId: 'test',
         label: 'Function',
         name: `func${i}`,
@@ -977,7 +972,6 @@ describe('ReviewPipeline - newly measured paths', () => {
     // must not append a duplicate entry.
     for (const targetId of [testAId, testBId, helperId]) {
       store.insertEdge({
-        id: 0,
         projectId: 'test-project',
         sourceId: appId,
         targetId,

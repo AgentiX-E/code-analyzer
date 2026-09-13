@@ -44,7 +44,6 @@ function addEdge(
   type: RelationshipType = 'CALLS',
 ) {
   store.insertEdge({
-    id: edgeId++,
     projectId: 'test-project',
     sourceId,
     targetId,

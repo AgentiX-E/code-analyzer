@@ -36,7 +36,6 @@ function populateStore(): void {
   const projectId = 'test-project-1';
 
   store.insertNode({
-    id: 0,
     projectId,
     label: 'Project',
     name: 'test-project',
@@ -56,7 +55,6 @@ function populateStore(): void {
   });
 
   const classId = store.insertNode({
-    id: 0,
     projectId,
     label: 'Class',
     name: 'UserService',
@@ -82,7 +80,6 @@ function populateStore(): void {
   });
 
   const funcId = store.insertNode({
-    id: 0,
     projectId,
     label: 'Function',
     name: 'getUser',
@@ -109,7 +106,6 @@ function populateStore(): void {
   });
 
   store.insertEdge({
-    id: 0,
     projectId,
     sourceId: classId,
     targetId: funcId,

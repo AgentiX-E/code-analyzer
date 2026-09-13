@@ -98,7 +98,6 @@ function createStoreWithData(): InMemoryGraphStore {
 
   // Insert edges
   store.insertEdge({
-    id: 0,
     projectId: 'org/repo-a',
     sourceId: node1Id,
     targetId: node2Id,
@@ -109,7 +108,6 @@ function createStoreWithData(): InMemoryGraphStore {
   });
 
   store.insertEdge({
-    id: 0,
     projectId: 'org/repo-a',
     sourceId: node2Id,
     targetId: node3Id,
@@ -121,7 +119,6 @@ function createStoreWithData(): InMemoryGraphStore {
 
   // Cross-repo edge
   store.insertEdge({
-    id: 0,
     projectId: 'org/repo-a',
     sourceId: node1Id,
     targetId: node3Id,

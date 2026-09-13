@@ -51,7 +51,6 @@ async function makeBuilderWithBuiltGraph(): Promise<ImpactGraphBuilder> {
   const coreFnId = store.insertNode(makeNode('org/core', 'coreFn'));
   const svcFnId = store.insertNode(makeNode('org/svc', 'svcFn'));
   store.insertEdge({
-    id: 0,
     projectId: 'org/core',
     sourceId: coreFnId,
     targetId: svcFnId,

@@ -337,7 +337,6 @@ describe('IncrementalReindexer', () => {
 
       // Index a file first by inserting a node directly
       store.insertNode({
-        id: 0,
         projectId: 'test-repo',
         label: 'Function',
         name: 'ghost',
@@ -387,7 +386,6 @@ describe('IncrementalReindexer', () => {
 
       // Insert a node with a file path matching the deleted file
       const nodeId = store.insertNode({
-        id: 0,
         projectId: 'test-repo',
         label: 'Function',
         name: 'willBeDeleted',
@@ -415,7 +413,6 @@ describe('IncrementalReindexer', () => {
 
       // Add an edge for the node
       const edgeId = store.insertEdge({
-        id: 0,
         projectId: 'test-repo',
         sourceId: nodeId,
         targetId: nodeId,
@@ -515,7 +512,6 @@ describe('IncrementalReindexer', () => {
 
       // Insert a node with null filePath — should not match deleted file filter
       store.insertNode({
-        id: 0,
         projectId: 'test-repo',
         label: 'Function',
         name: 'noFilePath',

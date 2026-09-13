@@ -40,7 +40,7 @@ function createNode(id: number, overrides: Partial<GraphNode> = {}): GraphNode {
 
 function createEdge(
   store: InMemoryGraphStore,
-  id: number,
+  _id: number,
   sourceId: number,
   targetId: number,
   type:
@@ -53,7 +53,6 @@ function createEdge(
     | 'STEP_IN_PROCESS',
 ): void {
   store.insertEdge({
-    id,
     projectId: PROJECT_ID,
     sourceId,
     targetId,
@@ -1778,7 +1777,6 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     // Handler handles route
     store.insertEdge({
-      id: 201,
       projectId: PROJECT_ID,
       sourceId: 1,
       targetId: 2,
@@ -1837,7 +1835,6 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     // Edges: handler → route, route → consumer
     store.insertEdge({
-      id: 301,
       projectId: PROJECT_ID,
       sourceId: 1,
       targetId: 2,
@@ -1847,7 +1844,6 @@ describe('ImpactAnalyzer — additional edge cases', () => {
       createdAt: '2024-01-01T00:00:00Z',
     });
     store.insertEdge({
-      id: 302,
       projectId: PROJECT_ID,
       sourceId: 2,
       targetId: 3,
@@ -1895,7 +1891,6 @@ describe('ImpactAnalyzer — additional edge cases', () => {
 
     // Process has a STEP_IN_PROCESS edge to the step
     store.insertEdge({
-      id: 201,
       projectId: PROJECT_ID,
       sourceId: 1,
       targetId: 2,

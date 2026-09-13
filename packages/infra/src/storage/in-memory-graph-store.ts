@@ -53,6 +53,25 @@ interface StoredEdge {
 }
 
 /**
+ * What a caller supplies to `insertNode`.
+ *
+ * The store owns identity and time: it assigns `id` itself and stamps
+ * `createdAt`/`updatedAt`, so a caller must not have to invent them. The nullable
+ * descriptive fields default to `null`. `id` is excluded rather than accepted and
+ * ignored — a caller that passed it got a different id back with no warning. The
+ * timestamps stay optional so a restore can carry them through verbatim.
+ */
+export type NewGraphNode = Omit<
+  GraphNode,
+  'id' | 'signature' | 'docstring' | 'fingerprint' | 'createdAt' | 'updatedAt'
+> &
+  Partial<Pick<GraphNode, 'signature' | 'docstring' | 'fingerprint' | 'createdAt' | 'updatedAt'>>;
+
+/** What a caller supplies to `insertEdge` — the same reasoning as {@link NewGraphNode}. */
+export type NewGraphEdge = Omit<GraphEdge, 'id' | 'properties' | 'weight' | 'createdAt'> &
+  Partial<Pick<GraphEdge, 'properties' | 'weight' | 'createdAt'>>;
+
+/**
  * Helper: compute the intersection of two number sets, returning the smaller.
  * Used by queryNodes to intersect project and label index results.
  */
@@ -127,9 +146,40 @@ export class InMemoryGraphStore {
   // Node CRUD
   // -------------------------------------------------------------------------
 
-  insertNode(node: GraphNode): number {
+  /**
+   * Fill in the fields the store owns, so the single and batch paths cannot drift.
+   *
+   * `updateNode` stamped `updatedAt`, but `insertNode` left both timestamps to the
+   * caller — so a caller that omitted them produced nodes with `undefined` times,
+   * which `auto-indexer` then compared with `>` to pick the newest node. The sqlite
+   * store already compensated with `node.createdAt || now`; this applies that rule
+   * where the value is set.
+   */
+  private materializeNode(input: NewGraphNode, now: string): Omit<GraphNode, 'id'> {
+    return {
+      ...input,
+      signature: input.signature ?? null,
+      docstring: input.docstring ?? null,
+      fingerprint: input.fingerprint ?? null,
+      createdAt: input.createdAt ?? now,
+      updatedAt: input.updatedAt ?? now,
+    };
+  }
+
+  /** The edge counterpart of {@link materializeNode}. */
+  private materializeEdge(input: NewGraphEdge): Omit<GraphEdge, 'id'> {
+    return {
+      ...input,
+      properties: input.properties ?? {},
+      weight: input.weight ?? 1,
+      createdAt: input.createdAt ?? new Date().toISOString(),
+    };
+  }
+
+  insertNode(input: NewGraphNode): number {
     this.ensureOpen();
     const id = this.nextNodeId++;
+    const node = this.materializeNode(input, new Date().toISOString());
     const stored: StoredNode = { ...node, id };
     this.nodes.set(id, stored);
 
@@ -153,7 +203,7 @@ export class InMemoryGraphStore {
    * Batch insert nodes — optimized for bulk operations.
    * Validates all qualified names before any insertion to avoid partial state.
    */
-  insertNodes(nodes: GraphNode[]): number[] {
+  insertNodes(nodes: NewGraphNode[]): number[] {
     this.ensureOpen();
     const ids: number[] = [];
 
@@ -178,7 +228,7 @@ export class InMemoryGraphStore {
     // Bulk insert — allocate contiguous IDs
     for (const node of nodes) {
       const id = this.nextNodeId++;
-      const stored: StoredNode = { ...node, id };
+      const stored: StoredNode = { ...this.materializeNode(node, new Date().toISOString()), id };
       this.nodes.set(id, stored);
       if (node.qualifiedName) {
         this.qnameIndex.set(node.qualifiedName, id);
@@ -434,8 +484,10 @@ export class InMemoryGraphStore {
   // Edge CRUD
   // -------------------------------------------------------------------------
 
-  insertEdge(edge: GraphEdge): number {
+  insertEdge(input: NewGraphEdge): number {
     this.ensureOpen();
+    // Same rule as `insertNode`: identity and timestamp belong to the store.
+    const edge = this.materializeEdge(input);
 
     // Verify source and target exist
     if (!this.nodes.has(edge.sourceId)) {
@@ -464,7 +516,7 @@ export class InMemoryGraphStore {
    * Batch insert edges — optimized for bulk operations.
    * Validates all source/target nodes before any insertion.
    */
-  insertEdges(edges: GraphEdge[]): number[] {
+  insertEdges(edges: NewGraphEdge[]): number[] {
     this.ensureOpen();
     const ids: number[] = [];
 
@@ -481,7 +533,7 @@ export class InMemoryGraphStore {
     // Bulk insert
     for (const edge of edges) {
       const id = this.nextEdgeId++;
-      const stored: StoredEdge = { ...edge, id };
+      const stored: StoredEdge = { ...this.materializeEdge(edge), id };
       this.edges.set(id, stored);
       this.addToIndex(this.sourceEdgeIndex, edge.sourceId, id);
       this.addToIndex(this.targetEdgeIndex, edge.targetId, id);
