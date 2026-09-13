@@ -43,7 +43,7 @@
     "dev": "turbo dev",
     "test": "turbo test",
     "test:unit": "vitest run",
-    "test:coverage": "python3 scripts/coverage-report.py",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage --coverage.enabled=true --coverage.provider=v8 --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=text --coverage.reportsDirectory=coverage && node scripts/coverage-report.js",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:property": "vitest run --config vitest.property.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
