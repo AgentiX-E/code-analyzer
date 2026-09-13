@@ -9,6 +9,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
+import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import type { TypeInfo, TypeMember, TypeVisibility } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
@@ -418,8 +419,8 @@ export class GoResolver extends TypeResolverBase {
       // Skip for now, could extract package-level variables
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAST(node.child(i), source, types);
+    for (const child of childrenOf(node)) {
+      this.walkAST(child, source, types);
     }
   }
 
@@ -574,8 +575,7 @@ export class GoResolver extends TypeResolverBase {
     // empty struct `{}` carries an empty one).
     const body = this.findChild(structNode, 'field_declaration_list')!;
 
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
+    for (const child of childrenOf(body)) {
       if (!child || child.type !== 'field_declaration') continue;
 
       // Get field name(s) — Go allows "a, b, c int"
@@ -788,8 +788,7 @@ export class GoResolver extends TypeResolverBase {
   private extractGenericParams(node: SyntaxNode, result: string[]): void {
     const tpList = this.findChild(node, 'type_parameter_list');
     if (!tpList) return;
-    for (let i = 0; i < tpList.childCount; i++) {
-      const child = tpList.child(i);
+    for (const child of childrenOf(tpList)) {
       if (child && child.type === 'type_parameter_declaration') {
         // A type_parameter_declaration always carries its name as `identifier`.
         result.push(this.childText(child, 'identifier')!);
@@ -801,8 +800,7 @@ export class GoResolver extends TypeResolverBase {
     const params: string[] = [];
     const tpList = this.findChild(node, 'type_parameter_list');
     if (!tpList) return params;
-    for (let i = 0; i < tpList.childCount; i++) {
-      const child = tpList.child(i);
+    for (const child of childrenOf(tpList)) {
       if (child && child.type === 'type_parameter_declaration') {
         // A type_parameter_declaration always carries its name as `identifier`.
         params.push(this.childText(child, 'identifier')!);
@@ -814,8 +812,7 @@ export class GoResolver extends TypeResolverBase {
   /** Extract embedded interface names (type_elem) from an interface_type. */
   private extractEmbeddedInterfaces(interfaceNode: SyntaxNode): string[] {
     const embedded: string[] = [];
-    for (let i = 0; i < interfaceNode.childCount; i++) {
-      const c = interfaceNode.child(i);
+    for (const c of childrenOf(interfaceNode)) {
       if (c && c.type === 'type_elem') {
         // A type_elem always wraps a type (qualified_type for embedded interfaces).
         embedded.push(this.findTypeNode(c)!.text);
@@ -853,24 +850,21 @@ export class GoResolver extends TypeResolverBase {
   /** Collect all parameter_list children of a declaration, in source order. */
   private collectParamLists(node: SyntaxNode): SyntaxNode[] {
     const lists: SyntaxNode[] = [];
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c && c.type === 'parameter_list') lists.push(c);
     }
     return lists;
   }
 
   private childText(node: SyntaxNode, type: string): string | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c && c.type === type && c.text) return c.text;
     }
     return null;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c && c.type === type) return c;
     }
     return null;
@@ -897,8 +891,7 @@ export class GoResolver extends TypeResolverBase {
 
   /** Find the first named child that represents a Go type. */
   private findTypeNode(node: SyntaxNode): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c && GoResolver.TYPE_NODES.has(c.type)) return c;
     }
     return null;

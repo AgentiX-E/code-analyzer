@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
@@ -80,8 +81,7 @@ export class BashProvider extends TreeSitterBaseProvider {
         this.makeCapture(node, CAPTURE_TAGS.FUNCTION_DEF, nameNode.text, nameNode.text),
       );
     } else if (nt === 'variable_assignment') {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'variable_name') {
           captures.push(this.makeCapture(child, CAPTURE_TAGS.VARIABLE_DEF, child.text, child.text));
         }
@@ -108,8 +108,8 @@ export class BashProvider extends TreeSitterBaseProvider {
       );
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -118,8 +118,7 @@ export class BashProvider extends TreeSitterBaseProvider {
 
     // Source/include detection
     if (cmdName === 'source' || cmdName === '.') {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'word' && child.text !== 'source' && child.text !== '.') {
           captures.push(
             this.makeCapture(child, CAPTURE_TAGS.IMPORT, child.text, `source ${child.text}`, {
@@ -219,8 +218,8 @@ export class BashProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSources(node.child(i), sources);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSources(child, sources);
     }
   }
 
@@ -280,8 +279,8 @@ export class BashProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSinks(node.child(i), sinks);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSinks(child, sinks);
     }
   }
 
@@ -318,8 +317,8 @@ export class BashProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForSanitizers(node.child(i), sanitizers);
+    for (const child of childrenOf(node)) {
+      this.walkForSanitizers(child, sanitizers);
     }
   }
 
@@ -329,8 +328,7 @@ export class BashProvider extends TreeSitterBaseProvider {
     if (node.type === 'command') {
       const cmdName = this.getCommandName(node);
       if (cmdName === 'source' || cmdName === '.') {
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
+        for (const child of namedChildrenOf(node)) {
           if (child.type === 'word' && child.text !== 'source' && child.text !== '.') {
             imports.push({
               source: child.text,
@@ -343,8 +341,8 @@ export class BashProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -355,8 +353,8 @@ export class BashProvider extends TreeSitterBaseProvider {
   // ---- Helpers ----
 
   private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

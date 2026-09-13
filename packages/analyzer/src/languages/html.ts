@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf } from './syntax-children.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
@@ -46,8 +47,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       );
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -55,8 +56,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     let tagName = '';
     let id = '';
     let cls = '';
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'start_tag' || child.type === 'self_closing_tag') {
         for (let j = 0; j < child.childCount; j++) {
           const sub = child.child(j);
@@ -133,8 +133,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       let tagNameNode = this.findTagName(node);
       if (!tagNameNode) {
         // Recursively walk children even if no tag_name found
-        for (let i = 0; i < node.childCount; i++) {
-          this.walkForTaintSources(node.child(i), sources);
+        for (const child of childrenOf(node)) {
+          this.walkForTaintSources(child, sources);
         }
         return;
       }
@@ -166,8 +166,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
         return;
       }
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSources(node.child(i), sources);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSources(child, sources);
     }
   }
 
@@ -179,8 +179,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     ) {
       const tagNameNode = this.findTagName(node);
       if (!tagNameNode) {
-        for (let i = 0; i < node.childCount; i++) {
-          this.walkForTaintSinks(node.child(i), sinks);
+        for (const child of childrenOf(node)) {
+          this.walkForTaintSinks(child, sinks);
         }
         return;
       }
@@ -244,8 +244,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSinks(node.child(i), sinks);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSinks(child, sinks);
     }
   }
 
@@ -260,8 +260,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
     ) {
       const tagNameNode = this.findTagName(node);
       if (!tagNameNode) {
-        for (let i = 0; i < node.childCount; i++) {
-          this.walkForSanitizers(node.child(i), sanitizers);
+        for (const child of childrenOf(node)) {
+          this.walkForSanitizers(child, sanitizers);
         }
         return;
       }
@@ -282,8 +282,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForSanitizers(node.child(i), sanitizers);
+    for (const child of childrenOf(node)) {
+      this.walkForSanitizers(child, sanitizers);
     }
   }
 
@@ -302,16 +302,14 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   }
 
   private getAttrName(attrNode: TreeSitterSyntaxNode): string {
-    for (let i = 0; i < attrNode.childCount; i++) {
-      const child = attrNode.child(i);
+    for (const child of childrenOf(attrNode)) {
       if (child.type === 'attribute_name') return child.text;
     }
     return '';
   }
 
   private getAttrValue(attrNode: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < attrNode.childCount; i++) {
-      const child = attrNode.child(i);
+    for (const child of childrenOf(attrNode)) {
       if (child.type === 'attribute_value' || child.type === 'quoted_attribute_value') {
         let val = child.text;
         if (
@@ -327,8 +325,8 @@ export class HtmlProvider extends TreeSitterBaseProvider {
   }
 
   private findChildOfType(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.childCount; i++) {
-      if (node.child(i).type === type) return node.child(i);
+    for (const child of childrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }
@@ -343,8 +341,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
       node.type === 'element' || node.type === 'script_element' || node.type === 'style_element'
         ? this.findChildOfType(node, 'start_tag')!
         : node;
-    for (let i = 0; i < container.childCount; i++) {
-      const child = container.child(i);
+    for (const child of childrenOf(container)) {
       if (child.type === 'attribute') {
         if (this.getAttrName(child) === name) return this.getAttrValue(child);
       }
@@ -354,8 +351,7 @@ export class HtmlProvider extends TreeSitterBaseProvider {
 
   private collectAttributes(node: TreeSitterSyntaxNode): string[] {
     const attrs: string[] = [];
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'start_tag') {
         for (let j = 0; j < child.childCount; j++) {
           const sub = child.child(j);

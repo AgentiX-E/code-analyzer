@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -44,8 +45,7 @@ export class GoProvider extends TreeSitterBaseProvider {
         },
       });
     } else if (nodeType === 'type_declaration') {
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'type_spec') {
           // type_spec = `type_identifier type` — the name is a mandatory type_identifier.
           const nameNode = this.findChildType(child, 'type_identifier')!;
@@ -117,8 +117,7 @@ export class GoProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'var_declaration' || nodeType === 'const_declaration') {
       const isConst = nodeType === 'const_declaration';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'var_spec' || child.type === 'const_spec') {
           this.emitVariableCapture(child, isConst, captures);
         }
@@ -144,8 +143,8 @@ export class GoProvider extends TreeSitterBaseProvider {
       });
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -164,8 +163,8 @@ export class GoProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -306,8 +305,7 @@ export class GoProvider extends TreeSitterBaseProvider {
   /** Extract the receiver type name, stripping pointer/package/argument wrappers. */
   private extractReceiverType(methodNode: TreeSitterSyntaxNode): string {
     let receiverType = '';
-    for (let i = 0; i < methodNode.childCount; i++) {
-      const child = methodNode.child(i);
+    for (const child of childrenOf(methodNode)) {
       if (child.type === 'parameter_list') {
         for (let j = 0; j < child.childCount; j++) {
           const p = child.child(j);
@@ -334,8 +332,7 @@ export class GoProvider extends TreeSitterBaseProvider {
       node.type === 'qualified_type' ||
       node.type === 'generic_type'
     ) {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'type_identifier') return child.text;
         if (
           child.type === 'pointer_type' ||
@@ -356,8 +353,7 @@ export class GoProvider extends TreeSitterBaseProvider {
   } {
     let path = '';
     let alias: string | undefined;
-    for (let i = 0; i < spec.childCount; i++) {
-      const child = spec.child(i);
+    for (const child of childrenOf(spec)) {
       if (child.type === 'interpreted_string_literal' || child.type === 'raw_string_literal') {
         path = child.text.slice(1, -1);
       } else if (child.type === 'package_identifier') {
@@ -417,13 +413,13 @@ export class GoProvider extends TreeSitterBaseProvider {
   /** Whether a Go identifier is exported (starts with a Unicode uppercase letter). */
   private isExportedName(symbolName: string): boolean {
     if (!symbolName) return false;
-    const first = symbolName[0];
+    const first = symbolName.charAt(0);
     return first === first.toUpperCase() && first !== first.toLowerCase();
   }
 
   private findChildType(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

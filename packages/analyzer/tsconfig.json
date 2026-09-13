@@ -4,9 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "declarationDir": "./dist",
-    "composite": true,
-    "noUncheckedIndexedAccess": false,
-    "strictNullChecks": false
+    "composite": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "src/__tests__"],

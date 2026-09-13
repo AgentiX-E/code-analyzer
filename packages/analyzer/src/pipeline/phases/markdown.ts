@@ -26,15 +26,16 @@ function extractMarkdownSections(content: string): MarkdownSection[] {
   const sections: MarkdownSection[] = [];
   const headingLines: { level: number; title: string; line: number }[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const match = HEADING_REGEX.exec(lines[i]);
+  for (const [i, raw] of lines.entries()) {
+    const match = HEADING_REGEX.exec(raw);
     if (match) {
-      headingLines.push({ level: match[1].length, title: match[2].trim(), line: i + 1 });
+      const [, hashes, title] = match;
+      if (hashes === undefined || title === undefined) continue;
+      headingLines.push({ level: hashes.length, title: title.trim(), line: i + 1 });
     }
   }
 
-  for (let i = 0; i < headingLines.length; i++) {
-    const current = headingLines[i];
+  for (const [i, current] of headingLines.entries()) {
     const next = headingLines[i + 1];
     sections.push({
       level: current.level,

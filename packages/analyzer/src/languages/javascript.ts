@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -103,8 +104,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
         });
       }
     } else if (nodeType === 'lexical_declaration') {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'variable_declarator') {
           const nameNode = this.findNamedChild(child, 'identifier');
           const valueChild = child.namedChild(1);
@@ -139,8 +139,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'import_statement') {
       let sourcePath = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'string') {
           sourcePath = child.text.slice(1, -1);
           break;
@@ -188,8 +187,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       this.emitCallCapture(node, captures);
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -199,8 +198,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       let importType: 'named' | 'default' | 'namespace' = 'named';
       const names: string[] = [];
 
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'string') {
           sourcePath = child.text.slice(1, -1);
         }
@@ -272,15 +270,14 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
   protected override checkExported(node: TreeSitterSyntaxNode, symbolName: string): boolean {
     if (node.type === 'export_statement') {
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'export_clause') {
           for (let j = 0; j < child.childCount; j++) {
             const spec = child.child(j);
@@ -298,8 +295,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
       return false;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
     return false;
   }
@@ -428,8 +425,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   private extractExtends(node: TreeSitterSyntaxNode): string {
     // tree-sitter-javascript parses `extends B` as class_heritage → identifier
     // (there is no extends_clause node), so find the identifier directly.
-    for (let i = 0; i < node.childCount; i++) {
-      const heritage = node.child(i);
+    for (const heritage of childrenOf(node)) {
       if (heritage.type === 'class_heritage') {
         const id = this.findDeepChild(heritage, 'identifier');
         if (id) return id.text;
@@ -439,8 +435,8 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   }
 
   private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

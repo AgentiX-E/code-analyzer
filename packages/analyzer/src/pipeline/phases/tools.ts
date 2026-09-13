@@ -63,7 +63,9 @@ export class ToolsPhase implements ExecutablePhase {
           const regex = new RegExp(pattern.regex.source, pattern.regex.flags);
           let match: RegExpExecArray | null;
           while ((match = regex.exec(file.content)) !== null) {
-            const toolName = match[1];
+            // The pattern's first group is the tool name and is not optional, so a
+            // match always carries it.
+            const toolName = match[1]!;
             const description = match[2] ?? '';
             const lineNum = file.content.slice(0, match.index).split('\n').length;
 

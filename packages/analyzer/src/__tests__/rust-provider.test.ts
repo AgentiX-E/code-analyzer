@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
 import { RustProvider } from '../languages/rust.js';
+import type { TreeSitterSyntaxNode } from '../languages/tree-sitter-base.js';
 
 describe('RustProvider', () => {
   const provider = new RustProvider();
@@ -745,6 +746,29 @@ describe('RustProvider', () => {
         p.walkForImports(tree.rootNode, imports);
         expect(Array.isArray(imports)).toBe(true);
       }
+    });
+  });
+
+  describe('requireChild', () => {
+    // The seven extraction sites rely on the grammar always supplying the child they
+    // ask for, so they cannot show what happens when it does not. Driving the helper
+    // with a node that lacks it is the only way to reach that arm — and it is the
+    // reason the helper throws rather than returning a maybe-node.
+    const asProvider = (p: RustProvider) =>
+      p as unknown as {
+        requireChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode;
+      };
+
+    it('throws, naming the node type, when the child is absent', () => {
+      const node = {
+        type: 'function_item',
+        namedChildCount: 1,
+        namedChild: () => ({ type: 'type_identifier' }),
+      } as unknown as TreeSitterSyntaxNode;
+
+      expect(() => asProvider(provider).requireChild(node, 'identifier')).toThrow(
+        'rust: no identifier child on function_item',
+      );
     });
   });
 });

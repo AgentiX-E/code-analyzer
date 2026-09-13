@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -115,8 +116,8 @@ export class PhpProvider extends TreeSitterBaseProvider {
     }
 
     // Recurse into children
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -124,6 +125,8 @@ export class PhpProvider extends TreeSitterBaseProvider {
     const lineNumber = node.startPosition.row + 1;
 
     // Grouped imports: use Namespace\{A, B as C, D}.
+    // Indexed on purpose: the base namespace is the sibling *before* the group, so
+    // the body walks backwards from the current position.
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       if (child.type !== 'namespace_use_group') continue;
@@ -162,8 +165,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
     // Single / multiple clauses: use Namespace\Class; use Namespace\Class as
     // Alias; use A\B, C\D; use function Namespace\func; use const Namespace\C.
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type !== 'namespace_use_clause') continue;
       const { name, alias } = this.parseUseClause(child);
       if (!name) continue;
@@ -188,8 +190,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
   } {
     let name = '';
     let alias: string | undefined;
-    for (let i = 0; i < clause.childCount; i++) {
-      const sub = clause.child(i);
+    for (const sub of childrenOf(clause)) {
       if (sub.type === 'qualified_name' || sub.type === 'namespace_name') {
         // A clause holds at most one qualified/namespace name, so it is always
         // the first name; only a trailing `name` after `as` is an alias.
@@ -207,9 +208,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
 
     // Find the string argument (the file path). tree-sitter-php emits `string`
     // for single-quoted literals and `encapsed_string` for double-quoted ones.
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-
+    for (const child of childrenOf(node)) {
       if (child.type === 'string' || child.type === 'encapsed_string') {
         this.pushIncludeImport(child.text, lineNumber, imports);
         return;
@@ -263,8 +262,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
       const nameNode = this.findPhpName(node);
       if (nameNode.text === symbolName) {
         // private/protected members are not exported; public (the default) is.
-        for (let i = 0; i < node.childCount; i++) {
-          const c = node.child(i);
+        for (const c of childrenOf(node)) {
           if (
             c.type === 'visibility_modifier' &&
             (c.text === 'private' || c.text === 'protected')
@@ -276,8 +274,8 @@ export class PhpProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
     return false;
   }
@@ -288,10 +286,10 @@ export class PhpProvider extends TreeSitterBaseProvider {
     // passes method/function/class/interface/trait/enum declarations, each of which
     // always carries a `name` named child in an error-free parse (anonymous
     // functions/classes are distinct node types), so this loop always returns.
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'name') return child;
     }
+    throw new Error(`php: no name child on ${node.type}`);
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)

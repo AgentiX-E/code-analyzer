@@ -9,6 +9,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
+import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import type { TypeInfo, TypeMember } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
@@ -483,8 +484,8 @@ export class JavaResolver extends TypeResolverBase {
       types.push(this.extractAnnotationType(node, source));
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAST(node.child(i), source, types);
+    for (const child of childrenOf(node)) {
+      this.walkAST(child, source, types);
     }
   }
 
@@ -579,8 +580,7 @@ export class JavaResolver extends TypeResolverBase {
     // Enum constants
     const members = new Map<string, TypeMember>();
     const body = this.findChild(node, 'enum_body')!;
-    for (let i = 0; i < body.childCount; i++) {
-      const c = body.child(i);
+    for (const c of childrenOf(body)) {
       if (c.type === 'enum_constant') {
         const constName = this.findChild(c, 'identifier')!.text;
         members.set(constName, {
@@ -622,8 +622,7 @@ export class JavaResolver extends TypeResolverBase {
 
     const members = new Map<string, TypeMember>();
     const body = this.findChild(node, 'annotation_type_body')!;
-    for (let i = 0; i < body.childCount; i++) {
-      const c = body.child(i);
+    for (const c of childrenOf(body)) {
       if (c.type === 'annotation_type_element_declaration') {
         const elemName = this.findChild(c, 'identifier')!.text;
         const elemType = this.findTypeNode(c).text;
@@ -663,9 +662,7 @@ export class JavaResolver extends TypeResolverBase {
   // -----------------------------------------------------------------------
 
   private extractClassMembers(body: SyntaxNode, members: Map<string, TypeMember>): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       // Method declaration
       if (child.type === 'method_declaration' || child.type === 'constructor_declaration') {
         const mName = this.findChild(child, 'identifier')!.text;
@@ -720,8 +717,7 @@ export class JavaResolver extends TypeResolverBase {
 
         const fieldType = this.findTypeNode(child).text;
 
-        for (let j = 0; j < child.namedChildCount; j++) {
-          const decl = child.namedChild(j);
+        for (const decl of namedChildrenOf(child)) {
           if (decl.type === 'variable_declarator') {
             const fname = this.findChild(decl, 'identifier')!.text;
             members.set(fname, {
@@ -741,9 +737,7 @@ export class JavaResolver extends TypeResolverBase {
   }
 
   private extractInterfaceMembers(body: SyntaxNode, members: Map<string, TypeMember>): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       if (child.type === 'method_declaration') {
         const mName = this.findChild(child, 'identifier')!.text;
 
@@ -812,8 +806,8 @@ export class JavaResolver extends TypeResolverBase {
     const mods: string[] = [];
     const modNode = this.findChild(node, 'modifiers');
     if (!modNode) return mods;
-    for (let i = 0; i < modNode.childCount; i++) {
-      mods.push(modNode.child(i).text);
+    for (const child of childrenOf(modNode)) {
+      mods.push(child.text);
     }
     return mods;
   }
@@ -823,8 +817,7 @@ export class JavaResolver extends TypeResolverBase {
     if (!modNode) return [];
 
     const annotationNodes: SyntaxNode[] = [];
-    for (let i = 0; i < modNode.childCount; i++) {
-      const c = modNode.child(i);
+    for (const c of childrenOf(modNode)) {
       if (c.type === 'annotation' || c.type === 'marker_annotation') {
         annotationNodes.push(c);
       }
@@ -840,8 +833,8 @@ export class JavaResolver extends TypeResolverBase {
     // Every named child of type_parameters is a type_parameter (`<`, `>`, and
     // `,` are anonymous), and each type_parameter names itself with a
     // type_identifier.
-    for (let i = 0; i < tp.namedChildCount; i++) {
-      params.push(this.findChild(tp.namedChild(i), 'type_identifier')!.text);
+    for (const child of namedChildrenOf(tp)) {
+      params.push(this.findChild(child, 'type_identifier')!.text);
     }
     return params;
   }
@@ -850,9 +843,7 @@ export class JavaResolver extends TypeResolverBase {
     const paramTypes: string[] = [];
     const formalParams = this.findChild(node, 'formal_parameters')!;
 
-    for (let i = 0; i < formalParams.childCount; i++) {
-      const param = formalParams.child(i);
-
+    for (const param of childrenOf(formalParams)) {
       // Varargs are a *sibling* of formal_parameter (spread_parameter), not a
       // child — both must be handled at the same level.
       if (param.type === 'formal_parameter') {
@@ -872,8 +863,7 @@ export class JavaResolver extends TypeResolverBase {
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c.type === type) return c;
     }
     return null;
@@ -926,8 +916,8 @@ export class JavaResolver extends TypeResolverBase {
     const clause = this.findChild(node, clauseType);
     if (!clause) return names;
     const typeList = this.findChild(clause, 'type_list')!;
-    for (let i = 0; i < typeList.namedChildCount; i++) {
-      names.push(this.extractTypeName(typeList.namedChild(i)!));
+    for (const child of namedChildrenOf(typeList)) {
+      names.push(this.extractTypeName(child!));
     }
     return names;
   }

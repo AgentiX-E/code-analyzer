@@ -4,6 +4,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
+import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import type { TypeInfo, TypeMember } from './type-registry.js';
 
 // Lazy import
@@ -126,8 +127,8 @@ export class PythonTypeResolver {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTypes(node.child(i), source, types);
+    for (const child of childrenOf(node)) {
+      this.walkForTypes(child, source, types);
     }
   }
 
@@ -151,8 +152,7 @@ export class PythonTypeResolver {
     const baseTypes: string[] = [];
     const argumentList = this.findChild(node, 'argument_list');
     if (argumentList) {
-      for (let i = 0; i < argumentList.childCount; i++) {
-        const child = argumentList.child(i);
+      for (const child of childrenOf(argumentList)) {
         if (child.type === 'identifier' || child.type === 'attribute') {
           baseTypes.push(child.text);
         }
@@ -210,8 +210,7 @@ export class PythonTypeResolver {
     // Parameters with type annotations
     const paramTypes: string[] = [];
     const params = this.findChild(actualNode, 'parameters')!;
-    for (let i = 0; i < params.childCount; i++) {
-      const p = params.child(i);
+    for (const p of childrenOf(params)) {
       if (
         p.type === 'typed_parameter' ||
         p.type === 'typed_default_parameter' ||
@@ -266,9 +265,7 @@ export class PythonTypeResolver {
     _source: string,
     members: Map<string, TypeMember>,
   ): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       // Method (function_definition inside class)
       if (child.type === 'function_definition' || child.type === 'decorated_definition') {
         let methodNode = child;
@@ -359,16 +356,14 @@ export class PythonTypeResolver {
   // -------------------------------------------------------------------------
 
   private findChildText(node: SyntaxNode, type: string): string | null {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === type) return child.text;
     }
     return null;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === type) return child;
     }
     return null;
@@ -376,8 +371,8 @@ export class PythonTypeResolver {
 
   /** Check for an anonymous keyword token (e.g. `async`) among raw children. */
   private hasToken(node: SyntaxNode, token: string): boolean {
-    for (let i = 0; i < node.childCount; i++) {
-      if (node.child(i).type === token) return true;
+    for (const child of childrenOf(node)) {
+      if (child.type === token) return true;
     }
     return false;
   }
@@ -473,7 +468,9 @@ export class PythonTypeResolver {
         ? m[2]
             .split(',')
             .map((p) => p.trim().split(':')[0]?.trim())
-            .filter(Boolean)
+            // `split(':')[0]` is typed `string | undefined`; the predicate narrows the
+            // array rather than leaving `parameterTypes` a maybe-string list.
+            .filter((p): p is string => Boolean(p))
         : [];
       const returnType = m[3] || null;
 

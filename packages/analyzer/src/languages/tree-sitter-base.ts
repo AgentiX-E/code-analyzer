@@ -5,6 +5,7 @@
 import type { LanguageProvider, ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag, ImportSemantics } from '@code-analyzer/shared';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 // ---------------------------------------------------------------------------
 // Taint analysis types
@@ -303,8 +304,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     }
 
     // Recurse into children
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -322,8 +323,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     let nameNode: TreeSitterSyntaxNode | undefined;
 
     if (mapping.nameChildType) {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === mapping.nameChildType) {
           nameNode = child;
           name = child.text;
@@ -386,8 +386,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     // Base default: no import detection. 19 of 21 subclasses override this with
     // a language-specific import walk. The two providers that inherit this
     // default (html, json) have no import syntax, so the walk only recurses.
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -401,8 +401,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Extract the name identifier from a node */
   protected extractNameFromNode(node: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (
         child.type === 'identifier' ||
         child.type === 'type_identifier' ||
@@ -443,8 +442,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Extract base class names from a class_declaration node */
   protected extractBaseClasses(node: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       // TypeScript/JavaScript: class_heritage → extends_clause → identifier
       // Java/Kotlin: superclass → type_identifier
       if (
@@ -464,8 +462,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Extract implemented interfaces from a class node */
   protected extractInterfaces(node: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'class_heritage') {
         for (let j = 0; j < child.childCount; j++) {
           const clause = child.child(j);
@@ -492,8 +489,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
       parts.push(node.text);
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.collectIdentifiers(node.child(i), parts);
+    for (const child of childrenOf(node)) {
+      this.collectIdentifiers(child, parts);
     }
   }
 
@@ -530,8 +527,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     visitor: (node: TreeSitterSyntaxNode, depth: number) => void,
   ): void {
     visitor(node, depth);
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkNode(node.child(i), depth + 1, visitor);
+    for (const child of childrenOf(node)) {
+      this.walkNode(child, depth + 1, visitor);
     }
   }
 
@@ -604,8 +601,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
   /** Check if a call node is a method call (has a receiver/object) */
   protected isMethodCall(node: TreeSitterSyntaxNode): boolean {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (
         child.type === 'member_expression' ||
         child.type === 'dot' ||
@@ -623,8 +619,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected extractCallName(node: TreeSitterSyntaxNode): string | undefined {
     // A plain call (foo()) or constructor (new Foo()) carries the name as a
     // direct function/identifier/type_identifier child.
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (
         child.type === 'function' ||
         child.type === 'identifier' ||
@@ -636,8 +631,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     // A method call (obj.method()) carries the name in a member_expression's
     // property_identifier child.
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'member_expression') {
         for (let j = 0; j < child.childCount; j++) {
           const prop = child.child(j);
@@ -669,8 +663,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
     // Base default: no taint sources are recognized. Subclasses override this
     // method to detect language-specific taint sources.
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSources(node.child(i), sources);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSources(child, sources);
     }
   }
 
@@ -690,8 +684,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     // Base default: no taint sinks are recognized. Subclasses override this
     // method to detect language-specific taint sinks.
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSinks(node.child(i), sinks);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSinks(child, sinks);
     }
   }
 
@@ -711,8 +705,8 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected walkForSanitizers(node: TreeSitterSyntaxNode, sanitizers: TaintSanitizer[]): void {
     // Base default: no sanitizers are recognized. Subclasses override this
     // method to detect language-specific sanitizers.
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForSanitizers(node.child(i), sanitizers);
+    for (const child of childrenOf(node)) {
+      this.walkForSanitizers(child, sanitizers);
     }
   }
 

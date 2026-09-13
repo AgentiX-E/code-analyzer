@@ -91,8 +91,8 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       entries.push(...flat.filter((e) => CONFIG_RELEVANT_KEYS.has(e.key)));
     } else if (ext === '.env') {
       const lines = content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+      for (const [i, raw] of lines.entries()) {
+        const line = raw.trim();
         if (!line || line.startsWith('#')) continue;
         const eqIdx = line.indexOf('=');
         if (eqIdx > 0) {
@@ -106,12 +106,14 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       }
     } else if (ext === '.yaml' || ext === '.yml') {
       const lines = content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const match = /^(\s*)([a-zA-Z_][a-zA-Z0-9_.-]*)\s*:\s*(.+)$/.exec(lines[i]);
+      for (const [i, raw] of lines.entries()) {
+        const match = /^(\s*)([a-zA-Z_][a-zA-Z0-9_.-]*)\s*:\s*(.+)$/.exec(raw);
         if (match) {
+          const [, , key, value] = match;
+          if (key === undefined || value === undefined) continue;
           entries.push({
-            key: match[2],
-            value: match[3].trim(),
+            key,
+            value: value.trim(),
             path: filePath,
             line: i + 1,
           });
@@ -119,12 +121,14 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       }
     } else if (ext === '.toml') {
       const lines = content.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const match = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/.exec(lines[i]);
+      for (const [i, raw] of lines.entries()) {
+        const match = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/.exec(raw);
         if (match) {
+          const [, key, value] = match;
+          if (key === undefined || value === undefined) continue;
           entries.push({
-            key: match[1],
-            value: match[2].trim(),
+            key,
+            value: value.trim(),
             path: filePath,
             line: i + 1,
           });
@@ -136,9 +140,11 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       const lines = content.split('\n');
       while ((match = tagRegex.exec(content)) !== null) {
         const lineNum = findLineNumber(lines, match.index);
+        const [, key, value] = match;
+        if (key === undefined || value === undefined) continue;
         entries.push({
-          key: match[1],
-          value: match[2].trim(),
+          key,
+          value: value.trim(),
           path: filePath,
           line: lineNum,
         });
@@ -174,10 +180,12 @@ function flattenObject(obj: unknown, prefix: string, path: string, depth: number
 
 function findLineNumber(lines: string[], charIndex: number): number {
   let accumulated = 0;
-  for (let i = 0; i < lines.length; i++) {
-    accumulated += lines[i].length + 1; // +1 for newline
+  for (const [i, raw] of lines.entries()) {
+    accumulated += raw.length + 1; // +1 for newline
     if (accumulated > charIndex) return i + 1;
   }
+  // Past the end of the text: report the last line rather than nothing.
+  return lines.length;
   // Accumulating every line's length (plus newline) yields content.length + 1,
   // which always exceeds a `charIndex` produced by a regex match inside the
   // content, so the loop always returns before exhausting `lines`. No trailing

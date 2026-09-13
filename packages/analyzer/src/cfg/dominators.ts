@@ -101,7 +101,7 @@ export function computeImmediateDominators(cfg: ControlFlowGraph): Map<number, n
         continue;
       }
 
-      const bestDoms = dominators.get(best)!;
+      const bestDoms: Set<number> = dominators.get(best)!;
       const currDoms = dominators.get(d)!;
 
       if (!bestDoms.has(d) && currDoms.has(best)) {

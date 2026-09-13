@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
@@ -77,8 +78,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
         this.makeCapture(node, CAPTURE_TAGS.CONSTRUCTOR_DEF, nameNode.text, nameNode.text),
       );
     } else if (nt === 'field_declaration') {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'variable_declarator') {
           const idNode = this.findIdent(child);
           captures.push(
@@ -98,6 +98,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       );
     } else if (nt === 'method_invocation') {
       const callName = this.extractCallName(node);
+      // Nothing to name the call by, so there is no capture to record.
+      if (!callName) return;
       captures.push(this.makeCapture(node, CAPTURE_TAGS.METHOD_CALL, callName, callName));
     } else if (nt === 'closure') {
       captures.push(
@@ -137,8 +139,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       );
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -147,6 +149,9 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   protected override walkForTaintSources(node: TreeSitterSyntaxNode, sources: TaintSource[]): void {
     if (node.type === 'method_invocation') {
       const name = this.extractCallName(node);
+      // A source is reported under its name, so an anonymous invocation is not a
+      // source. Narrowing here also makes `fullName` a string for the matches below.
+      if (!name) return;
       const fullName = this.extractFullCallName(node) ?? name;
       const line = node.startPosition.row + 1;
       // Groovy-specific taint sources. `System.console` / `System.in` are nested
@@ -182,14 +187,17 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSources(node.child(i), sources);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSources(child, sources);
     }
   }
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     if (node.type === 'method_invocation') {
       const name = this.extractCallName(node);
+      // A source is reported under its name, so an anonymous invocation is not a
+      // source. Narrowing here also makes `fullName` a string for the matches below.
+      if (!name) return;
       const fullName = this.extractFullCallName(node) ?? name;
       const line = node.startPosition.row + 1;
       // Groovy metaprogramming sinks. GroovyShell / GroovyScriptEngine are object
@@ -231,8 +239,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSinks(node.child(i), sinks);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSinks(child, sinks);
     }
   }
 
@@ -242,6 +250,9 @@ export class GroovyProvider extends TreeSitterBaseProvider {
   ): void {
     if (node.type === 'method_invocation') {
       const name = this.extractCallName(node);
+      // A source is reported under its name, so an anonymous invocation is not a
+      // source. Narrowing here also makes `fullName` a string for the matches below.
+      if (!name) return;
       const fullName = this.extractFullCallName(node) ?? name;
       const line = node.startPosition.row + 1;
       // Groovy sanitizers — the sanitizer is the trailing method name.
@@ -265,8 +276,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForSanitizers(node.child(i), sanitizers);
+    for (const child of childrenOf(node)) {
+      this.walkForSanitizers(child, sanitizers);
     }
   }
 
@@ -282,8 +293,7 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     // a bare call (foo()) has no receiver, so return null.
     const parts: string[] = [];
     const collect = (n: TreeSitterSyntaxNode): void => {
-      for (let i = 0; i < n.childCount; i++) {
-        const child = n.child(i);
+      for (const child of childrenOf(n)) {
         if (
           child.type === 'identifier' ||
           child.type === 'type_identifier' ||
@@ -304,16 +314,15 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     // also carries a leading type_identifier ("def"/return-type keyword), which is
     // skipped here. Every call site passes a declaration node that carries an
     // `identifier` in an error-free parse, so this loop always returns.
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'identifier') return child;
     }
+    throw new Error(`groovy: no identifier child on ${node.type}`);
   }
 
   private extractGroovyBases(node: TreeSitterSyntaxNode): string {
     const parts: string[] = [];
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'superclass' || child.type === 'super_interfaces') {
         // super_interfaces wraps its types in a type_list node (implements A, B),
         // so collect identifiers recursively rather than only reading direct children.
@@ -359,8 +368,8 @@ export class GroovyProvider extends TreeSitterBaseProvider {
       });
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -487,9 +496,11 @@ export class GroovyProvider extends TreeSitterBaseProvider {
     const rx =
       /\b(Eval\.me|Eval\.x|GroovyShell|GroovyScriptEngine|evaluate|executeUpdate|\.execute\()\b/g;
     while ((m = rx.exec(source)) !== null) {
-      const isCodeInjection = m[1].toLowerCase().includes('eval') || m[1].includes('Groovy');
+      const matched = m[1];
+      if (!matched) continue;
+      const isCodeInjection = matched.toLowerCase().includes('eval') || matched.includes('Groovy');
       sinks.push({
-        name: m[1]!,
+        name: matched,
         sinkType: isCodeInjection ? 'code_injection' : 'sql_exec',
         line: ln(m.index),
         text: m[0],

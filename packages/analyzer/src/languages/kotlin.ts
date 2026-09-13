@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -33,6 +34,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       // A class/object declaration always carries its name as a direct
       // `type_identifier` child (grammar: alias(simple_identifier, type_identifier)).
       const nameNode = this.findChild(node, 'type_identifier');
+      if (!nameNode) return;
       // Check if this is an enum class (has enum_class_body child)
       let isEnum = false;
       for (let c = 0; c < node.namedChildCount; c++) {
@@ -72,6 +74,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       // A function declaration always carries its name as a direct
       // `simple_identifier` child.
       const nameNode = this.findChild(node, 'simple_identifier');
+      if (!nameNode) return;
       captures.push({
         tag: CAPTURE_TAGS.FUNCTION_DEF,
         text: nameNode.text,
@@ -102,8 +105,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       });
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -122,8 +125,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       if (nameNode && nameNode.text === symbolName) return true;
     }
     // Also check children for other exportable nodes
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
     return false;
   }
@@ -150,8 +153,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
       return; // Don't recurse into import children
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -168,9 +171,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
 
     // Collect all identifier children to build the package path
     // and check for wildcard character
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-
+    for (const child of childrenOf(node)) {
       if (child.type === 'identifier') {
         parts.push(child.text);
       } else if (child.text === '*') {
@@ -180,12 +181,12 @@ export class KotlinProvider extends TreeSitterBaseProvider {
     }
 
     // Tree-sitter: import_alias holds the alias name as a type_identifier child
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'import_alias') {
         // An import_alias is `seq("as", alias(simple_identifier, type_identifier))`,
         // so it always carries the alias name as a direct `type_identifier` child.
         const aliasNode = this.findChild(child, 'type_identifier');
+        if (!aliasNode) continue;
         aliasName = aliasNode.text;
         break;
       }
@@ -380,8 +381,8 @@ export class KotlinProvider extends TreeSitterBaseProvider {
   // ---- Utility helpers ----
 
   private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }
@@ -392,8 +393,7 @@ export class KotlinProvider extends TreeSitterBaseProvider {
    */
   private collectImportPathParts(node: TreeSitterSyntaxNode): string[] {
     const parts: string[] = [];
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'identifier') {
         parts.push(child.text);
       } else if (child.text === '*') {

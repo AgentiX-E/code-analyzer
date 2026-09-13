@@ -86,14 +86,8 @@ export class ProcessesPhase implements ExecutablePhase {
           );
 
           // Create STEP_IN_PROCESS edges
-          for (let i = 0; i < steps.length; i++) {
-            builder.addEdge(
-              ctx.graph,
-              steps[i],
-              processNode.id,
-              EDGE_STEP_IN_PROCESS,
-              ctx.projectId,
-            );
+          for (const step of steps) {
+            builder.addEdge(ctx.graph, step, processNode.id, EDGE_STEP_IN_PROCESS, ctx.projectId);
           }
 
           processesFound++;

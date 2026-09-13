@@ -473,7 +473,7 @@ export class ParallelParsePhase implements ExecutablePhase {
     // Determine export status. Providers may emit captures without a `name`
     // (e.g. regex docstring/decorator captures), which cannot be export-checked.
     for (const capture of captures) {
-      if (capture.name) {
+      if (capture.name && capture.properties) {
         const isExported = provider.isExported(file.content, capture.name);
         // Every named capture carries a `properties` bag.
         capture.properties['exported'] = String(isExported);

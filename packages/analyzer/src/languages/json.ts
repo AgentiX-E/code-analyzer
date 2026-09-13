@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
@@ -63,8 +64,8 @@ export class JsonProvider extends TreeSitterBaseProvider {
       );
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -72,8 +73,7 @@ export class JsonProvider extends TreeSitterBaseProvider {
     let keyName = '';
     let valueType = '';
     let valueText = '';
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'string') {
         if (!keyName) {
           keyName = child.text.slice(1, -1);
@@ -148,15 +148,15 @@ export class JsonProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSources(node.child(i), sources);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSources(child, sources);
     }
   }
 
   protected override walkForTaintSinks(node: TreeSitterSyntaxNode, sinks: TaintSink[]): void {
     // JSON files don't have code execution sinks but config can dictate dangerous operations
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSinks(node.child(i), sinks);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSinks(child, sinks);
     }
   }
 
@@ -184,8 +184,8 @@ export class JsonProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForSanitizers(node.child(i), sanitizers);
+    for (const child of childrenOf(node)) {
+      this.walkForSanitizers(child, sanitizers);
     }
   }
 
@@ -193,8 +193,8 @@ export class JsonProvider extends TreeSitterBaseProvider {
 
   private countChildren(node: TreeSitterSyntaxNode, type: string): number {
     let count = 0;
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) count++;
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) count++;
     }
     return count;
   }

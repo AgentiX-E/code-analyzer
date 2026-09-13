@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -47,8 +48,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
       if (nameNode) {
         // Extract base classes
         let baseClasses = '';
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
+        for (const child of namedChildrenOf(node)) {
           if (child.type === 'argument_list') {
             const bases: string[] = [];
             for (let j = 0; j < child.childCount; j++) {
@@ -72,8 +72,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'decorated_definition') {
       // Extract decorators
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'decorator') {
           const called = this.findNamedChild(child, 'call');
           let text = '@';
@@ -111,14 +110,13 @@ export class PythonProvider extends TreeSitterBaseProvider {
         }
       }
       // Still process the inner definition
-      for (let i = 0; i < node.childCount; i++) {
-        this.walkAndCapture(node.child(i), captures);
+      for (const child of childrenOf(node)) {
+        this.walkAndCapture(child, captures);
       }
       return;
     } else if (nodeType === 'import_statement') {
       let sourceName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'dotted_name') {
           sourceName = child.text;
         } else {
@@ -153,8 +151,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
       });
     } else if (nodeType === 'expression_statement') {
       // Check for triple-quoted string (docstring)
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'string') {
           const text = child.text;
           if ((text.startsWith('"""') || text.startsWith("'''")) && text.length > 5) {
@@ -172,16 +169,15 @@ export class PythonProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
   protected override walkForImports(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
     if (node.type === 'import_statement') {
       const line = node.startPosition.row + 1;
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'dotted_name') {
           imports.push({
             source: child.text,
@@ -204,8 +200,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
       const fromNode = this.findNamedChild(node, 'dotted_name');
       const source = fromNode ? fromNode.text : '';
       const names: string[] = [];
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         // No `continue` guard is needed here: `fromNode` is null iff the
         // statement has no dotted_name child, so `child.type === 'dotted_name'
         // && !fromNode` can never be true.
@@ -227,8 +222,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -361,8 +356,8 @@ export class PythonProvider extends TreeSitterBaseProvider {
 
   // Helpers
   private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

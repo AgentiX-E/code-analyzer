@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
@@ -45,8 +46,8 @@ export class CSharpProvider extends TreeSitterBaseProvider {
       this.emitAttribute(node, captures);
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -62,8 +63,8 @@ export class CSharpProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -76,8 +77,8 @@ export class CSharpProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
     return false;
   }
@@ -276,8 +277,7 @@ export class CSharpProvider extends TreeSitterBaseProvider {
   }
 
   private hasModifier(node: TreeSitterSyntaxNode, modifier: string): boolean {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'modifier' && child.text === modifier) return true;
     }
     return false;

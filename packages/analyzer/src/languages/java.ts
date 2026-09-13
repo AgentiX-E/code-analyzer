@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -31,8 +32,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       const nameNode = this.findChild(node, 'identifier')!;
       let baseClasses = '';
       let interfaces = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'superclass') {
           baseClasses = this.typeBaseName(child.namedChild(0));
         } else if (child.type === 'super_interfaces') {
@@ -109,8 +109,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
     } else if (nodeType === 'field_declaration') {
       // A field_declaration can declare multiple variables (e.g. `int a, b;`),
       // each emitted as its own VARIABLE_DEF capture.
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const declarator = node.namedChild(i);
+      for (const declarator of namedChildrenOf(node)) {
         if (declarator.type !== 'variable_declarator') continue;
         const nameNode = this.variableNameNode(declarator);
         captures.push({
@@ -126,8 +125,7 @@ export class JavaProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'import_declaration') {
       const parts: string[] = [];
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'scoped_identifier') {
           this._collectIdentifiers(child, parts);
         } else if (child.type === 'identifier') {
@@ -163,8 +161,8 @@ export class JavaProvider extends TreeSitterBaseProvider {
       });
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -174,12 +172,10 @@ export class JavaProvider extends TreeSitterBaseProvider {
       let isWildcard = false;
       const parts: string[] = [];
 
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.text === '*') isWildcard = true;
       }
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'scoped_identifier') {
           this._collectIdentifiers(child, parts);
         } else if (child.type === 'identifier') {
@@ -198,8 +194,8 @@ export class JavaProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -219,16 +215,15 @@ export class JavaProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'field_declaration') {
       if (this.hasPublicModifier(node)) {
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const declarator = node.namedChild(i);
+        for (const declarator of namedChildrenOf(node)) {
           if (declarator.type !== 'variable_declarator') continue;
           if (this.variableNameNode(declarator).text === symbolName) return true;
         }
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
     return false;
   }
@@ -317,8 +312,8 @@ export class JavaProvider extends TreeSitterBaseProvider {
 
   // Helpers
   private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }
@@ -353,16 +348,15 @@ export class JavaProvider extends TreeSitterBaseProvider {
   private interfaceNames(superInterfaces: TreeSitterSyntaxNode): string {
     const typeList = superInterfaces.namedChild(0);
     const names: string[] = [];
-    for (let i = 0; i < typeList.namedChildCount; i++) {
-      names.push(this.typeBaseName(typeList.namedChild(i)));
+    for (const child of namedChildrenOf(typeList)) {
+      names.push(this.typeBaseName(child));
     }
     return names.join(',');
   }
 
   /** Whether a declaration carries a `public` visibility modifier. */
   private hasPublicModifier(node: TreeSitterSyntaxNode): boolean {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'modifiers') {
         return /\bpublic\b/.test(child.text);
       }
@@ -383,8 +377,8 @@ export class JavaProvider extends TreeSitterBaseProvider {
       result.push(node.text);
       return;
     }
-    for (let i = 0; i < node.namedChildCount; i++) {
-      this._collectIdentifiers(node.namedChild(i), result);
+    for (const child of namedChildrenOf(node)) {
+      this._collectIdentifiers(child, result);
     }
   }
 

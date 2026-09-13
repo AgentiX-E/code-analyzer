@@ -4,6 +4,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
 import type {
@@ -41,8 +42,7 @@ export class RProvider extends TreeSitterBaseProvider {
       const parent = node.parent;
       let funcName: string | undefined;
       if (parent && (parent.type === 'binary_operator' || parent.type === 'assignment')) {
-        for (let i = 0; i < parent.namedChildCount; i++) {
-          const child = parent.namedChild(i);
+        for (const child of namedChildrenOf(parent)) {
           if (child.type === 'identifier') {
             funcName = child.text;
             break;
@@ -64,8 +64,7 @@ export class RProvider extends TreeSitterBaseProvider {
         }
       }
       if (isAssignment) {
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
+        for (const child of namedChildrenOf(node)) {
           if (child.type === 'identifier') {
             const rightSide = node.namedChild(node.namedChildCount - 1);
             if (rightSide?.type === 'function_definition') break;
@@ -106,8 +105,8 @@ export class RProvider extends TreeSitterBaseProvider {
       );
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -185,8 +184,8 @@ export class RProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSources(node.child(i), sources);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSources(child, sources);
     }
   }
 
@@ -214,8 +213,8 @@ export class RProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTaintSinks(node.child(i), sinks);
+    for (const child of childrenOf(node)) {
+      this.walkForTaintSinks(child, sinks);
     }
   }
 
@@ -249,16 +248,15 @@ export class RProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForSanitizers(node.child(i), sanitizers);
+    for (const child of childrenOf(node)) {
+      this.walkForSanitizers(child, sanitizers);
     }
   }
 
   // ---- Helpers ----
 
   private getCallName(node: TreeSitterSyntaxNode): string | undefined {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'identifier') return child.text;
       if (child.type === 'namespace_operator') {
         // namespace_operator: pkg::func — return the function name (the last identifier).
@@ -276,8 +274,7 @@ export class RProvider extends TreeSitterBaseProvider {
 
   private getCallArgs(node: TreeSitterSyntaxNode): string[] {
     const args: string[] = [];
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'arguments') {
         for (let j = 0; j < child.childCount; j++) {
           const arg = child.child(j);
@@ -355,8 +352,8 @@ export class RProvider extends TreeSitterBaseProvider {
       }
       return;
     }
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 

@@ -11,6 +11,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
+import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import type { TypeInfo } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
@@ -344,8 +345,8 @@ export class PythonAdvancedResolver extends TypeResolverBase {
       if (info) types.push(info);
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAST(node.child(i), source, types);
+    for (const child of childrenOf(node)) {
+      this.walkAST(child, source, types);
     }
   }
 
@@ -519,9 +520,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
   // -----------------------------------------------------------------------
 
   private extractClassMembers(body: SyntaxNode, _source: string, members: Map<string, any>): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       if (child.type === 'function_definition' || child.type === 'decorated_definition') {
         let methodNode = child;
         if (child.type === 'decorated_definition') {
@@ -615,9 +614,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
    * Extract dataclass fields from __init__ or annotated class attributes.
    */
   private extractDataclassFields(body: SyntaxNode, members: Map<string, any>): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       // Annotated assignment: name: Type = default
       if (child.type === 'expression_statement') {
         // tree-sitter-python uses 'assignment' node for x: int
@@ -716,8 +713,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     // (class Foo:) has no argument_list and must yield an empty list.
     const superclass = this.findChild(node, 'argument_list');
     if (!superclass) return bases;
-    for (let i = 0; i < superclass.childCount; i++) {
-      const child = superclass.child(i);
+    for (const child of childrenOf(superclass)) {
       if (child.type === 'identifier' || child.type === 'attribute') {
         bases.push(child.text);
       }
@@ -736,8 +732,7 @@ export class PythonAdvancedResolver extends TypeResolverBase {
     // functions (it wraps an empty `()`).
     const params = this.findChild(node, 'parameters')!;
 
-    for (let i = 0; i < params.childCount; i++) {
-      const p = params.child(i);
+    for (const p of childrenOf(params)) {
       if (
         p.type === 'typed_parameter' ||
         p.type === 'typed_default_parameter' ||
@@ -781,32 +776,28 @@ export class PythonAdvancedResolver extends TypeResolverBase {
    * only walks named children) cannot see. Scan all children instead.
    */
   private hasAsyncModifier(node: SyntaxNode): boolean {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child && child.type === 'async') return true;
     }
     return false;
   }
 
   private childText(node: SyntaxNode, type: string): string | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c && c.type === type && c.text) return c.text;
     }
     return null;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c && c.type === type) return c;
     }
     return null;
   }
 
   private findChildAll(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
+    for (const c of childrenOf(node)) {
       if (c && c.type === type) return c;
     }
     return null;

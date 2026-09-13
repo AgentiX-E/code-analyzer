@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -57,8 +58,8 @@ export class RubyProvider extends TreeSitterBaseProvider {
     }
 
     // Check children (class/module bodies may contain methods)
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
 
     return false;
@@ -87,8 +88,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     // Handle method calls (attr_accessor, import/require)
     if (nodeType === 'call') {
       let methodName = '';
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'identifier') {
           methodName = child.text;
           break;
@@ -97,8 +97,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
 
       // attr_accessor, attr_reader, attr_writer
       if (methodName.startsWith('attr_')) {
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
+        for (const child of namedChildrenOf(node)) {
           if (child.type === 'argument_list') {
             for (let j = 0; j < child.namedChildCount; j++) {
               const arg = child.namedChild(j);
@@ -125,8 +124,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
 
       // require / require_relative / load → emit as import
       if (methodName === 'require' || methodName === 'require_relative' || methodName === 'load') {
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
+        for (const child of namedChildrenOf(node)) {
           if (child.type === 'argument_list') {
             for (let j = 0; j < child.namedChildCount; j++) {
               const arg = child.namedChild(j);
@@ -173,8 +171,8 @@ export class RubyProvider extends TreeSitterBaseProvider {
       return; // Don't recurse into call children
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -190,8 +188,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     // first named child may be a receiver (`self`, a `constant`, ...), so scan
     // past it to the `identifier` that names the invoked method.
     let methodName = '';
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'identifier') {
         methodName = child.text;
         break;
@@ -205,15 +202,16 @@ export class RubyProvider extends TreeSitterBaseProvider {
     // The string argument always lives inside an `argument_list` (tree-sitter-ruby
     // emits one even without parentheses). Non-string arguments (a variable or
     // constant) are skipped.
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === 'argument_list') {
         for (let j = 0; j < child.namedChildCount; j++) {
           const sub = child.namedChild(j);
           if (sub.type === 'string') {
             const raw = sub.text;
             const path = raw.slice(1, -1);
-            const name = path.split('/').pop();
+            // `split('/').pop()` is typed `string | undefined`; slicing after the last
+            // separator is the same value and total.
+            const name = path.slice(path.lastIndexOf('/') + 1);
             imports.push({ source: path, names: [name], type: 'named', lineNumber });
             return;
           }
@@ -334,7 +332,7 @@ export class RubyProvider extends TreeSitterBaseProvider {
     const reqRegex = /(?:require|require_relative|load)\s+['"]([^'"]+)['"]/g;
     while ((m = reqRegex.exec(source)) !== null) {
       const path = m[1]!;
-      const name = path.split('/').pop();
+      const name = path.slice(path.lastIndexOf('/') + 1);
       imports.push({
         source: path,
         names: [name],
@@ -364,8 +362,8 @@ export class RubyProvider extends TreeSitterBaseProvider {
    * Find the first named child with the given type.
    */
   protected findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

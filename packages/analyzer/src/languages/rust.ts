@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -59,7 +60,7 @@ export class RustProvider extends TreeSitterBaseProvider {
 
     if (nodeType === 'function_item') {
       // A function_item always carries its name as a direct `identifier` child.
-      const nameNode = this.findChild(node, 'identifier');
+      const nameNode = this.requireChild(node, 'identifier');
       const isPublic = this.source
         .slice(Math.max(0, node.startIndex - 5), node.startIndex)
         .includes('pub');
@@ -75,7 +76,7 @@ export class RustProvider extends TreeSitterBaseProvider {
       });
     } else if (nodeType === 'struct_item') {
       // A struct_item always carries its name as a direct `type_identifier` child.
-      const nameNode = this.findChild(node, 'type_identifier');
+      const nameNode = this.requireChild(node, 'type_identifier');
       captures.push({
         tag: CAPTURE_TAGS.CLASS_DEF,
         text: `struct ${nameNode.text}`,
@@ -88,7 +89,7 @@ export class RustProvider extends TreeSitterBaseProvider {
       });
     } else if (nodeType === 'trait_item') {
       // A trait_item always carries its name as a direct `type_identifier` child.
-      const nameNode = this.findChild(node, 'type_identifier');
+      const nameNode = this.requireChild(node, 'type_identifier');
       captures.push({
         tag: CAPTURE_TAGS.INTERFACE_DEF,
         text: `trait ${nameNode.text}`,
@@ -101,7 +102,7 @@ export class RustProvider extends TreeSitterBaseProvider {
       });
     } else if (nodeType === 'enum_item') {
       // An enum_item always carries its name as a direct `type_identifier` child.
-      const nameNode = this.findChild(node, 'type_identifier');
+      const nameNode = this.requireChild(node, 'type_identifier');
       captures.push({
         tag: CAPTURE_TAGS.ENUM_DEF,
         text: `enum ${nameNode.text}`,
@@ -129,7 +130,7 @@ export class RustProvider extends TreeSitterBaseProvider {
       }
     } else if (nodeType === 'const_item' || nodeType === 'static_item') {
       // A const/static item always carries its name as a direct `identifier` child.
-      const nameNode = this.findChild(node, 'identifier');
+      const nameNode = this.requireChild(node, 'identifier');
       captures.push({
         tag: CAPTURE_TAGS.CONSTANT_DEF,
         text: nameNode.text,
@@ -168,8 +169,8 @@ export class RustProvider extends TreeSitterBaseProvider {
       // the 'attribute' child, not a direct identifier of the attribute_item.
       // An attribute_item always carries an `attribute` child whose first named
       // child is the attribute's identifier name.
-      const attrNode = this.findChild(node, 'attribute');
-      const nameNode = this.findChild(attrNode, 'identifier');
+      const attrNode = this.requireChild(node, 'attribute');
+      const nameNode = this.requireChild(attrNode, 'identifier');
       captures.push({
         tag: CAPTURE_TAGS.DECORATOR,
         text: node.text,
@@ -182,8 +183,8 @@ export class RustProvider extends TreeSitterBaseProvider {
       });
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -213,8 +214,8 @@ export class RustProvider extends TreeSitterBaseProvider {
       return;
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -240,8 +241,8 @@ export class RustProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
     return false;
   }
@@ -329,9 +330,26 @@ export class RustProvider extends TreeSitterBaseProvider {
     ).test(source);
   }
 
+  /**
+   * The direct child of the given type, which the grammar guarantees.
+   *
+   * Every call site below sits on a node type that always carries this child in an
+   * error-free parse. `findChild` would make each of them re-check a condition the
+   * grammar already settles; throwing names the violation once, at the point it is
+   * detected, instead of letting `undefined` reach a capture and record it as a
+   * symbol name.
+   */
+  private requireChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode {
+    const child = this.findChild(node, type);
+    if (!child) {
+      throw new Error(`rust: no ${type} child on ${node.type}`);
+    }
+    return child;
+  }
+
   private findChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

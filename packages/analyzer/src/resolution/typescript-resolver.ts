@@ -4,6 +4,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
+import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import type { TypeInfo, TypeMember, TypeVisibility } from './type-registry.js';
 
 // Lazy import to avoid crashing when tree-sitter-typescript is not installed
@@ -109,8 +110,8 @@ export class TypeScriptTypeResolver {
       return; // Don't double-walk children — export_statement contents are handled
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForTypes(node.child(i), source, types);
+    for (const child of childrenOf(node)) {
+      this.walkForTypes(child, source, types);
     }
   }
 
@@ -264,8 +265,7 @@ export class TypeScriptTypeResolver {
     // Enum members
     const members = new Map<string, TypeMember>();
     const body = this.findChild(node, 'enum_body')!;
-    for (let i = 0; i < body.childCount; i++) {
-      const prop = body.child(i);
+    for (const prop of childrenOf(body)) {
       if (prop.type === 'property_identifier' || prop.type === 'enum_assignment') {
         const propName =
           prop.type === 'enum_assignment'
@@ -321,11 +321,10 @@ export class TypeScriptTypeResolver {
     // Parameters
     const paramTypes: string[] = [];
     const formalParams = this.findChild(node, 'formal_parameters')!;
-    for (let i = 0; i < formalParams.childCount; i++) {
-      const param = formalParams.child(i);
+    for (const param of childrenOf(formalParams)) {
       if (param.type === 'required_parameter' || param.type === 'optional_parameter') {
         const typeNode = this.findChild(param, 'type_annotation');
-        paramTypes.push(typeNode ? this.getTypeText(typeNode.lastChild) : 'any');
+        paramTypes.push(typeNode?.lastChild ? this.getTypeText(typeNode.lastChild) : 'any');
       }
     }
 
@@ -367,7 +366,7 @@ export class TypeScriptTypeResolver {
       // simple binding, or object_pattern/array_pattern for destructuring (which
       // we skip — those names live inside the pattern, not as a flat declaration).
       const binding = decl.namedChild(0);
-      if (binding.type !== 'identifier') continue;
+      if (!binding || binding.type !== 'identifier') continue;
       const name = binding.text;
 
       // Type annotation
@@ -421,8 +420,7 @@ export class TypeScriptTypeResolver {
 
   private walkExportStatement(node: SyntaxNode, source: string, types: TypeInfo[]): void {
     // The expression inside the export is the actual declaration
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'class_declaration' || child.type === 'abstract_class_declaration') {
         types.push(this.extractClassDeclaration(child, source));
       } else if (child.type === 'interface_declaration') {
@@ -451,9 +449,7 @@ export class TypeScriptTypeResolver {
     source: string,
     members: Map<string, TypeMember>,
   ): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       // Method definition
       if (
         child.type === 'method_definition' ||
@@ -472,8 +468,7 @@ export class TypeScriptTypeResolver {
         const paramTypes: string[] = [];
         const params = this.findChild(child, 'formal_parameters');
         if (params) {
-          for (let j = 0; j < params.childCount; j++) {
-            const p = params.child(j);
+          for (const p of childrenOf(params)) {
             if (p.type === 'required_parameter' || p.type === 'optional_parameter') {
               const typeNode = this.findChild(p, 'type_annotation');
               paramTypes.push(typeNode ? this.getTypeText(typeNode) : 'any');
@@ -511,9 +506,7 @@ export class TypeScriptTypeResolver {
     _source: string,
     members: Map<string, TypeMember>,
   ): void {
-    for (let i = 0; i < body.childCount; i++) {
-      const child = body.child(i);
-
+    for (const child of childrenOf(body)) {
       if (
         child.type === 'method_signature' ||
         child.type === 'method_definition' ||
@@ -529,8 +522,7 @@ export class TypeScriptTypeResolver {
         const paramTypes: string[] = [];
         const params = this.findChild(child, 'formal_parameters');
         if (params) {
-          for (let j = 0; j < params.childCount; j++) {
-            const p = params.child(j);
+          for (const p of childrenOf(params)) {
             if (p.type === 'required_parameter' || p.type === 'optional_parameter') {
               const typeNode = this.findChild(p, 'type_annotation');
               paramTypes.push(typeNode ? this.getTypeText(typeNode) : 'any');
@@ -567,16 +559,14 @@ export class TypeScriptTypeResolver {
   // -------------------------------------------------------------------------
 
   private findChildText(node: SyntaxNode, type: string): string | null {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === type && child.text) return child.text;
     }
     return null;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === type) return child;
     }
     return null;
@@ -605,8 +595,7 @@ export class TypeScriptTypeResolver {
     if (!tparams) return [];
 
     const params: string[] = [];
-    for (let i = 0; i < tparams.childCount; i++) {
-      const child = tparams.child(i);
+    for (const child of childrenOf(tparams)) {
       if (child.type === 'type_parameter') {
         params.push(this.findChildText(child, 'type_identifier')!);
       }
@@ -620,8 +609,7 @@ export class TypeScriptTypeResolver {
     // `export_statement`. Scan both scopes so exported decorators are not lost.
     const decorators: string[] = [];
     for (const scope of [node, node.parent!]) {
-      for (let i = 0; i < scope.childCount; i++) {
-        const child = scope.child(i);
+      for (const child of childrenOf(scope)) {
         if (child.type === 'decorator') {
           decorators.push(child.text);
         }
@@ -655,8 +643,7 @@ export class TypeScriptTypeResolver {
   private hasModifier(node: SyntaxNode, modifier: string): boolean {
     // Modifiers (`static`, `async`, `abstract`) are anonymous direct children
     // of the member node itself.
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
+    for (const c of childrenOf(node)) {
       if (c && c.type === modifier) return true;
     }
     return false;
@@ -665,8 +652,7 @@ export class TypeScriptTypeResolver {
   private getVisibility(node: SyntaxNode): TypeVisibility {
     // Accessibility is an `accessibility_modifier` child of the member itself
     // (tree-sitter-typescript); no keyword-token variant exists in this grammar.
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child && child.type === 'accessibility_modifier') {
         if (child.text === 'private') return 'private';
         if (child.text === 'protected') return 'protected';

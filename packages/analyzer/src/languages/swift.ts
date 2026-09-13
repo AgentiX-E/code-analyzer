@@ -2,6 +2,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -36,8 +37,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     ) {
       // Check for public/open access modifier
       let hasPublicModifier = false;
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'modifiers') {
           for (let j = 0; j < child.childCount; j++) {
             const modText = child.child(j).text;
@@ -65,8 +65,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
 
     return false;
@@ -229,8 +229,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     else if (nodeType === 'property_declaration') {
       let isLet = false;
       let nameNode: TreeSitterSyntaxNode | null = null;
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'value_binding_pattern') {
           isLet = child.text === 'let';
         }
@@ -275,8 +274,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
     }
 
     // Recurse into children
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
   // ---- Import extraction (tree-sitter AST) ----
@@ -297,8 +296,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
       return; // Don't recurse into import children
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -312,8 +311,7 @@ export class SwiftProvider extends TreeSitterBaseProvider {
 
     // Collect all identifier parts (e.g. UIKit, UIViewController for import UIKit.UIViewController)
     const parts: string[] = [];
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (
         child.type === 'type_identifier' ||
         child.type === 'identifier' ||
@@ -496,8 +494,8 @@ export class SwiftProvider extends TreeSitterBaseProvider {
    * Find the first named child with the given type.
    */
   protected findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }

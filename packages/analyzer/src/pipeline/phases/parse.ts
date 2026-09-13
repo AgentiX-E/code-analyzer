@@ -56,7 +56,7 @@ export class ParsePhase implements ExecutablePhase {
         // without a `name` (e.g. regex docstring/decorator captures), which
         // cannot be export-checked and are skipped.
         for (const capture of captures) {
-          if (capture.name) {
+          if (capture.name && capture.properties) {
             const isExported = provider.isExported(file.content, capture.name);
             // Every named capture carries a `properties` bag.
             capture.properties['exported'] = String(isExported);

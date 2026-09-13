@@ -12,6 +12,7 @@
 
 import Parser from 'tree-sitter';
 import type { SyntaxNode } from 'tree-sitter';
+import { childrenOf, namedChildrenOf } from '../languages/syntax-children.js';
 import type { TypeInfo } from '../resolution/type-registry.js';
 import {
   TypeResolverBase,
@@ -535,8 +536,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAST(node.child(i), source, types);
+    for (const child of childrenOf(node)) {
+      this.walkAST(child, source, types);
     }
   }
 
@@ -629,8 +630,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const qn = `file:${this.filePath}:${name}`;
     const members = new Map();
     const body = this.findChild(node, 'enum_body')!;
-    for (let i = 0; i < body.childCount; i++) {
-      const c = body.child(i);
+    for (const c of childrenOf(body)) {
       if (c.type === 'property_identifier') {
         members.set(c.text, {
           name: c.text,
@@ -752,11 +752,9 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     // interface_heritage node).
     const heritage = this.findChild(node, 'class_heritage');
     if (heritage) {
-      for (let i = 0; i < heritage.childCount; i++) {
-        const c = heritage.child(i);
+      for (const c of childrenOf(heritage)) {
         if (c.type === 'extends_clause') {
-          for (let j = 0; j < c.childCount; j++) {
-            const ext = c.child(j);
+          for (const ext of childrenOf(c)) {
             if (ext.type === 'type_identifier' || ext.type === 'identifier') {
               bases.push(ext.text);
             }
@@ -767,8 +765,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     }
     const extendsType = this.findChild(node, 'extends_type_clause');
     if (extendsType) {
-      for (let i = 0; i < extendsType.childCount; i++) {
-        const c = extendsType.child(i);
+      for (const c of childrenOf(extendsType)) {
         if (c.type === 'type_identifier' || c.type === 'identifier') {
           bases.push(c.text);
         }
@@ -781,11 +778,9 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const impls: string[] = [];
     const heritage = this.findChild(node, 'class_heritage');
     if (!heritage) return impls;
-    for (let i = 0; i < heritage.childCount; i++) {
-      const c = heritage.child(i);
+    for (const c of childrenOf(heritage)) {
       if (c.type === 'implements_clause') {
-        for (let j = 0; j < c.childCount; j++) {
-          const imp = c.child(j);
+        for (const imp of childrenOf(c)) {
           if (imp.type === 'type_identifier' || imp.type === 'identifier') {
             impls.push(imp.text);
           }
@@ -799,8 +794,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const params: string[] = [];
     const tp = this.findChild(node, 'type_parameters');
     if (!tp) return params;
-    for (let i = 0; i < tp.childCount; i++) {
-      const c = tp.child(i);
+    for (const c of childrenOf(tp)) {
       if (c.type === 'type_parameter') {
         params.push(this.childText(c, 'type_identifier')!);
       }
@@ -813,8 +807,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     // A decorator is a direct child of the declaration when it is not
     // exported, and a sibling inside `export_statement` when it is exported.
     for (const scope of [node, node.parent!]) {
-      for (let i = 0; i < scope.childCount; i++) {
-        const c = scope.child(i);
+      for (const c of childrenOf(scope)) {
         if (c.type === 'decorator') decs.push(c.text);
       }
     }
@@ -829,8 +822,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   }
 
   private walkClassMembers(node: SyntaxNode, members: Map<string, any>): void {
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
+    for (const c of childrenOf(node)) {
       if (
         c.type === 'method_definition' ||
         c.type === 'public_field_definition' ||
@@ -876,8 +868,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   }
 
   private walkInterfaceMembers(node: SyntaxNode, members: Map<string, any>): void {
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
+    for (const c of childrenOf(node)) {
       if (
         c.type === 'method_signature' ||
         c.type === 'property_signature' ||
@@ -909,8 +900,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
     const types: string[] = [];
     const params = this.findChild(node, 'formal_parameters');
     if (!params) return types;
-    for (let i = 0; i < params.childCount; i++) {
-      const p = params.child(i);
+    for (const p of childrenOf(params)) {
       if (p.type === 'required_parameter' || p.type === 'optional_parameter') {
         const typeNode = this.findChild(p, 'type_annotation');
         types.push(typeNode ? typeNode.text.replace(/^:\s*/, '') : 'any');
@@ -926,16 +916,14 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   }
 
   private childText(node: SyntaxNode, type: string): string | null {
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
+    for (const c of childrenOf(node)) {
       if (c.type === type && c.text) return c.text;
     }
     return null;
   }
 
   private findChild(node: SyntaxNode, type: string): SyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const c = node.namedChild(i);
+    for (const c of namedChildrenOf(node)) {
       if (c.type === type) return c;
     }
     return null;
@@ -944,8 +932,8 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   private hasModifier(node: SyntaxNode, modifier: string): boolean {
     // `static`, `async`, `abstract`, and accessor keywords are anonymous
     // tokens that sit directly on the member node.
-    for (let i = 0; i < node.childCount; i++) {
-      if (node.child(i).type === modifier) return true;
+    for (const child of childrenOf(node)) {
+      if (child.type === modifier) return true;
     }
     return false;
   }
@@ -953,8 +941,7 @@ export class TypeScriptAdvancedResolver extends TypeResolverBase {
   private getVisibility(node: SyntaxNode): 'public' | 'protected' | 'private' {
     // Visibility is carried by a single `accessibility_modifier` child whose
     // text is `private`, `protected`, or `public` (default).
-    for (let i = 0; i < node.childCount; i++) {
-      const c = node.child(i);
+    for (const c of childrenOf(node)) {
       if (c.type === 'accessibility_modifier') {
         if (c.text === 'private') return 'private';
         if (c.text === 'protected') return 'protected';

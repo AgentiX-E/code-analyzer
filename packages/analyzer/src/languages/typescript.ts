@@ -3,6 +3,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture, CaptureTag } from '@code-analyzer/shared';
@@ -104,8 +105,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
           // (and ambient `declare var`); `const`/`let` produce `lexical_declaration`.
           // Every named child is a `variable_declarator`, so the tag is always
           // VARIABLE_DEF and declarators can be iterated directly.
-          for (let i = 0; i < node.namedChildCount; i++) {
-            const declarator = node.namedChild(i);
+          for (const declarator of namedChildrenOf(node)) {
             // The first named child is the binding name. Destructuring
             // (`var { a, b } = obj`) yields an object/array pattern instead of an
             // identifier, so it is skipped rather than mislabeling the RHS value.
@@ -185,8 +185,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     }
 
     // Recursively walk children
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -200,8 +200,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
     // Dynamic imports
     if (node.type === 'call_expression') {
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'import') {
           this.extractDynamicImport(node, imports);
           break;
@@ -209,8 +208,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
@@ -219,9 +218,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     let importType: 'named' | 'default' | 'namespace' = 'named';
     const names: string[] = [];
 
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-
+    for (const child of childrenOf(node)) {
       if (child.type === 'string') {
         // Extract path from string like 'foo' or "foo"
         const raw = child.text;
@@ -273,8 +270,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 
   private extractDynamicImport(node: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'arguments') {
         // Dynamic imports may be non-literal (`import(specifier)`), in which
         // case the arguments hold an identifier rather than a `string`.
@@ -297,8 +293,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // export statement
     if (node.type === 'export_statement') {
       // Check if any declaration inside exports this symbol
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
+      for (const child of childrenOf(node)) {
         if (child.type === 'export_clause') {
           for (let j = 0; j < child.childCount; j++) {
             const spec = child.child(j);
@@ -345,8 +340,8 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     // `export_statement` (verified for top-level, namespace, module, and ambient
     // declarations), so a bare declaration never carries an `export` prefix.
     // Recurse into children to find symbols nested inside non-export nodes.
-    for (let i = 0; i < node.childCount; i++) {
-      if (this.checkExported(node.child(i), symbolName)) return true;
+    for (const child of childrenOf(node)) {
+      if (this.checkExported(child, symbolName)) return true;
     }
 
     return false;
@@ -383,8 +378,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   private buildImportCapture(node: TreeSitterSyntaxNode): UnifiedCapture {
     let sourcePath = '';
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
+    for (const child of childrenOf(node)) {
       if (child.type === 'string') {
         sourcePath = child.text.slice(1, -1);
         break;
@@ -404,8 +398,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
   }
 
   private findNamedChild(node: TreeSitterSyntaxNode, type: string): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      const child = node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
       if (child.type === type) return child;
     }
     return null;

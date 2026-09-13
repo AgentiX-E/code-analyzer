@@ -3,6 +3,7 @@
 
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 import { TreeSitterBaseProvider } from './tree-sitter-base.js';
+import { childrenOf, namedChildrenOf } from './syntax-children.js';
 
 import type { ParsedImport } from './provider.js';
 import type { UnifiedCapture } from '@code-analyzer/shared';
@@ -46,8 +47,7 @@ export class HclProvider extends TreeSitterBaseProvider {
       const identifiers: string[] = [];
       const labels: string[] = [];
 
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
+      for (const child of namedChildrenOf(node)) {
         if (child.type === 'identifier') {
           identifiers.push(child.text);
         } else if (child.type === 'string_lit') {
@@ -157,8 +157,8 @@ export class HclProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkAndCapture(node.child(i), captures);
+    for (const child of childrenOf(node)) {
+      this.walkAndCapture(child, captures);
     }
   }
 
@@ -172,8 +172,7 @@ export class HclProvider extends TreeSitterBaseProvider {
       const firstId = this.findFirstNamedChild(node, 'identifier');
       if (firstId?.text === 'module') {
         // Find the body and look for a 'source' attribute
-        for (let i = 0; i < node.namedChildCount; i++) {
-          const child = node.namedChild(i);
+        for (const child of namedChildrenOf(node)) {
           if (child.type === 'body') {
             this.extractModuleSources(child, imports);
           }
@@ -182,14 +181,13 @@ export class HclProvider extends TreeSitterBaseProvider {
       }
     }
 
-    for (let i = 0; i < node.childCount; i++) {
-      this.walkForImports(node.child(i), imports);
+    for (const child of childrenOf(node)) {
+      this.walkForImports(child, imports);
     }
   }
 
   private extractModuleSources(bodyNode: TreeSitterSyntaxNode, imports: ParsedImport[]): void {
-    for (let i = 0; i < bodyNode.namedChildCount; i++) {
-      const child = bodyNode.namedChild(i);
+    for (const child of namedChildrenOf(bodyNode)) {
       if (child.type === 'attribute') {
         const attrName = this.findFirstNamedChild(child, 'identifier');
         if (attrName?.text === 'source') {
@@ -197,7 +195,7 @@ export class HclProvider extends TreeSitterBaseProvider {
           // (grammar: seq(identifier, "=", expression)), so the lookup never
           // returns null.
           const expr = this.findFirstNamedChild(child, 'expression');
-          const value = this.extractExpressionValue(expr);
+          const value = expr ? this.extractExpressionValue(expr) : null;
           if (value) {
             imports.push({
               source: value,
@@ -246,8 +244,8 @@ export class HclProvider extends TreeSitterBaseProvider {
     node: TreeSitterSyntaxNode,
     type: string,
   ): TreeSitterSyntaxNode | null {
-    for (let i = 0; i < node.namedChildCount; i++) {
-      if (node.namedChild(i).type === type) return node.namedChild(i);
+    for (const child of namedChildrenOf(node)) {
+      if (child.type === type) return child;
     }
     return null;
   }
