@@ -179,6 +179,46 @@ describe('withRetry', () => {
     expect(fn).toHaveBeenCalledTimes(0);
   });
 
+  it('rejects when the signal aborts while waiting to retry', async () => {
+    // The abort above is caught by `withRetry`'s own check before any attempt runs.
+    // This one has to arrive after a failure, while the backoff timer is pending,
+    // which is the only way `sleep()`'s in-flight abort listener executes.
+    const controller = new AbortController();
+    const fn = vi.fn().mockRejectedValue(new Error('fail'));
+
+    const promise = withRetry(fn, {
+      maxRetries: 3,
+      baseDelayMs: 1000,
+      jitter: 0,
+      signal: controller.signal,
+    });
+
+    // Let the first attempt fail and the wait begin before aborting.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    controller.abort();
+
+    await expect(promise).rejects.toThrow('Operation aborted');
+  });
+
+  it('rejects when the signal is already aborted as the wait begins', async () => {
+    // Aborting from `onRetry` lands between `withRetry`'s per-attempt check and its
+    // call to `sleep()`, so the wait itself is handed an aborted signal.
+    const controller = new AbortController();
+    const fn = vi.fn().mockRejectedValue(new Error('fail'));
+
+    const promise = withRetry(fn, {
+      maxRetries: 3,
+      baseDelayMs: 1000,
+      jitter: 0,
+      signal: controller.signal,
+      onRetry: () => controller.abort(),
+    });
+
+    await expect(promise).rejects.toThrow('Operation aborted');
+  });
+
   it('should record total duration', async () => {
     const fn = vi.fn().mockResolvedValue('fast');
     const result = await withRetry(fn);

@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as http from 'node:http';
+import * as net from 'node:net';
 import type { AddressInfo } from 'node:net';
 
 function tempPidFile(): string {
@@ -247,5 +248,89 @@ describe('CodeAnalyzerDaemon — branch coverage', () => {
 
     expect(signals).toEqual(['SIGTERM']);
     expect(exits).toEqual([0]);
+  });
+
+  it('emits signal and config-reload when a reload signal arrives', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({ pidFile, port: 0 });
+
+    const events: string[] = [];
+    daemon.on('signal', (s: string) => events.push(`signal:${s}`));
+    daemon.on('config-reload', () => events.push('config-reload'));
+
+    (daemon as unknown as { handleReloadSignal: () => void }).handleReloadSignal();
+
+    // Order matters: a reload announces which signal caused it before telling the
+    // readers to reload, so asserting the sequence pins both emits.
+    expect(events).toEqual(['signal:SIGHUP', 'config-reload']);
+  });
+
+  it('force-closes the health server when a connection outlives the grace period', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({
+      pidFile,
+      port: 0,
+      host: '127.0.0.1',
+      shutdownGracePeriod: 30,
+    });
+    await daemon.start();
+
+    // A socket that connects and then says nothing. `close()` waits for existing
+    // connections to end, so with a short grace period the timer is what finishes
+    // shutdown — the path a well-behaved client never triggers. An idle keep-alive
+    // socket will not do: Node closes those itself on `close()`.
+    const socket = net.connect(daemon.getStatus().port, '127.0.0.1');
+    await new Promise<void>((resolve) => socket.once('connect', () => resolve()));
+
+    await daemon.stop();
+
+    socket.destroy();
+    expect(daemon.getStatus().running).toBe(false);
+  });
+
+  it('tolerates a stop whose health server was already released', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({ pidFile, port: 0, host: '127.0.0.1' });
+    await daemon.start();
+
+    // `stopHealthServer()` is reached only from `stop()`, and `stop()` returns early
+    // unless the daemon is running — which `start()` cannot be without having created
+    // the server. The null guard therefore covers a second, overlapping stop (SIGTERM
+    // and SIGINT can land back to back). Releasing the server by hand reproduces that
+    // state deterministically, where racing two real stops would not be.
+    (daemon as unknown as { healthServer: unknown }).healthServer = null;
+
+    await expect(daemon.stop()).resolves.toBeUndefined();
+  });
+
+  it('exits non-zero when the shutdown itself fails', async () => {
+    const pidFile = tempPidFile();
+    cleanupPaths.push(pidFile);
+    const daemon = new CodeAnalyzerDaemon({ pidFile, port: 0, shutdownGracePeriod: 50 });
+    await daemon.start();
+
+    // A listener that throws turns `stop()` into a rejection, which is the only way
+    // the handler's catch arm is reached.
+    daemon.on('stopped', () => {
+      throw new Error('listener failed during shutdown');
+    });
+    const exits: number[] = [];
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      exits.push(code ?? 0);
+      return undefined as never;
+    }) as never);
+
+    try {
+      const handler = (daemon as unknown as { handleShutdownSignal: () => Promise<void> })
+        .handleShutdownSignal;
+      await handler();
+    } finally {
+      exitSpy.mockRestore();
+    }
+
+    expect(exits).toEqual([1]);
   });
 });
