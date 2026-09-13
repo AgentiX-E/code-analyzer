@@ -1,8 +1,8 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Report Generation Tool Tests
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type { ReviewComment } from '@code-analyzer/shared';
+import type { CategoryBreakdown, SeverityBreakdown } from '../tools/report-generation.js';
 import {
   generateReport,
   computeCategoryBreakdown,
@@ -125,10 +125,10 @@ describe('reportGenerationTool definition', () => {
   });
 
   it('should have a valid inputSchema', () => {
-    expect(reportGenerationTool.inputSchema.type).toBe('object');
-    expect(reportGenerationTool.inputSchema.properties).toBeDefined();
-    expect(reportGenerationTool.inputSchema.required).toContain('projectId');
-    expect(reportGenerationTool.inputSchema.required).toContain('reviewResults');
+    expect(reportGenerationTool.inputSchema['type']).toBe('object');
+    expect(reportGenerationTool.inputSchema['properties']).toBeDefined();
+    expect(reportGenerationTool.inputSchema['required']).toContain('projectId');
+    expect(reportGenerationTool.inputSchema['required']).toContain('reviewResults');
   });
 
   it('should have a callable handler', () => {
@@ -147,7 +147,7 @@ describe('reportGenerationTool handler', () => {
       reviewResults: 'not valid json{{{',
     });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Error');
+    expect(result.content[0]!.text).toContain('Error');
   });
 
   it('should generate report with markdown format (default)', async () => {
@@ -161,10 +161,10 @@ describe('reportGenerationTool handler', () => {
       }),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('# Test Review');
-    expect(result.content[0].text).toContain('## Summary');
-    expect(result.metadata.projectId).toBe('test-project');
-    expect(result.metadata.totalComments).toBe(10);
+    expect(result.content[0]!.text).toContain('# Test Review');
+    expect(result.content[0]!.text).toContain('## Summary');
+    expect(result.metadata!['projectId']).toBe('test-project');
+    expect(result.metadata!['totalComments']).toBe(10);
   });
 
   it('should generate report with JSON format', async () => {
@@ -178,7 +178,7 @@ describe('reportGenerationTool handler', () => {
       format: 'json',
     });
     expect(result.isError).toBeUndefined();
-    const parsed = JSON.parse(result.content[0].text);
+    const parsed = JSON.parse(result.content[0]!.text!);
     expect(parsed.title).toBe('Test Review');
     expect(parsed.format).toBe('json');
     expect(parsed.summary.totalComments).toBe(10);
@@ -191,7 +191,7 @@ describe('reportGenerationTool handler', () => {
       reviewResults: JSON.stringify({ comments }),
       title: 'Custom Report Title',
     });
-    expect(result.content[0].text).toContain('Custom Report Title');
+    expect(result.content[0]!.text).toContain('Custom Report Title');
   });
 
   it('should handle empty comments', async () => {
@@ -200,7 +200,7 @@ describe('reportGenerationTool handler', () => {
       reviewResults: JSON.stringify({ comments: [] }),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.metadata.totalComments).toBe(0);
+    expect(result.metadata!['totalComments']).toBe(0);
   });
 
   it('should auto-generate title when not provided', async () => {
@@ -208,7 +208,7 @@ describe('reportGenerationTool handler', () => {
       projectId: 'my-project',
       reviewResults: JSON.stringify({ comments: [] }),
     });
-    expect(result.content[0].text).toContain('my-project');
+    expect(result.content[0]!.text).toContain('my-project');
   });
 });
 
@@ -371,13 +371,13 @@ describe('generateRecommendations', () => {
 
   it('should prioritize security findings', () => {
     const categoryBreakdown = [{ category: 'security', count: 3, percentage: 30 }];
-    const severityBreakdown = [];
+    const severityBreakdown: SeverityBreakdown[] = [];
     const recs = generateRecommendations(categoryBreakdown, severityBreakdown, []);
     expect(recs.some((r) => r.includes('security'))).toBe(true);
   });
 
   it('should flag critical/high severity items', () => {
-    const categoryBreakdown = [];
+    const categoryBreakdown: CategoryBreakdown[] = [];
     const severityBreakdown = [
       { severity: 'critical', count: 2, percentage: 20 },
       { severity: 'high', count: 3, percentage: 30 },

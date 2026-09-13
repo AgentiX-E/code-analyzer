@@ -1,8 +1,8 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Hallucination Detection Tool Tests
 
 import { describe, it, expect } from 'vitest';
 import type { ReviewComment, GraphNode } from '@code-analyzer/shared';
+import type { ValidationIssue, ValidationResult } from '../tools/hallucination-detection.js';
 import {
   detectHallucinations,
   validateComment,
@@ -96,10 +96,10 @@ describe('hallucinationDetectionTool definition', () => {
   });
 
   it('should have a valid inputSchema', () => {
-    expect(hallucinationDetectionTool.inputSchema.type).toBe('object');
-    expect(hallucinationDetectionTool.inputSchema.properties).toBeDefined();
-    expect(hallucinationDetectionTool.inputSchema.required).toContain('projectId');
-    expect(hallucinationDetectionTool.inputSchema.required).toContain('reviewComments');
+    expect(hallucinationDetectionTool.inputSchema['type']).toBe('object');
+    expect(hallucinationDetectionTool.inputSchema['properties']).toBeDefined();
+    expect(hallucinationDetectionTool.inputSchema['required']).toContain('projectId');
+    expect(hallucinationDetectionTool.inputSchema['required']).toContain('reviewComments');
   });
 
   it('should have a callable handler', () => {
@@ -127,7 +127,7 @@ describe('hallucinationDetectionTool handler', () => {
       reviewComments: JSON.stringify(comments),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('Hallucination Detection Report');
+    expect(result.content[0]!.text).toContain('Hallucination Detection Report');
   });
 
   it('should validate with source nodes', async () => {
@@ -139,7 +139,7 @@ describe('hallucinationDetectionTool handler', () => {
       sourceNodes: JSON.stringify(nodes),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.metadata.projectId).toBe('test-project');
+    expect(result.metadata!['projectId']).toBe('test-project');
   });
 
   it('should handle strict mode', async () => {
@@ -158,7 +158,7 @@ describe('hallucinationDetectionTool handler', () => {
       reviewComments: JSON.stringify([]),
     });
     expect(result.isError).toBeUndefined();
-    expect(result.metadata.totalComments).toBe(0);
+    expect(result.metadata!['totalComments']).toBe(0);
   });
 
   it('should handle invalid sourceNodes gracefully', async () => {
@@ -370,17 +370,21 @@ describe('computeValidationConfidence', () => {
   });
 
   it('should reduce by 0.25 per error', () => {
-    const issues = [{ type: 'non_existent_file', severity: 'error', message: 'test' }];
+    const issues: ValidationIssue[] = [
+      { type: 'non_existent_file', severity: 'error', message: 'test' },
+    ];
     expect(computeValidationConfidence(issues)).toBe(0.75);
   });
 
   it('should reduce by 0.1 per warning', () => {
-    const issues = [{ type: 'line_out_of_range', severity: 'warning', message: 'test' }];
+    const issues: ValidationIssue[] = [
+      { type: 'line_out_of_range', severity: 'warning', message: 'test' },
+    ];
     expect(computeValidationConfidence(issues)).toBe(0.9);
   });
 
   it('should handle multiple issues', () => {
-    const issues = [
+    const issues: ValidationIssue[] = [
       { type: 'non_existent_file', severity: 'error', message: 'e1' },
       { type: 'line_out_of_range', severity: 'error', message: 'e2' },
       { type: 'mismatched_content', severity: 'warning', message: 'w1' },
@@ -390,7 +394,7 @@ describe('computeValidationConfidence', () => {
   });
 
   it('should not go below 0', () => {
-    const issues = Array.from({ length: 10 }, (_, i) => ({
+    const issues: ValidationIssue[] = Array.from({ length: 10 }, (_, i) => ({
       type: 'non_existent_file',
       severity: 'error' as const,
       message: `e${i}`,
@@ -460,12 +464,14 @@ describe('generateDetectionSummary', () => {
   });
 
   it('should report all valid', () => {
-    const results = [{ commentId: 'c1', isValid: true, issues: [], confidence: 1.0 }];
+    const results: ValidationResult[] = [
+      { commentId: 'c1', isValid: true, issues: [], confidence: 1.0 },
+    ];
     expect(generateDetectionSummary(results)).toContain('no hallucinated content');
   });
 
   it('should report hallucinated comments', () => {
-    const results = [
+    const results: ValidationResult[] = [
       {
         commentId: 'c1',
         isValid: false,
@@ -479,7 +485,7 @@ describe('generateDetectionSummary', () => {
   });
 
   it('should report line number issues', () => {
-    const results = [
+    const results: ValidationResult[] = [
       {
         commentId: 'c1',
         isValid: false,
@@ -491,7 +497,7 @@ describe('generateDetectionSummary', () => {
   });
 
   it('should report non-existent symbol issues', () => {
-    const results = [
+    const results: ValidationResult[] = [
       {
         commentId: 'c1',
         isValid: false,

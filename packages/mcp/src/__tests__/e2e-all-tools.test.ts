@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — E2E Integration Test: All 48 MCP Tools
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -8,7 +7,6 @@ import { tmpdir } from 'node:os';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { ToolContextImpl, type ToolContext } from '../tools/tool-context.js';
 import { createToolRegistry, ToolRegistry } from '../tools/index.js';
-import type { ToolResult } from '../tools/registry.js';
 
 // ---------------------------------------------------------------------------
 // Test Fixture Setup
@@ -158,7 +156,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 8,
-    properties: {},
+    properties: { name: 'UserService' },
   });
   const authControllerClass = store.insertNode({
     projectId: PROJECT_ID,
@@ -171,7 +169,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 5,
-    properties: {},
+    properties: { name: 'AuthController' },
   });
 
   // Interfaces
@@ -186,7 +184,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: null,
-    properties: {},
+    properties: { name: 'User' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -199,7 +197,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: null,
-    properties: {},
+    properties: { name: 'CreateUserDto' },
   });
 
   // Functions
@@ -214,7 +212,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 2,
-    properties: {},
+    properties: { name: 'main' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -227,7 +225,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 1,
-    properties: {},
+    properties: { name: 'formatDate' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -240,7 +238,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 2,
-    properties: {},
+    properties: { name: 'isNullOrUndefined' },
   });
   const deepCloneFunc = store.insertNode({
     projectId: PROJECT_ID,
@@ -253,7 +251,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: 1,
-    properties: {},
+    properties: { name: 'deepClone' },
   });
 
   // Methods
@@ -268,7 +266,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 2,
-    properties: {},
+    properties: { name: 'getUser' },
   });
   const createUserMethod = store.insertNode({
     projectId: PROJECT_ID,
@@ -281,7 +279,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 4,
-    properties: {},
+    properties: { name: 'createUser' },
   });
   const handleRequestMethod = store.insertNode({
     projectId: PROJECT_ID,
@@ -294,7 +292,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 3,
-    properties: {},
+    properties: { name: 'handleRequest' },
   });
   store.insertNode({
     projectId: PROJECT_ID,
@@ -307,7 +305,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: false,
     complexity: 2,
-    properties: {},
+    properties: { name: 'login' },
   });
 
   // Route
@@ -322,7 +320,7 @@ function populateStore(store: InMemoryGraphStore): void {
     language: 'typescript',
     isExported: true,
     complexity: null,
-    properties: { routePath: '/users', routeMethod: 'GET' },
+    properties: { name: 'GET /users', routePath: '/users', routeMethod: 'GET' },
   });
 
   // Edges
@@ -1201,7 +1199,6 @@ describe('MCP E2E — All 48 Tools Integration', () => {
       );
 
       expect(result.isError).toBeFalsy();
-      const data = JSON.parse(result.content[0]!.text!);
     });
 
     it('cross_repo_review_pr: reviews PR with cross-repo context', async () => {
@@ -1494,9 +1491,9 @@ describe('MCP E2E — All 48 Tools Integration', () => {
       const tools = registry.list();
       for (const tool of tools) {
         expect(tool.inputSchema).toBeDefined();
-        expect(tool.inputSchema.type).toBe('object');
-        expect(tool.inputSchema.properties).toBeDefined();
-        expect(typeof tool.inputSchema.properties).toBe('object');
+        expect(tool.inputSchema['type']).toBe('object');
+        expect(tool.inputSchema['properties']).toBeDefined();
+        expect(typeof tool.inputSchema['properties']).toBe('object');
       }
     });
   });

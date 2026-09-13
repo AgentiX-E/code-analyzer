@@ -1,4 +1,3 @@
-// @ts-nocheck
 // @code-analyzer/mcp — Tool Registry Tests
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -65,8 +64,8 @@ describe('ToolRegistry', () => {
 
       const tools = registry.list();
       expect(tools).toHaveLength(2);
-      expect(tools[0].name).toBe('tool1');
-      expect(tools[1].name).toBe('tool2');
+      expect(tools[0]!.name).toBe('tool1');
+      expect(tools[1]!.name).toBe('tool2');
     });
   });
 
@@ -122,13 +121,13 @@ describe('ToolRegistry', () => {
     it('should execute a tool and return its result', async () => {
       const schema = makeSchema({ name: { type: 'string', description: 'Name' } }, ['name']);
       const handler = async (args: Record<string, unknown>) => ({
-        content: [{ type: 'text' as const, text: `Hello ${args.name}` }],
+        content: [{ type: 'text' as const, text: `Hello ${args['name'] as string}` }],
       });
 
       registry.register('greet', 'Greets', schema, handler);
       const result = await registry.execute('greet', { name: 'World' });
 
-      expect(result.content[0].text).toBe('Hello World');
+      expect(result.content[0]!.text).toBe('Hello World');
     });
 
     it('should return error for missing required arguments', async () => {
@@ -141,13 +140,13 @@ describe('ToolRegistry', () => {
       const result = await registry.execute('greet', {});
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Missing required parameter');
+      expect(result.content[0]!.text).toContain('Missing required parameter');
     });
 
     it('should return error for unknown tool', async () => {
       const result = await registry.execute('unknown', {});
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('not found');
+      expect(result.content[0]!.text).toContain('not found');
     });
 
     it('should catch handler errors', async () => {
@@ -160,7 +159,7 @@ describe('ToolRegistry', () => {
       const result = await registry.execute('crashy', {});
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain('Handler crashed');
+      expect(result.content[0]!.text).toContain('Handler crashed');
     });
 
     it('should return success when schema has no properties key', async () => {
@@ -201,9 +200,9 @@ describe('makeSchema', () => {
   it('should create a basic JSON schema', () => {
     const schema = makeSchema({ name: { type: 'string', description: 'A name' } }, ['name']);
 
-    expect(schema.type).toBe('object');
-    expect(schema.properties).toHaveProperty('name');
-    expect(schema.required).toContain('name');
+    expect(schema['type']).toBe('object');
+    expect(schema['properties']).toHaveProperty('name');
+    expect(schema['required']).toContain('name');
   });
 
   it('should handle optional properties', () => {
@@ -215,8 +214,8 @@ describe('makeSchema', () => {
       ['required'],
     );
 
-    expect(schema.required).toHaveLength(1);
-    expect(schema.required).toContain('required');
+    expect(schema['required']).toHaveLength(1);
+    expect(schema['required']).toContain('required');
   });
 
   it('should include enums', () => {
@@ -224,7 +223,7 @@ describe('makeSchema', () => {
       category: { type: 'string', description: 'Category', enum: ['a', 'b', 'c'] },
     });
 
-    const prop = (schema.properties as Record<string, Record<string, unknown>>).category;
-    expect(prop.enum).toEqual(['a', 'b', 'c']);
+    const prop = (schema['properties'] as Record<string, Record<string, unknown>>)['category'];
+    expect(prop!['enum']).toEqual(['a', 'b', 'c']);
   });
 });
