@@ -133,7 +133,7 @@ export class ScalaProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
@@ -216,7 +216,7 @@ export class ScalaProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
     const importRegex = /import\s+([\w.]+(?:\.[\w{}]+)*)/g;
@@ -231,7 +231,7 @@ export class ScalaProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (new RegExp(`private\\s+(?:class|object|trait|def|val|var)\\s+${s}\\b`).test(source))
       return false;

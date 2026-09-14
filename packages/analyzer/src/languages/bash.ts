@@ -380,7 +380,7 @@ export class BashProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback ----
 
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
     let m: RegExpExecArray | null;
@@ -447,7 +447,7 @@ export class BashProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
     let m: RegExpExecArray | null;
@@ -458,11 +458,11 @@ export class BashProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
+  public override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return true;
   }
 
-  protected override fallbackExtractTaintSources(source: string): TaintSource[] {
+  public override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
     let m: RegExpExecArray | null;
@@ -479,7 +479,7 @@ export class BashProvider extends TreeSitterBaseProvider {
     return sources;
   }
 
-  protected override fallbackExtractTaintSinks(source: string): TaintSink[] {
+  public override fallbackExtractTaintSinks(source: string): TaintSink[] {
     const sinks: TaintSink[] = [];
     const ln = (off: number) => source.slice(0, off).split('\n').length;
     let m: RegExpExecArray | null;
@@ -498,7 +498,7 @@ export class BashProvider extends TreeSitterBaseProvider {
     return sinks;
   }
 
-  protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
+  public override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }
 }

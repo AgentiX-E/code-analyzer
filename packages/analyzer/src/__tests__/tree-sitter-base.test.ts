@@ -73,7 +73,7 @@ class TestProvider extends TreeSitterBaseProvider {
     return null;
   }
 
-  protected getNodeMappings(): NodeTypeMapping[] {
+  protected override getNodeMappings(): NodeTypeMapping[] {
     return [
       {
         nodeType: 'function_definition',
@@ -89,7 +89,7 @@ class TestProvider extends TreeSitterBaseProvider {
   }
 
   // Implement abstract fallback methods
-  protected fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const funcRegex = /function\s+(\w+)/g;
     let m: RegExpExecArray | null;
@@ -121,7 +121,7 @@ class TestProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected fallbackExtractImports(source: string): ParsedImport[] {
+  public fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex = /import\s+(\w+)/g;
     let m: RegExpExecArray | null;
@@ -136,7 +136,7 @@ class TestProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected fallbackIsExported(source: string, symbolName: string): boolean {
+  public fallbackIsExported(source: string, symbolName: string): boolean {
     return source.includes(symbolName);
   }
 
@@ -166,15 +166,15 @@ class GenericProvider extends TreeSitterBaseProvider {
     return tsGrammar.typescript;
   }
 
-  protected fallbackParse(_source: string, _filePath: string): UnifiedCapture[] {
+  public fallbackParse(_source: string, _filePath: string): UnifiedCapture[] {
     return [];
   }
 
-  protected fallbackExtractImports(_source: string): ParsedImport[] {
+  public fallbackExtractImports(_source: string): ParsedImport[] {
     return [];
   }
 
-  protected fallbackIsExported(_source: string, _symbolName: string): boolean {
+  public fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
   }
 }
@@ -194,15 +194,15 @@ class InvalidGrammarProvider extends TreeSitterBaseProvider {
     return { name: 'fake', language: {} };
   }
 
-  protected fallbackParse(_source: string, _filePath: string): UnifiedCapture[] {
+  public fallbackParse(_source: string, _filePath: string): UnifiedCapture[] {
     return [];
   }
 
-  protected fallbackExtractImports(_source: string): ParsedImport[] {
+  public fallbackExtractImports(_source: string): ParsedImport[] {
     return [];
   }
 
-  protected fallbackIsExported(_source: string, _symbolName: string): boolean {
+  public fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
   }
 }
@@ -227,7 +227,7 @@ class BaseWalkProvider extends TreeSitterBaseProvider {
     return tsGrammar.typescript;
   }
 
-  protected getNodeMappings(): NodeTypeMapping[] {
+  protected override getNodeMappings(): NodeTypeMapping[] {
     return [
       {
         nodeType: 'function_declaration',
@@ -240,7 +240,7 @@ class BaseWalkProvider extends TreeSitterBaseProvider {
     ];
   }
 
-  protected fallbackParse(_source: string, filePath: string): UnifiedCapture[] {
+  public fallbackParse(_source: string, filePath: string): UnifiedCapture[] {
     return [
       {
         tag: CAPTURE_TAGS.FUNCTION_DEF,
@@ -255,11 +255,11 @@ class BaseWalkProvider extends TreeSitterBaseProvider {
     ];
   }
 
-  protected fallbackExtractImports(_source: string): ParsedImport[] {
+  public fallbackExtractImports(_source: string): ParsedImport[] {
     return [];
   }
 
-  protected fallbackIsExported(_source: string, _symbolName: string): boolean {
+  public fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
   }
 }

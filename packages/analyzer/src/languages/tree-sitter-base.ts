@@ -499,7 +499,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   /** Run a tree-sitter query against the source */
-  protected queryTree(source: string, queryStr: string): TreeSitterQueryMatch[] {
+  public queryTree(source: string, queryStr: string): TreeSitterQueryMatch[] {
     if (!this.parser || !this.languageGrammar) return [];
 
     // this.parser is only set after getTreeSitter() succeeds in the constructor,
@@ -511,7 +511,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   }
 
   /** Walk the AST with a visitor callback */
-  protected walkTree(
+  public walkTree(
     source: string,
     visitor: (node: TreeSitterSyntaxNode, depth: number) => void,
   ): void {
@@ -715,17 +715,17 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // -----------------------------------------------------------------------
 
   /** Regex-based fallback for taint source extraction */
-  protected fallbackExtractTaintSources(_source: string): TaintSource[] {
+  public fallbackExtractTaintSources(_source: string): TaintSource[] {
     return [];
   }
 
   /** Regex-based fallback for taint sink extraction */
-  protected fallbackExtractTaintSinks(_source: string): TaintSink[] {
+  public fallbackExtractTaintSinks(_source: string): TaintSink[] {
     return [];
   }
 
   /** Regex-based fallback for sanitizer extraction */
-  protected fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
+  public fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }
 
@@ -733,9 +733,9 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   // Fallback methods — subclasses must override to provide regex fallbacks
   // -----------------------------------------------------------------------
 
-  protected abstract fallbackParse(source: string, filePath: string): UnifiedCapture[];
+  public abstract fallbackParse(source: string, filePath: string): UnifiedCapture[];
 
-  protected abstract fallbackExtractImports(source: string): ParsedImport[];
+  public abstract fallbackExtractImports(source: string): ParsedImport[];
 
-  protected abstract fallbackIsExported(source: string, symbolName: string): boolean;
+  public abstract fallbackIsExported(source: string, symbolName: string): boolean;
 }

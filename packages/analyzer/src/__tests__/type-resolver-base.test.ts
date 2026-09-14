@@ -18,26 +18,26 @@ class TestResolver extends TypeResolverBase {
   }
 
   // --- Re-exposed helpers ---
-  primitive(name: string, isNullable = false): ResolvedType {
+  override primitive(name: string, isNullable = false): ResolvedType {
     return super.primitive(name, isNullable);
   }
-  objectType(
+  override objectType(
     name: string,
     members: Record<string, ResolvedType> = {},
     isNullable = false,
   ): ResolvedType {
     return super.objectType(name, members, isNullable);
   }
-  genericType(name: string, args: ResolvedType[], isNullable = false): ResolvedType {
+  override genericType(name: string, args: ResolvedType[], isNullable = false): ResolvedType {
     return super.genericType(name, args, isNullable);
   }
-  unionType(types: ResolvedType[], isNullable = false): ResolvedType {
+  override unionType(types: ResolvedType[], isNullable = false): ResolvedType {
     return super.unionType(types, isNullable);
   }
-  intersectionType(types: ResolvedType[], isNullable = false): ResolvedType {
+  override intersectionType(types: ResolvedType[], isNullable = false): ResolvedType {
     return super.intersectionType(types, isNullable);
   }
-  functionType(
+  override functionType(
     name: string,
     params: ResolvedType[],
     ret: ResolvedType,
@@ -45,22 +45,22 @@ class TestResolver extends TypeResolverBase {
   ): ResolvedType {
     return super.functionType(name, params, ret, isNullable);
   }
-  unknownType(name = 'unknown'): ResolvedType {
+  override unknownType(name = 'unknown'): ResolvedType {
     return super.unknownType(name);
   }
-  nullable(type: ResolvedType): ResolvedType {
+  override nullable(type: ResolvedType): ResolvedType {
     return super.nullable(type);
   }
-  parseGenericString(typeStr: string): { base: string; args: string[] } | null {
+  override parseGenericString(typeStr: string): { base: string; args: string[] } | null {
     return super.parseGenericString(typeStr);
   }
-  splitTopLevelCommas(input: string): string[] {
+  override splitTopLevelCommas(input: string): string[] {
     return super.splitTopLevelCommas(input);
   }
-  normalizeTypeName(typeName: string): string {
+  override normalizeTypeName(typeName: string): string {
     return super.normalizeTypeName(typeName);
   }
-  isPrimitive(typeName: string): boolean {
+  override isPrimitive(typeName: string): boolean {
     return super.isPrimitive(typeName);
   }
 }

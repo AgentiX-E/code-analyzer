@@ -242,7 +242,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
   }
 
   // Fallback
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const funcRegex = /(?:async\s+)?def\s+(\w+)/g;
     let m: RegExpExecArray | null;
@@ -312,7 +312,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
     const fromRegex = /from\s+([\w.]+)\s+import\s+([\w\s,]+)/g;
@@ -342,7 +342,7 @@ export class PythonProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(_source: string, symbolName: string): boolean {
+  public override fallbackIsExported(_source: string, symbolName: string): boolean {
     if (symbolName.startsWith('_') && !symbolName.startsWith('__')) return false;
     const allMatch = this.source.match(/__all__\s*=\s*\[([\s\S]*?)\]/);
     if (allMatch) {

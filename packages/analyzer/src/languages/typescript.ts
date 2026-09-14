@@ -415,7 +415,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback (regex-based) ----
 
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
 
     // Function declarations
@@ -571,7 +571,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex =
       /import\s+(?:type\s+)?(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
@@ -604,7 +604,7 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
     const patterns = [
       new RegExp(
         `export\\s+(?:default\\s+)?(?:function|class|const|let|var|interface|type|enum|abstract\\s+class)\\s+${escapeRegex(symbolName)}\\b`,

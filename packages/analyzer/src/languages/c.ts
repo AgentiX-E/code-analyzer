@@ -131,7 +131,7 @@ export class CProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
@@ -203,7 +203,7 @@ export class CProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
     const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
@@ -218,7 +218,7 @@ export class CProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // A `static` function — with any number of storage/type words before the
     // name (`static inline void helper`) — is not exported.

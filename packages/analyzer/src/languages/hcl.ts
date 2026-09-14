@@ -267,7 +267,7 @@ export class HclProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
@@ -375,7 +375,7 @@ export class HclProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     // HCL doesn't have traditional imports, but module source references
     let m: RegExpExecArray | null;
@@ -391,7 +391,7 @@ export class HclProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
+  public override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return true;
   }
 

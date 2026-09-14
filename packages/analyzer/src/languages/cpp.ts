@@ -156,7 +156,7 @@ export class CppProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
@@ -241,7 +241,7 @@ export class CppProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
     const incRegex = /#include\s*[<"]([^>"]+)[>"]/g;
@@ -256,7 +256,7 @@ export class CppProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
     // In C++, everything not in an anonymous namespace is exported at file level.
     // Check for 'static' keyword before the symbol.
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

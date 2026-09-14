@@ -234,7 +234,7 @@ export class JsonProvider extends TreeSitterBaseProvider {
 
   // ---- Fallback ----
 
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     try {
       const obj = JSON.parse(source);
@@ -279,14 +279,14 @@ export class JsonProvider extends TreeSitterBaseProvider {
     return captures;
   }
 
-  protected override fallbackExtractImports(_source: string): ParsedImport[] {
+  public override fallbackExtractImports(_source: string): ParsedImport[] {
     return [];
   }
-  protected override fallbackIsExported(_source: string, _symbolName: string): boolean {
+  public override fallbackIsExported(_source: string, _symbolName: string): boolean {
     return false;
   }
 
-  protected override fallbackExtractTaintSources(source: string): TaintSource[] {
+  public override fallbackExtractTaintSources(source: string): TaintSource[] {
     const sources: TaintSource[] = [];
     try {
       const obj = JSON.parse(source);
@@ -324,10 +324,10 @@ export class JsonProvider extends TreeSitterBaseProvider {
     return sources;
   }
 
-  protected override fallbackExtractTaintSinks(_source: string): TaintSink[] {
+  public override fallbackExtractTaintSinks(_source: string): TaintSink[] {
     return [];
   }
-  protected override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
+  public override fallbackExtractSanitizers(_source: string): TaintSanitizer[] {
     return [];
   }
 }

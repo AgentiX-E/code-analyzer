@@ -293,7 +293,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks (primary since tree-sitter-php may not be available)
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     let m: RegExpExecArray | null;
 
@@ -423,7 +423,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     let m: RegExpExecArray | null;
 
@@ -479,7 +479,7 @@ export class PhpProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
     // PHP: public (explicit or default) functions and class-like declarations are
     // exported; private/protected members are not.
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

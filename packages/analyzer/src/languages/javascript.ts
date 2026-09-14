@@ -302,7 +302,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
   }
 
   // Fallbacks
-  protected override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
+  public override fallbackParse(source: string, filePath: string): UnifiedCapture[] {
     const captures: UnifiedCapture[] = [];
     const funcRegex = /(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+(\w+)/g;
     let m: RegExpExecArray | null;
@@ -373,7 +373,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     return captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
-  protected override fallbackExtractImports(source: string): ParsedImport[] {
+  public override fallbackExtractImports(source: string): ParsedImport[] {
     const imports: ParsedImport[] = [];
     const regex = /import\s+(?:(\*)\s+as\s+(\w+)|(\{[\s\S]*?\})|(\w+))\s+from\s+['"]([^'"]+)['"]/g;
     let m: RegExpExecArray | null;
@@ -414,7 +414,7 @@ export class JavaScriptProvider extends TreeSitterBaseProvider {
     return imports;
   }
 
-  protected override fallbackIsExported(source: string, symbolName: string): boolean {
+  public override fallbackIsExported(source: string, symbolName: string): boolean {
     const s = symbolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(
       `module\\.exports\\s*=\\s*${s}\\b|exports\\.${s}\\s*=|export\\s*\\{[^}]*\\b${s}\\b[^}]*\\}|export\\s+default\\s+(?:function|class)\\s+${s}\\b|export\\s+(?:const|let|var|function|class)\\s+${s}\\b`,
