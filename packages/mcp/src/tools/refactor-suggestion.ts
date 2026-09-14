@@ -158,8 +158,7 @@ function generateSuggestions(
 
   // Sort by severity (high first), then by dependency count
   suggestions.sort((a, b) => {
-    const sevOrder = { high: 0, medium: 1, low: 2 };
-    const sevDiff = (sevOrder[a.severity] ?? 2) - (sevOrder[b.severity] ?? 2);
+    const sevDiff = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
     if (sevDiff !== 0) return sevDiff;
     return b.metrics.dependencyCount - a.metrics.dependencyCount;
   });
@@ -174,6 +173,26 @@ function generateSuggestions(
 function isFunctionNode(label: string): boolean {
   return label === 'Function' || label === 'Method';
 }
+
+/**
+ * Report presentation per severity, typed as a `Record` over the severity union.
+ *
+ * An exhaustive record is preferable to a ternary chain here for two reasons: the compiler
+ * guarantees every severity has an entry, and there is no trailing fallback arm. The generator
+ * only ever emits 'high' and 'medium' today, so a chain's `?? 2` and final `: '🟢'` were arms no
+ * input could reach — dead code that a coverage gate would otherwise have to excuse.
+ */
+const SEVERITY_RANK: Record<RefactorSuggestion['severity'], number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+const SEVERITY_ICON: Record<RefactorSuggestion['severity'], string> = {
+  high: '🔴',
+  medium: '🟡',
+  low: '🟢',
+};
 
 // ---------------------------------------------------------------------------
 // Report formatting
@@ -195,7 +214,7 @@ function formatSuggestions(suggestions: RefactorSuggestion[], projectId: string)
   report += `**Summary**: ${suggestions.length} suggestions (${highCount} high priority, ${mediumCount} medium priority)\n\n`;
 
   for (const s of suggestions) {
-    const icon = s.severity === 'high' ? '🔴' : s.severity === 'medium' ? '🟡' : '🟢';
+    const icon = SEVERITY_ICON[s.severity];
     report += `### ${icon} ${s.title}\n\n`;
     report += `- **Type**: ${s.type}\n`;
     report += `- **File**: \`${s.filePath}\`\n`;

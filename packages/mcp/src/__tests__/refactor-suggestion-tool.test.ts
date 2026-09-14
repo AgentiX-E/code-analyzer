@@ -164,6 +164,96 @@ describe('refactorSuggestionTool', () => {
     expect(r.content[0].text).toContain('Reduce Coupling');
   });
 
+  // Three arms nothing had reached, plus one function nothing had called:
+  //
+  //   - every fixture so far set a `filePath`, so `node.filePath ?? '<unknown>'` (in all three
+  //     finding constructors) had only ever taken the left side;
+  //   - `dependencyEdges > 25` and `incomingCalls > 30` are the high tiers, and every existing
+  //     fixture sat below them;
+  //   - the severity comparator had **never run**, because no single call ever produced two
+  //     suggestions for it to order.
+  it('should reach the high tiers, the unknown-path fallback and the sort comparator', async () => {
+    const store = new InMemoryGraphStore();
+    const projectId = 'quiet-project';
+
+    // a function with 22 outgoing calls → extract-method, high, and no file path
+    const megaFn = insertNode(store, {
+      projectId,
+      label: 'Function',
+      name: 'megaFn',
+      qualifiedName: 'megaFn',
+    });
+    for (let i = 0; i < 22; i++) {
+      const dep = insertNode(store, {
+        projectId,
+        label: 'Function',
+        name: `fnDep${i}`,
+        qualifiedName: `fnDep${i}`,
+      });
+      insertEdge(store, { projectId, type: 'CALLS', sourceId: megaFn, targetId: dep });
+    }
+
+    // a class with 27 dependencies → split-class, high (>25), and no file path
+    const megaClass = insertNode(store, {
+      projectId,
+      label: 'Class',
+      name: 'MegaClass',
+      qualifiedName: 'MegaClass',
+    });
+    for (let i = 0; i < 27; i++) {
+      const dep = insertNode(store, {
+        projectId,
+        label: 'Function',
+        name: `clsDep${i}`,
+        qualifiedName: `clsDep${i}`,
+      });
+      insertEdge(store, { projectId, type: 'CALLS', sourceId: megaClass, targetId: dep });
+    }
+
+    // a function with 31 incoming calls → reduce-coupling, high (>30), and no file path
+    const hub = insertNode(store, {
+      projectId,
+      label: 'Function',
+      name: 'hub',
+      qualifiedName: 'hub',
+    });
+    for (let i = 0; i < 31; i++) {
+      const caller = insertNode(store, {
+        projectId,
+        label: 'Function',
+        name: `caller${i}`,
+        qualifiedName: `caller${i}`,
+      });
+      insertEdge(store, { projectId, type: 'CALLS', sourceId: caller, targetId: hub });
+    }
+
+    // a function with 15 outgoing calls → extract-method, medium — so the comparator has to
+    // compare two *different* severities, not just fall through to the dependency tie-break
+    const mediumFn = insertNode(store, {
+      projectId,
+      label: 'Function',
+      name: 'mediumFn',
+      qualifiedName: 'mediumFn',
+    });
+    for (let i = 0; i < 15; i++) {
+      const dep = insertNode(store, {
+        projectId,
+        label: 'Function',
+        name: `midDep${i}`,
+        qualifiedName: `midDep${i}`,
+      });
+      insertEdge(store, { projectId, type: 'CALLS', sourceId: mediumFn, targetId: dep });
+    }
+
+    const r = await refactorSuggestionTool.handler({ projectId, maxSuggestions: 20 }, store);
+
+    // four findings of two different severities means the comparator had to order them
+    expect(r.metadata!['suggestionCount']).toBeGreaterThanOrEqual(4);
+    expect(r.content[0]!.text).toContain('🟡');
+    expect(r.content[0]!.text).toContain('<unknown>');
+    expect(r.content[0]!.text).toContain('high');
+  });
+
   it('should filter by filePath', async () => {
     const store = new InMemoryGraphStore();
     insertNode(store, {

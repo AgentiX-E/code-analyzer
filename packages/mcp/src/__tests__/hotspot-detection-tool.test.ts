@@ -129,6 +129,72 @@ describe('hotspotDetectionTool handler with store', () => {
     expect(result.content[0].text).toContain('Hotspot Analysis');
   });
 
+  // The report emits one recommendation per non-zero risk level, and the tiering has three
+  // bands (>=30 high, >=15 medium, else low). Existing fixtures produced high and medium only,
+  // and always with a file path — so the `low` band, the `<unknown>` fallback, the 🟡/🟢 icons
+  // and the zero side of two of the three "count > 0" guards had never been taken.
+  it('should classify all three risk levels and only recommend the non-empty ones', async () => {
+    function storeWith(outgoingCounts: number[]): InMemoryGraphStore {
+      const store = new InMemoryGraphStore();
+      outgoingCounts.forEach((calls, i) => {
+        // no `filePath` on purpose — that is the `<unknown>` arm
+        const fn = insertNode(store, {
+          projectId: 'quiet',
+          label: 'Function',
+          name: `fn${i}`,
+          qualifiedName: `fn${i}`,
+        });
+        for (let k = 0; k < calls; k++) {
+          const callee = insertNode(store, {
+            projectId: 'quiet',
+            label: 'Function',
+            name: `c${i}_${k}`,
+            qualifiedName: `c${i}_${k}`,
+          });
+          insertEdge(store, {
+            projectId: 'quiet',
+            type: 'CALLS',
+            sourceId: fn,
+            targetId: callee,
+          });
+        }
+      });
+      return store;
+    }
+
+    // one hotspot per band: 30 → high, 20 → medium, 12 → low
+    const mixed = await hotspotDetectionTool.handler(
+      { projectId: 'quiet', threshold: 10 },
+      storeWith([30, 20, 12]),
+    );
+    const mixedText = mixed.content[0]!.text;
+    expect(mixedText).toContain('🔴');
+    expect(mixedText).toContain('🟡');
+    expect(mixedText).toContain('🟢');
+    expect(mixedText).toContain('<unknown>');
+    expect(mixedText).toContain('high-risk hotspots');
+    expect(mixedText).toContain('medium-risk areas');
+    expect(mixedText).toContain('low-risk symbols');
+
+    // a high-only report must not recommend the bands it has none of
+    const highOnly = await hotspotDetectionTool.handler(
+      { projectId: 'quiet', threshold: 10 },
+      storeWith([30]),
+    );
+    expect(highOnly.content[0]!.text).toContain('high-risk hotspots');
+    expect(highOnly.content[0]!.text).not.toContain('medium-risk areas');
+    expect(highOnly.content[0]!.text).not.toContain('low-risk symbols');
+
+    // and a low-only report must not recommend the louder ones
+    const lowOnly = await hotspotDetectionTool.handler(
+      { projectId: 'quiet', threshold: 10 },
+      storeWith([12]),
+    );
+    expect(lowOnly.content[0]!.text).toContain('low-risk symbols');
+    expect(lowOnly.content[0]!.text).not.toContain('high-risk hotspots');
+    expect(lowOnly.content[0]!.text).not.toContain('medium-risk areas');
+  });
+
   it('should handle null threshold and maxResults', async () => {
     const store = createStoreWithData();
     const result = await hotspotDetectionTool.handler(
