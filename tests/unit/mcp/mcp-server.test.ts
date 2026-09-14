@@ -5,7 +5,7 @@
 // Note: This test file is designed to run in the monorepo context with full
 // access to @code-analyzer/* packages and @modelcontextprotocol/sdk.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock Infrastructure
