@@ -19,6 +19,7 @@ import {
   autoIndexSchema,
 } from '../tools/indexing-lifecycle.js';
 import type { GraphNode, GraphEdge } from '@code-analyzer/shared';
+import { toolText } from './test-helpers.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -127,7 +128,7 @@ describe('analyzeRepository', () => {
   it('rejects a non-existent path', async () => {
     const result = await analyzeRepository({ path: '/definitely/not/here', projectId: 'p1' });
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('failed');
     expect(data.error).toContain('Path does not exist');
   });
@@ -135,14 +136,14 @@ describe('analyzeRepository', () => {
   it('returns an indexing status when no store is provided', async () => {
     const result = await analyzeRepository({ path: srcDir, projectId: 'p1' }, undefined);
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('indexing');
     expect(data.projectId).toBe('p1');
   });
 
   it('auto-generates a projectId when none is provided', async () => {
     const result = await analyzeRepository({ path: srcDir }, undefined);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.projectId).toMatch(/^project_\d+$/);
   });
 
@@ -153,7 +154,7 @@ describe('analyzeRepository', () => {
       ctx,
     );
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBeDefined();
     expect(data.language).toBe('typescript');
     expect(data.phaseCount).toBeGreaterThan(0);
@@ -162,14 +163,14 @@ describe('analyzeRepository', () => {
   it('reports auto-detected language when nodes are found and none specified', async () => {
     const ctx = new ToolContextImpl(new InMemoryGraphStore());
     const result = await analyzeRepository({ path: srcDir, projectId: 'p1' }, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.language).toBe('auto-detected');
   });
 
   it('reports unknown language when no nodes are found', async () => {
     const ctx = new ToolContextImpl(new InMemoryGraphStore());
     const result = await analyzeRepository({ path: emptyDir, projectId: 'p1' }, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.language).toBe('unknown');
   });
 
@@ -177,7 +178,7 @@ describe('analyzeRepository', () => {
     const store = seedStore(2);
     const result = await analyzeRepository({ path: srcDir, projectId: 'p1', force: true }, store);
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('re-indexed');
     expect(data.nodeCount).toBe(2);
     expect(data.language).toBe('auto-detected');
@@ -186,7 +187,7 @@ describe('analyzeRepository', () => {
   it('falls back to indexing status for a raw store without force', async () => {
     const store = seedStore(1);
     const result = await analyzeRepository({ path: srcDir, projectId: 'p1' }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('indexing');
   });
 
@@ -197,7 +198,7 @@ describe('analyzeRepository', () => {
     };
     const result = await analyzeRepository({ path: srcDir, projectId: 'p1' }, ctx);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('failed');
     expect(data.error).toContain('pipeline boom');
   });
@@ -210,7 +211,7 @@ describe('analyzeRepository', () => {
     };
     const result = await analyzeRepository({ path: srcDir, projectId: 'p1' }, ctx);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.error).toContain('plain failure');
   });
 });
@@ -223,7 +224,7 @@ describe('listProjects', () => {
   it('returns an empty result when no store is available', async () => {
     const result = await listProjects({}, undefined);
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.items).toEqual([]);
     expect(data.total).toBe(0);
     expect(data.hasMore).toBe(false);
@@ -232,7 +233,7 @@ describe('listProjects', () => {
   it('lists projects from a raw store', async () => {
     const store = seedStore(3);
     const result = await listProjects({}, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.total).toBe(2); // p1 + p2
     expect(data.items).toHaveLength(2);
     expect(data.items.every((p: { status: string }) => p.status === 'ready')).toBe(true);
@@ -241,7 +242,7 @@ describe('listProjects', () => {
   it('paginates with offset and limit', async () => {
     const store = seedStore(3);
     const result = await listProjects({ limit: 1, offset: 0 }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.returned).toBe(1);
     expect(data.hasMore).toBe(true);
   });
@@ -249,7 +250,7 @@ describe('listProjects', () => {
   it('resolves the store from a ToolContext', async () => {
     const ctx = new ToolContextImpl(seedStore(2));
     const result = await listProjects({}, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.total).toBeGreaterThanOrEqual(1);
   });
 
@@ -283,14 +284,14 @@ describe('deleteProject', () => {
   it('deletes nodes and edges for a project from a raw store', async () => {
     const store = seedStore(3);
     const result = await deleteProject({ projectId: 'p1' }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.deleted).toBe(true);
     expect(data.deletedNodes).toBe(3);
   });
 
   it('reports zero deletions when no store is available', async () => {
     const result = await deleteProject({ projectId: 'p1' }, undefined);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.deleted).toBe(true);
     expect(data.deletedNodes).toBe(0);
     expect(data.deletedEdges).toBe(0);
@@ -299,7 +300,7 @@ describe('deleteProject', () => {
   it('deletes from a ToolContext store', async () => {
     const ctx = new ToolContextImpl(seedStore(2));
     const result = await deleteProject({ projectId: 'p1' }, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.deletedNodes).toBe(2);
   });
 
@@ -310,7 +311,7 @@ describe('deleteProject', () => {
     };
     const result = await deleteProject({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.deleted).toBe(false);
     expect(data.error).toContain('edges boom');
   });
@@ -323,7 +324,7 @@ describe('deleteProject', () => {
     };
     const result = await deleteProject({ projectId: 'p1' }, store);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.error).toContain('plain edges');
   });
 });
@@ -336,7 +337,7 @@ describe('indexStatus', () => {
   it('reports ready status via ToolContext when nodes exist', async () => {
     const ctx = new ToolContextImpl(seedStore(2));
     const result = await indexStatus({ projectId: 'p1' }, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('ready');
     expect(data.nodeCount).toBe(2);
     expect(data.labelDistribution).toBeDefined();
@@ -345,7 +346,7 @@ describe('indexStatus', () => {
   it('reports empty status via ToolContext when no nodes exist', async () => {
     const ctx = new ToolContextImpl(new InMemoryGraphStore());
     const result = await indexStatus({ projectId: 'p1' }, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('empty');
     expect(data.nodeCount).toBe(0);
   });
@@ -353,7 +354,7 @@ describe('indexStatus', () => {
   it('reports status from a raw store fallback', async () => {
     const store = seedStore(3);
     const result = await indexStatus({ projectId: 'p1' }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('ready');
     expect(data.nodeCount).toBe(3);
   });
@@ -361,7 +362,7 @@ describe('indexStatus', () => {
   it('reports empty status from a raw store fallback', async () => {
     const store = new InMemoryGraphStore();
     const result = await indexStatus({ projectId: 'p1' }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('empty');
   });
 
@@ -369,7 +370,7 @@ describe('indexStatus', () => {
     const store = new InMemoryGraphStore();
     store.insertNode(makeNode({ name: 'anonymous', qualifiedName: '' }));
     const result = await indexStatus({ projectId: 'p1' }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.issues).toBeDefined();
     expect(data.issues.length).toBeGreaterThan(0);
     expect(data.valid).toBe(false);
@@ -380,7 +381,7 @@ describe('indexStatus', () => {
     store.insertNode(makeNode({ name: 'anonymous', qualifiedName: '' }));
     const ctx = new ToolContextImpl(store);
     const result = await indexStatus({ projectId: 'p1' }, ctx);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.issues).toBeDefined();
     expect(data.issues.length).toBeGreaterThan(0);
     expect(data.valid).toBe(false);
@@ -388,7 +389,7 @@ describe('indexStatus', () => {
 
   it('reports unknown status when no store is available', async () => {
     const result = await indexStatus({ projectId: 'p1' }, undefined);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('unknown');
     expect(data.indexedAt).toBeNull();
   });
@@ -400,7 +401,7 @@ describe('indexStatus', () => {
     };
     const result = await indexStatus({ projectId: 'p1' }, ctx);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('error');
     expect(data.error).toContain('stats boom');
   });
@@ -413,7 +414,7 @@ describe('indexStatus', () => {
     };
     const result = await indexStatus({ projectId: 'p1' }, ctx);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.error).toContain('plain stats');
   });
 });
@@ -438,7 +439,7 @@ describe('autoIndex', () => {
   it('rejects a non-existent path', async () => {
     const result = await autoIndex({ path: '/definitely/not/here' }, new InMemoryGraphStore());
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('failed');
     expect(data.error).toContain('Path does not exist');
   });
@@ -446,7 +447,7 @@ describe('autoIndex', () => {
   it('rejects when no graph store is available', async () => {
     const result = await autoIndex({ path: dir }, undefined);
     expect(result.isError).toBe(true);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.error).toContain('No graph store');
   });
 
@@ -454,7 +455,7 @@ describe('autoIndex', () => {
     const store = new InMemoryGraphStore();
     const result = await autoIndex({ path: dir }, store);
     expect(result.isError).toBeFalsy();
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('indexed');
     expect(data.filesDiscovered).toBeGreaterThan(0);
     expect(data.type).toBeDefined();
@@ -464,7 +465,7 @@ describe('autoIndex', () => {
   it('skips indexing when indexOnConnect is false', async () => {
     const store = new InMemoryGraphStore();
     const result = await autoIndex({ path: dir, indexOnConnect: false }, store);
-    const data = JSON.parse(result.content[0]!.text);
+    const data = JSON.parse(toolText(result));
     expect(data.status).toBe('indexed');
     expect(data.filesDiscovered).toBe(0);
     expect(data.nodesIndexed).toBe(0);
@@ -486,7 +487,7 @@ describe('autoIndex', () => {
     try {
       const result = await autoIndex({ path: dir }, store);
       expect(result.isError).toBe(true);
-      const data = JSON.parse(result.content[0]!.text);
+      const data = JSON.parse(toolText(result));
       expect(data.error).toContain('discover boom');
     } finally {
       spy.mockRestore();
@@ -510,7 +511,7 @@ describe('autoIndex', () => {
     try {
       const result = await autoIndex({ path: dir }, store);
       expect(result.isError).toBe(true);
-      const data = JSON.parse(result.content[0]!.text);
+      const data = JSON.parse(toolText(result));
       expect(data.error).toContain('plain discover');
     } finally {
       spy.mockRestore();

@@ -62,3 +62,23 @@ export function insertEdge(
 ): number {
   return store.insertEdge(makeEdge(overrides));
 }
+
+/**
+ * The text payload of a tool result.
+ *
+ * The MCP SDK types `text` as optional, so every assertion reading a tool's JSON output had to write
+ * `result.content[0]!.text` and then hand a `string | undefined` to `JSON.parse` — 59 of them across
+ * two files. This asserts the text is present once, with a message naming what was missing, instead
+ * of at every call site.
+ */
+export function toolText(result: {
+  content: ReadonlyArray<{ type: string; text?: string }>;
+}): string {
+  const first = result.content[0];
+  if (first?.text === undefined) {
+    throw new Error(
+      `tool result had no text content (got: ${JSON.stringify(result.content).slice(0, 200)})`,
+    );
+  }
+  return first.text;
+}

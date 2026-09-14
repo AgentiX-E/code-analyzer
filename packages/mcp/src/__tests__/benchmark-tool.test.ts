@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { runBenchmark, runBenchmarkSchema } from '../tools/benchmark.js';
+import { toolText } from './test-helpers.js';
 
 const caBench = vi.hoisted(() => ({
   runAll: vi.fn(),
@@ -100,7 +101,7 @@ describe('runBenchmark — CA-Bench suite', () => {
 
   it('serializes the suite result as JSON when requested', async () => {
     const r = await runBenchmark({ suite: 'review-quality', format: 'json' });
-    const parsed = JSON.parse(r.content[0]!.text);
+    const parsed = JSON.parse(toolText(r));
     expect(parsed.suiteName).toBe('review-quality');
   });
 
