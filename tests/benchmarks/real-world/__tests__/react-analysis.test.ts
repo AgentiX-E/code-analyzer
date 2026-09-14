@@ -133,12 +133,6 @@ function discoverFiles(root: string): FileInfo[] {
   return results;
 }
 
-function getProvider(lang: string): LanguageProvider | null {
-  if (lang === 'javascript') return new JavaScriptProvider();
-  if (lang === 'typescript') return new TypeScriptProvider();
-  return null;
-}
-
 function parseFile(file: FileInfo, provider: LanguageProvider): ParseStats {
   const errors: string[] = [];
   let captures: UnifiedCapture[] = [];

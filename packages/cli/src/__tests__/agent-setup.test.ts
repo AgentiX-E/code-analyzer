@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { AgentSetupManager } from '../agent-setup.js';
 
-import type { SupportedAgent, AgentConfig, SetupResult } from '../agent-setup.js';
+import type { SupportedAgent, SetupResult } from '../agent-setup.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -17,16 +17,6 @@ import type { SupportedAgent, AgentConfig, SetupResult } from '../agent-setup.js
 function createTempHome(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-analyzer-agent-test-'));
   return dir;
-}
-
-function createAgentDir(tempHome: string, agentConfig: AgentConfig): void {
-  const dirPath = path.dirname(path.join(tempHome, agentConfig.configPath));
-  fs.mkdirSync(dirPath, { recursive: true });
-}
-
-function createFakeAgentInstall(agentConfig: AgentConfig, detectionPath: string): void {
-  void path.join(agentConfig.configPath.startsWith('/') ? '' : '', detectionPath);
-  // We handle this via the manager's homeDir
 }
 
 // ---------------------------------------------------------------------------
