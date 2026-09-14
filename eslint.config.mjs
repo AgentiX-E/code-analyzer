@@ -16,7 +16,11 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['*.test.ts', '*.spec.ts', '**/__tests__/**'],
+          // Bounded, and deliberately not a directory glob: the project service rejects a pattern that
+          // matches many files, and the previous `**/__tests__/**` matched enough of them to make every
+          // file in the repository a parsing error. The suites are handled by disabling the type-aware
+          // rules for them, below.
+          allowDefaultProject: ['*.cjs', '*.mjs'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -77,8 +81,17 @@ export default tseslint.config(
     },
   },
 
-  // Test files: relaxed rules
+  // Test files: relaxed rules.
+  //
+  // The suites belong to `tsconfig.tests.json`, not to a package project, so the project service is
+  // told where to find them. `defaultProject` is that mechanism; unlike `allowDefaultProject` it has
+  // no cap on the number of files it covers, which is why the suites are handled here.
   {
+    languageOptions: {
+      parserOptions: {
+        projectService: { defaultProject: 'tsconfig.tests.json' },
+      },
+    },
     files: [
       '**/*.test.ts',
       '**/*.test.tsx',
@@ -113,6 +126,14 @@ export default tseslint.config(
 
   // Ignore build artifacts
   {
-    ignores: ['dist/', 'node_modules/', '.turbo/', 'coverage/', '*.tsbuildinfo', 'pnpm-lock.yaml'],
+    // Root-relative patterns match only the repository root, so nested build output was being linted.
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.turbo/**',
+      '**/coverage/**',
+      '**/*.tsbuildinfo',
+      'pnpm-lock.yaml',
+    ],
   },
 );
