@@ -152,7 +152,6 @@ describe('Dataflow Search Engine', () => {
 
     // Create a simple graph: source → intermediate → sink
     const srcId = store.insertNode({
-      id: 0,
       projectId: 'test',
       label: 'Function',
       name: 'req.body.user',
@@ -172,7 +171,6 @@ describe('Dataflow Search Engine', () => {
     });
 
     const midId = store.insertNode({
-      id: 0,
       projectId: 'test',
       label: 'Function',
       name: 'processInput',
@@ -192,7 +190,6 @@ describe('Dataflow Search Engine', () => {
     });
 
     const sinkId = store.insertNode({
-      id: 0,
       projectId: 'test',
       label: 'Function',
       name: 'db.query',
@@ -213,7 +210,6 @@ describe('Dataflow Search Engine', () => {
 
     // Create edges: source → intermediate → sink
     store.insertEdge({
-      id: 0,
       projectId: 'test',
       sourceId: srcId,
       targetId: midId,
@@ -224,7 +220,6 @@ describe('Dataflow Search Engine', () => {
     });
 
     store.insertEdge({
-      id: 0,
       projectId: 'test',
       sourceId: midId,
       targetId: sinkId,

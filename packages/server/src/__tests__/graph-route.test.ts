@@ -16,7 +16,6 @@ function createStoreWithData(): InMemoryGraphStore {
 
   // Insert nodes
   const node1Id = store.insertNode({
-    id: 0,
     projectId: 'org/repo-a',
     label: 'Class',
     name: 'UserService',
@@ -36,7 +35,6 @@ function createStoreWithData(): InMemoryGraphStore {
   });
 
   const node2Id = store.insertNode({
-    id: 0,
     projectId: 'org/repo-a',
     label: 'Function',
     name: 'getUserById',
@@ -56,7 +54,6 @@ function createStoreWithData(): InMemoryGraphStore {
   });
 
   const node3Id = store.insertNode({
-    id: 0,
     projectId: 'org/repo-a',
     label: 'Interface',
     name: 'IUserRepository',
@@ -77,7 +74,6 @@ function createStoreWithData(): InMemoryGraphStore {
 
   // Insert node in a different project
   store.insertNode({
-    id: 0,
     projectId: 'org/repo-b',
     label: 'Class',
     name: 'OrderService',

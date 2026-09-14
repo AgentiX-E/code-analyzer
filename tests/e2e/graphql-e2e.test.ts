@@ -67,7 +67,6 @@ function populateStore(store: InMemoryGraphStore): void {
   const projectId = 'e2e-gql-project';
 
   store.insertNode({
-    id: 0,
     projectId,
     label: 'Project' as any,
     name: 'e2e-gql-project',
@@ -87,7 +86,6 @@ function populateStore(store: InMemoryGraphStore): void {
   });
 
   const classA = store.insertNode({
-    id: 0,
     projectId,
     label: 'Class' as any,
     name: 'AuthService',
@@ -107,7 +105,6 @@ function populateStore(store: InMemoryGraphStore): void {
   });
 
   const classB = store.insertNode({
-    id: 0,
     projectId,
     label: 'Class' as any,
     name: 'UserRepository',
@@ -127,7 +124,6 @@ function populateStore(store: InMemoryGraphStore): void {
   });
 
   store.insertEdge({
-    id: 0,
     projectId,
     sourceId: classA,
     targetId: classB,
@@ -255,7 +251,6 @@ describe('GraphQL E2E — Pagination', () => {
     const now = new Date().toISOString();
     for (let i = 0; i < 20; i++) {
       store.insertNode({
-        id: 0,
         projectId: 'e2e-gql-project',
         label: 'Function' as any,
         name: `fn${i}`,

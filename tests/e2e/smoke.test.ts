@@ -167,7 +167,6 @@ describe('Graph Store E2E', () => {
   ): Parameters<typeof store.insertNode>[0] {
     const now = new Date().toISOString();
     return {
-      id: 0,
       projectId,
       label: label as any,
       name,
@@ -193,7 +192,6 @@ describe('Graph Store E2E', () => {
     type = 'IMPORTS',
   ): Parameters<typeof store.insertEdge>[0] {
     return {
-      id: 0,
       projectId: 'e2e',
       sourceId: srcId,
       targetId: tgtId,
@@ -290,7 +288,6 @@ describe('Resilience E2E', () => {
   function makeNode(name: string): Parameters<typeof store.insertNode>[0] {
     const now = new Date().toISOString();
     return {
-      id: 0,
       projectId: 'resilience',
       label: 'Function' as any,
       name,
@@ -332,7 +329,6 @@ describe('Resilience E2E', () => {
     }
     for (let i = 0; i < 9; i++) {
       store.insertEdge({
-        id: 0,
         projectId: 'resilience',
         sourceId: ids[i]!,
         targetId: ids[i + 1]!,

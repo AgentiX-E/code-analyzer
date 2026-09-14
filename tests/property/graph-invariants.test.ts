@@ -12,7 +12,6 @@ function createStore(): InMemoryGraphStore {
 function addNode(store: InMemoryGraphStore, name: string, label = 'Function'): number {
   const now = new Date().toISOString();
   return store.insertNode({
-    id: 0,
     projectId: 'prop-test',
     label: label as any,
     name,
@@ -34,7 +33,6 @@ function addNode(store: InMemoryGraphStore, name: string, label = 'Function'): n
 
 function addEdge(store: InMemoryGraphStore, src: number, tgt: number, type = 'IMPORTS'): number {
   return store.insertEdge({
-    id: 0,
     projectId: 'prop-test',
     sourceId: src,
     targetId: tgt,

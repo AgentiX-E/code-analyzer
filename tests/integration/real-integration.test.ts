@@ -98,7 +98,6 @@ describe('InMemoryGraphStore (Real DB)', () => {
     const b = s.insertNode(makeNode('b', 'p.b'));
     const c = s.insertNode(makeNode('c', 'p.c'));
     s.insertEdge({
-      id: 0,
       projectId: 'p',
       sourceId: a,
       targetId: b,
@@ -108,7 +107,6 @@ describe('InMemoryGraphStore (Real DB)', () => {
       createdAt: '',
     });
     s.insertEdge({
-      id: 0,
       projectId: 'p',
       sourceId: b,
       targetId: c,

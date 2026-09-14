@@ -54,7 +54,6 @@ describe('Performance: queryNodes with secondary indexes', () => {
     // Insert edges for edge query tests
     for (let i = 0; i < 1000; i++) {
       store.insertEdge({
-        id: i + 1,
         projectId: i < 500 ? 'proj-a' : 'proj-b',
         sourceId: i + 1,
         targetId: ((i + 100) % NODE_COUNT) + 1,

@@ -34,7 +34,6 @@ function addCorpusNode(
 ): number {
   const now = new Date().toISOString();
   return store.insertNode({
-    id: 0,
     projectId: 'prop-test',
     label: label as any,
     name,
@@ -172,7 +171,6 @@ describe('Search Invariants', () => {
 
       // Node with exact name match
       store.insertNode({
-        id: 0,
         projectId: 'prop-test',
         label: 'Function' as any,
         name: 'connectToDatabase',
@@ -193,7 +191,6 @@ describe('Search Invariants', () => {
 
       // Node with content-only match
       store.insertNode({
-        id: 0,
         projectId: 'prop-test',
         label: 'Function' as any,
         name: 'unrelatedFunc',
@@ -301,7 +298,6 @@ describe('Search Invariants', () => {
 
       // Node with term appearing once
       store.insertNode({
-        id: 0,
         projectId: 'prop-test',
         label: 'Function' as any,
         name: 'SingleMention',
@@ -322,7 +318,6 @@ describe('Search Invariants', () => {
 
       // Node with term appearing multiple times
       store.insertNode({
-        id: 0,
         projectId: 'prop-test',
         label: 'Function' as any,
         name: 'MultiMention',

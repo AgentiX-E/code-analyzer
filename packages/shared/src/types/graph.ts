@@ -121,7 +121,13 @@ export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
 
 /** Properties attached to a graph node — varies by node label */
 export interface NodeProperties {
-  name: string;
+  /**
+   * Optional because it duplicates `GraphNode.name`, which every node already carries, and because
+   * nothing reads it from here: the language providers build `properties` without a `name`, and the
+   * only readers are two store tests asserting a round-trip. Requiring it made every fixture that
+   * wrote a partial `properties` object a type error — 35 of them — for a field no consumer used.
+   */
+  name?: string;
   filePath?: string;
   startLine?: number;
   endLine?: number;

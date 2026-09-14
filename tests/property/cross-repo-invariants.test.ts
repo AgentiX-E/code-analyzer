@@ -26,7 +26,6 @@ function populateRepo(store: InMemoryGraphStore, projectId: string, symbols: str
   for (const sym of symbols) {
     const uniqueName = `${projectId}__${sym}`;
     const id = store.insertNode({
-      id: 0,
       projectId,
       label: 'Class' as any,
       name: sym,

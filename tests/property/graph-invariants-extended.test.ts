@@ -21,7 +21,6 @@ function addNode(
 ): number {
   const now = new Date().toISOString();
   return store.insertNode({
-    id: 0,
     projectId,
     label: label as any,
     name,
@@ -49,7 +48,6 @@ function addEdge(
   projectId = 'prop-ext',
 ): number {
   return store.insertEdge({
-    id: 0,
     projectId,
     sourceId: src,
     targetId: tgt,

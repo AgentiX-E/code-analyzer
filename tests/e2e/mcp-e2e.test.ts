@@ -20,7 +20,6 @@ function populateStore(): void {
   const projectId = 'e2e-mcp-project';
 
   store.insertNode({
-    id: 0,
     projectId,
     label: 'Project' as any,
     name: 'mcp-test-project',
@@ -41,7 +40,6 @@ function populateStore(): void {
 
   for (let i = 0; i < 10; i++) {
     store.insertNode({
-      id: 0,
       projectId,
       label: 'Class' as any,
       name: `Service${i}`,
@@ -63,7 +61,6 @@ function populateStore(): void {
 
   for (let i = 0; i < 5; i++) {
     store.insertNode({
-      id: 0,
       projectId,
       label: 'Function' as any,
       name: `util${i}`,

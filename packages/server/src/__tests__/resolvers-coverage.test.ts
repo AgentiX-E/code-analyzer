@@ -208,7 +208,6 @@ describe('resolvers — projects status filter', () => {
   it('filters projects by status', () => {
     // Project node → READY; a bare node without a Project node → INDEXING
     store.insertNode({
-      id: 0,
       projectId: 'ready-proj',
       label: 'Project',
       name: 'ready',

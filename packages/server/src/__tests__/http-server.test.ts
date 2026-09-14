@@ -621,7 +621,6 @@ describe('createServer with auth', () => {
 function createStoreWithNode(): InMemoryGraphStore {
   const store = new InMemoryGraphStore();
   store.insertNode({
-    id: 0,
     projectId: 'org/repo-a',
     label: 'Class',
     name: 'UserService',

@@ -16,7 +16,6 @@ function createProfiler(config?: Partial<BenchmarkConfig>): PerformanceProfiler 
 function populateStore(store: InMemoryGraphStore, count: number = 100): void {
   for (let i = 0; i < count; i++) {
     store.insertNode({
-      id: i,
       projectId: 'bench',
       name: `fn${i}`,
       label: 'Function',
