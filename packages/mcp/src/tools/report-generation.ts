@@ -407,11 +407,11 @@ export function generateKeyFindings(
   for (const c of comments) {
     fileCounts.set(c.path, (fileCounts.get(c.path) ?? 0) + 1);
   }
+  // No `length > 0` guard: `comments` is non-empty here — the early return above handles the
+  // empty case — so every comment contributed a file entry, and the guard could never be false.
   const topFiles = [...fileCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (topFiles.length > 0) {
-    const fileSummary = topFiles.map(([path, count]) => `\`${path}\` (${count})`).join(', ');
-    findings.push(`Most affected files: ${fileSummary}.`);
-  }
+  const fileSummary = topFiles.map(([path, count]) => `\`${path}\` (${count})`).join(', ');
+  findings.push(`Most affected files: ${fileSummary}.`);
 
   return findings;
 }

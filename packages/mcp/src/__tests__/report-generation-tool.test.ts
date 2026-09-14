@@ -20,6 +20,13 @@ import {
 // Test Fixtures
 // ---------------------------------------------------------------------------
 
+/**
+ * A severity the ranking tables do not know. `ReviewComment['severity']` is a closed union, but the
+ * tool parses review JSON with `JSON.parse`, so an unranked value reaches the ordering fallbacks in
+ * production — this cast is how a test reproduces that.
+ */
+const UNRANKED = 'unknown' as ReviewComment['severity'];
+
 function makeComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
   return {
     id: 'comment-1',
@@ -203,6 +210,63 @@ describe('reportGenerationTool handler', () => {
     expect(result.metadata!['totalComments']).toBe(0);
   });
 
+  // Four inputs the suite never built. Together they reach the general-advice branch, the raw
+  // object input, the `comments ?? []` fallback, and the two severity-ordering fallbacks.
+  it('should reach the general-advice path, the object input and unknown severities', async () => {
+    // (1) comments that produce no specific recommendation: the only category is 'test' — which
+    // suppresses the generic test suggestion at its source — and nothing is critical or high.
+    const quietComments = [
+      makeComment({
+        id: 'quiet-1',
+        path: '/src/a.ts',
+        category: 'test',
+        severity: 'low',
+        content: 'Missing test case',
+      }),
+    ];
+    const quiet = await reportGenerationTool.handler({
+      projectId: 'test-project',
+      reviewResults: JSON.stringify({ title: 'Quiet review', comments: quietComments }),
+    });
+    const quietText = quiet.content[0]!.text;
+    expect(quietText).toContain('Review all findings and address them based on priority');
+    expect(quietText).toContain('Most common categories');
+    expect(quietText).toContain('Most affected files');
+
+    // (2) reviewResults as an object rather than a JSON string
+    const asObject = await reportGenerationTool.handler({
+      projectId: 'test-project',
+      reviewResults: { title: 'Direct object', comments: quietComments },
+    });
+    expect(asObject.isError).toBeUndefined();
+    expect(asObject.content[0]!.text).toContain('Direct object');
+
+    // (3) no `comments` key at all — the tool parses arbitrary review JSON
+    const withoutComments = await reportGenerationTool.handler({
+      projectId: 'test-project',
+      reviewResults: { title: 'No comments key' },
+    });
+    expect(withoutComments.isError).toBeUndefined();
+    expect(withoutComments.content[0]!.text).toContain('No issues found');
+
+    // (4) an unrecognised severity. `severity` is typed `Severity | string`, so the ordering
+    // tables carry a fallback rank; two comments are needed for the comparator to run at all.
+    const oddSeverity = await reportGenerationTool.handler({
+      projectId: 'test-project',
+      reviewResults: {
+        title: 'Odd severity',
+        comments: [
+          // `ReviewComment.severity` is a closed union, but the handler parses review JSON
+          // with `JSON.parse`, so an unranked value is exactly what production sees.
+          makeComment({ id: 'odd-1', category: 'bug', severity: UNRANKED, content: 'a' }),
+          makeComment({ id: 'odd-2', category: 'bug', severity: 'high', content: 'b' }),
+        ],
+      },
+    });
+    expect(oddSeverity.isError).toBeUndefined();
+    expect(oddSeverity.content[0]!.text).toContain('Odd severity');
+  });
+
   it('should auto-generate title when not provided', async () => {
     const result = await reportGenerationTool.handler({
       projectId: 'my-project',
@@ -335,6 +399,25 @@ describe('extractTopIssues', () => {
     expect(top[3]!.severity).toBe('low');
   });
 
+  // `severity` is typed `Severity | string`, and the tool parses review JSON it did not write, so
+  // the ordering tables carry a fallback rank. Both sorts compare an unrecognised value, which is
+  // what makes the fallback reachable at all.
+  it('should rank an unrecognised severity after the known ones', () => {
+    // The known severity comes first so that the *first* comparator argument is the unrecognised
+    // one — both sides of `?? 5` need an unrecognised value to reach their fallback.
+    const comments = [
+      makeComment({ id: 'known-1', severity: 'critical', content: 'critical' }),
+      makeComment({ id: 'unknown-1', severity: UNRANKED, content: 'unrecognised' }),
+    ];
+
+    const top = extractTopIssues(comments, 10);
+    expect(top[0]!.severity).toBe('critical');
+    expect(top[1]!.severity).toBe('unknown');
+
+    const breakdown = computeSeverityBreakdown(comments);
+    expect(breakdown.map((s) => s.severity).sort()).toEqual(['critical', 'unknown']);
+  });
+
   it('should respect the limit parameter', () => {
     const comments = createSampleComments();
     const top = extractTopIssues(comments, 3);
@@ -435,6 +518,24 @@ describe('generateRecommendations', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateKeyFindings', () => {
+  it('should state the clean result for an empty comment list', () => {
+    const findings = generateKeyFindings([], [], []);
+
+    expect(findings.join(' ')).toContain('No review comments found');
+  });
+
+  // The category finding is driven by the breakdown the *caller* passes, not by `comments` alone,
+  // so an empty breakdown alongside non-empty comments must produce no category line.
+  it('should summarise only the parts it was given', () => {
+    const findings = generateKeyFindings([makeComment()], [], []);
+    const text = findings.join(' ');
+
+    expect(text).toContain('Total of 1 review comment(s) identified');
+    expect(text).not.toContain('Most common categories');
+    expect(text).toContain('Most affected files');
+    expect(text).toContain('No critical or high severity issues detected');
+  });
+
   it('should handle empty comments', () => {
     const findings = generateKeyFindings([], [], []);
     expect(findings).toHaveLength(1);
