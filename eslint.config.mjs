@@ -46,6 +46,13 @@ export default tseslint.config(
         },
       ],
 
+      // Module resolution in a pnpm workspace is what the typecheck ratchet enforces, and it is the
+      // authoritative gate for it. Here the resolver reads each dependency's built entry points, so its
+      // verdict changes with whether the workspace has been built — which the lint gate must not depend
+      // on. Measured on CI it produced an `Unable to resolve '@code-analyzer/shared'` family that does
+      // not exist once the packages are built.
+      'import/no-unresolved': 'off',
+
       // Console only for warn/error
       'no-console': ['error', { allow: ['warn', 'error'] }],
 
@@ -62,13 +69,8 @@ export default tseslint.config(
       // No any in production
       '@typescript-eslint/no-explicit-any': 'error',
 
-      // Relax some strict rules for practicality
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      '@typescript-eslint/restrict-template-expressions': [
-        'error',
-        { allowNumber: true, allowBoolean: true, allowNullish: true },
-      ],
-      '@typescript-eslint/no-base-to-string': 'warn',
+      // The type-aware rules that used to live here are gone with the type-aware base: they depend on
+      // a fully built workspace, which is what made the gate's numbers move between machines.
       '@typescript-eslint/require-await': 'off',
     },
   },
