@@ -68,7 +68,7 @@ jobs:
         run: node scripts/generate-sbom.mjs --output docker-sbom.spdx.json
 
       - name: Upload Docker SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docker-sbom
           path: docker-sbom.spdx.json
