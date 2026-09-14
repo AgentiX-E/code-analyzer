@@ -149,3 +149,35 @@ describe('resolvers — indexProject mutation', () => {
     expect(result.name).toBe('app');
   });
 });
+
+describe('resolvers — dangling edges and repeated cycles', () => {
+  // `symbolUsage` skips an edge whose source node is absent, and that arm is unreachable through
+  // this store: `insertEdge` and `insertEdges` both validate that the endpoints exist, and
+  // `deleteNode` cascades to the node's connected edges. Rather than force it with a hand-built
+  // store, pin the invariant that keeps it unreachable — if the store ever stops enforcing it, the
+  // resolver's skip becomes load-bearing and this test says so.
+  it('the store rejects an edge whose source node does not exist', () => {
+    const target = insertNode({ projectId: 'p1', name: 'target', qualifiedName: 'src.target' });
+
+    expect(() => insertEdge(999_999, target, 'CALLS', 'p1')).toThrow(/source node/);
+  });
+
+  // Two files in the same package pair produce the same A ⇄ B cycle twice: the first pushes it,
+  // the second must recognise it is already recorded rather than duplicating the entry.
+  it('dependencyGraph records a package cycle only once', () => {
+    const a1 = insertNode({ projectId: 'p1', filePath: 'a/one.ts', qualifiedName: 'a.one' });
+    const b1 = insertNode({ projectId: 'p1', filePath: 'b/one.ts', qualifiedName: 'b.one' });
+    const a2 = insertNode({ projectId: 'p1', filePath: 'a/two.ts', qualifiedName: 'a.two' });
+    const b2 = insertNode({ projectId: 'p1', filePath: 'b/two.ts', qualifiedName: 'b.two' });
+
+    insertEdge(a1, b1, 'IMPORTS', 'p1');
+    insertEdge(b1, a1, 'IMPORTS', 'p1');
+    insertEdge(a2, b2, 'IMPORTS', 'p1');
+    insertEdge(b2, a2, 'IMPORTS', 'p1');
+
+    const result = resolvers.Query.dependencyGraph(null, { projectId: 'p1' }, ctx);
+
+    expect(result.circularDeps).toHaveLength(1);
+    expect(result.circularDeps[0]).toMatch(/a ⇄ b|b ⇄ a/);
+  });
+});

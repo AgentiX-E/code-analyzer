@@ -359,8 +359,11 @@ export const resolvers = {
       // Find nodes in the changed files
       const affectedNodes: GraphNode[] = [];
       for (const file of changedFiles) {
+        // The predicate narrows `filePath` to a string — it is compared to `file`, a string — so
+        // the mapping below needs no `?? ''` fallback for a case this filter excludes.
         const fileNodes = Array.from(store.nodes.values()).filter(
-          (n) => n.projectId === projectId && n.filePath === file,
+          (n): n is GraphNode & { filePath: string } =>
+            n.projectId === projectId && n.filePath === file,
         );
         affectedNodes.push(
           ...fileNodes.map((n) => ({
@@ -387,7 +390,7 @@ export const resolvers = {
 
       const changedSymbols = affectedNodes.map((n) => ({
         symbolQname: n.qualifiedName,
-        filePath: n.filePath ?? '',
+        filePath: n.filePath,
         changeType: 'modified',
         startLine: n.startLine ?? 0,
         endLine: n.endLine ?? 0,
@@ -396,7 +399,7 @@ export const resolvers = {
       const impactTree = affectedNodes.slice(0, 10).map((n) => ({
         symbolQname: n.qualifiedName,
         label: n.label,
-        filePath: n.filePath ?? '',
+        filePath: n.filePath,
         impactType: 'direct',
         depth: 0,
         children: [],
@@ -562,8 +565,13 @@ export const resolvers = {
               }
               // Check for circular dependency
               if (adjacency[tgtPkg]?.includes(srcPkg)) {
-                if (!circularDeps.includes(`${srcPkg} ⇄ ${tgtPkg}`)) {
-                  circularDeps.push(`${srcPkg} ⇄ ${tgtPkg}`);
+                // Order the pair before comparing: 'a ⇄ b' and 'b ⇄ a' are the *same* cycle, and
+                // whichever edge happens to close it decides the direction. Comparing the raw
+                // `${srcPkg} ⇄ ${tgtPkg}` string therefore reported one cycle twice, with the
+                // labels reversed, whenever two files in the pair each imported the other.
+                const cycle = [srcPkg, tgtPkg].sort().join(' ⇄ ');
+                if (!circularDeps.includes(cycle)) {
+                  circularDeps.push(cycle);
                 }
               }
             }
