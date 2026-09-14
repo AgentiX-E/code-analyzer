@@ -119,7 +119,7 @@ describe('trendAnalysisTool', () => {
       { projectId: 'test-project', metric: null },
       createStoreWithData(),
     );
-    expect(r.metadata['metric']).toBe('health');
+    expect(r.metadata['metric']!).toBe('health');
   });
 
   it('should report an unknown metric', async () => {

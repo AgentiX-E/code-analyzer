@@ -30,8 +30,8 @@ function makeNode(
     childCount: children.length,
     namedChildCount: children.length,
     hasError: false,
-    child: (i: number) => children[i],
-    namedChild: (i: number) => children[i],
+    child: (i: number) => children[i]!,
+    namedChild: (i: number) => children[i]!,
     childForFieldName: () => null,
     parent,
     walk: () => ({
@@ -217,7 +217,7 @@ describe('SwiftProvider', () => {
   describe('extractImports', () => {
     it('should extract module path with last segment as name', () => {
       const code = 'import UIKit.UIViewController';
-      const imports = provider.extractImports(code, 't.swift');
+      const imports = provider.extractImports(code);
       expect(
         imports.some(
           (i) => i.source === 'UIKit.UIViewController' && i.names.includes('UIViewController'),

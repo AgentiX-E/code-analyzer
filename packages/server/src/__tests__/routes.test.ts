@@ -443,7 +443,7 @@ describe('sendSSEEvent', () => {
       },
     };
 
-    sendSSEEvent(mockRes, 'update', { items: [1, 2, 3], nested: { a: 1 } });
+    sendSSEEvent(mockRes, 'update', { items: [1, 2, 3]!, nested: { a: 1 } });
     expect(chunks.join('')).toContain('data: {"items":[1,2,3],"nested":{"a":1}}');
   });
 });

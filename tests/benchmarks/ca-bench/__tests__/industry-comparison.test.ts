@@ -262,7 +262,7 @@ function computeCompetitorScores(dimensions: ComparisonDimension[]): CompetitorS
       tool,
       dimensions,
       compositeScore,
-      confidence: confidence[tool],
+      confidence: confidence[tool]!,
     });
   }
 

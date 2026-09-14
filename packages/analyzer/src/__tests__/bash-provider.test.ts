@@ -150,17 +150,17 @@ describe('BashProvider', () => {
   describe('extractImports', () => {
     it('should extract source as an import', () => {
       const code = 'source ./config.sh';
-      const imports = provider.extractImports(code, 't.sh');
+      const imports = provider.extractImports(code);
       expect(imports.some((i) => i.source === './config.sh')).toBe(true);
     });
 
     it('should extract a dot-source as an import', () => {
-      const imports = provider.extractImports('. ./other.sh', 't.sh');
+      const imports = provider.extractImports('. ./other.sh');
       expect(imports.some((i) => i.source === './other.sh')).toBe(true);
     });
 
     it('should return empty for code without imports', () => {
-      expect(provider.extractImports('echo hi', 't.sh')).toEqual([]);
+      expect(provider.extractImports('echo hi')).toEqual([]);
     });
   });
 
@@ -303,13 +303,13 @@ describe('BashProvider', () => {
     });
 
     it('should extract source imports', () => {
-      const imports = fallback.extractImports('source ./a.sh\n. ./b.sh', 't.sh');
+      const imports = fallback.extractImports('source ./a.sh\n. ./b.sh');
       expect(imports.some((i) => i.source === './a.sh')).toBe(true);
       expect(imports.some((i) => i.source === './b.sh')).toBe(true);
     });
 
     it('should return empty imports without sources', () => {
-      expect(fallback.extractImports('echo hi', 't.sh')).toEqual([]);
+      expect(fallback.extractImports('echo hi')).toEqual([]);
     });
 
     it('should report everything as exported', () => {

@@ -170,17 +170,17 @@ describe('CProvider', () => {
   describe('extractImports', () => {
     it('should extract include paths', () => {
       const code = '#include <stdio.h>\n#include "local.h"';
-      const imports = provider.extractImports(code, 't.c');
+      const imports = provider.extractImports(code);
       expect(imports.some((i) => i.source === 'stdio.h')).toBe(true);
       expect(imports.some((i) => i.source === 'local.h')).toBe(true);
     });
 
     it('should return empty for a macro include', () => {
-      expect(provider.extractImports('#include MY_MACRO', 't.c')).toEqual([]);
+      expect(provider.extractImports('#include MY_MACRO')).toEqual([]);
     });
 
     it('should return empty for code without includes', () => {
-      expect(provider.extractImports('int x = 1;', 't.c')).toEqual([]);
+      expect(provider.extractImports('int x = 1;')).toEqual([]);
     });
   });
 
@@ -294,13 +294,13 @@ describe('CProvider', () => {
     });
 
     it('should extract include imports', () => {
-      const imports = fallback.extractImports('#include <stdio.h>\n#include "local.h"', 't.c');
+      const imports = fallback.extractImports('#include <stdio.h>\n#include "local.h"');
       expect(imports.some((i) => i.source === 'stdio.h')).toBe(true);
       expect(imports.some((i) => i.source === 'local.h')).toBe(true);
     });
 
     it('should return empty imports without includes', () => {
-      expect(fallback.extractImports('int x = 1;', 't.c')).toEqual([]);
+      expect(fallback.extractImports('int x = 1;')).toEqual([]);
     });
 
     it('should report a public function as exported', () => {

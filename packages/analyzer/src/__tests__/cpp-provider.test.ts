@@ -191,22 +191,22 @@ describe('CppProvider', () => {
   describe('extractImports', () => {
     it('should extract include paths', () => {
       const code = '#include <iostream>\n#include "foo.h"';
-      const imports = provider.extractImports(code, 't.cpp');
+      const imports = provider.extractImports(code);
       expect(imports.some((i) => i.source === 'iostream')).toBe(true);
       expect(imports.some((i) => i.source === 'foo.h')).toBe(true);
     });
 
     it('should use the basename for nested include paths', () => {
-      const imports = provider.extractImports('#include "a/b/c.h"', 't.cpp');
+      const imports = provider.extractImports('#include "a/b/c.h"');
       expect(imports[0]?.names).toEqual(['c.h']);
     });
 
     it('should return empty for code without includes', () => {
-      expect(provider.extractImports('int x = 1;', 't.cpp')).toEqual([]);
+      expect(provider.extractImports('int x = 1;')).toEqual([]);
     });
 
     it('should skip a macro include', () => {
-      expect(provider.extractImports('#include SOME_MACRO', 't.cpp')).toEqual([]);
+      expect(provider.extractImports('#include SOME_MACRO')).toEqual([]);
     });
   });
 
@@ -305,13 +305,13 @@ describe('CppProvider', () => {
     });
 
     it('should extract includes', () => {
-      const imports = fallback.extractImports('#include <iostream>\n#include "a/b.h"', 't.cpp');
+      const imports = fallback.extractImports('#include <iostream>\n#include "a/b.h"');
       expect(imports.some((i) => i.source === 'iostream')).toBe(true);
       expect(imports.some((i) => i.source === 'a/b.h' && i.names[0] === 'b.h')).toBe(true);
     });
 
     it('should return empty imports without includes', () => {
-      expect(fallback.extractImports('int x = 1;', 't.cpp')).toEqual([]);
+      expect(fallback.extractImports('int x = 1;')).toEqual([]);
     });
 
     it('should report a function as exported', () => {

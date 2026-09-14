@@ -289,7 +289,7 @@ function extractMarkdownSections(content: string): MarkdownSection[] {
   const headingLines: { level: number; title: string; line: number }[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    const match = HEADING_REGEX.exec(lines[i]);
+    const match = HEADING_REGEX.exec(lines[i]!);
     if (match) {
       headingLines.push({ level: match[1]!.length, title: match[2]!.trim(), line: i + 1 });
     }
@@ -442,10 +442,10 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
     } else if (ext === '.yaml' || ext === '.yml') {
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
-        const match = /^(\s*)([a-zA-Z_][a-zA-Z0-9_.-]*)\s*:\s*(.+)$/.exec(lines[i]);
+        const match = /^(\s*)([a-zA-Z_][a-zA-Z0-9_.-]*)\s*:\s*(.+)$/.exec(lines[i]!);
         if (match) {
           entries.push({
-            key: match[2],
+            key: match[2]!,
             value: match[3]!.trim(),
             path: filePath,
             line: i + 1,
@@ -455,10 +455,10 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
     } else if (ext === '.toml') {
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
-        const match = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/.exec(lines[i]);
+        const match = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/.exec(lines[i]!);
         if (match) {
           entries.push({
-            key: match[1],
+            key: match[1]!,
             value: match[2]!.trim(),
             path: filePath,
             line: i + 1,
@@ -472,7 +472,7 @@ function extractConfigEntries(filePath: string, content: string): ConfigEntry[] 
       while ((match = tagRegex.exec(content)) !== null) {
         const lineNum = findLineNumber(lines, match.index);
         entries.push({
-          key: match[1],
+          key: match[1]!,
           value: match[2]!.trim(),
           path: filePath,
           line: lineNum,

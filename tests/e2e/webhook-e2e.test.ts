@@ -143,7 +143,7 @@ describe('Webhook E2E — Idempotency', () => {
     const ids = new Set<string>();
     for (let i = 0; i < 10; i++) {
       const { headers } = createWebhookPayload('pull_request', { action: 'opened' });
-      ids.add(headers['x-github-delivery']);
+      ids.add(headers['x-github-delivery']!);
     }
     expect(ids.size).toBe(10);
   });

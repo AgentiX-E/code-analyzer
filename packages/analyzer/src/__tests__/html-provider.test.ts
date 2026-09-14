@@ -33,8 +33,8 @@ function makeNode(
     childCount: children.length,
     namedChildCount: children.length,
     hasError: false,
-    child: (i: number) => children[i],
-    namedChild: (i: number) => children[i],
+    child: (i: number) => children[i]!,
+    namedChild: (i: number) => children[i]!,
     childForFieldName: () => null,
     parent: null,
     walk: () => ({

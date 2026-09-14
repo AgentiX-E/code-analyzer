@@ -192,22 +192,22 @@ describe('ElixirProvider', () => {
   describe('extractImports', () => {
     it('should extract use/import/alias/require modules', () => {
       const code = 'defmodule A do\n  use GenServer\n  alias MyApp.User\n  require Logger\nend';
-      const imports = provider.extractImports(code, 't.ex');
+      const imports = provider.extractImports(code);
       expect(imports.some((i) => i.source === 'GenServer')).toBe(true);
       expect(imports.some((i) => i.source === 'MyApp.User')).toBe(true);
       expect(imports.some((i) => i.source === 'Logger')).toBe(true);
     });
 
     it('should return empty for code without imports', () => {
-      expect(provider.extractImports('x = 1', 't.ex')).toEqual([]);
+      expect(provider.extractImports('x = 1')).toEqual([]);
     });
 
     it('should ignore a remote call while walking', () => {
-      expect(provider.extractImports('String.upcase("x")', 't.ex')).toEqual([]);
+      expect(provider.extractImports('String.upcase("x")')).toEqual([]);
     });
 
     it('should skip an atom module argument', () => {
-      expect(provider.extractImports('use :foo', 't.ex')).toEqual([]);
+      expect(provider.extractImports('use :foo')).toEqual([]);
     });
   });
 
@@ -317,13 +317,13 @@ describe('ElixirProvider', () => {
     });
 
     it('should extract imports including require', () => {
-      const imports = fallback.extractImports('use GenServer\nrequire Logger\n', 't.ex');
+      const imports = fallback.extractImports('use GenServer\nrequire Logger\n');
       expect(imports.some((i) => i.source === 'GenServer')).toBe(true);
       expect(imports.some((i) => i.source === 'Logger')).toBe(true);
     });
 
     it('should return empty imports for code without imports', () => {
-      expect(fallback.extractImports('x = 1', 't.ex')).toEqual([]);
+      expect(fallback.extractImports('x = 1')).toEqual([]);
     });
 
     it('should report def/defmacro/defmodule as exported', () => {

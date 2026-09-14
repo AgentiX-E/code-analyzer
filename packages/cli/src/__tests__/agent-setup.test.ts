@@ -721,7 +721,7 @@ describe('AgentSetupManager — All 11 Agent Configs', () => {
     'should be detectable after directory creation for %s',
     (agent: SupportedAgent) => {
       const config = manager.getConfig(agent);
-      const detectionDir = path.join(tempHome, config.detectionPaths[0]);
+      const detectionDir = path.join(tempHome, config.detectionPaths[0]!);
 
       // Create either a directory or file depending on the detection path
       if (config.detectionPaths[0]!.endsWith('.yml')) {

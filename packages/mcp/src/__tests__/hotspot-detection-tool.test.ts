@@ -84,7 +84,7 @@ describe('hotspotDetectionTool handler with store', () => {
       emptyStore,
     );
     expect(result.content[0]!.text).toContain('No hotspots detected');
-    expect(result.metadata['hotspotCount']).toBe(0);
+    expect(result.metadata['hotspotCount']!).toBe(0);
   });
 
   it('should detect hotspots from graph data', async () => {
@@ -93,7 +93,7 @@ describe('hotspotDetectionTool handler with store', () => {
       { projectId: 'test-project', threshold: 5, maxResults: 20 },
       store,
     );
-    expect(result.metadata['hotspotCount']).toBeGreaterThan(0);
+    expect(result.metadata['hotspotCount']!).toBeGreaterThan(0);
     expect(result.content[0]!.text).toContain('processRequest');
   });
 
@@ -103,7 +103,7 @@ describe('hotspotDetectionTool handler with store', () => {
       { projectId: 'test-project', threshold: 100, maxResults: 20 },
       store,
     );
-    expect(result.metadata['hotspotCount']).toBe(0);
+    expect(result.metadata['hotspotCount']!).toBe(0);
   });
 
   it('should respect maxResults', async () => {
@@ -112,7 +112,7 @@ describe('hotspotDetectionTool handler with store', () => {
       { projectId: 'test-project', threshold: 1, maxResults: 1 },
       store,
     );
-    expect(result.metadata['hotspotCount']).toBeLessThanOrEqual(1);
+    expect(result.metadata['hotspotCount']!).toBeLessThanOrEqual(1);
   });
 
   it('should return error when no store provided', async () => {
@@ -201,6 +201,6 @@ describe('hotspotDetectionTool handler with store', () => {
       { projectId: 'test-project', threshold: null, maxResults: null },
       store,
     );
-    expect(result.metadata['threshold']).toBe(10);
+    expect(result.metadata['threshold']!).toBe(10);
   });
 });

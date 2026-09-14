@@ -176,7 +176,7 @@ describe('GroovyProvider', () => {
   describe('extractImports', () => {
     it('should extract import with last segment as name', () => {
       const code = 'import groovy.json.JsonSlurper';
-      const imports = provider.extractImports(code, 't.groovy');
+      const imports = provider.extractImports(code);
       expect(
         imports.some(
           (i) => i.source === 'groovy.json.JsonSlurper' && i.names.includes('JsonSlurper'),
@@ -366,7 +366,7 @@ describe('GroovyProvider', () => {
     });
 
     it('should extract imports via the regex fallback', () => {
-      const imports = regex.extractImports('import a.b.C\nimport static d.E', 'f.groovy');
+      const imports = regex.extractImports('import a.b.C\nimport static d.E');
       expect(imports.map((i) => i.source)).toEqual(['a.b.C', 'd.E']);
       expect(imports[0]!.names).toEqual(['C']);
     });

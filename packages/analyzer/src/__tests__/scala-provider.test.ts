@@ -137,7 +137,7 @@ describe('ScalaProvider', () => {
   describe('extractImports', () => {
     it('should extract import with the last segment as the name', () => {
       const code = 'import scala.collection.mutable.ListBuffer';
-      const imports = provider.extractImports(code, 't.scala');
+      const imports = provider.extractImports(code);
       expect(
         imports.some(
           (i) =>
@@ -147,7 +147,7 @@ describe('ScalaProvider', () => {
     });
 
     it('should return empty for code without imports', () => {
-      expect(provider.extractImports('val x = 1', 't.scala')).toEqual([]);
+      expect(provider.extractImports('val x = 1')).toEqual([]);
     });
   });
 
@@ -264,7 +264,7 @@ describe('ScalaProvider', () => {
     });
 
     it('should return empty imports without imports', () => {
-      expect(fallback.extractImports('val x = 1', 't.scala')).toEqual([]);
+      expect(fallback.extractImports('val x = 1')).toEqual([]);
     });
 
     it('should report a public class as exported', () => {

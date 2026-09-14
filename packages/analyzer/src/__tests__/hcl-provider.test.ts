@@ -127,37 +127,37 @@ describe('HclProvider', () => {
   describe('extractImports — module sources', () => {
     it('should extract module source as a named import', () => {
       const code = 'module "vpc" {\n  source = "terraform-aws-modules/vpc/aws"\n}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(imports.some((i) => i.source === 'terraform-aws-modules/vpc/aws')).toBe(true);
     });
 
     it('should not treat non-module blocks as imports', () => {
       const code = 'resource "aws_vpc" "main" {}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(imports.length).toBe(0);
     });
 
     it('should recurse into nested blocks for module sources', () => {
       const code = 'module "vpc" {\n  nested_block {\n    source = "nested/source"\n  }\n}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(Array.isArray(imports)).toBe(true);
     });
 
     it('should ignore a module source that is not a string literal', () => {
       const code = 'module "vpc" {\n  source = var.foo\n}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(imports.length).toBe(0);
     });
 
     it('should ignore a module source that is a number literal', () => {
       const code = 'module "vpc" {\n  source = 123\n}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(imports.length).toBe(0);
     });
 
     it('should ignore non-source attributes in a module block', () => {
       const code = 'module "vpc" {\n  version = "1.0"\n}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(imports.length).toBe(0);
     });
   });
@@ -173,7 +173,7 @@ describe('HclProvider', () => {
       // An empty `""` string_lit has no template_literal child, so the value
       // extractor must fall through to stripping the surrounding quotes.
       const code = 'module "vpc" {\n  source = ""\n}';
-      const imports = provider.extractImports(code, 'main.tf');
+      const imports = provider.extractImports(code);
       expect(imports.length).toBe(0);
     });
 
@@ -264,7 +264,7 @@ describe('HclProvider', () => {
 
     it('fallbackExtractImports extracts module source', () => {
       const code = 'module "vpc" {\n  source = "terraform-aws-modules/vpc/aws"\n}';
-      const imports = fb.extractImports(code, 'main.tf');
+      const imports = fb.extractImports(code);
       expect(imports.some((i) => i.source === 'terraform-aws-modules/vpc/aws')).toBe(true);
     });
 

@@ -22,7 +22,7 @@ class SeededRandom {
     return Math.floor(this.next() * (max - min + 1)) + min;
   }
   pick<T>(arr: T[]): T {
-    return arr[this.nextInt(0, arr.length - 1)];
+    return arr[this.nextInt(0, arr.length - 1)]!;
   }
 }
 

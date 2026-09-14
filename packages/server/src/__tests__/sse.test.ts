@@ -165,7 +165,7 @@ describe('sendSSEEvent', () => {
         return true;
       },
     };
-    sendSSEEvent(res, 'update', { items: [1, 2, 3], nested: { a: true } });
+    sendSSEEvent(res, 'update', { items: [1, 2, 3]!, nested: { a: true } });
     expect(chunks[0]).toContain('data: {"items":[1,2,3],"nested":{"a":true}}');
   });
 });

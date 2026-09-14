@@ -164,13 +164,13 @@ describe('MCP E2E — Tool Registry', () => {
   it('should return error for unknown tool', async () => {
     const result = await registry.execute('nonexistent_tool_xyz', {}, toolContext);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('not found');
+    expect(result.content[0]!.text).toContain('not found');
   });
 
   it('should return error for missing required args', async () => {
     const result = await registry.execute('search_code', {}, toolContext);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Missing required parameter');
+    expect(result.content[0]!.text).toContain('Missing required parameter');
   });
 });
 
@@ -190,7 +190,7 @@ describe('MCP E2E — Tool Execution', () => {
       toolContext,
     );
     expect(result.isError).toBeFalsy();
-    expect(result.content[0].text).toBeDefined();
+    expect(result.content[0]!.text).toBeDefined();
   });
 
   it('should execute list_projects', async () => {
