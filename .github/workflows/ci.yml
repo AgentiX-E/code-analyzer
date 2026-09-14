@@ -74,6 +74,15 @@ jobs:
       - name: Run type check (all packages)
         run: pnpm typecheck
 
+      - name: Ratchet the test tree's type errors
+        run: |
+          # Every test file is excluded from the build projects, so the test tree is compiled by
+          # its own noEmit project — and it is known-red (see scripts/typecheck-tests-baseline.json).
+          # That command exits non-zero for that reason, so its output is captured and the ratchet
+          # judges it instead: no new errors anywhere, and no file may exceed its recorded count.
+          pnpm typecheck:tests > /tmp/typecheck-tests.log 2>&1 || true
+          node scripts/typecheck-per-file.js --log /tmp/typecheck-tests.log
+
   # ── Unit Tests ────────────────────────────────────────────────────────────
   test-unit:
     name: 'Unit Tests (Node ${{ matrix.node-version }})'
