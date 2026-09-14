@@ -159,6 +159,30 @@ describe('analyzeRepository', () => {
     expect(result.projectId).toBeTruthy();
   });
 
+  it('should abort the run when the timeout expires', async () => {
+    const executeMock = setupMockOrchestrator();
+    let aborted = false;
+
+    // Hold the pipeline open and make it honour the signal, so the timeout has to fire
+    // before the run can finish. Nothing exercised this before: `ctx.signal` was wired to
+    // the controller but no test ever let the timer reach `controller.abort()`.
+    executeMock.mockImplementation(
+      (ctx: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          ctx.signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(new Error('Analysis aborted: timeout'));
+          });
+        }),
+    );
+
+    const result = await analyzeRepository({ path: testDir, timeout: 1 });
+
+    expect(aborted).toBe(true);
+    expect(result.success).toBe(false);
+    expect(result.errors[0]).toContain('aborted');
+  });
+
   it('should run the analysis pipeline successfully on a real directory', async () => {
     setupMockOrchestrator({
       nodeCount: 5,

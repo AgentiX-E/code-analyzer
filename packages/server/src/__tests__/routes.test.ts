@@ -116,14 +116,42 @@ describe('buildHealthResponse', () => {
     expect(result.checks.memory.rssMB).toBeGreaterThan(0);
   });
 
+  // The heap is stubbed so that both arms are actually taken.
+  //
+  // The previous version of this test re-implemented the production condition as a
+  // test-side `if`, so it asserted whatever the machine happened to be at: on a normal
+  // heap it only ever checked the `else` branch, and the `'degraded'` / `'warn'` paths
+  // had never executed. If the condition itself were wrong, the test would still pass.
+  function stubHeap(heapUsedMB: number, heapTotalMB: number): void {
+    vi.spyOn(process, 'memoryUsage').mockReturnValue({
+      rss: 0,
+      heapTotal: heapTotalMB * 1024 * 1024,
+      heapUsed: heapUsedMB * 1024 * 1024,
+      external: 0,
+      arrayBuffers: 0,
+    } as NodeJS.MemoryUsage);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should mark degraded when heap is above 90%', () => {
+    stubHeap(95, 100);
+
     const result = buildHealthResponse(resolveConfig(), Date.now());
-    if (result.checks.memory.heapUsedMB > result.checks.memory.heapTotalMB * 0.9) {
-      expect(result.status).toBe('degraded');
-      expect(result.checks.memory.status).toBe('warn');
-    } else {
-      expect(result.checks.memory.status).toBe('ok');
-    }
+
+    expect(result.status).toBe('degraded');
+    expect(result.checks.memory.status).toBe('warn');
+  });
+
+  it('should report ok on a healthy heap', () => {
+    stubHeap(10, 100);
+
+    const result = buildHealthResponse(resolveConfig(), Date.now());
+
+    expect(result.status).toBe('ok');
+    expect(result.checks.memory.status).toBe('ok');
   });
 
   it('should have valid timestamp', () => {
