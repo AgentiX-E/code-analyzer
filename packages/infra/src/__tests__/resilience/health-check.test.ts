@@ -116,6 +116,46 @@ describe('HealthCheckRegistry', () => {
     await expect(registry.runOne('nonexistent')).rejects.toThrow(/not found/);
   });
 
+  // `runAll` had a throwing-check test but `runOne` did not, so its own `catch` — the one
+  // that turns a thrown error into an `unhealthy` result — had never executed.
+  it('should report a throwing check as unhealthy through runOne', async () => {
+    registry.register('broken', async () => {
+      throw new Error('Boom');
+    });
+
+    const result = await registry.runOne('broken');
+
+    expect(result.name).toBe('broken');
+    expect(result.status).toBe('unhealthy');
+    expect(result.message).toContain('Boom');
+    expect(result.message).toContain('Check failed');
+  });
+
+  it('should stringify a non-Error throw through runOne', async () => {
+    registry.register('odd-throw', async () => {
+      throw 'plain string';
+    });
+
+    const result = await registry.runOne('odd-throw');
+
+    expect(result.status).toBe('unhealthy');
+    expect(result.message).toContain('plain string');
+  });
+
+  // The `: String(error)` arm of `error instanceof Error ? ... : String(error)`. Every
+  // existing throwing test throws an `Error`, so this arm had never run — in any of the
+  // three places that shape appears.
+  it('should stringify a non-Error throw in runAll', async () => {
+    registry.register('odd', async () => {
+      throw 'plain string';
+    });
+
+    const report = await registry.runAll();
+
+    expect(report.status).toBe('unhealthy');
+    expect(report.checks[0]!.message).toContain('plain string');
+  });
+
   it('should track average response times', async () => {
     registry.register('db', async () => ({ status: 'healthy' }));
 
@@ -183,6 +223,17 @@ describe('createDependencyCheck', () => {
     expect(result.status).toBe('unhealthy');
     expect(result.message).toContain('Getter failed');
   });
+
+  it('should stringify a non-Error throw from the getter', async () => {
+    const check = createDependencyCheck('store', () => {
+      throw 'connection refused';
+    });
+
+    const result = await check();
+
+    expect(result.status).toBe('unhealthy');
+    expect(result.message).toContain('connection refused');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -223,6 +274,23 @@ describe('createThresholdCheck', () => {
     const result = await check();
     expect(result.status).toBe('unhealthy');
     expect(result.message).toContain('Cannot read memory');
+  });
+
+  it('should stringify a non-Error throw from the threshold getter', async () => {
+    const check = createThresholdCheck(
+      'heap',
+      () => {
+        throw 'memory probe failed';
+      },
+      400,
+      500,
+      'MB',
+    );
+
+    const result = await check();
+
+    expect(result.status).toBe('unhealthy');
+    expect(result.message).toContain('memory probe failed');
   });
 
   it('should work without unit', async () => {

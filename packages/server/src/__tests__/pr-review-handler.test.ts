@@ -278,6 +278,31 @@ describe('PRReviewEventHandler', () => {
       expect(details!.sender.login).toBe('dev1');
     });
 
+    // Every other test here sends a complete payload, so the parser's defensive fallbacks
+    // (`?? ''`, `?? 'unknown'`) had never run — GitHub payloads are not uniform, and those
+    // arms are the whole reason the parser is written defensively.
+    it('should fall back to defaults for a sparse payload', () => {
+      const details = handler.extractPRDetails({
+        pull_request: {
+          number: 7,
+          base: {},
+          head: {},
+        },
+        repository: {},
+      });
+
+      expect(details).not.toBeNull();
+      expect(details!.action).toBe('unknown');
+      expect(details!.number).toBe(7);
+      expect(details!.title).toBe('');
+      expect(details!.body).toBeNull();
+      expect(details!.state).toBe('unknown');
+      expect(details!.repository).toEqual({ owner: '', name: '', fullName: '' });
+      expect(details!.base).toEqual({ ref: '', sha: '' });
+      expect(details!.head).toEqual({ ref: '', sha: '' });
+      expect(details!.sender.login).toBe('');
+    });
+
     it('should return null for missing pull_request', () => {
       const details = handler.extractPRDetails({ action: 'opened' });
       expect(details).toBeNull();

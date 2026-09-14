@@ -115,6 +115,33 @@ describe('NodeIndex', () => {
     });
   });
 
+  // `EdgeIndex.getById` had a test but the node equivalent never did, even though the two
+  // classes are parallel — `NodeIndex.getById` had never been called by anything.
+  describe('getById', () => {
+    it('should return the node by ID', () => {
+      const idx = new NodeIndex();
+      idx.add(node(3, { name: 'UserService', label: 'Class' as NodeLabel }));
+
+      expect(idx.getById(3)?.name).toBe('UserService');
+      expect(idx.getById(3)?.id).toBe(3);
+    });
+
+    it('should return undefined for an unknown ID', () => {
+      const idx = new NodeIndex();
+      idx.add(node(3));
+
+      expect(idx.getById(4)).toBeUndefined();
+    });
+
+    it('should return undefined after the node is removed', () => {
+      const idx = new NodeIndex();
+      idx.add(node(1));
+      idx.remove(1);
+
+      expect(idx.getById(1)).toBeUndefined();
+    });
+  });
+
   describe('remove', () => {
     it('should remove a node from all indexes', () => {
       const idx = new NodeIndex();
@@ -130,6 +157,37 @@ describe('NodeIndex', () => {
       idx.add(node(1));
       idx.remove(999);
       expect(idx.has(1)).toBe(true);
+    });
+
+    // The index keys by the field values captured at `add` time, so a node mutated
+    // afterwards leaves its original lists stale. These two tests reach the guards in
+    // `removeFromList` that tolerate exactly that: a lookup that finds no list at all, and
+    // a list that exists but does not contain the id.
+    it('should still remove a node whose indexed name changed after add', () => {
+      const idx = new NodeIndex();
+      const n = node(1, { name: 'before' });
+      idx.add(n);
+
+      n.name = 'after'; // `byName` still holds the node under 'before'
+
+      expect(idx.remove(1)).toBe(true);
+      expect(idx.has(1)).toBe(false);
+      expect(idx.size).toBe(0);
+    });
+
+    it('should not splice a stale list that does not contain the id', () => {
+      const idx = new NodeIndex();
+      const a = node(1, { name: 'shared', label: 'Class' as NodeLabel });
+      const b = node(2, { name: 'other', label: 'Class' as NodeLabel });
+      idx.add(a);
+      idx.add(b);
+
+      b.name = 'shared'; // `byName['shared']` now holds only `a`
+
+      expect(idx.remove(2)).toBe(true);
+      // Without the `idx !== -1` guard this `splice(-1, 1)` would delete `a` instead.
+      expect(idx.getById(1)?.id).toBe(1);
+      expect(idx.size).toBe(1);
     });
 
     it('should clean up empty index entries', () => {
@@ -328,6 +386,15 @@ describe('EdgeIndex', () => {
       idx.add(edge(1, { sourceId: 5, type: 'CALLS' as RelationshipType }));
       expect(idx.findBySourceAndType(5, 'IMPORTS')).toEqual([]);
     });
+
+    // The previous test uses a source that *has* edges, so `bySource.get(...) ?? []` always
+    // found a list — the fallback for a source with no edges had never been taken.
+    it('returns empty for a source with no edges', () => {
+      const idx = new EdgeIndex();
+      idx.add(edge(1, { sourceId: 5, type: 'CALLS' as RelationshipType }));
+
+      expect(idx.findBySourceAndType(999, 'CALLS')).toEqual([]);
+    });
   });
 
   describe('getById', () => {
@@ -355,6 +422,34 @@ describe('EdgeIndex', () => {
       const idx = new EdgeIndex();
       idx.add(edge(1));
       expect(idx.remove(999)).toBe(false);
+      expect(idx.size).toBe(1);
+    });
+
+    // The `EdgeIndex` mirror of the two node cases above: a mutated edge leaves its
+    // original lists stale, and `removeFromList` has to tolerate both shapes.
+    it('still removes an edge whose indexed type changed after add', () => {
+      const idx = new EdgeIndex();
+      const e = edge(1, { sourceId: 5, targetId: 9, type: 'CALLS' as RelationshipType });
+      idx.add(e);
+
+      e.type = 'IMPORTS' as RelationshipType; // `byType` still holds it under 'CALLS'
+
+      expect(idx.remove(1)).toBe(true);
+      expect(idx.size).toBe(0);
+      expect(idx.getById(1)).toBeUndefined();
+    });
+
+    it('does not splice a stale edge list that does not contain the id', () => {
+      const idx = new EdgeIndex();
+      const a = edge(1, { sourceId: 5, targetId: 9, type: 'CALLS' as RelationshipType });
+      const b = edge(2, { sourceId: 6, targetId: 9, type: 'IMPORTS' as RelationshipType });
+      idx.add(a);
+      idx.add(b);
+
+      b.type = 'CALLS' as RelationshipType; // `byType['CALLS']` now holds only `a`
+
+      expect(idx.remove(2)).toBe(true);
+      expect(idx.getById(1)?.id).toBe(1);
       expect(idx.size).toBe(1);
     });
 
