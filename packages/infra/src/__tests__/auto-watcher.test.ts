@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { AutoWatcher } from '../project/auto-watcher.js';
-import type { AutoWatcherOptions, ReindexEvent } from '../project/auto-watcher.js';
+import type { ReindexEvent } from '../project/auto-watcher.js';
 import type { FileWatcher } from '../filesystem/watcher.js';
 import type { FileChangeEvent } from '../storage/types.js';
 

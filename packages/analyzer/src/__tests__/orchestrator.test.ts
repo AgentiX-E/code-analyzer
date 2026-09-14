@@ -13,7 +13,7 @@ import {
 import { GraphBuilder } from '../graph/graph-builder.js';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
-import type { PipelinePhaseId, PipelineContext, KnowledgeGraph } from '@code-analyzer/shared';
+import type { PipelinePhaseId, PipelineContext } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
 // Path to test fixture

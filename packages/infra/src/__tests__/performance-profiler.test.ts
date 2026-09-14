@@ -3,7 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { PerformanceProfiler } from '../performance/profiler.js';
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
-import type { BenchmarkConfig, BenchmarkResult } from '../performance/profiler.js';
+import type { BenchmarkConfig } from '../performance/profiler.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

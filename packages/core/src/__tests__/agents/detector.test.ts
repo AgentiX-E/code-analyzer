@@ -13,7 +13,7 @@ import {
   getAgentMetadata,
   getAgentRegistry,
 } from '../../agents/detector.js';
-import type { AgentId, DetectionConfidence } from '../../agents/types.js';
+import type { AgentId } from '../../agents/types.js';
 
 // ── Helpers ──────────────────────────────────────────────────────
 

@@ -4,12 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { CAPTURE_TAGS } from '@code-analyzer/shared';
 
-import type {
-  ParsedImport,
-  UnifiedCapture,
-  CaptureTag,
-  ImportSemantics,
-} from '@code-analyzer/shared';
+import type { ParsedImport, UnifiedCapture, ImportSemantics } from '@code-analyzer/shared';
 import type {
   NodeTypeMapping,
   TreeSitterLanguage,

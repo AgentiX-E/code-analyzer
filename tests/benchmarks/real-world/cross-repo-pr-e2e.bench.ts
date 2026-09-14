@@ -5,7 +5,7 @@
 // breaking change across dependent services.
 
 import { InMemoryGraphStore, createFileDiscoverer, AutoIndexer } from '@code-analyzer/infra';
-import type { GraphNode, KnowledgeGraph } from '@code-analyzer/shared';
+import type { GraphNode } from '@code-analyzer/shared';
 import { ContractValidator } from '@code-analyzer/intelligence/cross-repo/contract-validator.js';
 import { ImpactGraphBuilder } from '@code-analyzer/intelligence/cross-repo/impact-graph.js';
 import { CrossRepoIndexer } from '@code-analyzer/intelligence/cross-repo/cross-repo-indexer.js';

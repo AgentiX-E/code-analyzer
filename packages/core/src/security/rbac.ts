@@ -27,15 +27,28 @@ export type Permission =
 
 export type Role = 'admin' | 'developer' | 'reviewer' | 'viewer' | 'ci-bot';
 
+/**
+ * A role name as accepted by `defineRole` and `assignRole`.
+ *
+ * `Role` lists the built-in roles, but these two methods deliberately accept any string: a user may
+ * hold a role that was never defined here, or one inherited from a role defined elsewhere — which is
+ * exactly what `collectPermissions` tolerates when it finds no definition. Typing the parameters as the
+ * closed union turned that documented behaviour into a compile error at every call site, including the
+ * tests that exercise custom roles and the wildcard permission paths they reach.
+ *
+ * `string & {}` keeps the built-in names in autocomplete while admitting any string.
+ */
+export type RoleName = Role | (string & {});
+
 export interface RoleDefinition {
-  name: Role;
+  name: RoleName;
   permissions: Permission[];
-  inherits?: Role[];
+  inherits?: RoleName[];
 }
 
 export interface UserIdentity {
   id: string;
-  roles: Role[];
+  roles: RoleName[];
   metadata?: Record<string, string>;
 }
 
@@ -44,16 +57,16 @@ export interface UserIdentity {
 // ---------------------------------------------------------------------------
 
 export class RBACEngine {
-  private roleDefinitions: Map<Role, RoleDefinition> = new Map();
-  private userRoles: Map<string, Set<Role>> = new Map();
+  private roleDefinitions: Map<RoleName, RoleDefinition> = new Map();
+  private userRoles: Map<string, Set<RoleName>> = new Map();
 
   /** Define a role with its permissions and optional inherited roles. */
-  defineRole(role: Role, definition: RoleDefinition): void {
+  defineRole(role: RoleName, definition: RoleDefinition): void {
     this.roleDefinitions.set(role, definition);
   }
 
   /** Assign a role to a user. */
-  assignRole(userId: string, role: Role): void {
+  assignRole(userId: string, role: RoleName): void {
     let roles = this.userRoles.get(userId);
     if (!roles) {
       roles = new Set();
@@ -63,7 +76,7 @@ export class RBACEngine {
   }
 
   /** Revoke a role from a user. */
-  revokeRole(userId: string, role: Role): void {
+  revokeRole(userId: string, role: RoleName): void {
     const roles = this.userRoles.get(userId);
     if (roles) {
       roles.delete(role);
@@ -97,7 +110,7 @@ export class RBACEngine {
   }
 
   /** Check if a user has a specific role. */
-  hasRole(userId: string, role: Role): boolean {
+  hasRole(userId: string, role: RoleName): boolean {
     const roles = this.userRoles.get(userId);
     return roles ? roles.has(role) : false;
   }
@@ -108,7 +121,7 @@ export class RBACEngine {
   }
 
   /** Get all roles for a user. */
-  getRoles(userId: string): Role[] {
+  getRoles(userId: string): RoleName[] {
     const roles = this.userRoles.get(userId);
     return roles ? (Array.from(roles) as Role[]) : [];
   }
@@ -123,7 +136,7 @@ export class RBACEngine {
     if (!roles) return new Set();
 
     const permissions = new Set<Permission>();
-    const visited = new Set<Role>();
+    const visited = new Set<RoleName>();
 
     for (const role of roles) {
       this.collectPermissions(role, permissions, visited);
@@ -133,7 +146,11 @@ export class RBACEngine {
   }
 
   /** Recursively collect permissions from a role and its ancestors. */
-  private collectPermissions(role: Role, permissions: Set<Permission>, visited: Set<Role>): void {
+  private collectPermissions(
+    role: RoleName,
+    permissions: Set<Permission>,
+    visited: Set<RoleName>,
+  ): void {
     if (visited.has(role)) return;
     visited.add(role);
 

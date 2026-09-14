@@ -4,7 +4,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { registerWebhookRoutes, verifySignature } from '../routes/webhook.js';
-import type { WebhookHandler, WebhookConfig } from '../routes/webhook.js';
+import type { WebhookHandler } from '../routes/webhook.js';
 import { resolveConfig } from '../server-config.js';
 import { createHmac } from 'node:crypto';
 

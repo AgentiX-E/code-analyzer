@@ -9,11 +9,7 @@ import { tmpdir } from 'node:os';
 
 import { InMemoryGraphStore } from '../storage/in-memory-graph-store.js';
 import { ParallelIndexer } from '../workers/parallel-indexer.js';
-import type {
-  IndexProgress,
-  IndexerResult,
-  ParallelIndexerConfig,
-} from '../workers/parallel-indexer.js';
+import type { IndexProgress } from '../workers/parallel-indexer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

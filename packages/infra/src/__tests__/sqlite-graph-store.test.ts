@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { SqliteGraphStore, deleteDatabase } from '../storage/sqlite-graph-store.js';
 import { loadDefaultBetterSqlite3 } from '../storage/sqlite-loader.js';
 import { createTestNode, createTestEdge, resetCounters } from './helpers.js';
-import type { GraphNode, GraphEdge, NodeLabel, EdgeProperties } from '@code-analyzer/shared';
+import type { GraphNode, GraphEdge, NodeLabel } from '@code-analyzer/shared';
 
 describe('SqliteGraphStore', () => {
   let store: SqliteGraphStore;

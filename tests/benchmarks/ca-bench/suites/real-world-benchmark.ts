@@ -1,7 +1,7 @@
 // @code-analyzer/ca-bench — Real-World PR Benchmark Suite
 // Tests detection quality against ground-truth datasets from production pull requests.
 
-import type { BenchmarkResult, BenchmarkSuite } from '../types.js';
+import type { BenchmarkSuite } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Ground Truth Types

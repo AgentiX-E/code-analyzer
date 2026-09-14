@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { HealthCheckRegistry } from '../operations/health-check.js';
 
-import type { HealthCheck, HealthCheckResult, HealthStatus } from '../operations/health-check.js';
+import type { HealthCheck, HealthCheckResult } from '../operations/health-check.js';
 
 describe('HealthCheckRegistry', () => {
   let registry: HealthCheckRegistry;

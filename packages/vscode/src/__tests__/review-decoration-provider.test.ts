@@ -2,13 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { ReviewDecorationLogic } from '../providers/review-decoration-provider.js';
-import type {
-  DecorationSeverity,
-  DecorationConfig,
-  HoverContent,
-  CodeLensAction,
-  FileDecorationGroup,
-} from '../providers/review-decoration-provider.js';
+import type { DecorationSeverity, HoverContent } from '../providers/review-decoration-provider.js';
 import type { ReviewCommentItem } from '../services/engine-bridge.js';
 
 // ---------------------------------------------------------------------------

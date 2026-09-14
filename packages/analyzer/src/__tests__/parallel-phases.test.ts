@@ -7,12 +7,7 @@ import 'node:fs';
 import { basename, join } from 'node:path';
 
 import '@code-analyzer/shared';
-import type {
-  PipelineContext,
-  DiscoveredFile,
-  UnifiedCapture,
-  KnowledgeGraph,
-} from '@code-analyzer/shared';
+import type { PipelineContext, DiscoveredFile, KnowledgeGraph } from '@code-analyzer/shared';
 
 import {
   ParallelScanPhase,

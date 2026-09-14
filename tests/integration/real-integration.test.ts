@@ -27,7 +27,7 @@ import {
   GoProvider,
   JavaScriptProvider,
 } from '@code-analyzer/analyzer';
-import type { GitDiff, GraphNode, NodeLabel, RelationshipType } from '@code-analyzer/shared';
+import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 
 function createTempGitRepo(files: Record<string, string>): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ca-int-'));

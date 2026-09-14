@@ -2,7 +2,7 @@
 // Tests CodeLens, Hover, and reviewOnSave provider logic + wiring.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { HoverContent, DecorationConfig } from '../providers/review-decoration-provider.js';
+import type { HoverContent } from '../providers/review-decoration-provider.js';
 import { ReviewDecorationLogic } from '../providers/review-decoration-provider.js';
 import { CommentLogic } from '../providers/comment-provider.js';
 import { GraphTreeDataProviderLogic } from '../providers/tree-view-provider.js';

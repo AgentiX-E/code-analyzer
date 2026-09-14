@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { SecretScanner } from '../security/secret-scanner.js';
 import { SecurityAuditor, DEFAULT_SECURITY_POLICY } from '../security/assurance-case.js';
-import type { SecurityPolicy, ThreatCategory, Countermeasure } from '../security/assurance-case.js';
+import type { SecurityPolicy, Countermeasure } from '../security/assurance-case.js';
 
 // ===========================================================================
 // Secret Scanner Tests

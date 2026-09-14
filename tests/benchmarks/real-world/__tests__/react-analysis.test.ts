@@ -14,10 +14,7 @@ import { memoryUsage } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { JavaScriptProvider } from '../../../../packages/analyzer/src/languages/javascript.js';
 import { TypeScriptProvider } from '../../../../packages/analyzer/src/languages/typescript.js';
-import type {
-  LanguageProvider,
-  ParsedImport,
-} from '../../../../packages/analyzer/src/languages/provider.js';
+import type { LanguageProvider } from '../../../../packages/analyzer/src/languages/provider.js';
 import type { UnifiedCapture } from '../../../../packages/shared/src/types/capture-tags.js';
 import { CAPTURE_TAGS } from '../../../../packages/shared/src/types/capture-tags.js';
 
