@@ -354,6 +354,22 @@ describe('createSuggestionTemplate — maintainability category', () => {
     expect(template).not.toBeNull();
     expect(template!.afterCode).toContain('MAINTAINABILITY:');
   });
+
+  // Every maintainability fixture carried `existingCode`, so the branch for a comment that has
+  // content but no code to show — the one that writes a TODO instead — had never run.
+  it('should write a TODO when there is no existing code', () => {
+    const comment = makeComment({
+      category: 'maintainability',
+      existingCode: '',
+      content: 'Extract the parser',
+    });
+
+    const template = createSuggestionTemplate(comment, 'typescript');
+
+    expect(template.title).toBe('Improve Maintainability');
+    expect(template.afterCode).toContain('TODO: Improve maintainability');
+    expect(template.afterCode).toContain('Extract the parser');
+  });
 });
 
 describe('createSuggestionTemplate — style category', () => {
@@ -377,6 +393,21 @@ describe('createSuggestionTemplate — style category', () => {
     const template = createSuggestionTemplate(comment, 'typescript');
     expect(template).not.toBeNull();
     expect(template!.afterCode).toBe('const x = 1;');
+  });
+
+  // The last arm of the style chain: neither a suggested fix nor existing code to trim.
+  it('should emit a style comment when there is no code at all', () => {
+    const comment = makeComment({
+      category: 'style',
+      existingCode: '',
+      suggestionCode: undefined,
+      content: 'Use a named constant',
+    });
+
+    const template = createSuggestionTemplate(comment, 'typescript');
+
+    expect(template.title).toBe('Style Fix');
+    expect(template.afterCode).toBe('// STYLE: Use a named constant');
   });
 });
 
@@ -679,6 +710,16 @@ describe('formatSuggestionReport', () => {
     expect(formatted).toContain('```');
   });
 
+  // The Before and After blocks are both guarded. Every fixture carried `existingCode`, so only the
+  // truthy side of the Before guard had run — a comment with no code renders no Before block.
+  it('should omit the Before block when the suggestion has no existing code', () => {
+    const report = generateSuggestions('test', [makeComment({ existingCode: '' })], 10);
+    const formatted = formatSuggestionReport(report);
+
+    expect(formatted).toContain('Code Fix Suggestions');
+    expect(formatted).not.toContain('**Before:**');
+  });
+
   it('should include warnings section when present', () => {
     const comment = makeComment({
       existingCode: 'function foo() {',
@@ -686,10 +727,12 @@ describe('formatSuggestionReport', () => {
     });
     const report = generateSuggestions('test', [comment], 10);
     const formatted = formatSuggestionReport(report);
-    // May or may not have warnings depending on what afterCode looks like
-    if (report.suggestions.length > 0 && report.suggestions[0]!.warnings.length > 0) {
-      expect(formatted).toContain('**Warnings:**');
-    }
+
+    // The unbalanced brace in `existingCode` is what produces the warning, so this can be asserted
+    // unconditionally: the previous version wrapped it in an `if` that restated the production
+    // condition and passed without asserting anything whenever the fixture stopped warning.
+    expect(report.suggestions[0]!.warnings.length).toBeGreaterThan(0);
+    expect(formatted).toContain('**Warnings:**');
   });
 
   // --- Effort level coverage ---

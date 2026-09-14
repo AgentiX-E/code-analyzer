@@ -153,6 +153,28 @@ export function generateSuggestions(
 /**
  * Generate a fix suggestion for a single review comment.
  */
+/**
+ * Presentation tables for `CodeSuggestion['effort']`, exhaustive over the union.
+ *
+ * `Record<K, V>` rather than a ternary chain or a `??` default: the compiler enforces
+ * completeness, and there is no trailing arm. The generator only ever emits `trivial`, `small`
+ * and `medium` today, so a chain's final fallback (`?? 4`, `: '🏗️'`) was dead code that a coverage
+ * gate would have had to excuse — and a future `large` would have silently taken it.
+ */
+const EFFORT_ORDER: Record<CodeSuggestion['effort'], number> = {
+  trivial: 0,
+  small: 1,
+  medium: 2,
+  large: 3,
+};
+
+const EFFORT_ICON: Record<CodeSuggestion['effort'], string> = {
+  trivial: '⚡',
+  small: '🔧',
+  medium: '🔨',
+  large: '🏗️',
+};
+
 export function generateSuggestionForComment(
   comment: ReviewComment,
   language: string = 'typescript',
@@ -160,7 +182,6 @@ export function generateSuggestionForComment(
   if (!comment.content && !comment.existingCode) return null;
 
   const base = createSuggestionTemplate(comment, language);
-  if (!base) return null;
 
   // Validate the suggestion's syntax
   const validation = validateSuggestionSyntax(base, language);
@@ -184,7 +205,7 @@ export function generateSuggestionForComment(
 export function createSuggestionTemplate(
   comment: ReviewComment,
   language: string,
-): Omit<CodeSuggestion, 'syntaxValid' | 'warnings'> | null {
+): Omit<CodeSuggestion, 'syntaxValid' | 'warnings'> {
   const id = `suggestion_${comment.id}_${Date.now()}`;
 
   const base: Omit<CodeSuggestion, 'syntaxValid' | 'warnings'> = {
@@ -494,7 +515,7 @@ export function generateSuggestionSummary(suggestions: CodeSuggestion[]): string
 
   const autoCount = suggestions.filter((s) => s.isAutoApplicable).length;
   const byCategory = new Map<string, number>();
-  const byEffort = new Map<string, number>();
+  const byEffort = new Map<CodeSuggestion['effort'], number>();
 
   for (const s of suggestions) {
     byCategory.set(s.category, (byCategory.get(s.category) ?? 0) + 1);
@@ -506,14 +527,11 @@ export function generateSuggestionSummary(suggestions: CodeSuggestion[]): string
   parts.push(`${autoCount} suggestion(s) are auto-applicable.`);
 
   const effortSummary = [...byEffort.entries()]
-    .sort((a, b) => {
-      const order = { trivial: 0, small: 1, medium: 2, large: 3 };
-      return (order[a[0] as keyof typeof order] ?? 4) - (order[b[0] as keyof typeof order] ?? 4);
-    })
+    .sort((a, b) => EFFORT_ORDER[a[0]] - EFFORT_ORDER[b[0]])
     .map(([effort, count]) => `${count} ${effort}`);
-  if (effortSummary.length > 0) {
-    parts.push(`Effort distribution: ${effortSummary.join(', ')}.`);
-  }
+  // No `length > 0` guard: the empty case returned above, and `byEffort` is filled from the same
+  // `suggestions` array — so there is always at least one entry here.
+  parts.push(`Effort distribution: ${effortSummary.join(', ')}.`);
 
   return parts.join(' ');
 }
@@ -541,14 +559,7 @@ export function formatSuggestionReport(report: SuggestionReport): string {
 
   for (const suggestion of report.suggestions) {
     const autoLabel = suggestion.isAutoApplicable ? '[Auto]' : '[Manual]';
-    const effortIcon =
-      suggestion.effort === 'trivial'
-        ? '⚡'
-        : suggestion.effort === 'small'
-          ? '🔧'
-          : suggestion.effort === 'medium'
-            ? '🔨'
-            : '🏗️';
+    const effortIcon = EFFORT_ICON[suggestion.effort];
     const validIcon = suggestion.syntaxValid ? '✅' : '⚠️';
 
     lines.push(`### ${autoLabel} ${suggestion.title} ${effortIcon} ${validIcon}`);
