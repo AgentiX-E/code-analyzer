@@ -439,10 +439,10 @@ describe('MetricsRegistry', () => {
       >;
       const entries = histograms['json_hist'];
       expect(entries).toHaveLength(1);
-      expect(entries[0]!.count).toBe(2);
-      expect(entries[0]!.sum).toBeCloseTo(3.3);
-      expect(entries[0]!.bucketCounts).toEqual([1, 1, 2]);
-      expect(entries[0]!.buckets).toEqual([0.5, 1.0, 5.0]);
+      expect(entries![0]!.count).toBe(2);
+      expect(entries![0]!.sum).toBeCloseTo(3.3);
+      expect(entries![0]!.bucketCounts).toEqual([1, 1, 2]);
+      expect(entries![0]!.buckets).toEqual([0.5, 1.0, 5.0]);
     });
   });
 });

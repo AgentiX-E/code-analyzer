@@ -39,7 +39,7 @@ describe('JsonProvider', () => {
       const code = '{"name": "Alice", "age": 30}';
       const captures = provider.parse(code, 't.json');
       const objects = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(objects.some((c) => c.name.startsWith('object_'))).toBe(true);
+      expect(objects.some((c) => c.name!.startsWith('object_'))).toBe(true);
     });
 
     it('should extract a string value', () => {
@@ -102,7 +102,7 @@ describe('JsonProvider', () => {
       const code = '[1, 2, 3]';
       const captures = provider.parse(code, 't.json');
       const arrays = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(arrays.some((c) => c.name.startsWith('array_'))).toBe(true);
+      expect(arrays.some((c) => c.name!.startsWith('array_'))).toBe(true);
     });
 
     it('should extract a comment', () => {

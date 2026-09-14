@@ -63,21 +63,21 @@ describe('docGenerationTool', () => {
       createStoreWithData(),
     );
     expect(r.content[0]!.text).toContain('Documentation Generation');
-    expect(r.metadata['style']!).toBe('jsdoc');
+    expect(r.metadata!['style']!).toBe('jsdoc');
   });
   it('should generate docstring', async () => {
     const r = await docGenerationTool.handler(
       { projectId: 'test-project', style: 'docstring', maxResults: 10 },
       createStoreWithData(),
     );
-    expect(r.metadata['style']!).toBe('docstring');
+    expect(r.metadata!['style']!).toBe('docstring');
   });
   it('should generate godoc', async () => {
     const r = await docGenerationTool.handler(
       { projectId: 'test-project', style: 'godoc', maxResults: 10 },
       createStoreWithData(),
     );
-    expect(r.metadata['style']!).toBe('godoc');
+    expect(r.metadata!['style']!).toBe('godoc');
   });
   it('should return empty for no symbols', async () => {
     const r = await docGenerationTool.handler(
@@ -91,7 +91,7 @@ describe('docGenerationTool', () => {
       { projectId: 'test-project', maxResults: 1 },
       createStoreWithData(),
     );
-    expect(r.metadata['docCount']!).toBeLessThanOrEqual(1);
+    expect(r.metadata!['docCount']!).toBeLessThanOrEqual(1);
   });
 
   it('should generate docstring for Python files', async () => {
@@ -154,13 +154,12 @@ describe('docGenerationTool', () => {
       { projectId: 'test-project', symbolName: 'fetchData' },
       store,
     );
-    expect(byName.metadata['docCount']!).toBe(1);
-
+    expect(byName.metadata!['docCount']!).toBe(1);
     const byFile = await docGenerationTool.handler(
       { projectId: 'test-project', filePath: 'src/http.ts' },
       store,
     );
-    expect(byFile.metadata['docCount']!).toBe(1);
+    expect(byFile.metadata!['docCount']!).toBe(1);
     expect(byFile.content[0]!.text).toContain('makeRequest');
   });
 
@@ -174,7 +173,7 @@ describe('docGenerationTool', () => {
       filePath: null,
     });
     const r = await docGenerationTool.handler({ projectId: 'p' }, store);
-    expect(r.metadata['docCount']!).toBe(1);
+    expect(r.metadata!['docCount']!).toBe(1);
     expect(r.content[0]!.text).toContain('<unknown>');
   });
 

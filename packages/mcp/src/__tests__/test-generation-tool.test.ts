@@ -65,28 +65,28 @@ describe('testGenerationTool', () => {
       createStoreWithData(),
     );
     expect(r.content[0]!.text).toContain('describe');
-    expect(r.metadata['framework']!).toBe('vitest');
+    expect(r.metadata!['framework']!).toBe('vitest');
   });
   it('should generate jest tests', async () => {
     const r = await testGenerationTool.handler(
       { projectId: 'test-project', framework: 'jest', maxTests: 10 },
       createStoreWithData(),
     );
-    expect(r.metadata['framework']!).toBe('jest');
+    expect(r.metadata!['framework']!).toBe('jest');
   });
   it('should generate pytest tests', async () => {
     const r = await testGenerationTool.handler(
       { projectId: 'test-project', framework: 'pytest', maxTests: 10 },
       createStoreWithData(),
     );
-    expect(r.metadata['framework']!).toBe('pytest');
+    expect(r.metadata!['framework']!).toBe('pytest');
   });
   it('should generate go-test tests', async () => {
     const r = await testGenerationTool.handler(
       { projectId: 'test-project', framework: 'go-test', maxTests: 10 },
       createStoreWithData(),
     );
-    expect(r.metadata['framework']!).toBe('go-test');
+    expect(r.metadata!['framework']!).toBe('go-test');
   });
   it('should return empty for store with no functions', async () => {
     const r = await testGenerationTool.handler(
@@ -100,7 +100,7 @@ describe('testGenerationTool', () => {
       { projectId: 'test-project', maxTests: 1 },
       createStoreWithData(),
     );
-    expect(r.metadata['skeletonCount']!).toBeLessThanOrEqual(1);
+    expect(r.metadata!['skeletonCount']!).toBeLessThanOrEqual(1);
   });
 
   it('should generate Python pytest code for .py files', async () => {
@@ -170,7 +170,7 @@ describe('testGenerationTool', () => {
       { projectId: 'test-project', symbolName: 'calc' },
       store,
     );
-    expect(r.metadata['skeletonCount']!).toBe(1);
+    expect(r.metadata!['skeletonCount']!).toBe(1);
     expect(r.content[0]!.text).toContain('calc');
   });
 
@@ -180,7 +180,7 @@ describe('testGenerationTool', () => {
       { projectId: 'test-project', filePath: 'src/math.ts' },
       store,
     );
-    expect(r.metadata['skeletonCount']!).toBe(1);
+    expect(r.metadata!['skeletonCount']!).toBe(1);
   });
 
   it('should handle nodes without a filePath', async () => {
@@ -194,7 +194,7 @@ describe('testGenerationTool', () => {
     });
     const r = await testGenerationTool.handler({ projectId: 'test-project' }, store);
     // The null filePath is tolerated (falls back to typescript skeleton).
-    expect(r.metadata['skeletonCount']!).toBe(1);
+    expect(r.metadata!['skeletonCount']!).toBe(1);
     expect(r.content[0]!.text).toContain('orphan');
   });
 });

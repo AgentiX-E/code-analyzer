@@ -133,18 +133,18 @@ describe('Code Review Tools — Registration', () => {
     const registry = createToolRegistry();
     const tool = registry.get('review_diff');
     expect(tool).toBeDefined();
-    expect(tool.name).toBe('review_diff');
-    expect(tool.description).toBeTruthy();
-    expect(tool.profile).toBe('analysis');
+    expect(tool!.name).toBe('review_diff');
+    expect(tool!.description).toBeTruthy();
+    expect(tool!.profile).toBe('analysis');
   });
 
   it('should register review_file in the tool registry', () => {
     const registry = createToolRegistry();
     const tool = registry.get('review_file');
     expect(tool).toBeDefined();
-    expect(tool.name).toBe('review_file');
-    expect(tool.description).toBeTruthy();
-    expect(tool.profile).toBe('analysis');
+    expect(tool!.name).toBe('review_file');
+    expect(tool!.description).toBeTruthy();
+    expect(tool!.profile).toBe('analysis');
   });
 
   it('should have valid JSON schemas', () => {

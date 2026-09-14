@@ -77,7 +77,7 @@ describe('refactorSuggestionTool', () => {
       createStoreWithData(),
     );
     expect(r.content[0]!.text).toContain('Refactor Suggestions');
-    expect(r.metadata['suggestionCount']!).toBeGreaterThan(0);
+    expect(r.metadata!['suggestionCount']!).toBeGreaterThan(0);
   });
   it('should return none for empty store', async () => {
     const r = await refactorSuggestionTool.handler(
@@ -91,7 +91,7 @@ describe('refactorSuggestionTool', () => {
       { projectId: 'test-project', maxSuggestions: 1 },
       createStoreWithData(),
     );
-    expect(r.metadata['suggestionCount']!).toBeLessThanOrEqual(1);
+    expect(r.metadata!['suggestionCount']!).toBeLessThanOrEqual(1);
   });
 
   it('should flag high-severity extract-method for >20 outgoing calls', async () => {
@@ -280,7 +280,7 @@ describe('refactorSuggestionTool', () => {
       filePath: 'src/a.ts',
     });
     const r = await refactorSuggestionTool.handler({ projectId: 'p', symbolName: 'small' }, store);
-    expect(r.metadata['suggestionCount']!).toBe(0);
+    expect(r.metadata!['suggestionCount']!).toBe(0);
     expect(r.content[0]!.text).toContain('No refactoring opportunities');
   });
 });

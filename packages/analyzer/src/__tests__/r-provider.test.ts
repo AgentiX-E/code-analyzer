@@ -477,7 +477,7 @@ describe('RProvider', () => {
       // anonymous — it falls back to fn_<line>.
       const caps = provider.parse('f(x) <- function(y) y', 'test.R');
       const funcs = caps.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name.startsWith('fn_'))).toBe(true);
+      expect(funcs.some((c) => c.name!.startsWith('fn_'))).toBe(true);
     });
     it('should handle calls with no arguments', () => {
       expect(Array.isArray(provider.parse('library()', 'test.R'))).toBe(true);

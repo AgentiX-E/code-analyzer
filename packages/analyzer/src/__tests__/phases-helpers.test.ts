@@ -299,9 +299,9 @@ function extractMarkdownSections(content: string): MarkdownSection[] {
     const current = headingLines[i];
     const next = headingLines[i + 1];
     sections.push({
-      level: current.level,
-      title: current.title,
-      startLine: current.line,
+      level: current!.level,
+      title: current!.title,
+      startLine: current!.line,
       endLine: next ? next.line - 1 : lines.length,
     });
   }
