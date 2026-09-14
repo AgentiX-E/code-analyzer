@@ -575,11 +575,11 @@ describe('LLM Review Quality Benchmark', () => {
   it('runLLMReviewBenchmark should return valid result', async () => {
     const result = await runLLMReviewBenchmark();
     expect(result.suite).toBe('llm-review-quality');
-    expect(result.metrics.precision).toBeDefined();
-    expect(result.metrics.recall).toBeDefined();
-    expect(result.metrics.f1Score).toBeDefined();
+    expect(result.metrics['precision']).toBeDefined();
+    expect(result.metrics['recall']).toBeDefined();
+    expect(result.metrics['f1Score']).toBeDefined();
     // With heuristic fallback, we should get reasonable scores
-    expect(result.metrics.f1Score).toBeGreaterThanOrEqual(0);
+    expect(result.metrics['f1Score']).toBeGreaterThanOrEqual(0);
     expect(result.passed).toBeDefined();
   }, 30000);
 });

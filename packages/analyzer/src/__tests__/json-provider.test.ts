@@ -46,7 +46,7 @@ describe('JsonProvider', () => {
       const code = '{"name": "Alice"}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'name' && c.properties?.valueType === 'string')).toBe(
+      expect(vars.some((c) => c.name === 'name' && c.properties?.['valueType'] === 'string')).toBe(
         true,
       );
     });
@@ -55,30 +55,34 @@ describe('JsonProvider', () => {
       const code = '{"age": 30}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'age' && c.properties?.valueType === 'number')).toBe(true);
+      expect(vars.some((c) => c.name === 'age' && c.properties?.['valueType'] === 'number')).toBe(
+        true,
+      );
     });
 
     it('should extract a boolean value', () => {
       const code = '{"active": true, "deleted": false}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'active' && c.properties?.valueType === 'boolean')).toBe(
-        true,
-      );
+      expect(
+        vars.some((c) => c.name === 'active' && c.properties?.['valueType'] === 'boolean'),
+      ).toBe(true);
     });
 
     it('should extract a null value', () => {
       const code = '{"data": null}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'data' && c.properties?.valueType === 'null')).toBe(true);
+      expect(vars.some((c) => c.name === 'data' && c.properties?.['valueType'] === 'null')).toBe(
+        true,
+      );
     });
 
     it('should extract a nested object value', () => {
       const code = '{"user": {"id": 1}}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'user' && c.properties?.valueType === 'object')).toBe(
+      expect(vars.some((c) => c.name === 'user' && c.properties?.['valueType'] === 'object')).toBe(
         true,
       );
     });
@@ -87,7 +91,7 @@ describe('JsonProvider', () => {
       const code = '{"items": [1, 2]}';
       const captures = provider.parse(code, 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.some((c) => c.name === 'items' && c.properties?.valueType === 'array')).toBe(
+      expect(vars.some((c) => c.name === 'items' && c.properties?.['valueType'] === 'array')).toBe(
         true,
       );
     });
@@ -153,14 +157,14 @@ describe('JsonProvider', () => {
       expect(vars).toHaveLength(1);
       expect(vars[0]!.name).toBe('name');
       expect(vars[0]!.text).toBe('name');
-      expect(vars[0]!.properties?.valueType).toBe('string');
+      expect(vars[0]!.properties?.['valueType']).toBe('string');
     });
 
     it('should count only pairs when an object has inline comments', () => {
       const captures = provider.parse('{"a": 1, /* c */ "b": 2}', 't.jsonc');
       const objects = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(objects).toHaveLength(1);
-      expect(objects[0]!.properties?.keyCount).toBe('2');
+      expect(objects[0]!.properties?.['keyCount']).toBe('2');
     });
   });
 
@@ -221,9 +225,9 @@ describe('JsonProvider', () => {
     it('fallbackParse labels array, object, and null values', () => {
       const captures = fb.parse('{"items": [1], "obj": {"a": 1}, "n": null}', 't.json');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(vars.find((c) => c.name === 'items')?.properties?.valueType).toBe('array');
-      expect(vars.find((c) => c.name === 'obj')?.properties?.valueType).toBe('object');
-      expect(vars.find((c) => c.name === 'n')?.properties?.valueType).toBe('null');
+      expect(vars.find((c) => c.name === 'items')?.properties?.['valueType']).toBe('array');
+      expect(vars.find((c) => c.name === 'obj')?.properties?.['valueType']).toBe('object');
+      expect(vars.find((c) => c.name === 'n')?.properties?.['valueType']).toBe('null');
     });
 
     it('fallbackParse ignores top-level array, primitive, and null', () => {

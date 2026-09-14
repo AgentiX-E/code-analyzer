@@ -117,7 +117,7 @@ describe('RProvider', () => {
       const code = 'myfunc <- function() { }';
       const captures = provider.parse(code, 'myfile.R');
       const func = captures.find((c) => c.name === 'myfunc');
-      expect(func?.properties?.filePath).toBe('myfile.R');
+      expect(func?.properties?.['filePath']).toBe('myfile.R');
     });
 
     it('should handle if statements', () => {
@@ -317,18 +317,18 @@ describe('RProvider', () => {
   describe('special operators', () => {
     it('should parse the pipe operator', () => {
       const caps = provider.parse('x %>% mean()', 'test.R');
-      const pipes = caps.filter((c) => c.properties?.pipeOperator);
+      const pipes = caps.filter((c) => c.properties?.['pipeOperator']);
       expect(pipes.length).toBeGreaterThanOrEqual(1);
       expect(pipes[0]?.name).toBe('pipe');
     });
     it('should parse the %in% operator', () => {
       const caps = provider.parse('x %in% y', 'test.R');
-      const ops = caps.filter((c) => c.properties?.operator === 'in');
+      const ops = caps.filter((c) => c.properties?.['operator'] === 'in');
       expect(ops.length).toBeGreaterThanOrEqual(1);
     });
     it('should parse custom operators', () => {
       const caps = provider.parse('x %foo% y', 'test.R');
-      const ops = caps.filter((c) => c.properties?.customOperator === 'true');
+      const ops = caps.filter((c) => c.properties?.['customOperator'] === 'true');
       expect(ops.length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -345,7 +345,7 @@ describe('RProvider', () => {
     it('should parse source() imports', () => {
       const caps = provider.parse('source("utils.R")', 'test.R');
       const imports = caps.filter(
-        (c) => c.tag === CAPTURE_TAGS.IMPORT && c.properties?.importType === 'source',
+        (c) => c.tag === CAPTURE_TAGS.IMPORT && c.properties?.['importType'] === 'source',
       );
       expect(imports.length).toBeGreaterThanOrEqual(1);
     });

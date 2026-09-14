@@ -44,8 +44,8 @@ describe('GoProvider', () => {
       const source = `package main\n\nfunc Hello() {}\n\nfunc _hidden() {}\n`;
       const captures = provider.parse(source, 'test.go');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.find((f) => f.name === 'Hello')?.properties?.exported).toBe('true');
-      expect(funcs.find((f) => f.name === '_hidden')?.properties?.exported).toBe('false');
+      expect(funcs.find((f) => f.name === 'Hello')?.properties?.['exported']).toBe('true');
+      expect(funcs.find((f) => f.name === '_hidden')?.properties?.['exported']).toBe('false');
     });
 
     it('should detect method definitions with receivers', () => {
@@ -71,7 +71,7 @@ describe('GoProvider', () => {
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
       expect(methods).toHaveLength(1);
       expect(methods[0]!.containerName).toBe(expected);
-      expect(methods[0]!.properties?.receiverType).toBe(expected);
+      expect(methods[0]!.properties?.['receiverType']).toBe(expected);
     });
 
     it('should detect struct definitions', () => {
@@ -105,7 +105,7 @@ describe('GoProvider', () => {
       const source = `package main\n\nimport (\n\tf "fmt"\n\t"os"\n)\n`;
       const captures = provider.parse(source, 'test.go');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports.some((i) => i.name === 'fmt' && i.properties?.alias === 'f')).toBe(true);
+      expect(imports.some((i) => i.name === 'fmt' && i.properties?.['alias'] === 'f')).toBe(true);
       expect(imports.some((i) => i.name === 'os')).toBe(true);
     });
 
@@ -122,7 +122,7 @@ describe('GoProvider', () => {
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports).toHaveLength(1);
       expect(imports[0]!.name).toBe('fmt');
-      expect(imports[0]!.properties?.alias).toBe('');
+      expect(imports[0]!.properties?.['alias']).toBe('');
     });
 
     it('should skip imports with an empty path', () => {

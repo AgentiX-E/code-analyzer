@@ -41,9 +41,9 @@ describe('HclProvider', () => {
       const captures = provider.parse(code, 'main.tf');
       const resources = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(resources.some((c) => c.name === 'aws_vpc.main')).toBe(true);
-      expect(resources.some((c) => c.properties?.resourceType === 'aws_vpc')).toBe(true);
-      expect(resources.some((c) => c.properties?.resourceName === 'main')).toBe(true);
-      expect(resources.some((c) => c.properties?.iaCType === 'TerraformResource')).toBe(true);
+      expect(resources.some((c) => c.properties?.['resourceType'] === 'aws_vpc')).toBe(true);
+      expect(resources.some((c) => c.properties?.['resourceName'] === 'main')).toBe(true);
+      expect(resources.some((c) => c.properties?.['iaCType'] === 'TerraformResource')).toBe(true);
     });
 
     it('should extract a data block with source and name', () => {
@@ -51,8 +51,8 @@ describe('HclProvider', () => {
       const captures = provider.parse(code, 'main.tf');
       const data = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(data.some((c) => c.name === 'aws_ami.ubuntu')).toBe(true);
-      expect(data.some((c) => c.properties?.dataSource === 'aws_ami')).toBe(true);
-      expect(data.some((c) => c.properties?.dataName === 'ubuntu')).toBe(true);
+      expect(data.some((c) => c.properties?.['dataSource'] === 'aws_ami')).toBe(true);
+      expect(data.some((c) => c.properties?.['dataName'] === 'ubuntu')).toBe(true);
     });
   });
 
@@ -68,32 +68,34 @@ describe('HclProvider', () => {
       const code = 'output "vpc_id" {\n  value = aws_vpc.main.id\n}';
       const captures = provider.parse(code, 'outputs.tf');
       const outputs = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(outputs.some((c) => c.name === 'vpc_id' && c.properties?.isOutput === 'true')).toBe(
-        true,
-      );
+      expect(
+        outputs.some((c) => c.name === 'vpc_id' && c.properties?.['isOutput'] === 'true'),
+      ).toBe(true);
     });
 
     it('should extract a provider block with isProvider flag', () => {
       const code = 'provider "aws" {\n  region = "us-east-1"\n}';
       const captures = provider.parse(code, 'providers.tf');
       const providers = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(providers.some((c) => c.name === 'aws' && c.properties?.isProvider === 'true')).toBe(
-        true,
-      );
+      expect(
+        providers.some((c) => c.name === 'aws' && c.properties?.['isProvider'] === 'true'),
+      ).toBe(true);
     });
 
     it('should extract a module block with isModule flag', () => {
       const code = 'module "vpc" {\n  source = "terraform-aws-modules/vpc/aws"\n}';
       const captures = provider.parse(code, 'modules.tf');
       const modules = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(modules.some((c) => c.name === 'vpc' && c.properties?.isModule === 'true')).toBe(true);
+      expect(modules.some((c) => c.name === 'vpc' && c.properties?.['isModule'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a locals block', () => {
       const code = 'locals {\n  env = "prod"\n}';
       const captures = provider.parse(code, 'locals.tf');
       const locals = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-      expect(locals.some((c) => c.name === 'locals' && c.properties?.isLocals === 'true')).toBe(
+      expect(locals.some((c) => c.name === 'locals' && c.properties?.['isLocals'] === 'true')).toBe(
         true,
       );
     });
@@ -118,7 +120,7 @@ describe('HclProvider', () => {
       const code = 'resource "aws_vpc" "main" {}';
       const captures = provider.parse(code, 'custom.tf');
       const res = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(res?.properties?.filePath).toBe('custom.tf');
+      expect(res?.properties?.['filePath']).toBe('custom.tf');
     });
   });
 
@@ -188,16 +190,16 @@ describe('HclProvider', () => {
       const captures = provider.parse('resource {}', 'main.tf');
       const res = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(res).toBeDefined();
-      expect(res?.properties?.resourceType).toBe('');
-      expect(res?.properties?.resourceName).toBe('');
+      expect(res?.properties?.['resourceType']).toBe('');
+      expect(res?.properties?.['resourceName']).toBe('');
     });
 
     it('should gracefully degrade a data block with no string labels', () => {
       const captures = provider.parse('data {}', 'main.tf');
       const data = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(data).toBeDefined();
-      expect(data?.properties?.dataSource).toBe('');
-      expect(data?.properties?.dataName).toBe('');
+      expect(data?.properties?.['dataSource']).toBe('');
+      expect(data?.properties?.['dataName']).toBe('');
     });
   });
 
@@ -230,7 +232,7 @@ describe('HclProvider', () => {
           (c) =>
             c.tag === CAPTURE_TAGS.VARIABLE_DEF &&
             c.name === 'vpc_id' &&
-            c.properties?.isOutput === 'true',
+            c.properties?.['isOutput'] === 'true',
         ),
       ).toBe(true);
       expect(
@@ -238,7 +240,7 @@ describe('HclProvider', () => {
           (c) =>
             c.tag === CAPTURE_TAGS.VARIABLE_DEF &&
             c.name === 'aws' &&
-            c.properties?.isProvider === 'true',
+            c.properties?.['isProvider'] === 'true',
         ),
       ).toBe(true);
       expect(
@@ -246,7 +248,7 @@ describe('HclProvider', () => {
           (c) =>
             c.tag === CAPTURE_TAGS.FUNCTION_DEF &&
             c.name === 'vpc' &&
-            c.properties?.isModule === 'true',
+            c.properties?.['isModule'] === 'true',
         ),
       ).toBe(true);
     });

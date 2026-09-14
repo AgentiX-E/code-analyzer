@@ -31,8 +31,8 @@ describe('JavaProvider', () => {
       const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(cls).toBeDefined();
       expect(cls!.name).toBe('Foo');
-      expect(cls!.properties?.baseClasses).toBe('');
-      expect(cls!.properties?.interfaces).toBe('');
+      expect(cls!.properties?.['baseClasses']).toBe('');
+      expect(cls!.properties?.['interfaces']).toBe('');
     });
 
     it.each([
@@ -48,7 +48,7 @@ describe('JavaProvider', () => {
     ])('should extract the superclass leaf name for a %s', (_label, decl, expected) => {
       const captures = provider.parse(decl, 'Foo.java');
       const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(cls!.properties?.baseClasses).toBe(expected);
+      expect(cls!.properties?.['baseClasses']).toBe(expected);
     });
 
     it.each([
@@ -66,7 +66,7 @@ describe('JavaProvider', () => {
     ])('should extract interface names for %s', (_label, decl, expected) => {
       const captures = provider.parse(decl, 'Foo.java');
       const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(cls!.properties?.interfaces).toBe(expected);
+      expect(cls!.properties?.['interfaces']).toBe(expected);
     });
 
     it('should capture an interface definition', () => {

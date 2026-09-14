@@ -39,49 +39,49 @@ describe('MarkdownProvider', () => {
     it('should parse links', () => {
       const code = '[Click here](https://example.com)';
       const captures = provider.parse(code, 'test.md');
-      const links = captures.filter((c) => c.properties?.url === 'https://example.com');
+      const links = captures.filter((c) => c.properties?.['url'] === 'https://example.com');
       expect(links.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should parse code blocks', () => {
       const code = '```javascript\nconsole.log("hello");\n```';
       const captures = provider.parse(code, 'test.md');
-      const codeBlocks = captures.filter((c) => c.properties?.language === 'javascript');
+      const codeBlocks = captures.filter((c) => c.properties?.['language'] === 'javascript');
       expect(codeBlocks.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should parse images', () => {
       const code = '![alt text](image.png)';
       const captures = provider.parse(code, 'test.md');
-      const images = captures.filter((c) => c.properties?.isImage === 'true');
+      const images = captures.filter((c) => c.properties?.['isImage'] === 'true');
       expect(images.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should parse unordered lists', () => {
       const code = '- Item 1\n- Item 2\n- Item 3';
       const captures = provider.parse(code, 'test.md');
-      const items = captures.filter((c) => c.properties?.isListItem === 'true');
+      const items = captures.filter((c) => c.properties?.['isListItem'] === 'true');
       expect(items.length).toBeGreaterThanOrEqual(3);
     });
 
     it('should parse ordered lists', () => {
       const code = '1. First\n2. Second\n3. Third';
       const captures = provider.parse(code, 'test.md');
-      const items = captures.filter((c) => c.properties?.isListItem === 'true');
+      const items = captures.filter((c) => c.properties?.['isListItem'] === 'true');
       expect(items.length).toBeGreaterThanOrEqual(3);
     });
 
     it('should parse YAML frontmatter', () => {
       const code = '---\ntitle: Test\n---\n\n# Content';
       const captures = provider.parse(code, 'test.md');
-      const fm = captures.filter((c) => c.properties?.isFrontmatter === 'true');
+      const fm = captures.filter((c) => c.properties?.['isFrontmatter'] === 'true');
       expect(fm.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should parse blockquotes', () => {
       const code = '> This is a quote\n> Another line';
       const captures = provider.parse(code, 'test.md');
-      const quotes = captures.filter((c) => c.properties?.isBlockquote === 'true');
+      const quotes = captures.filter((c) => c.properties?.['isBlockquote'] === 'true');
       expect(quotes.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -109,16 +109,16 @@ describe('MarkdownProvider', () => {
       const h1 = captures.find((c) => c.name === 'Level 1');
       const h2 = captures.find((c) => c.name === 'Level 2');
       const h6 = captures.find((c) => c.name === 'Level 6');
-      expect(h1?.properties?.level).toBe('1');
-      expect(h2?.properties?.level).toBe('2');
-      expect(h6?.properties?.level).toBe('6');
+      expect(h1?.properties?.['level']).toBe('1');
+      expect(h2?.properties?.['level']).toBe('2');
+      expect(h6?.properties?.['level']).toBe('6');
     });
 
     it('should include filePath in properties', () => {
       const code = '# Test';
       const captures = provider.parse(code, 'myfile.md');
       const heading = captures.find((c) => c.name === 'Test');
-      expect(heading?.properties?.filePath).toBe('myfile.md');
+      expect(heading?.properties?.['filePath']).toBe('myfile.md');
     });
   });
 
@@ -147,49 +147,49 @@ describe('MarkdownProvider', () => {
     it('parse should parse links', () => {
       const code = '[link](https://example.com)';
       const captures = provider.parse(code, 'test.md');
-      const links = captures.filter((c) => c.properties?.url === 'https://example.com');
+      const links = captures.filter((c) => c.properties?.['url'] === 'https://example.com');
       expect(links.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should parse images', () => {
       const code = '![alt](image.png)';
       const captures = provider.parse(code, 'test.md');
-      const images = captures.filter((c) => c.properties?.isImage === 'true');
+      const images = captures.filter((c) => c.properties?.['isImage'] === 'true');
       expect(images.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should parse code blocks', () => {
       const code = '```python\nprint("hello")\n```';
       const captures = provider.parse(code, 'test.md');
-      const blocks = captures.filter((c) => c.properties?.language === 'python');
+      const blocks = captures.filter((c) => c.properties?.['language'] === 'python');
       expect(blocks.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should parse lists', () => {
       const code = '- item1\n- item2';
       const captures = provider.parse(code, 'test.md');
-      const items = captures.filter((c) => c.properties?.isListItem === 'true');
+      const items = captures.filter((c) => c.properties?.['isListItem'] === 'true');
       expect(items.length).toBeGreaterThanOrEqual(2);
     });
 
     it('parse should parse ordered lists', () => {
       const code = '1. first\n2. second';
       const captures = provider.parse(code, 'test.md');
-      const items = captures.filter((c) => c.properties?.isListItem === 'true');
+      const items = captures.filter((c) => c.properties?.['isListItem'] === 'true');
       expect(items.length).toBeGreaterThanOrEqual(2);
     });
 
     it('parse should parse frontmatter', () => {
       const code = '---\ntitle: hello\n---\n# Content';
       const captures = provider.parse(code, 'test.md');
-      const fm = captures.filter((c) => c.properties?.isFrontmatter === 'true');
+      const fm = captures.filter((c) => c.properties?.['isFrontmatter'] === 'true');
       expect(fm.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should parse blockquotes', () => {
       const code = '> quoted text';
       const captures = provider.parse(code, 'test.md');
-      const quotes = captures.filter((c) => c.properties?.isBlockquote === 'true');
+      const quotes = captures.filter((c) => c.properties?.['isBlockquote'] === 'true');
       expect(quotes.length).toBeGreaterThanOrEqual(1);
     });
 

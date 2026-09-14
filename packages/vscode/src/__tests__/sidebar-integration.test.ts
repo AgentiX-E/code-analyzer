@@ -72,7 +72,7 @@ describe('Sidebar + Engine Integration', () => {
       query: 'test',
     });
     expect(response.command).toBe('searchResults');
-    expect(Array.isArray(response.results)).toBe(true);
+    expect(Array.isArray(response['results'])).toBe(true);
   });
 
   it('handles review through sidebar', async () => {
@@ -80,7 +80,7 @@ describe('Sidebar + Engine Integration', () => {
       command: 'review',
     });
     expect(response.command).toBe('reviewResults');
-    expect(Array.isArray(response.comments)).toBe(true);
+    expect(Array.isArray(response['comments'])).toBe(true);
   });
 
   it('handles getChangedFiles through sidebar', async () => {
@@ -88,7 +88,7 @@ describe('Sidebar + Engine Integration', () => {
       command: 'getChangedFiles',
     });
     expect(response.command).toBe('changedFilesResults');
-    expect(Array.isArray(response.files)).toBe(true);
+    expect(Array.isArray(response['files'])).toBe(true);
   });
 
   it('handles getProjectInfo with full state', async () => {
@@ -96,7 +96,7 @@ describe('Sidebar + Engine Integration', () => {
       command: 'getProjectInfo',
     });
     expect(response.command).toBe('projectInfo');
-    expect(response.projectId).toBe('test-project');
+    expect(response['projectId']).toBe('test-project');
     expect(response).toHaveProperty('symbolCount');
     expect(response).toHaveProperty('status');
     expect(response).toHaveProperty('progress');
@@ -108,7 +108,7 @@ describe('Sidebar + Engine Integration', () => {
       filePath: '/test/file.ts',
     });
     expect(response.command).toBe('navigate');
-    expect(response.filePath).toBe('/test/file.ts');
+    expect(response['filePath']).toBe('/test/file.ts');
   });
 
   it('handles getGraphData through sidebar', async () => {
@@ -116,8 +116,8 @@ describe('Sidebar + Engine Integration', () => {
       command: 'getGraphData',
     });
     expect(response.command).toBe('graphData');
-    expect(Array.isArray(response.nodes)).toBe(true);
-    expect(Array.isArray(response.edges)).toBe(true);
+    expect(Array.isArray(response['nodes'])).toBe(true);
+    expect(Array.isArray(response['edges'])).toBe(true);
   });
 });
 

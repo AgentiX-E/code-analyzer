@@ -408,8 +408,8 @@ describe('TreeSitterBaseProvider', () => {
       const captures = tsProvider.parse(source, 'test.ts');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
-      if (classes.length > 0 && classes[0]!.properties?.baseClasses) {
-        expect(classes[0]!.properties.baseClasses).toBe('Animal');
+      if (classes.length > 0 && classes[0]!.properties?.['baseClasses']) {
+        expect(classes[0]!.properties['baseClasses']).toBe('Animal');
       }
     });
 
@@ -606,7 +606,7 @@ describe('TreeSitterBaseProvider', () => {
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       // At least one class should have baseClasses
-      const hasBaseClasses = classes.some((c) => c.properties?.baseClasses);
+      const hasBaseClasses = classes.some((c) => c.properties?.['baseClasses']);
       expect(hasBaseClasses).toBe(true);
     });
 
@@ -676,7 +676,7 @@ describe('TreeSitterBaseProvider', () => {
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes.length).toBeGreaterThanOrEqual(1);
       const child = classes.find((c) => c.name === 'Child');
-      expect(child?.properties?.baseClasses).toBeDefined();
+      expect(child?.properties?.['baseClasses']).toBeDefined();
     });
   });
 
@@ -690,8 +690,8 @@ describe('TreeSitterBaseProvider', () => {
       expect(classes.length).toBeGreaterThanOrEqual(1);
       const rect = classes.find((c) => c.name === 'Rectangle');
       expect(rect).toBeDefined();
-      if (rect?.properties?.baseClasses) {
-        expect(rect.properties.baseClasses).toBe('Shape');
+      if (rect?.properties?.['baseClasses']) {
+        expect(rect.properties['baseClasses']).toBe('Shape');
       }
     });
 

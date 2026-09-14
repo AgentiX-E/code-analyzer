@@ -305,9 +305,9 @@ describe('MetricsRegistry', () => {
       c.inc(42);
 
       const json = registry.exportJSON();
-      const counters = json.counters as Record<string, unknown>;
+      const counters = json['counters'] as Record<string, unknown>;
       expect(counters).toBeDefined();
-      const entries = counters.test_counter as Array<{ value: number }>;
+      const entries = counters['test_counter'] as Array<{ value: number }>;
       expect(entries[0].value).toBe(42);
     });
 
@@ -316,9 +316,9 @@ describe('MetricsRegistry', () => {
       g.set(99);
 
       const json = registry.exportJSON();
-      const gauges = json.gauges as Record<string, unknown>;
+      const gauges = json['gauges'] as Record<string, unknown>;
       expect(gauges).toBeDefined();
-      const entries = gauges.test_gauge as Array<{ value: number }>;
+      const entries = gauges['test_gauge'] as Array<{ value: number }>;
       expect(entries[0].value).toBe(99);
     });
 
@@ -327,9 +327,9 @@ describe('MetricsRegistry', () => {
       h.observe(0.3);
 
       const json = registry.exportJSON();
-      const histograms = json.histograms as Record<string, unknown>;
+      const histograms = json['histograms'] as Record<string, unknown>;
       expect(histograms).toBeDefined();
-      const entries = histograms.test_hist as Array<{
+      const entries = histograms['test_hist'] as Array<{
         count: number;
         sum: number;
         bucketCounts: number[];
@@ -409,9 +409,9 @@ describe('MetricsRegistry', () => {
   describe('exportJSON edge cases', () => {
     it('should export empty registry', () => {
       const json = registry.exportJSON();
-      expect(json.counters).toEqual({});
-      expect(json.gauges).toEqual({});
-      expect(json.histograms).toEqual({});
+      expect(json['counters']).toEqual({});
+      expect(json['gauges']).toEqual({});
+      expect(json['histograms']).toEqual({});
     });
 
     it('should export counters with labels in JSON', () => {
@@ -420,11 +420,11 @@ describe('MetricsRegistry', () => {
       c.inc(2, { key: 'val2' });
 
       const json = registry.exportJSON();
-      const counters = json.counters as Record<
+      const counters = json['counters'] as Record<
         string,
         Array<{ value: number; labels: Record<string, string> }>
       >;
-      expect(counters.json_counter).toHaveLength(2);
+      expect(counters['json_counter']).toHaveLength(2);
     });
 
     it('should export histograms with bucket data in JSON', () => {
@@ -433,11 +433,11 @@ describe('MetricsRegistry', () => {
       h.observe(3.0);
 
       const json = registry.exportJSON();
-      const histograms = json.histograms as Record<
+      const histograms = json['histograms'] as Record<
         string,
         Array<{ count: number; sum: number; bucketCounts: number[]; buckets: number[] }>
       >;
-      const entries = histograms.json_hist;
+      const entries = histograms['json_hist'];
       expect(entries).toHaveLength(1);
       expect(entries[0].count).toBe(2);
       expect(entries[0].sum).toBeCloseTo(3.3);

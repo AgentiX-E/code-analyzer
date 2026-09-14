@@ -62,7 +62,7 @@ describe('SvelteProvider', () => {
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
       const reactive = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.reactive === 'true',
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.['reactive'] === 'true',
       );
       expect(reactive.some((c) => c.name === 'doubled')).toBe(true);
     });
@@ -76,7 +76,7 @@ describe('SvelteProvider', () => {
       const props = captures.filter((c) => c.tag === CAPTURE_TAGS.COMPONENT_PROPS);
       expect(props.some((c) => c.name === 'title')).toBe(true);
       expect(props.some((c) => c.name === 'count')).toBe(true);
-      expect(props[0]!.properties?.componentProp).toBe('true');
+      expect(props[0]!.properties?.['componentProp']).toBe('true');
     });
 
     it('should parse exported functions', () => {
@@ -87,7 +87,7 @@ describe('SvelteProvider', () => {
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
       const funcs = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.exported === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['exported'] === 'true',
       );
       expect(funcs.some((c) => c.name === 'preload')).toBe(true);
     });
@@ -99,7 +99,7 @@ describe('SvelteProvider', () => {
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
       const constants = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.properties?.exported === 'true',
+        (c) => c.tag === CAPTURE_TAGS.CONSTANT_DEF && c.properties?.['exported'] === 'true',
       );
       expect(constants.some((c) => c.name === 'prerender')).toBe(true);
       expect(constants.some((c) => c.name === 'ssr')).toBe(true);
@@ -131,7 +131,7 @@ describe('SvelteProvider', () => {
 </script>`;
       const captures = provider.parse(code, 'test.svelte');
       const arrowFuncs = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrowFuncs.some((c) => c.name === 'formatDate')).toBe(true);
     });
@@ -196,7 +196,7 @@ describe('SvelteProvider', () => {
 </main>`;
       const captures = provider.parse(code, 'test.svelte');
       const components = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.['component'] === 'true',
       );
       expect(components.some((c) => c.name === 'Header')).toBe(true);
       expect(components.some((c) => c.name === 'UserCard')).toBe(true);
@@ -217,7 +217,7 @@ describe('SvelteProvider', () => {
 </main>`;
       const captures = provider.parse(code, 'test.svelte');
       const components = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.['component'] === 'true',
       );
       // No custom components (div, h1, p, button are standard HTML)
       expect(components.length).toBe(0);
@@ -265,7 +265,7 @@ describe('SvelteProvider', () => {
 </script>`;
       const captures = provider.parse(code, 'my-component.svelte');
       const v = captures.find((c) => c.name === 'name');
-      expect(v?.properties?.filePath).toBe('my-component.svelte');
+      expect(v?.properties?.['filePath']).toBe('my-component.svelte');
     });
 
     it('should handle script with TypeScript lang attribute', () => {
@@ -290,7 +290,7 @@ describe('SvelteProvider', () => {
       // Header is PascalCase (custom component), not a standard HTML tag
       // But the template section has <Header /> which should be captured
       const components = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.['component'] === 'true',
       );
       expect(components.length).toBeGreaterThanOrEqual(1);
     });
@@ -305,7 +305,7 @@ describe('SvelteProvider', () => {
 </style>`;
       const captures = provider.parse(code, 'test.svelte');
       const components = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.['component'] === 'true',
       );
       expect(components.length).toBe(0);
     });
@@ -495,7 +495,7 @@ import { onMount } from 'svelte';
 </side-panel>`;
       const captures = provider.parse(code, 'test.svelte');
       const components = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.['component'] === 'true',
       );
       expect(components.some((c) => c.name === 'nav-bar')).toBe(true);
       expect(components.some((c) => c.name === 'side-panel')).toBe(true);
@@ -506,7 +506,7 @@ import { onMount } from 'svelte';
 <UserProfile name="Alice" />`;
       const captures = provider.parse(code, 'test.svelte');
       const components = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.component === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL && c.properties?.['component'] === 'true',
       );
       expect(components.length).toBeGreaterThanOrEqual(2);
     });

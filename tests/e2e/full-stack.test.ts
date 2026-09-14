@@ -87,7 +87,7 @@ describe('Full-Stack E2E — Server Lifecycle', () => {
       const res = await fetch(`http://127.0.0.1:${port}/health`);
       expect(res.status).toBe(200);
       const body = (await res.json()) as Record<string, unknown>;
-      expect(body.status).toMatch(/healthy|degraded|unhealthy/);
+      expect(body['status']).toMatch(/healthy|degraded|unhealthy/);
 
       await server.stop();
     },
@@ -304,7 +304,7 @@ describe('Full-Stack E2E — GitHub Webhook', () => {
       const statusRes = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github/status`);
       expect(statusRes.status).toBe(200);
       const statusBody = (await statusRes.json()) as Record<string, unknown>;
-      expect(statusBody.configured).toBe(true);
+      expect(statusBody['configured']).toBe(true);
 
       await server.stop();
     },

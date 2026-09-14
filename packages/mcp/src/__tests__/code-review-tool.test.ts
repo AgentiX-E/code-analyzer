@@ -908,9 +908,9 @@ describe('buildSummary', () => {
 
   it('ignores unknown severities', () => {
     const summary = buildSummary([{ severity: 'wat' }, { severity: 'critical' }]);
-    expect(summary.total).toBe(2);
-    expect(summary.critical).toBe(1);
-    expect(summary.medium).toBe(0);
+    expect(summary['total']).toBe(2);
+    expect(summary['critical']).toBe(1);
+    expect(summary['medium']).toBe(0);
   });
 });
 

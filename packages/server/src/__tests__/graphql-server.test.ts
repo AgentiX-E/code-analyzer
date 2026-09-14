@@ -139,8 +139,8 @@ describe('mountGraphQLOnFastify', () => {
   it('registers the /graphql route with GET, POST and OPTIONS', () => {
     const { routes } = mount();
     expect(routes).toHaveLength(1);
-    expect(routes[0].url).toBe('/api/v1/graphql');
-    expect(routes[0].method).toEqual(['GET', 'POST', 'OPTIONS']);
+    expect(routes[0]['url']).toBe('/api/v1/graphql');
+    expect(routes[0]['method']).toEqual(['GET', 'POST', 'OPTIONS']);
   });
 
   it('logs the endpoint when logging is enabled', () => {
@@ -168,7 +168,7 @@ describe('mountGraphQLOnFastify', () => {
 
   function handler(): Handler {
     const { routes } = mount();
-    return routes[0].handler as Handler;
+    return routes[0]['handler'] as Handler;
   }
 
   function makeReply() {

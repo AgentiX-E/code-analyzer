@@ -111,7 +111,7 @@ describe('PythonProvider', () => {
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes).toHaveLength(1);
       expect(classes[0]!.name).toBe('Child');
-      expect(classes[0]!.properties?.baseClasses).toBe('Base,Mixin');
+      expect(classes[0]!.properties?.['baseClasses']).toBe('Base,Mixin');
     });
 
     it('should detect decorators with arguments', () => {

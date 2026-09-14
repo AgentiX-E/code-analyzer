@@ -59,7 +59,7 @@ describe('CssProvider', () => {
     it('should parse at-rules', () => {
       const code = '@media screen and (max-width: 600px) { body { font-size: 14px; } }';
       const captures = provider.parse(code, 'test.css');
-      const atRules = captures.filter((c) => c.properties?.atRuleType === 'media');
+      const atRules = captures.filter((c) => c.properties?.['atRuleType'] === 'media');
       expect(atRules.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -73,7 +73,7 @@ describe('CssProvider', () => {
     it('should parse keyframes at-rules', () => {
       const code = '@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }';
       const captures = provider.parse(code, 'test.css');
-      const keyframes = captures.filter((c) => c.properties?.atRuleType === 'keyframes');
+      const keyframes = captures.filter((c) => c.properties?.['atRuleType'] === 'keyframes');
       expect(keyframes.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -128,7 +128,7 @@ describe('CssProvider', () => {
       const code = 'body { color: red; }';
       const captures = provider.parse(code, 'myfile.css');
       const rule = captures.find((c) => c.name === 'body');
-      expect(rule?.properties?.filePath).toBe('myfile.css');
+      expect(rule?.properties?.['filePath']).toBe('myfile.css');
     });
 
     it('should parse font-face at-rule', () => {
@@ -189,7 +189,7 @@ describe('CssProvider', () => {
     it('parse should parse at-rules', () => {
       const code = '@media screen { body { font-size: 14px; } }';
       const captures = provider.parse(code, 'test.css');
-      const atRules = captures.filter((c) => c.properties?.atRuleType === 'media');
+      const atRules = captures.filter((c) => c.properties?.['atRuleType'] === 'media');
       expect(atRules.length).toBeGreaterThanOrEqual(1);
     });
 

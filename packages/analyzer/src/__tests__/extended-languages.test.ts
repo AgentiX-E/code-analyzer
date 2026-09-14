@@ -58,9 +58,9 @@ describe('YamlProvider', () => {
     });
     it('detects sequence items', () => {
       const caps = provider.parse('items:\n  - a\n  - b\n  - c', 'test.yaml');
-      expect(caps.filter((c) => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(
-        3,
-      );
+      expect(
+        caps.filter((c) => c.properties?.['isListItem'] === 'true').length,
+      ).toBeGreaterThanOrEqual(3);
     });
     it('detects anchors', () => {
       const caps = provider.parse('defaults: &defaults\n  x: 1', 'test.yaml');
@@ -131,7 +131,7 @@ describe('YamlProvider', () => {
     });
     it('includes filePath in properties', () => {
       const caps = provider.parse('key: value', 'myfile.yaml');
-      expect(caps.find((c) => c.name === 'key')?.properties?.filePath).toBe('myfile.yaml');
+      expect(caps.find((c) => c.name === 'key')?.properties?.['filePath']).toBe('myfile.yaml');
     });
     it('handles block scalar markers', () => {
       const caps = provider.parse('|\n  indented text\nkey: value', 'test.yaml');
@@ -201,7 +201,7 @@ describe('TomlProvider', () => {
     it('detects array of tables', () => {
       const caps = provider.parse('[[products]]\nname = "hammer"', 'test.toml');
       expect(
-        caps.filter((c) => c.properties?.isArrayTable === 'true').length,
+        caps.filter((c) => c.properties?.['isArrayTable'] === 'true').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects key-value pairs', () => {
@@ -263,7 +263,7 @@ describe('TomlProvider', () => {
     it('includes filePath in properties', () => {
       const caps = provider.parse('name = "app"', 'my.toml');
       const v = caps.find((c) => c.name === 'name');
-      expect(v?.properties?.filePath).toBe('my.toml');
+      expect(v?.properties?.['filePath']).toBe('my.toml');
     });
     it('detects multiline strings', () => {
       const caps = provider.parse('text = """\nmulti\nline\n"""', 'test.toml');
@@ -401,7 +401,7 @@ describe('SqlProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('CREATE TABLE t (a INT);', 'db.sql');
-      expect(caps.some((c) => c.properties?.filePath === 'db.sql')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'db.sql')).toBe(true);
     });
     it('handles stored procedure with parameters', () => {
       const caps = provider.parse('CREATE PROCEDURE sp_get_user(IN user_id INT)', 'test.sql');
@@ -517,7 +517,7 @@ describe('BashProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('NAME=test', 'my.sh');
-      expect(caps.some((c) => c.properties?.filePath === 'my.sh')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'my.sh')).toBe(true);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('a=1\nb=2\nc=3', 'test.sh');
@@ -589,12 +589,14 @@ describe('MarkdownProvider', () => {
     it('detects links', () => {
       const caps = provider.parse('[text](https://example.com)', 'test.md');
       expect(
-        caps.filter((c) => c.properties?.url === 'https://example.com').length,
+        caps.filter((c) => c.properties?.['url'] === 'https://example.com').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects images', () => {
       const caps = provider.parse('![alt](img.png)', 'test.md');
-      expect(caps.filter((c) => c.properties?.isImage === 'true').length).toBeGreaterThanOrEqual(1);
+      expect(
+        caps.filter((c) => c.properties?.['isImage'] === 'true').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('detects fenced code blocks', () => {
       const caps = provider.parse('```js\nconsole.log("hi")\n```', 'test.md');
@@ -603,26 +605,26 @@ describe('MarkdownProvider', () => {
     });
     it('detects list items', () => {
       const caps = provider.parse('- item1\n- item2', 'test.md');
-      expect(caps.filter((c) => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(
-        2,
-      );
+      expect(
+        caps.filter((c) => c.properties?.['isListItem'] === 'true').length,
+      ).toBeGreaterThanOrEqual(2);
     });
     it('detects ordered list items', () => {
       const caps = provider.parse('1. first\n2. second', 'test.md');
-      expect(caps.filter((c) => c.properties?.isListItem === 'true').length).toBeGreaterThanOrEqual(
-        2,
-      );
+      expect(
+        caps.filter((c) => c.properties?.['isListItem'] === 'true').length,
+      ).toBeGreaterThanOrEqual(2);
     });
     it('detects blockquotes', () => {
       const caps = provider.parse('> quoted text', 'test.md');
       expect(
-        caps.filter((c) => c.properties?.isBlockquote === 'true').length,
+        caps.filter((c) => c.properties?.['isBlockquote'] === 'true').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects YAML frontmatter', () => {
       const caps = provider.parse('---\ntitle: Test\n---\n\ncontent', 'test.md');
       expect(
-        caps.filter((c) => c.properties?.isFrontmatter === 'true').length,
+        caps.filter((c) => c.properties?.['isFrontmatter'] === 'true').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects inline code', () => {
@@ -651,7 +653,7 @@ describe('MarkdownProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('# Title', 'doc.md');
-      expect(caps.some((c) => c.properties?.filePath === 'doc.md')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'doc.md')).toBe(true);
     });
     it('detects setext headings', () => {
       const caps = provider.parse('Title\n=====', 'test.md');
@@ -667,9 +669,9 @@ describe('MarkdownProvider', () => {
     });
     it('handles highlighted syntax', () => {
       const caps = provider.parse('```python\nprint("hello")\n```', 'test.md');
-      expect(caps.filter((c) => c.properties?.language === 'python').length).toBeGreaterThanOrEqual(
-        1,
-      );
+      expect(
+        caps.filter((c) => c.properties?.['language'] === 'python').length,
+      ).toBeGreaterThanOrEqual(1);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('# A\n# B\n# C', 'test.md');
@@ -684,7 +686,7 @@ describe('MarkdownProvider', () => {
     it('handles frontmatter', () => {
       const caps = provider.parse('---\ntitle: Doc\n---\n# Heading', 'test.md');
       expect(
-        caps.filter((c) => c.properties?.isFrontmatter === 'true').length,
+        caps.filter((c) => c.properties?.['isFrontmatter'] === 'true').length,
       ).toBeGreaterThanOrEqual(1);
     });
   });
@@ -775,7 +777,7 @@ describe('HtmlProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('<div></div>', 'page.html');
-      expect(caps.some((c) => c.properties?.filePath === 'page.html')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'page.html')).toBe(true);
     });
     it('handles .htm extension', () => {
       const caps = provider.parse('<p>test</p>', 'test.htm');
@@ -848,7 +850,7 @@ describe('CssProvider', () => {
         'test.css',
       );
       expect(
-        caps.filter((c) => c.properties?.atRuleType === 'media').length,
+        caps.filter((c) => c.properties?.['atRuleType'] === 'media').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects keyframes', () => {
@@ -857,7 +859,7 @@ describe('CssProvider', () => {
         'test.css',
       );
       expect(
-        caps.filter((c) => c.properties?.atRuleType === 'keyframes').length,
+        caps.filter((c) => c.properties?.['atRuleType'] === 'keyframes').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects class selectors', () => {
@@ -897,7 +899,7 @@ describe('CssProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('.class { color: red; }', 'style.css');
-      expect(caps.some((c) => c.properties?.filePath === 'style.css')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'style.css')).toBe(true);
     });
     it('detects multiple declarations', () => {
       const caps = provider.parse('body { color: red; font-size: 14px; margin: 0; }', 'test.css');
@@ -1025,7 +1027,7 @@ describe('RProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('x <- 1', 'script.r');
-      expect(caps.some((c) => c.properties?.filePath === 'script.r')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'script.r')).toBe(true);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('a <- 1\nb <- 2\nc <- 3', 'test.r');
@@ -1152,7 +1154,7 @@ describe('GroovyProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('class App {}', 'app.groovy');
-      expect(caps.some((c) => c.properties?.filePath === 'app.groovy')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'app.groovy')).toBe(true);
     });
     it('returns sorted captures', () => {
       const caps = provider.parse('class A {}\nclass B {}\nclass C {}', 'test.groovy');
@@ -1225,19 +1227,19 @@ describe('JsonProvider', () => {
     it('detects string values', () => {
       const caps = provider.parse('{"key": "value"}', 'test.json');
       expect(
-        caps.filter((c) => c.properties?.valueType === 'string').length,
+        caps.filter((c) => c.properties?.['valueType'] === 'string').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects number values', () => {
       const caps = provider.parse('{"count": 42}', 'test.json');
       expect(
-        caps.filter((c) => c.properties?.valueType === 'number').length,
+        caps.filter((c) => c.properties?.['valueType'] === 'number').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects boolean values', () => {
       const caps = provider.parse('{"enabled": true}', 'test.json');
       expect(
-        caps.filter((c) => c.properties?.valueType === 'boolean').length,
+        caps.filter((c) => c.properties?.['valueType'] === 'boolean').length,
       ).toBeGreaterThanOrEqual(1);
     });
     it('detects null values', () => {
@@ -1279,7 +1281,7 @@ describe('JsonProvider', () => {
     });
     it('includes filePath', () => {
       const caps = provider.parse('{"key": "value"}', 'cfg.json');
-      expect(caps.some((c) => c.properties?.filePath === 'cfg.json')).toBe(true);
+      expect(caps.some((c) => c.properties?.['filePath'] === 'cfg.json')).toBe(true);
     });
     it('detects negative numbers', () => {
       const caps = provider.parse('{"temp": -5}', 'test.json');

@@ -358,7 +358,7 @@ describe('Chat Participant — All 15 Slash Commands', () => {
         mockStream() as any,
         mockToken(false),
       );
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
     }
   });
 

@@ -94,7 +94,7 @@ describe('DartProvider', () => {
     });
     it('should include filePath in properties', () => {
       const captures = provider.parse('class A {}', 'myfile.dart');
-      expect(captures[0]?.properties?.filePath).toBe('myfile.dart');
+      expect(captures[0]?.properties?.['filePath']).toBe('myfile.dart');
     });
     it('should return captures sorted by line', () => {
       const code = 'class A {}\nclass B {}\nclass C {}';

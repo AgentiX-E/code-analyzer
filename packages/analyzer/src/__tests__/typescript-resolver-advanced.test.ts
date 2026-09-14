@@ -61,7 +61,7 @@ describe('TypeScriptAdvancedResolver — generic utility types', () => {
     const result = await makeResolver().resolveType('Array<string>', makeContext());
     expect(result!.kind).toBe('generic');
     expect(result!.name).toBe('Array<string>');
-    expect(result!.members!.length.name).toBe('number');
+    expect(result!.members!['length'].name).toBe('number');
     expect(result!.members!['[index]'].kind).toBe('primitive');
   });
 
@@ -69,30 +69,30 @@ describe('TypeScriptAdvancedResolver — generic utility types', () => {
     const result = await makeResolver().resolveType('ReadonlyArray<string>', makeContext());
     expect(result!.kind).toBe('generic');
     expect(result!.name).toBe('ReadonlyArray<string>');
-    expect(result!.members!.length.name).toBe('number');
+    expect(result!.members!['length'].name).toBe('number');
   });
 
   it('resolves Map<K, V> with get/set/size members', async () => {
     const result = await makeResolver().resolveType('Map<string, number>', makeContext());
     expect(result!.kind).toBe('generic');
     expect(result!.name).toBe('Map<string, number>');
-    expect(result!.members!.size.name).toBe('number');
-    expect(result!.members!.get.kind).toBe('function');
-    expect(result!.members!.set.kind).toBe('function');
+    expect(result!.members!['size'].name).toBe('number');
+    expect(result!.members!['get'].kind).toBe('function');
+    expect(result!.members!['set'].kind).toBe('function');
   });
 
   it('resolves Set<T> with add/size members', async () => {
     const result = await makeResolver().resolveType('Set<string>', makeContext());
     expect(result!.kind).toBe('generic');
     expect(result!.name).toBe('Set<string>');
-    expect(result!.members!.add.kind).toBe('function');
+    expect(result!.members!['add'].kind).toBe('function');
   });
 
   it('resolves Promise<T> with then/catch members', async () => {
     const result = await makeResolver().resolveType('Promise<string>', makeContext());
     expect(result!.kind).toBe('generic');
     expect(result!.name).toBe('Promise<string>');
-    expect(result!.members!.then.kind).toBe('function');
+    expect(result!.members!['then'].kind).toBe('function');
   });
 
   it('resolves Partial<T> as a generic type', async () => {

@@ -104,10 +104,10 @@ describe('Server E2E — Full Lifecycle', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/health`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.status).toMatch(/^(healthy|degraded|unhealthy)$/);
-    expect(body.version).toBe('1.0.0');
-    expect(Array.isArray(body.checks)).toBe(true);
-    expect((body.checks as unknown[]).length).toBeGreaterThanOrEqual(4);
+    expect(body['status']).toMatch(/^(healthy|degraded|unhealthy)$/);
+    expect(body['version']).toBe('1.0.0');
+    expect(Array.isArray(body['checks'])).toBe(true);
+    expect((body['checks'] as unknown[]).length).toBeGreaterThanOrEqual(4);
   });
 
   it('should pass readiness probe when healthy', async () => {
@@ -133,7 +133,7 @@ describe('Server E2E — Full Lifecycle', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/health/live`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.status).toBe('alive');
+    expect(body['status']).toBe('alive');
   });
 });
 
@@ -179,7 +179,7 @@ describe('Server E2E — Rate Limiting', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/tools/list`);
     expect(res.status).toBe(429);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.error).toBe('TOO_MANY_REQUESTS');
+    expect(body['error']).toBe('TOO_MANY_REQUESTS');
   });
 
   it('should not rate limit health endpoints', async () => {
@@ -240,7 +240,7 @@ describe('Server E2E — Concurrency', () => {
     );
 
     const results = await Promise.all(promises);
-    const successes = results.filter((r) => (r as Record<string, unknown>).success === true);
+    const successes = results.filter((r) => (r as Record<string, unknown>)['success'] === true);
     expect(successes.length).toBe(20);
   });
 
@@ -263,7 +263,7 @@ describe('Server E2E — Concurrency', () => {
 
     const results = await Promise.all(promises);
     expect(results.length).toBe(5);
-    const allDone = results.every((r) => (r as Record<string, unknown>).success === true);
+    const allDone = results.every((r) => (r as Record<string, unknown>)['success'] === true);
     expect(allDone).toBe(true);
   });
 });
@@ -539,7 +539,7 @@ describe('Server E2E — Webhook Integration', () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.received).toBe(true);
+    expect(body['received']).toBe(true);
 
     // Wait for async processing
     await new Promise((r) => setTimeout(r, 100));
@@ -636,7 +636,7 @@ describe('Server E2E — Webhook Integration', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/webhook/github/status`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.configured).toBe(true);
+    expect(body['configured']).toBe(true);
   });
 });
 

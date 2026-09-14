@@ -89,7 +89,7 @@ describe('SqlProvider', () => {
     it('should parse CTE (WITH) statements', () => {
       const code = 'WITH cte AS (SELECT id FROM users) SELECT * FROM cte;';
       const captures = provider.parse(code, 'test.sql');
-      const ctes = captures.filter((c) => c.properties?.isCTE === 'true');
+      const ctes = captures.filter((c) => c.properties?.['isCTE'] === 'true');
       expect(ctes.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -129,7 +129,7 @@ describe('SqlProvider', () => {
       const code = 'CREATE TABLE my_table (id INT);';
       const captures = provider.parse(code, 'myfile.sql');
       const tbl = captures.find((c) => c.name === 'my_table');
-      expect(tbl?.properties?.filePath).toBe('myfile.sql');
+      expect(tbl?.properties?.['filePath']).toBe('myfile.sql');
     });
 
     it('should parse SELECT with subquery', () => {
@@ -208,7 +208,7 @@ describe('SqlProvider', () => {
     it('parse should parse CTEs', () => {
       const code = 'WITH cte AS (SELECT id FROM users) SELECT * FROM cte;';
       const captures = provider.parse(code, 'test.sql');
-      const ctes = captures.filter((c) => c.properties?.isCTE === 'true');
+      const ctes = captures.filter((c) => c.properties?.['isCTE'] === 'true');
       expect(ctes.length).toBeGreaterThanOrEqual(1);
     });
 

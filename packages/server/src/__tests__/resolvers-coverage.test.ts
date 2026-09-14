@@ -74,10 +74,10 @@ describe('resolvers — symbolUsage', () => {
       ctx,
     );
     expect(results).toHaveLength(1);
-    expect(results[0].symbolName).toBe('getUser');
-    expect(results[0].referenceCount).toBe(1);
-    expect(results[0].callers).toContain('src.app.callerFn');
-    expect(results[0].referencedBy).toContain('src/app/index.ts');
+    expect(results[0]['symbolName']).toBe('getUser');
+    expect(results[0]['referenceCount']).toBe(1);
+    expect(results[0]['callers']).toContain('src.app.callerFn');
+    expect(results[0]['referencedBy']).toContain('src/app/index.ts');
   });
 
   it('applies the limit and handles a missing limit', () => {
@@ -229,10 +229,10 @@ describe('resolvers — projects status filter', () => {
     insertNode({ projectId: 'indexing-proj', filePath: 'x.ts', qualifiedName: 'x' });
 
     const ready = resolvers.Query.projects(null, { status: 'READY' }, ctx);
-    expect(ready.some((p) => p.id === 'ready-proj')).toBe(true);
-    expect(ready.some((p) => p.id === 'indexing-proj')).toBe(false);
+    expect(ready.some((p) => p['id'] === 'ready-proj')).toBe(true);
+    expect(ready.some((p) => p['id'] === 'indexing-proj')).toBe(false);
 
     const indexing = resolvers.Query.projects(null, { status: 'INDEXING' }, ctx);
-    expect(indexing.some((p) => p.id === 'indexing-proj')).toBe(true);
+    expect(indexing.some((p) => p['id'] === 'indexing-proj')).toBe(true);
   });
 });

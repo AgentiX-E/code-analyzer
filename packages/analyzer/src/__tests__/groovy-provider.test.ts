@@ -42,7 +42,7 @@ describe('GroovyProvider', () => {
       const code = 'class Foo extends Bar {}';
       const captures = provider.parse(code, 'Foo.groovy');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(classes.some((c) => c.name === 'Foo' && c.properties?.baseClasses === 'Bar')).toBe(
+      expect(classes.some((c) => c.name === 'Foo' && c.properties?.['baseClasses'] === 'Bar')).toBe(
         true,
       );
     });
@@ -52,7 +52,7 @@ describe('GroovyProvider', () => {
       const captures = provider.parse(code, 'Foo.groovy');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(
-        classes.some((c) => c.name === 'Foo' && c.properties?.baseClasses === 'Runnable'),
+        classes.some((c) => c.name === 'Foo' && c.properties?.['baseClasses'] === 'Runnable'),
       ).toBe(true);
     });
 
@@ -84,15 +84,15 @@ describe('GroovyProvider', () => {
       const code = 'class Foo {\n  def bar() {}\n}';
       const captures = provider.parse(code, 't.groovy');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some((c) => c.name === 'bar' && c.properties?.containerName === 'Foo')).toBe(
-        true,
-      );
+      expect(
+        methods.some((c) => c.name === 'bar' && c.properties?.['containerName'] === 'Foo'),
+      ).toBe(true);
     });
 
     it('should extract a top-level method with an empty container name', () => {
       const captures = provider.parse('void run() {}', 't.groovy');
       const methods = captures.filter((c) => c.tag === CAPTURE_TAGS.METHOD_DEF);
-      expect(methods.some((c) => c.name === 'run' && c.properties?.containerName === '')).toBe(
+      expect(methods.some((c) => c.name === 'run' && c.properties?.['containerName'] === '')).toBe(
         true,
       );
     });
@@ -139,14 +139,14 @@ describe('GroovyProvider', () => {
       const code = 'def c = { x -> x * 2 }';
       const captures = provider.parse(code, 't.groovy');
       const closures = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(closures.some((c) => c.properties?.isClosure === 'true')).toBe(true);
+      expect(closures.some((c) => c.properties?.['isClosure'] === 'true')).toBe(true);
     });
 
     it('should extract a gstring', () => {
       const code = 'def s = "hello ${name}"';
       const captures = provider.parse(code, 't.groovy');
       const gstrings = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.isGString === 'true',
+        (c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF && c.properties?.['isGString'] === 'true',
       );
       expect(gstrings.length).toBeGreaterThanOrEqual(1);
     });

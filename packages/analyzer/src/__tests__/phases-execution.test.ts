@@ -1242,7 +1242,7 @@ describe('ToolsPhase', () => {
     // Verify tool properties
     const searchTool = toolNodes.find((n) => n.name === 'search_code');
     expect(searchTool).toBeDefined();
-    expect(searchTool!.properties.toolType).toBe('mcp-tool');
+    expect(searchTool!.properties['toolType']).toBe('mcp-tool');
   });
 
   it('should create HANDLES_TOOL edges', async () => {
@@ -1273,7 +1273,7 @@ describe('ToolsPhase', () => {
     await toolsPhase.execute(ctx);
 
     const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
-    const cliTools = toolNodes.filter((n) => n.properties.toolType === 'cli-command');
+    const cliTools = toolNodes.filter((n) => n.properties['toolType'] === 'cli-command');
     expect(cliTools.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -2548,12 +2548,12 @@ describe('EmbedPhase', () => {
     // Check that some nodes have embedding properties
     let embeddedNodes = 0;
     for (const [, node] of ctx.graph!.nodes) {
-      if (node.properties.embedding && Array.isArray(node.properties.embedding)) {
+      if (node.properties['embedding'] && Array.isArray(node.properties['embedding'])) {
         embeddedNodes++;
         // Check embedding is 768-dimensional
-        expect(node.properties.embedding.length).toBe(768);
+        expect(node.properties['embedding'].length).toBe(768);
         // Check values are normalized (between -1 and 1)
-        for (const val of node.properties.embedding as number[]) {
+        for (const val of node.properties['embedding'] as number[]) {
           expect(val).toBeGreaterThanOrEqual(-1);
           expect(val).toBeLessThanOrEqual(1);
         }
@@ -2591,7 +2591,7 @@ describe('EmbedPhase', () => {
 
     for (const [, node] of ctx.graph!.nodes) {
       if (node.label === 'File' || node.label === 'Folder' || node.label === 'Project') {
-        expect(node.properties.embedding).toBeUndefined();
+        expect(node.properties['embedding']).toBeUndefined();
       }
     }
   });
@@ -2632,8 +2632,8 @@ describe('EmbedPhase', () => {
     expect(result.status).toBe('success');
     // The signed Function node should have an embedding
     const signedNode = Array.from(g.nodes.values()).find((n) => n.name === 'signed');
-    expect(signedNode?.properties.embedding).toBeDefined();
-    expect(Array.isArray(signedNode?.properties.embedding)).toBe(true);
+    expect(signedNode?.properties['embedding']).toBeDefined();
+    expect(Array.isArray(signedNode?.properties['embedding'])).toBe(true);
   });
 
   it('should return zero embeddings when only structural nodes exist', async () => {
@@ -2928,7 +2928,7 @@ describe('MarkdownPhase - negative paths', () => {
         return Reflect.get(target, prop);
       },
     });
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = badFiles;
+    (ctx.phaseData.get('scan') as Record<string, unknown>)['discoveredFiles'] = badFiles;
 
     const result = await markdownPhase.execute(ctx);
     expect(result.status).toBe('failed');
@@ -2962,7 +2962,7 @@ describe('MarkdownPhase - negative paths', () => {
     await scanPhase.execute(ctx);
 
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+    (ctx.phaseData.get('scan') as Record<string, unknown>)['discoveredFiles'] = new Proxy(
       scanData.discoveredFiles,
       {
         get(target, prop) {
@@ -3159,7 +3159,7 @@ describe('ConfigPhase - more paths', () => {
 
     // Corrupt scan data to trigger catch block
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+    (ctx.phaseData.get('scan') as Record<string, unknown>)['discoveredFiles'] = new Proxy(
       scanData.discoveredFiles,
       {
         get(target, prop) {
@@ -3228,7 +3228,7 @@ describe('RoutesPhase - more frameworks', () => {
     await routesPhase.execute(ctx);
 
     const routeNodes = Array.from(ctx.graph!.nodes.values()).filter(
-      (n) => n.label === 'Route' && n.properties?.framework === 'gin',
+      (n) => n.label === 'Route' && n.properties?.['framework'] === 'gin',
     );
     // Gin routes should be detected (framework: 'gin', method: 'ALL')
     expect(routeNodes.length).toBeGreaterThanOrEqual(2);
@@ -3275,8 +3275,8 @@ describe('RoutesPhase - more frameworks', () => {
     // have decorator lines that match as either 'fastapi' or 'flask'
     const fastapiRoutes = routeNodes.filter(
       (n) =>
-        (n.properties?.framework as string)?.includes('fastapi') ||
-        (n.properties?.framework as string)?.includes('flask'),
+        (n.properties?.['framework'] as string)?.includes('fastapi') ||
+        (n.properties?.['framework'] as string)?.includes('flask'),
     );
     expect(fastapiRoutes.length).toBeGreaterThanOrEqual(0);
   });
@@ -3296,7 +3296,9 @@ describe('RoutesPhase - more frameworks', () => {
     await routesPhase.execute(ctx);
 
     const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
-    const nextJsRoutes = routeNodes.filter((n) => n.properties?.framework === 'nextjs-app-router');
+    const nextJsRoutes = routeNodes.filter(
+      (n) => n.properties?.['framework'] === 'nextjs-app-router',
+    );
     // route.ts file convention creates a route
     expect(nextJsRoutes.length).toBeGreaterThanOrEqual(1);
   });
@@ -3329,8 +3331,8 @@ describe('RoutesPhase - more frameworks', () => {
     const routeNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Route');
     const koaRoutes = routeNodes.filter(
       (n) =>
-        (n.properties?.framework as string) === 'koa' ||
-        (n.properties?.framework as string) === 'express-router',
+        (n.properties?.['framework'] as string) === 'koa' ||
+        (n.properties?.['framework'] as string) === 'express-router',
     );
     // Koa routes use the same pattern as express-router so may be detected as either
     expect(koaRoutes.length).toBeGreaterThanOrEqual(0);
@@ -3343,7 +3345,7 @@ describe('RoutesPhase - more frameworks', () => {
 
     // Corrupt scan data
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+    (ctx.phaseData.get('scan') as Record<string, unknown>)['discoveredFiles'] = new Proxy(
       scanData.discoveredFiles,
       {
         get(target, prop) {
@@ -3442,7 +3444,7 @@ describe('ToolsPhase - noise filtering', () => {
     await toolsPhase.execute(ctx);
 
     const toolNodes = Array.from(ctx.graph!.nodes.values()).filter((n) => n.label === 'Tool');
-    const vscodeTools = toolNodes.filter((n) => n.properties?.toolType === 'vscode-command');
+    const vscodeTools = toolNodes.filter((n) => n.properties?.['toolType'] === 'vscode-command');
     expect(vscodeTools.length).toBeGreaterThanOrEqual(0);
   });
 
@@ -3452,7 +3454,7 @@ describe('ToolsPhase - noise filtering', () => {
     await parsePhase.execute(ctx);
 
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+    (ctx.phaseData.get('scan') as Record<string, unknown>)['discoveredFiles'] = new Proxy(
       scanData.discoveredFiles,
       {
         get(target, prop) {
@@ -3588,7 +3590,7 @@ describe('DependencyInjectionPhase - more patterns', () => {
     await parsePhase.execute(ctx);
 
     const scanData = ctx.phaseData.get('scan') as { discoveredFiles: DiscoveredFile[] };
-    (ctx.phaseData.get('scan') as Record<string, unknown>).discoveredFiles = new Proxy(
+    (ctx.phaseData.get('scan') as Record<string, unknown>)['discoveredFiles'] = new Proxy(
       scanData.discoveredFiles,
       {
         get(target, prop) {
@@ -4096,7 +4098,7 @@ describe('EmbedPhase - node filtering', () => {
     // All File nodes should NOT have embeddings
     for (const [, node] of ctx.graph!.nodes) {
       if (node.label === 'File') {
-        expect(node.properties.embedding).toBeUndefined();
+        expect(node.properties['embedding']).toBeUndefined();
       }
     }
   });
@@ -4120,7 +4122,7 @@ describe('EmbedPhase - node filtering', () => {
 
     for (const [, node] of ctx.graph!.nodes) {
       if (node.label === 'Folder') {
-        expect(node.properties.embedding).toBeUndefined();
+        expect(node.properties['embedding']).toBeUndefined();
       }
     }
   });
@@ -4147,7 +4149,7 @@ describe('EmbedPhase - node filtering', () => {
     for (const [, node] of ctx.graph!.nodes) {
       if (node.label === 'Function') {
         functionNodeCount++;
-        if (node.properties.embedding) {
+        if (node.properties['embedding']) {
           functionEmbeddedCount++;
         }
       }
@@ -4178,7 +4180,7 @@ describe('EmbedPhase - node filtering', () => {
     for (const [, node] of ctx.graph!.nodes) {
       if (node.label === 'Class') {
         classNodeCount++;
-        if (node.properties.embedding) {
+        if (node.properties['embedding']) {
           classEmbeddedCount++;
         }
       }

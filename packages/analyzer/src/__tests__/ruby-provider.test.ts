@@ -200,14 +200,14 @@ describe('RubyProvider', () => {
       const captures = provider.fallbackParse('class Dog < Animal\nend', 'f.rb');
       const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'Dog');
       expect(cls).toBeDefined();
-      expect(cls!.properties.baseClasses).toBe('Animal');
+      expect(cls!.properties['baseClasses']).toBe('Animal');
     });
 
     it('detects classes without a base class', () => {
       const captures = provider.fallbackParse('class Plain\nend', 'f.rb');
       const cls = captures.find((c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.name === 'Plain');
       expect(cls).toBeDefined();
-      expect(cls!.properties.baseClasses).toBe('');
+      expect(cls!.properties['baseClasses']).toBe('');
     });
 
     it('detects modules', () => {

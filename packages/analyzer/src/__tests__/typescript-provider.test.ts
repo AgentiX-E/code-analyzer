@@ -35,7 +35,7 @@ describe('TypeScriptProvider', () => {
       const source = `const double = (x: number): number => x * 2;`;
       const captures = provider.parse(source, 'test.ts');
       const arrowFuncs = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrowFuncs).toHaveLength(1);
       expect(arrowFuncs[0]!.name).toBe('double');
@@ -417,7 +417,7 @@ describe('TypeScriptProvider', () => {
     it('does not name callbacks (parent is arguments)', () => {
       const captures = provider.parse('const r = [1].map((x) => x * 2);', 'test.ts');
       const arrows = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrows).toHaveLength(0);
     });
@@ -431,7 +431,7 @@ describe('TypeScriptProvider', () => {
     it('skips destructured arrow names (no identifier)', () => {
       const captures = provider.parse('const { a } = () => {};', 'test.ts');
       const arrows = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrows).toHaveLength(0);
     });
@@ -507,7 +507,7 @@ describe('TypeScriptProvider', () => {
       // tree-sitter-typescript emits `call_expression` (not `method_invocation`),
       // so the tag is FUNCTION_CALL while the callType metadata marks it a method.
       expect(call!.tag).toBe(CAPTURE_TAGS.FUNCTION_CALL);
-      expect(call!.properties?.callType).toBe('method');
+      expect(call!.properties?.['callType']).toBe('method');
     });
   });
 

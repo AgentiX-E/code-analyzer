@@ -129,21 +129,21 @@ describe('BashProvider', () => {
       const code = 'result=$(ls -la)';
       const captures = provider.parse(code, 't.sh');
       const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
-      expect(calls.some((c) => c.properties?.isSubshell === 'true')).toBe(true);
+      expect(calls.some((c) => c.properties?.['isSubshell'] === 'true')).toBe(true);
     });
 
     it('should extract a variable expansion', () => {
       const code = 'echo $HOME';
       const captures = provider.parse(code, 't.sh');
       const accesses = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS);
-      expect(accesses.some((c) => c.properties?.isExpansion === 'true')).toBe(true);
+      expect(accesses.some((c) => c.properties?.['isExpansion'] === 'true')).toBe(true);
     });
 
     it('should extract a braced variable expansion', () => {
       const code = 'echo ${HOME}';
       const captures = provider.parse(code, 't.sh');
       const accesses = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_ACCESS);
-      expect(accesses.some((c) => c.properties?.isExpansion === 'true')).toBe(true);
+      expect(accesses.some((c) => c.properties?.['isExpansion'] === 'true')).toBe(true);
     });
   });
 

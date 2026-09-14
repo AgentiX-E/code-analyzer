@@ -261,7 +261,7 @@ describe('CodeAnalyzerError.fromJSON', () => {
     const err = new CodeAnalyzerError('INTERNAL', 'EMPTY', 'test');
     expect(err.context).toEqual({});
     const json = err.toJSON();
-    expect(json.context).toEqual({});
+    expect(json['context']).toEqual({});
     const restored = CodeAnalyzerError.fromJSON(json);
     expect(restored.context).toEqual({});
   });
@@ -272,9 +272,9 @@ describe('CodeAnalyzerError.fromJSON', () => {
 
     const err = new CodeAnalyzerError('INTERNAL', 'CIRC', 'circular test', circData);
     const json = err.toJSON();
-    expect(json.code).toBe('CA_INTERNAL_CIRC');
+    expect(json['code']).toBe('CA_INTERNAL_CIRC');
     // toJSON extracts context directly, circular reference preserved
-    expect(json.context).toBeDefined();
+    expect(json['context']).toBeDefined();
   });
 
   it('should handle unknown category in fromJSON', () => {

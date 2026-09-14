@@ -45,7 +45,7 @@ describe('YamlProvider', () => {
     it('should parse sequence items', () => {
       const code = 'items:\n  - apple\n  - banana\n  - cherry';
       const captures = provider.parse(code, 'test.yaml');
-      const listItems = captures.filter((c) => c.properties?.isListItem === 'true');
+      const listItems = captures.filter((c) => c.properties?.['isListItem'] === 'true');
       expect(listItems.length).toBeGreaterThanOrEqual(3);
     });
 
@@ -54,7 +54,7 @@ describe('YamlProvider', () => {
       const captures = provider.parse(code, 'test.yaml');
       // Anchors may be detected as anchor property on the pair, or as a separate node
       const anchors = captures.filter(
-        (c) => c.properties?.anchor === 'true' || c.name === 'defaults',
+        (c) => c.properties?.['anchor'] === 'true' || c.name === 'defaults',
       );
       expect(anchors.length).toBeGreaterThanOrEqual(1);
     });
@@ -147,7 +147,7 @@ describe('YamlProvider', () => {
       const code = 'key: value';
       const captures = provider.parse(code, 'myfile.yaml');
       const v = captures.find((c) => c.name === 'key');
-      expect(v?.properties?.filePath).toBe('myfile.yaml');
+      expect(v?.properties?.['filePath']).toBe('myfile.yaml');
     });
 
     it('should handle tags', () => {
@@ -181,21 +181,21 @@ describe('YamlProvider', () => {
     it('parse should parse sequence items', () => {
       const code = '- item1\n- item2';
       const captures = provider.parse(code, 'test.yaml');
-      const items = captures.filter((c) => c.properties?.isListItem === 'true');
+      const items = captures.filter((c) => c.properties?.['isListItem'] === 'true');
       expect(items.length).toBeGreaterThanOrEqual(2);
     });
 
     it('parse should parse anchors', () => {
       const code = '&anchor key: value';
       const captures = provider.parse(code, 'test.yaml');
-      const anchors = captures.filter((c) => c.properties?.anchor === 'true');
+      const anchors = captures.filter((c) => c.properties?.['anchor'] === 'true');
       expect(anchors.length).toBeGreaterThanOrEqual(1);
     });
 
     it('parse should parse aliases', () => {
       const code = '*alias value';
       const captures = provider.parse(code, 'test.yaml');
-      const aliases = captures.filter((c) => c.properties?.alias === 'true');
+      const aliases = captures.filter((c) => c.properties?.['alias'] === 'true');
       expect(aliases.length).toBeGreaterThanOrEqual(1);
     });
 

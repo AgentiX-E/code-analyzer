@@ -115,7 +115,7 @@ describe('JavaScriptProvider', () => {
       const source = 'const double = (x) => x * 2;';
       const captures = provider.parse(source, 'test.js');
       const arrowFuncs = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrowFuncs).toHaveLength(1);
       expect(arrowFuncs[0]!.name).toBe('double');
@@ -135,7 +135,7 @@ describe('JavaScriptProvider', () => {
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes).toHaveLength(1);
       expect(classes[0]!.name).toBe('Dog');
-      expect(classes[0]!.properties?.baseClasses).toBe('Animal');
+      expect(classes[0]!.properties?.['baseClasses']).toBe('Animal');
     });
 
     it('should detect JSDoc comments', () => {
@@ -300,13 +300,13 @@ describe('JavaScriptProvider', () => {
       const captures = provider.parse('class C extends null {}', 'test.js');
       const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
       expect(classes).toHaveLength(1);
-      expect(classes[0]!.properties?.baseClasses).toBe('');
+      expect(classes[0]!.properties?.['baseClasses']).toBe('');
     });
 
     it('does not name a callback arrow (parent is not a variable_declarator)', () => {
       const captures = provider.parse('const r = [1].map((x) => x);', 'test.js');
       const arrows = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrows).toHaveLength(0);
     });
@@ -314,7 +314,7 @@ describe('JavaScriptProvider', () => {
     it('skips a destructured arrow (no identifier in the declarator)', () => {
       const captures = provider.parse('const { a } = () => {};', 'test.js');
       const arrows = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+        (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
       );
       expect(arrows).toHaveLength(0);
     });
@@ -414,7 +414,7 @@ describe('JavaScriptProvider fallback (grammar unavailable)', () => {
   it('parses arrow functions via regex', () => {
     const captures = provider.parse('const double = (x) => x * 2;', 'f.js');
     const arrows = captures.filter(
-      (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.arrow === 'true',
+      (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.properties?.['arrow'] === 'true',
     );
     expect(arrows.some((f) => f.name === 'double')).toBe(true);
   });

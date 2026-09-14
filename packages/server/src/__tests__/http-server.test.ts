@@ -135,8 +135,8 @@ describe('createServer', () => {
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.status).toMatch(/^(healthy|degraded|unhealthy)$/);
-    expect(body.version).toBeDefined();
+    expect(body['status']).toMatch(/^(healthy|degraded|unhealthy)$/);
+    expect(body['version']).toBeDefined();
   });
 
   it('should serve tool list', async () => {
@@ -156,8 +156,8 @@ describe('createServer', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/tools/list`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.total).toBe(4);
-    expect(Array.isArray(body.tools)).toBe(true);
+    expect(body['total']).toBe(4);
+    expect(Array.isArray(body['tools'])).toBe(true);
   });
 
   it('should call tools via REST API', async () => {
@@ -181,7 +181,7 @@ describe('createServer', () => {
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.success).toBe(true);
+    expect(body['success']).toBe(true);
   });
 
   it('should return 404 for unknown tool via REST', async () => {
@@ -313,8 +313,8 @@ describe('createServer', () => {
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.processed).toBe(true);
-    expect(body.broadcastTo).toBeDefined();
+    expect(body['processed']).toBe(true);
+    expect(body['broadcastTo']).toBeDefined();
   });
 
   it('should return SSE connections info', async () => {
@@ -334,7 +334,7 @@ describe('createServer', () => {
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/sse/connections`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
-    expect(typeof body.activeConnections).toBe('number');
+    expect(typeof body['activeConnections']).toBe('number');
   });
 
   it('should handle CORS preflight', async () => {

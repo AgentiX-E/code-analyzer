@@ -171,51 +171,51 @@ describe('Agent Registry', () => {
 
 describe('Agent Detection — Environment Variables', () => {
   it('should detect Claude Code via ANTHROPIC_API_KEY', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test';
     const result = detectAgentById('claude-code')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('ANTHROPIC_API_KEY'))).toBe(true);
   });
 
   it('should detect Aider via AIDER_MODEL', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
+    process.env['AIDER_MODEL'] = 'gpt-4';
     const result = detectAgentById('aider')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('AIDER_MODEL'))).toBe(true);
   });
 
   it('should detect Aider via AIDER_API_KEY', () => {
-    process.env.AIDER_API_KEY = 'sk-test';
+    process.env['AIDER_API_KEY'] = 'sk-test';
     const result = detectAgentById('aider')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect Aider via AIDER_EDIT_FORMAT', () => {
-    process.env.AIDER_EDIT_FORMAT = 'diff';
+    process.env['AIDER_EDIT_FORMAT'] = 'diff';
     const result = detectAgentById('aider')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect Codeium via CODEIUM_API_KEY', () => {
-    process.env.CODEIUM_API_KEY = 'test-key';
+    process.env['CODEIUM_API_KEY'] = 'test-key';
     const result = detectAgentById('codeium')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect Tabnine via TABNINE_API_KEY', () => {
-    process.env.TABNINE_API_KEY = 'test-key';
+    process.env['TABNINE_API_KEY'] = 'test-key';
     const result = detectAgentById('tabnine')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect Augment Code via AUGMENT_API_KEY', () => {
-    process.env.AUGMENT_API_KEY = 'test-key';
+    process.env['AUGMENT_API_KEY'] = 'test-key';
     const result = detectAgentById('augment-code')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect Amazon Q via AWS_PROFILE', () => {
-    process.env.AWS_PROFILE = 'default';
+    process.env['AWS_PROFILE'] = 'default';
     const result = detectAgentById('amazon-q')!;
     expect(result.detected).toBe(true);
   });
@@ -227,7 +227,7 @@ describe('Agent Detection — Environment Variables', () => {
   });
 
   it('should include env signal with medium confidence', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
     const result = detectAgentById('claude-code')!;
     const envSignal = result.signals.find((s) => s.type === 'env');
     expect(envSignal).toBeDefined();
@@ -250,16 +250,16 @@ describe('detectAllAgents', () => {
   });
 
   it('should sort detected agents first', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
     const result = detectAllAgents();
     const claudeIdx = result.agents.findIndex((a) => a.id === 'claude-code');
     expect(claudeIdx).toBe(0); // should be first (only one detected)
   });
 
   it('should set primary to highest-confidence detected agent', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
-    process.env.AIDER_API_KEY = 'sk-test';
-    process.env.AIDER_EDIT_FORMAT = 'diff';
+    process.env['AIDER_MODEL'] = 'gpt-4';
+    process.env['AIDER_API_KEY'] = 'sk-test';
+    process.env['AIDER_EDIT_FORMAT'] = 'diff';
     const result = detectAllAgents();
     expect(result.primary).toBe('aider');
   });
@@ -274,8 +274,8 @@ describe('detectAllAgents', () => {
   });
 
   it('should return correct detectedCount', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
-    process.env.CODEIUM_API_KEY = 'test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
+    process.env['CODEIUM_API_KEY'] = 'test';
     const result = detectAllAgents();
     expect(result.detectedCount).toBeGreaterThanOrEqual(2);
   });
@@ -295,9 +295,9 @@ describe('detectAllAgents', () => {
   it('should sort agents with same detection status by confidence', () => {
     // Set 2 env vars on aider (medium) and 1 on claude (medium)
     // Both detected, aider has more medium signals → higher confidence
-    process.env.AIDER_MODEL = 'gpt-4';
-    process.env.AIDER_API_KEY = 'sk-test';
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    process.env['AIDER_MODEL'] = 'gpt-4';
+    process.env['AIDER_API_KEY'] = 'sk-test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
     const result = detectAllAgents();
     const aiderIdx = result.agents.findIndex((a) => a.id === 'aider');
     const claudeIdx = result.agents.findIndex((a) => a.id === 'claude-code');
@@ -379,9 +379,9 @@ describe('Confidence Aggregation', () => {
   });
 
   it('should be medium with 3 medium-confidence env signals', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
-    process.env.AIDER_API_KEY = 'sk-test';
-    process.env.AIDER_EDIT_FORMAT = 'diff';
+    process.env['AIDER_MODEL'] = 'gpt-4';
+    process.env['AIDER_API_KEY'] = 'sk-test';
+    process.env['AIDER_EDIT_FORMAT'] = 'diff';
     const result = detectAgentById('aider')!;
     // 3 env signals → all medium → aggregate = medium
     expect(result.confidence).toBe('medium');
@@ -406,7 +406,7 @@ describe('Confidence Aggregation', () => {
 
 describe('Detection Signals', () => {
   it('each signal should have required fields', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
     const result = detectAgentById('claude-code')!;
     for (const signal of result.signals) {
       expect(['env', 'config', 'process', 'extension', 'binary']).toContain(signal.type);
@@ -416,7 +416,7 @@ describe('Detection Signals', () => {
   });
 
   it('env signals should reference the variable name', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
+    process.env['AIDER_MODEL'] = 'gpt-4';
     const result = detectAgentById('aider')!;
     const envSignal = result.signals.find((s) => s.type === 'env');
     expect(envSignal!.detail).toContain('AIDER_MODEL');
@@ -456,9 +456,9 @@ describe('getSupportedAgents', () => {
 
 describe('Multiple Agent Detection', () => {
   it('should detect multiple agents simultaneously', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
-    process.env.AIDER_MODEL = 'gpt-4';
-    process.env.CODEIUM_API_KEY = 'test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
+    process.env['AIDER_MODEL'] = 'gpt-4';
+    process.env['CODEIUM_API_KEY'] = 'test';
     const result = detectAllAgents();
     expect(result.detectedCount).toBeGreaterThanOrEqual(3);
     const claude = result.agents.find((a) => a.id === 'claude-code')!;
@@ -470,8 +470,8 @@ describe('Multiple Agent Detection', () => {
   });
 
   it('primary should be the first detected agent', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
-    process.env.ANTHROPIC_API_KEY = 'sk-test';
+    process.env['AIDER_MODEL'] = 'gpt-4';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-test';
     const result = detectAllAgents();
     expect(result.primary).toBeDefined();
     // Both detected; first in sort order should win
@@ -736,9 +736,9 @@ describe('Confidence Aggregation — High', () => {
     // Create an aider config file in home dir to trigger a high-confidence signal
     fs.writeFileSync(aiderConfigPath, 'model: gpt-4');
     // Set env vars for medium signals
-    process.env.AIDER_MODEL = 'gpt-4';
-    process.env.AIDER_API_KEY = 'sk-test';
-    process.env.AIDER_EDIT_FORMAT = 'diff';
+    process.env['AIDER_MODEL'] = 'gpt-4';
+    process.env['AIDER_API_KEY'] = 'sk-test';
+    process.env['AIDER_EDIT_FORMAT'] = 'diff';
 
     const result = detectAgentById('aider')!;
     // Should have config signal (high) + 3 env signals (medium)
@@ -749,7 +749,7 @@ describe('Confidence Aggregation — High', () => {
   it('should return medium confidence with 1 high + 1 medium signal', () => {
     fs.writeFileSync(aiderConfigPath, 'model: gpt-4');
     // Set only 1 env var for 1 medium signal
-    process.env.AIDER_MODEL = 'gpt-4';
+    process.env['AIDER_MODEL'] = 'gpt-4';
 
     const result = detectAgentById('aider')!;
     // 1 high + 1 medium → medium (highCount >= 1 on second if)
@@ -765,7 +765,7 @@ describe('Confidence Aggregation — High', () => {
   });
 
   it('should return low confidence with 1 medium signal only', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
+    process.env['AIDER_MODEL'] = 'gpt-4';
 
     const result = detectAgentById('aider')!;
     // 0 high + 1 medium → low (falls through both ifs)
@@ -785,7 +785,7 @@ describe('Edge Cases', () => {
 
   it('should handle agents with overlapping signals', () => {
     // Set GitHub Copilot token — should detect copilot but not confuse with others
-    process.env.GITHUB_COPILOT_TOKEN = 'test-token';
+    process.env['GITHUB_COPILOT_TOKEN'] = 'test-token';
     const result = detectAgentById('github-copilot')!;
     expect(result.detected).toBe(true);
 
@@ -795,14 +795,14 @@ describe('Edge Cases', () => {
   });
 
   it('should detect augment token env var', () => {
-    process.env.AUGMENT_TOKEN = 'test';
+    process.env['AUGMENT_TOKEN'] = 'test';
     const result = detectAgentById('augment-code')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('AUGMENT_TOKEN'))).toBe(true);
   });
 
   it('should detect tabnine token env var', () => {
-    process.env.TABNINE_TOKEN = 'test';
+    process.env['TABNINE_TOKEN'] = 'test';
     const result = detectAgentById('tabnine')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('TABNINE_TOKEN'))).toBe(true);
@@ -823,13 +823,13 @@ describe('Edge Cases', () => {
 
 describe('Individual Agent Detection — Claude Code', () => {
   it('should detect via ANTHROPIC_API_KEY', () => {
-    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test';
     const result = detectAgentById('claude-code')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect via CLAUDE_CODE_CONFIG_DIR', () => {
-    process.env.CLAUDE_CODE_CONFIG_DIR = '/home/user/.claude';
+    process.env['CLAUDE_CODE_CONFIG_DIR'] = '/home/user/.claude';
     const result = detectAgentById('claude-code')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('CLAUDE_CODE_CONFIG_DIR'))).toBe(true);
@@ -838,7 +838,7 @@ describe('Individual Agent Detection — Claude Code', () => {
 
 describe('Individual Agent Detection — Cursor', () => {
   it('should detect via CURSOR_TRACE_ID', () => {
-    process.env.CURSOR_TRACE_ID = 'test-trace-id';
+    process.env['CURSOR_TRACE_ID'] = 'test-trace-id';
     const result = detectAgentById('cursor')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('CURSOR_TRACE_ID'))).toBe(true);
@@ -847,7 +847,7 @@ describe('Individual Agent Detection — Cursor', () => {
 
 describe('Individual Agent Detection — Windsurf', () => {
   it('should detect via WINDSURF_API_KEY', () => {
-    process.env.WINDSURF_API_KEY = 'test-key';
+    process.env['WINDSURF_API_KEY'] = 'test-key';
     const result = detectAgentById('windsurf')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('WINDSURF_API_KEY'))).toBe(true);
@@ -856,7 +856,7 @@ describe('Individual Agent Detection — Windsurf', () => {
 
 describe('Individual Agent Detection — Continue.dev', () => {
   it('should detect via CONTINUE_SERVER_URL', () => {
-    process.env.CONTINUE_SERVER_URL = 'http://localhost:3000';
+    process.env['CONTINUE_SERVER_URL'] = 'http://localhost:3000';
     const result = detectAgentById('continue-dev')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('CONTINUE_SERVER_URL'))).toBe(true);
@@ -865,19 +865,19 @@ describe('Individual Agent Detection — Continue.dev', () => {
 
 describe('Individual Agent Detection — Aider', () => {
   it('should detect via AIDER_MODEL', () => {
-    process.env.AIDER_MODEL = 'gpt-4';
+    process.env['AIDER_MODEL'] = 'gpt-4';
     const result = detectAgentById('aider')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect via AIDER_API_KEY', () => {
-    process.env.AIDER_API_KEY = 'sk-test';
+    process.env['AIDER_API_KEY'] = 'sk-test';
     const result = detectAgentById('aider')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect via AIDER_EDIT_FORMAT', () => {
-    process.env.AIDER_EDIT_FORMAT = 'diff';
+    process.env['AIDER_EDIT_FORMAT'] = 'diff';
     const result = detectAgentById('aider')!;
     expect(result.detected).toBe(true);
   });
@@ -885,7 +885,7 @@ describe('Individual Agent Detection — Aider', () => {
 
 describe('Individual Agent Detection — Cline', () => {
   it('should detect via CLINE_API_KEY', () => {
-    process.env.CLINE_API_KEY = 'test-key';
+    process.env['CLINE_API_KEY'] = 'test-key';
     const result = detectAgentById('cline')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('CLINE_API_KEY'))).toBe(true);
@@ -894,14 +894,14 @@ describe('Individual Agent Detection — Cline', () => {
 
 describe('Individual Agent Detection — GitHub Copilot', () => {
   it('should detect via COPILOT_API_KEY', () => {
-    process.env.COPILOT_API_KEY = 'test-key';
+    process.env['COPILOT_API_KEY'] = 'test-key';
     const result = detectAgentById('github-copilot')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('COPILOT_API_KEY'))).toBe(true);
   });
 
   it('should detect via GITHUB_COPILOT_TOKEN', () => {
-    process.env.GITHUB_COPILOT_TOKEN = 'test-token';
+    process.env['GITHUB_COPILOT_TOKEN'] = 'test-token';
     const result = detectAgentById('github-copilot')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('GITHUB_COPILOT_TOKEN'))).toBe(true);
@@ -910,7 +910,7 @@ describe('Individual Agent Detection — GitHub Copilot', () => {
 
 describe('Individual Agent Detection — Codeium', () => {
   it('should detect via CODEIUM_API_KEY', () => {
-    process.env.CODEIUM_API_KEY = 'test-key';
+    process.env['CODEIUM_API_KEY'] = 'test-key';
     const result = detectAgentById('codeium')!;
     expect(result.detected).toBe(true);
   });
@@ -918,13 +918,13 @@ describe('Individual Agent Detection — Codeium', () => {
 
 describe('Individual Agent Detection — Tabnine', () => {
   it('should detect via TABNINE_API_KEY', () => {
-    process.env.TABNINE_API_KEY = 'test-key';
+    process.env['TABNINE_API_KEY'] = 'test-key';
     const result = detectAgentById('tabnine')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect via TABNINE_TOKEN', () => {
-    process.env.TABNINE_TOKEN = 'test-token';
+    process.env['TABNINE_TOKEN'] = 'test-token';
     const result = detectAgentById('tabnine')!;
     expect(result.detected).toBe(true);
   });
@@ -932,14 +932,14 @@ describe('Individual Agent Detection — Tabnine', () => {
 
 describe('Individual Agent Detection — Amazon Q', () => {
   it('should detect via AMAZON_Q_API_KEY', () => {
-    process.env.AMAZON_Q_API_KEY = 'test-key';
+    process.env['AMAZON_Q_API_KEY'] = 'test-key';
     const result = detectAgentById('amazon-q')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('AMAZON_Q_API_KEY'))).toBe(true);
   });
 
   it('should detect via AWS_PROFILE', () => {
-    process.env.AWS_PROFILE = 'default';
+    process.env['AWS_PROFILE'] = 'default';
     const result = detectAgentById('amazon-q')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('AWS_PROFILE'))).toBe(true);
@@ -948,7 +948,7 @@ describe('Individual Agent Detection — Amazon Q', () => {
 
 describe('Individual Agent Detection — Roo Code', () => {
   it('should detect via ROO_CODE_API_KEY', () => {
-    process.env.ROO_CODE_API_KEY = 'test-key';
+    process.env['ROO_CODE_API_KEY'] = 'test-key';
     const result = detectAgentById('roo-code')!;
     expect(result.detected).toBe(true);
     expect(result.signals.some((s) => s.detail.includes('ROO_CODE_API_KEY'))).toBe(true);
@@ -957,13 +957,13 @@ describe('Individual Agent Detection — Roo Code', () => {
 
 describe('Individual Agent Detection — Augment Code', () => {
   it('should detect via AUGMENT_API_KEY', () => {
-    process.env.AUGMENT_API_KEY = 'test-key';
+    process.env['AUGMENT_API_KEY'] = 'test-key';
     const result = detectAgentById('augment-code')!;
     expect(result.detected).toBe(true);
   });
 
   it('should detect via AUGMENT_TOKEN', () => {
-    process.env.AUGMENT_TOKEN = 'test-token';
+    process.env['AUGMENT_TOKEN'] = 'test-token';
     const result = detectAgentById('augment-code')!;
     expect(result.detected).toBe(true);
   });

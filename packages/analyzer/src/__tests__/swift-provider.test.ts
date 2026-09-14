@@ -122,7 +122,9 @@ describe('SwiftProvider', () => {
       const code = 'extension Foo {}';
       const captures = provider.parse(code, 't.swift');
       const exts = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(exts.some((c) => c.name === 'Foo' && c.properties?.isExtension === 'true')).toBe(true);
+      expect(exts.some((c) => c.name === 'Foo' && c.properties?.['isExtension'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a protocol', () => {
@@ -136,7 +138,7 @@ describe('SwiftProvider', () => {
       const code = 'actor Counter { var count = 0 }';
       const captures = provider.parse(code, 't.swift');
       const actors = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(actors.some((c) => c.name === 'Counter' && c.properties?.isActor === 'true')).toBe(
+      expect(actors.some((c) => c.name === 'Counter' && c.properties?.['isActor'] === 'true')).toBe(
         true,
       );
     });
@@ -144,7 +146,7 @@ describe('SwiftProvider', () => {
     it('should extract a resultBuilder attribute', () => {
       const code = '@resultBuilder struct Builder {}';
       const captures = provider.parse(code, 't.swift');
-      const builders = captures.filter((c) => c.properties?.isResultBuilder === 'true');
+      const builders = captures.filter((c) => c.properties?.['isResultBuilder'] === 'true');
       expect(builders.some((c) => c.name === 'Builder')).toBe(true);
     });
   });
@@ -154,28 +156,34 @@ describe('SwiftProvider', () => {
       const code = 'func greet() async throws {}';
       const captures = provider.parse(code, 't.swift');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'greet' && c.properties?.isAsync === 'true')).toBe(true);
+      expect(funcs.some((c) => c.name === 'greet' && c.properties?.['isAsync'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should mark a throwing function with hasThrows', () => {
       const code = 'func load() throws {}';
       const captures = provider.parse(code, 't.swift');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'load' && c.properties?.hasThrows === 'true')).toBe(true);
+      expect(funcs.some((c) => c.name === 'load' && c.properties?.['hasThrows'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should mark a rethrowing function with hasThrows', () => {
       const code = 'func map() rethrows {}';
       const captures = provider.parse(code, 't.swift');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'map' && c.properties?.hasThrows === 'true')).toBe(true);
+      expect(funcs.some((c) => c.name === 'map' && c.properties?.['hasThrows'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should leave hasThrows false for a plain function', () => {
       const code = 'func plain() {}';
       const captures = provider.parse(code, 't.swift');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'plain' && c.properties?.hasThrows === 'false')).toBe(
+      expect(funcs.some((c) => c.name === 'plain' && c.properties?.['hasThrows'] === 'false')).toBe(
         true,
       );
     });
@@ -248,14 +256,14 @@ describe('SwiftProvider', () => {
     it('ignores a non-resultBuilder attribute', () => {
       const code = '@objc class Legacy {}';
       const captures = provider.parse(code, 't.swift');
-      const builders = captures.filter((c) => c.properties?.isResultBuilder === 'true');
+      const builders = captures.filter((c) => c.properties?.['isResultBuilder'] === 'true');
       expect(builders).toHaveLength(0);
     });
 
     it('ignores a resultBuilder attribute on a non-class declaration', () => {
       const code = '@resultBuilder func build() {}';
       const captures = provider.parse(code, 't.swift');
-      const builders = captures.filter((c) => c.properties?.isResultBuilder === 'true');
+      const builders = captures.filter((c) => c.properties?.['isResultBuilder'] === 'true');
       expect(builders).toHaveLength(0);
     });
   });
@@ -277,17 +285,21 @@ describe('SwiftProvider fallback (grammar unavailable)', () => {
   it('parses classes with and without a base class', () => {
     const captures = provider.parse('class Foo: Bar {}\nclass Baz {}', 'f.swift');
     const classes = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-    expect(classes.some((c) => c.name === 'Foo' && c.properties?.baseClasses === 'Bar')).toBe(true);
-    expect(classes.some((c) => c.name === 'Baz' && c.properties?.baseClasses === '')).toBe(true);
+    expect(classes.some((c) => c.name === 'Foo' && c.properties?.['baseClasses'] === 'Bar')).toBe(
+      true,
+    );
+    expect(classes.some((c) => c.name === 'Baz' && c.properties?.['baseClasses'] === '')).toBe(
+      true,
+    );
   });
 
   it('parses structs with and without a base protocol', () => {
     const captures = provider.parse('struct A: Equatable {}\nstruct B {}', 'f.swift');
     const structs = captures.filter((c) => c.tag === CAPTURE_TAGS.STRUCT_DEF);
-    expect(structs.some((c) => c.name === 'A' && c.properties?.baseClasses === 'Equatable')).toBe(
-      true,
-    );
-    expect(structs.some((c) => c.name === 'B' && c.properties?.baseClasses === '')).toBe(true);
+    expect(
+      structs.some((c) => c.name === 'A' && c.properties?.['baseClasses'] === 'Equatable'),
+    ).toBe(true);
+    expect(structs.some((c) => c.name === 'B' && c.properties?.['baseClasses'] === '')).toBe(true);
   });
 
   it('parses protocols, enums, and extensions via regex', () => {
@@ -299,7 +311,7 @@ describe('SwiftProvider fallback (grammar unavailable)', () => {
         (c) =>
           c.tag === CAPTURE_TAGS.CLASS_DEF &&
           c.name === 'E' &&
-          c.properties?.isExtension === 'true',
+          c.properties?.['isExtension'] === 'true',
       ),
     ).toBe(true);
   });
@@ -459,7 +471,7 @@ describe('SwiftProvider defensive branches (synthetic nodes)', () => {
       modifiers.parent = decl;
       attribute.parent = modifiers;
       const captures = provider.walkAndCaptureForTest(attribute);
-      const builders = captures.filter((c) => c.properties?.isResultBuilder === 'true');
+      const builders = captures.filter((c) => c.properties?.['isResultBuilder'] === 'true');
       expect(builders.some((c) => c.name === 'Builder')).toBe(true);
     });
 
@@ -470,7 +482,7 @@ describe('SwiftProvider defensive branches (synthetic nodes)', () => {
       modifiers.parent = decl;
       attribute.parent = modifiers;
       const captures = provider.walkAndCaptureForTest(attribute);
-      const builders = captures.filter((c) => c.properties?.isResultBuilder === 'true');
+      const builders = captures.filter((c) => c.properties?.['isResultBuilder'] === 'true');
       expect(builders.some((c) => c.name === 'Builder')).toBe(true);
     });
 
@@ -481,7 +493,7 @@ describe('SwiftProvider defensive branches (synthetic nodes)', () => {
       modifiers.parent = decl;
       attribute.parent = modifiers;
       const captures = provider.walkAndCaptureForTest(attribute);
-      expect(captures.filter((c) => c.properties?.isResultBuilder === 'true')).toEqual([]);
+      expect(captures.filter((c) => c.properties?.['isResultBuilder'] === 'true')).toEqual([]);
     });
   });
 

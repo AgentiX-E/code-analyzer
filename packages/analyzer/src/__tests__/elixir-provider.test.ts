@@ -71,9 +71,9 @@ describe('ElixirProvider', () => {
       const code = 'def hello do\n  :world\nend';
       const captures = provider.parse(code, 't.ex');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'hello' && c.properties?.visibility === 'public')).toBe(
-        true,
-      );
+      expect(
+        funcs.some((c) => c.name === 'hello' && c.properties?.['visibility'] === 'public'),
+      ).toBe(true);
     });
 
     it('should extract a public def with params', () => {
@@ -87,16 +87,18 @@ describe('ElixirProvider', () => {
       const code = 'defp secret(x) do\n  x\nend';
       const captures = provider.parse(code, 't.ex');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'secret' && c.properties?.visibility === 'private')).toBe(
-        true,
-      );
+      expect(
+        funcs.some((c) => c.name === 'secret' && c.properties?.['visibility'] === 'private'),
+      ).toBe(true);
     });
 
     it('should extract a defmacro with isMacro flag', () => {
       const code = 'defmacro unless(expr) do\n  expr\nend';
       const captures = provider.parse(code, 't.ex');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'unless' && c.properties?.isMacro === 'true')).toBe(true);
+      expect(funcs.some((c) => c.name === 'unless' && c.properties?.['isMacro'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a guarded function with params', () => {
@@ -117,9 +119,9 @@ describe('ElixirProvider', () => {
       const code = 'defp secret(x) when is_integer(x) do\n  x\nend';
       const captures = provider.parse(code, 't.ex');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
-      expect(funcs.some((c) => c.name === 'secret' && c.properties?.visibility === 'private')).toBe(
-        true,
-      );
+      expect(
+        funcs.some((c) => c.name === 'secret' && c.properties?.['visibility'] === 'private'),
+      ).toBe(true);
     });
 
     it('should skip an operator definition', () => {
@@ -265,7 +267,7 @@ describe('ElixirProvider', () => {
           (c) =>
             c.tag === CAPTURE_TAGS.FUNCTION_DEF &&
             c.name === 'hello' &&
-            c.properties?.visibility === 'public',
+            c.properties?.['visibility'] === 'public',
         ),
       ).toBe(true);
       expect(
@@ -273,7 +275,7 @@ describe('ElixirProvider', () => {
           (c) =>
             c.tag === CAPTURE_TAGS.FUNCTION_DEF &&
             c.name === 'secret' &&
-            c.properties?.visibility === 'private',
+            c.properties?.['visibility'] === 'private',
         ),
       ).toBe(true);
     });
@@ -285,7 +287,7 @@ describe('ElixirProvider', () => {
           (c) =>
             c.tag === CAPTURE_TAGS.FUNCTION_DEF &&
             c.name === 'unless' &&
-            c.properties?.isMacro === 'true',
+            c.properties?.['isMacro'] === 'true',
         ),
       ).toBe(true);
     });

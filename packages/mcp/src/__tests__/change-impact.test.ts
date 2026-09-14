@@ -141,10 +141,10 @@ describe('detectChanges', () => {
     const result = await detectChanges({ projectId: 'p1' });
     expect(result.isError).toBeUndefined();
     const data = parseText(result);
-    expect(data.range).toEqual({ from: 'HEAD~1', to: 'HEAD' });
-    expect(data.summary).toMatchObject({ filesChanged: 0, symbolsChanged: 0, risk: 'low' });
-    expect(data.changedFiles).toBeUndefined();
-    expect(data.changedSymbols).toEqual([]);
+    expect(data['range']).toEqual({ from: 'HEAD~1', to: 'HEAD' });
+    expect(data['summary']).toMatchObject({ filesChanged: 0, symbolsChanged: 0, risk: 'low' });
+    expect(data['changedFiles']).toBeUndefined();
+    expect(data['changedSymbols']).toEqual([]);
   });
 
   it('honors explicit refs and includeFiles when no store is present', async () => {
@@ -155,24 +155,24 @@ describe('detectChanges', () => {
       includeFiles: true,
     });
     const data = parseText(result);
-    expect(data.range).toEqual({ from: 'v1', to: 'v2' });
-    expect(data.changedFiles).toEqual([]);
+    expect(data['range']).toEqual({ from: 'v1', to: 'v2' });
+    expect(data['changedFiles']).toEqual([]);
   });
 
   it('reports graph integrity for a raw graph store', async () => {
     const store = new InMemoryGraphStore();
     const result = await detectChanges({ projectId: 'p1' }, store);
     const data = parseText(result);
-    expect(data.summary).toMatchObject({ filesChanged: 0, symbolsChanged: 0, risk: 'low' });
-    expect(data.graphIntegrity).toMatchObject({ projectId: 'p1', valid: true, nodeCount: 0 });
-    expect(data.changedFiles).toBeUndefined();
+    expect(data['summary']).toMatchObject({ filesChanged: 0, symbolsChanged: 0, risk: 'low' });
+    expect(data['graphIntegrity']).toMatchObject({ projectId: 'p1', valid: true, nodeCount: 0 });
+    expect(data['changedFiles']).toBeUndefined();
   });
 
   it('surfaces an empty changedFiles list when includeFiles is true', async () => {
     const store = new InMemoryGraphStore();
     const result = await detectChanges({ projectId: 'p1', includeFiles: true }, store);
     const data = parseText(result);
-    expect(data.changedFiles).toEqual([]);
+    expect(data['changedFiles']).toEqual([]);
   });
 
   it('aggregates file symbol counts and skips nodes without a file path', async () => {
@@ -183,10 +183,10 @@ describe('detectChanges', () => {
     ]);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    expect(data.summary.totalFiles).toBe(1);
-    expect(data.summary.totalSymbols).toBe(3);
-    expect(data.summary.filesChanged).toBe(1); // /a.ts complexity 11 > 10
-    expect(data.summary.risk).toBe('low');
+    expect(data['summary'].totalFiles).toBe(1);
+    expect(data['summary'].totalSymbols).toBe(3);
+    expect(data['summary'].filesChanged).toBe(1); // /a.ts complexity 11 > 10
+    expect(data['summary'].risk).toBe('low');
   });
 
   it('flags a file as risky when it accumulates more than 20 symbols', async () => {
@@ -196,25 +196,25 @@ describe('detectChanges', () => {
     const ctx = ctxWith(nodes);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    expect(data.summary.filesChanged).toBe(1); // /shared.ts has 21 symbols > 20
+    expect(data['summary'].filesChanged).toBe(1); // /shared.ts has 21 symbols > 20
   });
 
   it('classifies risk as medium for 11-20 risky files', async () => {
     const ctx = riskyStore(11);
     const result = await detectChanges({ projectId: 'p1', includeFiles: true }, ctx);
     const data = parseText(result);
-    expect(data.summary.risk).toBe('medium');
-    expect(data.summary.filesChanged).toBe(11);
-    expect(Array.isArray(data.changedFiles)).toBe(true);
-    expect((data.changedFiles as unknown[]).length).toBe(11);
+    expect(data['summary'].risk).toBe('medium');
+    expect(data['summary'].filesChanged).toBe(11);
+    expect(Array.isArray(data['changedFiles'])).toBe(true);
+    expect((data['changedFiles'] as unknown[]).length).toBe(11);
   });
 
   it('classifies risk as high for more than 20 risky files', async () => {
     const ctx = riskyStore(21);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    expect(data.summary.risk).toBe('high');
-    expect(data.summary.filesChanged).toBe(21);
+    expect(data['summary'].risk).toBe('high');
+    expect(data['summary'].filesChanged).toBe(21);
   });
 
   it('lists high-impact symbols sorted by dependency count descending', async () => {
@@ -237,7 +237,7 @@ describe('detectChanges', () => {
     const ctx = new ToolContextImpl(store);
     const result = await detectChanges({ projectId: 'p1' }, ctx);
     const data = parseText(result);
-    const symbols = data.changedSymbols as Array<{ name: string; dependencyCount: number }>;
+    const symbols = data['changedSymbols'] as Array<{ name: string; dependencyCount: number }>;
     expect(symbols.length).toBeGreaterThanOrEqual(2);
     expect(symbols[0].name).toBe('b');
     expect(symbols[0].dependencyCount).toBe(6);
@@ -274,11 +274,11 @@ describe('impactAnalysis', () => {
   it('returns an empty low-risk result with no store', async () => {
     const result = await impactAnalysis({ projectId: 'p1', fromRef: 'a', toRef: 'b' });
     const data = parseText(result);
-    expect(data.riskLevel).toBe('low');
-    expect(data.estimatedEffort).toBe('low');
-    expect(data.directDependents).toBe(0);
-    expect(data.totalImpact).toBe(0);
-    expect(data.enriched).toBeNull();
+    expect(data['riskLevel']).toBe('low');
+    expect(data['estimatedEffort']).toBe('low');
+    expect(data['directDependents']).toBe(0);
+    expect(data['totalImpact']).toBe(0);
+    expect(data['enriched']).toBeNull();
   });
 
   it('accepts a ToolContext store and reports an empty result for an unknown symbol', async () => {
@@ -288,8 +288,8 @@ describe('impactAnalysis', () => {
       ctx,
     );
     const data = parseText(result);
-    expect(data.riskLevel).toBe('low');
-    expect(data.enriched).not.toBeNull();
+    expect(data['riskLevel']).toBe('low');
+    expect(data['enriched']).not.toBeNull();
   });
 
   it('walks the impact tree for a known target symbol', async () => {
@@ -299,11 +299,11 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    expect(data.directDependents).toBe(2);
-    expect(data.indirectDependents).toBe(0);
-    expect(data.totalImpact).toBe(3); // root + 2 direct dependents
-    expect(data.riskLevel).toBe('low');
-    expect((data.changedFiles as unknown[]).length).toBe(3);
+    expect(data['directDependents']).toBe(2);
+    expect(data['indirectDependents']).toBe(0);
+    expect(data['totalImpact']).toBe(3); // root + 2 direct dependents
+    expect(data['riskLevel']).toBe('low');
+    expect((data['changedFiles'] as unknown[]).length).toBe(3);
   });
 
   it('distinguishes direct, indirect, and transitive impact depth', async () => {
@@ -319,11 +319,11 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    expect(data.directDependents).toBe(1); // b
-    expect(data.indirectDependents).toBe(1); // c
-    expect(data.totalImpact).toBe(3);
+    expect(data['directDependents']).toBe(1); // b
+    expect(data['indirectDependents']).toBe(1); // c
+    expect(data['totalImpact']).toBe(3);
     // c has no filePath, so only /a.ts and /b.ts land in changedFiles.
-    expect(data.changedFiles).toEqual(['/a.ts', '/b.ts']);
+    expect(data['changedFiles']).toEqual(['/a.ts', '/b.ts']);
   });
 
   it('reports medium risk above 5 impacted symbols', async () => {
@@ -333,9 +333,9 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    expect(data.totalImpact).toBe(7);
-    expect(data.riskLevel).toBe('medium');
-    expect(data.estimatedEffort).toBe('medium');
+    expect(data['totalImpact']).toBe(7);
+    expect(data['riskLevel']).toBe('medium');
+    expect(data['estimatedEffort']).toBe('medium');
   });
 
   it('reports high risk with medium effort between 15 and 25 symbols', async () => {
@@ -345,9 +345,9 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    expect(data.totalImpact).toBe(17);
-    expect(data.riskLevel).toBe('high');
-    expect(data.estimatedEffort).toBe('medium');
+    expect(data['totalImpact']).toBe(17);
+    expect(data['riskLevel']).toBe('high');
+    expect(data['estimatedEffort']).toBe('medium');
   });
 
   it('reports high risk with high effort above 25 symbols', async () => {
@@ -357,9 +357,9 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    expect(data.totalImpact).toBe(26);
-    expect(data.riskLevel).toBe('high');
-    expect(data.estimatedEffort).toBe('high');
+    expect(data['totalImpact']).toBe(26);
+    expect(data['riskLevel']).toBe('high');
+    expect(data['estimatedEffort']).toBe('high');
   });
 
   it('reports critical risk above 30 symbols', async () => {
@@ -369,9 +369,9 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    expect(data.totalImpact).toBe(32);
-    expect(data.riskLevel).toBe('critical');
-    expect(data.estimatedEffort).toBe('high');
+    expect(data['totalImpact']).toBe(32);
+    expect(data['riskLevel']).toBe('critical');
+    expect(data['estimatedEffort']).toBe('high');
   });
 
   it('lists affected processes and routes with default fallbacks', async () => {
@@ -408,14 +408,14 @@ describe('impactAnalysis', () => {
       store,
     );
     const data = parseText(result);
-    const affected = data.processesAffected as Array<Record<string, unknown>>;
-    const processHit = affected.find((x) => x.processName === 'proc.checkout');
+    const affected = data['processesAffected'] as Array<Record<string, unknown>>;
+    const processHit = affected.find((x) => x['processName'] === 'proc.checkout');
     expect(processHit).toMatchObject({ severity: 'degraded' });
-    const routeHit = affected.find((x) => x.routePath === '/api/x');
+    const routeHit = affected.find((x) => x['routePath'] === '/api/x');
     expect(routeHit).toMatchObject({ routeMethod: 'POST' });
     // bareRoute has no routePath/routeMethod → routePath falls back to name,
     // routeMethod falls back to 'GET'.
-    const bareHit = affected.find((x) => x.routePath === 'bare');
+    const bareHit = affected.find((x) => x['routePath'] === 'bare');
     expect(bareHit).toMatchObject({ routeMethod: 'GET' });
   });
 
@@ -439,10 +439,10 @@ describe('impactAnalysis', () => {
     const data = parseText(result);
     // Roots = nodes with no incoming edges: `dep` and `orphan`. `orphan`'s
     // null filePath is dropped from changedFiles.
-    expect(data.changedFiles).toEqual(['/dep.ts']);
-    const symbols = data.changedSymbols as Array<Record<string, unknown>>;
-    expect(symbols.map((s) => s.symbolQname)).toEqual(['pkg.dep', 'pkg.orphan']);
-    expect(data.note).toContain('No target symbol specified');
+    expect(data['changedFiles']).toEqual(['/dep.ts']);
+    const symbols = data['changedSymbols'] as Array<Record<string, unknown>>;
+    expect(symbols.map((s) => s['symbolQname'])).toEqual(['pkg.dep', 'pkg.orphan']);
+    expect(data['note']).toContain('No target symbol specified');
   });
 
   it('returns an error when the graph store is closed', async () => {
@@ -478,8 +478,8 @@ describe('routeMap', () => {
   it('returns an empty route list with no store', async () => {
     const result = await routeMap({ projectId: 'p1' });
     const data = parseText(result);
-    expect(data.routeCount).toBe(0);
-    expect(data.routes).toEqual([]);
+    expect(data['routeCount']).toBe(0);
+    expect(data['routes']).toEqual([]);
   });
 
   it('maps route nodes with method/path fallbacks and omits handlers by default', async () => {
@@ -497,10 +497,10 @@ describe('routeMap', () => {
 
     const result = await routeMap({ projectId: 'p1' }, store);
     const data = parseText(result);
-    const routes = data.routes as Array<Record<string, unknown>>;
-    expect(data.routeCount).toBe(2);
+    const routes = data['routes'] as Array<Record<string, unknown>>;
+    expect(data['routeCount']).toBe(2);
     expect(routes[0]).toMatchObject({ method: 'POST', path: '/api/x' });
-    expect(routes[0].handler).toBeUndefined();
+    expect(routes[0]['handler']).toBeUndefined();
     expect(routes[1]).toMatchObject({ method: 'GET', path: 'routes.bare' });
   });
 
@@ -520,12 +520,12 @@ describe('routeMap', () => {
     );
     const result = await routeMap({ projectId: 'p1', includeHandlers: true }, ctx);
     const data = parseText(result);
-    const routes = data.routes as Array<Record<string, unknown>>;
-    expect(routes[0].handler).toBe('handler');
-    expect(routes[0].filePath).toBe('/src/routes.ts');
+    const routes = data['routes'] as Array<Record<string, unknown>>;
+    expect(routes[0]['handler']).toBe('handler');
+    expect(routes[0]['filePath']).toBe('/src/routes.ts');
     // A null filePath collapses to undefined rather than leaking null.
-    expect(routes[1].handler).toBe('bare');
-    expect(routes[1].filePath).toBeUndefined();
+    expect(routes[1]['handler']).toBe('bare');
+    expect(routes[1]['filePath']).toBeUndefined();
   });
 
   it('returns an error when the graph store is closed', async () => {
@@ -555,9 +555,9 @@ describe('checkCycles', () => {
   it('returns no cycles with no store', async () => {
     const result = await checkCycles({ projectId: 'p1' });
     const data = parseText(result);
-    expect(data.cyclesFound).toBe(0);
-    expect(data.cycles).toEqual([]);
-    expect(data.warnings).toEqual([]);
+    expect(data['cyclesFound']).toBe(0);
+    expect(data['cycles']).toEqual([]);
+    expect(data['warnings']).toEqual([]);
   });
 
   it('detects an import cycle across three modules', async () => {
@@ -571,8 +571,8 @@ describe('checkCycles', () => {
 
     const result = await checkCycles({ projectId: 'p1' }, store);
     const data = parseText(result);
-    expect(data.cyclesFound).toBe(1);
-    const cycles = data.cycles as Array<{ nodes: string[]; types: string[] }>;
+    expect(data['cyclesFound']).toBe(1);
+    const cycles = data['cycles'] as Array<{ nodes: string[]; types: string[] }>;
     expect(cycles[0].nodes).toEqual(['pkg.a', 'pkg.b', 'pkg.c']);
   });
 
@@ -584,7 +584,7 @@ describe('checkCycles', () => {
 
     const result = await checkCycles({ projectId: 'p1' }, store);
     const data = parseText(result);
-    expect(data.cyclesFound).toBe(0);
+    expect(data['cyclesFound']).toBe(0);
   });
 
   it('does not report a cycle for a shared descendant (cross edge)', async () => {
@@ -600,7 +600,7 @@ describe('checkCycles', () => {
 
     const result = await checkCycles({ projectId: 'p1' }, store);
     const data = parseText(result);
-    expect(data.cyclesFound).toBe(0);
+    expect(data['cyclesFound']).toBe(0);
   });
 
   it('scopes cycle detection to a single module when provided', async () => {
@@ -611,7 +611,7 @@ describe('checkCycles', () => {
 
     const result = await checkCycles({ projectId: 'p1', module: 'pkg.a' }, store);
     const data = parseText(result);
-    expect(data.cyclesFound).toBe(1);
+    expect(data['cyclesFound']).toBe(1);
   });
 
   it('ignores a missing module and reports no cycles', async () => {
@@ -619,7 +619,7 @@ describe('checkCycles', () => {
     store.insertNode(makeNode({ name: 'a', qualifiedName: 'pkg.a' }));
     const result = await checkCycles({ projectId: 'p1', module: 'pkg.missing' }, store);
     const data = parseText(result);
-    expect(data.cyclesFound).toBe(0);
+    expect(data['cyclesFound']).toBe(0);
   });
 
   it('returns an error when the graph store is closed', async () => {

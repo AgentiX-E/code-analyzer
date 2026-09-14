@@ -419,8 +419,8 @@ describe('SqliteGraphStore', () => {
       const id = store.insertNode(node);
       store.updateNode(id, { name: 'somethingElse' });
       const updated = store.getNode(id)!;
-      expect(updated.properties.existingKey).toBe('existingValue');
-      expect(updated.properties.count).toBe(42);
+      expect(updated.properties['existingKey']).toBe('existingValue');
+      expect(updated.properties['count']).toBe(42);
     });
 
     it('merges new properties with existing ones', () => {
@@ -431,9 +431,9 @@ describe('SqliteGraphStore', () => {
       const id = store.insertNode(node);
       store.updateNode(id, { properties: { newKey: 'new', sharedKey: 'newValue' } });
       const updated = store.getNode(id)!;
-      expect(updated.properties.oldKey).toBe('old');
-      expect(updated.properties.newKey).toBe('new');
-      expect(updated.properties.sharedKey).toBe('newValue');
+      expect(updated.properties['oldKey']).toBe('old');
+      expect(updated.properties['newKey']).toBe('new');
+      expect(updated.properties['sharedKey']).toBe('newValue');
     });
   });
 
@@ -671,8 +671,8 @@ describe('SqliteGraphStore', () => {
       );
       store.updateEdge(edgeId, { properties: { newProp: 'value2' } });
       const edge = store.getEdge(edgeId)!;
-      expect(edge.properties.originalProp).toBe('value1');
-      expect(edge.properties.newProp).toBe('value2');
+      expect(edge.properties['originalProp']).toBe('value1');
+      expect(edge.properties['newProp']).toBe('value2');
     });
   });
 

@@ -25,8 +25,8 @@ describe('SidebarLogic', () => {
         query: 'login',
       });
       expect(response.command).toBe('searchResults');
-      expect(response.results).toBeDefined();
-      expect(Array.isArray(response.results)).toBe(true);
+      expect(response['results']).toBeDefined();
+      expect(Array.isArray(response['results'])).toBe(true);
     });
 
     it('handles empty query', async () => {
@@ -55,8 +55,8 @@ describe('SidebarLogic', () => {
         command: 'review',
       });
       expect(response.command).toBe('reviewResults');
-      expect(response.comments).toBeDefined();
-      expect(Array.isArray(response.comments)).toBe(true);
+      expect(response['comments']).toBeDefined();
+      expect(Array.isArray(response['comments'])).toBe(true);
     });
   });
 
@@ -71,8 +71,8 @@ describe('SidebarLogic', () => {
         filePath: 'src/test.ts',
       });
       expect(response.command).toBe('standardsResults');
-      expect(response.results).toBeDefined();
-      expect(Array.isArray(response.results)).toBe(true);
+      expect(response['results']).toBeDefined();
+      expect(Array.isArray(response['results'])).toBe(true);
     });
 
     it('handles empty filePath', async () => {
@@ -101,8 +101,8 @@ describe('SidebarLogic', () => {
         command: 'getChangedFiles',
       });
       expect(response.command).toBe('changedFilesResults');
-      expect(response.files).toBeDefined();
-      expect(Array.isArray(response.files)).toBe(true);
+      expect(response['files']).toBeDefined();
+      expect(Array.isArray(response['files'])).toBe(true);
     });
   });
 
@@ -116,7 +116,7 @@ describe('SidebarLogic', () => {
         command: 'getProjectInfo',
       });
       expect(response.command).toBe('projectInfo');
-      expect(response.projectId).toBe('test-project');
+      expect(response['projectId']).toBe('test-project');
     });
 
     it('returns null project when not set', async () => {
@@ -126,7 +126,7 @@ describe('SidebarLogic', () => {
         command: 'getProjectInfo',
       });
       expect(response.command).toBe('projectInfo');
-      expect(response.projectId).toBeNull();
+      expect(response['projectId']).toBeNull();
     });
   });
 
@@ -140,7 +140,7 @@ describe('SidebarLogic', () => {
         command: 'nonexistent',
       });
       expect(response.command).toBe('error');
-      expect(response.message).toContain('Unknown command');
+      expect(response['message']).toContain('Unknown command');
     });
 
     it('returns error for empty command', async () => {
@@ -338,7 +338,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         filePath: '/test/path.ts',
       });
       expect(response.command).toBe('navigate');
-      expect(response.filePath).toBe('/test/path.ts');
+      expect(response['filePath']).toBe('/test/path.ts');
     });
 
     it('handles empty filePath', async () => {
@@ -347,7 +347,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         filePath: '',
       });
       expect(response.command).toBe('navigate');
-      expect(response.filePath).toBe('');
+      expect(response['filePath']).toBe('');
     });
 
     it('handles missing filePath', async () => {
@@ -355,7 +355,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         command: 'navigate',
       });
       expect(response.command).toBe('navigate');
-      expect(response.filePath).toBe('');
+      expect(response['filePath']).toBe('');
     });
   });
 
@@ -365,8 +365,8 @@ describe('SidebarLogic — navigate and graph commands', () => {
         command: 'getGraphData',
       });
       expect(response.command).toBe('graphData');
-      expect(Array.isArray(response.nodes)).toBe(true);
-      expect(Array.isArray(response.edges)).toBe(true);
+      expect(Array.isArray(response['nodes'])).toBe(true);
+      expect(Array.isArray(response['edges'])).toBe(true);
     });
 
     it('returns empty arrays when no project set', async () => {
@@ -375,8 +375,8 @@ describe('SidebarLogic — navigate and graph commands', () => {
       const response = await emptyLogic.handleMessage({
         command: 'getGraphData',
       });
-      expect(response.nodes).toEqual([]);
-      expect(response.edges).toEqual([]);
+      expect(response['nodes']).toEqual([]);
+      expect(response['edges']).toEqual([]);
       emptyEngine.dispose();
     });
 
@@ -390,11 +390,11 @@ describe('SidebarLogic — navigate and graph commands', () => {
         rootSymbol: 'myFunc',
       });
       expect(response.command).toBe('graphData');
-      expect(response.nodes).toEqual([
+      expect(response['nodes']).toEqual([
         { id: 1, name: 'funcA', label: 'Function', filePath: '/a.ts' },
         { id: 2, name: 'funcB', label: 'Function', filePath: '/b.ts' },
       ]);
-      expect(response.edges).toEqual([{ sourceId: 1, targetId: 2, type: 'CALLS' }]);
+      expect(response['edges']).toEqual([{ sourceId: 1, targetId: 2, type: 'CALLS' }]);
     });
 
     it('returns empty arrays when traceCallPath throws', async () => {
@@ -404,8 +404,8 @@ describe('SidebarLogic — navigate and graph commands', () => {
         rootSymbol: 'badSymbol',
       });
       expect(response.command).toBe('graphData');
-      expect(response.nodes).toEqual([]);
-      expect(response.edges).toEqual([]);
+      expect(response['nodes']).toEqual([]);
+      expect(response['edges']).toEqual([]);
     });
   });
 
@@ -415,7 +415,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         command: 'getProjectInfo',
       });
       expect(response).toHaveProperty('symbolCount');
-      expect(typeof response.symbolCount).toBe('number');
+      expect(typeof response['symbolCount']).toBe('number');
     });
 
     it('returns status in project info', async () => {
@@ -423,7 +423,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         command: 'getProjectInfo',
       });
       expect(response).toHaveProperty('status');
-      expect(['idle', 'ready', 'indexing', 'error']).toContain(response.status);
+      expect(['idle', 'ready', 'indexing', 'error']).toContain(response['status']);
     });
 
     it('returns progress in project info', async () => {
@@ -431,7 +431,7 @@ describe('SidebarLogic — navigate and graph commands', () => {
         command: 'getProjectInfo',
       });
       expect(response).toHaveProperty('progress');
-      expect(typeof response.progress).toBe('number');
+      expect(typeof response['progress']).toBe('number');
     });
   });
 });

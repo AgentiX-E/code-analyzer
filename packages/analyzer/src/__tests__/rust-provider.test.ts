@@ -169,7 +169,7 @@ describe('RustProvider', () => {
       const code = 'impl User {\n  pub fn new() -> Self { Self { } }\n}';
       const captures = provider.parse(code, 'test.rs');
       const impls = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isImpl === 'true',
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.['isImpl'] === 'true',
       );
       expect(impls.some((c) => c.name === 'User')).toBe(true);
     });
@@ -179,7 +179,7 @@ describe('RustProvider', () => {
         'impl Display for User {\n  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "User") }\n}';
       const captures = provider.parse(code, 'test.rs');
       const impls = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isImpl === 'true',
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.['isImpl'] === 'true',
       );
       expect(impls.some((c) => c.name === 'Display')).toBe(true);
     });

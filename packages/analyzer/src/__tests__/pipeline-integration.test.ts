@@ -185,7 +185,7 @@ describe('Pipeline Integration — End-to-End', () => {
       );
       expect(adminClass).toBeDefined();
       // Should have baseClasses since AdminUser extends User
-      expect(adminClass!.properties.baseClasses).toBeDefined();
+      expect(adminClass!.properties['baseClasses']).toBeDefined();
     });
 
     it('should extract function definitions', () => {

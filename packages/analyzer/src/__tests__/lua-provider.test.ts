@@ -29,14 +29,14 @@ describe('LuaProvider', () => {
       const captures = provider.parse('function greet()\nend', 'test.lua');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'greet')).toBe(true);
-      expect(funcs.find((c) => c.name === 'greet')?.properties?.isLocal).toBe('false');
+      expect(funcs.find((c) => c.name === 'greet')?.properties?.['isLocal']).toBe('false');
     });
 
     it('should parse a local function definition', () => {
       const captures = provider.parse('local function helper()\nend', 'test.lua');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       expect(funcs.some((c) => c.name === 'helper')).toBe(true);
-      expect(funcs.find((c) => c.name === 'helper')?.properties?.isLocal).toBe('true');
+      expect(funcs.find((c) => c.name === 'helper')?.properties?.['isLocal']).toBe('true');
     });
 
     it('should parse namespaced functions', () => {
@@ -90,7 +90,7 @@ describe('LuaProvider', () => {
 
     it('should include filePath in properties', () => {
       const captures = provider.parse('function f()\nend', 'myfile.lua');
-      expect(captures[0]?.properties?.filePath).toBe('myfile.lua');
+      expect(captures[0]?.properties?.['filePath']).toBe('myfile.lua');
     });
 
     it('should return captures sorted by line', () => {

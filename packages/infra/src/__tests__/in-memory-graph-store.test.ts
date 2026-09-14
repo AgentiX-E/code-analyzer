@@ -3403,9 +3403,9 @@ describe('InMemoryGraphStore', () => {
       });
       const id = store.insertNode(node);
       const retrieved = store.getNode(id)!;
-      retrieved.properties.customProp = 'modified';
+      retrieved.properties['customProp'] = 'modified';
       // Stored properties should remain unchanged
-      expect(store.getNode(id)!.properties.customProp).toBe('original');
+      expect(store.getNode(id)!.properties['customProp']).toBe('original');
     });
 
     it('should preserve properties spread on retrieval', () => {
@@ -3416,9 +3416,9 @@ describe('InMemoryGraphStore', () => {
       const id = store.insertNode(node);
       const retrieved = store.getNode(id)!;
       // The properties contain the original props plus name from createTestNode
-      expect(retrieved.properties.a).toBe(1);
-      expect(retrieved.properties.b).toBe(2);
-      expect(retrieved.properties.c).toBe(3);
+      expect(retrieved.properties['a']).toBe(1);
+      expect(retrieved.properties['b']).toBe(2);
+      expect(retrieved.properties['c']).toBe(3);
     });
   });
 

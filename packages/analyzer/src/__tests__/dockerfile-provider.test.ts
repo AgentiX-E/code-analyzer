@@ -31,9 +31,9 @@ describe('DockerfileProvider', () => {
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports).toHaveLength(1);
       expect(imports[0]?.name).toBe('node:18-alpine');
-      expect(imports[0]?.properties?.baseImage).toBe('node:18-alpine');
-      expect(imports[0]?.properties?.iaCType).toBe('DockerImage');
-      expect(imports[0]?.properties?.isIaC).toBe('true');
+      expect(imports[0]?.properties?.['baseImage']).toBe('node:18-alpine');
+      expect(imports[0]?.properties?.['iaCType']).toBe('DockerImage');
+      expect(imports[0]?.properties?.['isIaC']).toBe('true');
     });
 
     it('should parse FROM with an AS stage alias', () => {
@@ -41,7 +41,7 @@ describe('DockerfileProvider', () => {
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports).toHaveLength(1);
       expect(imports[0]?.name).toBe('node:18');
-      expect(imports[0]?.properties?.stage).toBe('build');
+      expect(imports[0]?.properties?.['stage']).toBe('build');
     });
 
     it('should parse FROM with a --platform flag', () => {
@@ -56,13 +56,13 @@ describe('DockerfileProvider', () => {
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
       expect(imports).toHaveLength(1);
       expect(imports[0]?.name).toBe('alpine');
-      expect(imports[0]?.properties?.stage).toBe('');
+      expect(imports[0]?.properties?.['stage']).toBe('');
     });
 
     it('should include filePath in FROM properties', () => {
       const captures = provider.parse('FROM ubuntu', 'myfile.dockerfile');
       const imports = captures.filter((c) => c.tag === CAPTURE_TAGS.IMPORT);
-      expect(imports[0]?.properties?.filePath).toBe('myfile.dockerfile');
+      expect(imports[0]?.properties?.['filePath']).toBe('myfile.dockerfile');
     });
   });
 
@@ -77,7 +77,7 @@ describe('DockerfileProvider', () => {
       const captures = provider.parse(line, 'Dockerfile');
       const calls = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL);
       expect(calls).toHaveLength(1);
-      expect(calls[0]?.properties?.isIaC).toBe('true');
+      expect(calls[0]?.properties?.['isIaC']).toBe('true');
     });
 
     it('should name the RUN capture RUN', () => {

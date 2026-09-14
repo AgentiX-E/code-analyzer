@@ -270,7 +270,7 @@ describe('extractClassLike', () => {
     extractClassLike(source, 'test.ts', captures, 'class', CAPTURE_TAGS.CLASS_DEF);
 
     expect(captures).toHaveLength(1);
-    expect(captures[0]!.properties?.baseClasses).toBe('Animal');
+    expect(captures[0]!.properties?.['baseClasses']).toBe('Animal');
   });
 
   it('extracts class with implements', () => {
@@ -279,7 +279,7 @@ describe('extractClassLike', () => {
     extractClassLike(source, 'test.ts', captures, 'class', CAPTURE_TAGS.CLASS_DEF);
 
     expect(captures).toHaveLength(1);
-    expect(captures[0]!.properties?.interfaces).toContain('OnInit');
+    expect(captures[0]!.properties?.['interfaces']).toContain('OnInit');
   });
 
   it('extracts abstract class', () => {
@@ -288,7 +288,7 @@ describe('extractClassLike', () => {
     extractClassLike(source, 'test.ts', captures, 'class', CAPTURE_TAGS.CLASS_DEF);
 
     expect(captures).toHaveLength(1);
-    expect(captures[0]!.properties?.abstract).toBe('true');
+    expect(captures[0]!.properties?.['abstract']).toBe('true');
   });
 
   it('extracts class with modifiers', () => {
@@ -329,7 +329,7 @@ describe('extractClassLike', () => {
     const captures: UnifiedCapture[] = [];
     extractClassLike(source, '/path/to/file.ts', captures, 'class', CAPTURE_TAGS.CLASS_DEF);
 
-    expect(captures[0]!.properties?.filePath).toBe('/path/to/file.ts');
+    expect(captures[0]!.properties?.['filePath']).toBe('/path/to/file.ts');
   });
 
   it('includes startByte and endByte', () => {
@@ -368,7 +368,7 @@ describe('extractFunctions', () => {
     expect(funcs.length).toBeGreaterThanOrEqual(1);
     const addFunc = funcs.find((f) => f.name === 'add');
     expect(addFunc).toBeDefined();
-    expect(addFunc!.properties?.returnType).toBe('int');
+    expect(addFunc!.properties?.['returnType']).toBe('int');
   });
 
   it('extracts void function', () => {
@@ -392,7 +392,7 @@ describe('extractFunctions', () => {
       (c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'print',
     );
     expect(printFunc).toBeDefined();
-    expect(printFunc!.properties?.returnType).toBe('void');
+    expect(printFunc!.properties?.['returnType']).toBe('void');
   });
 
   it('extracts a function declaration without a body', () => {
@@ -403,7 +403,7 @@ describe('extractFunctions', () => {
 
     const fwd = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'forward');
     expect(fwd).toBeDefined();
-    expect(fwd!.properties?.returnType).toBe('int');
+    expect(fwd!.properties?.['returnType']).toBe('int');
   });
 
   it('treats a same-named return type as a constructor (void return)', () => {
@@ -414,7 +414,7 @@ describe('extractFunctions', () => {
 
     const ctor = captures.find((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF && c.name === 'Foo');
     expect(ctor).toBeDefined();
-    expect(ctor!.properties?.returnType).toBe('void');
+    expect(ctor!.properties?.['returnType']).toBe('void');
   });
 
   it('extracts functions with access modifiers', () => {
@@ -426,7 +426,7 @@ describe('extractFunctions', () => {
     // 'init' is not in the skip list, so it should be extracted
     const initFunc = captures.find((c) => c.name === 'init');
     expect(initFunc).toBeDefined();
-    expect(initFunc!.properties?.returnType).toBe('void');
+    expect(initFunc!.properties?.['returnType']).toBe('void');
   });
 
   it('skips reserved keywords as function names', () => {
@@ -459,7 +459,7 @@ describe('extractFunctions', () => {
 
     const func = captures.find((c) => c.name === 'sum');
     expect(func).toBeDefined();
-    expect(func!.properties?.filePath).toBe('/path/to/file.c');
+    expect(func!.properties?.['filePath']).toBe('/path/to/file.c');
   });
 
   it('extracts multiple functions', () => {
@@ -550,7 +550,7 @@ describe('extractCalls', () => {
 
     const call = captures.find((c) => c.name === 'foo');
     expect(call).toBeDefined();
-    expect(call!.properties?.filePath).toBe('/path/to/file.c');
+    expect(call!.properties?.['filePath']).toBe('/path/to/file.c');
   });
 
   it('sets startLine correctly', () => {
@@ -641,7 +641,7 @@ describe('extractVariables', () => {
     const reserved = new Set<string>(['if', 'else', 'return']);
     extractVariables(source, '/path/to/file.js', captures, ['var'], reserved);
 
-    expect(captures[0]!.properties?.filePath).toBe('/path/to/file.js');
+    expect(captures[0]!.properties?.['filePath']).toBe('/path/to/file.js');
   });
 
   it('extracts variables with type annotations', () => {
@@ -716,7 +716,7 @@ describe('extractAnnotations', () => {
     const captures: UnifiedCapture[] = [];
     extractAnnotations(source, '/path/to/file.java', captures, '@');
 
-    expect(captures[0]!.properties?.filePath).toBe('/path/to/file.java');
+    expect(captures[0]!.properties?.['filePath']).toBe('/path/to/file.java');
   });
 
   it('sets decorator property', () => {
@@ -724,7 +724,7 @@ describe('extractAnnotations', () => {
     const captures: UnifiedCapture[] = [];
     extractAnnotations(source, 'test.java', captures, '@');
 
-    expect(captures[0]!.properties?.decorator).toBe('Autowired');
+    expect(captures[0]!.properties?.['decorator']).toBe('Autowired');
   });
 });
 
@@ -770,7 +770,7 @@ describe('extractDocComments', () => {
     const pattern = /\/\*\*[\s\S]*?\*\//g;
     extractDocComments(source, '/path/to/file.js', captures, pattern);
 
-    expect(captures[0]!.properties?.filePath).toBe('/path/to/file.js');
+    expect(captures[0]!.properties?.['filePath']).toBe('/path/to/file.js');
   });
 
   it('sets correct startLine and endLine for multi-line comments', () => {
@@ -817,8 +817,8 @@ describe('extractImportsAsCaptures', () => {
     extractImportsAsCaptures(source, 'test.ts', captures, extractImports);
 
     expect(captures).toHaveLength(1);
-    expect(captures[0]!.properties?.names).toBe('useState,useEffect');
-    expect(captures[0]!.properties?.importType).toBe('named');
+    expect(captures[0]!.properties?.['names']).toBe('useState,useEffect');
+    expect(captures[0]!.properties?.['importType']).toBe('named');
   });
 
   it('extracts default imports', () => {
@@ -832,7 +832,7 @@ describe('extractImportsAsCaptures', () => {
     extractImportsAsCaptures(source, 'test.ts', captures, extractImports);
 
     expect(captures).toHaveLength(1);
-    expect(captures[0]!.properties?.importType).toBe('default');
+    expect(captures[0]!.properties?.['importType']).toBe('default');
   });
 
   it('extracts namespace imports', () => {
@@ -846,7 +846,7 @@ describe('extractImportsAsCaptures', () => {
     extractImportsAsCaptures(source, 'test.ts', captures, extractImports);
 
     expect(captures).toHaveLength(1);
-    expect(captures[0]!.properties?.importType).toBe('namespace');
+    expect(captures[0]!.properties?.['importType']).toBe('namespace');
   });
 
   it('extracts multiple imports', () => {
@@ -875,7 +875,7 @@ describe('extractImportsAsCaptures', () => {
 
     extractImportsAsCaptures(source, '/path/to/file.tsx', captures, extractImports);
 
-    expect(captures[0]!.properties?.filePath).toBe('/path/to/file.tsx');
+    expect(captures[0]!.properties?.['filePath']).toBe('/path/to/file.tsx');
   });
 
   it('sets line number from the import', () => {

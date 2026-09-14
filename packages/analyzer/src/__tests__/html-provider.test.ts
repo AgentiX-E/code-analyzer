@@ -116,7 +116,9 @@ describe('HtmlProvider', () => {
       expect(
         els.some(
           (c) =>
-            c.name === 'div' && c.properties?.id === 'main' && c.properties?.class === 'container',
+            c.name === 'div' &&
+            c.properties?.['id'] === 'main' &&
+            c.properties?.['class'] === 'container',
         ),
       ).toBe(true);
     });
@@ -215,25 +217,25 @@ describe('HtmlProvider', () => {
   it('handles an id attribute without a value', () => {
     const captures = provider.parse('<div id>x</div>', 't.html');
     const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-    expect(els.some((c) => c.name === 'div' && c.properties?.id === '')).toBe(true);
+    expect(els.some((c) => c.name === 'div' && c.properties?.['id'] === '')).toBe(true);
   });
 
   it('handles a class attribute without a value', () => {
     const captures = provider.parse('<div class>x</div>', 't.html');
     const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-    expect(els.some((c) => c.name === 'div' && c.properties?.class === '')).toBe(true);
+    expect(els.some((c) => c.name === 'div' && c.properties?.['class'] === '')).toBe(true);
   });
 
   it('handles an unquoted attribute value', () => {
     const captures = provider.parse('<div id=foo>x</div>', 't.html');
     const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-    expect(els.some((c) => c.name === 'div' && c.properties?.id === 'foo')).toBe(true);
+    expect(els.some((c) => c.name === 'div' && c.properties?.['id'] === 'foo')).toBe(true);
   });
 
   it('handles a single-quoted attribute value', () => {
     const captures = provider.parse("<div id='foo'>x</div>", 't.html');
     const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-    expect(els.some((c) => c.name === 'div' && c.properties?.id === 'foo')).toBe(true);
+    expect(els.some((c) => c.name === 'div' && c.properties?.['id'] === 'foo')).toBe(true);
   });
 
   // -------------------------------------------------------------------------
@@ -314,8 +316,8 @@ describe('HtmlProvider fallback (grammar unavailable)', () => {
   it('extracts tags via the regex fallback', () => {
     const captures = provider.parse('<div>foo</div>', 'f.html');
     const els = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
-    expect(els.some((c) => c.name === 'div' && c.properties?.isClosing === 'false')).toBe(true);
-    expect(els.some((c) => c.name === 'div' && c.properties?.isClosing === 'true')).toBe(true);
+    expect(els.some((c) => c.name === 'div' && c.properties?.['isClosing'] === 'false')).toBe(true);
+    expect(els.some((c) => c.name === 'div' && c.properties?.['isClosing'] === 'true')).toBe(true);
   });
 
   it('extracts script/link/img imports via the regex fallback', () => {

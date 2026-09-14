@@ -27,14 +27,14 @@ describe('ZigProvider', () => {
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       const add = funcs.find((c) => c.name === 'add');
       expect(add).toBeDefined();
-      expect(add?.properties?.isPublic).toBe('false');
+      expect(add?.properties?.['isPublic']).toBe('false');
     });
     it('should parse a public function', () => {
       const captures = provider.parse('pub fn main() void {}', 'test.zig');
       const funcs = captures.filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_DEF);
       const main = funcs.find((c) => c.name === 'main');
       expect(main).toBeDefined();
-      expect(main?.properties?.isPublic).toBe('true');
+      expect(main?.properties?.['isPublic']).toBe('true');
     });
   });
 
@@ -65,14 +65,14 @@ describe('ZigProvider', () => {
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       const answer = vars.find((c) => c.name === 'answer');
       expect(answer).toBeDefined();
-      expect(answer?.properties?.isMutable).toBeUndefined();
+      expect(answer?.properties?.['isMutable']).toBeUndefined();
     });
     it('should parse var declarations with a type', () => {
       const captures = provider.parse('var count: u32 = 0;', 'test.zig');
       const vars = captures.filter((c) => c.tag === CAPTURE_TAGS.VARIABLE_DEF);
       const count = vars.find((c) => c.name === 'count');
       expect(count).toBeDefined();
-      expect(count?.properties?.isMutable).toBe('true');
+      expect(count?.properties?.['isMutable']).toBe('true');
     });
   });
 
@@ -82,7 +82,7 @@ describe('ZigProvider', () => {
     });
     it('should include filePath in properties', () => {
       const captures = provider.parse('fn f() void {}', 'myfile.zig');
-      expect(captures[0]?.properties?.filePath).toBe('myfile.zig');
+      expect(captures[0]?.properties?.['filePath']).toBe('myfile.zig');
     });
     it('should return captures sorted by line', () => {
       const code = 'const a = 1;\nfn b() void {}\nconst c = 3;';

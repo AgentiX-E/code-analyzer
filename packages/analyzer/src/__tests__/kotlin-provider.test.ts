@@ -100,7 +100,7 @@ describe('KotlinProvider', () => {
       const code = 'object DatabaseConfig {\n  val url = "localhost"\n}';
       const captures = provider.parse(code, 'Config.kt');
       const objs = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isObject === 'true',
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.['isObject'] === 'true',
       );
       expect(objs.some((c) => c.name === 'DatabaseConfig')).toBe(true);
     });
@@ -437,7 +437,7 @@ describe('KotlinProvider', () => {
       const code = 'object DatabaseConfig {\n  val url = "localhost"\n}';
       const captures = provider.fallbackParse(code, 'test.kt');
       const objs = captures.filter(
-        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.isObject === 'true',
+        (c) => c.tag === CAPTURE_TAGS.CLASS_DEF && c.properties?.['isObject'] === 'true',
       );
       expect(objs.some((c) => c.name === 'DatabaseConfig')).toBe(true);
     });
@@ -492,7 +492,7 @@ describe('KotlinProvider', () => {
     it('fallbackParse should extract companion object', () => {
       const code = 'companion object Factory { }';
       const captures = provider.fallbackParse(code, 'test.kt');
-      const objs = captures.filter((c) => c.properties?.isObject === 'true');
+      const objs = captures.filter((c) => c.properties?.['isObject'] === 'true');
       expect(objs.some((c) => c.name === 'Factory')).toBe(true);
     });
 

@@ -54,7 +54,9 @@ describe('ScalaProvider', () => {
       const code = 'object Bar {}';
       const captures = provider.parse(code, 'Bar.scala');
       const objects = captures.filter((c) => c.tag === CAPTURE_TAGS.CLASS_DEF);
-      expect(objects.some((c) => c.name === 'Bar' && c.properties?.isObject === 'true')).toBe(true);
+      expect(objects.some((c) => c.name === 'Bar' && c.properties?.['isObject'] === 'true')).toBe(
+        true,
+      );
     });
 
     it('should extract a trait as interface definition', () => {

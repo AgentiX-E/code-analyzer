@@ -561,7 +561,7 @@ describe('CodeAnalyzerChatParticipant — handleRequest', () => {
       makeToken(false),
     );
     expect(result.metadata).toHaveProperty('intent');
-    expect(result.metadata?.intent).toBe('explore');
+    expect(result.metadata?.['intent']).toBe('explore');
   });
 
   it('handles review request', async () => {
@@ -572,7 +572,7 @@ describe('CodeAnalyzerChatParticipant — handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('review');
+    expect(result.metadata?.['intent']).toBe('review');
     expect(stream.length).toBeGreaterThan(0);
   });
 
@@ -584,7 +584,7 @@ describe('CodeAnalyzerChatParticipant — handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('debug');
+    expect(result.metadata?.['intent']).toBe('debug');
   });
 });
 
@@ -609,7 +609,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('returns metadata for review command', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('review', '', stream, makeToken(false));
-      expect(result.metadata?.command).toBe('review');
+      expect(result.metadata?.['command']).toBe('review');
       expect(result.metadata).toHaveProperty('issuesFound');
       expect(result.metadata).toHaveProperty('filesChanged');
     });
@@ -629,7 +629,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('review');
+      expect(result.metadata?.['command']).toBe('review');
     });
 
     it('handles review from prompt text "/review"', async () => {
@@ -640,7 +640,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('review');
+      expect(result.metadata?.['command']).toBe('review');
     });
   });
 
@@ -657,8 +657,8 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('explain');
-      expect(result.metadata?.symbol).toBe('UserService');
+      expect(result.metadata?.['command']).toBe('explain');
+      expect(result.metadata?.['symbol']).toBe('UserService');
     });
 
     it('streams explanation content', async () => {
@@ -671,7 +671,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('explain', '', stream, makeToken(false));
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
       expect(stream.content).toContain('Usage');
     });
 
@@ -683,7 +683,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('explain');
+      expect(result.metadata?.['command']).toBe('explain');
     });
   });
 
@@ -700,8 +700,8 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('impact');
-      expect(result.metadata?.symbol).toBe('Database');
+      expect(result.metadata?.['command']).toBe('impact');
+      expect(result.metadata?.['symbol']).toBe('Database');
     });
 
     it('streams impact analysis content', async () => {
@@ -714,7 +714,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('impact', '', stream, makeToken(false));
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
       expect(stream.content).toContain('Usage');
     });
 
@@ -726,7 +726,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('impact');
+      expect(result.metadata?.['command']).toBe('impact');
     });
   });
 
@@ -743,8 +743,8 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('find');
-      expect(result.metadata?.query).toBe('login');
+      expect(result.metadata?.['command']).toBe('find');
+      expect(result.metadata?.['query']).toBe('login');
     });
 
     it('streams search results content', async () => {
@@ -757,7 +757,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles empty query gracefully', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('find', '', stream, makeToken(false));
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
     });
 
     it('handles find from prompt "/find UserService"', async () => {
@@ -768,7 +768,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('find');
+      expect(result.metadata?.['command']).toBe('find');
     });
   });
 
@@ -785,8 +785,8 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('deps');
-      expect(result.metadata?.symbol).toBe('UserService');
+      expect(result.metadata?.['command']).toBe('deps');
+      expect(result.metadata?.['symbol']).toBe('UserService');
     });
 
     it('streams dependency graph content', async () => {
@@ -806,7 +806,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('deps', '', stream, makeToken(false));
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
     });
 
     it('handles deps from prompt "/deps AuthService"', async () => {
@@ -817,7 +817,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('deps');
+      expect(result.metadata?.['command']).toBe('deps');
     });
   });
 
@@ -834,7 +834,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('refactor');
+      expect(result.metadata?.['command']).toBe('refactor');
       expect(result.metadata).toHaveProperty('opportunitiesCount');
     });
 
@@ -848,7 +848,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('refactor', '', stream, makeToken(false));
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
     });
 
     it('handles refactor from prompt "/refactor BigFunction"', async () => {
@@ -859,7 +859,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('refactor');
+      expect(result.metadata?.['command']).toBe('refactor');
     });
   });
 
@@ -876,7 +876,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('test');
+      expect(result.metadata?.['command']).toBe('test');
       expect(result.metadata).toHaveProperty('testCount');
       expect(result.metadata).toHaveProperty('gapsCount');
     });
@@ -897,7 +897,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
     it('handles missing params gracefully', async () => {
       const stream = makeStream();
       const result = await participant.handleSlashCommand('test', '', stream, makeToken(false));
-      expect(result.metadata?.error).toBe('missing_params');
+      expect(result.metadata?.['error']).toBe('missing_params');
     });
 
     it('handles test from prompt "/test AuthService"', async () => {
@@ -908,7 +908,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.command).toBe('test');
+      expect(result.metadata?.['command']).toBe('test');
     });
   });
 
@@ -932,7 +932,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.error).toBe('unknown_command');
+      expect(result.metadata?.['error']).toBe('unknown_command');
       expect(stream.content).toContain('Unknown Command');
     });
 
@@ -944,7 +944,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.symbol).toBe('MySymbol');
+      expect(result.metadata?.['symbol']).toBe('MySymbol');
     });
 
     it('respects cancellation during slash command execution', async () => {
@@ -966,7 +966,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.intent).toBe('explore');
+      expect(result.metadata?.['intent']).toBe('explore');
     });
 
     it('handleRequest falls back to intent classification for random text', async () => {
@@ -977,7 +977,7 @@ describe('CodeAnalyzerChatParticipant — Slash Commands', () => {
         stream,
         makeToken(false),
       );
-      expect(result.metadata?.intent).toBeDefined();
+      expect(result.metadata?.['intent']).toBeDefined();
     });
   });
 });
@@ -1160,7 +1160,7 @@ describe('CodeAnalyzerChatParticipant — Slash Command Prompt Parsing', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.command).toBe('review');
+    expect(result.metadata?.['command']).toBe('review');
   });
 
   it('handles /explain with multi-word symbol', async () => {
@@ -1171,7 +1171,7 @@ describe('CodeAnalyzerChatParticipant — Slash Command Prompt Parsing', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.command).toBe('explain');
+    expect(result.metadata?.['command']).toBe('explain');
   });
 
   it('does not treat non-slash text as command', async () => {
@@ -1183,8 +1183,8 @@ describe('CodeAnalyzerChatParticipant — Slash Command Prompt Parsing', () => {
       makeToken(false),
     );
     // Should fall back to intent classification, not command
-    expect(result.metadata?.command).toBeUndefined();
-    expect(result.metadata?.intent).toBeDefined();
+    expect(result.metadata?.['command']).toBeUndefined();
+    expect(result.metadata?.['intent']).toBeDefined();
   });
 
   it('handles /find with no extra params', async () => {
@@ -1195,8 +1195,8 @@ describe('CodeAnalyzerChatParticipant — Slash Command Prompt Parsing', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.command).toBe('find');
-    expect(result.metadata?.error).toBe('missing_params');
+    expect(result.metadata?.['command']).toBe('find');
+    expect(result.metadata?.['error']).toBe('missing_params');
   });
 
   it('handles empty slash command (just /)', async () => {
@@ -1208,7 +1208,7 @@ describe('CodeAnalyzerChatParticipant — Slash Command Prompt Parsing', () => {
       makeToken(false),
     );
     // Should fall back to intent classification
-    expect(result.metadata?.intent).toBeDefined();
+    expect(result.metadata?.['intent']).toBeDefined();
   });
 });
 
@@ -1233,7 +1233,7 @@ describe('CodeAnalyzerChatParticipant — Extended handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('explore');
+    expect(result.metadata?.['intent']).toBe('explore');
     expect(stream.content).toContain('Code Analyzer Context');
   });
 
@@ -1245,7 +1245,7 @@ describe('CodeAnalyzerChatParticipant — Extended handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('impact');
+    expect(result.metadata?.['intent']).toBe('impact');
     expect(stream.content).toContain('Code Analyzer Context');
   });
 
@@ -1257,7 +1257,7 @@ describe('CodeAnalyzerChatParticipant — Extended handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('debug');
+    expect(result.metadata?.['intent']).toBe('debug');
   });
 
   it('handles refactor intent with entity extraction', async () => {
@@ -1268,7 +1268,7 @@ describe('CodeAnalyzerChatParticipant — Extended handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('refactor');
+    expect(result.metadata?.['intent']).toBe('refactor');
   });
 
   it('handles search intent (default fallback)', async () => {
@@ -1279,7 +1279,7 @@ describe('CodeAnalyzerChatParticipant — Extended handleRequest', () => {
       stream,
       makeToken(false),
     );
-    expect(result.metadata?.intent).toBe('search');
+    expect(result.metadata?.['intent']).toBe('search');
     expect(stream.content).toContain('Code Analyzer Context');
   });
 });
